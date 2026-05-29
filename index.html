@@ -308,7 +308,80 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .print-menu button:hover{background:#f0f6ff;color:#1d4ed8;}
 .print-menu button+button{border-top:1px solid #f0f0f0;}
 
-/* ── 인쇄 바텀시트 ── */
+/* ── 이미지 미리보기 모달 ── */
+.img-preview-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);
+  z-index:2000;display:flex;align-items:flex-end;
+}
+.img-preview-overlay.hidden{display:none;}
+.img-preview-modal{
+  background:#fff;width:100%;
+  border-radius:20px 20px 0 0;
+  max-height:90vh;display:flex;flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.img-preview-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;border-bottom:1px solid var(--bdr);
+  font-weight:700;font-size:.95rem;flex-shrink:0;
+}
+.img-preview-head button{
+  border:none;background:#f5f5f7;border-radius:50%;
+  width:28px;height:28px;font-size:.85rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.img-preview-body{
+  flex:1;overflow-y:auto;padding:14px 16px;
+}
+.img-loading{
+  text-align:center;padding:40px;color:var(--dim);font-size:.9rem;
+}
+.img-preview-actions{
+  display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bdr);flex-shrink:0;
+}
+.img-btn-save,.img-btn-share,.img-btn-print{
+  flex:1;padding:13px 8px;border:none;border-radius:10px;
+  font-size:.82rem;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;
+}
+.img-btn-save{background:#2563eb;color:#fff;}
+.img-btn-share{background:#16a34a;color:#fff;}
+.img-btn-print{background:#f5f5f7;color:#555;}
+
+/* ── 인쇄 렌더링용 카드 스타일 (화면에서도 보기 좋게) ── */
+.render-wrap{background:#fff;padding:16px;font-family:'Noto Sans KR',sans-serif;}
+.render-title{font-size:1rem;font-weight:700;padding-bottom:10px;margin-bottom:12px;border-bottom:2px solid #000;}
+.render-round{margin-bottom:12px;}
+.render-round-badge{display:inline-block;background:#1d1d1f;color:#fff;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:3px;margin-bottom:6px;letter-spacing:.5px;}
+.render-match-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.render-card{border:1px solid #ccc;border-radius:6px;overflow:hidden;}
+.render-card.type-w{border-left:3px solid #b00060;}
+.render-card.type-m{border-left:3px solid #004db0;}
+.render-card.type-x{border-left:3px solid #5500b0;}
+.render-card-top{display:flex;justify-content:space-between;padding:3px 7px;background:#f8f8f8;font-size:.58rem;font-weight:700;color:#555;}
+.render-card-body{display:flex;}
+.render-side{flex:1;padding:5px 6px;}
+.render-side.sb{background:#eef4ff;}
+.render-side.sw{background:#fdf8f0;}
+.render-prefix{font-size:.62rem;font-weight:700;color:#555;margin-bottom:2px;}
+.render-name{font-size:.72rem;font-weight:700;color:#1d1d1f;line-height:1.4;}
+.render-vs{display:flex;align-items:center;justify-content:center;padding:0 4px;font-size:.6rem;font-weight:800;color:#bbb;background:#f5f5f5;}
+/* 명단 렌더링 */
+.render-roster-section{margin-bottom:14px;}
+.render-roster-title{font-size:.82rem;font-weight:700;padding:5px 10px;border-radius:4px;margin-bottom:6px;}
+.render-roster-title.all{background:#f0f0f0;color:#222;}
+.render-roster-title.blue{background:#dbeafe;color:#1e3a8a;}
+.render-roster-title.white{background:#fef3c7;color:#92400e;}
+.render-roster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;}
+.render-roster-name{font-size:.78rem;font-weight:600;padding:5px 6px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:4px;}
+.render-cap{font-size:.56rem;padding:1px 3px;border-radius:2px;font-weight:700;}
+.render-cap.leader{background:#fef9c3;color:#854d0e;}
+.render-cap.sub{background:#dcfce7;color:#166534;}
+
+/* 데스크탑에서는 모달 숨기기 */
+@media(min-width:769px){
+  .img-preview-overlay{display:none!important;}
+}
 .print-sheet-overlay{
   display:none;position:fixed;inset:0;
   background:rgba(0,0,0,.45);z-index:1100;
@@ -756,6 +829,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .collapse-btn.collapsed{transform:rotate(-90deg);}
 
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -2379,8 +2453,21 @@ function doPrint(mode){
   const bn=teamNames?teamNames.blue:'청 팀';
   const wn=teamNames?teamNames.white:'백 팀';
 
+  // 렌더링용 HTML 생성
+  const html = buildPrintHtml(mode, isTeam, bn, wn);
+
+  if(isMobile()){
+    // 모바일: 이미지 미리보기
+    showImgPreview(mode, html, bn, wn);
+  } else {
+    // 데스크탑: 기존 인쇄
+    document.getElementById('printPage').innerHTML = html;
+    window.print();
+  }
+}
+
+function buildPrintHtml(mode, isTeam, bn, wn){
   if(mode==='bracket'){
-    // ── 대진표 인쇄 (기존 동작) ──
     const byRound={};
     currentMatches.forEach(m=>{if(!byRound[m.round])byRound[m.round]=[];byRound[m.round].push(m);});
     const rounds=Object.keys(byRound).sort((a,b)=>a-b);
@@ -2397,13 +2484,11 @@ function doPrint(mode){
         return `<div class="p-card ${tc}${m.isFiller?' p-filler':''}">
           <div class="p-top"><span class="p-type ${ptc}">${ts}</span><span>코트 ${m.court}</span></div>
           <div class="p-body">
-            <div class="p-side ${p1side}">
-              <span class="p-prefix">${p1label}</span>
+            <div class="p-side ${p1side}"><span class="p-prefix">${p1label}</span>
               <div><div class="p-row">${m.team1A.name}</div><div class="p-row">${m.team1B.name}</div></div>
             </div>
             <div class="p-vs">VS</div>
-            <div class="p-side ${p2side}">
-              <span class="p-prefix">${p2label}</span>
+            <div class="p-side ${p2side}"><span class="p-prefix">${p2label}</span>
               <div><div class="p-row">${m.team2C.name}</div><div class="p-row">${m.team2D.name}</div></div>
             </div>
           </div>
@@ -2412,31 +2497,22 @@ function doPrint(mode){
       return `<div class="p-round-block"><div class="p-round-title">ROUND ${r}</div><div class="p-match-grid">${cards}</div></div>`;
     }).join('');
     const titleSuffix=isTeam?` — ${bn} vs ${wn}`:'';
-    document.getElementById('printPage').innerHTML=`
-      <div class="p-main-head"><h1>🏸 배드민턴 대진표${titleSuffix}</h1></div>
-      ${roundsHtml}`;
-
+    return `<div class="p-main-head"><h1>🏸 배드민턴 대진표${titleSuffix}</h1></div>${roundsHtml}`;
   } else {
-    // ── 선수 명단 인쇄 ──
     const all=currentParticipants.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     const blue=all.filter(p=>p.team==='청팀');
     const white=all.filter(p=>p.team==='백팀');
-
-    // 단장/부단장 직책 조회
-    const getRole=(name, side)=>{
+    const getRole=(name,side)=>{
       if(captains[side].leader===name) return '단장';
       if(captains[side].sub===name) return '부단장';
       return '';
     };
-
-    // 단장→부단장→일반 순 정렬
-    const sortWithRoles=(list, side)=>[...list].sort((a,b)=>{
+    const sortWithRoles=(list,side)=>[...list].sort((a,b)=>{
       const ra=a.name===captains[side].leader?0:a.name===captains[side].sub?1:2;
       const rb=b.name===captains[side].leader?0:b.name===captains[side].sub?1:2;
       return ra-rb||a.name.localeCompare(b.name,'ko');
     });
-
-    const rosterBlock=(players, cls, title, side)=>{
+    const rosterBlock=(players,cls,title,side)=>{
       if(!players.length) return '';
       const sorted=side?sortWithRoles(players,side):players;
       const names=sorted.map(p=>{
@@ -2444,12 +2520,8 @@ function doPrint(mode){
         const roleBadge=role?`<span class="p-cap-badge p-cap-${role==='단장'?'leader':'sub'}">${role}</span>`:'';
         return `<div class="p-roster-name">${esc(p.name)}${roleBadge}</div>`;
       }).join('');
-      return `<div class="p-roster-section">
-        <div class="p-roster-title ${cls}">${title} (${players.length}명)</div>
-        <div class="p-roster-grid">${names}</div>
-      </div>`;
+      return `<div class="p-roster-section"><div class="p-roster-title ${cls}">${title} (${players.length}명)</div><div class="p-roster-grid">${names}</div></div>`;
     };
-
     let content='';
     if(mode==='all'){
       content=rosterBlock(all,'all','전체 선수 명단',null);
@@ -2460,13 +2532,134 @@ function doPrint(mode){
     } else if(mode==='white'){
       content=rosterBlock(white,'white',wn+' 명단','white');
     }
-
-    document.getElementById('printPage').innerHTML=`
-      <div class="p-main-head"><h1>🏸 배드민턴 선수 명단</h1></div>
-      ${content}`;
+    return `<div class="p-main-head"><h1>🏸 배드민턴 선수 명단</h1></div>${content}`;
   }
+}
 
-  window.print();
+// ── 모바일 이미지 빌더 ──
+function buildMobileHtml(mode, isTeam, bn, wn){
+  if(mode==='bracket'){
+    const byRound={};
+    currentMatches.forEach(m=>{if(!byRound[m.round])byRound[m.round]=[];byRound[m.round].push(m);});
+    const rounds=Object.keys(byRound).sort((a,b)=>a-b);
+    const roundsHtml=rounds.map(r=>{
+      const cards=byRound[r].map(m=>{
+        const tc=m.type==='여복'?'type-w':m.type==='남복'?'type-m':'type-x';
+        const ts=m.type+(m.isFiller?'(보완)':'');
+        const t1b=isTeam&&m.team1A.team==='청팀';
+        const p1label=isTeam?(t1b?bn:wn):'A';
+        const p2label=isTeam?(t1b?wn:bn):'B';
+        return `<div class="render-card ${tc}">
+          <div class="render-card-top"><span>${ts}</span><span>코트${m.court}</span></div>
+          <div class="render-card-body">
+            <div class="render-side sb">
+              <div class="render-prefix">${p1label}</div>
+              <div class="render-name">${m.team1A.name}</div>
+              <div class="render-name">${m.team1B.name}</div>
+            </div>
+            <div class="render-vs">VS</div>
+            <div class="render-side sw">
+              <div class="render-prefix">${p2label}</div>
+              <div class="render-name">${m.team2C.name}</div>
+              <div class="render-name">${m.team2D.name}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+      return `<div class="render-round"><div class="render-round-badge">ROUND ${r}</div><div class="render-match-grid">${cards}</div></div>`;
+    }).join('');
+    return `<div class="render-wrap"><div class="render-title">🏸 배드민턴 대진표${isTeam?' — '+bn+' vs '+wn:''}</div>${roundsHtml}</div>`;
+  } else {
+    const all=currentParticipants.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+    const blue=all.filter(p=>p.team==='청팀');
+    const white=all.filter(p=>p.team==='백팀');
+    const getRole=(name,side)=>captains[side].leader===name?'단장':captains[side].sub===name?'부단장':'';
+    const sortWithRoles=(list,side)=>[...list].sort((a,b)=>{
+      const ra=a.name===captains[side].leader?0:a.name===captains[side].sub?1:2;
+      const rb=b.name===captains[side].leader?0:b.name===captains[side].sub?1:2;
+      return ra-rb||a.name.localeCompare(b.name,'ko');
+    });
+    const block=(players,cls,title,side)=>{
+      if(!players.length)return'';
+      const sorted=side?sortWithRoles(players,side):players;
+      const names=sorted.map(p=>{
+        const role=side?getRole(p.name,side):'';
+        const badge=role?`<span class="render-cap ${role==='단장'?'leader':'sub'}">${role}</span>`:'';
+        return `<div class="render-roster-name">${esc(p.name)}${badge}</div>`;
+      }).join('');
+      return `<div class="render-roster-section"><div class="render-roster-title ${cls}">${title} (${players.length}명)</div><div class="render-roster-grid">${names}</div></div>`;
+    };
+    let content='';
+    if(mode==='all'){content=block(all,'all','전체 선수',null);if(blue.length)content+=block(blue,'blue',bn,side='blue');if(white.length)content+=block(white,'white',wn,side='white');}
+    else if(mode==='blue') content=block(blue,'blue',bn+' 명단','blue');
+    else if(mode==='white') content=block(white,'white',wn+' 명단','white');
+    return `<div class="render-wrap"><div class="render-title">🏸 선수 명단</div>${content}</div>`;
+  }
+}
+
+let _previewImgDataUrl='';
+
+function showImgPreview(mode, printHtml, bn, wn){
+  const isTeam=currentSettings.teamMode;
+  const titleMap={'bracket':'대진표','all':'선수 전체 명단','blue':bn+' 명단','white':wn+' 명단'};
+  document.getElementById('imgPreviewTitle').textContent='🖨️ '+titleMap[mode];
+  document.getElementById('imgPreviewImg').style.display='none';
+  document.getElementById('imgLoading').style.display='block';
+  document.getElementById('imgPreviewOverlay').classList.remove('hidden');
+  document.getElementById('printPage').innerHTML=printHtml;
+
+  // 렌더용 div 생성
+  const renderDiv=document.createElement('div');
+  renderDiv.style.cssText='position:fixed;left:-9999px;top:0;width:390px;background:#fff;';
+  renderDiv.innerHTML=buildMobileHtml(mode, isTeam, bn, wn);
+  document.body.appendChild(renderDiv);
+
+  // 약간 delay 후 캡처 (폰트 로딩 대기)
+  setTimeout(()=>{
+    html2canvas(renderDiv,{
+      scale:2, useCORS:true, backgroundColor:'#ffffff',
+      logging:false,
+    }).then(canvas=>{
+      _previewImgDataUrl=canvas.toDataURL('image/png');
+      const img=document.getElementById('imgPreviewImg');
+      img.src=_previewImgDataUrl;
+      img.style.display='block';
+      document.getElementById('imgLoading').style.display='none';
+      document.body.removeChild(renderDiv);
+      // 공유 API 지원 시 공유 버튼 표시
+      if(navigator.share||navigator.canShare){
+        document.getElementById('imgBtnShare').style.display='flex';
+      }
+    }).catch(e=>{
+      document.getElementById('imgLoading').textContent='⚠️ 이미지 생성 실패';
+      document.body.removeChild(renderDiv);
+    });
+  },200);
+}
+
+function closeImgPreview(){
+  document.getElementById('imgPreviewOverlay').classList.add('hidden');
+  _previewImgDataUrl='';
+}
+
+function savePreviewImg(){
+  if(!_previewImgDataUrl) return;
+  const a=document.createElement('a');
+  a.href=_previewImgDataUrl;
+  a.download='배드민턴_대진표_'+new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'')+'.png';
+  a.click();
+}
+
+async function sharePreviewImg(){
+  if(!_previewImgDataUrl) return;
+  try{
+    const res=await fetch(_previewImgDataUrl);
+    const blob=await res.blob();
+    const file=new File([blob],'배드민턴_대진표.png',{type:'image/png'});
+    await navigator.share({files:[file],title:'배드민턴 대진표'});
+  }catch(e){
+    if(e.name!=='AbortError') alert('공유에 실패했습니다.');
+  }
 }
 
 /* ═══ LOCAL STORAGE ═══ */
@@ -3778,6 +3971,25 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
 <div class="bnav-spacer"></div>
+
+<!-- 이미지 미리보기 모달 (모바일) -->
+<div class="img-preview-overlay hidden" id="imgPreviewOverlay">
+  <div class="img-preview-modal">
+    <div class="img-preview-head">
+      <span id="imgPreviewTitle">미리보기</span>
+      <button onclick="closeImgPreview()">✕</button>
+    </div>
+    <div class="img-preview-body" id="imgPreviewBody">
+      <div class="img-loading" id="imgLoading">🔄 이미지 생성 중...</div>
+      <img id="imgPreviewImg" style="display:none;width:100%;border-radius:8px;" alt="미리보기">
+    </div>
+    <div class="img-preview-actions">
+      <button class="img-btn-save" id="imgBtnSave" onclick="savePreviewImg()">📥 이미지 저장</button>
+      <button class="img-btn-share" id="imgBtnShare" onclick="sharePreviewImg()" style="display:none;">🔗 공유</button>
+      <button class="img-btn-print" onclick="window.print()">🖨️ 인쇄</button>
+    </div>
+  </div>
+</div>
 
 <!-- 인쇄 바텀시트 (모바일) -->
 <div class="print-sheet-overlay" id="printSheetOverlay" onclick="closePrintMenu()"></div>
