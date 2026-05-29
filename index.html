@@ -765,6 +765,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
               </button>
             </div>
 
+          <!-- 팀배정 앵커 (탭 스크롤 타깃) -->
+          <div id="sec-team-anchor"></div>
           <!-- 팀 배정 버튼: 선수 목록 위에 고정 -->
           <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()" style="margin-top:8px;">
             ⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>
@@ -1546,11 +1548,14 @@ function generate(){
       if(_warnParts.length){showWarn(_warnParts.join('\n\n'));}
       else{hideWarn();}
       scheduleSave();
-      if(isMobile()){
-        setTimeout(()=>switchMobileTab('bracket'), 100);
-      } else {
-        document.getElementById('resultArea').scrollIntoView({behavior:'smooth',block:'start'});
-      }
+      // 모바일/데스크탑 모두 결과 영역으로 스크롤
+      setTimeout(()=>{
+        const el=document.getElementById('resultArea');
+        if(el){
+          const top=el.getBoundingClientRect().top+window.scrollY-8;
+          window.scrollTo({top,behavior:'smooth'});
+        }
+      },100);
     }catch(e){showErr('생성 오류: '+e.message);console.error(e);}
     finally{document.getElementById('loadingOverlay').classList.remove('on');}
   },50);
@@ -3524,15 +3529,13 @@ function checkEmptyCourts(matches,settings,participants){
 }
 
 /* ════════════════════════════════
-   모바일 탭 전환 (재설계)
+   모바일 탭 = 스크롤 이동 (화면 전환 X)
 ════════════════════════════════ */
 let _mobileTab = 'players';
 
 function isMobile(){ return window.innerWidth <= 768; }
 
-// 모바일 탭 전환 - 섹션별 show/hide
 function switchMobileTab(tab){
-  if(!isMobile()) return;
   _mobileTab = tab;
 
   // 하단 탭 버튼 활성화
@@ -3540,64 +3543,69 @@ function switchMobileTab(tab){
   const btn = document.getElementById('bnav-' + tab);
   if(btn) btn.classList.add('active');
 
-  // 메인 페이지 활성화 (명부/설명서 탭에서 돌아올 때)
-  if(tab !== 'roster' && tab !== 'manual'){
-    switchNav('main');
+  // 명부 탭은 페이지 전환
+  if(tab === 'roster'){
+    switchNav('roster');
+    return;
   }
 
-  // 각 섹션 요소들
-  const elPlayers  = document.getElementById('sec-players');
-  const elSettings = document.getElementById('sec-settings');
-  const elResult   = document.getElementById('resultArea');
+  // 메인 페이지로 복귀 (명부에서 돌아올 때)
+  switchNav('main');
 
-  // 모두 숨기기
-  [elPlayers, elSettings, elResult].forEach(el => {
-    if(el) el.classList.add('mob-hide');
-  });
-
-  switch(tab){
-    case 'players':
-      if(elPlayers) elPlayers.classList.remove('mob-hide');
-      break;
-    case 'team':
-      // 팀배정은 sec-players 카드 안에 있으므로 동일하게 표시
-      if(elPlayers) elPlayers.classList.remove('mob-hide');
-      setTimeout(()=>{
-        const ta=document.getElementById('teamAssignBtn');
-        if(ta) ta.scrollIntoView({behavior:'smooth',block:'center'});
-      },150);
-      break;
-    case 'bracket':
-      if(elSettings) elSettings.classList.remove('mob-hide');
-      if(elResult)   elResult.classList.remove('mob-hide');
-      showTab('bracket');
-      break;
-    case 'result':
-      if(elResult) elResult.classList.remove('mob-hide');
-      showTab('players');
-      break;
+  // 모바일: 해당 섹션 앵커로 스크롤
+  if(isMobile()){
+    const targetMap = {
+      players: 'sec-players',
+      team:    'sec-team-anchor',
+      bracket: 'sec-settings',
+      result:  'resultArea',
+    };
+    const targetId = targetMap[tab];
+    const el = document.getElementById(targetId);
+    if(el){
+      const offset = 8; // 약간의 여백
+      const top = el.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({top, behavior:'smooth'});
+    }
   }
-
-  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function syncBottomNav(page){
-  if(!isMobile()) return;
   document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
   const btn = document.getElementById('bnav-' + page);
   if(btn) btn.classList.add('active');
 }
 
-// 화면 크기 변경 시 mob-hide 전부 해제
-window.addEventListener('resize', () => {
-  if(!isMobile()){
-    ['sec-players','sec-settings','resultArea'].forEach(id=>{
-      const el=document.getElementById(id);
-      if(el) el.classList.remove('mob-hide');
-    });
-  } else {
-    switchMobileTab(_mobileTab);
+// 스크롤 위치에 따라 하단 탭 자동 활성화
+function updateActiveBnavByScroll(){
+  if(!isMobile()) return;
+  const sections = [
+    {id:'resultArea',    tab:'result'},
+    {id:'sec-settings',  tab:'bracket'},
+    {id:'sec-team-anchor',tab:'team'},
+    {id:'sec-players',   tab:'players'},
+  ];
+  const scrollY = window.scrollY + 120;
+  for(const s of sections){
+    const el = document.getElementById(s.id);
+    if(el && el.getBoundingClientRect().top + window.scrollY <= scrollY){
+      document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById('bnav-' + s.tab);
+      if(btn) btn.classList.add('active');
+      break;
+    }
   }
+}
+
+let _scrollTimer;
+window.addEventListener('scroll', ()=>{
+  clearTimeout(_scrollTimer);
+  _scrollTimer = setTimeout(updateActiveBnavByScroll, 80);
+}, {passive:true});
+
+// mob-hide 전부 해제 (이제 모든 섹션 항상 표시)
+window.addEventListener('resize', () => {
+  document.querySelectorAll('.mob-hide').forEach(el => el.classList.remove('mob-hide'));
 });
 
 // 페이지 로드
@@ -3605,10 +3613,11 @@ window.addEventListener('DOMContentLoaded', () => {
   checkSavedState();
   loadRosters();
   renderClubList();
-  if(isMobile()){
-    // 초기에는 참가자 탭
-    switchMobileTab('players');
-  }
+  // mob-hide 잔여 제거
+  document.querySelectorAll('.mob-hide').forEach(el => el.classList.remove('mob-hide'));
+  // 하단 탭 초기 활성화
+  const btn = document.getElementById('bnav-players');
+  if(btn) btn.classList.add('active');
 });
 </script>
 <!-- ═══ 모바일 하단 탭바 ═══ -->
