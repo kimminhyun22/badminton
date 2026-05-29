@@ -4,12 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🏸 배드민턴 대진표</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2563eb">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="배드민턴 대진표">
-<link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
 <style>
@@ -739,6 +733,12 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
                 </div>
               </div>
               <button class="btn-dir-add" onclick="addDirectPlayer()">+ 선수 추가</button>
+              <!-- 선수 추가 바로 아래: 명부에서 불러오기 -->
+              <button class="btn btn-ghost" onclick="openImportModal()"
+                style="width:100%;justify-content:center;padding:10px;font-size:.84rem;
+                color:var(--bll);border-color:rgba(96,165,250,.35);margin-top:7px;border-radius:9px;min-height:44px;">
+                📂 명부에서 불러오기
+              </button>
             </div>
             <div class="dir-count-bar" id="dirCountBar"></div>
             <div class="dir-sort-bar" id="dirSortBar" style="display:none;">
@@ -752,13 +752,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
             </div>
           </div>
 
-
-          <div id="sec-team" class="">
-          <button class="btn btn-ghost" onclick="openImportModal()"
-            style="width:100%;justify-content:center;padding:10px;font-size:.82rem;
-            color:var(--bll);border-color:rgba(96,165,250,.35);margin-bottom:7px;border-radius:9px;">
-            📂 명부에서 불러오기
-          </button>
+          <!-- 팀 배정 버튼: sec-players 카드 안으로 통합 -->
           <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()">
             ⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>
           </button>
@@ -782,8 +776,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
               <div class="tlb-body" id="whiteList"></div>
               <div class="tlb-diff" id="whiteDiff"></div>
             </div>
-          </div><!-- /teamListWrap -->
-          </div><!-- /sec-team -->
+          </div>
         </div>
       </div>
 
@@ -3510,33 +3503,29 @@ function switchMobileTab(tab){
 
   // 각 섹션 요소들
   const elPlayers  = document.getElementById('sec-players');
-  const elTeam     = document.getElementById('sec-team');
   const elSettings = document.getElementById('sec-settings');
   const elResult   = document.getElementById('resultArea');
 
   // 모두 숨기기
-  [elPlayers, elTeam, elSettings, elResult].forEach(el => {
+  [elPlayers, elSettings, elResult].forEach(el => {
     if(el) el.classList.add('mob-hide');
   });
 
-  // 탭에 맞게 보이기
   switch(tab){
     case 'players':
       if(elPlayers) elPlayers.classList.remove('mob-hide');
       break;
     case 'team':
-      // 팀 배정 섹션은 sec-players 카드 안에 있으므로 카드 전체 표시
+      // 팀배정은 sec-players 카드 안에 있으므로 동일하게 표시
       if(elPlayers) elPlayers.classList.remove('mob-hide');
-      // 팀 배정 부분으로 스크롤
       setTimeout(()=>{
-        const ta = document.getElementById('teamAssignBtn');
-        if(ta) ta.scrollIntoView({behavior:'smooth', block:'center'});
-      }, 150);
+        const ta=document.getElementById('teamAssignBtn');
+        if(ta) ta.scrollIntoView({behavior:'smooth',block:'center'});
+      },150);
       break;
     case 'bracket':
       if(elSettings) elSettings.classList.remove('mob-hide');
-      if(elResult) elResult.classList.remove('mob-hide');
-      // 대진표 탭 활성화
+      if(elResult)   elResult.classList.remove('mob-hide');
       showTab('bracket');
       break;
     case 'result':
@@ -3558,7 +3547,10 @@ function syncBottomNav(page){
 // 화면 크기 변경 시 mob-hide 전부 해제
 window.addEventListener('resize', () => {
   if(!isMobile()){
-    document.querySelectorAll('.mob-hide').forEach(el => el.classList.remove('mob-hide'));
+    ['sec-players','sec-settings','resultArea'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.classList.remove('mob-hide');
+    });
   } else {
     switchMobileTab(_mobileTab);
   }
@@ -3600,15 +3592,5 @@ window.addEventListener('DOMContentLoaded', () => {
 </nav>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
-
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js')
-      .then(()=>console.log('SW registered'))
-      .catch(e=>console.log('SW error',e));
-  });
-}
-</script>
 </body>
 </html>
