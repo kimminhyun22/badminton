@@ -350,6 +350,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   font-family:'Noto Sans KR',sans-serif;
 }
 .img-btn-save{background:#2563eb;color:#fff;}
+.img-btn-merge{background:#7c3aed;color:#fff;}
 .img-btn-share{background:#16a34a;color:#fff;}
 .img-btn-print{background:#f5f5f7;color:#555;}
 
@@ -2702,8 +2703,8 @@ function showPage(page){
   // 네비 영역 + 전체저장 버튼
   const navEl=document.getElementById('imgPreviewNav');
   if(navEl) navEl.style.display=_previewImgUrls.length>1?'flex':'none';
-  const saveAllBtn=document.getElementById('imgBtnSaveAll');
-  if(saveAllBtn) saveAllBtn.style.display=_previewImgUrls.length>1?'flex':'none';
+  const mergeBtn=document.getElementById('imgBtnMerge');
+  if(mergeBtn) mergeBtn.style.display=_previewImgUrls.length>1?'flex':'none';
 }
 
 // buildMobileHtml → 청크 배열 반환 (대진표: 라운드 3개씩 분할)
@@ -2765,28 +2766,77 @@ function savePreviewImg(){
   a.click();
 }
 
-function saveAllImgs(){
-  _previewImgUrls.forEach((url,i)=>{
-    setTimeout(()=>{
-      const a=document.createElement('a');
-      a.href=url;
-      a.download=`배드민턴_대진표_${i+1}of${_previewImgUrls.length}.jpg`;
-      a.click();
-    },i*300);
+// 모든 이미지를 Canvas로 세로 이어붙여 한 장으로 저장
+async function mergeAllToOne(andShare=false){
+  if(!_previewImgUrls.length) return;
+
+  const mergeBtn=document.getElementById('imgBtnMerge');
+  if(mergeBtn){ mergeBtn.textContent='⏳ 합치는 중...'; mergeBtn.disabled=true; }
+
+  // 모든 이미지를 Image 객체로 로드
+  const imgs=await Promise.all(_previewImgUrls.map(url=>new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>res(img);
+    img.onerror=rej;
+    img.src=url;
+  })));
+
+  // 전체 높이 계산 (너비는 첫 장 기준)
+  const W=imgs[0].width;
+  const GAP=20; // 장 사이 여백 (픽셀)
+  const totalH=imgs.reduce((s,img)=>s+img.height,0)+(GAP*(imgs.length-1));
+
+  const canvas=document.createElement('canvas');
+  canvas.width=W;
+  canvas.height=totalH;
+  const ctx=canvas.getContext('2d');
+
+  // 흰 배경
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,W,totalH);
+
+  // 순서대로 그리기
+  let y=0;
+  imgs.forEach((img,i)=>{
+    ctx.drawImage(img,0,y,W,img.height);
+    y+=img.height+(i<imgs.length-1?GAP:0);
   });
+
+  const mergedUrl=canvas.toDataURL('image/jpeg',0.92);
+
+  if(andShare){
+    try{
+      const res=await fetch(mergedUrl);
+      const blob=await res.blob();
+      const file=new File([blob],'배드민턴_대진표_전체.jpg',{type:'image/jpeg'});
+      await navigator.share({files:[file],title:'배드민턴 대진표'});
+    }catch(e){
+      if(e.name!=='AbortError') alert('공유에 실패했습니다.');
+    }
+  } else {
+    const a=document.createElement('a');
+    a.href=mergedUrl;
+    a.download=`배드민턴_대진표_전체_${new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'')}.jpg`;
+    a.click();
+  }
+
+  if(mergeBtn){ mergeBtn.textContent='🔗 합쳐서 저장'; mergeBtn.disabled=false; }
 }
 
 async function sharePreviewImg(){
-  if(!_previewImgUrls.length) return;
-  try{
-    const files=await Promise.all(_previewImgUrls.map(async(url,i)=>{
-      const res=await fetch(url);
+  if(_previewImgUrls.length>1){
+    // 여러 장이면 합쳐서 공유
+    await mergeAllToOne(true);
+  } else {
+    if(!_previewImgDataUrl) return;
+    try{
+      const res=await fetch(_previewImgDataUrl);
       const blob=await res.blob();
-      return new File([blob],`배드민턴_대진표_${i+1}.jpg`,{type:'image/jpeg'});
-    }));
-    await navigator.share({files,title:'배드민턴 대진표'});
-  }catch(e){
-    if(e.name!=='AbortError') alert('공유에 실패했습니다.');
+      const file=new File([blob],'배드민턴_대진표.jpg',{type:'image/jpeg'});
+      await navigator.share({files:[file],title:'배드민턴 대진표'});
+    }catch(e){
+      if(e.name!=='AbortError') alert('공유에 실패했습니다.');
+    }
   }
 }
 
@@ -4119,9 +4169,9 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="img-nav-btn" id="imgBtnNext" onclick="showPage(_previewCurrentPage+1)">다음 ›</button>
     </div>
     <div class="img-preview-actions">
-      <button class="img-btn-save" id="imgBtnSave" onclick="savePreviewImg()">📥 저장</button>
-      <button class="img-btn-save" id="imgBtnSaveAll" onclick="saveAllImgs()" style="display:none;background:#1d4ed8;">📥 전체저장</button>
-      <button class="img-btn-share" id="imgBtnShare" onclick="sharePreviewImg()" style="display:none;">🔗 공유</button>
+      <button class="img-btn-save" id="imgBtnSave" onclick="savePreviewImg()">📥 이 장</button>
+      <button class="img-btn-merge" id="imgBtnMerge" onclick="mergeAllToOne()" style="display:none;">🔗 합쳐서 저장</button>
+      <button class="img-btn-share" id="imgBtnShare" onclick="sharePreviewImg()" style="display:none;">📤 공유</button>
       <button class="img-btn-print" onclick="window.print()">🖨️ 인쇄</button>
     </div>
   </div>
