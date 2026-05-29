@@ -456,8 +456,17 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .btn-gen{padding:14px;font-size:.9rem;}
   .btn-ta{padding:12px;font-size:.86rem;}
   .btn{font-size:.82rem;}
-  /* 팀 목록 */
-  .team-list-wrap.show{grid-template-columns:1fr;}
+  /* 팀 목록 — 모바일에서도 좌우 2열 유지 */
+  .team-list-wrap.show{grid-template-columns:1fr 1fr;gap:5px;}
+  .tlb-head{padding:8px 8px;}
+  .team-name-input{width:62px;font-size:.78rem;}
+  .tlb-head small{font-size:.55rem;}
+  .tlb-player{padding:4px 3px;font-size:.72rem;}
+  .tlb-name{font-size:.72rem;}
+  .tlb-meta{font-size:.58rem;}
+  .tlb-role{font-size:.65rem;width:14px;}
+  .move-btn{width:20px;height:20px;font-size:.72rem;}
+  .tlb-diff{font-size:.6rem;padding:4px 6px;}
   /* 스코어보드 */
   .scoreboard{grid-template-columns:1fr;}
   .sb-score-v{font-size:1.5rem;}
@@ -812,10 +821,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
           <!-- 팀배정 앵커 (탭 스크롤 타깃) -->
           <div id="sec-team-anchor"></div>
-          <!-- 팀 배정 버튼: 선수 목록 위에 고정 -->
-          <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()" style="margin-top:8px;">
-            ⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>
-          </button>
 
             <div class="dir-count-bar" id="dirCountBar"></div>
             <div class="dir-sort-bar" id="dirSortBar" style="display:none;">
@@ -829,6 +834,12 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
             </div>
           </div>
 
+          <!-- 팀배정 버튼: 선수 목록 바로 아래 -->
+          <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()">
+            ⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>
+          </button>
+
+          <!-- 청/백팀 목록: 배정 완료 후 표시, 좌우 2열 -->
           <div class="team-list-wrap" id="teamListWrap">
             <div class="team-list-box">
               <div class="tlb-head tlb-blue">
@@ -849,6 +860,12 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
               <div class="tlb-diff" id="whiteDiff"></div>
             </div>
           </div>
+
+          <!-- 재배정 버튼: 팀 목록 아래 (배정 완료 후 표시) -->
+          <button class="btn-ta hidden" id="teamReassignBtn" onclick="doTeamAssign()"
+            style="margin-top:6px;background:#f0f6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;">
+            🔀 다시 배정하기
+          </button>
         </div>
       </div>
 
@@ -1286,6 +1303,9 @@ function doTeamAssign(){
   renderTeamList();
   const btn=document.getElementById('teamAssignBtn');
   btn.classList.add('done');
+  btn.classList.add('hidden'); // 배정 완료 후 숨기기
+  const rbtn=document.getElementById('teamReassignBtn');
+  if(rbtn) rbtn.classList.remove('hidden');
   btn.innerHTML='🔀 청/백팀 재배정 (클릭 시 새로 배정)';
 }
 
@@ -2582,8 +2602,10 @@ function restoreState(){
     if(state.teamAssignment){
       teamAssignment=state.teamAssignment;
       const btn=document.getElementById('teamAssignBtn');
-      btn.classList.add('done');
+      btn.classList.add('done','hidden');
       btn.innerHTML='🔀 청/백팀 재배정 (클릭 시 새로 배정)';
+      const rbtn=document.getElementById('teamReassignBtn');
+      if(rbtn) rbtn.classList.remove('hidden');
       updateTeamModeBadge();
       renderTeamList();
     } else {teamAssignment=null;updateTeamModeBadge();}
@@ -2857,8 +2879,10 @@ function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.
 function resetAll(){
   const _ps=document.getElementById('parseStatus');if(_ps)_ps.textContent='';
   document.getElementById('teamListWrap').classList.remove('show');
-  document.getElementById('teamAssignBtn').classList.remove('done');
+  document.getElementById('teamAssignBtn').classList.remove('done','hidden');
   document.getElementById('teamAssignBtn').innerHTML='⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>';
+  const rbtn=document.getElementById('teamReassignBtn');
+  if(rbtn) rbtn.classList.add('hidden');
   teamAssignment=null;_teamModeOverride=null;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};currentMatches=[];currentParticipants=[];currentSettings={};
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
   teamNames={blue:'청 팀',white:'백 팀'};
