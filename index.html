@@ -287,6 +287,51 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .print-menu button:hover{background:#f0f6ff;color:#1d4ed8;}
 .print-menu button+button{border-top:1px solid #f0f0f0;}
 
+/* ── 인쇄 바텀시트 ── */
+.print-sheet-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.45);z-index:1100;
+}
+.print-sheet{
+  display:none;position:fixed;
+  bottom:0;left:0;right:0;
+  background:#fff;border-radius:18px 18px 0 0;
+  z-index:1101;
+  padding:0 0 calc(16px + env(safe-area-inset-bottom));
+  transform:translateY(100%);
+  transition:transform .28s cubic-bezier(.32,.72,0,1);
+}
+.print-sheet-overlay.open{display:block;}
+.print-sheet.open{display:block;transform:translateY(0);}
+.print-sheet-handle{
+  width:36px;height:4px;border-radius:2px;
+  background:#ddd;margin:12px auto 4px;
+}
+.print-sheet-title{
+  font-size:.88rem;font-weight:700;color:var(--dim);
+  text-align:center;padding:8px 16px 12px;
+  border-bottom:1px solid var(--bdr);margin-bottom:4px;
+}
+.print-sheet-btn{
+  display:flex;align-items:center;width:100%;
+  padding:16px 24px;border:none;background:transparent;
+  font-size:1rem;font-weight:600;color:#1d1d1f;
+  font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+  text-align:left;gap:10px;transition:background .12s;
+  border-bottom:1px solid #f5f5f5;
+}
+.print-sheet-btn:hover,.print-sheet-btn:active{background:#f5f5f7;}
+.print-sheet-cancel{
+  display:block;width:calc(100% - 32px);margin:8px 16px 0;
+  padding:14px;border:none;border-radius:10px;
+  background:#f5f5f7;color:#888;
+  font-size:.95rem;font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+}
+@media(min-width:769px){
+  .print-sheet,.print-sheet-overlay{display:none!important;}
+}
+
 #printPage{display:none;}
 @media print{
   html,body{background:#fff !important;color:#000 !important;}
@@ -2231,16 +2276,28 @@ function setGenderFilter(val){
 
 /* ═══ PRINT ═══ */
 function togglePrintMenu(){
-  const m=document.getElementById('printMenu');
-  m.classList.toggle('open');
-  // 외부 클릭 시 닫기
-  if(m.classList.contains('open')){
-    setTimeout(()=>document.addEventListener('click',closePrintMenu,{once:true}),0);
+  if(isMobile()){
+    // 모바일: 바텀시트
+    document.getElementById('printSheet').classList.add('open');
+    document.getElementById('printSheetOverlay').classList.add('open');
+  } else {
+    // 데스크탑: 기존 드롭다운
+    const m=document.getElementById('printMenu');
+    m.classList.toggle('open');
+    if(m.classList.contains('open')){
+      setTimeout(()=>document.addEventListener('click',closePrintMenu,{once:true}),0);
+    }
   }
 }
 function closePrintMenu(){
+  // 드롭다운
   const m=document.getElementById('printMenu');
   if(m) m.classList.remove('open');
+  // 바텀시트
+  const sheet=document.getElementById('printSheet');
+  const overlay=document.getElementById('printSheetOverlay');
+  if(sheet) sheet.classList.remove('open');
+  if(overlay) overlay.classList.remove('open');
 }
 
 function doPrint(mode){
@@ -3645,5 +3702,18 @@ window.addEventListener('DOMContentLoaded', () => {
 </nav>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
+<div class="bnav-spacer"></div>
+
+<!-- 인쇄 바텀시트 (모바일) -->
+<div class="print-sheet-overlay" id="printSheetOverlay" onclick="closePrintMenu()"></div>
+<div class="print-sheet" id="printSheet">
+  <div class="print-sheet-handle"></div>
+  <div class="print-sheet-title">🖨️ 인쇄 항목 선택</div>
+  <button class="print-sheet-btn" onclick="doPrint('bracket')">📋 대진표</button>
+  <button class="print-sheet-btn" onclick="doPrint('all')">👥 선수 전체 명단</button>
+  <button class="print-sheet-btn" onclick="doPrint('blue')">🔵 청팀 명단</button>
+  <button class="print-sheet-btn" onclick="doPrint('white')">⚪ 백팀 명단</button>
+  <button class="print-sheet-cancel" onclick="closePrintMenu()">취소</button>
+</div>
 </body>
 </html>
