@@ -487,7 +487,23 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .wrap{padding:12px 12px 8px;}
   .two-col{grid-template-columns:1fr;gap:0;}
 
-  /* ── 모바일 탭별 섹션 visibility ── */
+  /* ── 모바일 저장 바 ── */
+  .mob-save-bar{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:8px;padding:8px 12px;margin-bottom:10px;
+    background:#f0f7ff;border:1px solid #bfdbfe;
+    border-radius:8px;min-height:40px;
+  }
+  .mob-save-status{font-size:.72rem;color:var(--dim);flex:1;}
+  .mob-save-status.saved{color:var(--green);font-weight:600;}
+  .mob-restore-btn{
+    padding:6px 12px;border:none;border-radius:6px;
+    background:var(--bl);color:#fff;
+    font-size:.74rem;font-weight:700;
+    font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+    white-space:nowrap;min-height:36px;
+  }
+  .mob-restore-btn.hidden{display:none!important;}
   .mob-hide{display:none !important;}
   .mob-show{display:block !important;}
 
@@ -708,6 +724,14 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="card" id="sec-players">
         <div class="card-head"><span class="card-title">📋 참가자 입력</span></div>
         <div class="card-body">
+
+          <!-- 모바일 저장/불러오기 바 -->
+          <div class="mob-save-bar" id="mobSaveBar">
+            <span class="mob-save-status" id="mobSaveStatus"></span>
+            <button class="mob-restore-btn hidden" id="mobRestoreBtn" onclick="restoreState()">
+              📂 이전 대진표 불러오기
+            </button>
+          </div>
           <div id="directSection">
             <div class="direct-form">
               <div class="dir-row">
@@ -2370,11 +2394,20 @@ function scheduleSave(){
 }
 
 function setSaveStatus(type,msg){
+  // 데스크탑 (nav-bar)
   const el=document.getElementById('saveStatus');
   el.className='save-status '+(type||'');
-  if(type==='saved')el.textContent='✓ 자동저장 '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-  else if(type==='saving')el.textContent='저장 중...';
+  if(type==='saved') el.textContent='✓ 자동저장 '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  else if(type==='saving') el.textContent='저장 중...';
   else el.textContent=msg||'';
+
+  // 모바일 바 동기화
+  const mel=document.getElementById('mobSaveStatus');
+  if(!mel) return;
+  mel.className='mob-save-status '+(type||'');
+  if(type==='saved') mel.textContent='✓ 자동저장됨';
+  else if(type==='saving') mel.textContent='저장 중...';
+  else mel.textContent=msg||'대진표 저장 안 됨';
 }
 
 function saveState(){
@@ -2432,6 +2465,14 @@ function checkSavedState(){
     const pCount=state.participants?state.participants.length:'?';
     document.getElementById('restoreBtn').textContent=`📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
     document.getElementById('restoreBtn').classList.remove('hidden');
+    // 모바일 버튼도 표시
+    const mb=document.getElementById('mobRestoreBtn');
+    if(mb){
+      mb.textContent=`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.classList.remove('hidden');
+    }
+    const ms=document.getElementById('mobSaveStatus');
+    if(ms){ms.textContent=`마지막 저장: ${new Date(state.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}`;}
     setSaveStatus('',`마지막 저장: ${new Date(state.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}`);
   }catch(e){}
 }
@@ -2514,6 +2555,8 @@ function restoreState(){
         updateScores();
       }
       document.getElementById('restoreBtn').classList.add('hidden');
+      const mb=document.getElementById('mobRestoreBtn');
+      if(mb) mb.classList.add('hidden');
       setSaveStatus('saved');
       document.getElementById('resultArea').scrollIntoView({behavior:'smooth',block:'start'});
     },100);
