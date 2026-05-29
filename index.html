@@ -339,6 +339,11 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .img-preview-actions{
   display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bdr);flex-shrink:0;
 }
+.img-preview-nav{display:flex;gap:8px;padding:6px 16px 0;flex-shrink:0;}
+.img-nav-btn{flex:1;padding:10px;border:1.5px solid var(--bdr);border-radius:8px;background:#fff;
+  font-size:.84rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+.img-nav-btn:disabled{opacity:.3;cursor:default;}
+.img-page-indicator{font-size:.72rem;color:var(--dim);font-weight:600;}
 .img-btn-save,.img-btn-share,.img-btn-print{
   flex:1;padding:13px 8px;border:none;border-radius:10px;
   font-size:.82rem;font-weight:700;cursor:pointer;
@@ -2598,6 +2603,8 @@ function buildMobileHtml(mode, isTeam, bn, wn){
 }
 
 let _previewImgDataUrl='';
+let _previewImgUrls=[]; // 여러 장일 때
+let _previewCurrentPage=0;
 
 function showImgPreview(mode, printHtml, bn, wn){
   const isTeam=currentSettings.teamMode;
@@ -2605,58 +2612,179 @@ function showImgPreview(mode, printHtml, bn, wn){
   document.getElementById('imgPreviewTitle').textContent='🖨️ '+titleMap[mode];
   document.getElementById('imgPreviewImg').style.display='none';
   document.getElementById('imgLoading').style.display='block';
+  document.getElementById('imgLoading').textContent='🔄 이미지 생성 중...';
   document.getElementById('imgPreviewOverlay').classList.remove('hidden');
   document.getElementById('printPage').innerHTML=printHtml;
 
-  // 렌더용 div 생성
+  _previewImgUrls=[];
+  _previewCurrentPage=0;
+
+  // 대진표는 라운드 청크로 분할, 명단은 단일
+  const chunks=buildMobileChunks(mode, isTeam, bn, wn);
+
+  // 페이지 인디케이터 표시 설정
+  const pageEl=document.getElementById('imgPageIndicator');
+  if(pageEl) pageEl.style.display=chunks.length>1?'block':'none';
+
+  captureChunksSequentially(chunks, 0, ()=>{
+    showPage(0);
+    document.getElementById('imgLoading').style.display='none';
+    if(navigator.share||navigator.canShare){
+      document.getElementById('imgBtnShare').style.display='flex';
+    }
+  });
+}
+
+// 청크 배열을 순서대로 캡처
+function captureChunksSequentially(chunks, idx, onDone){
+  if(idx>=chunks.length){ onDone(); return; }
+
   const renderDiv=document.createElement('div');
-  renderDiv.style.cssText='position:fixed;left:-9999px;top:0;width:390px;background:#fff;';
-  renderDiv.innerHTML=buildMobileHtml(mode, isTeam, bn, wn);
+  renderDiv.style.cssText='position:fixed;left:-9999px;top:0;width:390px;background:#fff;padding:0;margin:0;';
+  renderDiv.innerHTML=chunks[idx];
   document.body.appendChild(renderDiv);
 
-  // 약간 delay 후 캡처 (폰트 로딩 대기)
   setTimeout(()=>{
+    // 콘텐츠 높이에 따라 scale 동적 결정
+    // iOS Safari 캔버스 최대 크기: 4096×4096 (16MB)
+    const MAX_CANVAS_PX=4000;
+    const w=390;
+    const h=renderDiv.scrollHeight;
+    let scale=Math.min(3, Math.floor(MAX_CANVAS_PX/Math.max(w,h)*10)/10);
+    scale=Math.max(1.5, scale); // 최소 1.5
+
     html2canvas(renderDiv,{
-      scale:2, useCORS:true, backgroundColor:'#ffffff',
+      scale,
+      useCORS:true,
+      backgroundColor:'#ffffff',
       logging:false,
+      width:w,
+      height:h,
+      windowWidth:390,
     }).then(canvas=>{
-      _previewImgDataUrl=canvas.toDataURL('image/png');
-      const img=document.getElementById('imgPreviewImg');
-      img.src=_previewImgDataUrl;
-      img.style.display='block';
-      document.getElementById('imgLoading').style.display='none';
+      // JPEG로 압축 (PNG 대비 파일 크기 70% 감소, 화질 유지)
+      _previewImgUrls.push(canvas.toDataURL('image/jpeg',0.92));
       document.body.removeChild(renderDiv);
-      // 공유 API 지원 시 공유 버튼 표시
-      if(navigator.share||navigator.canShare){
-        document.getElementById('imgBtnShare').style.display='flex';
+      // 첫 장 완료 시 즉시 표시
+      if(idx===0){
+        showPage(0);
+        document.getElementById('imgLoading').textContent=`🔄 ${idx+2}/${chunks.length} 생성 중...`;
       }
-    }).catch(e=>{
-      document.getElementById('imgLoading').textContent='⚠️ 이미지 생성 실패';
+      captureChunksSequentially(chunks, idx+1, onDone);
+    }).catch(()=>{
       document.body.removeChild(renderDiv);
+      captureChunksSequentially(chunks, idx+1, onDone);
     });
-  },200);
+  },150);
+}
+
+function showPage(page){
+  if(!_previewImgUrls.length) return;
+  _previewCurrentPage=Math.max(0,Math.min(page,_previewImgUrls.length-1));
+  const img=document.getElementById('imgPreviewImg');
+  img.src=_previewImgUrls[_previewCurrentPage];
+  img.style.display='block';
+  _previewImgDataUrl=_previewImgUrls[_previewCurrentPage];
+
+  // 페이지 인디케이터 업데이트
+  const pageEl=document.getElementById('imgPageIndicator');
+  if(pageEl && _previewImgUrls.length>1){
+    pageEl.textContent=`${_previewCurrentPage+1} / ${_previewImgUrls.length}`;
+    pageEl.style.display='block';
+  }
+  // 이전/다음 버튼
+  const prevBtn=document.getElementById('imgBtnPrev');
+  const nextBtn=document.getElementById('imgBtnNext');
+  if(prevBtn) prevBtn.style.display=_previewImgUrls.length>1?'flex':'none';
+  if(nextBtn) nextBtn.style.display=_previewImgUrls.length>1?'flex':'none';
+  if(prevBtn) prevBtn.disabled=_previewCurrentPage===0;
+  if(nextBtn) nextBtn.disabled=_previewCurrentPage>=_previewImgUrls.length-1;
+  // 네비 영역 + 전체저장 버튼
+  const navEl=document.getElementById('imgPreviewNav');
+  if(navEl) navEl.style.display=_previewImgUrls.length>1?'flex':'none';
+  const saveAllBtn=document.getElementById('imgBtnSaveAll');
+  if(saveAllBtn) saveAllBtn.style.display=_previewImgUrls.length>1?'flex':'none';
+}
+
+// buildMobileHtml → 청크 배열 반환 (대진표: 라운드 3개씩 분할)
+function buildMobileChunks(mode, isTeam, bn, wn){
+  if(mode!=='bracket'){
+    return [buildMobileHtml(mode, isTeam, bn, wn)];
+  }
+  // 대진표: 라운드 3개씩 분할
+  const ROUNDS_PER_CHUNK=3;
+  const byRound={};
+  currentMatches.forEach(m=>{
+    if(!byRound[m.round]) byRound[m.round]=[];
+    byRound[m.round].push(m);
+  });
+  const rounds=Object.keys(byRound).sort((a,b)=>a-b);
+  const chunks=[];
+  for(let i=0;i<rounds.length;i+=ROUNDS_PER_CHUNK){
+    const slice=rounds.slice(i, i+ROUNDS_PER_CHUNK);
+    const roundsHtml=slice.map(r=>{
+      const cards=byRound[r].map(m=>{
+        const tc=m.type==='여복'?'type-w':m.type==='남복'?'type-m':'type-x';
+        const ts=m.type+(m.isFiller?'(보완)':'');
+        const t1b=isTeam&&m.team1A.team==='청팀';
+        const p1label=isTeam?(t1b?bn:wn):'A';
+        const p2label=isTeam?(t1b?wn:bn):'B';
+        return `<div class="render-card ${tc}">
+          <div class="render-card-top"><span>${ts}</span><span>코트${m.court}</span></div>
+          <div class="render-card-body">
+            <div class="render-side sb"><div class="render-prefix">${p1label}</div>
+              <div class="render-name">${m.team1A.name}</div><div class="render-name">${m.team1B.name}</div></div>
+            <div class="render-vs">VS</div>
+            <div class="render-side sw"><div class="render-prefix">${p2label}</div>
+              <div class="render-name">${m.team2C.name}</div><div class="render-name">${m.team2D.name}</div></div>
+          </div></div>`;
+      }).join('');
+      return `<div class="render-round"><div class="render-round-badge">ROUND ${r}</div><div class="render-match-grid">${cards}</div></div>`;
+    }).join('');
+    const totalChunks=Math.ceil(rounds.length/ROUNDS_PER_CHUNK);
+    const chunkNum=Math.floor(i/ROUNDS_PER_CHUNK)+1;
+    const subtitle=totalChunks>1?` (${chunkNum}/${totalChunks})`:'' ;
+    chunks.push(`<div class="render-wrap"><div class="render-title">🏸 배드민턴 대진표${isTeam?' — '+bn+' vs '+wn:''}${subtitle}</div>${roundsHtml}</div>`);
+  }
+  return chunks;
 }
 
 function closeImgPreview(){
   document.getElementById('imgPreviewOverlay').classList.add('hidden');
   _previewImgDataUrl='';
+  _previewImgUrls=[];
+  _previewCurrentPage=0;
 }
 
 function savePreviewImg(){
   if(!_previewImgDataUrl) return;
   const a=document.createElement('a');
   a.href=_previewImgDataUrl;
-  a.download='배드민턴_대진표_'+new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'')+'.png';
+  const page=_previewImgUrls.length>1?`_${_previewCurrentPage+1}of${_previewImgUrls.length}`:'';
+  a.download=`배드민턴_대진표${page}_${new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'')}.jpg`;
   a.click();
 }
 
+function saveAllImgs(){
+  _previewImgUrls.forEach((url,i)=>{
+    setTimeout(()=>{
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=`배드민턴_대진표_${i+1}of${_previewImgUrls.length}.jpg`;
+      a.click();
+    },i*300);
+  });
+}
+
 async function sharePreviewImg(){
-  if(!_previewImgDataUrl) return;
+  if(!_previewImgUrls.length) return;
   try{
-    const res=await fetch(_previewImgDataUrl);
-    const blob=await res.blob();
-    const file=new File([blob],'배드민턴_대진표.png',{type:'image/png'});
-    await navigator.share({files:[file],title:'배드민턴 대진표'});
+    const files=await Promise.all(_previewImgUrls.map(async(url,i)=>{
+      const res=await fetch(url);
+      const blob=await res.blob();
+      return new File([blob],`배드민턴_대진표_${i+1}.jpg`,{type:'image/jpeg'});
+    }));
+    await navigator.share({files,title:'배드민턴 대진표'});
   }catch(e){
     if(e.name!=='AbortError') alert('공유에 실패했습니다.');
   }
@@ -3977,14 +4105,22 @@ window.addEventListener('DOMContentLoaded', () => {
   <div class="img-preview-modal">
     <div class="img-preview-head">
       <span id="imgPreviewTitle">미리보기</span>
-      <button onclick="closeImgPreview()">✕</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="img-page-indicator" id="imgPageIndicator" style="display:none;font-size:.72rem;color:var(--dim);font-weight:600;"></span>
+        <button onclick="closeImgPreview()">✕</button>
+      </div>
     </div>
     <div class="img-preview-body" id="imgPreviewBody">
       <div class="img-loading" id="imgLoading">🔄 이미지 생성 중...</div>
       <img id="imgPreviewImg" style="display:none;width:100%;border-radius:8px;" alt="미리보기">
     </div>
+    <div class="img-preview-nav" id="imgPreviewNav" style="display:none;">
+      <button class="img-nav-btn" id="imgBtnPrev" onclick="showPage(_previewCurrentPage-1)" disabled>‹ 이전</button>
+      <button class="img-nav-btn" id="imgBtnNext" onclick="showPage(_previewCurrentPage+1)">다음 ›</button>
+    </div>
     <div class="img-preview-actions">
-      <button class="img-btn-save" id="imgBtnSave" onclick="savePreviewImg()">📥 이미지 저장</button>
+      <button class="img-btn-save" id="imgBtnSave" onclick="savePreviewImg()">📥 저장</button>
+      <button class="img-btn-save" id="imgBtnSaveAll" onclick="saveAllImgs()" style="display:none;background:#1d4ed8;">📥 전체저장</button>
       <button class="img-btn-share" id="imgBtnShare" onclick="sharePreviewImg()" style="display:none;">🔗 공유</button>
       <button class="img-btn-print" onclick="window.print()">🖨️ 인쇄</button>
     </div>
