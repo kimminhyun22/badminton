@@ -503,7 +503,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .btn-dir-add{padding:13px;font-size:.95rem;min-height:48px;}
 
   /* ── 선수 목록 ── */
-  .dir-player-list{max-height:none;} /* 모바일에선 높이 제한 해제 */
+  .dir-player-list{max-height:45vh;overflow-y:auto;} /* 모바일: 화면 절반까지만, 스크롤 가능 */
   .dir-player-item{padding:10px 12px;min-height:48px;}
   .dpi-name{font-size:.9rem;}
   .dpi-del{width:32px;height:32px;font-size:.9rem;}
@@ -733,13 +733,19 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
                 </div>
               </div>
               <button class="btn-dir-add" onclick="addDirectPlayer()">+ 선수 추가</button>
-              <!-- 선수 추가 바로 아래: 명부에서 불러오기 -->
+              <!-- 명부에서 불러오기 -->
               <button class="btn btn-ghost" onclick="openImportModal()"
                 style="width:100%;justify-content:center;padding:10px;font-size:.84rem;
                 color:var(--bll);border-color:rgba(96,165,250,.35);margin-top:7px;border-radius:9px;min-height:44px;">
                 📂 명부에서 불러오기
               </button>
             </div>
+
+          <!-- 팀 배정 버튼: 선수 목록 위에 고정 -->
+          <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()" style="margin-top:8px;">
+            ⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>
+          </button>
+
             <div class="dir-count-bar" id="dirCountBar"></div>
             <div class="dir-sort-bar" id="dirSortBar" style="display:none;">
               <span class="dir-sort-label">정렬</span>
@@ -751,11 +757,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
               <div class="dir-empty">아직 추가된 선수가 없습니다</div>
             </div>
           </div>
-
-          <!-- 팀 배정 버튼: sec-players 카드 안으로 통합 -->
-          <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()">
-            ⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>
-          </button>
 
           <div class="team-list-wrap" id="teamListWrap">
             <div class="team-list-box">
