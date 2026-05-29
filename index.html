@@ -2775,24 +2775,26 @@ async function saveAsPdf(){
 
   try{
     const {jsPDF}=window.jspdf;
-    // A4 기준, 첫 이미지의 비율로 페이지 크기 결정
-    const firstImg=await loadImg(_previewImgUrls[0]);
-    const W=firstImg.naturalWidth;
-    const H=firstImg.naturalHeight;
-    // PDF 단위: mm, A4=210x297 기준으로 비율 맞춤
-    const pdfW=210;
-    const pdfH=Math.round(pdfW*H/W);
+    const pdfW=210; // A4 너비(mm) 기준
 
+    // 모든 이미지 미리 로드
+    const imgs=await Promise.all(_previewImgUrls.map(url=>loadImg(url)));
+
+    // 첫 페이지: 첫 이미지 비율로 생성
+    const firstH=Math.round(pdfW*imgs[0].naturalHeight/imgs[0].naturalWidth);
     const pdf=new jsPDF({
-      orientation:pdfH>pdfW?'p':'l',
+      orientation:firstH>pdfW?'p':'l',
       unit:'mm',
-      format:[pdfW,pdfH]
+      format:[pdfW,firstH]
     });
+    pdf.addImage(_previewImgUrls[0],'JPEG',0,0,pdfW,firstH,undefined,'FAST');
 
-    for(let i=0;i<_previewImgUrls.length;i++){
-      if(i>0) pdf.addPage([pdfW,pdfH], pdfH>pdfW?'p':'l');
-      pdf.addImage(_previewImgUrls[i],'JPEG',0,0,pdfW,pdfH,undefined,'FAST');
-      if(btn) btn.textContent=`⏳ ${i+1}/${_previewImgUrls.length} 처리 중...`;
+    // 나머지 페이지: 각자 이미지 비율로 페이지 크기 지정
+    for(let i=1;i<imgs.length;i++){
+      const pageH=Math.round(pdfW*imgs[i].naturalHeight/imgs[i].naturalWidth);
+      pdf.addPage([pdfW,pageH], pageH>pdfW?'p':'l');
+      pdf.addImage(_previewImgUrls[i],'JPEG',0,0,pdfW,pageH,undefined,'FAST');
+      if(btn) btn.textContent=`⏳ ${i+1}/${imgs.length} 처리 중...`;
     }
 
     const fname=`배드민턴_대진표_${new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'')}.pdf`;
