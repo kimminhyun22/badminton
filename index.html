@@ -105,10 +105,31 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .tlb-role.locked{opacity:.15;cursor:not-allowed;}
 
 /* ── SETTINGS ── */
+/* ── 스테퍼 (설정 입력) ── */
+.stepper{display:flex;align-items:center;border:1.5px solid var(--bdr);border-radius:10px;overflow:hidden;background:#fff;height:48px;}
+.stepper-btn{
+  width:44px;height:100%;border:none;background:transparent;
+  font-size:1.3rem;font-weight:300;color:var(--bl);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+}
+.stepper-btn:hover,.stepper-btn:active{background:#eff6ff;}
+.stepper input[type=number]{
+  flex:1;border:none;outline:none;text-align:center;
+  font-size:1.05rem;font-weight:700;color:var(--txt);
+  background:transparent;min-width:0;
+  font-family:'Noto Sans KR',sans-serif;
+  -moz-appearance:textfield;padding:0;
+}
+.stepper input[type=number]::-webkit-inner-spin-button,
+.stepper input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+.stepper-btn:first-child{border-right:1px solid var(--bdr);}
+.stepper-btn:last-child{border-left:1px solid var(--bdr);}
 .setting-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:9px;}
 .si label{display:block;font-size:.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:3px;font-weight:600;}
-.si input{width:100%;background:#fff;border:1.5px solid var(--bdr);border-radius:7px;padding:7px 9px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:.82rem;outline:none;text-align:center;transition:border-color .2s;}
-.si input:focus{border-color:var(--bl);}
+.si input:not([readonly]){width:100%;background:#fff;border:1.5px solid var(--bdr);border-radius:7px;padding:7px 9px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:.82rem;outline:none;text-align:center;transition:border-color .2s;}
+.si input:not([readonly]):focus{border-color:var(--bl);}
 .tmb{padding:7px 12px;border-radius:7px;font-size:.74rem;margin-bottom:9px;font-weight:600;text-align:center;
   width:100%;display:block;font-family:'Noto Sans KR',sans-serif;transition:all .15s;border:1px solid transparent;}
 .tmb-on{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8;cursor:pointer;}
@@ -874,9 +895,30 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
         <div class="card-head"><span class="card-title">⚙️ 대회 설정</span></div>
         <div class="card-body">
           <div class="setting-grid">
-            <div class="si"><label>코트 수</label><input type="number" id="courts" value="4" min="1"></div>
-            <div class="si"><label>인당 게임 수</label><input type="number" id="gamesPerPlayer" value="4" min="1"></div>
-            <div class="si"><label>혼복 인당 횟수</label><input type="number" id="mixedDbl" value="0" min="0" placeholder="0=자동"></div>
+            <div class="si">
+              <label>코트 수</label>
+              <div class="stepper">
+                <button class="stepper-btn" onclick="stepVal('courts',-1)">−</button>
+                <input type="number" id="courts" value="4" min="1" max="20" readonly>
+                <button class="stepper-btn" onclick="stepVal('courts',1)">+</button>
+              </div>
+            </div>
+            <div class="si">
+              <label>인당 게임 수</label>
+              <div class="stepper">
+                <button class="stepper-btn" onclick="stepVal('gamesPerPlayer',-1)">−</button>
+                <input type="number" id="gamesPerPlayer" value="4" min="1" max="20" readonly>
+                <button class="stepper-btn" onclick="stepVal('gamesPerPlayer',1)">+</button>
+              </div>
+            </div>
+            <div class="si">
+              <label>혼복 인당 횟수</label>
+              <div class="stepper">
+                <button class="stepper-btn" onclick="stepVal('mixedDbl',-1)">−</button>
+                <input type="number" id="mixedDbl" value="0" min="0" max="20" readonly>
+                <button class="stepper-btn" onclick="stepVal('mixedDbl',1)">+</button>
+              </div>
+            </div>
           </div>
           <button class="tmb" id="teamModeBadge" onclick="toggleTeamMode()"
             title="클릭하여 팀 모드 켜기/끄기">팀 모드: 꺼짐 (자유 배정)</button>
@@ -1432,6 +1474,15 @@ function movePlayer(name,toTeam){
 let _teamModeOverride=null; // null=auto, true=강제켜짐, false=강제꺼짐
 // 단장/부단장 지정 { blue:{leader:'',sub:''}, white:{leader:'',sub:''} }
 let captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+
+function stepVal(id, delta){
+  const el=document.getElementById(id);
+  if(!el) return;
+  const min=parseInt(el.min)||0;
+  const max=parseInt(el.max)||99;
+  const cur=parseInt(el.value)||0;
+  el.value=Math.max(min, Math.min(max, cur+delta));
+}
 
 function toggleTeamMode(){
   if(!teamAssignment){
