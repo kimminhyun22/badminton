@@ -350,7 +350,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   font-family:'Noto Sans KR',sans-serif;
 }
 .img-btn-save{background:#2563eb;color:#fff;}
-.img-btn-merge{background:#7c3aed;color:#fff;}
+.img-btn-pdf{background:#dc2626;color:#fff;}
 .img-btn-share{background:#16a34a;color:#fff;}
 .img-btn-print{background:#f5f5f7;color:#555;}
 
@@ -836,6 +836,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -2703,8 +2704,8 @@ function showPage(page){
   // 네비 영역 + 전체저장 버튼
   const navEl=document.getElementById('imgPreviewNav');
   if(navEl) navEl.style.display=_previewImgUrls.length>1?'flex':'none';
-  const mergeBtn=document.getElementById('imgBtnMerge');
-  if(mergeBtn) mergeBtn.style.display=_previewImgUrls.length>1?'flex':'none';
+  const pdfBtn=document.getElementById('imgBtnPdf');
+  if(pdfBtn) pdfBtn.style.display=_previewImgUrls.length>1?'flex':'none';
 }
 
 // buildMobileHtml → 청크 배열 반환 (대진표: 라운드 3개씩 분할)
@@ -2766,77 +2767,61 @@ function savePreviewImg(){
   a.click();
 }
 
-// 모든 이미지를 Canvas로 세로 이어붙여 한 장으로 저장
-async function mergeAllToOne(andShare=false){
+// 모든 청크를 PDF 페이지로 저장 (길이 제한 없음)
+async function saveAsPdf(){
   if(!_previewImgUrls.length) return;
+  const btn=document.getElementById('imgBtnPdf');
+  if(btn){btn.textContent='⏳ PDF 생성 중...';btn.disabled=true;}
 
-  const mergeBtn=document.getElementById('imgBtnMerge');
-  if(mergeBtn){ mergeBtn.textContent='⏳ 합치는 중...'; mergeBtn.disabled=true; }
+  try{
+    const {jsPDF}=window.jspdf;
+    // A4 기준, 첫 이미지의 비율로 페이지 크기 결정
+    const firstImg=await loadImg(_previewImgUrls[0]);
+    const W=firstImg.naturalWidth;
+    const H=firstImg.naturalHeight;
+    // PDF 단위: mm, A4=210x297 기준으로 비율 맞춤
+    const pdfW=210;
+    const pdfH=Math.round(pdfW*H/W);
 
-  // 모든 이미지를 Image 객체로 로드
-  const imgs=await Promise.all(_previewImgUrls.map(url=>new Promise((res,rej)=>{
+    const pdf=new jsPDF({
+      orientation:pdfH>pdfW?'p':'l',
+      unit:'mm',
+      format:[pdfW,pdfH]
+    });
+
+    for(let i=0;i<_previewImgUrls.length;i++){
+      if(i>0) pdf.addPage([pdfW,pdfH], pdfH>pdfW?'p':'l');
+      pdf.addImage(_previewImgUrls[i],'JPEG',0,0,pdfW,pdfH,undefined,'FAST');
+      if(btn) btn.textContent=`⏳ ${i+1}/${_previewImgUrls.length} 처리 중...`;
+    }
+
+    const fname=`배드민턴_대진표_${new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'')}.pdf`;
+    pdf.save(fname);
+  }catch(e){
+    alert('PDF 생성에 실패했습니다: '+e.message);
+  }
+
+  if(btn){btn.textContent='📄 PDF 저장';btn.disabled=false;}
+}
+
+function loadImg(src){
+  return new Promise((res,rej)=>{
     const img=new Image();
     img.onload=()=>res(img);
     img.onerror=rej;
-    img.src=url;
-  })));
-
-  // 전체 높이 계산 (너비는 첫 장 기준)
-  const W=imgs[0].width;
-  const GAP=20; // 장 사이 여백 (픽셀)
-  const totalH=imgs.reduce((s,img)=>s+img.height,0)+(GAP*(imgs.length-1));
-
-  const canvas=document.createElement('canvas');
-  canvas.width=W;
-  canvas.height=totalH;
-  const ctx=canvas.getContext('2d');
-
-  // 흰 배경
-  ctx.fillStyle='#ffffff';
-  ctx.fillRect(0,0,W,totalH);
-
-  // 순서대로 그리기
-  let y=0;
-  imgs.forEach((img,i)=>{
-    ctx.drawImage(img,0,y,W,img.height);
-    y+=img.height+(i<imgs.length-1?GAP:0);
+    img.src=src;
   });
-
-  const mergedUrl=canvas.toDataURL('image/jpeg',0.92);
-
-  if(andShare){
-    try{
-      const res=await fetch(mergedUrl);
-      const blob=await res.blob();
-      const file=new File([blob],'배드민턴_대진표_전체.jpg',{type:'image/jpeg'});
-      await navigator.share({files:[file],title:'배드민턴 대진표'});
-    }catch(e){
-      if(e.name!=='AbortError') alert('공유에 실패했습니다.');
-    }
-  } else {
-    const a=document.createElement('a');
-    a.href=mergedUrl;
-    a.download=`배드민턴_대진표_전체_${new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'')}.jpg`;
-    a.click();
-  }
-
-  if(mergeBtn){ mergeBtn.textContent='🔗 합쳐서 저장'; mergeBtn.disabled=false; }
 }
 
 async function sharePreviewImg(){
-  if(_previewImgUrls.length>1){
-    // 여러 장이면 합쳐서 공유
-    await mergeAllToOne(true);
-  } else {
-    if(!_previewImgDataUrl) return;
-    try{
-      const res=await fetch(_previewImgDataUrl);
-      const blob=await res.blob();
-      const file=new File([blob],'배드민턴_대진표.jpg',{type:'image/jpeg'});
-      await navigator.share({files:[file],title:'배드민턴 대진표'});
-    }catch(e){
-      if(e.name!=='AbortError') alert('공유에 실패했습니다.');
-    }
+  if(!_previewImgDataUrl) return;
+  try{
+    const res=await fetch(_previewImgDataUrl);
+    const blob=await res.blob();
+    const file=new File([blob],'배드민턴_대진표.jpg',{type:'image/jpeg'});
+    await navigator.share({files:[file],title:'배드민턴 대진표'});
+  }catch(e){
+    if(e.name!=='AbortError') alert('공유에 실패했습니다.');
   }
 }
 
@@ -4170,7 +4155,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
     <div class="img-preview-actions">
       <button class="img-btn-save" id="imgBtnSave" onclick="savePreviewImg()">📥 이 장</button>
-      <button class="img-btn-merge" id="imgBtnMerge" onclick="mergeAllToOne()" style="display:none;">🔗 합쳐서 저장</button>
+      <button class="img-btn-pdf" id="imgBtnPdf" onclick="saveAsPdf()" style="display:none;">📄 PDF 저장</button>
       <button class="img-btn-share" id="imgBtnShare" onclick="sharePreviewImg()" style="display:none;">📤 공유</button>
       <button class="img-btn-print" onclick="window.print()">🖨️ 인쇄</button>
     </div>
