@@ -344,23 +344,25 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .img-loading{
   text-align:center;padding:40px;color:var(--dim);font-size:.9rem;
 }
-.img-preview-actions{
-  display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bdr);flex-shrink:0;
-}
 .img-preview-nav{display:flex;gap:8px;padding:6px 16px 0;flex-shrink:0;}
 .img-nav-btn{flex:1;padding:10px;border:1.5px solid var(--bdr);border-radius:8px;background:#fff;
   font-size:.84rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 .img-nav-btn:disabled{opacity:.3;cursor:default;}
 .img-page-indicator{font-size:.72rem;color:var(--dim);font-weight:600;}
-.img-btn-save,.img-btn-share,.img-btn-print{
-  flex:1;padding:13px 8px;border:none;border-radius:10px;
-  font-size:.82rem;font-weight:700;cursor:pointer;
-  font-family:'Noto Sans KR',sans-serif;
+.img-preview-actions{
+  display:flex;gap:10px;padding:14px 16px;border-top:1px solid var(--bdr);flex-shrink:0;
 }
-.img-btn-save{background:#2563eb;color:#fff;}
-.img-btn-pdf{background:#dc2626;color:#fff;}
-.img-btn-share{background:#16a34a;color:#fff;}
-.img-btn-print{background:#f5f5f7;color:#555;}
+.img-btn-pdf,.img-btn-print{
+  flex:1;padding:14px 8px;border:none;border-radius:12px;
+  font-size:.92rem;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:all .15s;
+}
+.img-btn-pdf  {background:#dbeafe;color:#1e40af;}
+.img-btn-pdf:hover  {background:#bfdbfe;}
+.img-btn-print{background:#f3f4f6;color:#374151;}
+.img-btn-print:hover{background:#e5e7eb;}
 
 /* ── 인쇄 렌더링용 카드 스타일 (화면에서도 보기 좋게) ── */
 .render-wrap{background:#fff;padding:16px;font-family:'Noto Sans KR',sans-serif;}
@@ -2832,7 +2834,7 @@ function showPage(page){
   const navEl=document.getElementById('imgPreviewNav');
   if(navEl) navEl.style.display=_previewImgUrls.length>1?'flex':'none';
   const pdfBtn=document.getElementById('imgBtnPdf');
-  if(pdfBtn) pdfBtn.style.display=_previewImgUrls.length>1?'flex':'none';
+  if(pdfBtn) pdfBtn.style.display='flex';
 }
 
 // buildMobileHtml → 청크 배열 반환 (대진표: 라운드 3개씩 분할)
@@ -4522,9 +4524,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="img-nav-btn" id="imgBtnNext" onclick="showPage(_previewCurrentPage+1)">다음 ›</button>
     </div>
     <div class="img-preview-actions">
-      <button class="img-btn-save" id="imgBtnSave" onclick="savePreviewImg()">📥 이 장</button>
-      <button class="img-btn-pdf" id="imgBtnPdf" onclick="saveAsPdf()" style="display:none;">📄 PDF 저장</button>
-      <button class="img-btn-share" id="imgBtnShare" onclick="sharePreviewImg()" style="display:none;">📤 공유</button>
+      <button class="img-btn-pdf" id="imgBtnPdf" onclick="saveAsPdf()">📄 PDF 저장</button>
       <button class="img-btn-print" onclick="window.print()">🖨️ 인쇄</button>
     </div>
   </div>
