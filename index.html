@@ -213,25 +213,25 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .match-card.mixed{border-left:3px solid var(--mixed);}
 .match-card.filler{border-left:3px solid #7c3aed;opacity:.9;}
 .match-top{display:flex;align-items:center;justify-content:space-between;padding:5px 9px;border-bottom:1px solid var(--bdr);background:var(--sur2);}
-.match-num{font-size:.61rem;color:var(--dim2);}
-.mtb{font-size:.61rem;padding:1px 6px;border-radius:999px;font-weight:700;}
+.match-num{font-size:.68rem;color:var(--dim2);font-weight:600;}
+.mtb{font-size:.72rem;padding:2px 8px;border-radius:999px;font-weight:800;letter-spacing:.3px;}
 .tb-w{background:#fce7f3;color:#9d174d;}
 .tb-m{background:#dbeafe;color:#1e40af;}
 .tb-x{background:#ede9fe;color:#5b21b6;}
-.court-badge{font-size:.61rem;color:var(--dim);background:#fff;border:1px solid var(--bdr);padding:1px 6px;border-radius:3px;}
+.court-badge{font-size:.7rem;color:var(--txt);background:#fff;border:1.5px solid var(--bdr2);padding:2px 8px;border-radius:4px;font-weight:700;}
 .match-body{display:flex;align-items:stretch;}
 .tm-side{flex:1;display:flex;align-items:center;gap:6px;padding:8px 9px;}
 .tm-side.tm-blue{background:#eff6ff;}
 .tm-side.tm-white{background:#fffbeb;}
 .tm-side.tm-a{background:#f0f9ff;}
 .tm-side.tm-b{background:#f0fdf4;}
-.tm-prefix{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.85rem;flex-shrink:0;}
+.tm-prefix{font-family:'Noto Sans KR',sans-serif;font-weight:800;font-size:.92rem;flex-shrink:0;}
 .tm-side.tm-blue .tm-prefix{color:#1e40af;}
 .tm-side.tm-white .tm-prefix{color:#92400e;}
 .tm-side.tm-a .tm-prefix{color:#1e40af;}
 .tm-side.tm-b .tm-prefix{color:#166534;}
 .tm-names{display:flex;flex-direction:column;gap:1px;flex:1;}
-.tm-name{font-size:.8rem;font-weight:600;color:var(--txt);}
+.tm-name{font-size:.88rem;font-weight:700;color:var(--txt);}
 .tm-lv{font-size:.66rem;font-weight:700;margin-left:2px;color:var(--dim);}
 .tm-vs{display:flex;align-items:center;justify-content:center;padding:0 7px;font-size:.68rem;font-weight:700;color:var(--dim2);background:var(--sur2);flex-shrink:0;}
 /* ── WIN ROW ── */
@@ -678,12 +678,28 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .sync-btn{font-size:.8rem;padding:11px 6px;}
 
   /* ── 대진표 카드 ── */
-  .tm-name{font-size:.88rem;font-weight:700;}
-  .tm-prefix{font-size:.95rem;font-weight:700;}
-  .tm-lv{font-size:.7rem;}
-  .match-type{font-size:.72rem;}
-  .round-badge{font-size:.82rem;padding:4px 14px;}
-  .win-btn{font-size:.88rem;min-height:50px;}
+  .match-grid{gap:10px;}
+  .match-card{border-radius:12px;border-left-width:4px;}
+
+  /* 라운드 배지 */
+  .round-badge{font-size:.95rem;padding:5px 16px;letter-spacing:1px;}
+
+  /* 경기 상단 (번호/종목/코트) */
+  .mc-top{padding:6px 12px;}
+  .match-num{font-size:.75rem;}
+  .match-type{font-size:.88rem;font-weight:700;letter-spacing:.5px;}
+  .court-badge{font-size:.8rem;padding:3px 10px;border-radius:5px;font-weight:700;color:var(--txt);border-color:var(--bdr2);}
+
+  /* 선수 이름 — 핵심 */
+  .tm-side{padding:10px 12px;gap:8px;}
+  .tm-prefix{font-size:1.05rem;font-weight:900;}
+  .tm-name{font-size:1rem;font-weight:700;line-height:1.4;}
+  .tm-lv{font-size:.76rem;font-weight:700;color:var(--dim);}
+  .tm-vs{font-size:.8rem;font-weight:800;padding:0 8px;}
+
+  /* 승패 버튼 */
+  .win-row{padding:8px 10px;gap:8px;}
+  .win-btn{font-size:.95rem;font-weight:800;min-height:52px;border-radius:9px;border-width:2px;}
 
   /* ── 참가자 현황 테이블 ── */
   .ptable th{font-size:.76rem;padding:10px 8px;}
