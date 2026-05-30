@@ -396,6 +396,23 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 @media(min-width:769px){
   .img-preview-overlay{display:none!important;}
 }
+.slot-item{display:flex;align-items:center;gap:10px;padding:12px 14px;
+  border-bottom:1px solid var(--bdr);transition:background .12s;}
+.slot-item:last-child{border-bottom:none;}
+.slot-item:hover{background:#f8faff;}
+.slot-info{flex:1;min-width:0;}
+.slot-name{font-size:.88rem;font-weight:700;color:var(--txt);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.slot-meta{font-size:.68rem;color:var(--dim);margin-top:2px;}
+.slot-actions{display:flex;gap:5px;flex-shrink:0;}
+.slot-btn{padding:5px 10px;border:1px solid var(--bdr);border-radius:6px;
+  font-size:.72rem;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
+.slot-btn.load{background:#2563eb;color:#fff;border-color:#2563eb;}
+.slot-btn.load:hover{background:#1d4ed8;}
+.slot-btn.del{background:#fff;color:#dc2626;border-color:#fca5a5;}
+.slot-btn.del:hover{background:#fee2e2;}
+
 /* ── 기기간 동기화 바 ── */
 .sync-bar{display:flex;align-items:center;justify-content:space-between;
   gap:8px;padding:10px 12px;margin-top:8px;
@@ -886,6 +903,9 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   <div class="nav-save-area">
     <span class="save-status" id="saveStatus"></span>
     <button class="btn-restore hidden" id="restoreBtn" onclick="restoreState()">📂 이전 대진표 불러오기</button>
+    <!-- 이름 저장/불러오기 -->
+    <button class="nav-sync-btn" onclick="openSaveSlotModal()" title="이름 붙여 저장">💾 저장</button>
+    <button class="nav-sync-btn" onclick="openLoadSlotModal()" title="저장된 대진표 불러오기">📋 목록</button>
     <!-- PC 내보내기/불러오기 -->
     <button class="nav-sync-btn" onclick="exportBracketAll()" title="대진표+명부 JSON으로 내보내기">⬆️ 내보내기</button>
     <label class="nav-sync-btn import-label" title="JSON 파일 불러오기">
@@ -1039,11 +1059,12 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
           <!-- 기기간 데이터 이동 -->
           <div class="sync-bar">
-            <span class="sync-label">📲 기기 간 이동</span>
+            <span class="sync-label">💾 저장 관리</span>
             <div class="sync-btns">
+              <button class="sync-btn export" onclick="openSaveSlotModal()">💾 저장</button>
+              <button class="sync-btn" style="background:#7c3aed;" onclick="openLoadSlotModal()">📋 목록</button>
               <button class="sync-btn export" onclick="exportBracketAll()">⬆️ 내보내기</button>
-              <label class="sync-btn import">
-                ⬇️ 불러오기
+              <label class="sync-btn import">⬇️ 불러오기
                 <input type="file" accept=".json" style="display:none" onchange="importBracketAll(event)">
               </label>
             </div>
@@ -3097,6 +3118,119 @@ function restoreState(){
 }
 
 /* ════════════════════════════════
+   이름 붙여 저장 (슬롯 시스템)
+════════════════════════════════ */
+const SLOTS_KEY='badminton_slots_v1';
+const MAX_SLOTS=10;
+
+function getSlots(){
+  try{return JSON.parse(localStorage.getItem(SLOTS_KEY))||[];}
+  catch{return [];}
+}
+function saveSlots(slots){
+  localStorage.setItem(SLOTS_KEY,JSON.stringify(slots));
+}
+
+function openSaveSlotModal(){
+  if(!currentMatches.length){alert('대진표를 먼저 생성해주세요.');return;}
+  const input=document.getElementById('slotNameInput');
+  // 기본값: 팀명 + 오늘 날짜
+  const today=new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric'}).replace(/ /g,'');
+  input.value=`${teamNames.blue||'청팀'} vs ${teamNames.white||'백팀'} ${today}`;
+  document.getElementById('slotSaveMsg').textContent='';
+  document.getElementById('saveSlotModal').classList.remove('hidden');
+  setTimeout(()=>{input.select();},100);
+}
+function closeSaveSlotModal(){
+  document.getElementById('saveSlotModal').classList.add('hidden');
+}
+
+function confirmSaveSlot(){
+  const name=document.getElementById('slotNameInput').value.trim();
+  if(!name){document.getElementById('slotSaveMsg').textContent='⚠️ 이름을 입력해주세요.';return;}
+
+  const slots=getSlots();
+  if(slots.length>=MAX_SLOTS){
+    document.getElementById('slotSaveMsg').textContent=`⚠️ 최대 ${MAX_SLOTS}개까지 저장 가능합니다. 목록에서 삭제 후 시도해주세요.`;
+    return;
+  }
+
+  // 같은 이름 있으면 덮어쓸지 확인
+  const existing=slots.findIndex(s=>s.name===name);
+  if(existing>=0){
+    if(!confirm(`'${name}' 이름의 저장이 이미 있습니다.\n덮어쓸까요?`)) return;
+  }
+
+  const raw=localStorage.getItem(SAVE_KEY);
+  if(!raw){document.getElementById('slotSaveMsg').textContent='⚠️ 저장할 데이터가 없습니다.';return;}
+
+  const slot={
+    id: existing>=0 ? slots[existing].id : 'slot_'+Date.now(),
+    name,
+    savedAt: Date.now(),
+    participants: currentParticipants.length,
+    matches: currentMatches.length,
+    state: JSON.parse(raw),
+  };
+
+  if(existing>=0) slots[existing]=slot;
+  else slots.unshift(slot); // 최신 순
+
+  saveSlots(slots);
+  document.getElementById('slotSaveMsg').textContent='✅ 저장됐습니다!';
+  setTimeout(()=>closeSaveSlotModal(), 800);
+}
+
+function openLoadSlotModal(){
+  renderSlotList();
+  document.getElementById('loadSlotModal').classList.remove('hidden');
+}
+function closeLoadSlotModal(){
+  document.getElementById('loadSlotModal').classList.add('hidden');
+}
+
+function renderSlotList(){
+  const slots=getSlots();
+  const el=document.getElementById('slotList');
+  if(!slots.length){
+    el.innerHTML='<div class="dir-empty" style="padding:24px;">저장된 대진표가 없습니다.</div>';
+    return;
+  }
+  el.innerHTML=slots.map(s=>{
+    const date=new Date(s.savedAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    return `<div class="slot-item">
+      <div class="slot-info">
+        <div class="slot-name">${esc(s.name)}</div>
+        <div class="slot-meta">${date} · 선수 ${s.participants}명 · ${s.matches}게임</div>
+      </div>
+      <div class="slot-actions">
+        <button class="slot-btn load" onclick="loadSlot('${s.id}')">불러오기</button>
+        <button class="slot-btn del" onclick="deleteSlot('${s.id}')">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function loadSlot(id){
+  const slot=getSlots().find(s=>s.id===id);
+  if(!slot){alert('저장 데이터를 찾을 수 없습니다.');return;}
+  if(!confirm(`'${slot.name}' 을 불러올까요?\n현재 작업 내용은 자동저장으로 복원할 수 있습니다.`)) return;
+  localStorage.setItem(SAVE_KEY,JSON.stringify(slot.state));
+  restoreState();
+  closeLoadSlotModal();
+  alert(`✅ '${slot.name}' 을 불러왔습니다.`);
+}
+
+function deleteSlot(id){
+  const slots=getSlots();
+  const slot=slots.find(s=>s.id===id);
+  if(!slot) return;
+  if(!confirm(`'${slot.name}' 저장을 삭제할까요?`)) return;
+  saveSlots(slots.filter(s=>s.id!==id));
+  renderSlotList();
+}
+
+/* ════════════════════════════════
    JSON 내보내기 / 불러오기
 ════════════════════════════════ */
 
@@ -4297,6 +4431,41 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="img-btn-pdf" id="imgBtnPdf" onclick="saveAsPdf()" style="display:none;">📄 PDF 저장</button>
       <button class="img-btn-share" id="imgBtnShare" onclick="sharePreviewImg()" style="display:none;">📤 공유</button>
       <button class="img-btn-print" onclick="window.print()">🖨️ 인쇄</button>
+    </div>
+  </div>
+</div>
+
+<!-- 이름 저장 모달 -->
+<div class="modal-overlay hidden" id="saveSlotModal">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-head">
+      <span>💾 대진표 저장</span>
+      <button onclick="closeSaveSlotModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.78rem;color:var(--dim);margin-bottom:10px;">이름을 입력해 저장하면 나중에 불러올 수 있습니다.</p>
+      <input type="text" id="slotNameInput" placeholder="예: 미르대회 6월12일"
+        maxlength="20"
+        style="width:100%;border:1.5px solid var(--bdr);border-radius:8px;padding:11px 13px;
+        font-size:.92rem;font-family:'Noto Sans KR',sans-serif;outline:none;box-sizing:border-box;"
+        onkeydown="if(event.key==='Enter')confirmSaveSlot()">
+      <p id="slotSaveMsg" style="font-size:.72rem;color:var(--dim);margin-top:6px;min-height:18px;"></p>
+      <button class="btn btn-gen" style="width:100%;margin-top:4px;padding:12px;" onclick="confirmSaveSlot()">
+        💾 저장하기
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 저장 목록 모달 -->
+<div class="modal-overlay hidden" id="loadSlotModal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <span>📂 저장된 대진표</span>
+      <button onclick="closeLoadSlotModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="slotList" style="max-height:360px;overflow-y:auto;"></div>
     </div>
   </div>
 </div>
