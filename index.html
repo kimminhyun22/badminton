@@ -38,6 +38,14 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   color:var(--dim);font-family:'Noto Sans KR',sans-serif;border-bottom:2px solid transparent;transition:all .15s;}
 .nav-tab.active{color:var(--bl);border-bottom-color:var(--bl);}
 .nav-save-area{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 14px;}
+.nav-sync-btn{padding:4px 10px;border:1px solid var(--bdr);border-radius:6px;
+  background:#fff;font-size:.72rem;font-weight:600;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;color:var(--dim);transition:all .15s;white-space:nowrap;}
+.nav-sync-btn:hover{background:#eff6ff;color:var(--bl);border-color:#bfdbfe;}
+.import-label{padding:4px 10px;border:1px solid var(--bdr);border-radius:6px;
+  background:#fff;font-size:.72rem;font-weight:600;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;color:var(--dim);transition:all .15s;white-space:nowrap;}
+.import-label:hover{background:#eff6ff;color:var(--bl);border-color:#bfdbfe;}
 .save-status{font-size:.66rem;color:var(--dim2);white-space:nowrap;}
 .save-status.saved{color:var(--green);}
 .save-status.saving{color:var(--acc);}
@@ -878,6 +886,12 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   <div class="nav-save-area">
     <span class="save-status" id="saveStatus"></span>
     <button class="btn-restore hidden" id="restoreBtn" onclick="restoreState()">📂 이전 대진표 불러오기</button>
+    <!-- PC 내보내기/불러오기 -->
+    <button class="nav-sync-btn" onclick="exportBracketAll()" title="대진표+명부 JSON으로 내보내기">⬆️ 내보내기</button>
+    <label class="nav-sync-btn import-label" title="JSON 파일 불러오기">
+      ⬇️ 불러오기
+      <input type="file" accept=".json" style="display:none" onchange="importBracketAll(event)">
+    </label>
   </div>
 </div>
 
