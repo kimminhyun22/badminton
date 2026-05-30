@@ -413,20 +413,24 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .slot-btn.del{background:#fff;color:#dc2626;border-color:#fca5a5;}
 .slot-btn.del:hover{background:#fee2e2;}
 
-/* ── 기기간 동기화 바 ── */
-.sync-bar{display:flex;align-items:center;justify-content:space-between;
-  gap:8px;padding:10px 12px;margin-top:8px;
-  background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;}
-.sync-label{font-size:.74rem;font-weight:700;color:#1d4ed8;white-space:nowrap;}
-.sync-btns{display:flex;gap:6px;}
-.sync-btn{padding:7px 14px;border:none;border-radius:7px;
-  font-size:.76rem;font-weight:700;cursor:pointer;
-  font-family:'Noto Sans KR',sans-serif;transition:all .15s;
-  display:flex;align-items:center;gap:4px;}
-.sync-btn.export{background:#2563eb;color:#fff;}
-.sync-btn.export:hover{background:#1d4ed8;}
-.sync-btn.import{background:#16a34a;color:#fff;cursor:pointer;}
-.sync-btn.import:hover{background:#15803d;}
+/* ── 저장 관리 버튼 그룹 ── */
+.sync-bar{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:8px;}
+.sync-btn{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  padding:10px 6px;border:none;border-radius:10px;
+  font-size:.78rem;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;
+  transition:all .15s;text-align:center;line-height:1.3;
+  white-space:nowrap;
+}
+.s-save  {background:#dbeafe;color:#1e40af;}
+.s-save:hover   {background:#bfdbfe;}
+.s-list  {background:#ede9fe;color:#5b21b6;}
+.s-list:hover   {background:#ddd6fe;}
+.s-export{background:#d1fae5;color:#065f46;}
+.s-export:hover {background:#a7f3d0;}
+.s-import{background:#fef3c7;color:#92400e;cursor:pointer;}
+.s-import:hover {background:#fde68a;}
 .print-sheet-overlay{
   display:none;position:fixed;inset:0;
   background:rgba(0,0,0,.45);z-index:1100;
@@ -641,6 +645,56 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .bnav-spacer{display:none;}
 
 @media(max-width:768px){
+
+  /* ── 모바일 전체 폰트 기본 크기 상향 ── */
+  body{font-size:15px;}
+  .card-title{font-size:.95rem;}
+  .card-head{padding:11px 14px;}
+  .card-body{padding:14px;}
+
+  /* ── 참가자 입력 ── */
+  .dir-input{font-size:1.05rem;}
+  .lv-sel-btn{font-size:.92rem;padding:9px 13px;min-height:44px;}
+  .lv-sel-label{font-size:.78rem;}
+  .gender-sel-btn{font-size:.95rem;padding:9px 20px;min-height:44px;}
+  .dir-player-item{padding:11px 13px;min-height:50px;}
+  .dpi-name{font-size:.95rem;font-weight:700;}
+  .dpi-meta{font-size:.75rem;}
+  .dir-sort-btn{font-size:.74rem;padding:5px 12px;}
+  .dir-sort-label{font-size:.7rem;}
+
+  /* ── 팀 배정 ── */
+  .btn-ta{font-size:.92rem;padding:13px;min-height:50px;}
+  .tlb-name{font-size:.82rem;}
+  .tlb-meta{font-size:.68rem;}
+
+  /* ── 대회 설정 ── */
+  .si label{font-size:.8rem;}
+  .stepper input{font-size:1.1rem;font-weight:700;}
+  .stepper-btn{font-size:1.4rem;}
+  .tmb{font-size:.84rem;padding:11px;}
+  .btn-gen{font-size:1rem;padding:15px;min-height:54px;}
+  .btn-row button{font-size:.78rem;}
+  .sync-btn{font-size:.8rem;padding:11px 6px;}
+
+  /* ── 대진표 카드 ── */
+  .tm-name{font-size:.88rem;font-weight:700;}
+  .tm-prefix{font-size:.95rem;font-weight:700;}
+  .tm-lv{font-size:.7rem;}
+  .match-type{font-size:.72rem;}
+  .round-badge{font-size:.82rem;padding:4px 14px;}
+  .win-btn{font-size:.88rem;min-height:50px;}
+
+  /* ── 참가자 현황 테이블 ── */
+  .ptable th{font-size:.76rem;padding:10px 8px;}
+  .ptable td{font-size:.78rem;padding:9px 8px;}
+
+  /* ── 결과 집계 ── */
+  .sum-box-v{font-size:1.3rem;}
+  .sum-box-l{font-size:.68rem;}
+  .sb-score-v{font-size:1.8rem;}
+  .sbs-l{font-size:.72rem;}
+  .sbs-v{font-size:1.1rem;}
 
   /* ── 헤더 간소화 ── */
   header{padding:10px 16px;}
@@ -1054,20 +1108,16 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <button class="btn btn-gen" onclick="generate()">🎯 대진표 생성</button>
           <div class="btn-row">
             <button class="btn btn-ghost btn-sm" onclick="resetAll()">✕ 전체 초기화</button>
-            <button class="btn btn-ghost btn-sm" onclick="clearSaved()" style="font-size:.66rem;">🗑 저장 삭제</button>
           </div>
 
-          <!-- 기기간 데이터 이동 -->
+          <!-- 저장 관리 버튼 그룹 -->
           <div class="sync-bar">
-            <span class="sync-label">💾 저장 관리</span>
-            <div class="sync-btns">
-              <button class="sync-btn export" onclick="openSaveSlotModal()">💾 저장</button>
-              <button class="sync-btn" style="background:#7c3aed;" onclick="openLoadSlotModal()">📋 목록</button>
-              <button class="sync-btn export" onclick="exportBracketAll()">⬆️ 내보내기</button>
-              <label class="sync-btn import">⬇️ 불러오기
-                <input type="file" accept=".json" style="display:none" onchange="importBracketAll(event)">
-              </label>
-            </div>
+            <button class="sync-btn s-save"  onclick="openSaveSlotModal()">💾 저장</button>
+            <button class="sync-btn s-list"  onclick="openLoadSlotModal()">📋 목록</button>
+            <button class="sync-btn s-export" onclick="exportBracketAll()">⬆ 내보내기</button>
+            <label  class="sync-btn s-import">⬇ 불러오기
+              <input type="file" accept=".json" style="display:none" onchange="importBracketAll(event)">
+            </label>
           </div>
         </div>
       </div>
