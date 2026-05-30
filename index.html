@@ -3279,23 +3279,30 @@ function exportBracketAll(){
   const bracketRaw=localStorage.getItem(SAVE_KEY);
   const rosterRaw=localStorage.getItem(ROSTER_KEY);
   const slotsRaw=localStorage.getItem(SLOTS_KEY);
+  const slots=slotsRaw?JSON.parse(slotsRaw):[];
   const combined={
     exportedAt:new Date().toISOString(),
-    version:'badminton-all-v2',  // 슬롯 포함 버전
+    version:'badminton-all-v2',
     bracket:bracketRaw?JSON.parse(bracketRaw):null,
     roster:rosterRaw?JSON.parse(rosterRaw):null,
-    slots:slotsRaw?JSON.parse(slotsRaw):null,  // 저장 슬롯 포함
+    slots:slots.length>0?slots:null,
   };
-  const slotCount=combined.slots?.length||0;
+  console.log('[export] 슬롯 수:', slots.length, '| 슬롯 이름:', slots.map(s=>s.name));
   const blob=new Blob([JSON.stringify(combined,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
   const date=new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'');
-  a.download=`배드민턴_전체백업_${date}.json`;
+  const slotSuffix=slots.length>0?`_슬롯${slots.length}개`:'';
+  a.download=`배드민턴_전체백업_${date}${slotSuffix}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  if(slotCount>0) setSaveStatus('saved');
+  // 슬롯 포함 여부 알림
+  if(slots.length>0){
+    setSaveStatus('saved');
+    // 잠깐 확인 메시지
+    setTimeout(()=>setSaveStatus('',`✓ 저장 슬롯 ${slots.length}개 포함 내보냄`),100);
+  }
 }
 
 function importBracketAll(e){
@@ -3319,20 +3326,23 @@ function importBracketAll(e){
 
         if(combined.bracket){
           localStorage.setItem(SAVE_KEY,JSON.stringify(combined.bracket));
-          restoreState();
         }
         if(combined.roster){
           localStorage.setItem(ROSTER_KEY,JSON.stringify(combined.roster));
           loadRosters();renderClubList();
         }
-        // 슬롯 복원 (기존 슬롯과 병합)
+        // 슬롯 복원 먼저 저장 (restoreState 이전에)
         if(combined.slots&&combined.slots.length){
           const existing=getSlots();
           const existingIds=new Set(existing.map(s=>s.id));
-          // 새 슬롯 중 기존에 없는 것만 추가
           const newSlots=combined.slots.filter(s=>!existingIds.has(s.id));
           const merged=[...newSlots,...existing].slice(0,MAX_SLOTS);
           saveSlots(merged);
+          console.log('[import] 슬롯 복원:', merged.length,'개');
+        }
+        // restoreState는 마지막에 (자동저장 트리거 방지를 위해 슬롯 저장 후)
+        if(combined.bracket){
+          restoreState();
         }
         const sMsg=sCount?` + 슬롯 ${sCount}개`:'';
         alert(`✅ 전체 백업을 불러왔습니다.${sMsg}`);
