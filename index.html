@@ -3276,15 +3276,17 @@ function importBracketJson(e){
 
 // 명부 JSON 내보내기 (기존 exportRosters 있으면 통합)
 function exportBracketAll(){
-  // 대진표 + 명부 한 번에 내보내기
   const bracketRaw=localStorage.getItem(SAVE_KEY);
   const rosterRaw=localStorage.getItem(ROSTER_KEY);
+  const slotsRaw=localStorage.getItem(SLOTS_KEY);
   const combined={
     exportedAt:new Date().toISOString(),
-    version:'badminton-all-v1',
+    version:'badminton-all-v2',  // 슬롯 포함 버전
     bracket:bracketRaw?JSON.parse(bracketRaw):null,
     roster:rosterRaw?JSON.parse(rosterRaw):null,
+    slots:slotsRaw?JSON.parse(slotsRaw):null,  // 저장 슬롯 포함
   };
+  const slotCount=combined.slots?.length||0;
   const blob=new Blob([JSON.stringify(combined,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -3293,6 +3295,7 @@ function exportBracketAll(){
   a.download=`배드민턴_전체백업_${date}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  if(slotCount>0) setSaveStatus('saved');
 }
 
 function importBracketAll(e){
@@ -3302,11 +3305,18 @@ function importBracketAll(e){
   reader.onload=ev=>{
     try{
       const combined=JSON.parse(ev.target.result);
-      // 전체 백업 파일인지 확인
-      if(combined.version==='badminton-all-v1'){
+      if(combined.version==='badminton-all-v1'||combined.version==='badminton-all-v2'){
         const bCount=combined.bracket?.participants?.length||0;
         const rCount=combined.roster?.clubs?.reduce((s,c)=>s+c.members.length,0)||0;
-        if(!confirm(`전체 백업 불러오기\n대진표: 선수 ${bCount}명\n명부: 회원 ${rCount}명\n\n현재 데이터를 모두 덮어씌울까요?`)){e.target.value='';return;}
+        const sCount=combined.slots?.length||0;
+        if(!confirm(
+          `전체 백업 불러오기\n`+
+          `• 대진표: 선수 ${bCount}명\n`+
+          `• 명부: 회원 ${rCount}명\n`+
+          (sCount?`• 저장 슬롯: ${sCount}개\n`:'')+
+          `\n현재 데이터를 모두 덮어씌울까요?`
+        )){e.target.value='';return;}
+
         if(combined.bracket){
           localStorage.setItem(SAVE_KEY,JSON.stringify(combined.bracket));
           restoreState();
@@ -3315,9 +3325,18 @@ function importBracketAll(e){
           localStorage.setItem(ROSTER_KEY,JSON.stringify(combined.roster));
           loadRosters();renderClubList();
         }
-        alert('✅ 전체 백업을 불러왔습니다.');
+        // 슬롯 복원 (기존 슬롯과 병합)
+        if(combined.slots&&combined.slots.length){
+          const existing=getSlots();
+          const existingIds=new Set(existing.map(s=>s.id));
+          // 새 슬롯 중 기존에 없는 것만 추가
+          const newSlots=combined.slots.filter(s=>!existingIds.has(s.id));
+          const merged=[...newSlots,...existing].slice(0,MAX_SLOTS);
+          saveSlots(merged);
+        }
+        const sMsg=sCount?` + 슬롯 ${sCount}개`:'';
+        alert(`✅ 전체 백업을 불러왔습니다.${sMsg}`);
       } else {
-        // 대진표 단독 파일로 처리
         importBracketJson(e);
         return;
       }
