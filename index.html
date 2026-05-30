@@ -388,6 +388,20 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 @media(min-width:769px){
   .img-preview-overlay{display:none!important;}
 }
+/* ── 기기간 동기화 바 ── */
+.sync-bar{display:flex;align-items:center;justify-content:space-between;
+  gap:8px;padding:10px 12px;margin-top:8px;
+  background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;}
+.sync-label{font-size:.74rem;font-weight:700;color:#1d4ed8;white-space:nowrap;}
+.sync-btns{display:flex;gap:6px;}
+.sync-btn{padding:7px 14px;border:none;border-radius:7px;
+  font-size:.76rem;font-weight:700;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;transition:all .15s;
+  display:flex;align-items:center;gap:4px;}
+.sync-btn.export{background:#2563eb;color:#fff;}
+.sync-btn.export:hover{background:#1d4ed8;}
+.sync-btn.import{background:#16a34a;color:#fff;cursor:pointer;}
+.sync-btn.import:hover{background:#15803d;}
 .print-sheet-overlay{
   display:none;position:fixed;inset:0;
   background:rgba(0,0,0,.45);z-index:1100;
@@ -1007,6 +1021,18 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <div class="btn-row">
             <button class="btn btn-ghost btn-sm" onclick="resetAll()">✕ 전체 초기화</button>
             <button class="btn btn-ghost btn-sm" onclick="clearSaved()" style="font-size:.66rem;">🗑 저장 삭제</button>
+          </div>
+
+          <!-- 기기간 데이터 이동 -->
+          <div class="sync-bar">
+            <span class="sync-label">📲 기기 간 이동</span>
+            <div class="sync-btns">
+              <button class="sync-btn export" onclick="exportBracketAll()">⬆️ 내보내기</button>
+              <label class="sync-btn import">
+                ⬇️ 불러오기
+                <input type="file" accept=".json" style="display:none" onchange="importBracketAll(event)">
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -3054,6 +3080,103 @@ function restoreState(){
       document.getElementById('resultArea').scrollIntoView({behavior:'smooth',block:'start'});
     },100);
   }catch(e){alert('복원 중 오류: '+e.message);console.error(e);}
+}
+
+/* ════════════════════════════════
+   JSON 내보내기 / 불러오기
+════════════════════════════════ */
+
+// 대진표 상태 JSON 내보내기
+function exportBracketJson(){
+  const raw=localStorage.getItem(SAVE_KEY);
+  if(!raw){alert('저장된 대진표가 없습니다.\n대진표를 먼저 생성해주세요.');return;}
+  const state=JSON.parse(raw);
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  const date=new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'');
+  a.download=`배드민턴_대진표_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 대진표 상태 JSON 불러오기
+function importBracketJson(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const state=JSON.parse(ev.target.result);
+      // 유효성 검사
+      if(!state.matches||!state.participants){
+        alert('올바른 대진표 파일이 아닙니다.');return;
+      }
+      if(!confirm(`저장된 대진표를 불러올까요?\n선수 ${state.participants?.length||0}명, 경기 ${state.matches?.length||0}게임\n현재 데이터는 덮어씌워집니다.`)){return;}
+      // localStorage에 저장 후 복원
+      localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+      restoreState();
+      alert('✅ 대진표를 불러왔습니다.');
+    }catch(err){
+      alert('파일 읽기 오류: '+err.message);
+    }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// 명부 JSON 내보내기 (기존 exportRosters 있으면 통합)
+function exportBracketAll(){
+  // 대진표 + 명부 한 번에 내보내기
+  const bracketRaw=localStorage.getItem(SAVE_KEY);
+  const rosterRaw=localStorage.getItem(ROSTER_KEY);
+  const combined={
+    exportedAt:new Date().toISOString(),
+    version:'badminton-all-v1',
+    bracket:bracketRaw?JSON.parse(bracketRaw):null,
+    roster:rosterRaw?JSON.parse(rosterRaw):null,
+  };
+  const blob=new Blob([JSON.stringify(combined,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  const date=new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'');
+  a.download=`배드민턴_전체백업_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importBracketAll(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const combined=JSON.parse(ev.target.result);
+      // 전체 백업 파일인지 확인
+      if(combined.version==='badminton-all-v1'){
+        const bCount=combined.bracket?.participants?.length||0;
+        const rCount=combined.roster?.clubs?.reduce((s,c)=>s+c.members.length,0)||0;
+        if(!confirm(`전체 백업 불러오기\n대진표: 선수 ${bCount}명\n명부: 회원 ${rCount}명\n\n현재 데이터를 모두 덮어씌울까요?`)){e.target.value='';return;}
+        if(combined.bracket){
+          localStorage.setItem(SAVE_KEY,JSON.stringify(combined.bracket));
+          restoreState();
+        }
+        if(combined.roster){
+          localStorage.setItem(ROSTER_KEY,JSON.stringify(combined.roster));
+          loadRosters();renderClubList();
+        }
+        alert('✅ 전체 백업을 불러왔습니다.');
+      } else {
+        // 대진표 단독 파일로 처리
+        importBracketJson(e);
+        return;
+      }
+    }catch(err){alert('파일 읽기 오류: '+err.message);}
+    e.target.value='';
+  };
+  reader.readAsText(file);
 }
 
 function clearSaved(){
