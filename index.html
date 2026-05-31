@@ -1759,16 +1759,27 @@ function toggleTeamMode(){
 function updateTeamModeBadge(){
   const b=document.getElementById('teamModeBadge');
   if(!b)return;
+  const wrap=document.getElementById('teamListWrap');
+  const reBtn=document.getElementById('teamReassignBtn');
   const isOn=teamAssignment&&_teamModeOverride!==false;
   if(isOn){
     b.className='tmb tmb-on';
     b.textContent=`팀 모드: 켜짐 (${teamNames.blue} vs ${teamNames.white})`;
+    // 팀 배정 목록 표시
+    if(wrap&&teamAssignment) wrap.classList.add('show');
+    if(reBtn&&teamAssignment) reBtn.classList.remove('hidden');
   } else if(teamAssignment&&_teamModeOverride===false){
     b.className='tmb tmb-off can-on';
     b.textContent='팀 모드: 꺼짐 (수동 해제 — 자유 배정)';
+    // 팀 배정 목록 숨기기
+    if(wrap) wrap.classList.remove('show');
+    if(reBtn) reBtn.classList.add('hidden');
   } else {
     b.className='tmb tmb-off'+(teamAssignment?' can-on':'');
     b.textContent='팀 모드: 꺼짐 (자유 배정)';
+    // 팀 배정 목록 숨기기
+    if(wrap) wrap.classList.remove('show');
+    if(reBtn) reBtn.classList.add('hidden');
   }
 }
 
