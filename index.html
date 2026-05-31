@@ -2095,19 +2095,16 @@ function generateMatches(participants,settings,totalMatches){
         to.push('any');
 
         let match=null;
-        // 1~2단계: 정상 배정 (다른상대 → 동일상대1회, 파트너 유지)
-        // diversityScore가 동일상대 1회 허용/2회+ 패널티를 자동 처리
-        for(const maxLD of[1,2,4]){
-          for(const t of to){match=tryCreateMatchWithPartners(avail,settings,t,maxLD);if(match)break;}
-          if(match)break;
-        }
-        // 3단계: 위에서 실패 시, 파트너 분리 허용하여 일반 배정 (게임수 미달 방지)
+        // 1단계: 파트너 쌍 우선 배정 (maxLD 넉넉히 — 파트너 유지 최우선)
+        match=tryCreateMatchWithPartners(avail,settings,'any',4);
+        // 2단계: 파트너 없으면 일반 배정 (레벨차 엄격)
         if(!match){
-          for(const maxLD of[2,4]){
-            const four=selectFourFreeMode(avail,'any',maxLD);
-            if(four){match=formTeams(four,settings.teamMode,'any',maxLD,true);if(match)break;}
+          for(const maxLD of[1,2,4]){
+            for(const t of to){match=tryCreateMatch(avail,settings,t,maxLD);if(match)break;}
+            if(match)break;
           }
         }
+        // 3단계 분리 제거: 파트너는 분리하지 않고 보완게임에 맡김 (파트너 유지 최우선)
         if(!match)continue;
         if(match.type==='여복')womenCount++;else if(match.type==='남복')menCount++;else mixedCount++;
         match.matchNumber=matches.length+1;match.round=currentRound;match.court=court;
@@ -2249,14 +2246,14 @@ function tryCreateMatchWithPartners(avail, settings, type, maxLD){
     // 간격 체크: 목표 간격 내 뛰었으면 우선 배정 건너뜀
     const gapP=_currentRound-(p.lastRoundPlayed||0);
     const gapPartner=_currentRound-(partner.lastRoundPlayed||0);
-    if(gapP<=_partnerGapThreshold||gapPartner<=_partnerGapThreshold) continue;
+    if(gapP<=1||gapPartner<=1) continue;
     const pType = (p.gender==='M'&&partner.gender==='M')?'men'
                 :(p.gender==='F'&&partner.gender==='F')?'women':'mixed';
     partnerPairs.push({pair:[p,partner], pType});
   }
 
-  // 우선 배정 가능한 파트너 쌍이 없으면 일반 로직
-  if(!partnerPairs.length) return tryCreateMatch(avail,settings,type,maxLD);
+  // 우선 배정 가능한 파트너 쌍이 없으면 null (호출부에서 일반 로직 처리)
+  if(!partnerPairs.length) return null;
 
   // 파트너 쌍이 있으면: 종목이 맞는 쌍 우선 사용
   for(const {pair, pType} of partnerPairs){
@@ -2279,20 +2276,33 @@ function tryCreateMatchWithPartners(avail, settings, type, maxLD){
       if(opType===pType){ oppPair=[r,rp]; break; }
     }
 
-    // 2순위: 파트너 없는 일반 선수로 상대 구성 (종목 엄격 검증)
+    // 2순위: 파트너 없는 일반 선수로 상대 구성 (레벨 균형 맞춰 탐색)
     if(!oppPair){
-      // 파트너가 있는 선수는 상대로 쓰지 않음 (분리 방지)
       const freeRest=rest.filter(p=>!p.partnerName);
+      const pairLevel=effLevel(pair[0])+effLevel(pair[1]);
+      const findBalanced=(pool)=>{
+        let bb=null,bd=Infinity;
+        for(let i=0;i<pool.length;i++)for(let j=i+1;j<pool.length;j++){
+          const d=Math.abs((effLevel(pool[i])+effLevel(pool[j]))-pairLevel);
+          const gpen=(pool[i].gamesPlayed+pool[j].gamesPlayed)*0.01;
+          if(d+gpen<bd){bd=d+gpen;bb=[pool[i],pool[j]];}
+        }
+        return bb;
+      };
       if(pType==='women'){
-        const f=freeRest.filter(p=>p.gender==='F');
-        if(f.length>=2) oppPair=[f[0],f[1]];
+        oppPair=findBalanced(freeRest.filter(p=>p.gender==='F'));
       } else if(pType==='men'){
-        const m=freeRest.filter(p=>p.gender==='M');
-        if(m.length>=2) oppPair=[m[0],m[1]];
+        oppPair=findBalanced(freeRest.filter(p=>p.gender==='M'));
       } else { // mixed
-        const m=freeRest.filter(p=>p.gender==='M');
-        const f=freeRest.filter(p=>p.gender==='F');
-        if(m.length>=1&&f.length>=1) oppPair=[m[0],f[0]];
+        const mm=freeRest.filter(p=>p.gender==='M');
+        const ff=freeRest.filter(p=>p.gender==='F');
+        let bb=null,bd=Infinity;
+        for(const a of mm)for(const b of ff){
+          const d=Math.abs((effLevel(a)+effLevel(b))-pairLevel);
+          const gpen=(a.gamesPlayed+b.gamesPlayed)*0.01;
+          if(d+gpen<bd){bd=d+gpen;bb=[a,b];}
+        }
+        oppPair=bb;
       }
     }
 
@@ -2307,8 +2317,8 @@ function tryCreateMatchWithPartners(avail, settings, type, maxLD){
     if(m) return m;
   }
 
-  // 파트너 쌍 배정 실패 시 일반 로직
-  return tryCreateMatch(avail,settings,type,maxLD);
+  // 파트너 쌍 배정 실패 시 null (호출부에서 일반 단계 처리)
+  return null;
 }
 
 function tryCreateMatch(avail,settings,type,maxLD){
