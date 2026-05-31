@@ -2262,21 +2262,35 @@ function selectFourTeamMode(pool,gf,maxLD){
 
 function selectFourFreeMode(pool,type,maxLD){
   const minG=pool[0].gamesPlayed;
-  // 게임 수 격차 허용을 +3→+4로 확대, 후보 12→20명으로 확장
   let cands=pool.filter(p=>p.gamesPlayed<=minG+4);
   if(cands.length<4)cands=pool.slice(0,20);
-  // 오래 쉰 선수에게 가중치: 같은 게임 수면 마지막 라운드가 낮은(더 오래 쉰) 선수 우선
   cands=cands.sort((a,b)=>{
     const gd=a.gamesPlayed-b.gamesPlayed;
     if(gd!==0)return gd;
     return (a.lastRoundPlayed||0)-(b.lastRoundPlayed||0);
   }).slice(0,20);
+
+  // 파트너가 있는 선수는 파트너도 cands에 포함되도록 보장
+  const toAdd=[];
+  for(const p of cands){
+    if(!p.partnerName) continue;
+    const partner=pool.find(x=>x.name===p.partnerName);
+    if(partner&&!cands.includes(partner)) toAdd.push(partner);
+  }
+  cands=[...cands,...toAdd];
+
   let best=null,bestScore=Infinity;const n=cands.length;
   for(let i=0;i<n-3;i++)for(let j=i+1;j<n-2;j++)for(let k=j+1;k<n-1;k++)for(let l=k+1;l<n;l++){
     const four=[cands[i],cands[j],cands[k],cands[l]];
     if(type==='women'&&four.some(p=>p.gender!=='F'))continue;
     if(type==='men'&&four.some(p=>p.gender!=='M'))continue;
     if(type==='mixed'&&(four.every(p=>p.gender==='F')||four.every(p=>p.gender==='M')))continue;
+    // 파트너가 있는 선수는 파트너도 반드시 4명 안에 있어야 함
+    const partnerOk=four.every(p=>{
+      if(!p.partnerName) return true;
+      return four.some(x=>x.name===p.partnerName);
+    });
+    if(!partnerOk) continue;
     const minLD=Math.min(
       Math.abs((four[0].level+four[1].level)-(four[2].level+four[3].level)),
       Math.abs((four[0].level+four[2].level)-(four[1].level+four[3].level)),
@@ -2285,6 +2299,23 @@ function selectFourFreeMode(pool,type,maxLD){
     if(minLD>maxLD)continue;
     const score=diversityScore(four,minLD);
     if(score<bestScore){bestScore=score;best=four;}
+  }
+  // 파트너 제약으로 배정 실패 시 파트너 무시하고 재시도
+  if(!best){
+    for(let i=0;i<n-3;i++)for(let j=i+1;j<n-2;j++)for(let k=j+1;k<n-1;k++)for(let l=k+1;l<n;l++){
+      const four=[cands[i],cands[j],cands[k],cands[l]];
+      if(type==='women'&&four.some(p=>p.gender!=='F'))continue;
+      if(type==='men'&&four.some(p=>p.gender!=='M'))continue;
+      if(type==='mixed'&&(four.every(p=>p.gender==='F')||four.every(p=>p.gender==='M')))continue;
+      const minLD=Math.min(
+        Math.abs((four[0].level+four[1].level)-(four[2].level+four[3].level)),
+        Math.abs((four[0].level+four[2].level)-(four[1].level+four[3].level)),
+        Math.abs((four[0].level+four[3].level)-(four[1].level+four[2].level))
+      );
+      if(minLD>maxLD)continue;
+      const score=diversityScore(four,minLD);
+      if(score<bestScore){bestScore=score;best=four;}
+    }
   }
   return best;
 }
@@ -2352,8 +2383,25 @@ function diversityScore(four,ld){
 function formTeams(four,teamMode,type,maxLD){
   const combos=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
   let best=null,bestScore=Infinity;
+
+  // 파트너 쌍 확인: 파트너가 있으면 반드시 같은 팀에 있어야 함
+  const isValidCombo=(t1,t2)=>{
+    const allPlayers=[...t1,...t2];
+    for(const p of allPlayers){
+      if(!p.partnerName) continue;
+      const partner=allPlayers.find(x=>x.name===p.partnerName);
+      if(!partner) continue; // 파트너가 4명 안에 없으면 무시
+      // 파트너가 다른 팀에 있으면 invalid
+      const pInT1=t1.includes(p), partnerInT1=t1.includes(partner);
+      if(pInT1!==partnerInT1) return false;
+    }
+    return true;
+  };
+
   for(const combo of combos){
     const t1=[four[combo[0]],four[combo[1]]],t2=[four[combo[2]],four[combo[3]]];
+    // 파트너 같은팀 강제
+    if(!isValidCombo(t1,t2)) continue;
     if(teamMode){if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)continue;}
     const ld=Math.abs((t1[0].level+t1[1].level)-(t2[0].level+t2[1].level));
     if(ld>maxLD)continue;
