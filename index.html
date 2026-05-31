@@ -390,21 +390,16 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .render-card-top .rt-type{font-size:.7rem;font-weight:800;color:#2d3139;}
 .render-card-top .rt-court{font-size:.68rem;font-weight:700;color:#2d3139;
   background:#fff;border:1.5px solid #d0d7e3;padding:1px 7px;border-radius:4px;}
-/* 카드 바디 — 앱 match-body와 동일 */
+/* 카드 바디 */
 .render-card-body{display:flex;align-items:stretch;}
-/* 팀 사이드 — 앱 tm-side와 동일 */
-.render-side{flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 9px;gap:4px;}
+/* 팀 사이드 */
+.render-side{flex:1;display:flex;flex-direction:column;justify-content:center;padding:7px 7px;gap:3px;min-width:0;}
 .render-side.sb{background:#eef4fc;}
 .render-side.sw{background:#fdf8f0;}
-/* 팀 레이블 — 앱 tm-prefix와 동일 */
-.render-prefix{
-  font-size:.72rem;font-weight:800;margin-bottom:1px;
-}
-.render-side.sb .render-prefix{color:#1e40af;}
-.render-side.sw .render-prefix{color:#92400e;}
-/* 선수 이름 — 앱 tm-name과 동일 */
-.render-name{font-size:1.08rem;font-weight:800;color:#2d3139;line-height:1.4;}
-/* VS 구분 — 앱 tm-vs와 동일 */
+/* 청팀/백팀 문구 제거 — 컬러로 식별 */
+.render-prefix{display:none;}
+/* 선수 이름 — 2열 공간에 맞게, 줄바꿈 허용 */
+.render-name{font-size:.82rem;font-weight:800;color:#2d3139;line-height:1.35;word-break:keep-all;overflow-wrap:anywhere;}
 .render-vs{
   display:flex;align-items:center;justify-content:center;
   padding:0 5px;font-size:.65rem;font-weight:700;
@@ -2710,20 +2705,15 @@ function buildMobileHtml(mode, isTeam, bn, wn){
       const cards=byRound[r].map(m=>{
         const tc=m.type==='여복'?'type-w':m.type==='남복'?'type-m':'type-x';
         const ts=m.type+(m.isFiller?'(보완)':'');
-        const t1b=isTeam&&m.team1A.team==='청팀';
-        const p1label=isTeam?(t1b?bn:wn):'A';
-        const p2label=isTeam?(t1b?wn:bn):'B';
         return `<div class="render-card ${tc}">
-          <div class="render-card-top"><span>${ts}</span><span>코트${m.court}</span></div>
+          <div class="render-card-top"><span class="rt-type">${ts}</span><span class="rt-court">코트 ${m.court}</span></div>
           <div class="render-card-body">
             <div class="render-side sb">
-              <div class="render-prefix">${p1label}</div>
               <div class="render-name">${m.team1A.name}</div>
               <div class="render-name">${m.team1B.name}</div>
             </div>
             <div class="render-vs">VS</div>
             <div class="render-side sw">
-              <div class="render-prefix">${p2label}</div>
               <div class="render-name">${m.team2C.name}</div>
               <div class="render-name">${m.team2D.name}</div>
             </div>
@@ -2885,9 +2875,6 @@ function buildMobileChunks(mode, isTeam, bn, wn){
       const cards=byRound[r].map(m=>{
         const tc=m.type==='여복'?'type-w':m.type==='남복'?'type-m':'type-x';
         const ts=m.type+(m.isFiller?'(보완)':'');
-        const t1b=isTeam&&m.team1A.team==='청팀';
-        const p1label=isTeam?(t1b?bn:wn):'A';
-        const p2label=isTeam?(t1b?wn:bn):'B';
         return `<div class="render-card ${tc}">
           <div class="render-card-top">
             <span class="rt-type">${ts}</span>
@@ -2895,13 +2882,11 @@ function buildMobileChunks(mode, isTeam, bn, wn){
           </div>
           <div class="render-card-body">
             <div class="render-side sb">
-              <div class="render-prefix">${p1label}</div>
               <div class="render-name">${m.team1A.name}</div>
               <div class="render-name">${m.team1B.name}</div>
             </div>
             <div class="render-vs">VS</div>
             <div class="render-side sw">
-              <div class="render-prefix">${p2label}</div>
               <div class="render-name">${m.team2C.name}</div>
               <div class="render-name">${m.team2D.name}</div>
             </div>
