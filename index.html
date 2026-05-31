@@ -364,33 +364,61 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .img-btn-print{background:#f3f4f6;color:#374151;}
 .img-btn-print:hover{background:#e5e7eb;}
 
-/* ── 인쇄 렌더링용 카드 스타일 (화면에서도 보기 좋게) ── */
-.render-wrap{background:#fff;padding:16px;font-family:'Noto Sans KR',sans-serif;}
-.render-title{font-size:1rem;font-weight:700;padding-bottom:10px;margin-bottom:12px;border-bottom:2px solid #000;}
-.render-round{margin-bottom:12px;}
-.render-round-badge{display:inline-block;background:#1d1d1f;color:#fff;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:3px;margin-bottom:6px;letter-spacing:.5px;}
-.render-match-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
-.render-card{border:1px solid #ccc;border-radius:6px;overflow:hidden;}
-.render-card.type-w{border-left:3px solid #b00060;}
-.render-card.type-m{border-left:3px solid #004db0;}
-.render-card.type-x{border-left:3px solid #5500b0;}
-.render-card-top{display:flex;justify-content:space-between;padding:3px 7px;background:#f8f8f8;font-size:.58rem;font-weight:700;color:#555;}
-.render-card-body{display:flex;}
-.render-side{flex:1;padding:5px 6px;}
-.render-side.sb{background:#eef4ff;}
+/* ── 이미지 렌더링 카드 (앱 화면과 동일한 스타일) ── */
+.render-wrap{background:#f8f9fc;padding:14px;font-family:'Noto Sans KR',sans-serif;}
+.render-title{font-size:.92rem;font-weight:700;color:#2d3139;padding-bottom:8px;margin-bottom:10px;border-bottom:2px solid #3a4a5c;}
+.render-round{margin-bottom:14px;}
+.render-round-badge{
+  display:inline-block;background:#3a4a5c;color:#fff;
+  font-size:.75rem;font-weight:700;padding:4px 12px;
+  border-radius:4px;margin-bottom:7px;letter-spacing:1px;
+}
+.render-match-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+/* 카드 — 앱 match-card와 동일 */
+.render-card{
+  background:#fff;border:1px solid #e8ecf2;
+  border-radius:8px;overflow:hidden;
+}
+.render-card.type-w{border-left:4px solid #c96b8a;}
+.render-card.type-m{border-left:4px solid #4a7fd4;}
+.render-card.type-x{border-left:4px solid #8b6fc4;}
+/* 상단 종목/코트 — 앱 match-top과 동일 */
+.render-card-top{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:4px 8px;border-bottom:1px solid #e8ecf2;background:#f4f6fa;
+}
+.render-card-top .rt-type{font-size:.7rem;font-weight:800;color:#2d3139;}
+.render-card-top .rt-court{font-size:.68rem;font-weight:700;color:#2d3139;
+  background:#fff;border:1.5px solid #d0d7e3;padding:1px 7px;border-radius:4px;}
+/* 카드 바디 — 앱 match-body와 동일 */
+.render-card-body{display:flex;align-items:stretch;}
+/* 팀 사이드 — 앱 tm-side와 동일 */
+.render-side{flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 9px;gap:4px;}
+.render-side.sb{background:#eef4fc;}
 .render-side.sw{background:#fdf8f0;}
-.render-prefix{font-size:.62rem;font-weight:700;color:#555;margin-bottom:2px;}
-.render-name{font-size:1.08rem;font-weight:800;color:#1d1d1f;line-height:1.5;}
-.render-vs{display:flex;align-items:center;justify-content:center;padding:0 4px;font-size:.6rem;font-weight:800;color:#bbb;background:#f5f5f5;}
+/* 팀 레이블 — 앱 tm-prefix와 동일 */
+.render-prefix{
+  font-size:.72rem;font-weight:800;margin-bottom:1px;
+}
+.render-side.sb .render-prefix{color:#1e40af;}
+.render-side.sw .render-prefix{color:#92400e;}
+/* 선수 이름 — 앱 tm-name과 동일 */
+.render-name{font-size:1.08rem;font-weight:800;color:#2d3139;line-height:1.4;}
+/* VS 구분 — 앱 tm-vs와 동일 */
+.render-vs{
+  display:flex;align-items:center;justify-content:center;
+  padding:0 5px;font-size:.65rem;font-weight:700;
+  color:#9ca3af;background:#f4f6fa;flex-shrink:0;
+}
 /* 명단 렌더링 */
 .render-roster-section{margin-bottom:14px;}
-.render-roster-title{font-size:.82rem;font-weight:700;padding:5px 10px;border-radius:4px;margin-bottom:6px;}
-.render-roster-title.all{background:#f0f0f0;color:#222;}
-.render-roster-title.blue{background:#dbeafe;color:#1e3a8a;}
+.render-roster-title{font-size:.8rem;font-weight:700;padding:5px 10px;border-radius:5px;margin-bottom:6px;}
+.render-roster-title.all{background:#f4f6fa;color:#2d3139;}
+.render-roster-title.blue{background:#dbeafe;color:#1e40af;}
 .render-roster-title.white{background:#fef3c7;color:#92400e;}
 .render-roster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;}
-.render-roster-name{font-size:.78rem;font-weight:600;padding:5px 6px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:4px;}
-.render-cap{font-size:.56rem;padding:1px 3px;border-radius:2px;font-weight:700;}
+.render-roster-name{font-size:1.0rem;font-weight:700;padding:5px 7px;border-bottom:1px solid #e8ecf2;display:flex;align-items:center;gap:4px;color:#2d3139;}
+.render-cap{font-size:.6rem;padding:1px 4px;border-radius:3px;font-weight:700;}
 .render-cap.leader{background:#fef9c3;color:#854d0e;}
 .render-cap.sub{background:#dcfce7;color:#166534;}
 
@@ -2861,14 +2889,24 @@ function buildMobileChunks(mode, isTeam, bn, wn){
         const p1label=isTeam?(t1b?bn:wn):'A';
         const p2label=isTeam?(t1b?wn:bn):'B';
         return `<div class="render-card ${tc}">
-          <div class="render-card-top"><span>${ts}</span><span>코트${m.court}</span></div>
+          <div class="render-card-top">
+            <span class="rt-type">${ts}</span>
+            <span class="rt-court">코트 ${m.court}</span>
+          </div>
           <div class="render-card-body">
-            <div class="render-side sb"><div class="render-prefix">${p1label}</div>
-              <div class="render-name">${m.team1A.name}</div><div class="render-name">${m.team1B.name}</div></div>
+            <div class="render-side sb">
+              <div class="render-prefix">${p1label}</div>
+              <div class="render-name">${m.team1A.name}</div>
+              <div class="render-name">${m.team1B.name}</div>
+            </div>
             <div class="render-vs">VS</div>
-            <div class="render-side sw"><div class="render-prefix">${p2label}</div>
-              <div class="render-name">${m.team2C.name}</div><div class="render-name">${m.team2D.name}</div></div>
-          </div></div>`;
+            <div class="render-side sw">
+              <div class="render-prefix">${p2label}</div>
+              <div class="render-name">${m.team2C.name}</div>
+              <div class="render-name">${m.team2D.name}</div>
+            </div>
+          </div>
+        </div>`;
       }).join('');
       return `<div class="render-round"><div class="render-round-badge">ROUND ${r}</div><div class="render-match-grid">${cards}</div></div>`;
     }).join('');
