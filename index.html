@@ -1989,9 +1989,14 @@ function generateMatches(participants,settings,totalMatches){
   while(matches.length<totalMatches){
     _currentRound=currentRound;
     const used=new Set();let added=0;
-    // 직전 라운드 참가자 (연달아 배정 방지)
+    // 직전 1라운드 참가자 (일반 선수 휴식)
     const justPlayed=new Set(
       matches.filter(m=>m.round===currentRound-1)
+        .flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name])
+    );
+    // 파트너 쌍은 직전 2라운드 모두 차단 (간격 최소 3라운드)
+    const partnerRecentRounds=new Set(
+      matches.filter(m=>m.round===currentRound-1||m.round===currentRound-2)
         .flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name])
     );
     for(let pass=1;pass<=2;pass++){
@@ -2003,12 +2008,15 @@ function generateMatches(participants,settings,totalMatches){
         // avail: 게임 가능 선수
         let avail=participants.filter(p=>p.gamesPlayed<maxG&&!used.has(p.name));
 
-        // 직전 라운드 선수 및 파트너 제외 집합
-        // 파트너 쌍: 한 명이라도 직전 라운드면 → 쌍 전체 이번 라운드 금지
+        // 차단 집합: 일반 선수는 justPlayed(1라운드), 파트너 쌍은 2라운드 차단
         const blockedThisRound=new Set([...justPlayed]);
-        for(const name of justPlayed){
+        // 파트너 쌍: 최근 2라운드 내 뛰었으면 쌍 전체 차단
+        for(const name of partnerRecentRounds){
           const p=participants.find(x=>x.name===name);
-          if(p?.partnerName) blockedThisRound.add(p.partnerName);
+          if(p?.partnerName){
+            blockedThisRound.add(name);
+            blockedThisRound.add(p.partnerName);
+          }
         }
 
         if(pass===1){
@@ -2411,14 +2419,15 @@ function diversityScore(four,ld){
     else if(gap>=6) score-=30;
     else if(gap>=4) score-=10;
   });
-  // 파트너 쌍이 직전 라운드에 함께 뛰었으면 추가 패널티
+  // 파트너 쌍이 최근 2라운드 내 함께 뛰었으면 강한 패널티
   for(let i=0;i<4;i++){
     if(!four[i].partnerName) continue;
     const j=four.findIndex(p=>p.name===four[i].partnerName);
     if(j<0) continue;
     const gapI=_currentRound-(four[i].lastRoundPlayed||0);
     const gapJ=_currentRound-(four[j].lastRoundPlayed||0);
-    if(gapI===1&&gapJ===1) score+=800; // 파트너 쌍 연속 배정 극강 차단
+    if(gapI<=1||gapJ<=1) score+=1200; // 직전 라운드
+    else if(gapI<=2||gapJ<=2) score+=600; // 2라운드 전
   }
 
   // 상대 중복 패널티: 1회는 허용(패널티 낮음), 2회째부터 강하게
