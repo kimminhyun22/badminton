@@ -2003,22 +2003,34 @@ function generateMatches(participants,settings,totalMatches){
         // avail: 게임 가능 선수
         let avail=participants.filter(p=>p.gamesPlayed<maxG&&!used.has(p.name));
 
-        // 직전 라운드 선수 제외 (pass1만) — extraPartners 추가 전에 처리
+        // 직전 라운드 선수 제외 (pass1만)
+        // 파트너 쌍은 둘 다 쉬었을 때만 배정 — 한 명이라도 직전 라운드면 쌍 전체 제외
         if(pass===1){
-          const availNoRest=avail.filter(p=>!justPlayed.has(p.name));
+          const availNoRest=avail.filter(p=>{
+            if(justPlayed.has(p.name)) return false;
+            // 파트너가 직전 라운드에 뛰었으면 이 선수도 제외 (쌍 전체 쉬어야 배정)
+            if(p.partnerName&&justPlayed.has(p.partnerName)) return false;
+            return true;
+          });
           if(availNoRest.length>=4) avail=availNoRest;
         }
 
-        // 파트너가 avail에 없으면 강제 추가 (보완게임 감소)
-        // 단, 직전 라운드에 뛴 파트너는 가급적 제외 (간격 유지)
+        // 파트너가 avail에 없으면 강제 추가
+        // pass1: 파트너 쌍 둘 다 쉬었을 때만 / pass2: 제약 해제
         const extraPartners=[];
         for(const p of [...avail]){
           if(!p.partnerName) continue;
           const partner=participants.find(x=>x.name===p.partnerName);
           if(!partner||used.has(partner.name)) continue;
           if(avail.includes(partner)) continue;
-          // 직전 라운드 뛴 파트너는 pass2에서만 추가
-          if(pass===1&&justPlayed.has(partner.name)) continue;
+          if(pass===1){
+            // 파트너가 직전 라운드 뛰었으면 추가하지 않음
+            if(justPlayed.has(partner.name)) {
+              // 이 선수도 avail에서 제거 (짝 없이 배정되는 것 방지)
+              avail=avail.filter(x=>x.name!==p.name);
+              continue;
+            }
+          }
           extraPartners.push(partner);
         }
         avail=[...avail,...extraPartners];
@@ -2395,12 +2407,21 @@ function diversityScore(four,ld){
   // 라운드 간격 패널티
   four.forEach(p=>{
     const gap=_currentRound-(p.lastRoundPlayed||0);
-    if(gap===1) score+=300;   // 직전 라운드 → 매우 강한 패널티
+    if(gap===1) score+=500;   // 직전 라운드 → 극강 패널티
     else if(gap===2) score+=80;
     else if(gap===3) score+=20;
     else if(gap>=6) score-=30;
     else if(gap>=4) score-=10;
   });
+  // 파트너 쌍이 직전 라운드에 함께 뛰었으면 추가 패널티
+  for(let i=0;i<4;i++){
+    if(!four[i].partnerName) continue;
+    const j=four.findIndex(p=>p.name===four[i].partnerName);
+    if(j<0) continue;
+    const gapI=_currentRound-(four[i].lastRoundPlayed||0);
+    const gapJ=_currentRound-(four[j].lastRoundPlayed||0);
+    if(gapI===1&&gapJ===1) score+=800; // 파트너 쌍 연속 배정 극강 차단
+  }
 
   // 상대 중복 패널티: 1회는 허용(패널티 낮음), 2회째부터 강하게
   for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){
