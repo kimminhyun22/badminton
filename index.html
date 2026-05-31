@@ -1455,6 +1455,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
 let _currentRound=1;
+let _partnerGapThreshold=2; // 파트너 최소 간격 (generateMatches에서 자동 설정)
 let teamAssignment=null;
 let currentMatches=[];
 let currentParticipants=[];
@@ -1986,6 +1987,15 @@ function generateMatches(participants,settings,totalMatches){
   const matches=[];let womenCount=0,menCount=0,mixedCount=0;
   shuffleArray(participants);
   let currentRound=1,consecutiveEmpty=0;
+
+  // 목표 간격 자동 계산: 전체 예상 라운드 ÷ 인당 게임수
+  // 예: 21명, 코트3, 인당4게임 → 예상라운드 = 4*21/4/3 = 7라운드, 목표간격 = 7/4 ≈ 1.75 → 1
+  const estRounds = Math.max(1, Math.ceil(totalMatches / settings.courts));
+  const targetGap = Math.max(1, Math.floor(estRounds / settings.gamesPerPlayer));
+  // 파트너 차단 라운드 수 = 목표간격 - 1 (간격만큼 띄우되 너무 빡빡하지 않게)
+  const partnerBlockRounds = Math.max(1, targetGap);
+  _partnerGapThreshold = partnerBlockRounds;
+
   while(matches.length<totalMatches){
     _currentRound=currentRound;
     const used=new Set();let added=0;
@@ -1994,9 +2004,9 @@ function generateMatches(participants,settings,totalMatches){
       matches.filter(m=>m.round===currentRound-1)
         .flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name])
     );
-    // 파트너 쌍은 직전 2라운드 모두 차단 (간격 최소 3라운드)
+    // 파트너 쌍 차단: 목표 간격만큼의 최근 라운드 (자동 계산)
     const partnerRecentRounds=new Set(
-      matches.filter(m=>m.round===currentRound-1||m.round===currentRound-2)
+      matches.filter(m=>m.round>=currentRound-partnerBlockRounds&&m.round<currentRound)
         .flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name])
     );
     for(let pass=1;pass<=2;pass++){
@@ -2222,10 +2232,10 @@ function tryCreateMatchWithPartners(avail, settings, type, maxLD){
     const partner = avail.find(x=>x.name===p.partnerName);
     if(!partner) continue;
     seen.add(p.name); seen.add(partner.name);
-    // 간격 체크: 둘 중 하나라도 최근 2라운드 내 뛰었으면 우선 배정 건너뜀
+    // 간격 체크: 목표 간격 내 뛰었으면 우선 배정 건너뜀
     const gapP=_currentRound-(p.lastRoundPlayed||0);
     const gapPartner=_currentRound-(partner.lastRoundPlayed||0);
-    if(gapP<=2||gapPartner<=2) continue;
+    if(gapP<=_partnerGapThreshold||gapPartner<=_partnerGapThreshold) continue;
     const pType = (p.gender==='M'&&partner.gender==='M')?'men'
                 :(p.gender==='F'&&partner.gender==='F')?'women':'mixed';
     partnerPairs.push({pair:[p,partner], pType});
@@ -2332,16 +2342,16 @@ function selectFourFreeMode(pool,type,maxLD){
     return (a.lastRoundPlayed||0)-(b.lastRoundPlayed||0);
   }).slice(0,20);
 
-  // 파트너가 있는 선수는 파트너도 cands에 포함 (단, 최근 2라운드 내 뛴 쌍은 제외)
+  // 파트너가 있는 선수는 파트너도 cands에 포함 (단, 목표 간격 내 뛴 쌍은 제외)
   const toAdd=[];
   for(const p of cands){
     if(!p.partnerName) continue;
     const gapP=_currentRound-(p.lastRoundPlayed||0);
-    if(gapP<=2) continue; // 최근 뛴 선수의 파트너는 강제 포함 안 함
+    if(gapP<=_partnerGapThreshold) continue;
     const partner=pool.find(x=>x.name===p.partnerName);
     if(!partner) continue;
     const gapPartner=_currentRound-(partner.lastRoundPlayed||0);
-    if(gapPartner<=2) continue;
+    if(gapPartner<=_partnerGapThreshold) continue;
     if(!cands.includes(partner)) toAdd.push(partner);
   }
   cands=[...cands,...toAdd];
@@ -2424,24 +2434,21 @@ function diversityScore(four,ld){
   const games=four.map(p=>p.gamesPlayed);
   score+=(Math.max(...games)-Math.min(...games))*8;
 
-  // 라운드 간격 패널티
+  // 라운드 간격 패널티 — 목표 간격(_partnerGapThreshold) 기준
+  const tg=_partnerGapThreshold||2;
   four.forEach(p=>{
     const gap=_currentRound-(p.lastRoundPlayed||0);
-    if(gap===1) score+=500;   // 직전 라운드 → 극강 패널티
-    else if(gap===2) score+=80;
-    else if(gap===3) score+=20;
-    else if(gap>=6) score-=30;
-    else if(gap>=4) score-=10;
+    if(gap<=tg) score+=400*(tg-gap+1); // 목표 간격 내일수록 강한 패널티
+    else if(gap>=tg*2) score-=30;       // 너무 오래 쉰 선수 우선 배정
   });
-  // 파트너 쌍이 최근 2라운드 내 함께 뛰었으면 강한 패널티
+  // 파트너 쌍이 목표 간격 내 함께 뛰었으면 극강 패널티
   for(let i=0;i<4;i++){
     if(!four[i].partnerName) continue;
     const j=four.findIndex(p=>p.name===four[i].partnerName);
     if(j<0) continue;
     const gapI=_currentRound-(four[i].lastRoundPlayed||0);
     const gapJ=_currentRound-(four[j].lastRoundPlayed||0);
-    if(gapI<=1||gapJ<=1) score+=1200; // 직전 라운드
-    else if(gapI<=2||gapJ<=2) score+=600; // 2라운드 전
+    if(gapI<=tg||gapJ<=tg) score+=1500;
   }
 
   // 상대 중복 패널티: 1회는 허용(패널티 낮음), 2회째부터 강하게
