@@ -3338,10 +3338,11 @@ function saveState(){
     teamNames:{...teamNames},
     teamModeOverride: _teamModeOverride,
     captains: JSON.parse(JSON.stringify(captains)),
+    partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
-      blue:teamAssignment.blue.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team,isGuest:!!p.isGuest})),
-      white:teamAssignment.white.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team,isGuest:!!p.isGuest}))
+      blue:teamAssignment.blue.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null})),
+      white:teamAssignment.white.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null}))
     }:null,
     matches:currentMatches.map(m=>({
       matchNumber:m.matchNumber,round:m.round,court:m.court,
@@ -3430,6 +3431,12 @@ function restoreState(){
     if(state.captains) captains=state.captains;
     else captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 
+    // 파트너 복원
+    if(state.partners) _partners=state.partners;
+    else _partners=[];
+    // 파트너 배지 반영해서 선수 목록 재렌더링
+    renderDirectPlayerList();
+
     if(state.teamAssignment){
       teamAssignment=state.teamAssignment;
       const btn=document.getElementById('teamAssignBtn');
@@ -3437,8 +3444,11 @@ function restoreState(){
       btn.innerHTML='🔀 청/백팀 재배정 (클릭 시 새로 배정)';
       const rbtn=document.getElementById('teamReassignBtn');
       if(rbtn) rbtn.classList.remove('hidden');
-      updateTeamModeBadge();
-      renderTeamList();
+      updateTeamModeBadge(); // 팀 모드 꺼짐이면 목록 자동 숨김
+      // 팀 모드 켜짐일 때만 팀 목록 표시
+      if(_teamModeOverride!==false){
+        renderTeamList();
+      }
     } else {teamAssignment=null;updateTeamModeBadge();}
 
     currentParticipants=state.participants.map(p=>Object.assign({
