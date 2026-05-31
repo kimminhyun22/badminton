@@ -1649,7 +1649,8 @@ function renderTeamList(){
     return `<div class="tlb-player${isLeader?' tlb-captain':isSub?' tlb-sub':''}">
       <span class="${roleCls}" onclick="${roleClick}" title="${roleTitle}">${roleIcon}</span>
       <div class="tlb-info">
-        <span class="tlb-name" style="color:${nameColor}">${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}</span>
+        <span class="tlb-name" style="color:${nameColor}">${esc(p.name)}</span>
+        ${p.isGuest?'<span class="guest-badge" style="flex-shrink:0;">G</span>':''}
         <span class="tlb-meta">Lv${p.level} ${genderLabel}</span>
       </div>
       <button class="move-btn" onclick="movePlayer('${esc(p.name)}','${toTeam}')" title="${toTeam==='white'?wn:bn}으로 이동">⇄</button>
