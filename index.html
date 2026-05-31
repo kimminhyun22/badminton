@@ -2010,10 +2010,13 @@ function generateMatches(participants,settings,totalMatches){
 
         // 차단 집합: 일반 선수는 justPlayed(1라운드), 파트너 쌍은 2라운드 차단
         const blockedThisRound=new Set([...justPlayed]);
-        // 파트너 쌍: 최근 2라운드 내 뛰었으면 쌍 전체 차단
+        // 파트너 쌍: 최근 2라운드 내 뛰었으면 쌍 전체 차단 (pass 무관)
+        const partnerBlocked=new Set();
         for(const name of partnerRecentRounds){
           const p=participants.find(x=>x.name===name);
           if(p?.partnerName){
+            partnerBlocked.add(name);
+            partnerBlocked.add(p.partnerName);
             blockedThisRound.add(name);
             blockedThisRound.add(p.partnerName);
           }
@@ -2022,18 +2025,21 @@ function generateMatches(participants,settings,totalMatches){
         if(pass===1){
           const availNoRest=avail.filter(p=>!blockedThisRound.has(p.name));
           if(availNoRest.length>=4) avail=availNoRest;
+        } else {
+          // pass2: 일반 선수 휴식은 풀되, 파트너 쌍 2라운드 차단은 유지
+          const availNoPartnerBlock=avail.filter(p=>!partnerBlocked.has(p.name));
+          if(availNoPartnerBlock.length>=4) avail=availNoPartnerBlock;
         }
 
         // 파트너가 avail에 없으면 강제 추가
-        // pass1: blockedThisRound에 있으면 절대 추가 안 함
+        // partnerBlocked에 있으면 절대 추가 안 함 (pass 무관)
         const extraPartners=[];
         for(const p of [...avail]){
           if(!p.partnerName) continue;
           const partner=participants.find(x=>x.name===p.partnerName);
           if(!partner||used.has(partner.name)) continue;
           if(avail.includes(partner)) continue;
-          if(pass===1&&blockedThisRound.has(partner.name)){
-            // 파트너가 차단됐으면 이 선수도 avail에서 제거
+          if(partnerBlocked.has(partner.name)||partnerBlocked.has(p.name)){
             avail=avail.filter(x=>x.name!==p.name);
             continue;
           }
