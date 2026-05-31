@@ -2214,21 +2214,24 @@ function getPartnerInParticipants(participants, name){
 // 파트너 쌍 강제 배정 시도
 // 파트너가 있는 선수가 avail에 있으면 그 쌍을 같은 팀으로 우선 배정
 function tryCreateMatchWithPartners(avail, settings, type, maxLD){
-  // 파트너 쌍 찾기
+  // 파트너 쌍 찾기 (최근 2라운드 내 뛴 쌍은 우선배정 제외 — 간격 3라운드)
   const partnerPairs = [];
   const seen = new Set();
   for(const p of avail){
     if(seen.has(p.name)||!p.partnerName) continue;
     const partner = avail.find(x=>x.name===p.partnerName);
     if(!partner) continue;
-    // 파트너 종목 결정
+    seen.add(p.name); seen.add(partner.name);
+    // 간격 체크: 둘 중 하나라도 최근 2라운드 내 뛰었으면 우선 배정 건너뜀
+    const gapP=_currentRound-(p.lastRoundPlayed||0);
+    const gapPartner=_currentRound-(partner.lastRoundPlayed||0);
+    if(gapP<=2||gapPartner<=2) continue;
     const pType = (p.gender==='M'&&partner.gender==='M')?'men'
                 :(p.gender==='F'&&partner.gender==='F')?'women':'mixed';
     partnerPairs.push({pair:[p,partner], pType});
-    seen.add(p.name); seen.add(partner.name);
   }
 
-  // 파트너 쌍이 없으면 일반 로직
+  // 우선 배정 가능한 파트너 쌍이 없으면 일반 로직
   if(!partnerPairs.length) return tryCreateMatch(avail,settings,type,maxLD);
 
   // 파트너 쌍이 있으면: 종목이 맞는 쌍 우선 사용
@@ -2329,12 +2332,17 @@ function selectFourFreeMode(pool,type,maxLD){
     return (a.lastRoundPlayed||0)-(b.lastRoundPlayed||0);
   }).slice(0,20);
 
-  // 파트너가 있는 선수는 파트너도 cands에 포함되도록 보장
+  // 파트너가 있는 선수는 파트너도 cands에 포함 (단, 최근 2라운드 내 뛴 쌍은 제외)
   const toAdd=[];
   for(const p of cands){
     if(!p.partnerName) continue;
+    const gapP=_currentRound-(p.lastRoundPlayed||0);
+    if(gapP<=2) continue; // 최근 뛴 선수의 파트너는 강제 포함 안 함
     const partner=pool.find(x=>x.name===p.partnerName);
-    if(partner&&!cands.includes(partner)) toAdd.push(partner);
+    if(!partner) continue;
+    const gapPartner=_currentRound-(partner.lastRoundPlayed||0);
+    if(gapPartner<=2) continue;
+    if(!cands.includes(partner)) toAdd.push(partner);
   }
   cands=[...cands,...toAdd];
 
