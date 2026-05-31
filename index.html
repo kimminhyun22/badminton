@@ -2095,8 +2095,8 @@ function generateMatches(participants,settings,totalMatches){
         to.push('any');
 
         let match=null;
-        // 1단계: 파트너 쌍 우선 배정 (maxLD 넉넉히 — 파트너 유지 최우선)
-        match=tryCreateMatchWithPartners(avail,settings,'any',4);
+        // 1단계: 파트너 쌍 우선 배정 — 레벨차 작은 조합부터 (밸런스 우선)
+        for(const pL of[1,2]){match=tryCreateMatchWithPartners(avail,settings,'any',pL);if(match)break;}
         // 2단계: 파트너 없으면 일반 배정 (레벨차 엄격)
         if(!match){
           for(const maxLD of[1,2,4]){
@@ -2104,7 +2104,13 @@ function generateMatches(participants,settings,totalMatches){
             if(match)break;
           }
         }
-        // 3단계 분리 제거: 파트너는 분리하지 않고 보완게임에 맡김 (파트너 유지 최우선)
+        // 3단계: 파트너 분리 허용 (레벨 밸런스 최우선, 4게임 중 1~2회 분리 OK)
+        if(!match){
+          for(const mL of[1,2]){
+            const four=selectFourFreeMode(avail,'any',mL);
+            if(four){match=formTeams(four,settings.teamMode,'any',mL,true);if(match)break;}
+          }
+        }
         if(!match)continue;
         if(match.type==='여복')womenCount++;else if(match.type==='남복')menCount++;else mixedCount++;
         match.matchNumber=matches.length+1;match.round=currentRound;match.court=court;
