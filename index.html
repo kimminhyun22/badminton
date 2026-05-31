@@ -2248,38 +2248,47 @@ function tryCreateMatchWithPartners(avail, settings, type, maxLD){
   for(const {pair, pType} of partnerPairs){
     // 요청 종목이 any이거나 파트너 종목과 일치할 때만
     if(type!=='any' && type!==pType) continue;
-    // 상대 2명 찾기 (파트너 제외, 같은 팀 가능 선수)
+    // 상대 후보: 파트너 쌍 본인 제외
     const rest = avail.filter(p=>p.name!==pair[0].name&&p.name!==pair[1].name);
-    // 상대도 파트너가 있으면 그 쌍을 우선 상대로
+
+    // 상대 후보 1순위: 같은 종목의 파트너 쌍
     let oppPair = null;
     const seen2 = new Set();
     for(const r of rest){
       if(seen2.has(r.name)||!r.partnerName) continue;
       const rp = rest.find(x=>x.name===r.partnerName);
+      seen2.add(r.name);
       if(!rp) continue;
+      seen2.add(rp.name);
       const opType=(r.gender==='M'&&rp.gender==='M')?'men':(r.gender==='F'&&rp.gender==='F')?'women':'mixed';
+      // 반드시 같은 종목이어야 함 (여복 파트너 ↔ 여복 파트너만)
       if(opType===pType){ oppPair=[r,rp]; break; }
-      seen2.add(r.name); seen2.add(rp.name);
     }
-    // 상대 파트너 쌍 없으면 종목에 맞는 일반 선수 2명
+
+    // 2순위: 파트너 없는 일반 선수로 상대 구성 (종목 엄격 검증)
     if(!oppPair){
-      let restFiltered=rest;
-      if(pType==='women') restFiltered=rest.filter(p=>p.gender==='F');
-      else if(pType==='men') restFiltered=rest.filter(p=>p.gender==='M');
-      else restFiltered=rest; // mixed는 남녀 섞여야
-      if(pType==='mixed'){
-        // 혼복: 상대도 남1+여1 필요
-        const restM=restFiltered.filter(p=>p.gender==='M');
-        const restF=restFiltered.filter(p=>p.gender==='F');
-        if(!restM.length||!restF.length) continue;
-        oppPair=[restM[0],restF[0]];
-      } else {
-        if(restFiltered.length<2) continue;
-        oppPair=[restFiltered[0],restFiltered[1]];
+      // 파트너가 있는 선수는 상대로 쓰지 않음 (분리 방지)
+      const freeRest=rest.filter(p=>!p.partnerName);
+      if(pType==='women'){
+        const f=freeRest.filter(p=>p.gender==='F');
+        if(f.length>=2) oppPair=[f[0],f[1]];
+      } else if(pType==='men'){
+        const m=freeRest.filter(p=>p.gender==='M');
+        if(m.length>=2) oppPair=[m[0],m[1]];
+      } else { // mixed
+        const m=freeRest.filter(p=>p.gender==='M');
+        const f=freeRest.filter(p=>p.gender==='F');
+        if(m.length>=1&&f.length>=1) oppPair=[m[0],f[0]];
       }
     }
+
     if(!oppPair) continue;
     const four=[...pair,...oppPair];
+    // 최종 종목 검증: 4명 구성이 pType과 일치하는지 확인
+    const males=four.filter(p=>p.gender==='M').length;
+    const females=four.filter(p=>p.gender==='F').length;
+    const actualType=(males===4)?'men':(females===4)?'women':'mixed';
+    if(actualType!==pType) continue; // 종목 불일치 시 이 쌍 건너뜀
     const m=formTeams(four,settings.teamMode,pType,maxLD);
     if(m) return m;
   }
