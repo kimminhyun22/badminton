@@ -1989,26 +1989,56 @@ function generateMatches(participants,settings,totalMatches){
   while(matches.length<totalMatches){
     _currentRound=currentRound;
     const used=new Set();let added=0;
-    // 2단계 채우기: 1단계=미달 선수만, 2단계=초과허용(1게임 더) 선수 포함
+    // 직전 라운드 참가자 (연달아 배정 방지)
+    const justPlayed=new Set(
+      matches.filter(m=>m.round===currentRound-1)
+        .flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name])
+    );
     for(let pass=1;pass<=2;pass++){
       for(let court=1;court<=settings.courts;court++){
         if(matches.length>=totalMatches)break;
-        // 이미 이번 라운드에 이 코트에 매치가 있으면 건너뜀
         if(matches.some(m=>m.round===currentRound&&m.court===court))continue;
-        // pass1: gamesPlayed<target 선수만 / pass2: +1 여유 포함
         const maxG=pass===1?settings.gamesPerPlayer:settings.gamesPerPlayer+1;
+
+        // avail: 파트너가 있는 선수는 파트너도 함께 포함 (보완게임 감소)
         let avail=participants.filter(p=>p.gamesPlayed<maxG&&!used.has(p.name));
+        // 직전 라운드 선수 제외 (pass1만), 단 파트너 쌍은 예외 없음
+        if(pass===1){
+          const availNoRest=avail.filter(p=>!justPlayed.has(p.name));
+          if(availNoRest.length>=4) avail=availNoRest;
+        }
+        // 파트너가 avail에 없으면 파트너도 추가 (gamesPlayed 초과해도 포함)
+        const extraPartners=[];
+        for(const p of [...avail]){
+          if(!p.partnerName) continue;
+          const partner=participants.find(x=>x.name===p.partnerName);
+          if(partner&&!avail.includes(partner)&&!used.has(partner.name)){
+            extraPartners.push(partner);
+          }
+        }
+        avail=[...avail,...extraPartners];
         if(avail.length<4)continue;
+
         const remX=settings.targetMixedDoubles-mixedCount;
-        const remW=settings.targetWomenDoubles-womenCount,remM=settings.targetMenDoubles-menCount;
+        const remW=settings.targetWomenDoubles-womenCount;
+        const remM=settings.targetMenDoubles-menCount;
+
+        // 파트너 혼복 쌍 존재 여부 확인
+        const hasPartnerMixed=avail.some(p=>{
+          if(!p.partnerName) return false;
+          const partner=avail.find(x=>x.name===p.partnerName);
+          if(!partner) return false;
+          return (p.gender==='M'&&partner.gender==='F')||(p.gender==='F'&&partner.gender==='M');
+        });
+
         const to=[];
-        if(remX>0){
-          // 혼복 우선
+        // 파트너 혼복은 remX 제한 무시하고 항상 먼저 시도
+        if(hasPartnerMixed) to.push('mixed');
+        if(remX>0&&!hasPartnerMixed){
           to.push('mixed');
           if(remW>0)to.push('women');
           if(remM>0)to.push('men');
         } else {
-          // 성별 복식 우선
           const wR=(remW>0&&settings.targetWomenDoubles>0)?womenCount/settings.targetWomenDoubles:Infinity;
           const mR=(remM>0&&settings.targetMenDoubles>0)?menCount/settings.targetMenDoubles:Infinity;
           if(wR!==Infinity||mR!==Infinity){
@@ -2018,8 +2048,8 @@ function generateMatches(participants,settings,totalMatches){
           }
         }
         to.push('any');
+
         let match=null;
-        // 파트너 우선 배정 시도
         for(const maxLD of[1,2,99]){
           for(const t of to){match=tryCreateMatchWithPartners(avail,settings,t,maxLD);if(match)break;}
           if(match)break;
@@ -2030,7 +2060,6 @@ function generateMatches(participants,settings,totalMatches){
         [match.team1A,match.team1B,match.team2C,match.team2D].forEach(p=>used.add(p.name));
         updatePlayerRecords(match);matches.push(match);added++;
       }
-      // pass1에서 이미 모든 코트가 채워졌으면 pass2 불필요
       const filledCourts=new Set(matches.filter(m=>m.round===currentRound).map(m=>m.court));
       let allFull=true;
       for(let c=1;c<=settings.courts;c++){if(!filledCourts.has(c)){allFull=false;break;}}
