@@ -2000,21 +2000,26 @@ function generateMatches(participants,settings,totalMatches){
         if(matches.some(m=>m.round===currentRound&&m.court===court))continue;
         const maxG=pass===1?settings.gamesPerPlayer:settings.gamesPerPlayer+1;
 
-        // avail: 파트너가 있는 선수는 파트너도 함께 포함 (보완게임 감소)
+        // avail: 게임 가능 선수
         let avail=participants.filter(p=>p.gamesPlayed<maxG&&!used.has(p.name));
-        // 직전 라운드 선수 제외 (pass1만), 단 파트너 쌍은 예외 없음
+
+        // 직전 라운드 선수 제외 (pass1만) — extraPartners 추가 전에 처리
         if(pass===1){
           const availNoRest=avail.filter(p=>!justPlayed.has(p.name));
           if(availNoRest.length>=4) avail=availNoRest;
         }
-        // 파트너가 avail에 없으면 파트너도 추가 (gamesPlayed 초과해도 포함)
+
+        // 파트너가 avail에 없으면 강제 추가 (보완게임 감소)
+        // 단, 직전 라운드에 뛴 파트너는 가급적 제외 (간격 유지)
         const extraPartners=[];
         for(const p of [...avail]){
           if(!p.partnerName) continue;
           const partner=participants.find(x=>x.name===p.partnerName);
-          if(partner&&!avail.includes(partner)&&!used.has(partner.name)){
-            extraPartners.push(partner);
-          }
+          if(!partner||used.has(partner.name)) continue;
+          if(avail.includes(partner)) continue;
+          // 직전 라운드 뛴 파트너는 pass2에서만 추가
+          if(pass===1&&justPlayed.has(partner.name)) continue;
+          extraPartners.push(partner);
         }
         avail=[...avail,...extraPartners];
         if(avail.length<4)continue;
@@ -2050,7 +2055,8 @@ function generateMatches(participants,settings,totalMatches){
         to.push('any');
 
         let match=null;
-        for(const maxLD of[1,2,99]){
+        // maxLD: 1(평균 0.5차이) → 2 → 4 순으로 시도, 레벨차 최소화 우선
+        for(const maxLD of[1,2,4]){
           for(const t of to){match=tryCreateMatchWithPartners(avail,settings,t,maxLD);if(match)break;}
           if(match)break;
         }
@@ -2380,32 +2386,43 @@ function selectFillerFour(pool,unmet,target,settings){
 }
 
 function diversityScore(four,ld){
-  let score=(ld||0)*25;
+  // LD 가중치 최우선 — 레벨차 최소화
+  let score=(ld||0)*80;
+
   const games=four.map(p=>p.gamesPlayed);
-  // 게임 수 격차 패널티 (강화)
   score+=(Math.max(...games)-Math.min(...games))*8;
-  // 연속/근접 라운드 배정 패널티 (대폭 강화)
+
+  // 라운드 간격 패널티
   four.forEach(p=>{
     const gap=_currentRound-(p.lastRoundPlayed||0);
-    if(gap===1) score+=200;   // 바로 직전 라운드 → 강한 패널티
-    else if(gap===2) score+=60;
-    else if(gap===3) score+=15;
-    // 오래 쉰 선수는 보너스 (음수 → 점수 낮을수록 선택됨)
+    if(gap===1) score+=300;   // 직전 라운드 → 매우 강한 패널티
+    else if(gap===2) score+=80;
+    else if(gap===3) score+=20;
     else if(gap>=6) score-=30;
     else if(gap>=4) score-=10;
   });
-  // 파트너/상대 중복 패널티
+
+  // 상대 중복 패널티: 1회는 허용(패널티 낮음), 2회째부터 강하게
   for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){
-    score+=(four[i].partnerCount[four[j].name]||0)*8;
-    score+=(four[i].opponentCount[four[j].name]||0)*3;
+    // 파트너 카운트(같은팀)는 파트너 쌍이면 무시
+    const isPartnerPair=four[i].partnerName===four[j].name;
+    if(!isPartnerPair){
+      const pc=four[i].partnerCount[four[j].name]||0;
+      score+=pc*10; // 같은 팀 중복
+    }
+    const oc=four[i].opponentCount[four[j].name]||0;
+    if(oc===0) score+=0;        // 첫 대전: 패널티 없음
+    else if(oc===1) score+=5;   // 1회 대전: 소폭 패널티 (허용)
+    else score+=(oc-1)*40;      // 2회 이상: 강한 패널티
   }
+
   // 팀 내 레벨 차이 패널티
   const minIntra=Math.min(
     Math.abs(four[0].level-four[1].level)+Math.abs(four[2].level-four[3].level),
     Math.abs(four[0].level-four[2].level)+Math.abs(four[1].level-four[3].level),
     Math.abs(four[0].level-four[3].level)+Math.abs(four[1].level-four[2].level)
   );
-  score+=minIntra*18;
+  score+=minIntra*25;
   return score;
 }
 
@@ -2434,11 +2451,15 @@ function formTeams(four,teamMode,type,maxLD){
     if(teamMode){if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)continue;}
     const ld=Math.abs((t1[0].level+t1[1].level)-(t2[0].level+t2[1].level));
     if(ld>maxLD)continue;
-    let score=ld*30;
-    score+=Math.abs(t1[0].level-t1[1].level)*20;
-    score+=Math.abs(t2[0].level-t2[1].level)*20;
-    score+=(t1[0].partnerCount[t1[1].name]||0)*5;score+=(t2[0].partnerCount[t2[1].name]||0)*5;
-    t1.forEach(a=>t2.forEach(b=>{score+=(a.opponentCount[b.name]||0)*2;}));
+    let score=ld*80; // 레벨차 최우선
+    score+=Math.abs(t1[0].level-t1[1].level)*25;
+    score+=Math.abs(t2[0].level-t2[1].level)*25;
+    const p1pair=t1[0].partnerName===t1[1].name;
+    const p2pair=t2[0].partnerName===t2[1].name;
+    if(!p1pair) score+=(t1[0].partnerCount[t1[1].name]||0)*10;
+    if(!p2pair) score+=(t2[0].partnerCount[t2[1].name]||0)*10;
+    // 상대 중복: 1회 허용, 2회+만 패널티
+    t1.forEach(a=>t2.forEach(b=>{const oc=a.opponentCount[b.name]||0;score+=oc<=1?oc*2:(oc-1)*30;}));
     if(!teamMode&&type==='any'){const f1=t1.filter(p=>p.gender==='F').length,f2=t2.filter(p=>p.gender==='F').length;if(f1===1&&f2===1)score-=50;}
     if(score<bestScore){bestScore=score;best={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:ld,team1Level:t1[0].level+t1[1].level,team2Level:t2[0].level+t2[1].level};}
   }
