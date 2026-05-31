@@ -565,6 +565,17 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .dir-input{flex:1;min-width:80px;background:#fff;border:1.5px solid var(--bdr);border-radius:7px;
   padding:9px 12px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;}
 .dir-input:focus{border-color:var(--bl);}
+/* 게스트 버튼 */
+.guest-btn{flex-shrink:0;width:38px;height:38px;border-radius:7px;border:1.5px solid var(--bdr);
+  background:#fff;font-size:.8rem;font-weight:800;color:var(--dim);cursor:pointer;
+  transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.guest-btn:hover{border-color:#8b6fc4;color:#8b6fc4;background:#f5f3ff;}
+.guest-btn.on{border-color:#8b6fc4;background:#ede9fe;color:#5b21b6;box-shadow:0 0 0 2px #ddd6fe;}
+/* 게스트 배지 */
+.guest-badge{display:inline-flex;align-items:center;justify-content:center;
+  font-size:.58rem;font-weight:800;background:#ede9fe;color:#5b21b6;
+  border:1px solid #ddd6fe;border-radius:3px;padding:0 4px;margin-left:4px;
+  vertical-align:middle;line-height:1.6;letter-spacing:.3px;}
 .dir-label{font-size:.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--dim);font-weight:700;white-space:nowrap;flex-shrink:0;}
 .lv-sel-btns{display:flex;gap:4px;}
 .lv-sel-btn{width:36px;height:36px;border-radius:6px;border:1.5px solid var(--bdr);
@@ -1036,6 +1047,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
               <div class="dir-row">
                 <input class="dir-input" id="dirName" type="text" placeholder="이름 입력"
                   onkeydown="if(event.key==='Enter')addDirectPlayer()">
+                <button class="guest-btn" onclick="toggleGuestMode()" id="guestBtn" title="게스트로 추가">G</button>
               </div>
               <div class="dir-row">
                 <span class="dir-label">급수</span>
@@ -2415,16 +2427,16 @@ function renderResults(matches,participants,settings){
           <div class="tm-side ${p1cls}">
             <span class="tm-prefix">${p1label}</span>
             <div class="tm-names">
-              <span class="tm-name">${esc(m.team1A.name)} <span class="tm-lv">${LV_LABEL[m.team1A.level]}</span></span>
-              <span class="tm-name">${esc(m.team1B.name)} <span class="tm-lv">${LV_LABEL[m.team1B.level]}</span></span>
+              <span class="tm-name">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${LV_LABEL[m.team1A.level]}</span></span>
+              <span class="tm-name">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${LV_LABEL[m.team1B.level]}</span></span>
             </div>
           </div>
           <div class="tm-vs">VS</div>
           <div class="tm-side ${p2cls}">
             <span class="tm-prefix">${p2label}</span>
             <div class="tm-names">
-              <span class="tm-name">${esc(m.team2C.name)} <span class="tm-lv">${LV_LABEL[m.team2C.level]}</span></span>
-              <span class="tm-name">${esc(m.team2D.name)} <span class="tm-lv">${LV_LABEL[m.team2D.level]}</span></span>
+              <span class="tm-name">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${LV_LABEL[m.team2C.level]}</span></span>
+              <span class="tm-name">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${LV_LABEL[m.team2D.level]}</span></span>
             </div>
           </div>
         </div>
@@ -3747,6 +3759,22 @@ function selectDirGender(g){
   });
 }
 
+let _isGuest = false;
+
+function toggleGuestMode(){
+  _isGuest = !_isGuest;
+  const btn = document.getElementById('guestBtn');
+  if(_isGuest){
+    btn.classList.add('on');
+    btn.title = '게스트 모드 켜짐 — 클릭해서 해제';
+    document.getElementById('dirName').placeholder = '게스트 이름 입력';
+  } else {
+    btn.classList.remove('on');
+    btn.title = '게스트로 추가';
+    document.getElementById('dirName').placeholder = '이름 입력';
+  }
+}
+
 function addDirectPlayer(){
   const nameEl = document.getElementById('dirName');
   const name = nameEl.value.trim();
@@ -3759,7 +3787,7 @@ function addDirectPlayer(){
     return;
   }
   const _newLv = gradeToLevel(_dirGrade, _dirGender) ?? 1;
-  _directPlayers.push({name, grade:_dirGrade, level:_newLv, gender:_dirGender});
+  _directPlayers.push({name, grade:_dirGrade, level:_newLv, gender:_dirGender, isGuest:_isGuest});
   nameEl.value='';
   nameEl.focus();
   renderDirectPlayerList();
@@ -3798,7 +3826,7 @@ function renderDirectPlayerList(){
   const LV_COLOR={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
   list.innerHTML = indexed.map((p)=>`
     <div class="dir-player-item">
-      <span class="dpi-name">${esc(p.name)}</span>
+      <span class="dpi-name">${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}</span>
       <span class="dpi-meta">
         <span class="lv-badge ${LV_COLOR[p.level]||'lv3'}">${p.grade||LV_LABEL[p.level]||p.level}</span>
         ${p.gender} · Lv${p.level}</span>
