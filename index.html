@@ -1562,7 +1562,7 @@ function doTeamAssign(){
   const all=_directPlayers.map(p=>({
     name:p.name, level:p.level,
     gender:p.gender==='남'?'M':'F',
-    grade:p.grade, team:''
+    grade:p.grade, team:'', isGuest:!!p.isGuest
   }));
 
   // 단장/부단장으로 지정된 선수는 고정, 나머지만 재배정
@@ -1821,7 +1821,7 @@ function generate(){
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   let participants=_directPlayers.map(p=>({
     name:p.name,level:p.level,gender:p.gender==='남'?'M':'F',
-    team:p.team||'',_valid:true,_grade:p.grade,
+    team:p.team||'',isGuest:!!p.isGuest,_valid:true,_grade:p.grade,
     _levelRaw:String(p.level),_genderRaw:p.gender
   }));
   if(!participants.length){showErr('유효한 참가자가 없습니다.');return;}
@@ -3083,8 +3083,8 @@ function saveState(){
     captains: JSON.parse(JSON.stringify(captains)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
-      blue:teamAssignment.blue.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team})),
-      white:teamAssignment.white.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team}))
+      blue:teamAssignment.blue.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team,isGuest:!!p.isGuest})),
+      white:teamAssignment.white.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team,isGuest:!!p.isGuest}))
     }:null,
     matches:currentMatches.map(m=>({
       matchNumber:m.matchNumber,round:m.round,court:m.court,
@@ -3095,6 +3095,7 @@ function saveState(){
     })),
     participants:currentParticipants.map(p=>({
       name:p.name,level:p.level,gender:p.gender,team:p.team,
+      isGuest:!!p.isGuest,
       gamesPlayed:p.gamesPlayed,
       womenDoublesPlayed:p.womenDoublesPlayed,
       menDoublesPlayed:p.menDoublesPlayed,
@@ -3106,7 +3107,7 @@ function saveState(){
   catch(e){setSaveStatus('','⚠ 저장 실패');}
 }
 
-function slim(p){return{name:p.name,level:p.level,gender:p.gender,team:p.team||''};}
+function slim(p){return{name:p.name,level:p.level,gender:p.gender,team:p.team||'',isGuest:!!p.isGuest};}
 
 function checkSavedState(){
   try{
@@ -3184,7 +3185,7 @@ function restoreState(){
     } else {teamAssignment=null;updateTeamModeBadge();}
 
     currentParticipants=state.participants.map(p=>Object.assign({
-      _valid:true,partnerCount:{},opponentCount:{},lastRoundPlayed:0,_levelRaw:'',_genderRaw:''
+      _valid:true,partnerCount:{},opponentCount:{},lastRoundPlayed:0,_levelRaw:'',_genderRaw:'',isGuest:!!p.isGuest
     },p));
     currentMatches=state.matches.map(m=>{
       const findP=name=>currentParticipants.find(p=>p.name===name)||{name,level:3,gender:'M',team:''};
