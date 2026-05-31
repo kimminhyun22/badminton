@@ -2089,10 +2089,18 @@ function generateMatches(participants,settings,totalMatches){
         to.push('any');
 
         let match=null;
-        // maxLD: 1(평균 0.5차이) → 2 → 4 순으로 시도, 레벨차 최소화 우선
+        // 1~2단계: 정상 배정 (다른상대 → 동일상대1회, 파트너 유지)
+        // diversityScore가 동일상대 1회 허용/2회+ 패널티를 자동 처리
         for(const maxLD of[1,2,4]){
           for(const t of to){match=tryCreateMatchWithPartners(avail,settings,t,maxLD);if(match)break;}
           if(match)break;
+        }
+        // 3단계: 위에서 실패 시, 파트너 분리 허용하여 일반 배정 (게임수 미달 방지)
+        if(!match){
+          for(const maxLD of[2,4]){
+            const four=selectFourFreeMode(avail,'any',maxLD);
+            if(four){match=formTeams(four,settings.teamMode,'any',maxLD,true);if(match)break;}
+          }
         }
         if(!match)continue;
         if(match.type==='여복')womenCount++;else if(match.type==='남복')menCount++;else mixedCount++;
@@ -2484,27 +2492,28 @@ function diversityScore(four,ld){
   return score;
 }
 
-function formTeams(four,teamMode,type,maxLD){
+function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
   const combos=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
   let best=null,bestScore=Infinity;
 
-  // 파트너 종목 검증: 4명 안에 파트너 쌍이 있으면, 그 쌍의 종목과 4명 구성이 일치해야 함
-  // (여복 파트너인데 4명이 남2여2면 혼복이 되므로 거부)
-  const males=four.filter(p=>p.gender==='M').length;
-  const females=four.filter(p=>p.gender==='F').length;
-  const fourType=(males===4)?'men':(females===4)?'women':'mixed';
-  for(const p of four){
-    if(!p.partnerName) continue;
-    const partner=four.find(x=>x.name===p.partnerName);
-    if(!partner) continue;
-    const reqType=(p.gender==='M'&&partner.gender==='M')?'men'
-                 :(p.gender==='F'&&partner.gender==='F')?'women':'mixed';
-    // 파트너 쌍의 종목과 4명 종목이 다르면 이 조합은 불가
-    if(reqType!==fourType) return null;
+  // 파트너 종목 검증: allowPartnerSplit이 아니면 종목 강제
+  if(!allowPartnerSplit){
+    const males=four.filter(p=>p.gender==='M').length;
+    const females=four.filter(p=>p.gender==='F').length;
+    const fourType=(males===4)?'men':(females===4)?'women':'mixed';
+    for(const p of four){
+      if(!p.partnerName) continue;
+      const partner=four.find(x=>x.name===p.partnerName);
+      if(!partner) continue;
+      const reqType=(p.gender==='M'&&partner.gender==='M')?'men'
+                   :(p.gender==='F'&&partner.gender==='F')?'women':'mixed';
+      if(reqType!==fourType) return null;
+    }
   }
 
-  // 파트너 쌍 확인: 파트너가 있으면 반드시 같은 팀에 있어야 함
+  // 파트너 쌍 확인: 파트너가 있으면 반드시 같은 팀 (allowPartnerSplit이면 무시)
   const isValidCombo=(t1,t2)=>{
+    if(allowPartnerSplit) return true; // 분리 허용 시 검증 생략
     const allPlayers=[...t1,...t2];
     for(const p of allPlayers){
       if(!p.partnerName) continue;
