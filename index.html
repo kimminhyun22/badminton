@@ -1454,6 +1454,12 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 <script>
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
+// 실효 레벨: 같은 급수라도 여성은 남성보다 0.5 낮게 평가 (남녀 실력차 1.5 반영)
+// 예: C급 남(4) vs C급 여(3) → 실효 4 vs 2.5 → 격차 1.5
+function effLevel(p){
+  const isF = p.gender==='F' || p.gender==='여';
+  return p.level - (isF ? 0.5 : 0);
+}
 let _currentRound=1;
 let _partnerGapThreshold=2; // 파트너 최소 간격 (generateMatches에서 자동 설정)
 let teamAssignment=null;
@@ -1625,8 +1631,8 @@ function doTeamAssign(){
 
   // 파트너 쌍 배정: 레벨합 낮은 팀에 배정해 균형 맞추기
   for(const [pa,pb] of partnerPairs){
-    const bSum=blue.reduce((s,p)=>s+p.level,0);
-    const wSum=white.reduce((s,p)=>s+p.level,0);
+    const bSum=blue.reduce((s,p)=>s+effLevel(p),0);
+    const wSum=white.reduce((s,p)=>s+effLevel(p),0);
     if(bSum<=wSum){ blue.push(pa,pb); }
     else { white.push(pa,pb); }
   }
@@ -1646,8 +1652,8 @@ function doTeamAssign(){
 function renderTeamList(){
   if(!teamAssignment)return;
   const {blue,white}=teamAssignment;
-  const bSum=blue.reduce((s,p)=>s+p.level,0);
-  const wSum=white.reduce((s,p)=>s+p.level,0);
+  const bSum=blue.reduce((s,p)=>s+effLevel(p),0);
+  const wSum=white.reduce((s,p)=>s+effLevel(p),0);
   const bF=blue.filter(p=>p.gender==='F').length;
   const wF=white.filter(p=>p.gender==='F').length;
   const bM=blue.filter(p=>p.gender==='M').length;
@@ -1821,7 +1827,7 @@ function updateTeamModeBadge(){
 
 /* ═══ BALANCE TEAMS ═══ */
 function balanceTeams(all){
-  const sum=t=>t.reduce((s,p)=>s+p.level,0);
+  const sum=t=>t.reduce((s,p)=>s+effLevel(p),0);
   const femCount=t=>t.filter(p=>p.gender==='F').length;
 
   // 배분 결정 함수: 레벨합 + 인원수 균형을 동시에 고려
@@ -1863,7 +1869,7 @@ function balanceTeams(all){
         if(blue[bi].gender!==white[wi].gender)continue;
         // 스왑 후 인원수는 그대로이므로 레벨합 차이만 비교
         const before=Math.abs(sum(blue)-sum(white));
-        const after=Math.abs((sum(blue)-blue[bi].level+white[wi].level)-(sum(white)-white[wi].level+blue[bi].level));
+        const after=Math.abs((sum(blue)-effLevel(blue[bi])+effLevel(white[wi]))-(sum(white)-effLevel(white[wi])+effLevel(blue[bi])));
         if(after<before){
           [blue[bi],white[wi]]=[white[wi],blue[bi]];
           improved=true;
@@ -2341,7 +2347,7 @@ function selectFourTeamMode(pool,gf,maxLD){
   for(let i=0;i<bc.length-1;i++)for(let j=i+1;j<bc.length;j++)
     for(let k=0;k<wc.length-1;k++)for(let l=k+1;l<wc.length;l++){
       const four=[bc[i],bc[j],wc[k],wc[l]];
-      const ld=Math.abs((four[0].level+four[1].level)-(four[2].level+four[3].level));
+      const ld=Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3])));
       if(ld>maxLD)continue;
       const score=diversityScore(four,ld);
       if(score<bestScore){bestScore=score;best=four;}
@@ -2386,9 +2392,9 @@ function selectFourFreeMode(pool,type,maxLD){
     });
     if(!partnerOk) continue;
     const minLD=Math.min(
-      Math.abs((four[0].level+four[1].level)-(four[2].level+four[3].level)),
-      Math.abs((four[0].level+four[2].level)-(four[1].level+four[3].level)),
-      Math.abs((four[0].level+four[3].level)-(four[1].level+four[2].level))
+      Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3]))),
+      Math.abs((effLevel(four[0])+effLevel(four[2]))-(effLevel(four[1])+effLevel(four[3]))),
+      Math.abs((effLevel(four[0])+effLevel(four[3]))-(effLevel(four[1])+effLevel(four[2])))
     );
     if(minLD>maxLD)continue;
     const score=diversityScore(four,minLD);
@@ -2402,9 +2408,9 @@ function selectFourFreeMode(pool,type,maxLD){
       if(type==='men'&&four.some(p=>p.gender!=='M'))continue;
       if(type==='mixed'&&(four.every(p=>p.gender==='F')||four.every(p=>p.gender==='M')))continue;
       const minLD=Math.min(
-        Math.abs((four[0].level+four[1].level)-(four[2].level+four[3].level)),
-        Math.abs((four[0].level+four[2].level)-(four[1].level+four[3].level)),
-        Math.abs((four[0].level+four[3].level)-(four[1].level+four[2].level))
+        Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3]))),
+        Math.abs((effLevel(four[0])+effLevel(four[2]))-(effLevel(four[1])+effLevel(four[3]))),
+        Math.abs((effLevel(four[0])+effLevel(four[3]))-(effLevel(four[1])+effLevel(four[2])))
       );
       if(minLD>maxLD)continue;
       const score=diversityScore(four,minLD);
@@ -2431,9 +2437,9 @@ function selectFillerFour(pool,unmet,target,settings){
     if(!four.some(p=>p.gamesPlayed<target))continue;
     if(settings.teamMode){const b=four.filter(p=>p.team==='청팀'),w=four.filter(p=>p.team==='백팀');if(b.length<2||w.length<2)continue;}
     const minLD=Math.min(
-      Math.abs((four[0].level+four[1].level)-(four[2].level+four[3].level)),
-      Math.abs((four[0].level+four[2].level)-(four[1].level+four[3].level)),
-      Math.abs((four[0].level+four[3].level)-(four[1].level+four[2].level))
+      Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3]))),
+      Math.abs((effLevel(four[0])+effLevel(four[2]))-(effLevel(four[1])+effLevel(four[3]))),
+      Math.abs((effLevel(four[0])+effLevel(four[3]))-(effLevel(four[1])+effLevel(four[2])))
     );
     const uc=four.filter(p=>p.gamesPlayed<target).length;
     // 미달 인원 많을수록, 오래 쉰 선수 포함할수록 우선
@@ -2484,9 +2490,9 @@ function diversityScore(four,ld){
 
   // 팀 내 레벨 차이 패널티
   const minIntra=Math.min(
-    Math.abs(four[0].level-four[1].level)+Math.abs(four[2].level-four[3].level),
-    Math.abs(four[0].level-four[2].level)+Math.abs(four[1].level-four[3].level),
-    Math.abs(four[0].level-four[3].level)+Math.abs(four[1].level-four[2].level)
+    Math.abs(effLevel(four[0])-effLevel(four[1]))+Math.abs(effLevel(four[2])-effLevel(four[3])),
+    Math.abs(effLevel(four[0])-effLevel(four[2]))+Math.abs(effLevel(four[1])-effLevel(four[3])),
+    Math.abs(effLevel(four[0])-effLevel(four[3]))+Math.abs(effLevel(four[1])-effLevel(four[2]))
   );
   score+=minIntra*25;
   return score;
@@ -2531,11 +2537,11 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     // 파트너 같은팀 강제
     if(!isValidCombo(t1,t2)) continue;
     if(teamMode){if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)continue;}
-    const ld=Math.abs((t1[0].level+t1[1].level)-(t2[0].level+t2[1].level));
+    const ld=Math.abs((effLevel(t1[0])+effLevel(t1[1]))-(effLevel(t2[0])+effLevel(t2[1])));
     if(ld>maxLD)continue;
     let score=ld*80; // 레벨차 최우선
-    score+=Math.abs(t1[0].level-t1[1].level)*25;
-    score+=Math.abs(t2[0].level-t2[1].level)*25;
+    score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
+    score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
     const p1pair=t1[0].partnerName===t1[1].name;
     const p2pair=t2[0].partnerName===t2[1].name;
     if(!p1pair) score+=(t1[0].partnerCount[t1[1].name]||0)*10;
@@ -2543,7 +2549,7 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     // 상대 중복: 1회 허용, 2회+만 패널티
     t1.forEach(a=>t2.forEach(b=>{const oc=a.opponentCount[b.name]||0;score+=oc<=1?oc*2:(oc-1)*30;}));
     if(!teamMode&&type==='any'){const f1=t1.filter(p=>p.gender==='F').length,f2=t2.filter(p=>p.gender==='F').length;if(f1===1&&f2===1)score-=50;}
-    if(score<bestScore){bestScore=score;best={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:ld,team1Level:t1[0].level+t1[1].level,team2Level:t2[0].level+t2[1].level};}
+    if(score<bestScore){bestScore=score;best={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:ld,team1Level:effLevel(t1[0])+effLevel(t1[1]),team2Level:effLevel(t2[0])+effLevel(t2[1])};}
   }
   if(!best)return null;
   // 팀 모드: team1이 항상 청팀이 되도록 보장
@@ -3348,9 +3354,9 @@ function migrateStateIfNeeded(state){
       ['team1A','team1B','team2C','team2D'].forEach(k=>{
         if(nm[k]) nm[k]=migratePlayerLevel(nm[k]);
       });
-      // team1Level, team2Level 재계산
-      if(nm.team1A&&nm.team1B) nm.team1Level=nm.team1A.level+nm.team1B.level;
-      if(nm.team2C&&nm.team2D) nm.team2Level=nm.team2C.level+nm.team2D.level;
+      // team1Level, team2Level 재계산 (실효 레벨 기준)
+      if(nm.team1A&&nm.team1B) nm.team1Level=effLevel(nm.team1A)+effLevel(nm.team1B);
+      if(nm.team2C&&nm.team2D) nm.team2Level=effLevel(nm.team2C)+effLevel(nm.team2D);
       if(nm.team1Level!==undefined&&nm.team2Level!==undefined)
         nm.levelDiff=Math.abs(nm.team1Level-nm.team2Level);
       return nm;
