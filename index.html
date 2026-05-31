@@ -577,7 +577,23 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   transition:all .15s;display:flex;align-items:center;justify-content:center;}
 .guest-btn:hover{border-color:#8b6fc4;color:#8b6fc4;background:#f5f3ff;}
 .guest-btn.on{border-color:#8b6fc4;background:#ede9fe;color:#5b21b6;box-shadow:0 0 0 2px #ddd6fe;}
-/* 게스트 배지 */
+/* 파트너 배지 */
+.partner-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border-radius:50%;
+  font-size:.55rem;font-weight:800;color:#fff;
+  margin-left:3px;vertical-align:middle;flex-shrink:0;
+  cursor:pointer;border:1.5px solid rgba(255,255,255,.4);
+}
+.dir-player-item.partner-selecting{background:#fef9c3;border:1.5px solid #fbbf24;border-radius:7px;}
+.dir-player-item.partner-target{background:#f0fdf4;border:1.5px dashed #22c55e;border-radius:7px;cursor:pointer;}
+.dpi-partner-btn{
+  font-size:.62rem;padding:2px 6px;border:1px solid var(--bdr);
+  border-radius:4px;background:#fff;color:var(--dim);cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;flex-shrink:0;
+  transition:all .15s;
+}
+.dpi-partner-btn:hover{border-color:#8b6fc4;color:#8b6fc4;}
 .guest-badge{
   display:inline-flex;align-items:center;justify-content:center;
   font-size:.42rem;font-weight:800;
@@ -1573,35 +1589,54 @@ function doTeamAssign(){
   const all=_directPlayers.map(p=>({
     name:p.name, level:p.level,
     gender:p.gender==='남'?'M':'F',
-    grade:p.grade, team:'', isGuest:!!p.isGuest
+    grade:p.grade, team:'', isGuest:!!p.isGuest,
+    partnerId: (getPartnerInfo(p.name)||{}).id||null,
+    partnerName: getPartnerOf(p.name)||null
   }));
 
-  // 단장/부단장으로 지정된 선수는 고정, 나머지만 재배정
+  // 단장/부단장 고정
   const fixedNames=new Set([
     captains.blue.leader, captains.blue.sub,
     captains.white.leader, captains.white.sub
   ].filter(Boolean));
-  const freePool=all.filter(p=>!fixedNames.has(p.name));
-  const {blue:newBlue, white:newWhite}=balanceTeams(freePool);
 
-  // 고정 선수를 지정된 팀에 추가
-  const fixedBlue=all.filter(p=>
-    p.name===captains.blue.leader||p.name===captains.blue.sub
-  );
-  const fixedWhite=all.filter(p=>
-    p.name===captains.white.leader||p.name===captains.white.sub
-  );
+  // 파트너 쌍 추출 (두 명 모두 미고정인 경우만 쌍으로 처리)
+  const processedNames = new Set([...fixedNames]);
+  const partnerPairs = [];
+  for(const pair of _partners){
+    const [a,b] = pair.members;
+    if(!processedNames.has(a) && !processedNames.has(b)){
+      const pa = all.find(p=>p.name===a);
+      const pb = all.find(p=>p.name===b);
+      if(pa&&pb){ partnerPairs.push([pa,pb]); processedNames.add(a); processedNames.add(b); }
+    }
+  }
 
-  const blue=[...fixedBlue,...newBlue];
-  const white=[...fixedWhite,...newWhite];
+  // 나머지 자유 선수
+  const freePool = all.filter(p=>!processedNames.has(p.name));
+  const {blue:newBlue, white:newWhite} = balanceTeams(freePool);
+
+  // 파트너 쌍은 레벨합이 균형을 맞춰 팀 배정
+  const blueFixed = all.filter(p=>p.name===captains.blue.leader||p.name===captains.blue.sub);
+  const whiteFixed = all.filter(p=>p.name===captains.white.leader||p.name===captains.white.sub);
+  const blue = [...blueFixed, ...newBlue];
+  const white = [...whiteFixed, ...newWhite];
+
+  // 파트너 쌍 배정: 레벨합 낮은 팀에 배정해 균형 맞추기
+  for(const [pa,pb] of partnerPairs){
+    const bSum=blue.reduce((s,p)=>s+p.level,0);
+    const wSum=white.reduce((s,p)=>s+p.level,0);
+    if(bSum<=wSum){ blue.push(pa,pb); }
+    else { white.push(pa,pb); }
+  }
+
   teamAssignment={blue,white};
   blue.forEach(p=>p.team='청팀');
   white.forEach(p=>p.team='백팀');
   updateTeamModeBadge();
   renderTeamList();
   const btn=document.getElementById('teamAssignBtn');
-  btn.classList.add('done');
-  btn.classList.add('hidden'); // 배정 완료 후 숨기기
+  btn.classList.add('done','hidden');
   const rbtn=document.getElementById('teamReassignBtn');
   if(rbtn) rbtn.classList.remove('hidden');
   btn.innerHTML='🔀 청/백팀 재배정 (클릭 시 새로 배정)';
@@ -1845,7 +1880,8 @@ function generate(){
   let participants=_directPlayers.map(p=>({
     name:p.name,level:p.level,gender:p.gender==='남'?'M':'F',
     team:p.team||'',isGuest:!!p.isGuest,_valid:true,_grade:p.grade,
-    _levelRaw:String(p.level),_genderRaw:p.gender
+    _levelRaw:String(p.level),_genderRaw:p.gender,
+    partnerName: getPartnerOf(p.name)||null
   }));
   if(!participants.length){showErr('유효한 참가자가 없습니다.');return;}
 
@@ -1983,9 +2019,9 @@ function generateMatches(participants,settings,totalMatches){
         }
         to.push('any');
         let match=null;
-        // 팀 모드에서는 팀 구분을 반드시 유지하며 시도 (팀 혼합 금지)
+        // 파트너 우선 배정 시도
         for(const maxLD of[1,2,99]){
-          for(const t of to){match=tryCreateMatch(avail,settings,t,maxLD);if(match)break;}
+          for(const t of to){match=tryCreateMatchWithPartners(avail,settings,t,maxLD);if(match)break;}
           if(match)break;
         }
         if(!match)continue;
@@ -2107,6 +2143,77 @@ function fillMissingGames(participants,settings,matches){
     currentRound++;
     if(!added)break;
   }
+}
+
+// 파트너 정보를 participants에서 조회
+function getPartnerInParticipants(participants, name){
+  // participants에 partnerName 필드 기반
+  const p = participants.find(x=>x.name===name);
+  return p?.partnerName || null;
+}
+
+// 파트너 쌍 강제 배정 시도
+// 파트너가 있는 선수가 avail에 있으면 그 쌍을 같은 팀으로 우선 배정
+function tryCreateMatchWithPartners(avail, settings, type, maxLD){
+  // 파트너 쌍 찾기
+  const partnerPairs = [];
+  const seen = new Set();
+  for(const p of avail){
+    if(seen.has(p.name)||!p.partnerName) continue;
+    const partner = avail.find(x=>x.name===p.partnerName);
+    if(!partner) continue;
+    // 파트너 종목 결정
+    const pType = (p.gender==='M'&&partner.gender==='M')?'men'
+                :(p.gender==='F'&&partner.gender==='F')?'women':'mixed';
+    partnerPairs.push({pair:[p,partner], pType});
+    seen.add(p.name); seen.add(partner.name);
+  }
+
+  // 파트너 쌍이 없으면 일반 로직
+  if(!partnerPairs.length) return tryCreateMatch(avail,settings,type,maxLD);
+
+  // 파트너 쌍이 있으면: 종목이 맞는 쌍 우선 사용
+  for(const {pair, pType} of partnerPairs){
+    // 요청 종목이 any이거나 파트너 종목과 일치할 때만
+    if(type!=='any' && type!==pType) continue;
+    // 상대 2명 찾기 (파트너 제외, 같은 팀 가능 선수)
+    const rest = avail.filter(p=>p.name!==pair[0].name&&p.name!==pair[1].name);
+    // 상대도 파트너가 있으면 그 쌍을 우선 상대로
+    let oppPair = null;
+    const seen2 = new Set();
+    for(const r of rest){
+      if(seen2.has(r.name)||!r.partnerName) continue;
+      const rp = rest.find(x=>x.name===r.partnerName);
+      if(!rp) continue;
+      const opType=(r.gender==='M'&&rp.gender==='M')?'men':(r.gender==='F'&&rp.gender==='F')?'women':'mixed';
+      if(opType===pType){ oppPair=[r,rp]; break; }
+      seen2.add(r.name); seen2.add(rp.name);
+    }
+    // 상대 파트너 쌍 없으면 종목에 맞는 일반 선수 2명
+    if(!oppPair){
+      let restFiltered=rest;
+      if(pType==='women') restFiltered=rest.filter(p=>p.gender==='F');
+      else if(pType==='men') restFiltered=rest.filter(p=>p.gender==='M');
+      else restFiltered=rest; // mixed는 남녀 섞여야
+      if(pType==='mixed'){
+        // 혼복: 상대도 남1+여1 필요
+        const restM=restFiltered.filter(p=>p.gender==='M');
+        const restF=restFiltered.filter(p=>p.gender==='F');
+        if(!restM.length||!restF.length) continue;
+        oppPair=[restM[0],restF[0]];
+      } else {
+        if(restFiltered.length<2) continue;
+        oppPair=[restFiltered[0],restFiltered[1]];
+      }
+    }
+    if(!oppPair) continue;
+    const four=[...pair,...oppPair];
+    const m=formTeams(four,settings.teamMode,pType,maxLD);
+    if(m) return m;
+  }
+
+  // 파트너 쌍 배정 실패 시 일반 로직
+  return tryCreateMatch(avail,settings,type,maxLD);
 }
 
 function tryCreateMatch(avail,settings,type,maxLD){
@@ -3727,7 +3834,9 @@ function resetAll(){
   document.getElementById('teamAssignBtn').innerHTML='⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>';
   const rbtn=document.getElementById('teamReassignBtn');
   if(rbtn) rbtn.classList.add('hidden');
-  teamAssignment=null;_teamModeOverride=null;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};currentMatches=[];currentParticipants=[];currentSettings={};
+  teamAssignment=null;_teamModeOverride=null;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
+  currentMatches=[];currentParticipants=[];currentSettings={};
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
   teamNames={blue:'청 팀',white:'백 팀'};
   document.getElementById('blueNameInput').value='청 팀';
@@ -3793,6 +3902,26 @@ function selectDirGender(g){
 
 let _isGuest = false;
 
+// 파트너 시스템: [{id:'p1', members:['이름A','이름B'], color:'#...'}]
+let _partners = [];
+const PARTNER_COLORS = [
+  '#ef4444','#3b82f6','#22c55e','#f97316','#a855f7',
+  '#ec4899','#14b8a6','#eab308','#6366f1','#64748b'
+];
+
+function getPartnerInfo(name){
+  const pair = _partners.find(p=>p.members.includes(name));
+  return pair || null;
+}
+function getPartnerOf(name){
+  const pair = getPartnerInfo(name);
+  if(!pair) return null;
+  return pair.members.find(m=>m!==name) || null;
+}
+
+let _partnerSelectMode = false; // 파트너 선택 중인 선수 이름
+let _partnerSelectName = null;
+
 function toggleGuestMode(){
   _isGuest = !_isGuest;
   const btn = document.getElementById('guestBtn');
@@ -3856,14 +3985,58 @@ function renderDirectPlayerList(){
   // 'reg' 는 등록순 그대로
 
   const LV_COLOR={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
-  list.innerHTML = indexed.map((p)=>`
-    <div class="dir-player-item">
-      <span class="dpi-name">${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}</span>
+  list.innerHTML = indexed.map((p)=>{
+    const pair=getPartnerInfo(p.name);
+    const pBadge=pair?`<span class="partner-badge" style="background:${pair.color}" title="파트너: ${getPartnerOf(p.name)}" onclick="removePartner('${esc(p.name)}')">P</span>`:'';
+    const gBadge=p.isGuest?'<span class="guest-badge">G</span>':'';
+    const isSelecting=_partnerSelectName===p.name;
+    const isTarget=_partnerSelectMode&&_partnerSelectName!==p.name&&!pair&&!getPartnerInfo(_partnerSelectName)?.members.includes(p.name);
+    const itemCls=`dir-player-item${isSelecting?' partner-selecting':isTarget?' partner-target':''}`;
+    const pBtn=pair
+      ?`<button class="dpi-partner-btn" onclick="removePartner('${esc(p.name)}')" title="파트너 해제">P✕</button>`
+      :_partnerSelectName===p.name
+        ?`<button class="dpi-partner-btn" style="border-color:#ef4444;color:#ef4444;" onclick="cancelPartnerSelect()">취소</button>`
+        :_partnerSelectMode&&!pair
+          ?`<button class="dpi-partner-btn" style="border-color:#22c55e;color:#22c55e;" onclick="confirmPartner('${esc(p.name)}')">P선택</button>`
+          :!pair?`<button class="dpi-partner-btn" onclick="startPartnerSelect('${esc(p.name)}')">P+</button>`:'';
+    return `<div class="${itemCls}" id="dpi-${p._origIdx}">
+      <span class="dpi-name">${esc(p.name)}${gBadge}${pBadge}</span>
       <span class="dpi-meta">
         <span class="lv-badge ${LV_COLOR[p.level]||'lv3'}">${p.grade||LV_LABEL[p.level]||p.level}</span>
         ${p.gender} · Lv${p.level}</span>
+      ${pBtn}
       <button class="dpi-del" onclick="removeDirectPlayer(${p._origIdx})">✕</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function startPartnerSelect(name){
+  _partnerSelectMode = true;
+  _partnerSelectName = name;
+  renderDirectPlayerList();
+}
+function cancelPartnerSelect(){
+  _partnerSelectMode = false;
+  _partnerSelectName = null;
+  renderDirectPlayerList();
+}
+function confirmPartner(targetName){
+  const srcName = _partnerSelectName;
+  if(!srcName || srcName===targetName) return;
+  // 이미 파트너 있으면 불가
+  if(getPartnerInfo(srcName)||getPartnerInfo(targetName)){
+    alert('이미 파트너가 있습니다. 기존 파트너를 먼저 해제해주세요.');
+    cancelPartnerSelect(); return;
+  }
+  const colorIdx = _partners.length % PARTNER_COLORS.length;
+  _partners.push({id:'p'+(Date.now()), members:[srcName, targetName], color:PARTNER_COLORS[colorIdx]});
+  _partnerSelectMode = false;
+  _partnerSelectName = null;
+  renderDirectPlayerList();
+}
+function removePartner(name){
+  _partners = _partners.filter(p=>!p.members.includes(name));
+  renderDirectPlayerList();
 }
 
 function syncDirectToPaste(){ /* 미사용 */ }
