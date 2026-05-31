@@ -416,6 +416,9 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .render-cap{font-size:.6rem;padding:1px 4px;border-radius:3px;font-weight:700;}
 .render-cap.leader{background:#fef9c3;color:#854d0e;}
 .render-cap.sub{background:#dcfce7;color:#166534;}
+.render-guest-badge{display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;
+  background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe;
+  border-radius:3px;padding:0 3px;margin-left:3px;line-height:1.6;}
 
 /* 데스크탑에서는 모달 숨기기 */
 @media(min-width:769px){
@@ -557,6 +560,9 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .p-cap-badge{font-size:.6rem;padding:1px 4px;border-radius:2px;font-weight:700;flex-shrink:0;}
   .p-cap-leader{background:#fef9c3;color:#854d0e;}
   .p-cap-sub{background:#dcfce7;color:#166534;}
+  .p-guest-badge{display:inline-flex;align-items:center;font-size:.58rem;font-weight:800;
+    background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe;
+    border-radius:3px;padding:0 3px;margin-left:3px;line-height:1.6;}
 }
 
 /* ── DIRECT ENTRY UI ── */
@@ -1643,7 +1649,7 @@ function renderTeamList(){
     return `<div class="tlb-player${isLeader?' tlb-captain':isSub?' tlb-sub':''}">
       <span class="${roleCls}" onclick="${roleClick}" title="${roleTitle}">${roleIcon}</span>
       <div class="tlb-info">
-        <span class="tlb-name" style="color:${nameColor}">${esc(p.name)}</span>
+        <span class="tlb-name" style="color:${nameColor}">${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}</span>
         <span class="tlb-meta">Lv${p.level} ${genderLabel}</span>
       </div>
       <button class="move-btn" onclick="movePlayer('${esc(p.name)}','${toTeam}')" title="${toTeam==='white'?wn:bn}으로 이동">⇄</button>
@@ -2511,7 +2517,7 @@ function renderPlayersTable(){
     const tn=p.team==='청팀'?bn:p.team==='백팀'?wn:'—';
     const tc=p.team==='청팀'?'class="td-blue"':p.team==='백팀'?'class="td-brown"':'class="td-dim"';
     return `<tr>
-      <td>${esc(p.name)}</td>
+      <td>${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}</td>
       <td ${tc}>${tn}</td>
       <td><span class="lv-badge lv${p.level}">${LV_LABEL[p.level]}(${p.level})</span></td>
       <td>${p.gender==='M'?'남':'여'}</td>
@@ -2656,11 +2662,17 @@ function buildPrintHtml(mode, isTeam, bn, wn){
           <div class="p-top"><span class="p-type ${ptc}">${ts}</span><span>코트 ${m.court}</span></div>
           <div class="p-body">
             <div class="p-side ${p1side}"><span class="p-prefix">${p1label}</span>
-              <div><div class="p-row">${m.team1A.name}</div><div class="p-row">${m.team1B.name}</div></div>
+              <div>
+                <div class="p-row">${m.team1A.name}${m.team1A.isGuest?'<span class="p-guest-badge">G</span>':''}</div>
+                <div class="p-row">${m.team1B.name}${m.team1B.isGuest?'<span class="p-guest-badge">G</span>':''}</div>
+              </div>
             </div>
             <div class="p-vs">VS</div>
             <div class="p-side ${p2side}"><span class="p-prefix">${p2label}</span>
-              <div><div class="p-row">${m.team2C.name}</div><div class="p-row">${m.team2D.name}</div></div>
+              <div>
+                <div class="p-row">${m.team2C.name}${m.team2C.isGuest?'<span class="p-guest-badge">G</span>':''}</div>
+                <div class="p-row">${m.team2D.name}${m.team2D.isGuest?'<span class="p-guest-badge">G</span>':''}</div>
+              </div>
             </div>
           </div>
         </div>`;
@@ -2689,7 +2701,8 @@ function buildPrintHtml(mode, isTeam, bn, wn){
       const names=sorted.map(p=>{
         const role=side?getRole(p.name,side):'';
         const roleBadge=role?`<span class="p-cap-badge p-cap-${role==='단장'?'leader':'sub'}">${role}</span>`:'';
-        return `<div class="p-roster-name">${esc(p.name)}${roleBadge}</div>`;
+        const guestBadge=p.isGuest?'<span class="p-guest-badge">G</span>':'';
+        return `<div class="p-roster-name">${esc(p.name)}${guestBadge}${roleBadge}</div>`;
       }).join('');
       return `<div class="p-roster-section"><div class="p-roster-title ${cls}">${title} (${players.length}명)</div><div class="p-roster-grid">${names}</div></div>`;
     };
@@ -2751,7 +2764,8 @@ function buildMobileHtml(mode, isTeam, bn, wn){
       const names=sorted.map(p=>{
         const role=side?getRole(p.name,side):'';
         const badge=role?`<span class="render-cap ${role==='단장'?'leader':'sub'}">${role}</span>`:'';
-        return `<div class="render-roster-name">${esc(p.name)}${badge}</div>`;
+        const guestB=p.isGuest?'<span class="render-guest-badge">G</span>':'';
+        return `<div class="render-roster-name">${esc(p.name)}${guestB}${badge}</div>`;
       }).join('');
       return `<div class="render-roster-section"><div class="render-roster-title ${cls}">${title} (${players.length}명)</div><div class="render-roster-grid">${names}</div></div>`;
     };
