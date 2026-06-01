@@ -823,6 +823,10 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     box-shadow:0 -2px 12px rgba(0,0,0,.08);
   }
   .bnav-spacer{display:block;height:calc(60px + env(safe-area-inset-bottom));}
+  /* 모바일 푸터: 세로 정렬 + 탭바에 가리지 않도록 충분한 여백 */
+  .app-footer{flex-direction:column;gap:5px;padding:18px 16px;padding-bottom:calc(72px + env(safe-area-inset-bottom));text-align:center;line-height:1.5;}
+  .app-footer .footer-dot{display:none;}
+  .app-footer a{padding:3px 0;font-size:.74rem;}
   .bnav-btn{
     flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:3px;padding:8px 4px 6px;
@@ -5388,14 +5392,6 @@ window.addEventListener('DOMContentLoaded', () => {
   if(btn) btn.classList.add('active');
 });
 </script>
-<!-- ═══ 제작자 정보 푸터 ═══ -->
-<footer class="app-footer">
-  <span>🏸 <b>콕매치</b> · 기획·제작 김민현</span>
-  <span class="footer-dot">·</span>
-  <a href="mailto:mhkim@ms99.kr">mhkim@ms99.kr</a>
-  <span class="footer-dot">·</span>
-  <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
-</footer>
 <!-- ═══ 모바일 하단 탭바 ═══ -->
 <nav class="bottom-nav" id="bottomNav">
   <button class="bnav-btn active" id="bnav-players" onclick="switchMobileTab('players')">
@@ -5419,6 +5415,15 @@ window.addEventListener('DOMContentLoaded', () => {
     <span class="bnav-label">명부</span>
   </button>
 </nav>
+
+<!-- ═══ 제작자 정보 푸터 ═══ -->
+<footer class="app-footer">
+  <span>🏸 <b>콕매치</b> · 기획·제작 김민현</span>
+  <span class="footer-dot">·</span>
+  <a href="mailto:mhkim@ms99.kr">mhkim@ms99.kr</a>
+  <span class="footer-dot">·</span>
+  <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
+</footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
 <div class="bnav-spacer"></div>
