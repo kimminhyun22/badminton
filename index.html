@@ -2856,24 +2856,27 @@ function renderQualityDashboard(matches,participants,settings){
   }
   items.push({icon:gapStatus, label:'대진 간격', detail:gapDetail});
 
-  // ④ 상대 다양성 (동일 상대 반복)
+  // ④ 상대 다양성 (동일 상대 반복 — 만난 쌍 대비 3회+ 비율 기준)
   const oppCount={};
   matches.forEach(m=>{
     const t1=[m.team1A.name,m.team1B.name], t2=[m.team2C.name,m.team2D.name];
     t1.forEach(a=>t2.forEach(b=>{const k=[a,b].sort().join('|');oppCount[k]=(oppCount[k]||0)+1;}));
   });
-  const rep2=Object.values(oppCount).filter(c=>c===2).length;
-  const rep3=Object.values(oppCount).filter(c=>c>=3).length;
-  // 3회 이상 쌍이 전체 인원의 20% 초과면 경고, 그 외 양호
-  const threshold=Math.ceil(participants.length*0.2);
-  let divStatus = rep3>threshold ? 'warn' : 'good';
+  const ocVals=Object.values(oppCount);
+  const distinctPairs=ocVals.length;        // 실제로 한 번이라도 만난 고유 쌍 수
+  const rep2=ocVals.filter(c=>c===2).length;
+  const rep3=ocVals.filter(c=>c>=3).length;
+  const rep4=ocVals.filter(c=>c>=4).length;
+  const rep3Ratio=distinctPairs>0?rep3/distinctPairs:0;
+  // 4회+ 있으면 개선 필요, 없으면 3회+ 비율 18% 기준
+  let divStatus = rep4>0 ? 'bad' : (rep3Ratio<=0.18 ? 'good' : 'warn');
   let divDetail;
-  if(rep3>threshold){
-    divDetail = `3회 이상 만난 상대 ${rep3}쌍 (기준 ${threshold}쌍 초과) · 2회 ${rep2}쌍`;
+  if(rep4>0){
+    divDetail = `4회 이상 만난 상대 ${rep4}쌍 · 3회 ${rep3-rep4}쌍 · 분산 필요`;
   } else if(rep3>0){
-    divDetail = `3회 이상 ${rep3}쌍 (기준 ${threshold}쌍 이내) · 2회 ${rep2}쌍`;
+    divDetail = `3회 만난 상대 ${rep3}쌍 (전체의 ${(rep3Ratio*100).toFixed(0)}%) · 2회 ${rep2}쌍`;
   } else if(rep2>0){
-    divDetail = `동일 상대 2회 ${rep2}쌍 (3회+ 없음)`;
+    divDetail = `최대 2회 · 동일 상대 2회 ${rep2}쌍 (3회+ 없음)`;
   } else {
     divDetail = '모든 상대 1회씩 · 다양성 우수';
   }
