@@ -2207,10 +2207,11 @@ function fillMissingGames(participants,settings,matches){
         if(usedCourts.has(court))continue;
         const maxG=fpass===1?target:target+1;
         const unmet=participants.filter(p=>p.gamesPlayed<goal(p)&&!usedPlayers.has(p.name));
-        if(fpass===1&&!unmet.length)continue;
+        // 목표 미달자가 없으면 빈 코트를 굳이 채우지 않음 (불필요한 보완게임 방지)
+        if(!unmet.length)continue;
         const pool=participants.filter(p=>p.gamesPlayed<cap(p,fpass===1?0:1)&&!usedPlayers.has(p.name));
         if(pool.length<4)continue;
-        const four=selectFillerFour(pool,unmet.length?unmet:pool,target,settings);
+        const four=selectFillerFour(pool,unmet,target,settings);
         if(!four)continue;
         let match=formTeams(four,settings.teamMode,'any',99);
         if(!match)continue;
@@ -2220,7 +2221,7 @@ function fillMissingGames(participants,settings,matches){
           for(const a of t1){for(const b of t2){if((a.opponentCount[b.name]||0)>=3){blk=a.name;break;}}if(blk)break;}
           const pool2=pool.filter(p=>p.name!==blk);
           if(pool2.length>=4){
-            const f2=selectFillerFour(pool2,unmet.length?unmet:pool2,target,settings);
+            const f2=selectFillerFour(pool2,unmet,target,settings);
             if(f2){const m2=formTeams(f2,settings.teamMode,'any',99);if(m2&&!fillerRepeat4(m2))match=m2;}
           }
         }
@@ -2240,7 +2241,7 @@ function fillMissingGames(participants,settings,matches){
   let safety=50;
 
   while(safety-->0){
-    const unmet=participants.filter(p=>p.gamesPlayed<target);
+    const unmet=participants.filter(p=>p.gamesPlayed<goal(p));
     if(!unmet.length)break;
 
     _currentRound=currentRound;
