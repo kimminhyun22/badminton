@@ -220,6 +220,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ── MATCH CARDS ── */
 .round-block{margin-bottom:16px;}
 .round-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.round-edit-btn{font-size:.62rem;padding:3px 9px;border-radius:999px;background:rgba(139,92,246,.10);color:var(--acc);border:1px solid rgba(139,92,246,.3);cursor:pointer;white-space:nowrap;flex-shrink:0;font-weight:600;}
+.round-edit-btn:hover{background:rgba(139,92,246,.18);}
 .round-badge{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.75rem;letter-spacing:1.5px;padding:3px 11px;border-radius:4px;background:#3a4a5c;color:#fff;}
 .round-line{flex:1;height:1px;background:var(--bdr);}
 .match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;}
@@ -1479,6 +1481,7 @@ function effLevel(p){
 }
 let _currentRound=1;
 let _partnerGapThreshold=2; // 파트너 최소 간격 (generateMatches에서 자동 설정)
+let _skipNewFirstRound=true; // 신규선수 1라운드 제외 여부 (라운드 직접선택 시 false)
 let teamAssignment=null;
 let currentMatches=[];
 let currentParticipants=[];
@@ -2040,8 +2043,8 @@ function generateMatches(participants,settings,totalMatches){
 
         // avail: 게임 가능 선수
         let avail=participants.filter(p=>p.gamesPlayed<maxG&&!used.has(p.name));
-        // 신규 투입 선수는 새 대진의 1라운드(진행라운드+1)에 배정하지 않음 (안정적 운영)
-        if(currentRound===1 && participants.some(p=>p.isNewJoiner)){
+        // 신규 투입 선수 1라운드 제외 (_skipNewFirstRound가 true일 때만 — 라운드 직접선택 시엔 끔)
+        if(_skipNewFirstRound && currentRound===1 && participants.some(p=>p.isNewJoiner)){
           const availNoNew=avail.filter(p=>!p.isNewJoiner);
           if(availNoNew.length>=4) avail=availNoNew;
         }
@@ -2962,7 +2965,7 @@ function renderResults(matches,participants,settings){
         </div>
       </div>`;
     }).join('');
-    return `<div class="round-block"><div class="round-header"><span class="round-badge">ROUND ${r}</span><div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
+    return `<div class="round-block"><div class="round-header"><span class="round-badge">ROUND ${r}</span><button class="round-edit-btn" onclick="openRoundChange(${r})">✏️ 선수 변경</button><div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
   }).join('');
   document.getElementById('tabBracket').innerHTML=bracketHtml;
 
@@ -4004,6 +4007,7 @@ function clearSaved(){
 /* ═══ 선수 변동 재배정 ═══ */
 let _cpExcluded=new Set();
 let _cpNewPlayers=[];
+let _cpFromRound=null; // 선택한 라운드 (이 라운드부터 재생성). null이면 기존 방식(완료 게임 기준)
 
 function _isMatchDone(idx){
   const s1=parseInt(document.getElementById('s1_'+idx)?.value)||0;
@@ -4012,8 +4016,28 @@ function _isMatchDone(idx){
   return(wo==='t1'||wo==='t2')||(s1>0||s2>0);
 }
 
+/* 라운드 단위 선수 변경: 선택 라운드부터 이후 전부 재생성 */
+function openRoundChange(r){
+  if(!currentMatches.length){alert('먼저 대진표를 생성해주세요.');return;}
+  _cpFromRound=r;
+  _cpExcluded=new Set();
+  _cpNewPlayers=[];
+  document.getElementById('cpNewTeam').style.display=currentSettings.teamMode?'':'none';
+  // r 이전 라운드는 유지, r 이후(r 포함) 재생성
+  const keepCount=currentMatches.filter(m=>m.round<r).length;
+  const regenCount=currentMatches.filter(m=>m.round>=r).length;
+  document.getElementById('cpInfoBox').innerHTML=
+    `<b>ROUND ${r}부터</b> 선수 변경 후 재배정합니다.<br>`+
+    `유지: <b>ROUND ${r} 이전 ${keepCount}게임</b> · 재생성: <b>ROUND ${r}~ ${regenCount}게임</b>`;
+  _cpRenderPlayerList();
+  _cpRenderNewList();
+  _cpUpdateSummary();
+  document.getElementById('changeModal').classList.remove('hidden');
+}
+
 function openChangeModal(){
   if(!currentMatches.length){alert('먼저 대진표를 생성해주세요.');return;}
+  _cpFromRound=null;
   _cpExcluded=new Set();
   _cpNewPlayers=[];
   document.getElementById('cpNewTeam').style.display=currentSettings.teamMode?'':'none';
@@ -4098,13 +4122,21 @@ function _cpUpdateSummary(){
 }
 
 function executeChangeModal(){
-  // 1. 완료된 게임 스냅샷
-  const doneIdxs=[];
-  currentMatches.forEach((_,i)=>{if(_isMatchDone(i))doneIdxs.push(i);});
-  const completedMatches=doneIdxs.map(i=>currentMatches[i]);
-  const completedScores=doneIdxs.map(i=>({
-    wo:winOverride[i]||null
-  }));
+  // 1. 유지할 게임 결정
+  let completedMatches, completedScores, doneIdxs;
+  if(_cpFromRound!==null){
+    // 라운드 기준: 선택 라운드 이전(<r)은 유지, 이후(>=r)는 재생성
+    doneIdxs=[];
+    currentMatches.forEach((m,i)=>{ if(m.round<_cpFromRound) doneIdxs.push(i); });
+    completedMatches=doneIdxs.map(i=>currentMatches[i]);
+    completedScores=doneIdxs.map(i=>({wo:winOverride[i]||null}));
+  } else {
+    // 기존 방식: 점수 입력된 완료 게임 유지
+    doneIdxs=[];
+    currentMatches.forEach((_,i)=>{if(_isMatchDone(i))doneIdxs.push(i);});
+    completedMatches=doneIdxs.map(i=>currentMatches[i]);
+    completedScores=doneIdxs.map(i=>({wo:winOverride[i]||null}));
+  }
 
   // 2. 완료 게임당 선수별 gamesPlayed 집계
   const gDoneMap={};
@@ -4119,8 +4151,11 @@ function executeChangeModal(){
 
   // 진행 라운드 및 잔여율 계산 (신규 선수 게임수 산정용)
   const totalRounds=currentMatches.length?Math.max(...currentMatches.map(m=>m.round)):0;
-  const doneRoundMax=completedMatches.length?Math.max(...completedMatches.map(m=>m.round)):0;
-  // 잔여율 = 남은 라운드 / 전체 라운드 (진행 라운드 다음부터 신규 투입)
+  // 라운드 기준이면 (선택 라운드-1)까지 진행된 것으로, 아니면 완료 게임 최대 라운드
+  const doneRoundMax=_cpFromRound!==null
+    ? (_cpFromRound-1)
+    : (completedMatches.length?Math.max(...completedMatches.map(m=>m.round)):0);
+  // 잔여율 = 남은 라운드 / 전체 라운드
   const remainRatio=totalRounds>0?Math.max(0,(totalRounds-doneRoundMax)/totalRounds):1;
   // 신규 선수 게임수 = 올림(잔여율 × 목표), 최소 1 최대 target
   const newJoinerGames=Math.min(target,Math.max(1,Math.ceil(remainRatio*target)));
@@ -4165,6 +4200,8 @@ function executeChangeModal(){
   closeChangeModal();
   setTimeout(()=>{
     try{
+      // 라운드 직접 선택이면 신규선수 1라운드 제외 끔 (선택 라운드부터 바로 투입)
+      _skipNewFirstRound = (_cpFromRound===null);
       // 5. 새 경기 생성
       const newMatches=generateMatches(activeParticipants,currentSettings,totalNewMatches);
       fillMissingGames(activeParticipants,currentSettings,newMatches);
@@ -4172,7 +4209,9 @@ function executeChangeModal(){
       newMatches.sort((a,b)=>a.round-b.round||a.court-b.court);
 
       // 6. 라운드 번호 이어붙이기
-      const lastDoneRound=completedMatches.length?Math.max(...completedMatches.map(m=>m.round)):0;
+      const lastDoneRound=_cpFromRound!==null
+        ? (_cpFromRound-1)
+        : (completedMatches.length?Math.max(...completedMatches.map(m=>m.round)):0);
       newMatches.forEach(m=>m.round+=lastDoneRound);
 
       // 7. 전체 매치 번호 재부여
@@ -4216,7 +4255,11 @@ function executeChangeModal(){
         showWarn(_msg);
       }else{hideWarn();}
     }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
-    finally{document.getElementById('loadingOverlay').classList.remove('on');}
+    finally{
+      document.getElementById('loadingOverlay').classList.remove('on');
+      _skipNewFirstRound=true; // 플래그 복원
+      _cpFromRound=null;       // 라운드 선택 초기화
+    }
   },50);
 }
 
