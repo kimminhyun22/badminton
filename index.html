@@ -1312,7 +1312,10 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     </div>
     <div class="modal-body">
       <div class="cp-info-box" id="cpInfoBox"></div>
-      <div class="cp-sec-title">현재 선수 — 제외할 선수 선택</div>
+      <div class="cp-sec-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>현재 선수 — 제외할 선수 선택</span>
+        <button id="cpSortBtn" onclick="cpToggleSort()" style="font-size:.62rem;padding:3px 10px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--dim);cursor:pointer;font-weight:600;white-space:nowrap;">↕ 입력순</button>
+      </div>
       <div id="cpPlayerList"></div>
       <div class="cp-sec-title" style="margin-top:14px;">새 선수 추가</div>
       <div class="cp-add-row">
@@ -4089,9 +4092,20 @@ function openChangeModal(){
 
 function closeChangeModal(){document.getElementById('changeModal').classList.add('hidden');}
 
+let _cpSortByName=false; // false: 입력순, true: 가나다순
+
+function cpToggleSort(){
+  _cpSortByName=!_cpSortByName;
+  const btn=document.getElementById('cpSortBtn');
+  if(btn) btn.textContent=_cpSortByName?'↕ 가나다순':'↕ 입력순';
+  _cpRenderPlayerList();
+}
+
 function _cpRenderPlayerList(){
   const isTeam=currentSettings.teamMode;
-  document.getElementById('cpPlayerList').innerHTML=currentParticipants.map(p=>{
+  let list=currentParticipants.slice();
+  if(_cpSortByName) list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  document.getElementById('cpPlayerList').innerHTML=list.map(p=>{
     const gDone=currentMatches.filter((m,i)=>_isMatchDone(i)&&
       [m.team1A,m.team1B,m.team2C,m.team2D].some(x=>x.name===p.name)).length;
     const excl=_cpExcluded.has(p.name);
