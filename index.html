@@ -2818,10 +2818,19 @@ function renderQualityDashboard(matches,participants,settings){
   });
   const rep2=Object.values(oppCount).filter(c=>c===2).length;
   const rep3=Object.values(oppCount).filter(c=>c>=3).length;
-  let divStatus = rep3===0 ? (rep2<=Math.ceil(matches.length*0.3)?'good':'warn') : 'bad';
-  let divDetail = rep3>0
-    ? `3회 이상 만난 상대 ${rep3}쌍 · 2회 ${rep2}쌍`
-    : rep2>0 ? `동일 상대 2회 ${rep2}쌍 (3회+ 없음)` : '모든 상대 1회씩 · 다양성 우수';
+  // 3회 이상 쌍이 전체 인원의 20% 초과면 경고, 그 외 양호
+  const threshold=Math.ceil(participants.length*0.2);
+  let divStatus = rep3>threshold ? 'warn' : 'good';
+  let divDetail;
+  if(rep3>threshold){
+    divDetail = `3회 이상 만난 상대 ${rep3}쌍 (기준 ${threshold}쌍 초과) · 2회 ${rep2}쌍`;
+  } else if(rep3>0){
+    divDetail = `3회 이상 ${rep3}쌍 (기준 ${threshold}쌍 이내) · 2회 ${rep2}쌍`;
+  } else if(rep2>0){
+    divDetail = `동일 상대 2회 ${rep2}쌍 (3회+ 없음)`;
+  } else {
+    divDetail = '모든 상대 1회씩 · 다양성 우수';
+  }
   items.push({icon:divStatus, label:'상대 다양성', detail:divDetail});
 
   // ⑤ 보완 게임
