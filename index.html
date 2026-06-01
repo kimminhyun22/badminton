@@ -1155,39 +1155,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
               <div class="dir-empty">아직 추가된 선수가 없습니다</div>
             </div>
           </div>
-
-          <!-- 팀배정 버튼: 선수 목록 바로 아래 -->
-          <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()">
-            ⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>
-          </button>
-
-          <!-- 청/백팀 목록: 배정 완료 후 표시, 좌우 2열 -->
-          <div class="team-list-wrap" id="teamListWrap">
-            <div class="team-list-box">
-              <div class="tlb-head tlb-blue">
-                <input class="team-name-input" id="blueNameInput" value="청 팀"
-                  placeholder="팀명" oninput="onTeamNameChange()" maxlength="8">
-                <small id="blueInfo"></small>
-              </div>
-              <div class="tlb-body" id="blueList"></div>
-              <div class="tlb-diff" id="blueDiff"></div>
-            </div>
-            <div class="team-list-box">
-              <div class="tlb-head tlb-white">
-                <input class="team-name-input" id="whiteNameInput" value="백 팀"
-                  placeholder="팀명" oninput="onTeamNameChange()" maxlength="8">
-                <small id="whiteInfo"></small>
-              </div>
-              <div class="tlb-body" id="whiteList"></div>
-              <div class="tlb-diff" id="whiteDiff"></div>
-            </div>
-          </div>
-
-          <!-- 재배정 버튼: 팀 목록 아래 (배정 완료 후 표시) -->
-          <button class="btn-ta hidden" id="teamReassignBtn" onclick="doTeamAssign()"
-            style="margin-top:6px;background:#f0f6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;">
-            🔀 다시 배정하기
-          </button>
         </div>
       </div>
 
@@ -1223,6 +1190,36 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           </div>
           <button class="tmb" id="teamModeBadge" onclick="toggleTeamMode()"
             title="클릭하여 팀 모드 켜기/끄기">팀 모드: 꺼짐 (자유 배정)</button>
+
+          <!-- 팀 배정 컨트롤: 팀 모드와 함께 한곳에 -->
+          <button class="btn-ta hidden" id="teamAssignBtn" onclick="doTeamAssign()">
+            ⚖️ 청/백팀 자동 배정
+          </button>
+          <div class="team-list-wrap" id="teamListWrap">
+            <div class="team-list-box">
+              <div class="tlb-head tlb-blue">
+                <input class="team-name-input" id="blueNameInput" value="청 팀"
+                  placeholder="팀명" oninput="onTeamNameChange()" maxlength="8">
+                <small id="blueInfo"></small>
+              </div>
+              <div class="tlb-body" id="blueList"></div>
+              <div class="tlb-diff" id="blueDiff"></div>
+            </div>
+            <div class="team-list-box">
+              <div class="tlb-head tlb-white">
+                <input class="team-name-input" id="whiteNameInput" value="백 팀"
+                  placeholder="팀명" oninput="onTeamNameChange()" maxlength="8">
+                <small id="whiteInfo"></small>
+              </div>
+              <div class="tlb-body" id="whiteList"></div>
+              <div class="tlb-diff" id="whiteDiff"></div>
+            </div>
+          </div>
+          <button class="btn-ta hidden" id="teamReassignBtn" onclick="doTeamAssign()"
+            style="margin-top:6px;background:#f0f6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;">
+            🔀 다시 배정하기
+          </button>
+
           <button class="btn btn-gen" onclick="generate()">🎯 대진표 생성</button>
           <div class="btn-row">
             <button class="btn btn-ghost btn-sm" onclick="resetAll()">✕ 전체 초기화</button>
@@ -1686,6 +1683,7 @@ function parseParticipants(raw){
 function doTeamAssign(){
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
+  _teamWanted=true; // 팀전 의도 확정
   const all=_directPlayers.map(p=>({
     name:p.name, level:p.level,
     gender:p.gender==='남'?'M':'F',
@@ -1864,6 +1862,7 @@ function movePlayer(name,toTeam){
 }
 
 let _teamModeOverride=null; // null=auto, true=강제켜짐, false=강제꺼짐
+let _teamWanted=false; // 사용자가 팀전을 원하는지 (자동배정 버튼 노출 제어)
 // 단장/부단장 지정 { blue:{leader:'',sub:''}, white:{leader:'',sub:''} }
 let captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 
@@ -1877,15 +1876,14 @@ function stepVal(id, delta){
 }
 
 function toggleTeamMode(){
-  if(!teamAssignment){
-    // 팀 배정 없으면 토글 불가
-    return;
-  }
-  if(_teamModeOverride===false){
-    // 현재 강제꺼짐 → 켜기
+  // 팀전 ON/OFF 토글 (배정 전에도 동작)
+  if(_teamModeOverride===false || (!teamAssignment && _teamWanted!==true)){
+    // 끄기 상태 → 켜기
+    _teamWanted=true;
     _teamModeOverride=null;
   } else {
-    // 현재 켜짐(auto 또는 강제켜짐) → 끄기
+    // 켜기 상태 → 끄기
+    _teamWanted=false;
     _teamModeOverride=false;
   }
   updateTeamModeBadge();
@@ -1896,23 +1894,31 @@ function updateTeamModeBadge(){
   if(!b)return;
   const wrap=document.getElementById('teamListWrap');
   const reBtn=document.getElementById('teamReassignBtn');
-  const isOn=teamAssignment&&_teamModeOverride!==false;
-  if(isOn){
-    b.className='tmb tmb-on';
-    b.textContent=`팀 모드: 켜짐 (${teamNames.blue} vs ${teamNames.white})`;
-    // 팀 배정 목록 표시
-    if(wrap&&teamAssignment) wrap.classList.add('show');
-    if(reBtn&&teamAssignment) reBtn.classList.remove('hidden');
-  } else if(teamAssignment&&_teamModeOverride===false){
-    b.className='tmb tmb-off can-on';
-    b.textContent='팀 모드: 꺼짐 (수동 해제 — 자유 배정)';
-    // 팀 배정 목록 숨기기
-    if(wrap) wrap.classList.remove('show');
-    if(reBtn) reBtn.classList.add('hidden');
+  const assignBtn=document.getElementById('teamAssignBtn');
+  // 팀전을 원하는 상태인가 (켜짐)
+  const wantTeam = (_teamModeOverride!==false) && (_teamWanted===true || !!teamAssignment);
+  const isOn = teamAssignment && _teamModeOverride!==false;
+
+  if(wantTeam){
+    // 팀전 켜짐: 자동 배정 버튼 노출
+    if(assignBtn) assignBtn.classList.remove('hidden');
+    if(isOn){
+      b.className='tmb tmb-on';
+      b.textContent=`팀 모드: 켜짐 (${teamNames.blue} vs ${teamNames.white})`;
+      if(wrap&&teamAssignment) wrap.classList.add('show');
+      if(reBtn&&teamAssignment) reBtn.classList.remove('hidden');
+    } else {
+      // 켜고 싶지만 아직 배정 전
+      b.className='tmb tmb-on';
+      b.textContent='팀 모드: 켜짐 — 아래에서 팀을 배정하세요';
+      if(wrap) wrap.classList.remove('show');
+      if(reBtn) reBtn.classList.add('hidden');
+    }
   } else {
-    b.className='tmb tmb-off'+(teamAssignment?' can-on':'');
-    b.textContent='팀 모드: 꺼짐 (자유 배정)';
-    // 팀 배정 목록 숨기기
+    // 팀전 꺼짐: 모든 팀 컨트롤 숨김
+    b.className='tmb tmb-off can-on';
+    b.textContent='팀 모드: 꺼짐 (개인전 · 자유 배정)';
+    if(assignBtn) assignBtn.classList.add('hidden');
     if(wrap) wrap.classList.remove('show');
     if(reBtn) reBtn.classList.add('hidden');
   }
@@ -3838,6 +3844,7 @@ function restoreState(){
 
     if(state.teamAssignment){
       teamAssignment=state.teamAssignment;
+      _teamWanted=true; // 팀전 상태 복원
       const btn=document.getElementById('teamAssignBtn');
       btn.classList.add('done','hidden');
       btn.innerHTML='🔀 청/백팀 재배정 (클릭 시 새로 배정)';
@@ -4562,7 +4569,7 @@ function resetAll(){
   document.getElementById('teamAssignBtn').innerHTML='⚖️ 청/백팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>';
   const rbtn=document.getElementById('teamReassignBtn');
   if(rbtn) rbtn.classList.add('hidden');
-  teamAssignment=null;_teamModeOverride=null;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  teamAssignment=null;_teamModeOverride=null;_teamWanted=false;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
   currentMatches=[];currentParticipants=[];currentSettings={};
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
@@ -5455,6 +5462,7 @@ window.addEventListener('DOMContentLoaded', () => {
   checkSavedState();
   loadRosters();
   renderClubList();
+  updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
   // mob-hide 잔여 제거
   document.querySelectorAll('.mob-hide').forEach(el => el.classList.remove('mob-hide'));
   // 하단 탭 초기 활성화
