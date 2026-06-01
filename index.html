@@ -222,6 +222,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .round-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .round-edit-btn{font-size:.62rem;padding:3px 9px;border-radius:999px;background:rgba(139,92,246,.10);color:var(--acc);border:1px solid rgba(139,92,246,.3);cursor:pointer;white-space:nowrap;flex-shrink:0;font-weight:600;}
 .round-edit-btn:hover{background:rgba(139,92,246,.18);}
+.round-edit-btn.locked{background:var(--sur2);color:var(--dim);border-color:var(--bdr);cursor:not-allowed;opacity:.7;}
+.round-edit-btn.locked:hover{background:var(--sur2);}
 .round-badge{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.75rem;letter-spacing:1.5px;padding:3px 11px;border-radius:4px;background:#3a4a5c;color:#fff;}
 .round-line{flex:1;height:1px;background:var(--bdr);}
 .match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;}
@@ -1971,6 +1973,7 @@ function generate(){
       matches.sort((a,b)=>a.round-b.round||a.court-b.court);
       matches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=matches;currentParticipants=participants;currentSettings=settings;
+      _lockedBeforeRound=null; // 새 대진 생성 시 잠금 해제
       // 이전 점수·승패 완전 초기화
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       _resetScoreboard();
@@ -2973,7 +2976,11 @@ function renderResults(matches,participants,settings){
         </div>
       </div>`;
     }).join('');
-    return `<div class="round-block"><div class="round-header"><span class="round-badge">ROUND ${r}</span><button class="round-edit-btn" onclick="openRoundChange(${r})">✏️ 선수 변경</button><div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
+    const isLocked=_lockedBeforeRound!=null && r<_lockedBeforeRound;
+    const editBtn=isLocked
+      ? `<button class="round-edit-btn locked" onclick="alertRoundLocked(${r})">🔒 변경 잠금</button>`
+      : `<button class="round-edit-btn" onclick="openRoundChange(${r})">✏️ 선수 변경</button>`;
+    return `<div class="round-block"><div class="round-header"><span class="round-badge">ROUND ${r}</span>${editBtn}<div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
   }).join('');
   document.getElementById('tabBracket').innerHTML=bracketHtml;
 
@@ -3641,7 +3648,8 @@ function saveState(){
       isNewJoiner:!!p.isNewJoiner,
       _njGames:p._njGames!=null?p._njGames:null
     })),
-    settings:currentSettings,scores
+    settings:currentSettings,scores,
+    lockedBeforeRound:_lockedBeforeRound
   };
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));setSaveStatus('saved');}
   catch(e){setSaveStatus('','⚠ 저장 실패');}
@@ -3747,6 +3755,7 @@ function restoreState(){
       };
     });
     currentSettings=state.settings;
+    _lockedBeforeRound = state.lockedBeforeRound ?? null;
 
     renderResults(currentMatches,currentParticipants,currentSettings);
     show('resultArea');
@@ -4021,6 +4030,7 @@ function clearSaved(){
 let _cpExcluded=new Set();
 let _cpNewPlayers=[];
 let _cpFromRound=null; // 선택한 라운드 (이 라운드부터 재생성). null이면 기존 방식(완료 게임 기준)
+let _lockedBeforeRound=null; // 이 라운드 미만은 대진 잠금 (중간 투입 시 설정)
 
 function _isMatchDone(idx){
   const s1=parseInt(document.getElementById('s1_'+idx)?.value)||0;
@@ -4030,8 +4040,17 @@ function _isMatchDone(idx){
 }
 
 /* 라운드 단위 선수 변경: 선택 라운드부터 이후 전부 재생성 */
+/* 잠긴 라운드 클릭 시 안내 */
+function alertRoundLocked(r){
+  alert(`ROUND ${r}은(는) 중간 선수 투입 이후 확정되어 대진을 변경할 수 없습니다.\n\n승/패 입력은 그대로 가능합니다.\n(변경하려면 ROUND ${_lockedBeforeRound} 이상에서 선수 변경을 하세요.)`);
+}
+
 function openRoundChange(r){
   if(!currentMatches.length){alert('먼저 대진표를 생성해주세요.');return;}
+  // 잠긴 라운드는 변경 불가
+  if(_lockedBeforeRound!=null && r<_lockedBeforeRound){
+    alertRoundLocked(r);return;
+  }
   _cpFromRound=r;
   _cpExcluded=new Set();
   _cpNewPlayers=[];
@@ -4299,7 +4318,11 @@ function executeChangeModal(){
       currentMatches=allMatches;
       currentParticipants=activeParticipants;
 
-      // 8. _directPlayers 동기화
+      // 라운드 기준 + 신규 선수 투입 시: 선택 라운드 이전을 대진 잠금
+      if(_cpFromRound!=null && _cpNewPlayers.length>0){
+        // 기존 잠금보다 앞쪽이면 갱신하지 않음 (가장 마지막 투입 기준 유지)
+        _lockedBeforeRound = Math.max(_lockedBeforeRound||0, _cpFromRound);
+      }
       _cpExcluded.forEach(name=>{
         const idx=_directPlayers.findIndex(p=>p.name===name);
         if(idx>=0)_directPlayers.splice(idx,1);
