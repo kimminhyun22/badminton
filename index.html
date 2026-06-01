@@ -31,6 +31,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .hbs{display:flex;gap:4px;flex-wrap:wrap;}
 .hb{font-size:.6rem;padding:2px 8px;border-radius:999px;border:1px solid var(--bdr);color:var(--dim2);background:var(--sur2);}
 .hb.on{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8;}
+.header-help-btn{font-size:.72rem;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--txt);cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.header-help-btn:hover{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8;}
 
 /* ── NAV ── */
 .nav-bar{background:#ffffff;border-bottom:1px solid var(--bdr);display:flex;align-items:center;}
@@ -306,6 +308,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
 
 .manual-wrap{max-width:760px;margin:0 auto;padding:26px 18px;}
+.manual-back-btn{font-size:.74rem;font-weight:600;padding:7px 14px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--txt);cursor:pointer;margin-bottom:18px;}
+.manual-back-btn:hover{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8;}
 .manual-section{margin-bottom:26px;}
 .manual-section h2{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.95rem;color:var(--txt);margin-bottom:10px;padding-bottom:7px;border-bottom:2px solid var(--bdr);}
 .step-list{display:flex;flex-direction:column;gap:8px;}
@@ -1060,6 +1064,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <span class="hb on">레벨 밸런스</span><span class="hb on">여성 균등</span>
     <span class="hb on">랜덤</span><span class="hb on">연속배정 패널티</span><span class="hb on">파트너 중복 방지</span>
   </div>
+  <button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
 </header>
 
 <div class="nav-bar">
@@ -1455,6 +1460,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 <!-- ═══════════════ MANUAL PAGE ═══════════════ -->
 <div class="page" id="pageManual">
 <div class="manual-wrap">
+  <button class="manual-back-btn" onclick="switchNav('main');window.scrollTo({top:0});">← 대진표로 돌아가기</button>
   <div class="manual-section">
     <h2>📌 프로그램 개요</h2>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">팀 자동 배정 + 대진표 자동 생성</strong> 도구입니다. 레벨 밸런스, 게임 수 보장, 경기 중 선수 변경까지 한 번에 처리합니다.</p>
@@ -1551,6 +1557,14 @@ let teamNames={blue:'청 팀',white:'백 팀'};
 function switchNav(p){
   document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',['main','roster','manual'][i]===p));
   ['pageMain','pageRoster','pageManual'].forEach((id,i)=>document.getElementById(id).classList.toggle('active',['main','roster','manual'][i]===p));
+}
+
+/* 설명서 열기 (PC·모바일 공통) */
+function openManual(){
+  switchNav('manual');
+  // 하단 탭바 활성 상태 해제 (모바일)
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 
 /* ═══ TEAM NAME CHANGE ═══ */
