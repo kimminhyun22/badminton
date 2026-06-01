@@ -1977,6 +1977,14 @@ function balanceTeams(all){
 function generate(){
   hideErr();hideWarn();
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
+  // 이미 대진표가 있으면 덮어쓰기 경고 (특히 점수 입력된 경우)
+  if(currentMatches.length){
+    const enteredScores=Object.keys(winOverride).filter(k=>winOverride[k]).length;
+    const msg=enteredScores>0
+      ? `이미 대진표가 있고 ${enteredScores}경기의 승패가 입력되어 있습니다.\n\n새로 생성하면 현재 대진표와 입력된 결과가 모두 사라집니다.\n계속할까요?`
+      : `이미 생성된 대진표가 있습니다.\n새로 생성하면 현재 대진표가 사라집니다.\n계속할까요?`;
+    if(!confirm(msg)) return;
+  }
   let participants=_directPlayers.map(p=>({
     name:p.name,level:p.level,gender:p.gender==='남'?'M':'F',
     team:p.team||'',isGuest:!!p.isGuest,_valid:true,_grade:p.grade,
@@ -2050,6 +2058,11 @@ function generate(){
       _resetScoreboard();
       renderResults(matches,participants,settings);
       show('resultArea');
+      // 생성 후 결과 영역으로 부드럽게 이동 (특히 모바일)
+      setTimeout(()=>{
+        const ra=document.getElementById('resultArea');
+        if(ra) ra.scrollIntoView({behavior:'smooth',block:'start'});
+      },150);
       // ── 경고 합산 ──
       const _cw=checkEmptyCourts(matches,settings,participants);
       let _warnParts=[];
