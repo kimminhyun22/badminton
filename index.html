@@ -170,6 +170,22 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .sv-time{color:#059669;}
 .stat-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;}
 .stat-pill{font-size:.66rem;padding:2px 8px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--dim);}
+.qual-dash{margin-top:4px;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;}
+.qd-head{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;font-size:.72rem;font-weight:700;}
+.qd-head .qd-title{display:flex;align-items:center;gap:6px;}
+.qd-overall{font-size:.66rem;padding:3px 10px;border-radius:999px;font-weight:700;}
+.qd-list{padding:4px 8px 8px;display:flex;flex-direction:column;gap:4px;}
+.qd-item{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;border-radius:8px;background:var(--sur2);}
+.qd-icon{font-size:.95rem;line-height:1.2;flex-shrink:0;}
+.qd-body{flex:1;min-width:0;}
+.qd-label{font-size:.72rem;font-weight:600;color:var(--txt);}
+.qd-detail{font-size:.62rem;color:var(--dim);margin-top:1px;line-height:1.4;}
+.qd-good{background:rgba(16,185,129,.08);}
+.qd-warn{background:rgba(245,158,11,.10);}
+.qd-bad{background:rgba(239,68,68,.10);}
+.qd-ov-good{background:rgba(16,185,129,.15);color:#059669;}
+.qd-ov-warn{background:rgba(245,158,11,.18);color:#b45309;}
+.qd-ov-bad{background:rgba(239,68,68,.15);color:#dc2626;}
 .stat-pill b{color:var(--txt);}
 
 /* ── TABS ── */
@@ -1212,6 +1228,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
         <div class="card-body">
           <div class="sum-grid" id="sumGrid"></div>
           <div class="stat-row" id="statRow"></div>
+          <div class="qual-dash" id="qualDash"></div>
         </div>
       </div>
 
@@ -2693,6 +2710,108 @@ function updateScores(){
   scheduleSave();
 }
 
+/* ═══ 대진 품질 대시보드 ═══ */
+function renderQualityDashboard(matches,participants,settings){
+  const el=document.getElementById('qualDash');
+  if(!el) return;
+  if(!matches.length){ el.innerHTML=''; return; }
+
+  const items=[];
+  const gpp=settings.gamesPerPlayer;
+
+  // ① 레벨 밸런스
+  const avgLD=matches.reduce((s,m)=>s+m.levelDiff,0)/matches.length;
+  const spikes=matches.filter(m=>m.levelDiff>=3); // 튀는 게임 (실효 레벨차 3 이상)
+  const maxLD=Math.max(...matches.map(m=>m.levelDiff));
+  let lvStatus = (avgLD<=0.6 && spikes.length===0) ? 'good'
+               : (avgLD<=1.0 && spikes.length<=1) ? 'warn' : 'bad';
+  let lvDetail = `평균 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
+  if(spikes.length){
+    lvDetail += ` · 레벨차 큰 경기 ${spikes.length}개 (#${spikes.map(m=>m.matchNumber).join(', #')})`;
+  } else {
+    lvDetail += ' · 튀는 경기 없음';
+  }
+  items.push({icon:lvStatus, label:'레벨 밸런스', detail:lvDetail});
+
+  // ② 게임 수 보장
+  const counts={};
+  participants.forEach(p=>counts[p.name]=0);
+  matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
+    if(counts[p.name]!==undefined)counts[p.name]++;
+  }));
+  const under=participants.filter(p=>counts[p.name]<gpp);
+  const over=participants.filter(p=>counts[p.name]>gpp);
+  let gameStatus = under.length===0 ? 'good' : under.length<=2 ? 'warn' : 'bad';
+  let gameDetail = under.length===0
+    ? `전원 ${gpp}게임 달성 (${participants.length}명)`
+    : `미달 ${under.length}명: ${under.map(p=>`${p.name}(${counts[p.name]})`).join(', ')}`;
+  if(over.length) gameDetail += ` · 초과 ${over.length}명`;
+  items.push({icon:gameStatus, label:'게임 수 보장', detail:gameDetail});
+
+  // ③ 대진 간격 (직전 라운드 연속 출전)
+  let consecutive=0;
+  const consecutiveNames=[];
+  for(let r=2;r<=Math.max(...matches.map(m=>m.round));r++){
+    const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
+    const cur=matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]);
+    cur.forEach(n=>{ if(prev.has(n)){consecutive++; if(!consecutiveNames.includes(n))consecutiveNames.push(n);} });
+  }
+  let gapStatus = consecutive===0 ? 'good' : consecutive<=2 ? 'warn' : 'bad';
+  let gapDetail = consecutive===0
+    ? '연속 출전 없음 · 라운드 간격 양호'
+    : `직전 라운드 연속 출전 ${consecutive}건 (${consecutiveNames.slice(0,4).join(', ')}${consecutiveNames.length>4?' 외':''})`;
+  items.push({icon:gapStatus, label:'대진 간격', detail:gapDetail});
+
+  // ④ 상대 다양성 (동일 상대 반복)
+  const oppCount={};
+  matches.forEach(m=>{
+    const t1=[m.team1A.name,m.team1B.name], t2=[m.team2C.name,m.team2D.name];
+    t1.forEach(a=>t2.forEach(b=>{const k=[a,b].sort().join('|');oppCount[k]=(oppCount[k]||0)+1;}));
+  });
+  const rep2=Object.values(oppCount).filter(c=>c===2).length;
+  const rep3=Object.values(oppCount).filter(c=>c>=3).length;
+  let divStatus = rep3===0 ? (rep2<=Math.ceil(matches.length*0.3)?'good':'warn') : 'bad';
+  let divDetail = rep3>0
+    ? `3회 이상 만난 상대 ${rep3}쌍 · 2회 ${rep2}쌍`
+    : rep2>0 ? `동일 상대 2회 ${rep2}쌍 (3회+ 없음)` : '모든 상대 1회씩 · 다양성 우수';
+  items.push({icon:divStatus, label:'상대 다양성', detail:divDetail});
+
+  // ⑤ 보완 게임
+  const fillers=matches.filter(m=>m.isFiller);
+  let fillStatus = fillers.length===0 ? 'good' : fillers.length<=2 ? 'warn' : 'bad';
+  let fillDetail = fillers.length===0
+    ? '보완 게임 없음 · 정상 배정'
+    : `보완 게임 ${fillers.length}개 (#${fillers.map(m=>m.matchNumber).join(', #')})`;
+  items.push({icon:fillStatus, label:'보완 게임', detail:fillDetail});
+
+  // 종합 점수
+  const score = items.reduce((s,it)=>s+(it.icon==='good'?2:it.icon==='warn'?1:0),0);
+  const maxScore = items.length*2;
+  let overall, ovClass;
+  if(score>=maxScore-1){ overall='우수'; ovClass='qd-ov-good'; }
+  else if(score>=maxScore*0.6){ overall='양호'; ovClass='qd-ov-warn'; }
+  else { overall='개선 필요'; ovClass='qd-ov-bad'; }
+
+  const ICON={good:'✅',warn:'⚠️',bad:'❌'};
+  const CLS={good:'qd-good',warn:'qd-warn',bad:'qd-bad'};
+
+  el.innerHTML=`
+    <div class="qd-head">
+      <span class="qd-title">🎯 대진 품질 점검</span>
+      <span class="qd-overall ${ovClass}">${overall}</span>
+    </div>
+    <div class="qd-list">
+      ${items.map(it=>`
+        <div class="qd-item ${CLS[it.icon]}">
+          <span class="qd-icon">${ICON[it.icon]}</span>
+          <div class="qd-body">
+            <div class="qd-label">${it.label}</div>
+            <div class="qd-detail">${it.detail}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
 /* ═══ RENDER RESULTS ═══ */
 function renderResults(matches,participants,settings){
   const isTeam=settings.teamMode;
@@ -2724,6 +2843,8 @@ function renderResults(matches,participants,settings){
     fillerCnt?`<div class="stat-pill">보완<b>${fillerCnt}</b></div>`:'',
     unmet.length?`<div class="stat-pill" style="color:var(--red)">미달 <b>${unmet.map(p=>p.name).join(', ')}</b></div>`:''
   ].join('');
+
+  renderQualityDashboard(matches,participants,settings);
 
   // 스코어보드: 팀 모드일 때만 표시
   document.getElementById('scoreboardSec').classList.toggle('hidden',!isTeam);
