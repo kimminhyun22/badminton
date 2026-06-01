@@ -2040,6 +2040,11 @@ function generateMatches(participants,settings,totalMatches){
 
         // avail: 게임 가능 선수
         let avail=participants.filter(p=>p.gamesPlayed<maxG&&!used.has(p.name));
+        // 신규 투입 선수는 새 대진의 1라운드(진행라운드+1)에 배정하지 않음 (안정적 운영)
+        if(currentRound===1 && participants.some(p=>p.isNewJoiner)){
+          const availNoNew=avail.filter(p=>!p.isNewJoiner);
+          if(availNoNew.length>=4) avail=availNoNew;
+        }
 
         // 차단 집합: 일반 선수는 justPlayed(1라운드), 파트너 쌍은 2라운드 차단
         const blockedThisRound=new Set([...justPlayed]);
@@ -4111,6 +4116,15 @@ function executeChangeModal(){
 
   // 3. 활성 선수 목록 구성
   const target=currentSettings.gamesPerPlayer||4;
+
+  // 진행 라운드 및 잔여율 계산 (신규 선수 게임수 산정용)
+  const totalRounds=currentMatches.length?Math.max(...currentMatches.map(m=>m.round)):0;
+  const doneRoundMax=completedMatches.length?Math.max(...completedMatches.map(m=>m.round)):0;
+  // 잔여율 = 남은 라운드 / 전체 라운드 (진행 라운드 다음부터 신규 투입)
+  const remainRatio=totalRounds>0?Math.max(0,(totalRounds-doneRoundMax)/totalRounds):1;
+  // 신규 선수 게임수 = 올림(잔여율 × 목표), 최소 1 최대 target
+  const newJoinerGames=Math.min(target,Math.max(1,Math.ceil(remainRatio*target)));
+
   const activeParticipants=[];
   currentParticipants.forEach(p=>{
     if(_cpExcluded.has(p.name))return;
@@ -4126,10 +4140,12 @@ function executeChangeModal(){
       name:np.name,level:np.level,grade:np.grade,
       gender:np.gender==='남'?'M':'F',
       team:np.team||'',
-      gamesPlayed:0,lastRoundPlayed:0,
+      // 신규 선수는 (target - newJoinerGames)를 이미 뛴 것으로 처리 → 잔여 newJoinerGames만 배정됨
+      gamesPlayed:target-newJoinerGames,
+      lastRoundPlayed:0,
       womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,
       partnerCount:{},opponentCount:{},
-      _valid:true,isNewJoiner:true
+      _valid:true,isNewJoiner:true,_njGames:newJoinerGames
     });
   });
   if(activeParticipants.length<4){alert('재배정에 최소 4명이 필요합니다.');return;}
