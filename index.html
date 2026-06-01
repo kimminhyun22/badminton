@@ -224,6 +224,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .round-edit-btn:hover{background:rgba(139,92,246,.18);}
 .round-edit-btn.locked{background:var(--sur2);color:var(--dim);border-color:var(--bdr);cursor:not-allowed;opacity:.7;}
 .round-edit-btn.locked:hover{background:var(--sur2);}
+.round-reshuffle-btn{font-size:.62rem;padding:3px 9px;border-radius:999px;background:rgba(8,145,178,.10);color:#0891b2;border:1px solid rgba(8,145,178,.3);cursor:pointer;white-space:nowrap;flex-shrink:0;font-weight:600;margin-left:4px;}
+.round-reshuffle-btn:hover{background:rgba(8,145,178,.18);}
 .round-badge{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.75rem;letter-spacing:1.5px;padding:3px 11px;border-radius:4px;background:#3a4a5c;color:#fff;}
 .round-line{flex:1;height:1px;background:var(--bdr);}
 .match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;}
@@ -2979,7 +2981,7 @@ function renderResults(matches,participants,settings){
     const isLocked=_lockedBeforeRound!=null && r<_lockedBeforeRound;
     const editBtn=isLocked
       ? `<button class="round-edit-btn locked" onclick="alertRoundLocked(${r})">🔒 변경 잠금</button>`
-      : `<button class="round-edit-btn" onclick="openRoundChange(${r})">✏️ 선수 변경</button>`;
+      : `<button class="round-edit-btn" onclick="openRoundChange(${r})">✏️ 선수 변경</button><button class="round-reshuffle-btn" onclick="reshuffleFromRound(${r})">🎲 재배정</button>`;
     return `<div class="round-block"><div class="round-header"><span class="round-badge">ROUND ${r}</span>${editBtn}<div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
   }).join('');
   document.getElementById('tabBracket').innerHTML=bracketHtml;
@@ -4154,6 +4156,64 @@ function _cpUpdateSummary(){
 }
 
 /* ═══ 간편 재배정 (선수 변동 없이 현재 구성으로 다시 섞기) ═══ */
+/* 특정 라운드부터 재배정 (선수 변경 없이, r 이전 유지) */
+function reshuffleFromRound(r){
+  if(!currentMatches.length){alert('먼저 대진표를 생성해주세요.');return;}
+  if(_lockedBeforeRound!=null && r<_lockedBeforeRound){alertRoundLocked(r);return;}
+
+  // r 이전 라운드 유지, r 이후(r 포함) 재생성
+  const completedMatches=currentMatches.filter(m=>m.round<r);
+  const completedScores=[];
+  currentMatches.forEach((m,i)=>{ if(m.round<r) completedScores.push({wo:winOverride[i]||null}); });
+
+  const gDoneMap={};
+  completedMatches.forEach(m=>{
+    [m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{gDoneMap[p.name]=(gDoneMap[p.name]||0)+1;});
+  });
+
+  const target=currentSettings.gamesPerPlayer||4;
+  const activeParticipants=currentParticipants.map(p=>{
+    const wasJoiner=p.isNewJoiner||p._njGames!=null;
+    return Object.assign({},p,{
+      gamesPlayed:gDoneMap[p.name]||0,
+      _goal: wasJoiner ? (p._njGames!=null?p._njGames:target) : target,
+      isNewJoiner: wasJoiner,
+      _njGames: wasJoiner ? (p._njGames!=null?p._njGames:undefined) : undefined,
+      lastRoundPlayed:0,
+      womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,
+      partnerCount:{},opponentCount:{}
+    });
+  });
+
+  const remaining=activeParticipants.reduce((s,p)=>s+Math.max(0,(p._goal!=null?p._goal:target)-p.gamesPlayed),0);
+  const totalNewMatches=Math.round(remaining/4);
+  if(totalNewMatches===0){alert('재배정할 게임이 없습니다.');return;}
+
+  document.getElementById('loadingOverlay').classList.add('on');
+  setTimeout(()=>{
+    try{
+      _skipNewFirstRound=false;
+      const newMatches=generateMatches(activeParticipants,currentSettings,totalNewMatches);
+      fillMissingGames(activeParticipants,currentSettings,newMatches);
+      compactSchedule(newMatches,currentSettings);
+      newMatches.sort((a,b)=>a.round-b.round||a.court-b.court);
+      const lastKeepRound=r-1;
+      newMatches.forEach(m=>m.round+=lastKeepRound);
+      const allMatches=[...completedMatches,...newMatches];
+      allMatches.forEach((m,i)=>m.matchNumber=i+1);
+      currentMatches=allMatches;
+      currentParticipants=activeParticipants;
+      Object.keys(winOverride).forEach(k=>delete winOverride[k]);
+      completedScores.forEach((sc,i)=>{if(sc.wo)winOverride[i]=sc.wo;});
+      renderResults(currentMatches,currentParticipants,currentSettings);
+      setTimeout(()=>{updateScores();scheduleSave();},100);
+      const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
+      if(_cw.length){let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
+    }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
+    finally{document.getElementById('loadingOverlay').classList.remove('on');_skipNewFirstRound=true;}
+  },50);
+}
+
 function reshuffleMatches(){
   if(!currentMatches.length){alert('먼저 대진표를 생성해주세요.');return;}
   // 완료된 게임은 유지, 미완료만 재생성
