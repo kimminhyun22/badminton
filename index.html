@@ -2112,21 +2112,43 @@ function generateMatches(participants,settings,totalMatches){
         to.push('any');
 
         let match=null;
-        // 1단계: 파트너 쌍 우선 배정 — 레벨차 작은 조합부터 (밸런스 우선)
+        const hasRepeat4=(m)=>{if(!m)return false;const t1=[m.team1A,m.team1B],t2=[m.team2C,m.team2D];for(const a of t1)for(const b of t2){if((a.opponentCount[b.name]||0)>=3)return true;}return false;};
+        // 1단계: 파트너 쌍 우선 배정 — 레벨차 작은 조합부터
         for(const pL of[1,2]){match=tryCreateMatchWithPartners(avail,settings,'any',pL);if(match)break;}
-        // 2단계: 파트너 없으면 일반 배정 (레벨차 엄격)
+        if(hasRepeat4(match)) match=null; // 4회째 만남이면 파트너매치도 거부
+        // 2단계: 일반 배정 (레벨차 엄격, 4회째 만남 회피)
         if(!match){
+          let fb=null;
           for(const maxLD of[1,2,4]){
-            for(const t of to){match=tryCreateMatch(avail,settings,t,maxLD);if(match)break;}
+            for(const t of to){
+              const cand=tryCreateMatch(avail,settings,t,maxLD);
+              if(!cand) continue;
+              if(!hasRepeat4(cand)){ match=cand; break; }
+              if(!fb) fb=cand;
+            }
             if(match)break;
           }
-        }
-        // 3단계: 파트너 분리 허용 (레벨 밸런스 최우선, 4게임 중 1~2회 분리 OK)
-        if(!match){
-          for(const mL of[1,2]){
-            const four=selectFourFreeMode(avail,'any',mL);
-            if(four){match=formTeams(four,settings.teamMode,'any',mL,true);if(match)break;}
+          // 4회 회피 실패 시: 혼복 등 다른 종목 + 레벨차 무제한으로 4회아닌 매치 탐색
+          if(!match){
+            for(const t of['mixed','women','men','any']){
+              const cand=tryCreateMatch(avail,settings,t,99);
+              if(cand && !hasRepeat4(cand)){ match=cand; break; }
+            }
           }
+          if(!match && fb && !hasRepeat4(fb)) match=fb;
+        }
+        // 3단계: 파트너 분리 허용 (레벨 밸런스 우선, 4회 회피)
+        if(!match){
+          let fb=null;
+          for(const mL of[1,2,4]){
+            const four=selectFourFreeMode(avail,'any',mL);
+            if(four){
+              const cand=formTeams(four,settings.teamMode,'any',mL,true);
+              if(cand && !hasRepeat4(cand)){ match=cand; break; }
+              if(cand && !fb) fb=cand;
+            }
+          }
+          if(!match && fb && !hasRepeat4(fb)) match=fb;
         }
         if(!match)continue;
         if(match.type==='여복')womenCount++;else if(match.type==='남복')menCount++;else mixedCount++;
@@ -2146,6 +2168,7 @@ function generateMatches(participants,settings,totalMatches){
 }
 
 function fillMissingGames(participants,settings,matches){
+  const fillerRepeat4=(m)=>{if(!m)return false;const t1=[m.team1A,m.team1B],t2=[m.team2C,m.team2D];for(const a of t1)for(const b of t2){if((a.opponentCount[b.name]||0)>=3)return true;}return false;};
   const target=settings.gamesPerPlayer;
   const courts=settings.courts;
 
@@ -2171,6 +2194,16 @@ function fillMissingGames(participants,settings,matches){
         if(!four)continue;
         let match=formTeams(four,settings.teamMode,'any',99);
         if(!match)continue;
+        if(fillerRepeat4(match)){
+          const t1=[match.team1A,match.team1B],t2=[match.team2C,match.team2D];
+          let blk=null;
+          for(const a of t1){for(const b of t2){if((a.opponentCount[b.name]||0)>=3){blk=a.name;break;}}if(blk)break;}
+          const pool2=pool.filter(p=>p.name!==blk);
+          if(pool2.length>=4){
+            const f2=selectFillerFour(pool2,unmet.length?unmet:pool2,target,settings);
+            if(f2){const m2=formTeams(f2,settings.teamMode,'any',99);if(m2&&!fillerRepeat4(m2))match=m2;}
+          }
+        }
         match.matchNumber=matches.length+1;match.round=r;match.court=court;match.isFiller=true;
         [match.team1A,match.team1B,match.team2C,match.team2D].forEach(p=>usedPlayers.add(p.name));
         usedCourts.add(court);
@@ -2229,6 +2262,16 @@ function fillMissingGames(participants,settings,matches){
 
       const match=formTeams(four,settings.teamMode,'any',99);
       if(!match)continue;
+      if(fillerRepeat4(match)){
+        const t1=[match.team1A,match.team1B],t2=[match.team2C,match.team2D];
+        let blk=null;
+        for(const a of t1){for(const b of t2){if((a.opponentCount[b.name]||0)>=3){blk=a.name;break;}}if(blk)break;}
+        const pool3=participants.filter(p=>p.gamesPlayed<target+1&&!used.has(p.name)&&p.name!==blk);
+        if(pool3.length>=4){
+          const f3=selectFillerFour(pool3,pool3,target,settings);
+          if(f3){const m3=formTeams(f3,settings.teamMode,'any',99);if(m3&&!fillerRepeat4(m3)){Object.assign(match,m3);}}
+        }
+      }
 
       match.matchNumber=matches.length+1;
       match.round=currentRound;
@@ -2303,9 +2346,11 @@ function tryCreateMatchWithPartners(avail, settings, type, maxLD){
     if(!oppPair){
       const freeRest=rest.filter(p=>!p.partnerName);
       const pairLevel=effLevel(pair[0])+effLevel(pair[1]);
+      const wouldBe4=(c)=>pair.some(pp=>(pp.opponentCount[c.name]||0)>=3);
       const findBalanced=(pool)=>{
         let bb=null,bd=Infinity;
         for(let i=0;i<pool.length;i++)for(let j=i+1;j<pool.length;j++){
+          if(wouldBe4(pool[i])||wouldBe4(pool[j])) continue;
           const d=Math.abs((effLevel(pool[i])+effLevel(pool[j]))-pairLevel);
           const gpen=(pool[i].gamesPlayed+pool[j].gamesPlayed)*0.01;
           if(d+gpen<bd){bd=d+gpen;bb=[pool[i],pool[j]];}
@@ -2321,6 +2366,7 @@ function tryCreateMatchWithPartners(avail, settings, type, maxLD){
         const ff=freeRest.filter(p=>p.gender==='F');
         let bb=null,bd=Infinity;
         for(const a of mm)for(const b of ff){
+          if(wouldBe4(a)||wouldBe4(b)) continue;
           const d=Math.abs((effLevel(a)+effLevel(b))-pairLevel);
           const gpen=(a.gamesPlayed+b.gamesPlayed)*0.01;
           if(d+gpen<bd){bd=d+gpen;bb=[a,b];}
@@ -2516,9 +2562,11 @@ function diversityScore(four,ld){
       score+=pc*10; // 같은 팀 중복
     }
     const oc=four[i].opponentCount[four[j].name]||0;
-    if(oc===0) score+=0;        // 첫 대전: 패널티 없음
-    else if(oc===1) score+=5;   // 1회 대전: 소폭 패널티 (허용)
-    else score+=(oc-1)*40;      // 2회 이상: 강한 패널티
+    if(oc===0) score+=0;
+    else if(oc===1) score+=4;     // 1회: 거의 무시
+    else if(oc===2) score+=30;    // 2회: 약간 회피 (허용)
+    else if(oc===3) score+=120;   // 3회: 회피 노력
+    else score+=1e9;              // 4회+: 하드 차단
   }
 
   // 팀 내 레벨 차이 패널티
@@ -2580,7 +2628,7 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     if(!p1pair) score+=(t1[0].partnerCount[t1[1].name]||0)*10;
     if(!p2pair) score+=(t2[0].partnerCount[t2[1].name]||0)*10;
     // 상대 중복: 1회 허용, 2회+만 패널티
-    t1.forEach(a=>t2.forEach(b=>{const oc=a.opponentCount[b.name]||0;score+=oc<=1?oc*2:(oc-1)*30;}));
+    t1.forEach(a=>t2.forEach(b=>{const oc=a.opponentCount[b.name]||0;score+=oc===0?0:oc===1?2:oc===2?15:oc===3?80:1e9;}));
     if(!teamMode&&type==='any'){const f1=t1.filter(p=>p.gender==='F').length,f2=t2.filter(p=>p.gender==='F').length;if(f1===1&&f2===1)score-=50;}
     if(score<bestScore){bestScore=score;best={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:ld,team1Level:effLevel(t1[0])+effLevel(t1[1]),team2Level:effLevel(t2[0])+effLevel(t2[1])};}
   }
