@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🏸 배드민턴 대진표</title>
+<title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
 <style>
@@ -728,6 +728,11 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
 /* 하단 탭바 */
 .bottom-nav{display:none;}
+.app-footer{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:20px 16px 28px;font-size:.7rem;color:var(--dim);border-top:1px solid var(--bdr);margin-top:24px;}
+.app-footer b{color:var(--txt);font-weight:700;}
+.app-footer a{color:var(--bl);text-decoration:none;}
+.app-footer a:hover{text-decoration:underline;}
+.app-footer .footer-dot{color:var(--bdr);}
 .bnav-spacer{display:none;}
 
 @media(max-width:768px){
@@ -1043,8 +1048,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
 <header>
   <div class="h-left">
-    <h1>🏸 배드민턴 대진표</h1>
-    <p>팀 배정 + 자동 대진표 생성기</p>
+    <h1>🏸 콕매치</h1>
+    <p>배드민턴 팀 배정 + 자동 대진표 생성기</p>
   </div>
   <div class="hbs">
     <span class="hb on">레벨 밸런스</span><span class="hb on">여성 균등</span>
@@ -5383,6 +5388,12 @@ window.addEventListener('DOMContentLoaded', () => {
   if(btn) btn.classList.add('active');
 });
 </script>
+<!-- ═══ 제작자 정보 푸터 ═══ -->
+<footer class="app-footer">
+  <span>🏸 <b>콕매치</b> · 기획·제작 김민현</span>
+  <span class="footer-dot">·</span>
+  <a href="mailto:mhkim@ms99.kr">mhkim@ms99.kr</a>
+</footer>
 <!-- ═══ 모바일 하단 탭바 ═══ -->
 <nav class="bottom-nav" id="bottomNav">
   <button class="bnav-btn active" id="bnav-players" onclick="switchMobileTab('players')">
