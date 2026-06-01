@@ -2039,10 +2039,14 @@ function generateMatches(participants,settings,totalMatches){
       for(let court=1;court<=settings.courts;court++){
         if(matches.length>=totalMatches)break;
         if(matches.some(m=>m.round===currentRound&&m.court===court))continue;
-        const maxG=pass===1?settings.gamesPerPlayer:settings.gamesPerPlayer+1;
+        const passExtra=pass===1?0:1;
 
-        // avail: 게임 가능 선수
-        let avail=participants.filter(p=>p.gamesPlayed<maxG&&!used.has(p.name));
+        // avail: 게임 가능 선수 (선수별 목표 _goal 우선, 신규선수는 초과 금지)
+        let avail=participants.filter(p=>{
+          const base=(p._goal!=null?p._goal:settings.gamesPerPlayer);
+          const goal=(p.isNewJoiner)?base:base+passExtra;
+          return p.gamesPlayed<goal && !used.has(p.name);
+        });
         // 신규 투입 선수 1라운드 제외 (_skipNewFirstRound가 true일 때만 — 라운드 직접선택 시엔 끔)
         if(_skipNewFirstRound && currentRound===1 && participants.some(p=>p.isNewJoiner)){
           const availNoNew=avail.filter(p=>!p.isNewJoiner);
@@ -2178,6 +2182,7 @@ function generateMatches(participants,settings,totalMatches){
 function fillMissingGames(participants,settings,matches){
   const fillerRepeat4=(m)=>{if(!m)return false;const t1=[m.team1A,m.team1B],t2=[m.team2C,m.team2D];for(const a of t1)for(const b of t2){if((a.opponentCount[b.name]||0)>=3)return true;}return false;};
   const target=settings.gamesPerPlayer;
+  const goal=(p)=>(p._goal!=null?p._goal:target); // 선수별 목표 게임수
   const courts=settings.courts;
 
   // ── PHASE 1: 기존 라운드의 빈 코트 채우기 ──
@@ -2194,9 +2199,9 @@ function fillMissingGames(participants,settings,matches){
       for(let court=1;court<=courts;court++){
         if(usedCourts.has(court))continue;
         const maxG=fpass===1?target:target+1;
-        const unmet=participants.filter(p=>p.gamesPlayed<target&&!usedPlayers.has(p.name));
+        const unmet=participants.filter(p=>p.gamesPlayed<goal(p)&&!usedPlayers.has(p.name));
         if(fpass===1&&!unmet.length)continue;
-        const pool=participants.filter(p=>p.gamesPlayed<maxG&&!usedPlayers.has(p.name));
+        const pool=participants.filter(p=>p.gamesPlayed<goal(p)+(fpass===1?0:1)&&!usedPlayers.has(p.name));
         if(pool.length<4)continue;
         const four=selectFillerFour(pool,unmet.length?unmet:pool,target,settings);
         if(!four)continue;
@@ -2243,13 +2248,13 @@ function fillMissingGames(participants,settings,matches){
     );
 
     for(let court=1;court<=courts;court++){
-      const cu=participants.filter(p=>p.gamesPlayed<target&&!used.has(p.name));
+      const cu=participants.filter(p=>p.gamesPlayed<goal(p)&&!used.has(p.name));
       if(!cu.length)break;
 
       // 1차: 직전 라운드에 쉰 미달 선수만으로 시도
       const cuRested=cu.filter(p=>!justPlayed.has(p.name));
       const poolRested=participants.filter(p=>
-        p.gamesPlayed<target+1&&!used.has(p.name)&&!justPlayed.has(p.name)
+        p.gamesPlayed<goal(p)+1&&!used.has(p.name)&&!justPlayed.has(p.name)
       );
 
       let four=null;
@@ -2260,7 +2265,7 @@ function fillMissingGames(participants,settings,matches){
 
       // 2차: 직전 라운드 참가자도 포함해 재시도 (불가피한 경우)
       if(!four){
-        const pool=participants.filter(p=>p.gamesPlayed<target+1&&!used.has(p.name));
+        const pool=participants.filter(p=>p.gamesPlayed<goal(p)+1&&!used.has(p.name));
         if(pool.length<4)break;
         four=selectFillerFour(pool,cu,target,settings);
         if(four){let m=formTeams(four,settings.teamMode,'any',99);if(!m)four=null;}
@@ -2274,7 +2279,7 @@ function fillMissingGames(participants,settings,matches){
         const t1=[match.team1A,match.team1B],t2=[match.team2C,match.team2D];
         let blk=null;
         for(const a of t1){for(const b of t2){if((a.opponentCount[b.name]||0)>=3){blk=a.name;break;}}if(blk)break;}
-        const pool3=participants.filter(p=>p.gamesPlayed<target+1&&!used.has(p.name)&&p.name!==blk);
+        const pool3=participants.filter(p=>p.gamesPlayed<goal(p)+1&&!used.has(p.name)&&p.name!==blk);
         if(pool3.length>=4){
           const f3=selectFillerFour(pool3,pool3,target,settings);
           if(f3){const m3=formTeams(f3,settings.teamMode,'any',99);if(m3&&!fillerRepeat4(m3)){Object.assign(match,m3);}}
@@ -2508,27 +2513,28 @@ function selectFourFreeMode(pool,type,maxLD){
 }
 
 function selectFillerFour(pool,unmet,target,settings){
+  const goal=(p)=>(p._goal!=null?p._goal:target);
   // 미달 선수: 게임 적게+오래 쉰 순으로 정렬 후 전부 후보로
   const su=[...unmet].sort((a,b)=>{
     const gd=a.gamesPlayed-b.gamesPlayed;
     if(gd!==0)return gd;
     return (a.lastRoundPlayed||0)-(b.lastRoundPlayed||0); // 오래 쉰 선수 우선
   });
-  const ex=pool.filter(p=>p.gamesPlayed>=target).sort((a,b)=>a.gamesPlayed-b.gamesPlayed);
+  const ex=pool.filter(p=>p.gamesPlayed>=goal(p)).sort((a,b)=>a.gamesPlayed-b.gamesPlayed);
   // 후보 풀 확장: 미달 전원 + 초과 선수 상위 8명
   const cands=[...su,...ex.slice(0,8)].slice(0,20);
   if(cands.length<4)return null;
   let best=null,bestScore=Infinity;const n=cands.length;
   for(let i=0;i<n-3;i++)for(let j=i+1;j<n-2;j++)for(let k=j+1;k<n-1;k++)for(let l=k+1;l<n;l++){
     const four=[cands[i],cands[j],cands[k],cands[l]];
-    if(!four.some(p=>p.gamesPlayed<target))continue;
+    if(!four.some(p=>p.gamesPlayed<goal(p)))continue;
     if(settings.teamMode){const b=four.filter(p=>p.team==='청팀'),w=four.filter(p=>p.team==='백팀');if(b.length<2||w.length<2)continue;}
     const minLD=Math.min(
       Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3]))),
       Math.abs((effLevel(four[0])+effLevel(four[2]))-(effLevel(four[1])+effLevel(four[3]))),
       Math.abs((effLevel(four[0])+effLevel(four[3]))-(effLevel(four[1])+effLevel(four[2])))
     );
-    const uc=four.filter(p=>p.gamesPlayed<target).length;
+    const uc=four.filter(p=>p.gamesPlayed<goal(p)).length;
     // 미달 인원 많을수록, 오래 쉰 선수 포함할수록 우선
     const waitBonus=four.reduce((s,p)=>s+Math.min(_currentRound-(p.lastRoundPlayed||0),10)*5,0);
     const score=minLD*20+diversityScore(four,minLD)-uc*200-waitBonus;
@@ -4165,6 +4171,7 @@ function executeChangeModal(){
     if(_cpExcluded.has(p.name))return;
     activeParticipants.push(Object.assign({},p,{
       gamesPlayed:gDoneMap[p.name]||0,
+      _goal:target, // 기존 선수 목표 = 전체 목표
       lastRoundPlayed:0,
       womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,
       partnerCount:{},opponentCount:{}
@@ -4175,8 +4182,9 @@ function executeChangeModal(){
       name:np.name,level:np.level,grade:np.grade,
       gender:np.gender==='남'?'M':'F',
       team:np.team||'',
-      // 신규 선수는 (target - newJoinerGames)를 이미 뛴 것으로 처리 → 잔여 newJoinerGames만 배정됨
-      gamesPlayed:target-newJoinerGames,
+      // 신규 선수: gamesPlayed=0, 개인 목표(_goal)만 잔여율 기반으로 낮춤
+      gamesPlayed:0,
+      _goal:newJoinerGames,
       lastRoundPlayed:0,
       womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,
       partnerCount:{},opponentCount:{},
@@ -4191,9 +4199,9 @@ function executeChangeModal(){
     if(w.length<2){alert('팀 모드: 백팀 최소 2명이 필요합니다.');return;}
   }
 
-  // 4. 새 경기 수 계산 (4의 배수 불필요 — 유연 처리)
-  const remaining=activeParticipants.reduce((s,p)=>s+Math.max(0,target-p.gamesPlayed),0);
-  const totalNewMatches=Math.floor(remaining/4);
+  // 4. 새 경기 수 계산 — 선수별 목표(_goal) 기준 잔여 합
+  const remaining=activeParticipants.reduce((s,p)=>s+Math.max(0,(p._goal!=null?p._goal:target)-p.gamesPlayed),0);
+  const totalNewMatches=Math.round(remaining/4); // 반올림: 잔여 슬롯 최대 활용
   if(totalNewMatches===0){alert('모든 선수가 이미 목표 게임 수를 달성했습니다.');closeChangeModal();return;}
 
   document.getElementById('loadingOverlay').classList.add('on');
