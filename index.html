@@ -2821,18 +2821,39 @@ function renderQualityDashboard(matches,participants,settings){
   if(over.length) gameDetail += ` · 초과 ${over.length}명`;
   items.push({icon:gameStatus, label:'게임 수 보장', detail:gameDetail});
 
-  // ③ 대진 간격 (직전 라운드 연속 출전)
-  let consecutive=0;
-  const consecutiveNames=[];
-  for(let r=2;r<=Math.max(...matches.map(m=>m.round));r++){
+  // ③ 대진 간격 (직전 라운드 연속 출전 — 인원 대비 불가피분 제외)
+  const nPlayers=participants.length;
+  let excessConsec=0, totalConsec=0, totalSlots=0;
+  const excessNames={};
+  const maxRound=Math.max(...matches.map(m=>m.round));
+  for(let r=2;r<=maxRound;r++){
     const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
     const cur=matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]);
-    cur.forEach(n=>{ if(prev.has(n)){consecutive++; if(!consecutiveNames.includes(n))consecutiveNames.push(n);} });
+    let rConsec=0; const rNames=[];
+    cur.forEach(n=>{ if(prev.has(n)){rConsec++; rNames.push(n);} });
+    // 이 라운드 출전 인원 기준 이론적 최소 연속(휴식 가능 인원이 부족해 불가피한 연속)
+    const rPlaying=cur.length, rRest=nPlayers-rPlaying;
+    const rMin=Math.max(0, rPlaying-rRest);
+    const rExcess=Math.max(0, rConsec-rMin);
+    excessConsec+=rExcess;
+    totalConsec+=rConsec;
+    totalSlots+=rPlaying;
+    // 초과분에 해당하는 선수 기록 (참고용)
+    if(rExcess>0) rNames.slice(-rExcess).forEach(n=>{excessNames[n]=(excessNames[n]||0)+1;});
   }
-  let gapStatus = consecutive===0 ? 'good' : consecutive<=2 ? 'warn' : 'bad';
-  let gapDetail = consecutive===0
-    ? '연속 출전 없음 · 라운드 간격 양호'
-    : `직전 라운드 연속 출전 ${consecutive}건 (${consecutiveNames.slice(0,4).join(', ')}${consecutiveNames.length>4?' 외':''})`;
+  const excessRatio = totalSlots>0 ? excessConsec/totalSlots : 0;
+  // 인원이 적어 연속이 불가피한 경우(이론최소>0)는 그 사실을 안내
+  const theoMin=Math.max(0, settings.courts*8-nPlayers);
+  let gapStatus = excessRatio<=0.10 ? 'good' : excessRatio<=0.20 ? 'warn' : 'bad';
+  let gapDetail;
+  if(excessConsec===0){
+    gapDetail = theoMin>0
+      ? `회피 가능한 연속 출전 없음 (인원상 일부 연속은 불가피)`
+      : `연속 출전 없음 · 라운드 간격 우수`;
+  } else {
+    const names=Object.keys(excessNames).slice(0,4);
+    gapDetail = `회피 가능했던 연속 출전 ${excessConsec}건 (${(excessRatio*100).toFixed(0)}%${names.length?' · '+names.join(', ')+(Object.keys(excessNames).length>4?' 외':''):''})`;
+  }
   items.push({icon:gapStatus, label:'대진 간격', detail:gapDetail});
 
   // ④ 상대 다양성 (동일 상대 반복)
