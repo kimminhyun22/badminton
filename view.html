@@ -38,6 +38,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .ts-lead.tie{background:var(--sur2);color:var(--dim);}
 .ts-lead.white-lead{background:#fdf3e0;color:var(--amber);}
 .gauge-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:14px;}
+.gauge-sec{animation:secIn .6s ease-out both;}
+@keyframes secIn{from{opacity:0;}to{opacity:1;}}
 .gauge-svg{width:100%;max-width:280px;height:auto;}
 .gauge-needle{transform-origin:140px 130px;}
 .gauge-needle.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}
@@ -45,11 +47,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .gauge-caption{font-size:.82rem;font-weight:800;color:var(--dim);margin-top:4px;}
 .gauge-caption.blue{color:var(--bl-deep);}
 .gauge-caption.white{color:#b07d2e;}
-.gauge-front{animation:frontPulse 1.2s ease-in-out infinite;}
-@keyframes frontPulse{0%,100%{r:7;opacity:1;}50%{r:9;opacity:.7;}}
-.gauge-fill{transition:all .8s cubic-bezier(.4,0,.2,1);}
-@keyframes needleSwing{0%{transform:rotate(0deg);}12%{transform:rotate(-58deg);}28%{transform:rotate(52deg);}44%{transform:rotate(-38deg);}60%{transform:rotate(30deg);}74%{transform:rotate(-18deg);}86%{transform:rotate(12deg);}100%{transform:rotate(0deg);}}
-.gauge-needle.swing{animation:needleSwing 1.6s ease-in-out;}
+50%{r:9;opacity:.7;}}
+12%{transform:rotate(-58deg);}28%{transform:rotate(52deg);}44%{transform:rotate(-38deg);}60%{transform:rotate(30deg);}74%{transform:rotate(-18deg);}86%{transform:rotate(12deg);}100%{transform:rotate(0deg);}}
 /* 진행 정보 */
 .progress{text-align:center;font-size:.76rem;color:var(--dim);background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:14px;}
 .mvp-card{background:linear-gradient(135deg,#fff6e9,#ffeccc);border:1px solid #f0d9a8;border-radius:16px;padding:16px;margin-bottom:14px;text-align:center;box-shadow:0 1px 3px rgba(45,55,75,.06);}
@@ -176,37 +175,38 @@ if(!liveId){
 }
 
 function buildGauge(bW, wW, blueName, whiteName){
-  const tot=bW+wW;
-  const bShare = tot>0 ? bW/tot : 0.5;
-  const boundary = bShare*180;
-  const angle = Math.round((0.5-bShare)*156);
-  let cap='', capCls='';
+  var tot=bW+wW;
+  var bShare = tot>0 ? bW/tot : 0.5;
+  var boundary = bShare*180;
+  var cap='', capCls='';
   if(tot===0){ cap='⚔️ 경기 시작 전'; }
   else if(bW>wW){ cap='🔵 '+esc(blueName||'청 팀')+' 압도 중 ('+bW+':'+wW+')'; capCls='blue'; }
   else if(wW>bW){ cap='⚪ '+esc(whiteName||'백 팀')+' 압도 중 ('+bW+':'+wW+')'; capCls='white'; }
   else { cap='⚖️ 팽팽한 접전 ('+bW+':'+wW+')'; }
-  const r=110, cx=140, cy=130;
-  const polar=(deg)=>{const a=(180-deg)*Math.PI/180;return [cx+r*Math.cos(a), cy-r*Math.sin(a)];};
-  const arc=(s,e)=>{ if(Math.abs(e-s)<0.5) return ''; const[x1,y1]=polar(s),[x2,y2]=polar(e);const large=(e-s)>180?1:0;return 'M '+x1.toFixed(1)+' '+y1.toFixed(1)+' A '+r+' '+r+' 0 '+large+' 1 '+x2.toFixed(1)+' '+y2.toFixed(1);};
-  const bluePath=arc(0, boundary);
-  const whitePath=arc(boundary, 180);
-  const [bx,by]=polar(boundary);
-  const svg='<svg class="gauge-svg" viewBox="0 0 280 152" xmlns="http://www.w3.org/2000/svg">'
+  var r=108, cx=140, cy=128;
+  function polar(deg){var a=(180-deg)*Math.PI/180;return [cx+r*Math.cos(a), cy-r*Math.sin(a)];}
+  function sector(s,e){ if(Math.abs(e-s)<0.5) return ""; var p1=polar(s),p2=polar(e);var large=(e-s)>180?1:0;
+    return "M "+cx+" "+cy+" L "+p1[0].toFixed(1)+" "+p1[1].toFixed(1)+" A "+r+" "+r+" 0 "+large+" 1 "+p2[0].toFixed(1)+" "+p2[1].toFixed(1)+" Z";}
+  var blueSec=sector(0, boundary);
+  var whiteSec=sector(boundary, 180);
+  var nend=polar(boundary);
+  var e0=polar(0), e180=polar(180);
+  var rim="M "+e0[0].toFixed(1)+" "+e0[1].toFixed(1)+" A "+r+" "+r+" 0 0 1 "+e180[0].toFixed(1)+" "+e180[1].toFixed(1);
+  var svg='<svg class="gauge-svg" viewBox="0 0 280 145" xmlns="http://www.w3.org/2000/svg">'
     +'<defs>'
-    +'<linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3a6cce"/><stop offset="100%" stop-color="#7fa8f2"/></linearGradient>'
-    +'<linearGradient id="gWhite" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e6c478"/><stop offset="100%" stop-color="#bd8a2c"/></linearGradient>'
+    +'<linearGradient id="gBlue" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3a6cce"/><stop offset="100%" stop-color="#86acf2"/></linearGradient>'
+    +'<linearGradient id="gWhite" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e6c478"/><stop offset="100%" stop-color="#bd8a2c"/></linearGradient>'
     +'</defs>'
-    +'<path d="'+arc(0,180)+'" fill="none" stroke="var(--bdr)" stroke-width="16" stroke-linecap="round"/>'
-    +(bluePath? '<path class="gauge-fill" d="'+bluePath+'" fill="none" stroke="url(#gBlue)" stroke-width="16" stroke-linecap="round"/>':'')
-    +(whitePath? '<path class="gauge-fill" d="'+whitePath+'" fill="none" stroke="url(#gWhite)" stroke-width="16" stroke-linecap="round"/>':'')
-    +(tot>0? '<circle class="gauge-front" cx="'+bx.toFixed(1)+'" cy="'+by.toFixed(1)+'" r="7" fill="#fff" stroke="var(--txt)" stroke-width="2"/>':'')
-    +'<text x="24" y="142" font-size="13">🔵</text>'
-    +'<text x="242" y="142" font-size="13">⚪</text>'
-    +'<line class="gauge-needle swing" id="gaugeNeedle" x1="140" y1="130" x2="140" y2="40" stroke="var(--txt)" stroke-width="4" stroke-linecap="round"/>'
-    +'<circle cx="140" cy="130" r="9" fill="var(--txt)"/><circle cx="140" cy="130" r="4" fill="var(--sur)"/>'
+    +'<path d="'+sector(0,180)+'" fill="var(--sur2)" stroke="var(--bdr)" stroke-width="1"/>'
+    +(blueSec? '<path class="gauge-sec" d="'+blueSec+'" fill="url(#gBlue)"/>':'')
+    +(whiteSec? '<path class="gauge-sec" d="'+whiteSec+'" fill="url(#gWhite)"/>':'')
+    +'<path d="'+rim+'" fill="none" stroke="var(--bdr)" stroke-width="2"/>'
+    +'<line class="gauge-needle" x1="'+cx+'" y1="'+cy+'" x2="'+nend[0].toFixed(1)+'" y2="'+nend[1].toFixed(1)+'" stroke="var(--txt)" stroke-width="3.5" stroke-linecap="round"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="8" fill="var(--txt)"/><circle cx="'+cx+'" cy="'+cy+'" r="3.5" fill="var(--sur)"/>'
+    +'<text x="22" y="140" font-size="13">🔵</text>'
+    +'<text x="244" y="140" font-size="13">⚪</text>'
     +'</svg>';
-  setTimeout(()=>{const n=document.getElementById('gaugeNeedle');if(n){n.classList.remove('swing');n.classList.add('settle');n.style.transform='rotate('+angle+'deg)';}},1700);
-  return '<div class="gauge-wrap"><div class="gauge-title">⚔️ 세력 다툼</div>'+svg+'<div class="gauge-caption '+capCls+'">'+cap+'</div></div>';
+  return '<div class="gauge-wrap"><div class="gauge-title">⚔️ 세력 다투</div>'+svg+'<div class="gauge-caption '+capCls+'">'+cap+'</div></div>';
 }
 
 function buildStreaks(matches){
