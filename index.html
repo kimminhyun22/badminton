@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.5.1  (2026-06)
+     APP VERSION: 1.5.2  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.5.1">
+<meta name="app-version" content="1.5.2">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -53,6 +53,31 @@ body.dark{
 }
 body.dark .round-now-badge{color:#e09a96;background:#3a2e30;border-color:#54403f;}
 body.dark .round-current .round-badge{background:#3a2e30;color:#e6a8a4;border-color:#54403f;}
+/* 다크: 흰 배경 하드코딩 요소 보정 */
+body.dark .dir-input,
+body.dark .stepper,
+body.dark .stepper input,
+body.dark .lv-sel-btn,
+body.dark .gender-sel-btn,
+body.dark .point-seg,
+body.dark .pseg-btn,
+body.dark .p-row,
+body.dark .slot-item,
+body.dark .move-btn,
+body.dark .btn-ta,
+body.dark .dir-sort-btn,
+body.dark .nav-sync-btn,
+body.dark .s-save, body.dark .s-list, body.dark .s-export, body.dark .s-import{
+  background:var(--sur2)!important; color:var(--txt); border-color:var(--bdr)!important;
+}
+body.dark .lv-sel-btn.sel,
+body.dark .gender-sel-btn.sel-m,
+body.dark .gender-sel-btn.sel-f,
+body.dark .dir-sort-btn.active,
+body.dark .pseg-btn.active{
+  background:var(--bl-soft)!important; color:var(--bl-deep)!important; border-color:var(--bl-softbdr)!important;
+}
+body.dark .dir-input::placeholder{ color:var(--dim2); }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
@@ -1645,7 +1670,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.5.2';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
