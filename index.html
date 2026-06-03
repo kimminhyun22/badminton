@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.6.0  (2026-06)
+     APP VERSION: 1.7.0  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.6.0">
+<meta name="app-version" content="1.7.0">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -291,6 +291,9 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .goto-current-btn .gcb-round{opacity:.85;}
 .team-share-btn{margin-left:auto;padding:6px 12px;border:1px solid var(--bl-softbdr);border-radius:8px;background:var(--bl-soft);color:var(--bl-deep);font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer;}
 .team-share-btn:hover{background:var(--bl-softbdr);}
+.live-btn{margin-left:6px;padding:6px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--sur2);color:var(--dim);font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer;}
+.live-btn:hover{background:var(--bdr);}
+.live-btn.on{background:#fdeceb;color:#d84f4a;border-color:#f7cdcb;animation:nowPulse 1.6s ease-in-out infinite;}
 .timer-fab{position:fixed;right:16px;bottom:148px;z-index:900;width:52px;height:52px;border:1px solid var(--bdr);border-radius:50%;background:var(--sur);color:var(--txt);font-size:1.4rem;box-shadow:var(--shadow-md);cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .timer-fab:active{transform:scale(.94);}
 .timer-widget{position:fixed;right:16px;bottom:148px;z-index:901;display:flex;flex-direction:column;gap:8px;background:var(--sur);border:1px solid var(--bdr);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-md);min-width:150px;}
@@ -1131,6 +1134,30 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- Firebase 실시간 중계 (compat SDK) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+  const FB_CONFIG = {
+    apiKey: "AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
+    authDomain: "kokmatch-23b31.firebaseapp.com",
+    databaseURL: "https://kokmatch-23b31-default-rtdb.firebaseio.com",
+    projectId: "kokmatch-23b31",
+    storageBucket: "kokmatch-23b31.firebasestorage.app",
+    messagingSenderId: "57349245242",
+    appId: "1:57349245242:web:6c0ac6f4cc131b44192803"
+  };
+  let _fbApp=null, _fbDb=null;
+  function _fbInit(){
+    if(_fbApp) return true;
+    try{
+      if(typeof firebase==='undefined') return false;
+      _fbApp=firebase.initializeApp(FB_CONFIG);
+      _fbDb=firebase.database();
+      return true;
+    }catch(e){ console.warn('Firebase init 실패',e); return false; }
+  }
+</script>
 </head>
 <body>
 
@@ -1351,7 +1378,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <div class="card-head">
             <span class="card-title">🏆 팀 승패 집계</span>
             <span style="font-size:.62rem;color:var(--dim)">팀명 클릭 시 수정 가능</span>
-          <button class="team-share-btn" onclick="shareTeamStatus()">📤 현황 공유</button></div>
+          <button class="team-share-btn" onclick="shareTeamStatus()">📤 현황 공유</button><button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">📡 실시간 중계</button></div>
           <div class="card-body">
             <div id="winnerBanner"></div>
             <div class="scoreboard">
@@ -1632,7 +1659,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3025,9 +3052,111 @@ function updateScores(){
   if(_ptParticipants.length) renderPlayersTable();
   updateCurrentRoundHighlight();
   scheduleSave();
+  pushLiveState();
 }
 
 /* 팀전 중간 현황 공유 (단톡방/밴드) */
+let _liveId=null, _liveOn=false;
+
+/* 대회 고유 ID 생성 (6자리) */
+function _genLiveId(){
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s=''; for(let i=0;i<6;i++) s+=c[Math.floor(Math.random()*c.length)];
+  return s;
+}
+
+/* 현재 대진·스코어를 직렬화 (뷰어가 읽을 형태) */
+function _buildLiveState(){
+  const isTeam=!!(currentSettings && currentSettings.teamMode);
+  const matches=currentMatches.map((m,i)=>({
+    round:m.round, court:m.court, type:m.type, num:m.matchNumber,
+    isFiller:!!m.isFiller,
+    t1:[m.team1A.name, m.team1B.name],
+    t2:[m.team2C.name, m.team2D.name],
+    t1g:[m.team1A.grade, m.team1B.grade],
+    t2g:[m.team2C.grade, m.team2D.grade],
+    win: winOverride[i]||null
+  }));
+  let bW=0,wW=0;
+  if(isTeam){
+    bW=parseInt(document.getElementById('blueWins')?.textContent||'0',10);
+    wW=parseInt(document.getElementById('whiteWins')?.textContent||'0',10);
+  }
+  // 현재 진행 라운드
+  let cur=null;
+  const byR={}; currentMatches.forEach((m,idx)=>{(byR[m.round]=byR[m.round]||[]).push(idx);});
+  Object.keys(byR).map(Number).sort((a,b)=>a-b).forEach(r=>{
+    if(cur===null && !byR[r].every(idx=>_isMatchDone(idx))) cur=r;
+  });
+  return {
+    title: (isTeam? (teamNames.blue+' vs '+teamNames.white):'콕매치 대진표'),
+    isTeam, teamBlue:teamNames.blue, teamWhite:teamNames.white,
+    blueWins:bW, whiteWins:wW,
+    currentRound:cur, matches,
+    pointSystem: (typeof _pointSystem!=='undefined'?_pointSystem:25),
+    updatedAt: Date.now()
+  };
+}
+
+/* 실시간 중계 시작 */
+async function startLiveBroadcast(){
+  if(!currentMatches.length){ alert('대진표를 먼저 생성하세요.'); return; }
+  if(!_fbInit()){ alert('실시간 서버 연결에 실패했어요. 네트워크를 확인해주세요.'); return; }
+  if(!_liveId) _liveId=_genLiveId();
+  _liveOn=true;
+  try{
+    await _fbDb.ref('live/'+_liveId).set(_buildLiveState());
+  }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  const url=base+'view.html?id='+_liveId;
+  _updateLiveUI();
+  // 공유 또는 복사
+  const text='🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+url;
+  try{
+    if(navigator.share){ await navigator.share({title:'콕매치 실시간 현황', text}); }
+    else if(navigator.clipboard){ await navigator.clipboard.writeText(url); alert('실시간 링크를 복사했어요!\n단톡방에 붙여넣기 하세요.\n\n'+url); }
+    else { prompt('이 링크를 공유하세요:', url); }
+  }catch(e){ if(e.name!=='AbortError'){ prompt('이 링크를 공유하세요:', url); } }
+}
+
+/* 실시간 상태 갱신 (점수 입력 시 자동 호출) */
+async function pushLiveState(){
+  if(!_liveOn || !_liveId || !_fbDb) return;
+  try{ await _fbDb.ref('live/'+_liveId).set(_buildLiveState()); }catch(e){ /* 조용히 무시 */ }
+}
+
+/* 실시간 중계 종료 */
+async function stopLiveBroadcast(){
+  if(!_liveId || !_fbDb){ _liveOn=false; _updateLiveUI(); return; }
+  if(!confirm('실시간 중계를 종료할까요?\n링크로 접속한 사람들이 더 이상 볼 수 없게 됩니다.')) return;
+  try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
+  _liveOn=false; _liveId=null; _updateLiveUI();
+  alert('실시간 중계를 종료했어요.');
+}
+
+/* 중계 버튼 UI 갱신 */
+function _updateLiveUI(){
+  const btn=document.getElementById('liveBtn');
+  if(!btn) return;
+  if(_liveOn){ btn.classList.add('on'); btn.innerHTML='🔴 실시간 중계 중'; }
+  else { btn.classList.remove('on'); btn.innerHTML='📡 실시간 중계'; }
+}
+
+/* 실시간 버튼 클릭: 켜져있으면 링크 재공유 메뉴, 꺼져있으면 시작 */
+function onLiveBtnClick(){
+  if(_liveOn){
+    const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+    const url=base+'view.html?id='+_liveId;
+    if(confirm('실시간 중계 중입니다.\n\n링크: '+url+'\n\n[확인] 링크 다시 공유 / [취소] 중계 종료')){
+      navigator.clipboard?.writeText(url).then(()=>alert('링크 복사됨!\n'+url)).catch(()=>prompt('링크:',url));
+    } else {
+      stopLiveBroadcast();
+    }
+  } else {
+    startLiveBroadcast();
+  }
+}
+
 async function shareTeamStatus(){
   if(!currentSettings || !currentSettings.teamMode){
     alert('팀전 모드일 때 사용할 수 있어요.');
