@@ -37,10 +37,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .ts-lead{text-align:center;font-size:.78rem;font-weight:700;margin-bottom:14px;padding:7px;border-radius:9px;background:var(--bl-soft);color:var(--bl-deep);}
 .ts-lead.tie{background:var(--sur2);color:var(--dim);}
 .ts-lead.white-lead{background:#fdf3e0;color:var(--amber);}
-.team-gauge{display:flex;height:26px;border-radius:999px;overflow:hidden;margin-bottom:14px;border:1px solid var(--bdr);background:var(--sur2);}
-.gauge-blue{background:linear-gradient(90deg,var(--bl-deep),var(--bl));display:flex;align-items:center;justify-content:flex-start;padding-left:10px;color:#fff;font-size:.74rem;font-weight:800;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:0;white-space:nowrap;}
-.gauge-white{background:linear-gradient(90deg,#d9a94a,#c79134);display:flex;align-items:center;justify-content:flex-end;padding-right:10px;color:#fff;font-size:.74rem;font-weight:800;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:0;white-space:nowrap;}
-.gauge-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--dim2);font-size:.7rem;font-weight:700;}
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:14px;}
+.gauge-svg{width:100%;max-width:280px;height:auto;}
+.gauge-needle{transform-origin:140px 130px;}
+.gauge-needle.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}
+.gauge-caption{font-size:.72rem;font-weight:700;color:var(--dim);margin-top:2px;}
+@keyframes needleSwing{0%{transform:rotate(0deg);}12%{transform:rotate(-58deg);}28%{transform:rotate(52deg);}44%{transform:rotate(-38deg);}60%{transform:rotate(30deg);}74%{transform:rotate(-18deg);}86%{transform:rotate(12deg);}100%{transform:rotate(0deg);}}
+.gauge-needle.swing{animation:needleSwing 1.6s ease-in-out;}
 /* 진행 정보 */
 .progress{text-align:center;font-size:.76rem;color:var(--dim);background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:14px;}
 .mvp-card{background:linear-gradient(135deg,#fff6e9,#ffeccc);border:1px solid #f0d9a8;border-radius:16px;padding:16px;margin-bottom:14px;text-align:center;box-shadow:0 1px 3px rgba(45,55,75,.06);}
@@ -166,6 +169,29 @@ if(!liveId){
   }
 }
 
+function buildGauge(bW, wW, blueName, whiteName){
+  const tot=bW+wW;
+  let ratio=0; if(tot>0) ratio=(wW-bW)/tot;
+  const angle=Math.round(ratio*75);
+  let cap='';
+  if(tot===0) cap='경기 시작 전';
+  else if(bW>wW) cap='🔵 '+esc(blueName||'청 팀')+' 우세';
+  else if(wW>bW) cap='⚪ '+esc(whiteName||'백 팀')+' 우세';
+  else cap='⚖️ 팽팽한 접전';
+  const r=110, cx=140, cy=130;
+  const arc=(s,e)=>{const p=(d)=>{const a=(180-d)*Math.PI/180;return [cx+r*Math.cos(a),cy-r*Math.sin(a)];};const[x1,y1]=p(s),[x2,y2]=p(e);return 'M '+x1.toFixed(1)+' '+y1.toFixed(1)+' A '+r+' '+r+' 0 0 1 '+x2.toFixed(1)+' '+y2.toFixed(1);};
+  const svg='<svg class="gauge-svg" viewBox="0 0 280 150" xmlns="http://www.w3.org/2000/svg">'
+    +'<path d="'+arc(0,90)+'" fill="none" stroke="var(--bl)" stroke-width="14" stroke-linecap="round" opacity="0.85"/>'
+    +'<path d="'+arc(90,180)+'" fill="none" stroke="#c79134" stroke-width="14" stroke-linecap="round" opacity="0.85"/>'
+    +'<text x="32" y="138" font-size="11">🔵</text>'
+    +'<text x="234" y="138" font-size="11">⚪</text>'
+    +'<line class="gauge-needle swing" id="gaugeNeedle" x1="140" y1="130" x2="140" y2="36" stroke="var(--txt)" stroke-width="4" stroke-linecap="round"/>'
+    +'<circle cx="140" cy="130" r="9" fill="var(--txt)"/><circle cx="140" cy="130" r="4" fill="var(--sur)"/>'
+    +'</svg>';
+  setTimeout(()=>{const n=document.getElementById('gaugeNeedle');if(n){n.classList.remove('swing');n.classList.add('settle');n.style.transform='rotate('+angle+'deg)';}},1600);
+  return '<div class="gauge-wrap">'+svg+'<div class="gauge-caption">'+cap+'</div></div>';
+}
+
 function buildStreaks(matches){
   const ordered=[...matches].filter(m=>m.win).sort((a,b)=>(a.round-b.round)||(a.court-b.court));
   const streak={};
@@ -247,16 +273,7 @@ function render(d){
     else if(wW>bW){ lead='⚪ '+esc(d.teamWhite||'백 팀')+' '+(wW-bW)+'점 차로 앞서는 중!'; cls='white-lead'; }
     else { lead='⚖️ 동점! 접전 중'; cls='tie'; }
     html+='<div class="ts-lead '+cls+'">'+lead+'</div>';
-    const tot=bW+wW;
-    if(tot>0){
-      const bPct=Math.round(bW/tot*100), wPct=100-bPct;
-      html+='<div class="team-gauge">';
-      if(bW>0) html+='<div class="gauge-blue" style="width:'+bPct+'%">'+(bPct>=12?bW+'승':'')+'</div>';
-      if(wW>0) html+='<div class="gauge-white" style="width:'+wPct+'%">'+(wPct>=12?wW+'승':'')+'</div>';
-      html+='</div>';
-    } else {
-      html+='<div class="team-gauge"><div class="gauge-empty">아직 결과 없음</div></div>';
-    }
+    html+=buildGauge(bW, wW, d.teamBlue, d.teamWhite);
   }
 
   // 진행 현황
