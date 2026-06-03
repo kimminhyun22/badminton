@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.5.4  (2026-06)
+     APP VERSION: 1.6.0  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.5.4">
+<meta name="app-version" content="1.6.0">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -289,6 +289,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .goto-current-btn:hover{background:var(--bl-deep);transform:translateY(-1px);}
 .goto-current-btn .gcb-icon{font-size:1rem;}
 .goto-current-btn .gcb-round{opacity:.85;}
+.team-share-btn{margin-left:auto;padding:6px 12px;border:1px solid var(--bl-softbdr);border-radius:8px;background:var(--bl-soft);color:var(--bl-deep);font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer;}
+.team-share-btn:hover{background:var(--bl-softbdr);}
 .timer-fab{position:fixed;right:16px;bottom:148px;z-index:900;width:52px;height:52px;border:1px solid var(--bdr);border-radius:50%;background:var(--sur);color:var(--txt);font-size:1.4rem;box-shadow:var(--shadow-md);cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .timer-fab:active{transform:scale(.94);}
 .timer-widget{position:fixed;right:16px;bottom:148px;z-index:901;display:flex;flex-direction:column;gap:8px;background:var(--sur);border:1px solid var(--bdr);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-md);min-width:150px;}
@@ -1349,7 +1351,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <div class="card-head">
             <span class="card-title">🏆 팀 승패 집계</span>
             <span style="font-size:.62rem;color:var(--dim)">팀명 클릭 시 수정 가능</span>
-          </div>
+          <button class="team-share-btn" onclick="shareTeamStatus()">📤 현황 공유</button></div>
           <div class="card-body">
             <div id="winnerBanner"></div>
             <div class="scoreboard">
@@ -1630,7 +1632,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.5.4';
+const APP_VERSION = '1.6.0';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3024,6 +3026,49 @@ function updateScores(){
   updateCurrentRoundHighlight();
   scheduleSave();
 }
+
+/* 팀전 중간 현황 공유 (단톡방/밴드) */
+async function shareTeamStatus(){
+  if(!currentSettings || !currentSettings.teamMode){
+    alert('팀전 모드일 때 사용할 수 있어요.');
+    return;
+  }
+  const bn=teamNames.blue||'청 팀', wn=teamNames.white||'백 팀';
+  const bW=parseInt(document.getElementById('blueWins')?.textContent||'0',10);
+  const wW=parseInt(document.getElementById('whiteWins')?.textContent||'0',10);
+  // 라운드 진행 현황
+  let totalR=0, doneR=0;
+  if(currentMatches.length){
+    const byR={};
+    currentMatches.forEach((m,idx)=>{ (byR[m.round]=byR[m.round]||[]).push(idx); });
+    const rns=Object.keys(byR);
+    totalR=rns.length;
+    doneR=rns.filter(r=>byR[r].every(idx=>_isMatchDone(idx))).length;
+  }
+  let lead='';
+  if(bW>wW) lead=`\n🔵 ${bn} ${bW-wW}점 차로 앞서는 중!`;
+  else if(wW>bW) lead=`\n⚪ ${wn} ${wW-bW}점 차로 앞서는 중!`;
+  else lead='\n⚖️ 동점! 접전 중';
+  const text=`🏸 콕매치 팀전 현황\n\n🔵 ${bn}  ${bW}승\n⚪ ${wn}  ${wW}승`
+    + (totalR? `\n\n📊 ${totalR}라운드 중 ${doneR}라운드 완료`:'')
+    + lead;
+  try{
+    if(navigator.share){
+      await navigator.share({text, title:'콕매치 팀전 현황'});
+    } else if(navigator.clipboard){
+      await navigator.clipboard.writeText(text);
+      alert('현황을 복사했어요. 단톡방에 붙여넣기 하세요!');
+    } else {
+      prompt('아래 내용을 복사하세요:', text);
+    }
+  }catch(e){
+    if(e.name!=='AbortError'){
+      try{ await navigator.clipboard.writeText(text); alert('현황을 복사했어요!'); }
+      catch(_){ prompt('아래 내용을 복사하세요:', text); }
+    }
+  }
+}
+
 
 /* 현재 진행 라운드 하이라이트 갱신 (점수 입력에 따라 이동) */
 function updateCurrentRoundHighlight(){
