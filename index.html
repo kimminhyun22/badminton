@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.4.6  (2026-06)
+     APP VERSION: 1.5.0  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.4.6">
+<meta name="app-version" content="1.5.0">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -36,6 +36,23 @@
   --shadow:0 1px 3px rgba(45,55,75,.06),0 1px 2px rgba(45,55,75,.04);
   --shadow-md:0 4px 16px rgba(45,55,75,.08);
 }
+body.dark{
+  --bg:#15171c;--sur:#1e2128;--sur2:#262a32;
+  --bdr:#2f343d;--bdr2:#3d434e;
+  --txt:#e8eaed;--dim:#9aa0ab;--dim2:#6b7280;
+  --inp:#262a32;
+  --bl:#6b9aef;--bll:#86acf2;--bl-deep:#8bb0f4;
+  --bl-soft:#22304a;--bl-softbdr:#34466a;
+  --acc:#e8a44a;--green:#5cc08a;--red:#ef8a86;
+  --women:#d98aa6;--men:#6b9aef;--mixed:#b09ae0;
+  --women-soft:#3a2832;--men-soft:#22304a;--mixed-soft:#322a44;
+  --btbg:rgba(107,154,239,.12);--btc:#8bb0f4;
+  --wtbg:rgba(200,160,90,.10);--wtc:#d4af6a;
+  --shadow:0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.25);
+  --shadow-md:0 4px 16px rgba(0,0,0,.4);
+}
+body.dark .round-now-badge{color:#ef8a86;background:#3a2630;border-color:#5a3640;}
+body.dark .round-current .round-badge{background:#3a2630;color:#f0a09c;border-color:#5a3640;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
@@ -287,6 +304,19 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .goto-current-btn:hover{background:var(--bl-deep);transform:translateY(-1px);}
 .goto-current-btn .gcb-icon{font-size:1rem;}
 .goto-current-btn .gcb-round{opacity:.85;}
+.timer-fab{position:fixed;right:16px;bottom:148px;z-index:900;width:52px;height:52px;border:1px solid var(--bdr);border-radius:50%;background:var(--sur);color:var(--txt);font-size:1.4rem;box-shadow:var(--shadow-md);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.timer-fab:active{transform:scale(.94);}
+.timer-widget{position:fixed;right:16px;bottom:148px;z-index:901;display:flex;flex-direction:column;gap:8px;background:var(--sur);border:1px solid var(--bdr);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-md);min-width:150px;}
+.timer-widget.running{border-color:var(--bl);}
+.timer-widget.done{border-color:var(--red);}
+.timer-display{font-size:2rem;font-weight:800;text-align:center;color:var(--txt);font-variant-numeric:tabular-nums;letter-spacing:1px;font-family:'Noto Sans KR',sans-serif;}
+.timer-widget.running .timer-display{color:var(--bl-deep);}
+.timer-widget.done .timer-display{color:var(--red);}
+.timer-controls{display:flex;gap:6px;}
+.timer-btn{flex:0 0 auto;padding:8px 10px;border:1px solid var(--bdr);border-radius:9px;background:var(--sur2);color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;}
+.timer-btn.timer-main{flex:1;background:var(--bl);color:#fff;border-color:var(--bl);}
+.timer-btn:active{transform:scale(.96);}
+@media(min-width:769px){.timer-fab,.timer-widget{bottom:92px;right:28px;}}
 .round-line{flex:1;height:1px;background:var(--bdr);}
 .match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;}
 .match-card{background:#fff;border:1px solid var(--bdr);border-radius:8px;overflow:hidden;transition:box-shadow .15s;}
@@ -1132,7 +1162,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <span class="hb on">레벨 밸런스</span><span class="hb on">여성 균등</span>
     <span class="hb on">랜덤</span><span class="hb on">연속배정 패널티</span><span class="hb on">파트너 중복 방지</span>
   </div>
-  <button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
+  <button class="header-help-btn" onclick="toggleDark()" title="다크 모드" id="darkToggle" style="margin-right:6px;">🌙</button><button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
 </header>
 
 <div class="nav-bar">
@@ -1615,7 +1645,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.4.6';
+const APP_VERSION = '1.5.0';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1650,6 +1680,17 @@ function switchNav(p){
 }
 
 /* 설명서 열기 (PC·모바일 공통) */
+function toggleDark(){
+  const on=document.body.classList.toggle('dark');
+  try{localStorage.setItem('badminton_dark', on?'1':'0');}catch(e){}
+  const btn=document.getElementById('darkToggle');
+  if(btn) btn.textContent = on?'☀️':'🌙';
+}
+function applyDarkOnLoad(){
+  let on=false;
+  try{on=localStorage.getItem('badminton_dark')==='1';}catch(e){}
+  if(on){document.body.classList.add('dark');const b=document.getElementById('darkToggle');if(b)b.textContent='☀️';}
+}
 function openManual(){
   switchNav('manual');
   // 하단 탭바 활성 상태 해제 (모바일)
@@ -3055,6 +3096,50 @@ function scrollToCurrentRound(){
   if(block) block.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+/* ═══ 경기 타이머 ═══ */
+let _timerSec=900, _timerInit=900, _timerRunning=false, _timerInterval=null;
+function _fmtTimer(s){const m=Math.floor(s/60),ss=s%60;return m+':'+String(ss).padStart(2,'0');}
+function _timerRender(){const d=document.getElementById('timerDisplay');if(d)d.textContent=_fmtTimer(_timerSec);}
+function timerOpen(){
+  const min=(typeof _POINT_MINUTES!=='undefined' && _POINT_MINUTES[_pointSystem])?_POINT_MINUTES[_pointSystem]:15;
+  if(!_timerRunning){_timerInit=min*60;_timerSec=min*60;}
+  _timerRender();
+  document.getElementById('timerWidget').style.display='flex';
+  document.getElementById('timerFab').style.display='none';
+}
+function timerClose(){
+  timerPause();
+  document.getElementById('timerWidget').style.display='none';
+  document.getElementById('timerFab').style.display='flex';
+}
+function timerToggle(){ _timerRunning?timerPause():timerStart(); }
+function timerStart(){
+  if(_timerRunning)return;
+  _timerRunning=true;
+  document.getElementById('timerToggleBtn').textContent='일시정지';
+  document.getElementById('timerWidget').classList.add('running');
+  _timerInterval=setInterval(()=>{
+    if(_timerSec>0){_timerSec--;_timerRender();}
+    if(_timerSec<=0){
+      timerPause();
+      const d=document.getElementById('timerDisplay');if(d)d.textContent='종료!';
+      try{if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);}catch(e){}
+      document.getElementById('timerWidget').classList.add('done');
+    }
+  },1000);
+}
+function timerPause(){
+  _timerRunning=false;
+  if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null;}
+  const b=document.getElementById('timerToggleBtn');if(b)b.textContent='시작';
+  document.getElementById('timerWidget').classList.remove('running');
+}
+function timerReset(){
+  timerPause();
+  _timerSec=_timerInit;_timerRender();
+  document.getElementById('timerWidget').classList.remove('done');
+}
+
 /* ═══ 대진 품질 대시보드 ═══ */
 function renderQualityDashboard(matches,participants,settings){
   const el=document.getElementById('qualDash');
@@ -3313,6 +3398,9 @@ function renderResults(matches,participants,settings){
 
   // 현재 진행 라운드 하이라이트 + 플로팅 버튼 초기화
   updateCurrentRoundHighlight();
+  const tfab=document.getElementById('timerFab');
+  const tw=document.getElementById('timerWidget');
+  if(tfab && tw && tw.style.display!=='flex') tfab.style.display='flex';
 }
 
 /* 참가자 현황 테이블 — 정렬/필터 */
@@ -5812,6 +5900,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadRosters();
   renderClubList();
   updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
+  applyDarkOnLoad();
   // 버전 표시 반영
   const vEl=document.getElementById('appVersion');
   if(vEl) vEl.textContent='v'+APP_VERSION;
@@ -5822,6 +5911,16 @@ window.addEventListener('DOMContentLoaded', () => {
   if(btn) btn.classList.add('active');
 });
 </script>
+<!-- 경기 타이머 (플로팅) -->
+<div id="timerWidget" class="timer-widget" style="display:none">
+  <div class="timer-display" id="timerDisplay">15:00</div>
+  <div class="timer-controls">
+    <button onclick="timerToggle()" id="timerToggleBtn" class="timer-btn timer-main">시작</button>
+    <button onclick="timerReset()" class="timer-btn">↺</button>
+    <button onclick="timerClose()" class="timer-btn">✕</button>
+  </div>
+</div>
+<button id="timerFab" class="timer-fab" style="display:none" onclick="timerOpen()" title="경기 타이머">⏱️</button>
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()">
   <span class="gcb-icon">🏸</span>
