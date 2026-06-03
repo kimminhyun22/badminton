@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.4.4  (2026-06)
+     APP VERSION: 1.4.5  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.4.4">
+<meta name="app-version" content="1.4.5">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -279,10 +279,10 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .round-reshuffle-btn:hover{background:#cfeae5;}
 .round-badge{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.75rem;letter-spacing:1.5px;padding:3px 11px;border-radius:6px;background:var(--sur2);color:var(--dim);border:1px solid var(--bdr);}
 .round-current{position:relative;}
-.round-current .round-badge{background:var(--bl-soft);color:var(--bl-deep);border-color:var(--bl-softbdr);}
-.round-current .match-grid{outline:2px solid var(--bl-softbdr);outline-offset:6px;border-radius:12px;}
-.round-now-badge{font-size:.6rem;font-weight:700;color:var(--bl-deep);background:var(--bl-soft);border:1px solid var(--bl-softbdr);border-radius:999px;padding:2px 9px;letter-spacing:.5px;animation:nowPulse 2s ease-in-out infinite;}
-@keyframes nowPulse{0%,100%{opacity:1}50%{opacity:.55}}
+.round-current .round-badge{background:var(--bl);color:#fff;border-color:var(--bl);}
+.round-current .match-grid{outline:2.5px solid var(--bl);outline-offset:6px;border-radius:12px;}
+.round-now-badge{font-size:.66rem;font-weight:800;color:#fff;background:var(--bl);border:none;border-radius:999px;padding:3px 11px;letter-spacing:.5px;box-shadow:0 1px 4px rgba(91,141,239,.45);animation:nowPulse 1.4s ease-in-out infinite;}
+@keyframes nowPulse{0%,100%{opacity:1}50%{opacity:.4}}
 .goto-current-btn{position:fixed;right:16px;bottom:84px;z-index:900;display:flex;align-items:center;gap:7px;padding:11px 16px;border:none;border-radius:999px;background:var(--bl);color:#fff;font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.82rem;box-shadow:0 4px 16px rgba(91,141,239,.4);cursor:pointer;transition:all .18s;}
 .goto-current-btn:hover{background:var(--bl-deep);transform:translateY(-1px);}
 .goto-current-btn .gcb-icon{font-size:1rem;}
@@ -1615,7 +1615,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.4.4';
+const APP_VERSION = '1.4.5';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
