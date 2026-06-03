@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.4.0  (2026-06)
+     APP VERSION: 1.4.1  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.4.0">
+<meta name="app-version" content="1.4.1">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -443,6 +443,14 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .img-btn-pdf  {background:var(--bl-soft);color:var(--bl-deep);}
 .img-btn-pdf:hover  {background:#bfdbfe;}
 .img-btn-print{background:#f3f4f6;color:#374151;}
+.img-preview-actions{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--bdr);}
+.img-preview-actions button{flex:1;padding:12px 8px;border:none;border-radius:9px;font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;transition:all .15s;}
+.img-btn-share{background:var(--bl);color:#fff;box-shadow:0 2px 8px rgba(91,141,239,.3);}
+.img-btn-share:hover{background:var(--bl-deep);}
+.img-btn-save{background:var(--bl-soft);color:var(--bl-deep);border:1px solid var(--bl-softbdr)!important;}
+.img-btn-save:hover{background:var(--bl-softbdr);}
+.img-btn-pdf{background:var(--sur2);color:var(--txt);border:1px solid var(--bdr)!important;}
+.img-btn-pdf:hover{background:var(--bdr);}
 .img-btn-print:hover{background:#e5e7eb;}
 
 /* ── 이미지 렌더링 카드 (앱 화면과 동일한 스타일) ── */
@@ -1603,7 +1611,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5872,8 +5880,9 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="img-nav-btn" id="imgBtnNext" onclick="showPage(_previewCurrentPage+1)">다음 ›</button>
     </div>
     <div class="img-preview-actions">
-      <button class="img-btn-pdf" id="imgBtnPdf" onclick="saveAsPdf()">📄 PDF 저장</button>
-      <button class="img-btn-print" onclick="window.print()">🖨️ 인쇄</button>
+      <button class="img-btn-share" id="imgBtnShare" onclick="sharePreviewImg()">📤 공유</button>
+      <button class="img-btn-save" id="imgBtnSave" onclick="savePreviewImg()">🖼️ 이미지 저장</button>
+      <button class="img-btn-pdf" id="imgBtnPdf" onclick="saveAsPdf()">📄 PDF</button>
     </div>
   </div>
 </div>
