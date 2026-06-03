@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.3.2  (2026-06)
+     APP VERSION: 1.4.0  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.3.2">
+<meta name="app-version" content="1.4.0">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -1603,7 +1603,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.4.0';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3731,17 +3731,23 @@ function buildMobileChunks(mode, isTeam, bn, wn){
   if(mode!=='bracket'){
     return [buildMobileHtml(mode, isTeam, bn, wn)];
   }
-  // 대진표: 라운드 3개씩 분할
-  const ROUNDS_PER_CHUNK=3;
+  // 대진표: 라운드를 균등 분할 (단톡방에서 한 장씩 잘 보이도록)
   const byRound={};
   currentMatches.forEach(m=>{
     if(!byRound[m.round]) byRound[m.round]=[];
     byRound[m.round].push(m);
   });
   const rounds=Object.keys(byRound).sort((a,b)=>a-b);
+  const MAX_PER_CHUNK=3;
+  const numChunks=Math.max(1, Math.ceil(rounds.length/MAX_PER_CHUNK));
+  const baseTake=Math.floor(rounds.length/numChunks);
+  const extraTake=rounds.length%numChunks;
   const chunks=[];
-  for(let i=0;i<rounds.length;i+=ROUNDS_PER_CHUNK){
-    const slice=rounds.slice(i, i+ROUNDS_PER_CHUNK);
+  let _ci=0;
+  for(let c=0;c<numChunks;c++){
+    const take=baseTake+(c<extraTake?1:0);
+    const slice=rounds.slice(_ci, _ci+take);
+    _ci+=take;
     const roundsHtml=slice.map(r=>{
       const cards=byRound[r].map(m=>{
         const tc=m.type==='여복'?'type-w':m.type==='남복'?'type-m':'type-x';
@@ -3766,8 +3772,8 @@ function buildMobileChunks(mode, isTeam, bn, wn){
       }).join('');
       return `<div class="render-round"><div class="render-round-badge">ROUND ${r}</div><div class="render-match-grid">${cards}</div></div>`;
     }).join('');
-    const totalChunks=Math.ceil(rounds.length/ROUNDS_PER_CHUNK);
-    const chunkNum=Math.floor(i/ROUNDS_PER_CHUNK)+1;
+    const totalChunks=numChunks;
+    const chunkNum=c+1;
     const subtitle=totalChunks>1?` (${chunkNum}/${totalChunks})`:'' ;
     chunks.push(`<div class="render-wrap"><div class="render-title">🏸 배드민턴 대진표${isTeam?' — '+bn+' vs '+wn:''}${subtitle}</div>${roundsHtml}</div>`);
   }
@@ -3839,12 +3845,32 @@ function loadImg(src){
 }
 
 async function sharePreviewImg(){
-  if(!_previewImgDataUrl) return;
+  if(!_previewImgUrls.length) return;
   try{
-    const res=await fetch(_previewImgDataUrl);
-    const blob=await res.blob();
-    const file=new File([blob],'배드민턴_대진표.jpg',{type:'image/jpeg'});
-    await navigator.share({files:[file],title:'배드민턴 대진표'});
+    // 모든 페이지(라운드 묶음)를 한 번에 공유 — 단톡방/밴드에서 여러 장이 바로 보임
+    const files=[];
+    for(let i=0;i<_previewImgUrls.length;i++){
+      const res=await fetch(_previewImgUrls[i]);
+      const blob=await res.blob();
+      const name=_previewImgUrls.length>1
+        ? `배드민턴_대진표_${i+1}.jpg`
+        : `배드민턴_대진표.jpg`;
+      files.push(new File([blob],name,{type:'image/jpeg'}));
+    }
+    // 여러 파일 공유 가능 여부 확인 후 분기
+    if(navigator.canShare && navigator.canShare({files})){
+      await navigator.share({files,title:'배드민턴 대진표'});
+    } else if(files.length===1 && navigator.share){
+      await navigator.share({files,title:'배드민턴 대진표'});
+    } else {
+      // 여러 장 공유 미지원 기기: 현재 보는 장만 공유 + 안내
+      const cur=_previewCurrentPage||0;
+      const res=await fetch(_previewImgUrls[cur]);
+      const blob=await res.blob();
+      const file=new File([blob],`배드민턴_대진표_${cur+1}.jpg`,{type:'image/jpeg'});
+      await navigator.share({files:[file],title:'배드민턴 대진표'});
+      alert(`이 기기는 한 번에 한 장만 공유돼요.\n총 ${_previewImgUrls.length}장이니, 각 장을 넘기며 공유하거나 "저장" 후 함께 올려주세요.`);
+    }
   }catch(e){
     if(e.name!=='AbortError') alert('공유에 실패했습니다.');
   }
