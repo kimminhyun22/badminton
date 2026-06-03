@@ -41,7 +41,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .gauge-svg{width:100%;max-width:280px;height:auto;}
 .gauge-needle{transform-origin:140px 130px;}
 .gauge-needle.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}
-.gauge-caption{font-size:.72rem;font-weight:700;color:var(--dim);margin-top:2px;}
+.gauge-title{font-size:.7rem;font-weight:700;color:var(--dim);letter-spacing:1px;margin-bottom:2px;}
+.gauge-caption{font-size:.82rem;font-weight:800;color:var(--dim);margin-top:4px;}
+.gauge-caption.blue{color:var(--bl-deep);}
+.gauge-caption.white{color:#b07d2e;}
+.gauge-fill{animation:gaugeGrow 1.1s ease-out .3s both;}
+@keyframes gaugeGrow{from{stroke-dasharray:0 1000;}to{stroke-dasharray:1000 0;}}
 @keyframes needleSwing{0%{transform:rotate(0deg);}12%{transform:rotate(-58deg);}28%{transform:rotate(52deg);}44%{transform:rotate(-38deg);}60%{transform:rotate(30deg);}74%{transform:rotate(-18deg);}86%{transform:rotate(12deg);}100%{transform:rotate(0deg);}}
 .gauge-needle.swing{animation:needleSwing 1.6s ease-in-out;}
 /* 진행 정보 */
@@ -171,25 +176,45 @@ if(!liveId){
 
 function buildGauge(bW, wW, blueName, whiteName){
   const tot=bW+wW;
-  let ratio=0; if(tot>0) ratio=(wW-bW)/tot;
-  const angle=Math.round(ratio*75);
-  let cap='';
-  if(tot===0) cap='경기 시작 전';
-  else if(bW>wW) cap='🔵 '+esc(blueName||'청 팀')+' 우세';
-  else if(wW>bW) cap='⚪ '+esc(whiteName||'백 팀')+' 우세';
-  else cap='⚖️ 팽팽한 접전';
+  let ratio=0; if(tot>0) ratio=(wW-bW)/tot;   // -1(청 압도) ~ +1(백 압도)
+  const angle=Math.round(ratio*78);
+  const bPct = tot>0? Math.round(bW/tot*100):50;
+  const wPct = 100-bPct;
+  let cap='', capCls='';
+  if(tot===0){ cap='⚔️ 경기 시작 전'; }
+  else if(bW>wW){ cap='🔵 '+esc(blueName||'청 팀')+' 우세 ('+bW+':'+wW+')'; capCls='blue'; }
+  else if(wW>bW){ cap='⚪ '+esc(whiteName||'백 팀')+' 우세 ('+bW+':'+wW+')'; capCls='white'; }
+  else { cap='⚖️ 팽팽한 접전 ('+bW+':'+wW+')'; }
+
   const r=110, cx=140, cy=130;
-  const arc=(s,e)=>{const p=(d)=>{const a=(180-d)*Math.PI/180;return [cx+r*Math.cos(a),cy-r*Math.sin(a)];};const[x1,y1]=p(s),[x2,y2]=p(e);return 'M '+x1.toFixed(1)+' '+y1.toFixed(1)+' A '+r+' '+r+' 0 0 1 '+x2.toFixed(1)+' '+y2.toFixed(1);};
-  const svg='<svg class="gauge-svg" viewBox="0 0 280 150" xmlns="http://www.w3.org/2000/svg">'
-    +'<path d="'+arc(0,90)+'" fill="none" stroke="var(--bl)" stroke-width="14" stroke-linecap="round" opacity="0.85"/>'
-    +'<path d="'+arc(90,180)+'" fill="none" stroke="#c79134" stroke-width="14" stroke-linecap="round" opacity="0.85"/>'
-    +'<text x="32" y="138" font-size="11">🔵</text>'
-    +'<text x="234" y="138" font-size="11">⚪</text>'
-    +'<line class="gauge-needle swing" id="gaugeNeedle" x1="140" y1="130" x2="140" y2="36" stroke="var(--txt)" stroke-width="4" stroke-linecap="round"/>'
-    +'<circle cx="140" cy="130" r="9" fill="var(--txt)"/><circle cx="140" cy="130" r="4" fill="var(--sur)"/>'
+  const polar=(deg)=>{const a=(180-deg)*Math.PI/180;return [cx+r*Math.cos(a), cy-r*Math.sin(a)];};
+  const arc=(s,e)=>{const[x1,y1]=polar(s),[x2,y2]=polar(e);return 'M '+x1.toFixed(1)+' '+y1.toFixed(1)+' A '+r+' '+r+' 0 0 1 '+x2.toFixed(1)+' '+y2.toFixed(1);};
+  // 채워지는 길이: 청팀은 왼쪽(0~90도 중 bPct만큼), 백팀은 오른쪽(180도에서 wPct만큼)
+  // 청팀 채움: 90도(중앙)에서 왼쪽으로 bPct%만큼 = 90 - (bPct/100*90) ~ 90
+  const blueFillStart = 90 - (bPct/100*90);
+  const whiteFillEnd = 90 + (wPct/100*90);
+
+  const svg='<svg class="gauge-svg" viewBox="0 0 280 152" xmlns="http://www.w3.org/2000/svg">'
+    +'<defs>'
+    +'<linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#4a78d6"/><stop offset="100%" stop-color="#7fa8f2"/></linearGradient>'
+    +'<linearGradient id="gWhite" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e0bd72"/><stop offset="100%" stop-color="#c79134"/></linearGradient>'
+    +'</defs>'
+    // 바탕 트랙 (회색 반원)
+    +'<path d="'+arc(0,180)+'" fill="none" stroke="var(--bdr)" stroke-width="15" stroke-linecap="round"/>'
+    // 청팀 채움 (왼쪽에서 중앙쪽으로 차오름)
+    +(bW>0? '<path class="gauge-fill" d="'+arc(blueFillStart,90)+'" fill="none" stroke="url(#gBlue)" stroke-width="15" stroke-linecap="round"/>':'')
+    // 백팀 채움 (중앙에서 오른쪽으로 차오름)
+    +(wW>0? '<path class="gauge-fill" d="'+arc(90,whiteFillEnd)+'" fill="none" stroke="url(#gWhite)" stroke-width="15" stroke-linecap="round"/>':'')
+    // 눈금 (중앙 표시)
+    +'<line x1="140" y1="22" x2="140" y2="34" stroke="var(--dim2)" stroke-width="2"/>'
+    +'<text x="26" y="140" font-size="12">🔵</text>'
+    +'<text x="240" y="140" font-size="12">⚪</text>'
+    // 바늘
+    +'<line class="gauge-needle swing" id="gaugeNeedle" x1="140" y1="130" x2="140" y2="40" stroke="var(--txt)" stroke-width="4.5" stroke-linecap="round"/>'
+    +'<circle cx="140" cy="130" r="10" fill="var(--txt)"/><circle cx="140" cy="130" r="4.5" fill="var(--sur)"/>'
     +'</svg>';
-  setTimeout(()=>{const n=document.getElementById('gaugeNeedle');if(n){n.classList.remove('swing');n.classList.add('settle');n.style.transform='rotate('+angle+'deg)';}},1600);
-  return '<div class="gauge-wrap">'+svg+'<div class="gauge-caption">'+cap+'</div></div>';
+  setTimeout(()=>{const n=document.getElementById('gaugeNeedle');if(n){n.classList.remove('swing');n.classList.add('settle');n.style.transform='rotate('+angle+'deg)';}},1700);
+  return '<div class="gauge-wrap"><div class="gauge-title">⚖️ 팀 우세 게이지</div>'+svg+'<div class="gauge-caption '+capCls+'">'+cap+'</div></div>';
 }
 
 function buildStreaks(matches){
@@ -263,6 +288,8 @@ function render(d){
   // 팀 스코어 (팀전일 때)
   if(d.isTeam){
     const bW=d.blueWins||0, wW=d.whiteWins||0;
+    // ① 먼저 게이지(긴장) → ② 점수판(결과) 순서
+    html+=buildGauge(bW, wW, d.teamBlue, d.teamWhite);
     html+='<div class="team-score" id="scoreBoard">'
       +'<div class="ts-side ts-blue"><div class="ts-name">🔵 '+esc(d.teamBlue||'청 팀')+'</div><div class="ts-wins">'+bW+'</div></div>'
       +'<div class="ts-vs">VS</div>'
@@ -273,7 +300,6 @@ function render(d){
     else if(wW>bW){ lead='⚪ '+esc(d.teamWhite||'백 팀')+' '+(wW-bW)+'점 차로 앞서는 중!'; cls='white-lead'; }
     else { lead='⚖️ 동점! 접전 중'; cls='tie'; }
     html+='<div class="ts-lead '+cls+'">'+lead+'</div>';
-    html+=buildGauge(bW, wW, d.teamBlue, d.teamWhite);
   }
 
   // 진행 현황
