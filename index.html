@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.5.2  (2026-06)
+     APP VERSION: 1.5.3  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.5.2">
+<meta name="app-version" content="1.5.3">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -78,6 +78,11 @@ body.dark .pseg-btn.active{
   background:var(--bl-soft)!important; color:var(--bl-deep)!important; border-color:var(--bl-softbdr)!important;
 }
 body.dark .dir-input::placeholder{ color:var(--dim2); }
+/* 추가 보정 */
+body.dark .p-row, body.dark .p-row *{ color:var(--txt); }
+body.dark .p-row .lv-tag, body.dark .p-row .p-meta, body.dark .p-row .p-sub{ color:var(--dim); }
+body.dark .btn-dir-add{ background:var(--sur2)!important; color:var(--txt)!important; border-color:var(--bdr)!important; }
+body.dark .import-label, body.dark .roster-load-btn, body.dark label.btn{ background:var(--sur2)!important; color:var(--txt)!important; border-color:var(--bdr)!important; }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
@@ -1670,7 +1675,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.5.2';
+const APP_VERSION = '1.5.3';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
