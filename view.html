@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>🏸 콕매치 실시간 현황</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#f7f8fb;--sur:#ffffff;--sur2:#f3f5f9;
+  --bdr:#e9edf3;--bdr2:#d4dae4;
+  --txt:#2b3038;--dim:#737a86;--dim2:#a2a9b5;
+  --bl:#5b8def;--bl-deep:#4a78d6;--bl-soft:#eaf1fe;--bl-softbdr:#d3e2fc;
+  --red:#e8736f;--amber:#c79134;
+  --women-soft:#fbeef3;--men-soft:#eaf1fe;--mixed-soft:#f2edfb;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);padding:14px;max-width:600px;margin:0 auto;-webkit-text-size-adjust:100%;}
+.head{display:flex;align-items:center;gap:8px;padding:6px 2px 14px;}
+.head h1{font-size:1.15rem;font-weight:900;}
+.live-dot{width:9px;height:9px;border-radius:50%;background:var(--red);animation:pulse 1.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.live-label{font-size:.7rem;color:var(--red);font-weight:700;}
+.status{text-align:center;padding:40px 16px;color:var(--dim);font-size:.9rem;}
+.title{font-size:1rem;font-weight:700;text-align:center;margin-bottom:12px;color:var(--txt);}
+/* 팀 스코어 */
+.team-score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;background:var(--sur);border:1px solid var(--bdr);border-radius:16px;padding:18px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(45,55,75,.06);}
+.ts-side{text-align:center;}
+.ts-name{font-size:.8rem;font-weight:700;color:var(--dim);margin-bottom:4px;}
+.ts-wins{font-size:2.4rem;font-weight:900;line-height:1;}
+.ts-blue .ts-wins{color:var(--bl-deep);}
+.ts-white .ts-wins{color:var(--amber);}
+.ts-vs{font-size:.85rem;font-weight:700;color:var(--dim2);}
+.ts-lead{text-align:center;font-size:.78rem;font-weight:700;margin-bottom:14px;padding:7px;border-radius:9px;background:var(--bl-soft);color:var(--bl-deep);}
+.ts-lead.tie{background:var(--sur2);color:var(--dim);}
+.ts-lead.white-lead{background:#fdf3e0;color:var(--amber);}
+/* 진행 정보 */
+.progress{text-align:center;font-size:.76rem;color:var(--dim);background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:14px;}
+/* 라운드 블록 */
+.round{margin-bottom:16px;}
+.round-h{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.round-badge{font-weight:700;font-size:.72rem;letter-spacing:1.5px;padding:3px 11px;border-radius:6px;background:var(--sur2);color:var(--dim);border:1px solid var(--bdr);}
+.round.cur .round-badge{background:#fdeceb;color:#d84f4a;border-color:#f7cdcb;}
+.now{font-size:.62rem;font-weight:700;color:#e8736f;background:#fdeceb;border:1px solid #f7cdcb;border-radius:999px;padding:2px 9px;animation:pulse 1.4s ease-in-out infinite;}
+.round-line{flex:1;height:1px;background:var(--bdr);}
+/* 경기 카드 */
+.match{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 2px rgba(45,55,75,.04);}
+.match.women{border-left:4px solid #d99bb0;}
+.match.men{border-left:4px solid #7fa8f2;}
+.match.mixed{border-left:4px solid #b3a0db;}
+.m-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.m-type{font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:6px;}
+.m-type.women{background:var(--women-soft);color:#b06b85;}
+.m-type.men{background:var(--men-soft);color:var(--bl-deep);}
+.m-type.mixed{background:var(--mixed-soft);color:#7d68b0;}
+.m-court{font-size:.7rem;font-weight:700;color:var(--dim);border:1px solid var(--bdr);border-radius:6px;padding:2px 9px;}
+.m-body{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
+.m-team{padding:8px;border-radius:8px;background:var(--sur2);}
+.m-team.win{background:var(--bl-soft);border:1px solid var(--bl-softbdr);}
+.m-player{font-size:.9rem;font-weight:700;line-height:1.5;}
+.m-grade{font-size:.68rem;color:var(--dim2);font-weight:500;}
+.m-vs{font-size:.72rem;font-weight:700;color:var(--dim2);}
+.m-win-tag{display:inline-block;font-size:.6rem;font-weight:700;color:var(--bl-deep);margin-top:2px;}
+.foot{text-align:center;font-size:.66rem;color:var(--dim2);padding:18px 0 8px;}
+.refresh-note{text-align:center;font-size:.68rem;color:var(--dim);margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="head">
+  <span>🏸</span>
+  <h1>콕매치 실시간 현황</h1>
+  <span class="live-dot"></span>
+  <span class="live-label">LIVE</span>
+</div>
+<div id="content">
+  <div class="status">현황을 불러오는 중…</div>
+</div>
+<div class="foot">🏸 콕매치 · 실시간 자동 갱신</div>
+
+<script>
+const FB_CONFIG = {
+  apiKey: "AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
+  authDomain: "kokmatch-23b31.firebaseapp.com",
+  databaseURL: "https://kokmatch-23b31-default-rtdb.firebaseio.com",
+  projectId: "kokmatch-23b31",
+  storageBucket: "kokmatch-23b31.firebasestorage.app",
+  messagingSenderId: "57349245242",
+  appId: "1:57349245242:web:6c0ac6f4cc131b44192803"
+};
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+const params=new URLSearchParams(location.search);
+const liveId=(params.get('id')||'').toUpperCase();
+
+const content=document.getElementById('content');
+
+if(!liveId){
+  content.innerHTML='<div class="status">잘못된 링크입니다.<br>대회 ID가 없습니다.</div>';
+} else {
+  let app, db;
+  try{
+    app=firebase.initializeApp(FB_CONFIG);
+    db=firebase.database();
+  }catch(e){
+    content.innerHTML='<div class="status">서버 연결에 실패했습니다.<br>잠시 후 다시 시도해주세요.</div>';
+  }
+  if(db){
+    db.ref('live/'+liveId).on('value', snap=>{
+      const data=snap.val();
+      if(!data){
+        content.innerHTML='<div class="status">진행 중인 현황이 없습니다.<br>대회가 아직 시작되지 않았거나 종료되었습니다.</div>';
+        return;
+      }
+      render(data);
+    }, err=>{
+      content.innerHTML='<div class="status">데이터를 불러올 수 없습니다.<br>'+esc(err.message)+'</div>';
+    });
+  }
+}
+
+function render(d){
+  let html='';
+  // 제목
+  html+='<div class="title">'+esc(d.title||'대진표')+'</div>';
+
+  // 팀 스코어 (팀전일 때)
+  if(d.isTeam){
+    const bW=d.blueWins||0, wW=d.whiteWins||0;
+    html+='<div class="team-score">'
+      +'<div class="ts-side ts-blue"><div class="ts-name">🔵 '+esc(d.teamBlue||'청 팀')+'</div><div class="ts-wins">'+bW+'</div></div>'
+      +'<div class="ts-vs">VS</div>'
+      +'<div class="ts-side ts-white"><div class="ts-name">⚪ '+esc(d.teamWhite||'백 팀')+'</div><div class="ts-wins">'+wW+'</div></div>'
+      +'</div>';
+    let lead='', cls='';
+    if(bW>wW){ lead='🔵 '+esc(d.teamBlue||'청 팀')+' '+(bW-wW)+'점 차로 앞서는 중!'; cls=''; }
+    else if(wW>bW){ lead='⚪ '+esc(d.teamWhite||'백 팀')+' '+(wW-bW)+'점 차로 앞서는 중!'; cls='white-lead'; }
+    else { lead='⚖️ 동점! 접전 중'; cls='tie'; }
+    html+='<div class="ts-lead '+cls+'">'+lead+'</div>';
+  }
+
+  // 진행 현황
+  const matches=d.matches||[];
+  const byRound={};
+  matches.forEach(m=>{(byRound[m.round]=byRound[m.round]||[]).push(m);});
+  const rounds=Object.keys(byRound).map(Number).sort((a,b)=>a-b);
+  const totalR=rounds.length;
+  let doneR=0;
+  rounds.forEach(r=>{ if(byRound[r].every(m=>m.win)) doneR++; });
+  html+='<div class="progress">📊 '+totalR+'라운드 중 '+doneR+'라운드 완료'
+    + (d.pointSystem? ' · '+d.pointSystem+'점 경기':'') +'</div>';
+
+  // 라운드별 경기
+  rounds.forEach(r=>{
+    const isCur=(r===d.currentRound);
+    html+='<div class="round'+(isCur?' cur':'')+'">';
+    html+='<div class="round-h"><span class="round-badge">ROUND '+r+'</span>'
+      +(isCur?'<span class="now">● 진행중</span>':'')+'<span class="round-line"></span></div>';
+    byRound[r].sort((a,b)=>a.court-b.court).forEach(m=>{
+      const tc=m.type==='여복'?'women':m.type==='남복'?'men':'mixed';
+      const t1win=m.win==='t1', t2win=m.win==='t2';
+      html+='<div class="match '+tc+'">';
+      html+='<div class="m-top"><span class="m-type '+tc+'">'+esc(m.type)+(m.isFiller?'(보완)':'')+'</span>'
+        +'<span class="m-court">코트 '+m.court+'</span></div>';
+      html+='<div class="m-body">';
+      html+='<div class="m-team'+(t1win?' win':'')+'">'
+        +'<div class="m-player">'+esc(m.t1[0])+' <span class="m-grade">'+esc(m.t1g?m.t1g[0]:'')+'</span></div>'
+        +'<div class="m-player">'+esc(m.t1[1])+' <span class="m-grade">'+esc(m.t1g?m.t1g[1]:'')+'</span></div>'
+        +(t1win?'<span class="m-win-tag">✓ 승</span>':'')+'</div>';
+      html+='<div class="m-vs">VS</div>';
+      html+='<div class="m-team'+(t2win?' win':'')+'">'
+        +'<div class="m-player">'+esc(m.t2[0])+' <span class="m-grade">'+esc(m.t2g?m.t2g[0]:'')+'</span></div>'
+        +'<div class="m-player">'+esc(m.t2[1])+' <span class="m-grade">'+esc(m.t2g?m.t2g[1]:'')+'</span></div>'
+        +(t2win?'<span class="m-win-tag">✓ 승</span>':'')+'</div>';
+      html+='</div></div>';
+    });
+    html+='</div>';
+  });
+
+  content.innerHTML=html;
+}
+</script>
+</body>
+</html>
