@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.5.3  (2026-06)
+     APP VERSION: 1.5.4  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.5.3">
+<meta name="app-version" content="1.5.4">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -36,53 +36,8 @@
   --shadow:0 1px 3px rgba(45,55,75,.06),0 1px 2px rgba(45,55,75,.04);
   --shadow-md:0 4px 16px rgba(45,55,75,.08);
 }
-body.dark{
-  --bg:#22252b;--sur:#2b2f37;--sur2:#333842;
-  --bdr:#3a404a;--bdr2:#474e5a;
-  --txt:#d4d7dd;--dim:#9499a3;--dim2:#6e7480;
-  --inp:#333842;
-  --bl:#7d9fd4;--bll:#8fadda;--bl-deep:#9bb4dc;
-  --bl-soft:#2d3744;--bl-softbdr:#3d4a5c;
-  --acc:#d4a05a;--green:#6bb088;--red:#dd8884;
-  --women:#c890a6;--men:#7d9fd4;--mixed:#a795cc;
-  --women-soft:#352a30;--men-soft:#2d3744;--mixed-soft:#2f2b39;
-  --btbg:rgba(125,159,212,.10);--btc:#9bb4dc;
-  --wtbg:rgba(190,155,95,.08);--wtc:#c8a872;
-  --shadow:0 1px 3px rgba(0,0,0,.2),0 1px 2px rgba(0,0,0,.15);
-  --shadow-md:0 4px 16px rgba(0,0,0,.28);
-}
-body.dark .round-now-badge{color:#e09a96;background:#3a2e30;border-color:#54403f;}
-body.dark .round-current .round-badge{background:#3a2e30;color:#e6a8a4;border-color:#54403f;}
 /* 다크: 흰 배경 하드코딩 요소 보정 */
-body.dark .dir-input,
-body.dark .stepper,
-body.dark .stepper input,
-body.dark .lv-sel-btn,
-body.dark .gender-sel-btn,
-body.dark .point-seg,
-body.dark .pseg-btn,
-body.dark .p-row,
-body.dark .slot-item,
-body.dark .move-btn,
-body.dark .btn-ta,
-body.dark .dir-sort-btn,
-body.dark .nav-sync-btn,
-body.dark .s-save, body.dark .s-list, body.dark .s-export, body.dark .s-import{
-  background:var(--sur2)!important; color:var(--txt); border-color:var(--bdr)!important;
-}
-body.dark .lv-sel-btn.sel,
-body.dark .gender-sel-btn.sel-m,
-body.dark .gender-sel-btn.sel-f,
-body.dark .dir-sort-btn.active,
-body.dark .pseg-btn.active{
-  background:var(--bl-soft)!important; color:var(--bl-deep)!important; border-color:var(--bl-softbdr)!important;
-}
-body.dark .dir-input::placeholder{ color:var(--dim2); }
 /* 추가 보정 */
-body.dark .p-row, body.dark .p-row *{ color:var(--txt); }
-body.dark .p-row .lv-tag, body.dark .p-row .p-meta, body.dark .p-row .p-sub{ color:var(--dim); }
-body.dark .btn-dir-add{ background:var(--sur2)!important; color:var(--txt)!important; border-color:var(--bdr)!important; }
-body.dark .import-label, body.dark .roster-load-btn, body.dark label.btn{ background:var(--sur2)!important; color:var(--txt)!important; border-color:var(--bdr)!important; }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
@@ -1192,7 +1147,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <span class="hb on">레벨 밸런스</span><span class="hb on">여성 균등</span>
     <span class="hb on">랜덤</span><span class="hb on">연속배정 패널티</span><span class="hb on">파트너 중복 방지</span>
   </div>
-  <button class="header-help-btn" onclick="toggleDark()" title="다크 모드" id="darkToggle" style="margin-right:6px;">🌙</button><button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
+  <button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
 </header>
 
 <div class="nav-bar">
@@ -1675,7 +1630,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.5.3';
+const APP_VERSION = '1.5.4';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1710,17 +1665,6 @@ function switchNav(p){
 }
 
 /* 설명서 열기 (PC·모바일 공통) */
-function toggleDark(){
-  const on=document.body.classList.toggle('dark');
-  try{localStorage.setItem('badminton_dark', on?'1':'0');}catch(e){}
-  const btn=document.getElementById('darkToggle');
-  if(btn) btn.textContent = on?'☀️':'🌙';
-}
-function applyDarkOnLoad(){
-  let on=false;
-  try{on=localStorage.getItem('badminton_dark')==='1';}catch(e){}
-  if(on){document.body.classList.add('dark');const b=document.getElementById('darkToggle');if(b)b.textContent='☀️';}
-}
 function openManual(){
   switchNav('manual');
   // 하단 탭바 활성 상태 해제 (모바일)
@@ -5930,7 +5874,6 @@ window.addEventListener('DOMContentLoaded', () => {
   loadRosters();
   renderClubList();
   updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
-  applyDarkOnLoad();
   // 버전 표시 반영
   const vEl=document.getElementById('appVersion');
   if(vEl) vEl.textContent='v'+APP_VERSION;
