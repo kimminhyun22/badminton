@@ -37,6 +37,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .ts-lead{text-align:center;font-size:.78rem;font-weight:700;margin-bottom:14px;padding:7px;border-radius:9px;background:var(--bl-soft);color:var(--bl-deep);}
 .ts-lead.tie{background:var(--sur2);color:var(--dim);}
 .ts-lead.white-lead{background:#fdf3e0;color:var(--amber);}
+.team-gauge{display:flex;height:26px;border-radius:999px;overflow:hidden;margin-bottom:14px;border:1px solid var(--bdr);background:var(--sur2);}
+.gauge-blue{background:linear-gradient(90deg,var(--bl-deep),var(--bl));display:flex;align-items:center;justify-content:flex-start;padding-left:10px;color:#fff;font-size:.74rem;font-weight:800;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:0;white-space:nowrap;}
+.gauge-white{background:linear-gradient(90deg,#d9a94a,#c79134);display:flex;align-items:center;justify-content:flex-end;padding-right:10px;color:#fff;font-size:.74rem;font-weight:800;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:0;white-space:nowrap;}
+.gauge-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--dim2);font-size:.7rem;font-weight:700;}
 /* 진행 정보 */
 .progress{text-align:center;font-size:.76rem;color:var(--dim);background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:14px;}
 .mvp-card{background:linear-gradient(135deg,#fff6e9,#ffeccc);border:1px solid #f0d9a8;border-radius:16px;padding:16px;margin-bottom:14px;text-align:center;box-shadow:0 1px 3px rgba(45,55,75,.06);}
@@ -243,6 +247,16 @@ function render(d){
     else if(wW>bW){ lead='⚪ '+esc(d.teamWhite||'백 팀')+' '+(wW-bW)+'점 차로 앞서는 중!'; cls='white-lead'; }
     else { lead='⚖️ 동점! 접전 중'; cls='tie'; }
     html+='<div class="ts-lead '+cls+'">'+lead+'</div>';
+    const tot=bW+wW;
+    if(tot>0){
+      const bPct=Math.round(bW/tot*100), wPct=100-bPct;
+      html+='<div class="team-gauge">';
+      if(bW>0) html+='<div class="gauge-blue" style="width:'+bPct+'%">'+(bPct>=12?bW+'승':'')+'</div>';
+      if(wW>0) html+='<div class="gauge-white" style="width:'+wPct+'%">'+(wPct>=12?wW+'승':'')+'</div>';
+      html+='</div>';
+    } else {
+      html+='<div class="team-gauge"><div class="gauge-empty">아직 결과 없음</div></div>';
+    }
   }
 
   // 진행 현황
