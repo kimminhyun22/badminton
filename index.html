@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.7.0  (2026-06)
+     APP VERSION: 1.7.1  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.7.0">
+<meta name="app-version" content="1.7.1">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -1659,7 +1659,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.7.1';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3068,13 +3068,14 @@ function _genLiveId(){
 /* 현재 대진·스코어를 직렬화 (뷰어가 읽을 형태) */
 function _buildLiveState(){
   const isTeam=!!(currentSettings && currentSettings.teamMode);
+  const _s=(v)=>(v==null?'':String(v));
   const matches=currentMatches.map((m,i)=>({
-    round:m.round, court:m.court, type:m.type, num:m.matchNumber,
+    round:m.round||0, court:m.court||0, type:_s(m.type), num:m.matchNumber||(i+1),
     isFiller:!!m.isFiller,
-    t1:[m.team1A.name, m.team1B.name],
-    t2:[m.team2C.name, m.team2D.name],
-    t1g:[m.team1A.grade, m.team1B.grade],
-    t2g:[m.team2C.grade, m.team2D.grade],
+    t1:[_s(m.team1A&&m.team1A.name), _s(m.team1B&&m.team1B.name)],
+    t2:[_s(m.team2C&&m.team2C.name), _s(m.team2D&&m.team2D.name)],
+    t1g:[_s(m.team1A&&m.team1A.grade), _s(m.team1B&&m.team1B.grade)],
+    t2g:[_s(m.team2C&&m.team2C.grade), _s(m.team2D&&m.team2D.grade)],
     win: winOverride[i]||null
   }));
   let bW=0,wW=0;
@@ -3088,11 +3089,12 @@ function _buildLiveState(){
   Object.keys(byR).map(Number).sort((a,b)=>a-b).forEach(r=>{
     if(cur===null && !byR[r].every(idx=>_isMatchDone(idx))) cur=r;
   });
+  const bn2=teamNames.blue||'청 팀', wn2=teamNames.white||'백 팀';
   return {
-    title: (isTeam? (teamNames.blue+' vs '+teamNames.white):'콕매치 대진표'),
-    isTeam, teamBlue:teamNames.blue, teamWhite:teamNames.white,
-    blueWins:bW, whiteWins:wW,
-    currentRound:cur, matches,
+    title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
+    isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
+    blueWins:bW||0, whiteWins:wW||0,
+    currentRound: (cur==null?0:cur), matches,
     pointSystem: (typeof _pointSystem!=='undefined'?_pointSystem:25),
     updatedAt: Date.now()
   };
