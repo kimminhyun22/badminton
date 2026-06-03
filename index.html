@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.1.0  (2026-06)
+     APP VERSION: 1.2.0  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.1.0">
+<meta name="app-version" content="1.2.0">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -249,6 +249,15 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .round-reshuffle-btn{font-size:.62rem;padding:3px 9px;border-radius:999px;background:#e9f6f4;color:#2f8a7e;border:1px solid #cfeae5;cursor:pointer;white-space:nowrap;flex-shrink:0;font-weight:600;margin-left:4px;}
 .round-reshuffle-btn:hover{background:#cfeae5;}
 .round-badge{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.75rem;letter-spacing:1.5px;padding:3px 11px;border-radius:6px;background:var(--sur2);color:var(--dim);border:1px solid var(--bdr);}
+.round-current{position:relative;}
+.round-current .round-badge{background:var(--bl-soft);color:var(--bl-deep);border-color:var(--bl-softbdr);}
+.round-current .match-grid{outline:2px solid var(--bl-softbdr);outline-offset:6px;border-radius:12px;}
+.round-now-badge{font-size:.6rem;font-weight:700;color:var(--bl-deep);background:var(--bl-soft);border:1px solid var(--bl-softbdr);border-radius:999px;padding:2px 9px;letter-spacing:.5px;animation:nowPulse 2s ease-in-out infinite;}
+@keyframes nowPulse{0%,100%{opacity:1}50%{opacity:.55}}
+.goto-current-btn{position:fixed;right:16px;bottom:84px;z-index:900;display:flex;align-items:center;gap:7px;padding:11px 16px;border:none;border-radius:999px;background:var(--bl);color:#fff;font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.82rem;box-shadow:0 4px 16px rgba(91,141,239,.4);cursor:pointer;transition:all .18s;}
+.goto-current-btn:hover{background:var(--bl-deep);transform:translateY(-1px);}
+.goto-current-btn .gcb-icon{font-size:1rem;}
+.goto-current-btn .gcb-round{opacity:.85;}
 .round-line{flex:1;height:1px;background:var(--bdr);}
 .match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;}
 .match-card{background:#fff;border:1px solid var(--bdr);border-radius:8px;overflow:hidden;transition:box-shadow .15s;}
@@ -470,6 +479,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* 데스크탑에서는 모달 숨기기 */
 @media(min-width:769px){
   .img-preview-overlay{display:none!important;}
+  .goto-current-btn{bottom:28px;right:28px;}
 }
 .slot-item{display:flex;align-items:center;gap:10px;padding:12px 14px;
   border-bottom:1px solid var(--bdr);transition:background .12s;}
@@ -1566,7 +1576,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2957,7 +2967,53 @@ function updateScores(){
 
   // 참가자 현황 테이블 갱신 (승패 컬럼 반영)
   if(_ptParticipants.length) renderPlayersTable();
+  updateCurrentRoundHighlight();
   scheduleSave();
+}
+
+/* 현재 진행 라운드 하이라이트 갱신 (점수 입력에 따라 이동) */
+function updateCurrentRoundHighlight(){
+  if(!currentMatches.length) return;
+  const byRound={};
+  currentMatches.forEach(m=>{if(!byRound[m.round])byRound[m.round]=[];byRound[m.round].push(m);});
+  const roundNums=Object.keys(byRound).map(Number).sort((a,b)=>a-b);
+  let cur=null;
+  for(const rn of roundNums){
+    const allDone=byRound[rn].every(m=>_isMatchDone(currentMatches.indexOf(m)));
+    if(!allDone){ cur=rn; break; }
+  }
+  window._currentPlayRound=cur;
+  // 모든 블록에서 강조 제거 후 현재에만 부여
+  document.querySelectorAll('.round-block').forEach(el=>{
+    el.classList.remove('round-current');
+    const nb=el.querySelector('.round-now-badge'); if(nb) nb.remove();
+  });
+  const goBtn=document.getElementById('gotoCurrentBtn');
+  if(cur!=null){
+    const block=document.getElementById('roundBlock_'+cur);
+    if(block){
+      block.classList.add('round-current');
+      const header=block.querySelector('.round-header');
+      const badge=block.querySelector('.round-badge');
+      if(header && badge && !header.querySelector('.round-now-badge')){
+        const span=document.createElement('span');
+        span.className='round-now-badge'; span.textContent='● 진행중';
+        badge.insertAdjacentElement('afterend', span);
+      }
+    }
+    if(goBtn){ goBtn.style.display='flex'; goBtn.querySelector('.gcb-round').textContent='R'+cur; }
+  } else {
+    // 전부 완료
+    if(goBtn) goBtn.style.display='none';
+  }
+}
+
+/* 현재 진행 라운드로 스크롤 이동 */
+function scrollToCurrentRound(){
+  const cur=window._currentPlayRound;
+  if(cur==null) return;
+  const block=document.getElementById('roundBlock_'+cur);
+  if(block) block.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 /* ═══ 대진 품질 대시보드 ═══ */
@@ -3148,6 +3204,17 @@ function renderResults(matches,participants,settings){
   const byRound={};
   matches.forEach(m=>{if(!byRound[m.round])byRound[m.round]=[];byRound[m.round].push(m);});
 
+  // 현재 진행 라운드 = 아직 결과가 다 입력되지 않은 첫 라운드
+  const _roundNums=Object.keys(byRound).map(Number).sort((a,b)=>a-b);
+  let _currentPlayRound=null;
+  for(const rn of _roundNums){
+    const allDone=byRound[rn].every(m=>_isMatchDone(matches.indexOf(m)));
+    if(!allDone){ _currentPlayRound=rn; break; }
+  }
+  // 전부 완료면 마지막 라운드를 현재로(완료 상태)
+  const _allFinished = _currentPlayRound===null;
+  window._currentPlayRound = _currentPlayRound; // 플로팅 버튼에서 참조
+
   const bracketHtml=Object.keys(byRound).sort((a,b)=>a-b).map(r=>{
     const ms=byRound[r];
     const cards=ms.map(m=>{
@@ -3196,12 +3263,17 @@ function renderResults(matches,participants,settings){
     const editBtn=isLocked
       ? `<button class="round-edit-btn locked" onclick="alertRoundLocked(${r})">🔒 변경 잠금</button>`
       : `<button class="round-edit-btn" onclick="openRoundChange(${r})">✏️ 선수 변경</button><button class="round-reshuffle-btn" onclick="reshuffleFromRound(${r})">🎲 재배정</button>`;
-    return `<div class="round-block"><div class="round-header"><span class="round-badge">ROUND ${r}</span>${editBtn}<div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
+    const isCurrent = (+r===_currentPlayRound);
+    const nowBadge = isCurrent ? `<span class="round-now-badge">● 진행중</span>` : '';
+    return `<div class="round-block${isCurrent?' round-current':''}" id="roundBlock_${r}"><div class="round-header"><span class="round-badge">ROUND ${r}</span>${nowBadge}${editBtn}<div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
   }).join('');
   document.getElementById('tabBracket').innerHTML=bracketHtml;
 
   // Players tab — sortable + filterable
   buildPlayersTable(participants, settings);
+
+  // 현재 진행 라운드 하이라이트 + 플로팅 버튼 초기화
+  updateCurrentRoundHighlight();
 }
 
 /* 참가자 현황 테이블 — 정렬/필터 */
@@ -5576,6 +5648,11 @@ window.addEventListener('DOMContentLoaded', () => {
   if(btn) btn.classList.add('active');
 });
 </script>
+<!-- 현재 라운드로 이동 (플로팅) -->
+<button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()">
+  <span class="gcb-icon">🏸</span>
+  <span class="gcb-text">진행중 <span class="gcb-round"></span></span>
+</button>
 <!-- ═══ 모바일 하단 탭바 ═══ -->
 <nav class="bottom-nav" id="bottomNav">
   <button class="bnav-btn active" id="bnav-players" onclick="switchMobileTab('players')">
