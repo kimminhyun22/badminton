@@ -2070,10 +2070,23 @@ function generate(){
       const gppRem=gpp-xDbl;
       settings.targetWomenDoubles=numF>=4?Math.floor(numF*gppRem/4):0;
       settings.targetMenDoubles=numM>=4?Math.floor(numM*gppRem/4):0;
-      const matches=generateMatches(participants,settings,totalMatches);
-      fillMissingGames(participants,settings,matches);
-      // ── 라운드 내 빈 코트 최우선 채우기 (compaction) ──
-      compactSchedule(matches,settings);
+      // ── 여러 번 생성해 가장 품질 좋은 대진 자동 선택 (best-of-N) ──
+      // generateMatches가 participants를 직접 변경하므로 매 시도마다 깨끗한 복사본 사용
+      const _basePlayers=participants.map(p=>({...p, partnerCount:{}, opponentCount:{}}));
+      const _TRIES=20;
+      let matches=null, bestScore=Infinity, bestPlayers=null;
+      for(let _t=0;_t<_TRIES;_t++){
+        const _try=_basePlayers.map(p=>({...p, gamesPlayed:0, lastRoundPlayed:0,
+          womenDoublesPlayed:0, menDoublesPlayed:0, mixedDoublesPlayed:0,
+          partnerCount:{}, opponentCount:{}}));
+        const _m=generateMatches(_try,settings,totalMatches);
+        fillMissingGames(_try,settings,_m);
+        compactSchedule(_m,settings);
+        const _sc=_bracketQualityScore(_m,_try,settings);
+        if(_sc<bestScore){ bestScore=_sc; matches=_m; bestPlayers=_try; }
+      }
+      // 최고 후보 채택
+      participants=bestPlayers;
       matches.sort((a,b)=>a.round-b.round||a.court-b.court);
       matches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=matches;currentParticipants=participants;currentSettings=settings;
@@ -2784,6 +2797,41 @@ function updatePlayerRecords(match){
   inc(match.team1A.partnerCount,match.team1B.name);inc(match.team1B.partnerCount,match.team1A.name);
   inc(match.team2C.partnerCount,match.team2D.name);inc(match.team2D.partnerCount,match.team2C.name);
   [match.team1A,match.team1B].forEach(a=>[match.team2C,match.team2D].forEach(b=>{inc(a.opponentCount,b.name);inc(b.opponentCount,a.name);}));
+}
+
+/* 대진 품질 점수 (낮을수록 좋음) — 여러 후보 중 최고를 고르는 데 사용 */
+function _bracketQualityScore(matches, participants, settings){
+  const N=participants.length;
+  let penalty=0;
+  // ① 레벨 밸런스
+  let ldSum=0, ldMax=0;
+  matches.forEach(m=>{ const ld=Math.abs(m.levelDiff||0); ldSum+=ld; if(ld>ldMax)ldMax=ld; });
+  penalty += ldSum*2 + ldMax*3;
+  // ② 게임 수 보장 (미달 페널티 큼)
+  const goal=(p)=>(p._goal!=null?p._goal:settings.gamesPerPlayer);
+  const gc={}; participants.forEach(p=>gc[p.name]=0);
+  matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{if(gc[p.name]!=null)gc[p.name]++;}));
+  let under=0; participants.forEach(p=>{ if(gc[p.name]<goal(p)) under+=(goal(p)-gc[p.name]); });
+  penalty += under*50;
+  // ③ 대진 간격 (회피 가능한 연속만)
+  let excess=0;
+  const maxR=Math.max(...matches.map(m=>m.round));
+  for(let r=2;r<=maxR;r++){
+    const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
+    const cur=matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]);
+    let rc=0; cur.forEach(nm=>{if(prev.has(nm))rc++;});
+    const rPlay=cur.length, rRest=N-rPlay, rMin=Math.max(0,rPlay-rRest);
+    excess += Math.max(0, rc-rMin);
+  }
+  penalty += excess*8;
+  // ④ 상대 다양성 (3회+, 4회+)
+  const oc={};
+  matches.forEach(m=>{const t1=[m.team1A.name,m.team1B.name],t2=[m.team2C.name,m.team2D.name];t1.forEach(a=>t2.forEach(b=>{const k=[a,b].sort().join('|');oc[k]=(oc[k]||0)+1;}));});
+  const ov=Object.values(oc);
+  penalty += ov.filter(c=>c===3).length*10 + ov.filter(c=>c>=4).length*100;
+  // ⑤ 보완 게임 수
+  penalty += matches.filter(m=>m.isFiller).length*15;
+  return penalty;
 }
 
 function shuffleArray(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}}
