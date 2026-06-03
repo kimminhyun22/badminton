@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.2.0  (2026-06)
+     APP VERSION: 1.3.0  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.2.0">
+<meta name="app-version" content="1.3.0">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -214,6 +214,31 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .tabs{display:flex;border-bottom:1px solid var(--bdr);margin-bottom:12px;}
 .res-tab{padding:8px 15px;font-size:.76rem;font-weight:600;cursor:pointer;border:none;background:none;color:var(--dim);font-family:'Noto Sans KR',sans-serif;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
 .res-tab.active{color:var(--bl);border-bottom-color:var(--bl);}
+/* 오늘의 요약 탭 */
+.ts-empty{padding:40px 16px;text-align:center;color:var(--dim);font-size:.85rem;}
+.ts-progress{font-size:.72rem;color:var(--dim);background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;margin-bottom:14px;text-align:center;}
+.ts-progress b{color:var(--txt);}
+.ts-highlight{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+.ts-hl-card{border-radius:14px;padding:16px 14px;text-align:center;border:1px solid var(--bl-softbdr);background:var(--bl-soft);}
+.ts-hl-card.ts-most{background:#fdf3e0;border-color:#f0d9a8;}
+.ts-hl-label{font-size:.7rem;font-weight:700;color:var(--dim);margin-bottom:6px;}
+.ts-hl-name{font-size:1.3rem;font-weight:800;color:var(--txt);font-family:'Noto Sans KR',sans-serif;letter-spacing:-.5px;}
+.ts-hl-sub{font-size:.72rem;color:var(--dim);margin-top:4px;}
+.ts-rank-title{font-size:.72rem;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:18px 0 8px;}
+.ts-rank{display:flex;flex-direction:column;gap:4px;}
+.ts-rank-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:9px;font-size:.84rem;}
+.ts-rank-row.ts-top{background:var(--bl-soft);border-color:var(--bl-softbdr);}
+.ts-rank-medal{font-size:.95rem;min-width:22px;text-align:center;font-weight:700;color:var(--dim);}
+.ts-rank-name{flex:1;font-weight:700;color:var(--txt);}
+.ts-rank-record{color:var(--dim);font-size:.78rem;}
+.ts-rank-rate{font-weight:700;color:var(--bl-deep);min-width:42px;text-align:right;}
+.ts-noresult{background:transparent;border-style:dashed;}
+.ts-personal{display:flex;flex-direction:column;gap:6px;}
+.ts-person-card{padding:11px 13px;background:var(--sur);border:1px solid var(--bdr);border-radius:10px;}
+.ts-person-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.ts-person-name{font-weight:700;color:var(--txt);font-size:.88rem;}
+.ts-person-rec{font-size:.74rem;color:var(--dim);}
+.ts-person-partners{font-size:.72rem;color:var(--dim);line-height:1.5;}
 
 /* ── SCOREBOARD ── */
 .scoreboard{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;}
@@ -1334,6 +1359,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <div class="tabs" style="border-bottom:none;margin-bottom:0;flex:1;">
             <button class="res-tab active" onclick="showTab('bracket')">🏸 대진표</button>
             <button class="res-tab" onclick="showTab('players')">👥 참가자 현황</button>
+            <button class="res-tab" onclick="showTab('summary')">🏆 오늘의 요약</button>
           </div>
           <div class="print-menu-wrap" id="printMenuWrap">
             <button class="btn btn-print btn-sm" onclick="togglePrintMenu()">🖨️ 인쇄 ▾</button>
@@ -1348,6 +1374,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
         <div class="card-body">
           <div id="tabBracket"></div>
           <div id="tabPlayers" class="hidden"></div>
+          <div id="tabSummary" class="hidden"></div>
         </div>
       </div>
     </div>
@@ -1576,7 +1603,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4726,10 +4753,84 @@ function executeChangeModal(){
 
 /* ═══ UI UTILS ═══ */
 function showTab(tab){
-  document.querySelectorAll('.res-tab').forEach((t,i)=>t.classList.toggle('active',['bracket','players'][i]===tab));
+  document.querySelectorAll('.res-tab').forEach((t,i)=>t.classList.toggle('active',['bracket','players','summary'][i]===tab));
   document.getElementById('tabBracket').classList.toggle('hidden',tab!=='bracket');
   document.getElementById('tabPlayers').classList.toggle('hidden',tab!=='players');
+  document.getElementById('tabSummary').classList.toggle('hidden',tab!=='summary');
+  if(tab==='summary') renderTodaySummary();
 }
+
+/* ═══ 오늘의 요약 (전적·MVP·개인 카드) ═══ */
+function renderTodaySummary(){
+  const el=document.getElementById('tabSummary');
+  if(!currentMatches.length){ el.innerHTML='<div class="ts-empty">대진표를 먼저 생성하세요.</div>'; return; }
+  const stat={};
+  currentParticipants.forEach(p=>{ stat[p.name]={name:p.name, w:0, l:0, games:0, partners:{}}; });
+  let doneCount=0;
+  currentMatches.forEach((m,i)=>{
+    const wo=winOverride[i];
+    const t1=[m.team1A,m.team1B], t2=[m.team2C,m.team2D];
+    const addPartner=(a,b)=>{ if(stat[a.name]) stat[a.name].partners[b.name]=(stat[a.name].partners[b.name]||0)+1; };
+    [t1,t2].forEach(team=>{ if(stat[team[0].name])stat[team[0].name].games++; if(stat[team[1].name])stat[team[1].name].games++; addPartner(team[0],team[1]); addPartner(team[1],team[0]); });
+    if(!wo) return;
+    doneCount++;
+    const winners = wo==='t1'?t1:t2, losers = wo==='t1'?t2:t1;
+    winners.forEach(p=>{ if(stat[p.name]) stat[p.name].w++; });
+    losers.forEach(p=>{ if(stat[p.name]) stat[p.name].l++; });
+  });
+  const arr=Object.values(stat).filter(s=>s.games>0);
+  if(!arr.length){ el.innerHTML='<div class="ts-empty">참가자 정보가 없습니다.</div>'; return; }
+  const totalMatches=currentMatches.length;
+  const enteredPct = totalMatches? Math.round(doneCount/totalMatches*100):0;
+  const rated=arr.filter(s=>(s.w+s.l)>0);
+  const byWin=[...rated].sort((a,b)=> b.w-a.w || (b.w/(b.w+b.l))-(a.w/(a.w+a.l)) );
+  const byRate=[...rated].sort((a,b)=> (b.w/(b.w+b.l))-(a.w/(a.w+a.l)) || b.w-a.w );
+  const mvp = byRate.length? byRate[0] : null;
+  const mostWins = byWin.length? byWin[0] : null;
+  const medal=(i)=> i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+  const rateStr=(s)=> (s.w+s.l)>0? Math.round(s.w/(s.w+s.l)*100)+'%':'—';
+
+  let html=`<div class="ts-progress">결과 입력 <b>${doneCount}/${totalMatches}</b> 경기 (${enteredPct}%)${enteredPct<100?' · 입력할수록 정확해집니다':''}</div>`;
+  if(mvp){
+    html+=`<div class="ts-highlight">
+      <div class="ts-hl-card ts-mvp">
+        <div class="ts-hl-label">🏆 오늘의 MVP</div>
+        <div class="ts-hl-name">${esc(mvp.name)}</div>
+        <div class="ts-hl-sub">${mvp.w}승 ${mvp.l}패 · 승률 ${rateStr(mvp)}</div>
+      </div>
+      <div class="ts-hl-card ts-most">
+        <div class="ts-hl-label">🔥 최다승</div>
+        <div class="ts-hl-name">${esc(mostWins.name)}</div>
+        <div class="ts-hl-sub">${mostWins.w}승 ${mostWins.l}패</div>
+      </div>
+    </div>`;
+  }
+  html+=`<div class="ts-rank-title">전적 순위</div><div class="ts-rank">`;
+  byWin.forEach((s,i)=>{
+    html+=`<div class="ts-rank-row${i<3?' ts-top':''}">
+      <span class="ts-rank-medal">${medal(i)}</span>
+      <span class="ts-rank-name">${esc(s.name)}</span>
+      <span class="ts-rank-record">${s.w}승 ${s.l}패</span>
+      <span class="ts-rank-rate">${rateStr(s)}</span>
+    </div>`;
+  });
+  const noResult=arr.filter(s=>(s.w+s.l)===0);
+  if(noResult.length){
+    html+=`<div class="ts-rank-row ts-noresult"><span class="ts-rank-medal">·</span><span class="ts-rank-name" style="color:var(--dim2)">결과 대기: ${noResult.map(s=>esc(s.name)).join(', ')}</span></div>`;
+  }
+  html+=`</div>`;
+  html+=`<div class="ts-rank-title">개인별 상세</div><div class="ts-personal">`;
+  byWin.concat(noResult).forEach(s=>{
+    const partners=Object.entries(s.partners).sort((a,b)=>b[1]-a[1]).map(([n,c])=>esc(n)+(c>1?` ×${c}`:'')).join(', ')||'—';
+    html+=`<div class="ts-person-card">
+      <div class="ts-person-head"><span class="ts-person-name">${esc(s.name)}</span><span class="ts-person-rec">${s.games}경기 · ${s.w}승 ${s.l}패</span></div>
+      <div class="ts-person-partners">함께한 파트너: ${partners}</div>
+    </div>`;
+  });
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+
 function show(id){document.getElementById(id).classList.remove('hidden');}
 function set(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');}
