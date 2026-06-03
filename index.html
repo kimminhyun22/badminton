@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.3.0  (2026-06)
+     APP VERSION: 1.3.1  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.3.0">
+<meta name="app-version" content="1.3.1">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -1603,7 +1603,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4765,14 +4765,22 @@ function renderTodaySummary(){
   const el=document.getElementById('tabSummary');
   if(!currentMatches.length){ el.innerHTML='<div class="ts-empty">대진표를 먼저 생성하세요.</div>'; return; }
   const stat={};
-  currentParticipants.forEach(p=>{ stat[p.name]={name:p.name, w:0, l:0, games:0, partners:{}}; });
-  let doneCount=0;
+  currentParticipants.forEach(p=>{ stat[p.name]={name:p.name, w:0, l:0, games:0, fillerGames:0, partners:{}}; });
+  let doneCount=0, totalRated=0, fillerTotal=0;
   currentMatches.forEach((m,i)=>{
     const wo=winOverride[i];
     const t1=[m.team1A,m.team1B], t2=[m.team2C,m.team2D];
+    const isFiller=!!m.isFiller;
+    if(isFiller) fillerTotal++; else totalRated++;
     const addPartner=(a,b)=>{ if(stat[a.name]) stat[a.name].partners[b.name]=(stat[a.name].partners[b.name]||0)+1; };
-    [t1,t2].forEach(team=>{ if(stat[team[0].name])stat[team[0].name].games++; if(stat[team[1].name])stat[team[1].name].games++; addPartner(team[0],team[1]); addPartner(team[1],team[0]); });
+    [t1,t2].forEach(team=>{
+      if(stat[team[0].name]){ stat[team[0].name].games++; if(isFiller)stat[team[0].name].fillerGames++; }
+      if(stat[team[1].name]){ stat[team[1].name].games++; if(isFiller)stat[team[1].name].fillerGames++; }
+      addPartner(team[0],team[1]); addPartner(team[1],team[0]);
+    });
     if(!wo) return;
+    // 보완게임은 승패(전적)에서 제외 — 표시만, 집계 안 함
+    if(isFiller) return;
     doneCount++;
     const winners = wo==='t1'?t1:t2, losers = wo==='t1'?t2:t1;
     winners.forEach(p=>{ if(stat[p.name]) stat[p.name].w++; });
@@ -4780,35 +4788,47 @@ function renderTodaySummary(){
   });
   const arr=Object.values(stat).filter(s=>s.games>0);
   if(!arr.length){ el.innerHTML='<div class="ts-empty">참가자 정보가 없습니다.</div>'; return; }
-  const totalMatches=currentMatches.length;
+  const totalMatches=totalRated; // 진행률은 정식 경기 기준 (보완 제외)
   const enteredPct = totalMatches? Math.round(doneCount/totalMatches*100):0;
   const rated=arr.filter(s=>(s.w+s.l)>0);
   const byWin=[...rated].sort((a,b)=> b.w-a.w || (b.w/(b.w+b.l))-(a.w/(a.w+a.l)) );
   const byRate=[...rated].sort((a,b)=> (b.w/(b.w+b.l))-(a.w/(a.w+a.l)) || b.w-a.w );
-  const mvp = byRate.length? byRate[0] : null;
-  const mostWins = byWin.length? byWin[0] : null;
-  const medal=(i)=> i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
   const rateStr=(s)=> (s.w+s.l)>0? Math.round(s.w/(s.w+s.l)*100)+'%':'—';
+  // 공동 순위 판정: 같은 승수 AND 같은 승률(반올림)
+  const sameRank=(a,b)=> a.w===b.w && (a.w+a.l>0) && (b.w+b.l>0) && Math.round(a.w/(a.w+a.l)*100)===Math.round(b.w/(b.w+b.l)*100);
+  // MVP = 승률 최고, 공동이면 모두
+  let mvpPool=[];
+  if(byRate.length){ const top=byRate[0]; mvpPool=byRate.filter(s=>sameRank(s,top)); }
+  // 최다승 = 승수 최고, 공동이면 모두
+  let mostPool=[];
+  if(byWin.length){ const topW=byWin[0].w; mostPool=byWin.filter(s=>s.w===topW); }
+  const joinNames=(list)=> list.map(s=>esc(s.name)).join(', ');
 
-  let html=`<div class="ts-progress">결과 입력 <b>${doneCount}/${totalMatches}</b> 경기 (${enteredPct}%)${enteredPct<100?' · 입력할수록 정확해집니다':''}</div>`;
-  if(mvp){
+  let html=`<div class="ts-progress">결과 입력 <b>${doneCount}/${totalMatches}</b> 경기 (${enteredPct}%)${enteredPct<100?' · 입력할수록 정확해집니다':''}${fillerTotal>0?`<br><span style="font-size:.66rem;color:var(--dim2)">※ 보완게임 ${fillerTotal}개는 전적 집계에서 제외</span>`:''}</div>`;
+  if(mvpPool.length){
+    const m0=mvpPool[0], w0=mostPool[0];
     html+=`<div class="ts-highlight">
       <div class="ts-hl-card ts-mvp">
-        <div class="ts-hl-label">🏆 오늘의 MVP</div>
-        <div class="ts-hl-name">${esc(mvp.name)}</div>
-        <div class="ts-hl-sub">${mvp.w}승 ${mvp.l}패 · 승률 ${rateStr(mvp)}</div>
+        <div class="ts-hl-label">🏆 오늘의 MVP${mvpPool.length>1?` (공동 ${mvpPool.length}명)`:''}</div>
+        <div class="ts-hl-name">${joinNames(mvpPool)}</div>
+        <div class="ts-hl-sub">${m0.w}승 ${m0.l}패 · 승률 ${rateStr(m0)}</div>
       </div>
       <div class="ts-hl-card ts-most">
-        <div class="ts-hl-label">🔥 최다승</div>
-        <div class="ts-hl-name">${esc(mostWins.name)}</div>
-        <div class="ts-hl-sub">${mostWins.w}승 ${mostWins.l}패</div>
+        <div class="ts-hl-label">🔥 최다승${mostPool.length>1?` (공동 ${mostPool.length}명)`:''}</div>
+        <div class="ts-hl-name">${joinNames(mostPool)}</div>
+        <div class="ts-hl-sub">${w0.w}승 ${w0.l}패</div>
       </div>
     </div>`;
   }
   html+=`<div class="ts-rank-title">전적 순위</div><div class="ts-rank">`;
+  // 공동 순위(1,1,3 방식)로 메달 부여
+  let rankNum=0, prevS=null;
   byWin.forEach((s,i)=>{
-    html+=`<div class="ts-rank-row${i<3?' ts-top':''}">
-      <span class="ts-rank-medal">${medal(i)}</span>
+    if(prevS===null || !sameRank(s,prevS)) rankNum=i+1;
+    prevS=s;
+    const medalStr = rankNum===1?'🥇':rankNum===2?'🥈':rankNum===3?'🥉':`${rankNum}`;
+    html+=`<div class="ts-rank-row${rankNum<=3?' ts-top':''}">
+      <span class="ts-rank-medal">${medalStr}</span>
       <span class="ts-rank-name">${esc(s.name)}</span>
       <span class="ts-rank-record">${s.w}승 ${s.l}패</span>
       <span class="ts-rank-rate">${rateStr(s)}</span>
@@ -4823,7 +4843,7 @@ function renderTodaySummary(){
   byWin.concat(noResult).forEach(s=>{
     const partners=Object.entries(s.partners).sort((a,b)=>b[1]-a[1]).map(([n,c])=>esc(n)+(c>1?` ×${c}`:'')).join(', ')||'—';
     html+=`<div class="ts-person-card">
-      <div class="ts-person-head"><span class="ts-person-name">${esc(s.name)}</span><span class="ts-person-rec">${s.games}경기 · ${s.w}승 ${s.l}패</span></div>
+      <div class="ts-person-head"><span class="ts-person-name">${esc(s.name)}</span><span class="ts-person-rec">${s.w}승 ${s.l}패${s.fillerGames>0?` <span style="color:var(--dim2)">(+보완 ${s.fillerGames})</span>`:''}</span></div>
       <div class="ts-person-partners">함께한 파트너: ${partners}</div>
     </div>`;
   });
