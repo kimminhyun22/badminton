@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.2  (2026-06)
+     APP VERSION: 1.10.3  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.2">
+<meta name="app-version" content="1.10.3">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1390,7 +1390,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <div class="card-head">
             <span class="card-title">🏆 팀 승패 집계</span>
             <span style="font-size:.62rem;color:var(--dim)">팀명 클릭 시 수정 가능</span>
-          <button class="team-share-btn" onclick="shareTeamStatus()">📤 현황 공유</button><button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">📡 실시간 중계</button></div>
+          <button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">📡 실시간 중계</button></div>
           <div class="card-body">
             <div id="winnerBanner"></div>
             <div class="scoreboard">
@@ -1680,7 +1680,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.2';
+const APP_VERSION = '1.10.3';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
