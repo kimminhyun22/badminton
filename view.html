@@ -184,21 +184,21 @@ function buildGauge(bW, wW, blueName, whiteName){
   else if(bW>wW){ cap='🔵 '+esc(blueName||'청 팀')+' 압도 중'; capCls='blue'; }
   else if(wW>bW){ cap='🔴 '+esc(whiteName||'홍 팀')+' 압도 중'; capCls='red'; }
   else { cap='⚖️ 팽팽한 접전'; }
-  var cx=150, cy=150, r=120, sw=22;
+  var cx=150, cy=150, r=118, sw=34;
   var A0=135, A1=405;
   function pt(deg, rad){ var a=deg*Math.PI/180; return [cx+rad*Math.cos(a), cy+rad*Math.sin(a)]; }
   function arcPath(d0, d1, rad){ var p0=pt(d0,rad), p1=pt(d1,rad); var large=(d1-d0)>180?1:0; return "M "+p0[0].toFixed(1)+" "+p0[1].toFixed(1)+" A "+rad+" "+rad+" 0 "+large+" 1 "+p1[0].toFixed(1)+" "+p1[1].toFixed(1); }
   var span=A1-A0;
   var boundary=A0+span*bShare;
   var ticks='';
-  for(var t=0;t<=9;t++){ var td=A0+span*(t/9); var o=pt(td,r+11), i2=pt(td,r-11); ticks+='<line x1="'+o[0].toFixed(1)+'" y1="'+o[1].toFixed(1)+'" x2="'+i2[0].toFixed(1)+'" y2="'+i2[1].toFixed(1)+'" stroke="rgba(120,130,150,.22)" stroke-width="2"/>'; }
+  for(var t=0;t<=9;t++){ var td=A0+span*(t/9); var o=pt(td,r+15), i2=pt(td,r-15); ticks+='<line x1="'+o[0].toFixed(1)+'" y1="'+o[1].toFixed(1)+'" x2="'+i2[0].toFixed(1)+'" y2="'+i2[1].toFixed(1)+'" stroke="rgba(120,130,150,.22)" stroke-width="2"/>'; }
   var bluePart = tot>0 && bW>0 ? arcPath(A0, boundary, r) : "";
   var redPart = tot>0 && wW>0 ? arcPath(boundary, A1, r) : "";
   var needle = pt(boundary, r-4);
   var svg='<svg class="gauge-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">'
     +'<defs>'
-    +'<linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7fa8f2"/><stop offset="100%" stop-color="#2f5fc0"/></linearGradient>'
-    +'<linearGradient id="gRed" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f3a09c"/><stop offset="100%" stop-color="#d3332e"/></linearGradient>'
+    +'<radialGradient id="gBlue" cx="150" cy="150" r="135" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#bcd2f8"/><stop offset="62%" stop-color="#84aaf3"/><stop offset="100%" stop-color="#274fa8"/></radialGradient>'
+    +'<radialGradient id="gRed" cx="150" cy="150" r="135" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f8c4c1"/><stop offset="62%" stop-color="#ef9591"/><stop offset="100%" stop-color="#c22a25"/></radialGradient>'
     +'</defs>'
     +'<circle cx="150" cy="150" r="142" fill="var(--sur)" stroke="var(--bdr)" stroke-width="1"/>'
     +'<path d="'+arcPath(A0,A1,r)+'" fill="none" stroke="var(--sur2)" stroke-width="'+sw+'" stroke-linecap="round"/>'
@@ -213,8 +213,6 @@ function buildGauge(bW, wW, blueName, whiteName){
     +'</text>'
     +'<line x1="150" y1="150" x2="'+needle[0].toFixed(1)+'" y2="'+needle[1].toFixed(1)+'" stroke="var(--txt)" stroke-width="3.5" stroke-linecap="round"/>'
     +'<circle cx="150" cy="150" r="9" fill="var(--txt)"/><circle cx="150" cy="150" r="4" fill="var(--sur)"/>'
-    +'<text x="62" y="248" text-anchor="middle" font-size="16">🔵</text>'
-    +'<text x="238" y="248" text-anchor="middle" font-size="16">🔴</text>'
     +'</svg>';
   return '<div class="gauge-wrap">'+svg+'<div class="gauge-caption '+capCls+'">'+cap+'</div></div>';
 }
