@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.9.5  (2026-06)
+     APP VERSION: 1.10.0  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.9.5">
+<meta name="app-version" content="1.10.0">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -1666,7 +1666,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.9.5';
+const APP_VERSION = '1.10.0';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1856,23 +1856,26 @@ function doTeamAssign(){
     }
   }
 
-  // 나머지 자유 선수
-  const freePool = all.filter(p=>!processedNames.has(p.name));
-  const {blue:newBlue, white:newWhite} = balanceTeams(freePool);
-
-  // 파트너 쌍은 레벨합이 균형을 맞춰 팀 배정
+  // 고정 선수(단장·부단장)를 시드로 — 이들의 레벨·인원·여성수를 출발점으로 삼는다
   const blueFixed = all.filter(p=>p.name===captains.blue.leader||p.name===captains.blue.sub);
   const whiteFixed = all.filter(p=>p.name===captains.white.leader||p.name===captains.white.sub);
-  const blue = [...blueFixed, ...newBlue];
-  const white = [...whiteFixed, ...newWhite];
 
-  // 파트너 쌍 배정: 레벨합 낮은 팀에 배정해 균형 맞추기
-  for(const [pa,pb] of partnerPairs){
-    const bSum=blue.reduce((s,p)=>s+effLevel(p),0);
-    const wSum=white.reduce((s,p)=>s+effLevel(p),0);
-    if(bSum<=wSum){ blue.push(pa,pb); }
-    else { white.push(pa,pb); }
+  // 파트너 쌍 배정: 시드 레벨합을 고려해 낮은 팀부터 배정 (시드에 합산해 둠)
+  const seedBlue=[...blueFixed], seedWhite=[...whiteFixed];
+  const _s=t=>t.reduce((s,p)=>s+effLevel(p),0);
+  // 파트너쌍은 레벨합 큰 쌍부터, 그때그때 합 낮은 팀에 배정 (그리디 균형)
+  const sortedPairs=[...partnerPairs].sort((x,y)=>(effLevel(y[0])+effLevel(y[1]))-(effLevel(x[0])+effLevel(x[1])));
+  for(const [pa,pb] of sortedPairs){
+    if(_s(seedBlue)<=_s(seedWhite)) seedBlue.push(pa,pb);
+    else seedWhite.push(pa,pb);
   }
+
+  // 자유 선수를 시드 위에서 균형 배분
+  const freePool = all.filter(p=>!processedNames.has(p.name));
+  const {blue:newBlue, white:newWhite} = balanceTeams(freePool, seedBlue, seedWhite);
+
+  const blue = [...seedBlue, ...newBlue];
+  const white = [...seedWhite, ...newWhite];
 
   teamAssignment={blue,white};
   blue.forEach(p=>p.team='청팀');
@@ -2071,58 +2074,87 @@ function updateTeamModeBadge(){
 }
 
 /* ═══ BALANCE TEAMS ═══ */
-function balanceTeams(all){
+function balanceTeams(all, seedBlue=[], seedWhite=[]){
+  // seedBlue/seedWhite: 이미 팀이 고정된 선수들(단장·부단장·파트너쌍 등). 이들의 레벨·인원·여성수를 출발점으로 삼아
+  // 나머지(all)를 배분하고, 전체(시드 포함)가 균형을 이루도록 최적화한다.
   const sum=t=>t.reduce((s,p)=>s+effLevel(p),0);
-  const femCount=t=>t.filter(p=>p.gender==='F').length;
+  const femCount=t=>t.filter(p=>p.gender==='F'||p.gender==='여').length;
+  const isF=p=>p.gender==='F'||p.gender==='여';
 
-  // 배분 결정 함수: 레벨합 + 인원수 균형을 동시에 고려
-  // score가 작은 팀에 배정 (인원수 차이에 강한 패널티 적용)
-  const score=(t,other)=>{
-    const lvDiff=sum(t)-sum(other);          // 레벨합 차이
-    const cntDiff=t.length-other.length;     // 인원수 차이
-    return lvDiff + cntDiff*10;             // 인원수 차이에 가중치 10 부여
+  // 균형 비용: 인원차·여성수차·레벨합차를 가중 합산 (작을수록 좋음)
+  // 인원/여성 1명 차이는 강하게, 레벨합 차이는 0.1점 단위까지 반영
+  const W_CNT=100, W_FEM=100, W_LV=1;
+  const cost=(B,Wt)=>{
+    const fullB=[...seedBlue,...B], fullW=[...seedWhite,...Wt];
+    const cntD=Math.abs(fullB.length-fullW.length);
+    const femD=Math.abs(femCount(fullB)-femCount(fullW));
+    const lvD=Math.abs(sum(fullB)-sum(fullW));
+    return cntD*W_CNT + femD*W_FEM + lvD*W_LV;
   };
 
-  const shuffled=fisherYates([...all]);
-  // 레벨 내림차순 정렬 후 배분 (높은 레벨부터 교대 배정해 균형 잡기)
-  const females=shuffled.filter(p=>p.gender==='F').sort((a,b)=>b.level-a.level);
-  const males=shuffled.filter(p=>p.gender==='M').sort((a,b)=>b.level-a.level);
-  let blue=[],white=[];
+  // 한 번의 그리디 배분 (시드 상태를 반영해 부족한 쪽에 채움)
+  const buildOnce=(pool)=>{
+    const females=pool.filter(isF).sort((a,b)=>effLevel(b)-effLevel(a));
+    const males=pool.filter(p=>!isF(p)).sort((a,b)=>effLevel(b)-effLevel(a));
+    let B=[],Wt=[];
+    const put=(p)=>{
+      // 이 선수를 청/홍 중 어디에 넣어야 비용이 작은가
+      const cB=cost([...B,p],Wt), cW=cost(B,[...Wt,p]);
+      if(cB<cW) B.push(p);
+      else if(cW<cB) Wt.push(p);
+      else (Math.random()<0.5?B:Wt).push(p); // 동점이면 랜덤
+    };
+    // 여성 먼저(여성수 균형이 더 깨지기 쉬움), 그다음 남성. 둘 다 레벨 높은 순.
+    females.forEach(put);
+    males.forEach(put);
+    return {B,Wt};
+  };
 
-  // 여성 배분: 레벨합 + 여성 수 + 전체 인원수 균형
-  for(const f of females){
-    const bFem=femCount(blue), wFem=femCount(white);
-    // 여성 수가 같으면 score 비교, 다르면 여성이 적은 팀에
-    if(bFem<wFem) blue.push(f);
-    else if(wFem<bFem) white.push(f);
-    else if(score(blue,white)<=score(white,blue)) blue.push(f);
-    else white.push(f);
-  }
-
-  // 남성 배분: score 기준 (레벨합 + 인원수 패널티)
-  for(const m of males){
-    if(score(blue,white)<=score(white,blue)) blue.push(m);
-    else white.push(m);
-  }
-
-  // 스왑 최적화: 같은 성별끼리 교환해 레벨합 차이 줄이되 인원수 균형 유지
-  let improved=true;
-  while(improved){
-    improved=false;
-    for(let bi=0;bi<blue.length;bi++){
-      for(let wi=0;wi<white.length;wi++){
-        if(blue[bi].gender!==white[wi].gender)continue;
-        // 스왑 후 인원수는 그대로이므로 레벨합 차이만 비교
-        const before=Math.abs(sum(blue)-sum(white));
-        const after=Math.abs((sum(blue)-effLevel(blue[bi])+effLevel(white[wi]))-(sum(white)-effLevel(white[wi])+effLevel(blue[bi])));
-        if(after<before){
-          [blue[bi],white[wi]]=[white[wi],blue[bi]];
-          improved=true;
+  // 국소 최적화: 동성 1:1 스왑 + 1명 이동(인원 불균형 해소)으로 비용 최소화
+  const optimize=(B,Wt)=>{
+    let improved=true, guard=0;
+    while(improved && guard++<200){
+      improved=false;
+      // (1) 동성 스왑
+      for(let bi=0;bi<B.length;bi++){
+        for(let wi=0;wi<Wt.length;wi++){
+          if(isF(B[bi])!==isF(Wt[wi]))continue;
+          const nB=B.slice(), nW=Wt.slice();
+          [nB[bi],nW[wi]]=[nW[wi],nB[bi]];
+          if(cost(nB,nW)<cost(B,Wt)-1e-9){ B=nB; Wt=nW; improved=true; }
+        }
+      }
+      // (2) 한 명 이동: 인원 많은 쪽에서 적은 쪽으로 옮기면 더 균형 잡힐 때
+      const fullB=seedBlue.length+B.length, fullW=seedWhite.length+Wt.length;
+      if(fullB>fullW){
+        for(let bi=0;bi<B.length;bi++){
+          const nB=B.slice(); const moved=nB.splice(bi,1)[0];
+          const nW=[...Wt,moved];
+          if(cost(nB,nW)<cost(B,Wt)-1e-9){ B=nB; Wt=nW; improved=true; break; }
+        }
+      } else if(fullW>fullB){
+        for(let wi=0;wi<Wt.length;wi++){
+          const nW=Wt.slice(); const moved=nW.splice(wi,1)[0];
+          const nB=[...B,moved];
+          if(cost(nB,nW)<cost(B,Wt)-1e-9){ B=nB; Wt=nW; improved=true; break; }
         }
       }
     }
+    return {B,Wt};
+  };
+
+  // 여러 번 시뮬레이션해서 가장 균형 잡힌 결과 채택
+  let best=null, bestCost=Infinity;
+  const TRIES=24;
+  for(let t=0;t<TRIES;t++){
+    const pool=fisherYates([...all]);
+    let {B,Wt}=buildOnce(pool);
+    ({B,Wt}=optimize(B,Wt));
+    const c=cost(B,Wt);
+    if(c<bestCost){ bestCost=c; best={blue:B,white:Wt}; }
+    if(bestCost===0) break; // 완벽 균형이면 조기 종료
   }
-  return{blue,white};
+  return best || {blue:[],white:[]};
 }
 
 /* ═══ GENERATE ═══ */
