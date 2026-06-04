@@ -369,9 +369,7 @@ function jumpToCurrent(){
   if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function jumpToScore(){
-  const el=document.getElementById('scoreBoard');
-  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
-  else window.scrollTo({top:0,behavior:'smooth'});
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 </script>
 </body>
