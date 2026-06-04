@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.4  (2026-06)
+     APP VERSION: 1.10.5  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.4">
+<meta name="app-version" content="1.10.5">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -299,19 +299,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .live-btn{margin-left:6px;padding:6px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--sur2);color:var(--dim);font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer;}
 .live-btn:hover{background:var(--bdr);}
 .live-btn.on{background:#fdeceb;color:#d84f4a;border-color:#f7cdcb;animation:nowPulse 1.6s ease-in-out infinite;}
-.timer-fab{position:fixed;right:16px;bottom:148px;z-index:900;width:52px;height:52px;border:1px solid var(--bdr);border-radius:50%;background:var(--sur);color:var(--txt);font-size:1.4rem;box-shadow:var(--shadow-md);cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.timer-fab:active{transform:scale(.94);}
-.timer-widget{position:fixed;right:16px;bottom:148px;z-index:901;display:flex;flex-direction:column;gap:8px;background:var(--sur);border:1px solid var(--bdr);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-md);min-width:150px;}
-.timer-widget.running{border-color:var(--bl);}
-.timer-widget.done{border-color:var(--red);}
 .timer-display{font-size:2rem;font-weight:800;text-align:center;color:var(--txt);font-variant-numeric:tabular-nums;letter-spacing:1px;font-family:'Noto Sans KR',sans-serif;}
-.timer-widget.running .timer-display{color:var(--bl-deep);}
-.timer-widget.done .timer-display{color:var(--red);}
-.timer-controls{display:flex;gap:6px;}
-.timer-btn{flex:0 0 auto;padding:8px 10px;border:1px solid var(--bdr);border-radius:9px;background:var(--sur2);color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;}
-.timer-btn.timer-main{flex:1;background:var(--bl);color:#fff;border-color:var(--bl);}
-.timer-btn:active{transform:scale(.96);}
-@media(min-width:769px){.timer-fab,.timer-widget{bottom:92px;right:28px;}}
 .round-line{flex:1;height:1px;background:var(--bdr);}
 .match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px;}
 .match-card{background:#fff;border:1px solid var(--bdr);border-radius:8px;overflow:hidden;transition:box-shadow .15s;}
@@ -1685,7 +1673,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.4';
+const APP_VERSION = '1.10.5';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3328,49 +3316,6 @@ function scrollToCurrentRound(){
   if(block) block.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-/* ═══ 경기 타이머 ═══ */
-let _timerSec=900, _timerInit=900, _timerRunning=false, _timerInterval=null;
-function _fmtTimer(s){const m=Math.floor(s/60),ss=s%60;return m+':'+String(ss).padStart(2,'0');}
-function _timerRender(){const d=document.getElementById('timerDisplay');if(d)d.textContent=_fmtTimer(_timerSec);}
-function timerOpen(){
-  const min=(typeof _POINT_MINUTES!=='undefined' && _POINT_MINUTES[_pointSystem])?_POINT_MINUTES[_pointSystem]:15;
-  if(!_timerRunning){_timerInit=min*60;_timerSec=min*60;}
-  _timerRender();
-  document.getElementById('timerWidget').style.display='flex';
-  document.getElementById('timerFab').style.display='none';
-}
-function timerClose(){
-  timerPause();
-  document.getElementById('timerWidget').style.display='none';
-  document.getElementById('timerFab').style.display='flex';
-}
-function timerToggle(){ _timerRunning?timerPause():timerStart(); }
-function timerStart(){
-  if(_timerRunning)return;
-  _timerRunning=true;
-  document.getElementById('timerToggleBtn').textContent='일시정지';
-  document.getElementById('timerWidget').classList.add('running');
-  _timerInterval=setInterval(()=>{
-    if(_timerSec>0){_timerSec--;_timerRender();}
-    if(_timerSec<=0){
-      timerPause();
-      const d=document.getElementById('timerDisplay');if(d)d.textContent='종료!';
-      try{if(navigator.vibrate)navigator.vibrate([200,100,200,100,400]);}catch(e){}
-      document.getElementById('timerWidget').classList.add('done');
-    }
-  },1000);
-}
-function timerPause(){
-  _timerRunning=false;
-  if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null;}
-  const b=document.getElementById('timerToggleBtn');if(b)b.textContent='시작';
-  document.getElementById('timerWidget').classList.remove('running');
-}
-function timerReset(){
-  timerPause();
-  _timerSec=_timerInit;_timerRender();
-  document.getElementById('timerWidget').classList.remove('done');
-}
 
 /* ═══ 대진 품질 대시보드 ═══ */
 function renderQualityDashboard(matches,participants,settings){
@@ -3630,9 +3575,7 @@ function renderResults(matches,participants,settings){
 
   // 현재 진행 라운드 하이라이트 + 플로팅 버튼 초기화
   updateCurrentRoundHighlight();
-  const tfab=document.getElementById('timerFab');
-  const tw=document.getElementById('timerWidget');
-  if(tfab && tw && tw.style.display!=='flex') tfab.style.display='flex';
+
 }
 
 /* 참가자 현황 테이블 — 정렬/필터 */
@@ -6154,16 +6097,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if(btn) btn.classList.add('active');
 });
 </script>
-<!-- 경기 타이머 (플로팅) -->
-<div id="timerWidget" class="timer-widget" style="display:none">
-  <div class="timer-display" id="timerDisplay">15:00</div>
-  <div class="timer-controls">
-    <button onclick="timerToggle()" id="timerToggleBtn" class="timer-btn timer-main">시작</button>
-    <button onclick="timerReset()" class="timer-btn">↺</button>
-    <button onclick="timerClose()" class="timer-btn">✕</button>
-  </div>
-</div>
-<button id="timerFab" class="timer-fab" style="display:none" onclick="timerOpen()" title="경기 타이머">⏱️</button>
+
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()">
   <span class="gcb-icon">🏸</span>
