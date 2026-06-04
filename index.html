@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.9.0  (2026-06)
+     APP VERSION: 1.9.1  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.9.0">
+<meta name="app-version" content="1.9.1">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -1659,7 +1659,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1713,11 +1713,13 @@ function onTeamNameChange(){
 }
 function onSbNameChange(side){
   if(side==='blue'){
-    teamNames.blue=document.getElementById('sbBlueName').value.trim()||'청 팀';
-    document.getElementById('blueNameInput').value=teamNames.blue;
+    const v=document.getElementById('sbBlueName');
+    teamNames.blue=(v?v.value.trim():'')||'청 팀';
+    const bi=document.getElementById('blueNameInput'); if(bi) bi.value=teamNames.blue;
   } else {
-    teamNames.white=document.getElementById('sbWhiteName').value.trim()||'홍 팀';
-    document.getElementById('whiteNameInput').value=teamNames.white;
+    const v=document.getElementById('sbWhiteName');
+    teamNames.white=(v?v.value.trim():'')||'홍 팀';
+    const wi=document.getElementById('whiteNameInput'); if(wi) wi.value=teamNames.white;
   }
   if(currentMatches.length) refreshScoreLabels();
 }
@@ -4138,8 +4140,23 @@ function migratePlayerLevel(p){
 }
 
 // 저장 state 전체를 구버전→신버전으로 마이그레이션
+function _migrateTeamLabel(state){
+  // '백팀'/'백 팀' 식별자·이름을 '홍팀'/'홍 팀'으로 변환 (구버전 데이터 호환)
+  if(!state) return state;
+  function fixTeam(v){ return v==='백팀'?'홍팀':v; }
+  function fixArr(a){ if(Array.isArray(a)) a.forEach(p=>{ if(p&&p.team) p.team=fixTeam(p.team); }); }
+  if(state.directPlayers) fixArr(state.directPlayers);
+  if(state.participants) fixArr(state.participants);
+  if(state.teamAssignment){ fixArr(state.teamAssignment.blue); fixArr(state.teamAssignment.white); }
+  if(Array.isArray(state.matches)) state.matches.forEach(m=>{
+    ['team1A','team1B','team2C','team2D'].forEach(k=>{ if(m[k]&&m[k].team) m[k].team=fixTeam(m[k].team); });
+  });
+  if(state.teamNames){ if(state.teamNames.white==='백 팀'||state.teamNames.white==='백팀') state.teamNames.white='홍 팀'; }
+  return state;
+}
 function migrateStateIfNeeded(state){
   if(!state) return state;
+  state=_migrateTeamLabel(state);
   if((state._lvVersion||1)>=LV_VERSION) return state; // 이미 마이그레이션됨
   console.log('[migration] 구버전 레벨 데이터 → +1 마이그레이션 적용');
   const s={...state, _lvVersion:LV_VERSION};
@@ -4307,8 +4324,9 @@ function restoreState(){
     // Restore team names
     if(state.teamNames){
       teamNames={...state.teamNames};
-      document.getElementById('blueNameInput').value=teamNames.blue;
-      document.getElementById('whiteNameInput').value=teamNames.white;
+      if(teamNames.white==='백 팀'||teamNames.white==='백팀') teamNames.white='홍 팀';
+      const bi=document.getElementById('blueNameInput'); if(bi) bi.value=teamNames.blue;
+      const wi=document.getElementById('whiteNameInput'); if(wi) wi.value=teamNames.white;
     }
     _teamModeOverride = state.teamModeOverride ?? null;
     if(state.captains) captains=state.captains;
