@@ -184,7 +184,7 @@ function buildGauge(bW, wW, blueName, whiteName){
   else if(bW>wW){ cap='🔵 '+esc(blueName||'청 팀')+' 압도 중'; capCls='blue'; }
   else if(wW>bW){ cap='🔴 '+esc(whiteName||'홍 팀')+' 압도 중'; capCls='red'; }
   else { cap='⚖️ 팽팽한 접전'; }
-  var cx=150, cy=150, r=118, sw=34;
+  var cx=150, cy=150, r=114, sw=44;
   var A0=135, A1=405;
   function pt(deg, rad){ var a=deg*Math.PI/180; return [cx+rad*Math.cos(a), cy+rad*Math.sin(a)]; }
   function arcPath(d0, d1, rad){ var p0=pt(d0,rad), p1=pt(d1,rad); var large=(d1-d0)>180?1:0; return "M "+p0[0].toFixed(1)+" "+p0[1].toFixed(1)+" A "+rad+" "+rad+" 0 "+large+" 1 "+p1[0].toFixed(1)+" "+p1[1].toFixed(1); }
@@ -205,14 +205,13 @@ function buildGauge(bW, wW, blueName, whiteName){
     +(bluePart? '<path d="'+bluePart+'" fill="none" stroke="url(#gBlue)" stroke-width="'+sw+'" stroke-linecap="round" class="gauge-arc"/>':'')
     +(redPart? '<path d="'+redPart+'" fill="none" stroke="url(#gRed)" stroke-width="'+sw+'" stroke-linecap="round" class="gauge-arc"/>':'')
     +ticks
-    +'<text x="150" y="112" text-anchor="middle" font-size="14" font-weight="700" fill="var(--dim)">⚔️ 세력 다투</text>'
     +'<text x="150" y="178" text-anchor="middle" font-size="56" font-weight="900" letter-spacing="-1">'
       +'<tspan fill="#2f5fc0">'+bW+'</tspan>'
       +'<tspan fill="var(--dim2)" font-size="34" dx="6" dy="-2"> : </tspan>'
       +'<tspan fill="#d3332e" dy="2">'+wW+'</tspan>'
     +'</text>'
-    +'<line x1="150" y1="150" x2="'+needle[0].toFixed(1)+'" y2="'+needle[1].toFixed(1)+'" stroke="var(--txt)" stroke-width="3.5" stroke-linecap="round"/>'
-    +'<circle cx="150" cy="150" r="9" fill="var(--txt)"/><circle cx="150" cy="150" r="4" fill="var(--sur)"/>'
+    +'<line x1="150" y1="150" x2="'+needle[0].toFixed(1)+'" y2="'+needle[1].toFixed(1)+'" stroke="#b0b6c2" stroke-width="4" stroke-linecap="round"/>'
+    +'<circle cx="150" cy="150" r="9" fill="#b0b6c2"/><circle cx="150" cy="150" r="4" fill="var(--sur)"/>'
     +'</svg>';
   return '<div class="gauge-wrap">'+svg+'<div class="gauge-caption '+capCls+'">'+cap+'</div></div>';
 }
