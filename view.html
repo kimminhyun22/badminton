@@ -42,6 +42,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 @keyframes secIn{from{opacity:0;}to{opacity:1;}}
 .gauge-arc{animation:arcIn .6s ease-out both;}
 @keyframes arcIn{from{opacity:0;}to{opacity:1;}}
+.needle-grp{transform-origin:150px 158px;transform:rotate(0deg);}
 .gauge-svg{width:100%;max-width:300px;height:auto;}
 .gauge-needle{transform-origin:140px 130px;}
 .gauge-needle.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}
@@ -184,35 +185,58 @@ function buildGauge(bW, wW, blueName, whiteName){
   else if(bW>wW){ cap='🔵 '+esc(blueName||'청 팀')+' 압도 중'; capCls='blue'; }
   else if(wW>bW){ cap='🔴 '+esc(whiteName||'홍 팀')+' 압도 중'; capCls='red'; }
   else { cap='⚖️ 팽팽한 접전'; }
-  var cx=150, cy=150, r=114, sw=44;
-  var A0=135, A1=405;
+  var cx=150, cy=158, r=116, sw=30;
+  var A0=150, A1=390; // 240도 호(아래가 끊긴 계기판). 양 끝이 아래쪽에서 각짐
+  var span=A1-A0;
   function pt(deg, rad){ var a=deg*Math.PI/180; return [cx+rad*Math.cos(a), cy+rad*Math.sin(a)]; }
   function arcPath(d0, d1, rad){ var p0=pt(d0,rad), p1=pt(d1,rad); var large=(d1-d0)>180?1:0; return "M "+p0[0].toFixed(1)+" "+p0[1].toFixed(1)+" A "+rad+" "+rad+" 0 "+large+" 1 "+p1[0].toFixed(1)+" "+p1[1].toFixed(1); }
-  var span=A1-A0;
   var boundary=A0+span*bShare;
+  // gauge
   var ticks='';
-  for(var t=0;t<=9;t++){ var td=A0+span*(t/9); var o=pt(td,r+15), i2=pt(td,r-15); ticks+='<line x1="'+o[0].toFixed(1)+'" y1="'+o[1].toFixed(1)+'" x2="'+i2[0].toFixed(1)+'" y2="'+i2[1].toFixed(1)+'" stroke="rgba(120,130,150,.22)" stroke-width="2"/>'; }
+  var nT=16;
+  for(var t=0;t<=nT;t++){ var td=A0+span*(t/nT); var o=pt(td,r+sw/2-1), i2=pt(td,r-sw/2+1); ticks+='<line x1="'+o[0].toFixed(1)+'" y1="'+o[1].toFixed(1)+'" x2="'+i2[0].toFixed(1)+'" y2="'+i2[1].toFixed(1)+'" stroke="var(--bg)" stroke-width="3"/>'; }
   var bluePart = tot>0 && bW>0 ? arcPath(A0, boundary, r) : "";
   var redPart = tot>0 && wW>0 ? arcPath(boundary, A1, r) : "";
-  var needle = pt(boundary, r-4);
+  var fullPart = arcPath(A0, A1, r);
+  var needleEnd = pt(boundary, r+sw/2);
+  var needleTail = pt(boundary+180, 14);
   var svg='<svg class="gauge-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">'
     +'<defs>'
-    +'<radialGradient id="gBlue" cx="150" cy="150" r="135" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#bcd2f8"/><stop offset="62%" stop-color="#84aaf3"/><stop offset="100%" stop-color="#274fa8"/></radialGradient>'
-    +'<radialGradient id="gRed" cx="150" cy="150" r="135" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f8c4c1"/><stop offset="62%" stop-color="#ef9591"/><stop offset="100%" stop-color="#c22a25"/></radialGradient>'
+    +'<linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#aac6f7"/><stop offset="45%" stop-color="#5b8def"/><stop offset="100%" stop-color="#1f47a0"/></linearGradient>'
+    +'<linearGradient id="gRed" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f9b3af"/><stop offset="45%" stop-color="#ea5b55"/><stop offset="100%" stop-color="#a81f1a"/></linearGradient>'
+    +'<filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
     +'</defs>'
-    +'<circle cx="150" cy="150" r="142" fill="var(--sur)" stroke="var(--bdr)" stroke-width="1"/>'
-    +'<path d="'+arcPath(A0,A1,r)+'" fill="none" stroke="var(--sur2)" stroke-width="'+sw+'" stroke-linecap="round"/>'
-    +(bluePart? '<path d="'+bluePart+'" fill="none" stroke="url(#gBlue)" stroke-width="'+sw+'" stroke-linecap="round" class="gauge-arc"/>':'')
-    +(redPart? '<path d="'+redPart+'" fill="none" stroke="url(#gRed)" stroke-width="'+sw+'" stroke-linecap="round" class="gauge-arc"/>':'')
+    // 바탕 트랙 (연한 회색)
+    +'<path d="'+fullPart+'" fill="none" stroke="var(--sur2)" stroke-width="'+sw+'" stroke-linecap="butt"/>'
+    // 글로우용 연한 밑증
+    +(bluePart? '<path d="'+bluePart+'" fill="none" stroke="url(#gBlue)" stroke-width="'+sw+'" stroke-linecap="butt" opacity="0.25" filter="url(#glow)"/>':'')
+    +(redPart? '<path d="'+redPart+'" fill="none" stroke="url(#gRed)" stroke-width="'+sw+'" stroke-linecap="butt" opacity="0.25" filter="url(#glow)"/>':'')
+    // 본 채움
+    +(bluePart? '<path class="gauge-arc" d="'+bluePart+'" fill="none" stroke="url(#gBlue)" stroke-width="'+sw+'" stroke-linecap="butt"/>':'')
+    +(redPart? '<path class="gauge-arc" d="'+redPart+'" fill="none" stroke="url(#gRed)" stroke-width="'+sw+'" stroke-linecap="butt"/>':'')
     +ticks
-    +'<text x="150" y="178" text-anchor="middle" font-size="56" font-weight="900" letter-spacing="-1">'
+    // 중앙 점수
+    +'<text x="150" y="150" text-anchor="middle" font-size="62" font-weight="900" letter-spacing="-2">'
       +'<tspan fill="#2f5fc0">'+bW+'</tspan>'
-      +'<tspan fill="var(--dim2)" font-size="34" dx="6" dy="-2"> : </tspan>'
-      +'<tspan fill="#d3332e" dy="2">'+wW+'</tspan>'
+      +'<tspan fill="var(--dim2)" font-size="36" dx="4" dy="-3"> : </tspan>'
+      +'<tspan fill="#d3332e" dy="3">'+wW+'</tspan>'
     +'</text>'
-    +'<line x1="150" y1="150" x2="'+needle[0].toFixed(1)+'" y2="'+needle[1].toFixed(1)+'" stroke="#b0b6c2" stroke-width="4" stroke-linecap="round"/>'
-    +'<circle cx="150" cy="150" r="9" fill="#b0b6c2"/><circle cx="150" cy="150" r="4" fill="var(--sur)"/>'
+    +'<text x="150" y="182" text-anchor="middle" font-size="13" font-weight="700" fill="var(--dim2)" letter-spacing="3">VS</text>'
+    // 바늘 (흔들리다 안착)
+    +'<g class="needle-grp" id="needleGrp" style="transform-origin:150px 158px;">'
+    +'<line x1="150" y1="158" x2="'+needleEnd[0].toFixed(1)+'" y2="'+needleEnd[1].toFixed(1)+'" stroke="#9aa1ad" stroke-width="4.5" stroke-linecap="round"/>'
+    +'<line x1="150" y1="158" x2="'+needleTail[0].toFixed(1)+'" y2="'+needleTail[1].toFixed(1)+'" stroke="#c2c8d2" stroke-width="4.5" stroke-linecap="round"/>'
+    +'</g>'
+    +'<circle cx="150" cy="158" r="11" fill="#9aa1ad"/><circle cx="150" cy="158" r="5" fill="var(--sur)"/>'
     +'</svg>';
+  // gauge
+  var settleDeg = (boundary - (A0+span/2)); // 중앙 기준 최종 회전각
+  setTimeout(function(){ var g=document.getElementById("needleGrp"); if(!g) return;
+    var seq=[ -52, 44, -34, 26, -16, 9, 0 ]; var idx=0;
+    function step(){ if(idx>=seq.length){ g.style.transition="transform .5s cubic-bezier(.34,1.4,.6,1)"; g.style.transform="rotate("+settleDeg+"deg)"; return; }
+      g.style.transition="transform .16s ease-in-out"; g.style.transform="rotate("+seq[idx]+"deg)"; idx++; setTimeout(step,160); }
+    step();
+  }, 120);
   return '<div class="gauge-wrap">'+svg+'<div class="gauge-caption '+capCls+'">'+cap+'</div></div>';
 }
 
@@ -287,18 +311,12 @@ function render(d){
   // 팀 스코어 (팀전일 때)
   if(d.isTeam){
     const bW=d.blueWins||0, wW=d.whiteWins||0;
-    // ① 먼저 게이지(긴장) → ② 점수판(결과) 순서
     html+=buildGauge(bW, wW, d.teamBlue, d.teamWhite);
-    html+='<div class="team-score" id="scoreBoard">'
-      +'<div class="ts-side ts-blue"><div class="ts-name">🔵 '+esc(d.teamBlue||'청 팀')+'</div><div class="ts-wins">'+bW+'</div></div>'
-      +'<div class="ts-vs">VS</div>'
-      +'<div class="ts-side ts-white"><div class="ts-name">⚪ '+esc(d.teamWhite||'백 팀')+'</div><div class="ts-wins">'+wW+'</div></div>'
-      +'</div>';
     let lead='', cls='';
     if(bW>wW){ lead='🔵 '+esc(d.teamBlue||'청 팀')+' '+(bW-wW)+'점 차로 앞서는 중!'; cls=''; }
-    else if(wW>bW){ lead='⚪ '+esc(d.teamWhite||'백 팀')+' '+(wW-bW)+'점 차로 앞서는 중!'; cls='white-lead'; }
+    else if(wW>bW){ lead='🔴 '+esc(d.teamWhite||'홍 팀')+' '+(wW-bW)+'점 차로 앞서는 중!'; cls='white-lead'; }
     else { lead='⚖️ 동점! 접전 중'; cls='tie'; }
-    html+='<div class="ts-lead '+cls+'">'+lead+'</div>';
+    html+='<div class="ts-lead '+cls+'" id="scoreBoard">'+lead+'</div>';
   }
 
   // 진행 현황
