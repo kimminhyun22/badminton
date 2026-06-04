@@ -40,13 +40,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .gauge-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:14px;}
 .gauge-sec{animation:secIn .6s ease-out both;}
 @keyframes secIn{from{opacity:0;}to{opacity:1;}}
-.gauge-svg{width:100%;max-width:280px;height:auto;}
+.gauge-arc{animation:arcIn .6s ease-out both;}
+@keyframes arcIn{from{opacity:0;}to{opacity:1;}}
+.gauge-svg{width:100%;max-width:300px;height:auto;}
 .gauge-needle{transform-origin:140px 130px;}
 .gauge-needle.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}
 .gauge-title{font-size:.7rem;font-weight:700;color:var(--dim);letter-spacing:1px;margin-bottom:2px;}
 .gauge-caption{font-size:.82rem;font-weight:800;color:var(--dim);margin-top:4px;}
 .gauge-caption.blue{color:var(--bl-deep);}
-.gauge-caption.white{color:#b07d2e;}
+.gauge-caption.red{color:#d3332e;}
 50%{r:9;opacity:.7;}}
 12%{transform:rotate(-58deg);}28%{transform:rotate(52deg);}44%{transform:rotate(-38deg);}60%{transform:rotate(30deg);}74%{transform:rotate(-18deg);}86%{transform:rotate(12deg);}100%{transform:rotate(0deg);}}
 /* 진행 정보 */
