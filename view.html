@@ -224,7 +224,7 @@ function buildGauge(bW, wW, blueName, whiteName){
       g.style.transition="transform .15s ease-in-out"; g.style.transform="rotate("+seq[idx]+"deg)"; idx++; setTimeout(step,150); }
     step();
   }, 150);
-  return '<div class="gauge-wrap">'+svg+'</div>';
+  return '<div class="gauge-wrap" id="scoreBoard">'+svg+'</div>';
 }
 
 function buildStreaks(matches){
@@ -303,7 +303,7 @@ function render(d){
     if(bW>wW){ lead='🔵 '+esc(d.teamBlue||'청 팀')+' '+(bW-wW)+'점 차로 앞서는 중!'; cls=''; }
     else if(wW>bW){ lead='🔴 '+esc(d.teamWhite||'홍 팀')+' '+(wW-bW)+'점 차로 앞서는 중!'; cls='white-lead'; }
     else { lead='⚖️ 동점! 접전 중'; cls='tie'; }
-    html+='<div class="ts-lead '+cls+'" id="scoreBoard">'+lead+'</div>';
+    html+='<div class="ts-lead '+cls+'">'+lead+'</div>';
   }
 
   // 진행 현황
