@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.9.1  (2026-06)
+     APP VERSION: 1.9.2  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.9.1">
+<meta name="app-version" content="1.9.2">
 <meta name="theme-color" content="#5b8def">
 <title>🏸 콕매치 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -105,7 +105,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* 팀 헤더 */
 .tlb-head{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap;}
 .tlb-blue{background:linear-gradient(135deg,#3a6fbe,#4a84d0);}
-.tlb-white{background:linear-gradient(135deg,#a05a3a,#b87050);}
+.tlb-white{background:linear-gradient(135deg,#d84f4a,#e8736f);}
 .team-name-input{font-family:'Noto Sans KR',sans-serif;font-size:.96rem;font-weight:700;letter-spacing:1px;
   background:transparent;border:none;border-bottom:1.5px dashed rgba(255,255,255,.45);
   color:#fff;width:72px;outline:none;padding:0 2px;}
@@ -226,7 +226,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .ts-progress b{color:var(--txt);}
 .ts-highlight{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
 .ts-hl-card{border-radius:14px;padding:16px 14px;text-align:center;border:1px solid var(--bl-softbdr);background:var(--bl-soft);}
-.ts-hl-card.ts-most{background:#fdf3e0;border-color:#f0d9a8;}
+.ts-hl-card.ts-most{background:#fdeceb;border-color:#f7cdcb;}
 .ts-hl-label{font-size:.7rem;font-weight:700;color:var(--dim);margin-bottom:6px;}
 .ts-hl-name{font-size:1.3rem;font-weight:800;color:var(--txt);font-family:'Noto Sans KR',sans-serif;letter-spacing:-.5px;}
 .ts-hl-sub{font-size:.72rem;color:var(--dim);margin-top:4px;}
@@ -267,7 +267,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .svb{color:var(--bl-deep);}.svw{color:var(--dim);}
 .winner-banner{text-align:center;padding:10px;border-radius:8px;margin-bottom:11px;font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:.95rem;letter-spacing:1px;}
 .wb-blue{background:var(--bl-soft);border:2px solid #bfdbfe;color:var(--bl-deep);}
-.wb-white{background:#fdf3e0;border:2px solid #f0d9a8;color:#b07d2e;}
+.wb-white{background:#fdeceb;border:2px solid #f7cdcb;color:#c0453f;}
 .wb-draw{background:var(--sur2);border:2px solid var(--bdr2);color:var(--dim);}
 
 /* ── MATCH CARDS ── */
@@ -342,7 +342,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;text-align:center;background:#fff;}
 .win-btn.side1{border-color:var(--bl-softbdr);color:var(--bl-deep);}
 .win-btn.side1:hover,.win-btn.side1.active{background:var(--bl-deep);border-color:var(--bl-deep);color:#fff;}
-.win-btn.side2{border-color:#f0d9a8;color:#b07d2e;}
+.win-btn.side2{border-color:#f7cdcb;color:#c0453f;}
 .win-btn.side2:hover,.win-btn.side2.active{background:#d84f4a;border-color:#d84f4a;color:#fff;}
 .match-card.win-s1{box-shadow:0 0 0 2px rgba(37,99,235,.4);}
 .match-card.win-s2{box-shadow:0 0 0 2px rgba(146,64,14,.35);}
@@ -523,7 +523,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .render-roster-title{font-size:.8rem;font-weight:700;padding:5px 10px;border-radius:5px;margin-bottom:6px;}
 .render-roster-title.all{background:#f4f6fa;color:#2d3139;}
 .render-roster-title.blue{background:var(--bl-soft);color:var(--bl-deep);}
-.render-roster-title.white{background:#fdf3e0;color:#b07d2e;}
+.render-roster-title.white{background:#fdeceb;color:#c0453f;}
 .render-roster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;}
 .render-roster-name{font-size:1.0rem;font-weight:700;padding:5px 7px;border-bottom:1px solid #e8ecf2;display:flex;align-items:center;gap:4px;color:#2d3139;}
 .render-cap{font-size:.6rem;padding:1px 4px;border-radius:3px;font-weight:700;}
@@ -1659,7 +1659,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.9.1';
+const APP_VERSION = '1.9.2';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
