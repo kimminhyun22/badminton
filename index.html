@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.5  (2026-06)
+     APP VERSION: 1.10.6  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.5">
+<meta name="app-version" content="1.10.6">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1673,7 +1673,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.5';
+const APP_VERSION = '1.10.6';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2446,7 +2446,8 @@ function generateMatches(participants,settings,totalMatches){
           for(const mL of[1,2,4]){
             const four=selectFourFreeMode(avail,'any',mL);
             if(four){
-              const cand=formTeams(four,settings.teamMode,'any',mL,true);
+              let cand=formTeams(four,settings.teamMode,'any',mL,true);
+              if(!cand){const _mf3=four.filter(p=>p.gender==='F').length;const _ft3=_mf3===4?'women':_mf3===0?'men':'any';cand=formTeams(four,settings.teamMode,_ft3,mL,true);}
               if(cand && !hasRepeat4(cand)){ match=cand; break; }
               if(cand && !fb) fb=cand;
             }
@@ -2500,6 +2501,12 @@ function fillMissingGames(participants,settings,matches){
         const four=selectFillerFour(pool,unmet,target,settings);
         if(!four)continue;
         let match=formTeams(four,settings.teamMode,'any',99);
+        // formTeams null(혼복 조건 불충족) → 실제 성비로 재시도
+        if(!match){
+          const _mf=four.filter(p=>p.gender==='F').length;
+          const _fallType=_mf===4?'women':_mf===0?'men':'any';
+          match=formTeams(four,settings.teamMode,_fallType,99);
+        }
         if(!match)continue;
         if(fillerRepeat4(match)){
           const t1=[match.team1A,match.team1B],t2=[match.team2C,match.team2D];
@@ -2567,7 +2574,12 @@ function fillMissingGames(participants,settings,matches){
 
       if(!four)continue;
 
-      const match=formTeams(four,settings.teamMode,'any',99);
+      let match=formTeams(four,settings.teamMode,'any',99);
+      if(!match){
+        const _mf2=four.filter(p=>p.gender==='F').length;
+        const _ft2=_mf2===4?'women':_mf2===0?'men':'any';
+        match=formTeams(four,settings.teamMode,_ft2,99);
+      }
       if(!match)continue;
       if(fillerRepeat4(match)){
         const t1=[match.team1A,match.team1B],t2=[match.team2C,match.team2D];
@@ -2947,9 +2959,22 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     [best.team1B,best.team2D]=[best.team2D,best.team1B];
   }
   const all=[best.team1A,best.team1B,best.team2C,best.team2D];
-  if(all.every(p=>p.gender==='F')||type==='women')best.type='여복';
-  else if(all.every(p=>p.gender==='M')||type==='men')best.type='남복';
-  else best.type='혼복';
+  const t1f=[best.team1A,best.team1B].filter(p=>p.gender==='F').length;
+  const t2f=[best.team2C,best.team2D].filter(p=>p.gender==='F').length;
+  const allF=all.every(p=>p.gender==='F');
+  const allM=all.every(p=>p.gender==='M');
+  if(type==='women'||allF) best.type='여복';
+  else if(type==='men'||allM) best.type='남복';
+  else if(t1f===1&&t2f===1) best.type='혼복';
+  else {
+    // 혼복 조건 불충족(한 팀에 여성 0명 또는 2명) → 남복/여복으로 재분류 or null
+    if(allF) best.type='여복';
+    else if(allM) best.type='남복';
+    else {
+      // 4명 중 남녀 혼합이지만 혼복 조건 불충족 → 종목 무효, null 반환
+      return null;
+    }
+  }
   return best;
 }
 
