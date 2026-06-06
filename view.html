@@ -299,61 +299,71 @@ const FB_CONFIG = {
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-// ── 카카오톡/인앱 브라우저 자동 탈출 ──
-// 팝업 없이 자동 실행. 세션당 1번만 시도. 실패 시 작은 토스트 (3초 자동 소멸).
+// ── 카카오톡/인앱 브라우저 처리 ──
+// 인앱 감지 시: Safari/Chrome으로 자동 이동 + 인앱은 '이동 완료' 화면으로 교체
+// → 사용자가 카카오로 돌아와도 인앱에 빈 완료 화면만 보임 → 자연스럽게 닫기
 (function(){
   const ua=navigator.userAgent||'';
   const isInApp=/KAKAO|kakaotalk|Line\/|NAVER|Instagram|FBAN|FBAV|Snapchat/i.test(ua);
   if(!isInApp) return;
 
-  // 세션 내 이미 시도했으면 아무것도 안 함 (카카오 돌아와도 팝업 없음)
-  if(sessionStorage.getItem('_esc_tried')) return;
-  sessionStorage.setItem('_esc_tried','1');
+  // 세션 내 이미 처리했으면 스킵 (중복 방지)
+  if(sessionStorage.getItem('_esc_done')) return;
+  sessionStorage.setItem('_esc_done','1');
 
   const url=location.href;
   const isIOS=/iPhone|iPad|iPod/i.test(ua);
   const isAndroid=/Android/i.test(ua);
   const isKakao=/KAKAO/i.test(ua);
-  let escaped=false;
 
-  // 탈출 성공 감지 (visibilitychange + pagehide 모두)
-  document.addEventListener('visibilitychange',()=>{ if(document.hidden) escaped=true; });
-  window.addEventListener('pagehide',()=>{ escaped=true; });
-
-  // 실패 시 작은 토스트 (전체 화면 팝업 아님, 4초 후 자동 소멸)
-  function showToast(){
-    if(escaped) return;
-    const t=document.createElement('div');
-    t.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);'
-      +'background:rgba(30,36,52,.92);color:#fff;border-radius:12px;padding:11px 20px;'
-      +'font-size:.84rem;font-weight:700;white-space:nowrap;z-index:99999;'
-      +'box-shadow:0 4px 14px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px;';
-    t.innerHTML='<span>🏸</span><span>브라우저에서 열어주세요</span>'
-      +'<a href="'+url+'" target="_blank" '
-      +'style="color:#7eb3ff;text-decoration:none;font-weight:800;margin-left:4px;">열기</a>';
-    const attach=()=>document.body?(document.body.appendChild(t),setTimeout(()=>t.remove&&t.remove(),4000)):setTimeout(attach,80);
-    attach();
+  // 인앱을 '이동 완료' 화면으로 즉시 교체
+  // → 외부 브라우저 열린 후 사용자가 카카오로 돌아와도 인앱이 깔끔함
+  function replaceWithDonePage(){
+    document.open();
+    document.write(
+      '<!DOCTYPE html><html lang="ko"><head>'
+      +'<meta charset="UTF-8">'
+      +'<meta name="viewport" content="width=device-width,initial-scale=1">'
+      +'<style>'
+      +'*{margin:0;padding:0;box-sizing:border-box;}'
+      +'body{font-family:-apple-system,sans-serif;background:#f4f6fb;'
+        +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+        +'min-height:100vh;padding:32px;text-align:center;gap:16px;}'
+      +'.ico{font-size:3rem;line-height:1;}'
+      +'.ttl{font-size:1.2rem;font-weight:900;color:#1e2430;letter-spacing:-.3px;}'
+      +'.msg{font-size:.92rem;color:#6b7585;line-height:1.7;}'
+      +'.hint{font-size:.78rem;color:#9ea8b8;margin-top:4px;}'
+      +'</style></head><body>'
+      +'<div class="ico">✅</div>'
+      +'<div class="ttl">브라우저에서 열렸어요!</div>'
+      +'<div class="msg">콕매치 실시간 현황을<br>Safari에서 보고 계세요 🏸</div>'
+      +'<div class="hint">이 창은 닫아도 됩니다</div>'
+      +'</body></html>'
+    );
+    document.close();
   }
 
-  const TIMEOUT=isAndroid?900:1200;
-
   if(isIOS && isKakao){
+    // 카카오 공식 외부브라우저 스킴
     location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);
-    setTimeout(()=>{ if(!escaped) showToast(); }, TIMEOUT);
+    // 300ms 후 인앱 화면 교체 (스킴이 처리되고 난 뒤)
+    setTimeout(replaceWithDonePage, 300);
   } else if(isIOS){
     const a=document.createElement('a');
     a.href=url; a.target='_blank'; a.rel='noopener';
     const run=()=>{ document.body.appendChild(a); try{a.click();}catch(e){} };
     document.body?run():document.addEventListener('DOMContentLoaded',run);
-    setTimeout(()=>{ if(!escaped) showToast(); }, TIMEOUT);
+    setTimeout(replaceWithDonePage, 300);
   } else if(isAndroid){
     location.href='intent://'+url.replace(/^https?:\/\//,'')
       +'#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end';
-    setTimeout(()=>{ if(!escaped) showToast(); }, TIMEOUT);
+    setTimeout(replaceWithDonePage, 400);
   } else {
-    setTimeout(()=>showToast(), 300);
+    // 기타: 바로 완료 페이지로
+    setTimeout(replaceWithDonePage, 100);
   }
 })();
+
 
 
 const params=new URLSearchParams(location.search);
