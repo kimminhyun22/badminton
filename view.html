@@ -65,6 +65,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .briefing{background:linear-gradient(135deg,#eef4ff,#f5efff);
   border:1.5px solid #d4e3fb;border-radius:18px;padding:18px;margin-bottom:14px;}
 .brief-title{font-size:.72rem;font-weight:800;color:var(--dim);letter-spacing:1.8px;margin-bottom:10px;text-transform:uppercase;}
+.brief-live{font-size:.88rem;font-weight:700;color:var(--txt);background:#fff;
+  border:1.5px solid var(--bdr2);border-radius:10px;padding:9px 12px;
+  margin-bottom:10px;line-height:1.55;}
 .brief-situation{font-size:1.15rem;font-weight:900;color:var(--txt);margin-bottom:12px;letter-spacing:-.3px;}
 .brief-row{font-size:.88rem;font-weight:600;color:var(--txt);padding:4px 0;display:flex;align-items:center;gap:7px;}
 .brief-dot-b{color:var(--bl);font-size:.65rem;}
@@ -389,48 +392,99 @@ function buildStreaks(matches){
 
 /* AI 브리핑: 청/홍팀 현황 요약 */
 /* 명언 + 팀 한마디 */
+// {A}=에이스/현재선수, {B}=상대선수, {W}=최근승자 — buildBriefing에서 치환
 const _QUOTES=[
-  /* 승부욕 자극 */
+  /* 승부욕 자극 — 이름 없는 버전 */
   {t:'지금 이기고 있는 자, 방심은 패배의 시작이다.',s:'승자의 경고'},
-  {t:'오늘 너희가 기억하게 될 건, 우리가 얼마나 강했는지다.',s:'승자의 여유'},
-  {t:'패배를 인정하는 순간, 그게 진짜 패배다.',s:'불굴의 정신'},
   {t:'강한 자가 이기는 게 아니라, 이기는 자가 강한 거다.',s:'승리의 정의'},
   {t:'이미 이겼다고 생각하는 팀이 결국 진다.',s:'역전의 교훈'},
-  {t:'한 점 차이도 결국 한 점 차이다.',s:'집중력의 철학'},
-  {t:'코트 위의 1초는 다른 어떤 1초와도 다르다.',s:'순간의 가치'},
-  {t:'지고 싶지 않다면, 이기는 것 말고는 방법이 없다.',s:'단순한 진리'},
   {t:'버티는 자가 결국 이긴다. 먼저 포기하면 지는 거다.',s:'인내의 힘'},
   {t:'실력은 못 속인다. 오늘 네 실력이 곧 오늘의 결과다.',s:'냉정한 현실'},
-  /* 오만방자 */
+  {t:'코트 위의 1초는 다른 어떤 1초와도 다르다.',s:'순간의 가치'},
+  /* 승부욕 자극 — 이름 삽입 버전 */
+  {t:'{A}! 지금 이 순간이 바로 승부처다.',s:'각성 요청',n:1},
+  {t:'{A} vs {B} — 오늘 이 매치는 역사에 남는다.',s:'명승부 예고',n:2},
+  {t:'{W}의 연승, 이대로 막을 자 있나?',s:'연승 도발',n:'w'},
+  {t:'{A}, 지금 네 실력 다 꺼내놔. 오늘이 그날이야.',s:'각성 촉구',n:1},
+  {t:'{B}가 버티는 한, {A}의 진짜 실력이 나온다.',s:'긴장감 고조',n:2},
+  {t:'{W} 앞에서 무너지는 건 기분 나쁘지 않나?',s:'자존심 자극',n:'w'},
+  /* 오만방자 — 이름 없는 버전 */
   {t:'져도 괜찮아. 어차피 오늘 네 상대는 나니까.',s:'오만방자 모드'},
   {t:'죄송합니다, 오늘 실력 낭비 좀 하겠습니다.',s:'겸손한 척 자신감'},
-  {t:'뭔가 잘못됐어. 나한테 너무 유리한 것 같은데?',s:'상황 파악 완료'},
   {t:'오늘 내가 얼마나 착한지 봐봐 — 점수 드릴게.',s:'귀족 플레이'},
-  {t:'배드민턴은 마음이 이기는 스포츠다. 내 마음 상태? 최고.',s:'멘탈 갑'},
-  {t:'한 번 더 해봐. 결과는 바뀌지 않을 테니까.',s:'완벽한 자신감'},
-  {t:'셔틀콕은 거짓말 안 해. 실력이 다야.',s:'현실 직시'},
-  {t:'지는 것도 실력이다. 그 실력, 오늘 맘껏 발휘해.',s:'독설가의 응원'},
   {t:'적당히 봐드리고 싶은데, 그게 제 성격이 아니라서요.',s:'공손한 독기'},
-  {t:'오늘 날씨도 좋고, 상대도 만만하고. 기분 최고.',s:'여유 넘치는 입장'},
   {t:'열심히 하셔서 좋아요. 근데 결과는 제가 가져갑니다.',s:'노력 인정 후 쐐기'},
   {t:'혹시 이기면 연락주세요. 그럼 제가 배운 게 없는 거니까.',s:'역설적 도발'},
   {t:'점수가 좀 차이 나네요. 어머, 제 실수였나봐요.',s:'여유 있는 반성'},
-  {t:'연습 많이 하셨죠? 느껴져요. 근데 저도 했거든요.',s:'공감 후 반전'},
-  {t:'오늘 이 코트에서 제일 편한 사람이 저인 것 같아요.',s:'압도적 여유'},
   {t:'이기는 게 당연한 사람한테 집중력은 덤이에요.',s:'자신감의 근거'},
+  /* 오만방자 — 이름 삽입 버전 */
+  {t:'{A}씨, 오늘 저 좀 고생시켜주실 수 있나요? 너무 편해서요.',s:'여유 만만',n:1},
+  {t:'{B}씨, 열심히 하시는 거 맞죠? 제 눈엔 잘 안 보여서요.',s:'독한 칭찬',n:2},
+  {t:'{W}한테 지면, 그냥 오늘 운이 없었다고 하세요.',s:'패배 변명 선제 제공',n:'w'},
+  {t:'{A}씨, 저 오늘 컨디션이 좋은 게 문제네요.',s:'컨디션 자랑',n:1},
+  {t:'{B}씨가 잘 할수록 제가 더 집중하게 돼서 감사해요.',s:'역설적 감사',n:2},
+  {t:'{W} 오늘 진짜 잘 치네요. 그래서 이기고 있는 거잖아요.',s:'당연한 사실',n:'w'},
+  {t:'{A}씨, 혹시 오늘 저한테 이기는 게 목표예요? 목표는 좋아요.',s:'목표 응원 척',n:1},
+  {t:'{B}씨한테 지면 저도 할 말 없죠. 근데 그럴 일은 없을 것 같고요.',s:'확신의 여유',n:2},
 ];
-function _getQuote(matches){
-  const done=matches.filter(m=>m.win).length;
-  return _QUOTES[(done+Math.floor(Date.now()/300000))%_QUOTES.length];
+// 선수 이름을 플레이스홀더에 치환
+function _fillQuote(q, players){
+  // players: {a:이름, b:이름, w:이름}
+  if(!q.n) return q.t; // 이름 없는 버전
+  let t=q.t;
+  if(players.a) t=t.replace(/\{A\}/g, players.a);
+  if(players.b) t=t.replace(/\{B\}/g, players.b);
+  if(players.w) t=t.replace(/\{W\}/g, players.w);
+  // 치환 안 된 플레이스홀더가 남으면 이름 없는 버전으로 fallback
+  if(t.includes('{')) return q.t.replace(/\{[ABW]\}/g,'그 선수');
+  return t;
 }
-function _getTeamLine(team,diff,rec,top){
+function _getQuote(matches, players){
+  const done=matches.filter(m=>m.win).length;
+  const q=_QUOTES[(done+Math.floor(Date.now()/300000))%_QUOTES.length];
+  return {t:_fillQuote(q,players||{}), s:q.s};
+}
+function _getTeamLine(team,diff,rec,top,curPlayers){
+  // top: 에이스 이름, curPlayers: 현재 출전 중인 선수 배열
+  const T=top||null;
+  const P=curPlayers&&curPlayers.length?curPlayers[Math.floor(Date.now()/400000)%curPlayers.length]:null;
+  const mk=(s)=>s; // 이름 보간용 helper
+
   const lines={
-    blue:{ahead:['앞서고 있지만 끝날 때까지 끝난 게 아니다. 더 밀어붙인다.','지금 이 흐름, 절대 놓치지 않겠다.','청팀, 오늘 진짜 압도적이다.'],
-          behind:['지금 지고 있어도 포기 없다. 역전은 지금부터.','한 게임 한 게임이 전부다. 집중.','청팀 절대 무너지지 않는다. 두고 봐.'],
-          even:['동점이다. 지금 이 순간이 승부처.','타이 게임, 멘탈 강한 팀이 이긴다.','팽팽하다. 한 발만 더.']},
-    red:{ahead:['리드는 리드일 뿐. 끝까지 집중.','홍팀의 기세, 오늘 꺾이지 않는다.','오늘 승리는 이미 정해졌다.'],
-         behind:['뒤집어야 한다. 지금 당장.','이 상황이 오히려 편하다. 잃을 게 없다.','홍팀의 역전 드라마, 지금 시작한다.'],
-         even:['동점 상황, 홍팀이 더 강하다는 거 보여줄 시간.','타이. 지금부터 진짜 시작.','빡빡하게 가자. 한 점 한 점이 전부.']}
+    blue:{
+      ahead:[
+        T?`${T}이 이끄는 청팀, 이 흐름 절대 놓치지 않는다.`:'앞서고 있다. 이 흐름 절대 놓치지 않겠다.',
+        P?`${P}, 지금 네 플레이가 팀을 이기게 만들고 있다.`:'지금 이 기세, 끝까지 간다.',
+        T?`${T}의 활약이 빛나는 청팀 — 더 밀어붙인다.`:'지금이 진짜 승부처. 더 밀어붙인다.',
+      ],
+      behind:[
+        T?`${T}까지 이러면 안 된다. 지금 당장 뒤집는다.`:'지금 지고 있어도 포기 없다. 역전은 지금부터.',
+        P?`${P}! 지금 이 순간이 네가 빛날 차례야.`:'한 게임 한 게임이 전부다. 집중.',
+        T?`${T} 포함 전원 집결 — 청팀 절대 무너지지 않는다.`:'청팀 절대 무너지지 않는다. 두고 봐.',
+      ],
+      even:[
+        T?`${T}의 한 방이 필요한 순간이다.`:'동점이다. 지금 이 순간이 승부처.',
+        P?`${P}, 네가 지금 가르는 자가 될 수 있다.`:'타이 게임, 멘탈 강한 팀이 이긴다.',
+        '팽팽하다. 한 발만 더.',
+      ]
+    },
+    red:{
+      ahead:[
+        T?`${T}이 흔들리지 않는 한 홍팀은 진다. 그리고 ${T}은 안 흔들린다.`:'리드는 리드일 뿐. 끝까지 집중.',
+        P?`${P}, 오늘 네 이름이 기억될 거다.`:'홍팀의 기세, 오늘 꺾이지 않는다.',
+        T?`${T}가 앞서는 홍팀 — 오늘 승리는 이미 정해졌다.`:'오늘 승리는 이미 정해졌다.',
+      ],
+      behind:[
+        T?`${T}! 지금 네가 나서야 할 때다.`:'뒤집어야 한다. 지금 당장.',
+        P?`${P}가 코트에 있는 한, 홍팀은 끝나지 않았다.`:'이 상황이 오히려 편하다. 잃을 게 없다.',
+        T?`${T}를 중심으로 홍팀 역전 드라마 시작한다.`:'홍팀의 역전 드라마, 지금 시작한다.',
+      ],
+      even:[
+        T?`${T}의 실력, 동점 상황에서 빛난다.`:'동점 상황, 홍팀이 더 강하다는 거 보여줄 시간.',
+        P?`${P}, 지금 한 방이 전부를 바꾼다.`:'타이. 지금부터 진짜 시작.',
+        '빡빡하게 가자. 한 점 한 점이 전부.',
+      ]
+    }
   };
   const bucket=diff>0?'ahead':diff<0?'behind':'even';
   const arr=lines[team][bucket];
@@ -444,11 +498,32 @@ function buildBriefing(matches, d){
   const bn=esc(d.teamBlue||'청팀'), wn=esc(d.teamWhite||'홍팀');
   if(total===0) return '';
 
+  // members 데이터 파싱 (객체 {n,l,g} 또는 문자열 이름)
+  const members=d.members||{};
+  const bMemberObjs=(members.blue||[]).map(x=>typeof x==='string'?{n:x}:x);
+  const rMemberObjs=(members.red||[]).map(x=>typeof x==='string'?{n:x}:x);
+  const bNames=new Set(bMemberObjs.map(x=>x.n));
+  const rNames=new Set(rMemberObjs.map(x=>x.n));
+
+  // 진행 중인 라운드 출전 선수 추출
+  const curRound=d.currentRound||0;
+  const curMatches=matches.filter(m=>m.round===curRound&&!m.win);
+  const curBlue=[], curRed=[];
+  curMatches.forEach(m=>{
+    [m.t1[0],m.t1[1]].forEach(n=>{ if(n&&bNames.has(n)&&!curBlue.includes(n))curBlue.push(n); });
+    [m.t2[0],m.t2[1]].forEach(n=>{ if(n&&rNames.has(n)&&!curRed.includes(n))curRed.push(n); });
+    // t1/t2 소속 확인 (홍팀이 t1일 수도 있음)
+    [m.t1[0],m.t1[1]].forEach(n=>{ if(n&&rNames.has(n)&&!curRed.includes(n))curRed.push(n); });
+    [m.t2[0],m.t2[1]].forEach(n=>{ if(n&&bNames.has(n)&&!curBlue.includes(n))curBlue.push(n); });
+  });
+  // 최근 승자 이름
+  const recentWin=[...matches].filter(m=>m.win).sort((a,b)=>(b.round-a.round)||(b.court-a.court));
+  const lastWinMatch=recentWin[0];
+  const lastWinner=lastWinMatch?
+    (lastWinMatch.win==='t1'?[lastWinMatch.t1[0],lastWinMatch.t1[1]]:[lastWinMatch.t2[0],lastWinMatch.t2[1]]):[];
+
   // 팀별 선수 승/패 집계
   const bPlayers={}, rPlayers={};
-  const members=d.members||{};
-  const bNames=new Set(members.blue||[]);
-  const rNames=new Set(members.red||[]);
 
   matches.filter(m=>m.win).forEach(m=>{
     const winners=m.win==='t1'?[m.t1[0],m.t1[1]]:[m.t2[0],m.t2[1]];
@@ -492,12 +567,42 @@ function buildBriefing(matches, d){
   if(rTop) rLine+=` · 에이스 ${esc(rTop.name)} ${rTop.w}승`;
 
   const bDiff=bW-wW, rDiff=wW-bW;
-  const bSay=_getTeamLine('blue',bDiff,bRec,bTop?bTop.name:null);
-  const rSay=_getTeamLine('red',rDiff,rRec,rTop?rTop.name:null);
-  const q=_getQuote(matches);
+
+  // 선수 이름 풀: {a=에이스, b=상대 에이스, w=최근 승자}
+  const qPlayers={
+    a:bTop?bTop.name:(curBlue.length?curBlue[0]:null),
+    b:rTop?rTop.name:(curRed.length?curRed[0]:null),
+    w:lastWinner.length?lastWinner[0]:null,
+  };
+  const bSay=_getTeamLine('blue',bDiff,bRec,bTop?bTop.name:null,curBlue);
+  const rSay=_getTeamLine('red',rDiff,rRec,rTop?rTop.name:null,curRed);
+  const q=_getQuote(matches, qPlayers);
+
+  // 현재 출전 중인 선수 중계 문구 (선수 이름 직접 언급)
+  let liveComment='';
+  if(curRound>0 && curMatches.length>0){
+    const idx=Math.floor(Date.now()/500000)%curMatches.length;
+    const cm=curMatches[idx];
+    if(cm){
+      const bp=bNames.has(cm.t1[0])||bNames.has(cm.t1[1]);
+      const t1=[cm.t1[0],cm.t1[1]].filter(Boolean);
+      const t2=[cm.t2[0],cm.t2[1]].filter(Boolean);
+      const bSide=bp?t1:t2, rSide=bp?t2:t1;
+      const commentPool=[
+        `🏸 지금 ${curRound}라운드 ${cm.court}코트에서 ${bSide.join('·')} vs ${rSide.join('·')} 대결 중!`,
+        `👀 ${bSide.join('+')} 조와 ${rSide.join('+')} 조, 이 경기가 승부를 가를 수 있다.`,
+        `${bSide[0]}${bSide[1]?'·'+bSide[1]:''} — 지금 이 경기 눈을 떼지 마세요.`,
+        `${rSide.join('·')} 팀, ${bSide.join('·')} 상대로 반드시 잡아야 하는 경기.`,
+        `${bSide.join('+')} 조 vs ${rSide.join('+')} 조 — ${curRound}라운드 핵심 매치.`,
+      ];
+      liveComment=commentPool[Math.floor(Date.now()/500000)%commentPool.length];
+    }
+  }
+
   return '<div class="briefing">'
     +'<div class="brief-title">📢 지금 현황</div>'
     +'<div class="brief-situation">'+situation+'</div>'
+    +(liveComment?'<div class="brief-live">'+liveComment+'</div>':'')
     +'<div class="brief-row brief-row-b"><span class="brief-dot-b">●</span>'+bLine+'</div>'
     +'<div class="brief-row brief-row-r"><span class="brief-dot-r">●</span>'+rLine+'</div>'
     +'<div class="brief-momentum">'+momentum+'</div>'
