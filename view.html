@@ -299,22 +299,58 @@ const FB_CONFIG = {
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-// 카카오톡/인앱 브라우저 → Safari 강제 열기 안내
+// ── 카카오톡/인앱 브라우저 자동 탈출 ──
+// iOS: 카카오 공식 외부브라우저 스킴 → 실패 시 anchor 클릭
+// Android: Chrome intent:// 스킴 → 실패 시 안내 배너
 (function(){
   const ua=navigator.userAgent||'';
-  const isInApp=/KAKAOTALK|kakaotalk|Line\/|NAVER|Instagram|FBAN|FBAV/i.test(ua);
+  const isInApp=/KAKAO|kakaotalk|Line\/|NAVER|Instagram|FBAN|FBAV|Snapchat/i.test(ua);
   if(!isInApp) return;
+
   const url=location.href;
-  // iOS: safari-web-app 스킴 시도
-  if(/iPhone|iPad|iPod/i.test(ua)){
+  const isIOS=/iPhone|iPad|iPod/i.test(ua);
+  const isAndroid=/Android/i.test(ua);
+  const isKakao=/KAKAO/i.test(ua);
+  let escaped=false;
+
+  // 탈출 성공 감지 (외부앱 열리면 이 페이지가 숨겨짐)
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden) escaped=true; });
+
+  function showFallbackBanner(){
+    if(document.getElementById('_inapp_banner')) return;
     const d=document.createElement('div');
-    d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;gap:16px;padding:28px;text-align:center;font-family:sans-serif;';
-    d.innerHTML='<div style="font-size:2rem">🏸</div>'
-      +'<div style="font-size:1.3rem;font-weight:900;margin-bottom:4px">콕매치 실시간 현황</div>'
-      +'<div style="font-size:.92rem;line-height:1.8;opacity:.85">카카오톡 안에서는 일부 기능이<br>제한될 수 있어요.<br>Safari에서 보시면 더 쾌적해요! 😊</div>'
-      +'<a href="'+url+'" target="_blank" style="background:#5b8def;color:#fff;border-radius:14px;padding:14px 32px;font-size:1rem;font-weight:700;text-decoration:none;margin-top:8px;">Safari에서 열기</a>'
-      +'<div style="font-size:.76rem;opacity:.5;cursor:pointer;" onclick="this.parentNode.remove()">그냥 여기서 볼게요</div>';
-    document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(d));
+    d.id='_inapp_banner';
+    d.style.cssText='position:fixed;inset:0;background:rgba(30,36,52,.93);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;gap:14px;padding:28px;text-align:center;font-family:sans-serif;';
+    d.innerHTML='<div style="font-size:2.2rem">🏸</div>'
+      +'<div style="font-size:1.25rem;font-weight:900;letter-spacing:-.3px">콕매치 실시간 현황</div>'
+      +'<div style="font-size:.9rem;line-height:1.85;opacity:.85">카카오톡 안에서는<br>화면이 제대로 안 보일 수 있어요.<br>아래 버튼으로 브라우저에서 열어주세요! 😊</div>'
+      +'<a href="'+url+'" target="_blank" style="background:#5b8def;color:#fff;border-radius:14px;padding:13px 30px;font-size:1rem;font-weight:800;text-decoration:none;letter-spacing:-.2px;box-shadow:0 4px 14px rgba(91,141,239,.45);">브라우저에서 열기 →</a>'
+      +'<div style="font-size:.75rem;opacity:.45;cursor:pointer;padding:4px 12px;" onclick="document.getElementById(\'_inapp_banner\').remove()">그냥 여기서 볼게요</div>';
+    const attach=()=>document.body?document.body.appendChild(d):setTimeout(attach,50);
+    attach();
+  }
+
+  if(isIOS && isKakao){
+    // 카카오 공식 외부브라우저 스킴 (자동 실행)
+    location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);
+    setTimeout(()=>{ if(!escaped) showFallbackBanner(); },600);
+  } else if(isIOS){
+    // 라인 등 기타 iOS 인앱: anchor _blank 클릭
+    const a=document.createElement('a');
+    a.href=url; a.target='_blank'; a.rel='noopener';
+    document.body?document.body.appendChild(a):document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(a));
+    try{ a.click(); }catch(e){}
+    setTimeout(()=>{ if(!escaped) showFallbackBanner(); },600);
+  } else if(isAndroid){
+    // Android: Chrome intent:// 스킴 (자동 실행)
+    const intentUrl='intent://'+url.replace(/^https?:\/\//,'')
+      +'#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end';
+    location.href=intentUrl;
+    setTimeout(()=>{ if(!escaped) showFallbackBanner(); },700);
+  } else {
+    // 기타 인앱: 안내 배너
+    const attach=()=>{ if(document.body) showFallbackBanner(); else setTimeout(attach,100); };
+    attach();
   }
 })();
 
