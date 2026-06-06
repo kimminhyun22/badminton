@@ -397,18 +397,36 @@ function buildStreaks(matches){
 /* AI 브리핑: 청/홍팀 현황 요약 */
 /* 명언 + 팀 한마디 */
 // ── 호칭 유틸 ──
-// genderMap: {이름: 'M'|'F'} — buildBriefing 진입 시 빌드
 let _gMap = {};
+
+// 성 제거: 3글자면 첫 1글자(성) 제거
+function _firstName(name){
+  return (name&&name.length>=3)?name.slice(1):(name||'');
+}
+// 받침 유무
+function _hasBatchim(str){
+  if(!str) return false;
+  const c=str.charCodeAt(str.length-1);
+  return c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28!==0;
+}
+// 호칭 문자열: "재관이 오빠", "은하 언니", "미라 언니"
 function _hn(name){
-  // name이 없으면 빈 문자열
   if(!name) return '';
   const g=_gMap[name];
-  return g==='M' ? name+'오빠' : g==='F' ? name+'언니' : name;
+  if(g!=='M'&&g!=='F') return name;
+  const fn=_firstName(name);
+  const title=g==='M'?'오빠':'언니';
+  return _hasBatchim(fn)?`${fn}이 ${title}`:`${fn} ${title}`;
 }
-function _ho(name){
-  // 호칭만 반환
-  if(!name) return '';
-  return _gMap[name]==='M'?'오빠':_gMap[name]==='F'?'언니':'씨';
+// 호칭+조사: josa='이/가','은/는','을/를','이/'
+function _hnJ(name, josa){
+  const h=_hn(name);
+  if(!h) return '';
+  const last=h.slice(-1);
+  const code=last.charCodeAt(0);
+  const batchim=(code>=0xAC00&&code<=0xD7A3)?(code-0xAC00)%28:0;
+  const map={'이/가':batchim?'이':'가','은/는':batchim?'은':'는','을/를':batchim?'을':'를','이/':batchim?'이':''};
+  return h+(map[josa]||josa);
 }
 
 // ── 명언 / 오만방자 (이름 플레이스홀더 포함) ──
@@ -416,108 +434,125 @@ function _ho(name){
 // {A}/{B}/{W}=이름만, {HA}/{HB}/{HW}=이름+호칭
 const _QUOTES=[
   /* 승부욕 자극 — 이름 없는 */
-  {t:'지금 이기고 있는 자, 방심은 패배의 시작이다.',s:'승자의 경고'},
-  {t:'강한 자가 이기는 게 아니라, 이기는 자가 강한 거다.',s:'승리의 정의'},
-  {t:'이미 이겼다고 생각하는 팀이 결국 진다.',s:'역전의 교훈'},
-  {t:'버티는 자가 결국 이긴다. 먼저 포기하면 지는 거다.',s:'인내의 힘'},
-  {t:'코트 위의 1초는 다른 어떤 1초와도 다르다.',s:'순간의 가치'},
+  {t:'지금 이기고 있는 자, 방심은 패배의 시작이다.'},
+  {t:'강한 자가 이기는 게 아니라, 이기는 자가 강한 거다.'},
+  {t:'이미 이겼다고 생각하는 팀이 결국 진다.'},
+  {t:'버티는 자가 결국 이긴다. 먼저 포기하면 지는 거다.'},
+  {t:'코트 위의 1초는 다른 어떤 1초와도 다르다.'},
   /* 승부욕 자극 — 호칭 포함 */
-  {t:'{HA}! 지금 이 순간이 바로 승부처야.',s:'각성 촉구',n:1},
-  {t:'{HA} 대 {HB} — 오늘 이 매치는 역사에 남는다.',s:'명승부 예고',n:2},
-  {t:'{HW}의 연승, 이대로 막을 자 있나?',s:'연승 도발',n:'w'},
-  {t:'{HA}, 지금 실력 다 꺼내놔. 오늘이 바로 그날이야.',s:'각성 촉구',n:1},
-  {t:'{HB}가 버티는 한, {HA}의 진짜 실력이 나온다.',s:'긴장감 고조',n:2},
-  {t:'{HW} 앞에서 무너지면 오늘 집에 가서 잠이 오겠어?',s:'자존심 자극',n:'w'},
-  {t:'{HA}, 지금 너만 믿는다. 팀 전체가.',s:'신뢰 압박',n:1},
-  {t:'{HB} 지금 너무 잘하는 거 아니야? 우리 팀 긴장하게.',s:'칭찬인 척 경계령',n:2},
+  {t:'{HA}! 지금 이 순간이 바로 승부처야.',n:1},
+  {t:'{HA} 대 {HB} — 오늘 이 매치 눈 떼지 마.',n:2},
+  {t:'{HW}의 연승, 이대로 막을 자 있나?',n:'w'},
+  {t:'{HA}, 지금 실력 다 꺼내놔. 오늘이 바로 그날이야.',n:1},
+  {t:'{HB}가 버티는 한, {HA}의 진짜 실력이 나온다.',n:2},
+  {t:'{HW} 앞에서 무너지면 오늘 집에 가서 잠이 오겠어?',n:'w'},
+  {t:'{HA}, 지금 너만 믿는다. 팀 전체가.',n:1},
   /* 오만방자 — 이름 없는 */
-  {t:'죄송합니다, 오늘 실력 낭비 좀 하겠습니다.',s:'겸손한 척 자신감'},
-  {t:'적당히 봐드리고 싶은데, 그게 제 성격이 아니라서요.',s:'공손한 독기'},
-  {t:'열심히 하셔서 좋아요. 근데 결과는 제가 가져갑니다.',s:'노력 인정 후 쐐기'},
-  {t:'혹시 이기면 연락주세요. 제가 배운 게 없는 거니까.',s:'역설적 도발'},
-  {t:'이기는 게 당연한 사람한테 집중력은 덤이에요.',s:'자신감의 근거'},
+  {t:'죄송합니다, 오늘 실력 낭비 좀 하겠습니다.'},
+  {t:'적당히 봐드리고 싶은데, 그게 제 성격이 아니라서요.'},
+  {t:'열심히 하셔서 좋아요. 근데 결과는 제가 가져갑니다.'},
+  {t:'혹시 이기면 연락주세요. 제가 배운 게 없는 거니까.'},
+  {t:'이기는 게 당연한 사람한테 집중력은 덤이에요.'},
   /* 오만방자 — 호칭 포함 */
-  {t:'{HA}, 오늘 저 좀 고생시켜줄 수 있어? 너무 편해서.',s:'여유 만만',n:1},
-  {t:'{HB}, 열심히 하는 거 맞지? 제 눈엔 잘 안 보여서.',s:'독한 칭찬',n:2},
-  {t:'{HW}한테 지면 그냥 오늘 운이 없었다고 해.',s:'패배 변명 선제 제공',n:'w'},
-  {t:'{HA}, 저 오늘 컨디션이 너무 좋은 게 문제야.',s:'컨디션 자랑',n:1},
-  {t:'{HB}가 잘 할수록 내가 더 집중하게 돼서 고마워.',s:'역설적 감사',n:2},
-  {t:'{HW} 오늘 진짜 잘 치네. 그래서 이기고 있는 거잖아.',s:'당연한 사실',n:'w'},
-  {t:'{HA}, 오늘 나한테 이기는 게 목표야? 목표는 좋아.',s:'목표 응원 척',n:1},
-  {t:'{HB}한테 지면 나도 할 말 없지. 근데 그럴 일은 없을 것 같고.',s:'확신의 여유',n:2},
-  {t:'{HA}, 그 스매시 좀 아껴줘. 상대팀이 상처받잖아.',s:'칭찬형 견제',n:1},
-  {t:'{HB}, 혹시 나 봐주는 거야? 아니면 원래 이 정도야?',s:'도발형 의심',n:2},
-  {t:'{HW} 연승 중이라는데... 오늘 멈춰드릴게요.',s:'저지 선언',n:'w'},
-  {t:'{HA} 실력이면 오늘 우리 팀이 지는 게 더 이상하지.',s:'역설적 찬사',n:1},
+  {t:'{HA}, 오늘 저 좀 고생시켜줄 수 있어? 너무 편해서.',n:1},
+  {t:'{HB}, 열심히 하는 거 맞지? 제 눈엔 잘 안 보여서.',n:2},
+  {t:'{HW}한테 지면 그냥 오늘 운이 없었다고 해.',n:'w'},
+  {t:'{HA}, 저 오늘 컨디션이 너무 좋은 게 문제야.',n:1},
+  {t:'{HB}가 잘 할수록 내가 더 집중하게 돼서 고마워.',n:2},
+  {t:'{HW} 오늘 진짜 잘 치네. 그래서 이기고 있는 거잖아.',n:'w'},
+  {t:'{HA}, 오늘 나한테 이기는 게 목표야? 목표는 좋아.',n:1},
+  {t:'{HB}한테 지면 나도 할 말 없지. 근데 그럴 일은 없을 것 같고.',n:2},
+  {t:'{HW} 연승 중이라는데... 오늘 멈춰드릴게요.',n:'w'},
+  {t:'{HA} 실력이면 오늘 우리 팀이 지는 게 더 이상하지.',n:1},
+  {t:'{HB}, 혹시 나 봐주는 거야? 아니면 원래 이 정도야?',n:2},
 ];
 
 function _fillQuote(q, players){
   if(!q.n) return q.t;
   let t=q.t;
-  if(players.ha) t=t.replace(/\{HA\}/g, players.ha);
-  if(players.hb) t=t.replace(/\{HB\}/g, players.hb);
-  if(players.hw) t=t.replace(/\{HW\}/g, players.hw);
-  if(players.a)  t=t.replace(/\{A\}/g,  players.a);
-  if(players.b)  t=t.replace(/\{B\}/g,  players.b);
-  if(players.w)  t=t.replace(/\{W\}/g,  players.w);
-  if(/\{[HABWhab]+\}/.test(t)){
-    // 치환 못된 플레이스홀더 → 이름 없는 버전으로 fallback
-    return q.t.replace(/\{H?[ABW]\}/g,'그 선수');
-  }
+  const p=players||{};
+  if(p.ha) t=t.replace(/\{HA\}/g, p.ha);
+  if(p.hb) t=t.replace(/\{HB\}/g, p.hb);
+  if(p.hw) t=t.replace(/\{HW\}/g, p.hw);
+  if(p.a)  t=t.replace(/\{A\}/g,  p.a);
+  if(p.b)  t=t.replace(/\{B\}/g,  p.b);
+  if(p.w)  t=t.replace(/\{W\}/g,  p.w);
+  // 치환 못된 플레이스홀더 → fallback
+  if(/\{H?[ABW]\}/.test(t)) return q.t.replace(/\{H?[ABW]\}/g,'그 선수');
   return t;
 }
 function _getQuote(matches, players){
   const done=matches.filter(m=>m.win).length;
   const q=_QUOTES[(done+Math.floor(Date.now()/300000))%_QUOTES.length];
-  return {t:_fillQuote(q, players||{}), s:q.s};
+  return {t:_fillQuote(q, players||{}), s:q.s||''};
 }
 
-// ── 팀 한마디 (호칭 포함) ──
+// ── 팀 한마디: 청팀=치어리더 / 홍팀=강렬 응원단 ──
 function _getTeamLine(team,diff,rec,top,curPlayers){
-  const HT=top?_hn(top):null;           // 에이스 호칭
+  const HT=top?_hn(top):null;
   const PP=curPlayers&&curPlayers.length
     ?curPlayers[Math.floor(Date.now()/400000)%curPlayers.length]:null;
-  const HP=PP?_hn(PP):null;             // 현재 출전 선수 호칭
+  const HP=PP?_hn(PP):null;
 
-  const lines={
-    blue:{
+  if(team==='blue'){
+    // 청팀 치어리더: 밝고 신나게, ~해요!/해줘요!/있어요!
+    const lines={
       ahead:[
-        HT?`${HT}이 이끄는 청팀, 이 흐름 절대 놓치지 않는다.`:'앞서고 있다. 이 흐름 절대 놓치지 않겠다.',
-        HP?`${HP}, 지금 네 플레이가 팀을 이기게 만들고 있어.`:'지금 이 기세, 끝까지 간다.',
-        HT?`${HT}의 활약이 빛나는 청팀 — 더 밀어붙인다.`:'지금이 진짜 승부처. 더 밀어붙인다.',
+        HT?`${_hnJ(top,'이/가')} 오늘 진짜 대박이에요!! 청팀 이 기세 유지해줘요! 💙`
+          :`청팀 지금 너무 잘하고 있어요!! 이대로만 해줘요! 💙`,
+        HP?`${_hnJ(PP,'이/가')} 뛰는 거 봤어요?! 오늘 완전 빛나고 있어요!! 청팀 화이팅!! 🎉`
+          :`청팀 파이팅!! 지금 이 흐름 절대 놓치면 안 돼요! 🙏`,
+        HT?`${HT}!! 청팀 전원 믿어요! 오늘 우리 이길 수 있어요!! ✨`
+          :`청팀 최고예요!! 지금 이대로 쭉 가줘요!! 💪`,
       ],
       behind:[
-        HT?`${HT}까지 이러면 안 된다. 지금 당장 뒤집는다.`:'지금 지고 있어도 포기 없다. 역전은 지금부터.',
-        HP?`${HP}! 지금 이 순간이 네가 빛날 차례야.`:'한 게임 한 게임이 전부다. 집중.',
-        HT?`${HT} 포함 전원 집결 — 청팀 절대 무너지지 않는다.`:'청팀 절대 무너지지 않는다. 두고 봐.',
+        HT?`${HT}!! 아직 안 끝났어요! 청팀 역전할 수 있어요!! 포기하면 안 돼요!! 🔥`
+          :`청팀 힘내요!! 아직 할 수 있어요!! 포기만 하지 않으면 돼요!! 💙`,
+        HP?`${_hnJ(PP,'이/가')} 이 경기 꼭 잡아줘요!! 청팀 다 같이 믿고 있어요!! 🙏`
+          :`청팀 파이팅!! 한 게임씩 따라잡아요!! 할 수 있어요!! 💪`,
+        HT?`${HT}를 믿어요!! 청팀 전원 지금 총력전이에요!! 역전 드라마 써줘요!! ✨`
+          :`청팀 절대 무너지면 안 돼요!! 우리 팬들 다 응원하고 있어요!! 💙`,
       ],
       even:[
-        HT?`${HT}의 한 방이 필요한 순간이야.`:'동점이다. 지금 이 순간이 승부처.',
-        HP?`${HP}, 네가 지금 이 경기를 가를 수 있어.`:'타이 게임, 멘탈 강한 팀이 이긴다.',
-        '팽팽하다. 한 발만 더.',
+        HT?`${HT}!! 지금 이 동점 반드시 뒤집어줘요!! 청팀 할 수 있어요!! 🎯`
+          :`동점이에요!! 지금 청팀이 더 강하다는 거 보여줄 시간이에요!! 💙`,
+        HP?`${_hnJ(PP,'이/가')} 이번 경기 꼭 가져와줘요!! 청팀 파이팅!! 🔥`
+          :`지금 딱 한 방이에요!! 청팀 같이 해요!! 화이팅!! 💪`,
+        `팽팽해요!! 청팀이 한 발 더 나가줘요!! 응원할게요!! 🎉`,
       ]
-    },
-    red:{
+    };
+    const bucket=diff>0?'ahead':diff<0?'behind':'even';
+    return lines[bucket][Math.floor(Date.now()/600000)%lines[bucket].length];
+  } else {
+    // 홍팀: 강렬하고 단호한 응원단
+    const lines={
       ahead:[
-        HT?`${HT}이 흔들리지 않는 한 홍팀은 진다. 그리고 ${HT}은 안 흔들린다.`:'리드는 리드일 뿐. 끝까지 집중.',
-        HP?`${HP}, 오늘 네 이름이 기억될 거야.`:'홍팀의 기세, 오늘 꺾이지 않는다.',
-        HT?`${HT}가 앞서는 홍팀 — 오늘 승리는 이미 정해졌다.`:'오늘 승리는 이미 정해졌다.',
+        HT?`${_hnJ(top,'이/가')} 흔들리지 않는 한 홍팀은 이 경기 잡는다. ${HT}은 안 흔들린다.`
+          :`리드는 리드일 뿐. 끝까지 집중해서 반드시 마무리 짓는다.`,
+        HP?`${HP}, 오늘 네 이름이 기억될 거야. 계속 이대로 가자.`
+          :`홍팀의 기세, 오늘 꺾이지 않는다. 끝까지 간다.`,
+        HT?`${_hnJ(top,'이/가')} 앞서는 홍팀 — 오늘 승리는 우리 것이다.`
+          :`오늘 승리는 이미 정해졌다. 집중만 잃지 않으면 된다.`,
       ],
       behind:[
-        HT?`${HT}! 지금 네가 나서야 할 때야.`:'뒤집어야 한다. 지금 당장.',
-        HP?`${HP}가 코트에 있는 한, 홍팀은 끝나지 않았다.`:'이 상황이 오히려 편하다. 잃을 게 없다.',
-        HT?`${HT}를 중심으로 홍팀 역전 드라마 시작한다.`:'홍팀의 역전 드라마, 지금 시작한다.',
+        HT?`${HT}! 지금 네가 나서야 할 때야. 홍팀은 아직 안 끝났다.`
+          :`뒤집어야 한다. 지금 당장. 홍팀 전원 집중.`,
+        HP?`${_hnJ(PP,'이/가')} 코트에 있는 한, 홍팀은 끝나지 않았다. 믿는다.`
+          :`이 상황이 오히려 편하다. 잃을 게 없다. 맘껏 뒤집자.`,
+        HT?`${HT}를 중심으로 홍팀 역전 드라마 지금 시작한다.`
+          :`홍팀의 역전 드라마, 지금 시작한다. 모두 집결.`,
       ],
       even:[
-        HT?`${HT}의 실력, 동점 상황에서 빛난다.`:'동점 상황, 홍팀이 더 강하다는 거 보여줄 시간.',
-        HP?`${HP}, 지금 한 방이 전부를 바꾼다.`:'타이. 지금부터 진짜 시작.',
-        '빡빡하게 가자. 한 점 한 점이 전부.',
+        HT?`${_hnJ(top,'이/가')} 실력, 동점 상황에서 빛난다. 지금이 진짜 승부처다.`
+          :`동점 상황, 홍팀이 더 강하다는 거 보여줄 시간이다.`,
+        HP?`${HP}, 지금 한 방이 전부를 바꾼다. 믿고 간다.`
+          :`타이. 지금부터 진짜 시작이다.`,
+        `빡빡하게 가자. 한 점 한 점이 전부다.`,
       ]
-    }
-  };
-  const bucket=diff>0?'ahead':diff<0?'behind':'even';
-  const arr=lines[team][bucket];
-  return arr[Math.floor(Date.now()/600000)%arr.length];
+    };
+    const bucket=diff>0?'ahead':diff<0?'behind':'even';
+    return lines[bucket][Math.floor(Date.now()/600000)%lines[bucket].length];
+  }
 }
 
 // ── 경기 타이틀 자동 생성 ──
@@ -546,43 +581,39 @@ function _lastMatchReaction(matches, bNames, rNames){
   const m=done[0];
   const winners=m.win==='t1'?[m.t1[0],m.t1[1]]:[m.t2[0],m.t2[1]];
   const losers =m.win==='t1'?[m.t2[0],m.t2[1]]:[m.t1[0],m.t1[1]];
-  const wHn=winners.filter(Boolean).map(_hn).join('·');
-  const lHn=losers.filter(Boolean).map(_hn).join('·');
-  const isBlueWin=winners.some(n=>bNames.has(n));
-  const reactions_win=[
-    `방금 ${wHn} 팀 승리! 역시 기대를 저버리지 않는다. 👏`,
-    `${wHn} 조합, 오늘 진짜 무서운데요. 🔥`,
-    `${wHn} 팀, 방금 경기 보셨죠? 이게 실력이에요.`,
-    `${wHn} 승리 확정! ${lHn}은 다음 게임에서 반드시 설욕해야 합니다.`,
+  const wHn=winners.filter(Boolean).map(_hn).join(', ');
+  const lHn=losers.filter(Boolean).map(_hn).join(', ');
+  const pool=[
+    `방금 ${wHn} 팀 승리 확정! 역시 이분들이에요. 👏`,
+    `${wHn} 조합, 오늘 완전 못 잡겠는데요. 🔥`,
+    `방금 경기 보셨죠? ${wHn} 팀 이게 진짜 실력이에요.`,
+    `${wHn} 승리!! ${lHn}은 다음 경기에서 꼭 설욕해요!`,
+    `${lHn}... 이번엔 아쉬웠지만 다음이 있어요. 힘내요! 💙`,
+    `${wHn} 팀 오늘 진짜 잘하네요. ${lHn} 다음에 갚아줘요!`,
   ];
-  const reactions_lose=[
-    `${lHn}... 이번엔 졌지만 다음이 있어. 힘내! 💙`,
-    `${lHn} 패배. 그래도 최선을 다했잖아. 다음 게임을 믿는다.`,
-    `${lHn} 조 아쉬운 패배. ${wHn}이 너무 잘했어.`,
-  ];
-  const all=[...reactions_win,...reactions_lose];
-  return all[Math.floor(Date.now()/450000)%reactions_win.length]; // 승리 리액션 위주로
+  return pool[Math.floor(Date.now()/450000)%pool.length];
 }
 
 // ── 연승 중인 선수 특별 언급 ──
 function _streakComment(matches, bNames, rNames){
-  // 최근 3경기 이상 연승 선수 찾기
   const winCount={};
   [...matches].filter(m=>m.win).sort((a,b)=>(a.round-b.round)).forEach(m=>{
     const W=m.win==='t1'?[m.t1[0],m.t1[1]]:[m.t2[0],m.t2[1]];
     const L=m.win==='t1'?[m.t2[0],m.t2[1]]:[m.t1[0],m.t1[1]];
-    W.forEach(n=>{ if(n){ winCount[n]=(winCount[n]||0)+1; }});
-    L.forEach(n=>{ if(n) winCount[n]=0; }); // 패배하면 리셋
+    W.forEach(n=>{ if(n) winCount[n]=(winCount[n]||0)+1; });
+    L.forEach(n=>{ if(n) winCount[n]=0; });
   });
   const streakers=Object.entries(winCount).filter(([,c])=>c>=3).sort((a,b)=>b[1]-a[1]);
   if(!streakers.length) return '';
   const [name,cnt]=streakers[0];
   const hn=_hn(name);
+  const hnJ=_hnJ(name,'이/가');
   const msgs=[
-    `🔥 ${hn} ${cnt}연승 중! 지금 건드리면 안 됩니다.`,
-    `${hn} ${cnt}연승... 오늘 이 분 막을 수 있는 사람 있나요?`,
-    `${cnt}연승 ${hn}, 지금 완전 물오른 상태예요. 상대팀 긴장!`,
-    `${hn}이 ${cnt}번 연속으로 이기고 있습니다. 이거 실화예요? 🏆`,
+    `🔥 ${hnJ} ${cnt}연승 중! 지금 건드리면 다쳐요.`,
+    `${hn} ${cnt}연승 행진... 오늘 이분 막을 수 있는 사람 있나요? 😮`,
+    `${cnt}연승 중인 ${hn}, 지금 완전 물오른 상태예요. 상대팀 긴장해요! 🔥`,
+    `${hnJ} ${cnt}번 연속 승리 중입니다. 이거 실화예요?! 🏆`,
+    `오늘 ${hn} 진짜 못 잡겠는데요. ${cnt}연승이에요!`,
   ];
   return msgs[Math.floor(Date.now()/550000)%msgs.length];
 }
@@ -694,12 +725,19 @@ function buildBriefing(matches, d){
       const bHn=bSide.map(_hn).join('·');
       const rHn=rSide.map(_hn).join('·');
       const title=_matchTitle(cm.type, t1, t2);
+      // 선수별 호칭 (조사 포함)
+      const b0=bSide[0]?_hn(bSide[0]):'', b1=bSide[1]?_hn(bSide[1]):'';
+      const r0=rSide[0]?_hn(rSide[0]):'', r1=rSide[1]?_hn(rSide[1]):'';
+      const b0J=bSide[0]?_hnJ(bSide[0],'이/가'):'', r0J=rSide[0]?_hnJ(rSide[0],'이/가'):'';
+      const bPair=[b0,b1].filter(Boolean).join('+');
+      const rPair=[r0,r1].filter(Boolean).join('+');
       const commentPool=[
-        `🏸 ${title} | ${bHn} vs ${rHn}`,
-        `👀 ${curRound}라운드 ${cm.court}코트 — ${bHn}+${rHn} 지금 눈을 떼면 안 됩니다!`,
-        `${bHn} 조와 ${rHn} 조, 이 경기가 오늘의 승부를 가를 수 있어요.`,
-        `지금 ${cm.court}코트에서 ${bHn} vs ${rHn} 접전 중! 🔥`,
-        `${bSide[0]?_hn(bSide[0]):''}+${bSide[1]?_hn(bSide[1]):''} 조, ${rSide[0]?_hn(rSide[0]):''}+${rSide[1]?_hn(rSide[1]):''} 조 상대로 지금 총력전!`,
+        `🏸 ${title} | ${bPair} vs ${rPair}`,
+        `👀 ${curRound}라운드 ${cm.court}코트 — ${bPair} vs ${rPair} 지금 눈을 떼면 안 돼요!`,
+        `${b0J} 오늘 여기서 왜 이렇게 잘하는 거예요?! ${rPair} 팀 진짜 긴장해야 해요. 🔥`,
+        `${bPair} 조 대 ${rPair} 조 — ${curRound}라운드 이 경기가 승부를 가를 수 있어요.`,
+        `지금 ${cm.court}코트에서 ${b0}과 ${r0}의 대결! 이거 진짜 명승부예요. 🏸`,
+        `${bPair} vs ${rPair} — 두 팀 다 오늘 최고 컨디션이에요. 누가 이길까요?!`,
       ];
       liveComment=commentPool[Math.floor(Date.now()/500000)%commentPool.length];
     }
@@ -720,8 +758,8 @@ function buildBriefing(matches, d){
     +'<div class="brief-momentum">'+momentum+'</div>'
     +extraHtml
     +'<div class="brief-says">'
-      +'<div class="brief-say t1side">🔵 '+esc(d.teamBlue||'청팀')+' 한마디 — "'+bSay+'"</div>'
-      +'<div class="brief-say t2side">🔴 '+esc(d.teamWhite||'홍팀')+' 한마디 — "'+rSay+'"</div>'
+      +'<div class="brief-say t1side">📣 '+esc(d.teamBlue||'청팀')+' 치어리더 — "'+bSay+'"</div>'
+      +'<div class="brief-say t2side">🔴 '+esc(d.teamWhite||'홍팀')+' 응원단 — "'+rSay+'"</div>'
     +'</div>'
     +'</div>'
     +'<div class="quote-card">'
