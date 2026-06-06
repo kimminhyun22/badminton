@@ -3228,7 +3228,13 @@ async function _tryResumeLive(){
       _liveId=savedId;
       _liveOn=true;
       _updateLiveUI();
-      await pushLiveState(); // 현재 상태로 즉시 업데이트
+
+      // Firebase의 win 데이터로 winOverride 복원 (앱 재시작으로 초기화됐어도 승패 유지)
+      const fbMatches=data.matches||[];
+      fbMatches.forEach((fm,i)=>{ if(fm.win) winOverride[i]=fm.win; else delete winOverride[i]; });
+      if(currentMatches.length) renderResults(currentMatches,currentParticipants,currentSettings);
+
+      await pushLiveState(); // 복원된 승패로 Firebase 업데이트
       const base=location.origin+location.pathname.replace(/[^/]*$/,'');
       const url=base+'view.html?id='+_liveId;
       alert(`✅ 중계 재개됐어요!
