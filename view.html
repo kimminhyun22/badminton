@@ -189,23 +189,23 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
   border-radius:999px;padding:3px 12px;animation:pulse 1.4s ease-in-out infinite;letter-spacing:.3px;}
 
 /* 진행 중 라운드 — 네온 테두리만, 배경은 파스텔 유지 */
+/* 진행 중 라운드: 테두리만 네온, 내부 텍스트는 그대로 */
 .round.cur{border-radius:18px;padding:16px 14px;
   margin-left:-14px;margin-right:-14px;
   background:#fff;
   border:2.5px solid #ff4d6d;
-  box-shadow:0 0 0 1px rgba(255,77,109,.12),
-             0 0 16px rgba(255,77,109,.35),
-             0 0 36px rgba(255,77,109,.15);
-  animation:neonPulse 2.2s ease-in-out infinite;}
+  box-shadow:0 0 0 1px rgba(255,77,109,.1),
+             0 0 14px rgba(255,77,109,.3),
+             0 0 28px rgba(255,77,109,.12);
+  animation:neonPulse 2.4s ease-in-out infinite;}
 @keyframes neonPulse{
-  0%,100%{box-shadow:0 0 0 1px rgba(255,77,109,.12),0 0 12px rgba(255,77,109,.3),0 0 24px rgba(255,77,109,.1);}
-  50%{box-shadow:0 0 0 1px rgba(255,77,109,.2),0 0 22px rgba(255,77,109,.55),0 0 44px rgba(255,77,109,.25);}
+  0%,100%{box-shadow:0 0 0 1px rgba(255,77,109,.1),0 0 10px rgba(255,77,109,.25),0 0 20px rgba(255,77,109,.08);}
+  50%{box-shadow:0 0 0 1px rgba(255,77,109,.18),0 0 20px rgba(255,77,109,.45),0 0 38px rgba(255,77,109,.18);}
 }
-.round.cur .round-badge{background:#ff4d6d;color:#fff;border-color:#ff4d6d;
-  box-shadow:0 0 8px rgba(255,77,109,.6);letter-spacing:1px;}
-.round.cur .now{background:#ff4d6d;}
-/* 진행 중엔 일반 텍스트 색 그대로 — 가독성 최우선 */
-.round.cur .round-line{background:rgba(255,77,109,.25);}
+/* 뱃지만 빨간색, 나머지 텍스트는 원래 색 그대로 */
+.round.cur .round-badge{background:#e8736f;color:#fff;border-color:#e8736f;}
+.round.cur .now{background:#e8736f;}
+.round.cur .round-line{background:rgba(255,77,109,.2);}
 
 /* ── 경기 카드 ── */
 .match{background:var(--sur);border:1px solid var(--bdr);border-radius:14px;
@@ -456,12 +456,12 @@ const _QUOTES=[
   /* 오만방자 — 호칭 포함 */
   {t:'{HA}, 오늘 저 좀 고생시켜줄 수 있어? 너무 편해서.',n:1},
   {t:'{HB}, 열심히 하는 거 맞지? 제 눈엔 잘 안 보여서.',n:2},
-  {t:'{HW}한테 지면 그냥 오늘 운이 없었다고 해.',n:'w'},
+  {t:'{HW}한테 지는 날엔 그냥 오늘 운이 없었다고 해.',n:'w'},
   {t:'{HA}, 저 오늘 컨디션이 너무 좋은 게 문제야.',n:1},
-  {t:'{HB}가 잘 할수록 내가 더 집중하게 돼서 고마워.',n:2},
+  {t:'{HBN}은 잘 할수록 내가 더 집중하게 돼서 고마워.',n:2},
   {t:'{HW} 오늘 진짜 잘 치네. 그래서 이기고 있는 거잖아.',n:'w'},
   {t:'{HA}, 오늘 나한테 이기는 게 목표야? 목표는 좋아.',n:1},
-  {t:'{HB}한테 지면 나도 할 말 없지. 근데 그럴 일은 없을 것 같고.',n:2},
+  {t:'{HB}한테 지는 날엔 나도 할 말 없지. 근데 그럴 일은 없을 것 같고.',n:2},
   {t:'{HW} 연승 중이라는데... 오늘 멈춰드릴게요.',n:'w'},
   {t:'{HA} 실력이면 오늘 우리 팀이 지는 게 더 이상하지.',n:1},
   {t:'{HB}, 혹시 나 봐주는 거야? 아니면 원래 이 정도야?',n:2},
@@ -471,20 +471,40 @@ function _fillQuote(q, players){
   if(!q.n) return q.t;
   let t=q.t;
   const p=players||{};
+  // 조사 포함 변형 먼저 처리
+  if(p.hbn!=null) t=t.replace(/\{HBN\}/g, p.hbn); // {HBN} = HB+은/는
+  if(p.hwn!=null) t=t.replace(/\{HWN\}/g, p.hwn); // {HWN} = HW+은/는
   if(p.ha) t=t.replace(/\{HA\}/g, p.ha);
   if(p.hb) t=t.replace(/\{HB\}/g, p.hb);
   if(p.hw) t=t.replace(/\{HW\}/g, p.hw);
   if(p.a)  t=t.replace(/\{A\}/g,  p.a);
   if(p.b)  t=t.replace(/\{B\}/g,  p.b);
   if(p.w)  t=t.replace(/\{W\}/g,  p.w);
-  // 치환 못된 플레이스홀더 → fallback
-  if(/\{H?[ABW]\}/.test(t)) return q.t.replace(/\{H?[ABW]\}/g,'그 선수');
+  if(/\{H?[ABWN]+\}/.test(t)) return q.t.replace(/\{H?[ABWNn]+\}/g,'그 선수');
   return t;
 }
+// 재미있는 출처 목록
+const _SRCS_NORMAL=[
+  '익명의 미녀','코트의 철학자','셔틀콕 도사','배드민턴 클럽 현자',
+  '뭇 아저씨들의 대변인','오늘의 우승 예정자','이기는 자의 독백',
+  '승부의 신','인정받고 싶은 어느 선수','연습벌레의 고백',
+];
+const _SRCS_ARROGANT=[
+  '익명의 미녀','어느 여왕의 속삭임','승자의 여유','여기서 제일 잘하는 사람',
+  '이미 이긴 사람','겸손을 잊은 자','오늘의 MVP (자칭)',
+  '상대팀이 경계하는 그 사람','코트의 지배자','우아하게 이기는 법을 아는 자',
+];
 function _getQuote(matches, players){
   const done=matches.filter(m=>m.win).length;
   const q=_QUOTES[(done+Math.floor(Date.now()/300000))%_QUOTES.length];
-  return {t:_fillQuote(q, players||{}), s:q.s||''};
+  const filled=_fillQuote(q, players||{});
+  // 오만방자 계열은 미녀/여왕 출처, 승부욕 계열은 다른 출처
+  const isArrogant=q.t.includes('편해서')||q.t.includes('안 보여서')||
+    q.t.includes('컨디션')||q.t.includes('봐주는')||q.t.includes('집중하게')||
+    q.t.includes('결과는 제가')||q.t.includes('성격이 아니라서')||q.t.includes('멈춰드릴게요');
+  const srcs=isArrogant?_SRCS_ARROGANT:_SRCS_NORMAL;
+  const src=srcs[(done+Math.floor(Date.now()/180000))%srcs.length];
+  return {t:filled, src};
 }
 
 // ── 팀 한마디: 청팀=치어리더 / 홍팀=강렬 응원단 ──
@@ -694,13 +714,16 @@ function buildBriefing(matches, d){
   if(rTop) rLine+=` · 에이스 ${_hn(rTop.name)} ${rTop.w}승`;
 
   const bDiff=bW-wW, rDiff=wW-bW;
+  const _qpB=bTop?bTop.name:(curBlue.length?curBlue[0]:null);
+  const _qpR=rTop?rTop.name:(curRed.length?curRed[0]:null);
+  const _qpW=lastWinner.length?lastWinner[0]:null;
   const qPlayers={
-    a:bTop?bTop.name:(curBlue.length?curBlue[0]:null),
-    b:rTop?rTop.name:(curRed.length?curRed[0]:null),
-    w:lastWinner.length?lastWinner[0]:null,
-    ha:bTop?_hn(bTop.name):(curBlue.length?_hn(curBlue[0]):null),
-    hb:rTop?_hn(rTop.name):(curRed.length?_hn(curRed[0]):null),
-    hw:lastWinner.length?_hn(lastWinner[0]):null,
+    a:_qpB, b:_qpR, w:_qpW,
+    ha:_qpB?_hn(_qpB):null,
+    hb:_qpR?_hn(_qpR):null,
+    hw:_qpW?_hn(_qpW):null,
+    hbn:_qpR?_hnJ(_qpR,'은/는'):null,
+    hwn:_qpW?_hnJ(_qpW,'은/는'):null,
   };
   const bSay=_getTeamLine('blue',bDiff,bRec,bTop?bTop.name:null,curBlue);
   const rSay=_getTeamLine('red',rDiff,rRec,rTop?rTop.name:null,curRed);
@@ -764,7 +787,7 @@ function buildBriefing(matches, d){
     +'</div>'
     +'<div class="quote-card">'
       +'<div class="quote-text">"'+q.t+'"</div>'
-      +'<div class="quote-src">— '+q.s+'</div>'
+      +'<div class="quote-src">— '+q.src+'</div>'
     +'</div>';
 }
 
@@ -986,7 +1009,14 @@ function render(d){
 function toggleRoster(team){
   const el=document.getElementById('roster-'+team);
   if(!el) return;
-  el.style.display=el.style.display==='none'?'block':'none';
+  const isOpen=el.style.display!=='none';
+  // 모두 닫기
+  ['blue','red'].forEach(t=>{
+    const p=document.getElementById('roster-'+t);
+    if(p) p.style.display='none';
+  });
+  // 클릭한 게 닫혀있었으면 열기 (이미 열려있었으면 그냥 닫힌 채로)
+  if(!isOpen) el.style.display='block';
 }
 
 function rosterSort(team,sortBy,btn){
