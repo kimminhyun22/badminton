@@ -178,6 +178,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .roster-divider{height:1px;background:var(--bdr2);margin:6px 0;}
 .roster-dot-b{color:var(--bl);font-size:.72rem;}
 .roster-dot-r{color:var(--red);font-size:.72rem;}
+.roster-cap-badge{font-size:.64rem;font-weight:800;border-radius:5px;padding:1px 6px;margin:0 2px;}
+.roster-cap-badge.leader{background:#ffd700;color:#7a5800;}
+.roster-cap-badge.sub{background:#e0e0e0;color:#555;}
+.roster-row.is-leader .roster-name{font-weight:900;color:var(--txt);}
 
 /* ── 라운드 블록 ── */
 .round{margin-bottom:22px;}
@@ -294,6 +298,25 @@ const FB_CONFIG = {
 };
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// 카카오톡/인앱 브라우저 → Safari 강제 열기 안내
+(function(){
+  const ua=navigator.userAgent||'';
+  const isInApp=/KAKAOTALK|kakaotalk|Line\/|NAVER|Instagram|FBAN|FBAV/i.test(ua);
+  if(!isInApp) return;
+  const url=location.href;
+  // iOS: safari-web-app 스킴 시도
+  if(/iPhone|iPad|iPod/i.test(ua)){
+    const d=document.createElement('div');
+    d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;gap:16px;padding:28px;text-align:center;font-family:sans-serif;';
+    d.innerHTML='<div style="font-size:2rem">🏸</div>'
+      +'<div style="font-size:1.3rem;font-weight:900;margin-bottom:4px">콕매치 실시간 현황</div>'
+      +'<div style="font-size:.92rem;line-height:1.8;opacity:.85">카카오톡 안에서는 일부 기능이<br>제한될 수 있어요.<br>Safari에서 보시면 더 쾌적해요! 😊</div>'
+      +'<a href="'+url+'" target="_blank" style="background:#5b8def;color:#fff;border-radius:14px;padding:14px 32px;font-size:1rem;font-weight:700;text-decoration:none;margin-top:8px;">Safari에서 열기</a>'
+      +'<div style="font-size:.76rem;opacity:.5;cursor:pointer;" onclick="this.parentNode.remove()">그냥 여기서 볼게요</div>';
+    document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(d));
+  }
+})();
 
 const params=new URLSearchParams(location.search);
 const liveId=(params.get('id')||'').toUpperCase();
@@ -530,7 +553,7 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
           :`청팀 힘내요!! 아직 할 수 있어요!! 포기만 하지 않으면 돼요!! 💙`,
         HP?`${_hnJ(PP,'이/가')} 이 경기 꼭 잡아줘요!! 청팀 다 같이 믿고 있어요!! 🙏`
           :`청팀 파이팅!! 한 게임씩 따라잡아요!! 할 수 있어요!! 💪`,
-        HT?`${HT}를 믿어요!! 청팀 전원 지금 총력전이에요!! 역전 드라마 써줘요!! ✨`
+        HT?`${_hnJ(top,'을/를')} 믿어요!! 청팀 전원 지금 총력전이에요!! 역전 드라마 써줘요!! ✨`
           :`청팀 절대 무너지면 안 돼요!! 우리 팬들 다 응원하고 있어요!! 💙`,
       ],
       even:[
@@ -547,7 +570,7 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
     // 홍팀: 강렬하고 단호한 응원단
     const lines={
       ahead:[
-        HT?`${_hnJ(top,'이/가')} 흔들리지 않는 한 홍팀은 이 경기 잡는다. ${HT}은 안 흔들린다.`
+        HT?`${_hnJ(top,'이/가')} 흔들리지 않는 한 홍팀은 이 경기 잡는다. ${_hnJ(top,'은/는')} 안 흔들린다.`
           :`리드는 리드일 뿐. 끝까지 집중해서 반드시 마무리 짓는다.`,
         HP?`${HP}, 오늘 네 이름이 기억될 거야. 계속 이대로 가자.`
           :`홍팀의 기세, 오늘 꺾이지 않는다. 끝까지 간다.`,
@@ -559,7 +582,7 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
           :`뒤집어야 한다. 지금 당장. 홍팀 전원 집중.`,
         HP?`${_hnJ(PP,'이/가')} 코트에 있는 한, 홍팀은 끝나지 않았다. 믿는다.`
           :`이 상황이 오히려 편하다. 잃을 게 없다. 맘껏 뒤집자.`,
-        HT?`${HT}를 중심으로 홍팀 역전 드라마 지금 시작한다.`
+        HT?`${_hnJ(top,'을/를')} 중심으로 홍팀 역전 드라마 지금 시작한다.`
           :`홍팀의 역전 드라마, 지금 시작한다. 모두 집결.`,
       ],
       even:[
@@ -873,14 +896,14 @@ function buildFinale(matches, d){
     +'<div class="finale-sub">'+sub+'</div></div>';
 }
 
-function fireConfetti(){
+function fireConfetti(isRepeat){
   let cv=document.getElementById('confetti');
   if(!cv){ cv=document.createElement('canvas'); cv.id='confetti'; document.body.appendChild(cv); }
   const ctx=cv.getContext('2d');
   const dpr=window.devicePixelRatio||1;
   cv.width=innerWidth*dpr; cv.height=innerHeight*dpr;
   const colors=['#fbbf24','#f59e0b','#ef4444','#ec4899','#8b5cf6','#6366f1','#22c55e','#3b82f6'];
-  const N=140, parts=[];
+  const N=200, parts=[];
   for(let i=0;i<N;i++){
     parts.push({ x:innerWidth*(.2+Math.random()*.6)*dpr, y:-20*dpr,
       vx:(Math.random()-.5)*5*dpr, vy:(2+Math.random()*4)*dpr, g:.12*dpr,
@@ -897,8 +920,12 @@ function fireConfetti(){
       ctx.save(); ctx.globalAlpha=a; ctx.translate(p.x,p.y); ctx.rotate(p.rot);
       ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore(); });
     frame++;
-    if(alive&&frame<260) requestAnimationFrame(tick);
-    else ctx.clearRect(0,0,cv.width,cv.height);
+    if(alive&&frame<520) requestAnimationFrame(tick); // 2배 길게
+    else {
+      ctx.clearRect(0,0,cv.width,cv.height);
+      // 4초 후 한 번 더 발사
+      if(!isRepeat) setTimeout(()=>fireConfetti(true), 4000);
+    }
   }
   requestAnimationFrame(tick);
 }
@@ -915,7 +942,11 @@ function render(d){
       const arr=(list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x);
       const males=[...arr].filter(p=>p.g==='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
       const females=[...arr].filter(p=>p.g!=='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
-      const row=p=>'<div class="roster-row"><span class="roster-gender '+(p.g==='M'?'roster-m':'roster-f')+'">'+(p.g==='M'?'♂':'♀')+'</span><span class="roster-name">'+esc(p.n)+'</span><span class="roster-lv">Lv'+p.l+'</span></div>';
+      const row=p=>{
+        const capBadge=p.isLeader?'<span class="roster-cap-badge leader">단장</span>'
+          :p.isSub?'<span class="roster-cap-badge sub">부단장</span>':'';
+        return '<div class="roster-row'+(p.isLeader?' is-leader':p.isSub?' is-sub':'')+'">'          +'<span class="roster-gender '+(p.g==='M'?'roster-m':'roster-f')+'">'+(p.g==='M'?'♂':'♀')+'</span>'          +'<span class="roster-name">'+esc(p.n)+'</span>'          +capBadge          +'<span class="roster-lv">Lv'+p.l+'</span></div>';
+      };
       return males.map(row).join('')+(males.length&&females.length?'<div class="roster-divider"></div>':'')+females.map(row).join('');
     };
     window._rosterData=d.members;
