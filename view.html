@@ -300,12 +300,15 @@ const FB_CONFIG = {
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 카카오톡/인앱 브라우저 자동 탈출 ──
-// iOS: 카카오 공식 외부브라우저 스킴 → 실패 시 anchor 클릭
-// Android: Chrome intent:// 스킴 → 실패 시 안내 배너
+// 팝업 없이 자동 실행. 세션당 1번만 시도. 실패 시 작은 토스트 (3초 자동 소멸).
 (function(){
   const ua=navigator.userAgent||'';
   const isInApp=/KAKAO|kakaotalk|Line\/|NAVER|Instagram|FBAN|FBAV|Snapchat/i.test(ua);
   if(!isInApp) return;
+
+  // 세션 내 이미 시도했으면 아무것도 안 함 (카카오 돌아와도 팝업 없음)
+  if(sessionStorage.getItem('_esc_tried')) return;
+  sessionStorage.setItem('_esc_tried','1');
 
   const url=location.href;
   const isIOS=/iPhone|iPad|iPod/i.test(ua);
@@ -313,46 +316,45 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
   const isKakao=/KAKAO/i.test(ua);
   let escaped=false;
 
-  // 탈출 성공 감지 (외부앱 열리면 이 페이지가 숨겨짐)
+  // 탈출 성공 감지 (visibilitychange + pagehide 모두)
   document.addEventListener('visibilitychange',()=>{ if(document.hidden) escaped=true; });
+  window.addEventListener('pagehide',()=>{ escaped=true; });
 
-  function showFallbackBanner(){
-    if(document.getElementById('_inapp_banner')) return;
-    const d=document.createElement('div');
-    d.id='_inapp_banner';
-    d.style.cssText='position:fixed;inset:0;background:rgba(30,36,52,.93);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;gap:14px;padding:28px;text-align:center;font-family:sans-serif;';
-    d.innerHTML='<div style="font-size:2.2rem">🏸</div>'
-      +'<div style="font-size:1.25rem;font-weight:900;letter-spacing:-.3px">콕매치 실시간 현황</div>'
-      +'<div style="font-size:.9rem;line-height:1.85;opacity:.85">카카오톡 안에서는<br>화면이 제대로 안 보일 수 있어요.<br>아래 버튼으로 브라우저에서 열어주세요! 😊</div>'
-      +'<a href="'+url+'" target="_blank" style="background:#5b8def;color:#fff;border-radius:14px;padding:13px 30px;font-size:1rem;font-weight:800;text-decoration:none;letter-spacing:-.2px;box-shadow:0 4px 14px rgba(91,141,239,.45);">브라우저에서 열기 →</a>'
-      +'<div style="font-size:.75rem;opacity:.45;cursor:pointer;padding:4px 12px;" onclick="document.getElementById(\'_inapp_banner\').remove()">그냥 여기서 볼게요</div>';
-    const attach=()=>document.body?document.body.appendChild(d):setTimeout(attach,50);
+  // 실패 시 작은 토스트 (전체 화면 팝업 아님, 4초 후 자동 소멸)
+  function showToast(){
+    if(escaped) return;
+    const t=document.createElement('div');
+    t.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);'
+      +'background:rgba(30,36,52,.92);color:#fff;border-radius:12px;padding:11px 20px;'
+      +'font-size:.84rem;font-weight:700;white-space:nowrap;z-index:99999;'
+      +'box-shadow:0 4px 14px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px;';
+    t.innerHTML='<span>🏸</span><span>브라우저에서 열어주세요</span>'
+      +'<a href="'+url+'" target="_blank" '
+      +'style="color:#7eb3ff;text-decoration:none;font-weight:800;margin-left:4px;">열기</a>';
+    const attach=()=>document.body?(document.body.appendChild(t),setTimeout(()=>t.remove&&t.remove(),4000)):setTimeout(attach,80);
     attach();
   }
+
+  const TIMEOUT=isAndroid?900:1200;
 
   if(isIOS && isKakao){
-    // 카카오 공식 외부브라우저 스킴 (자동 실행)
     location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);
-    setTimeout(()=>{ if(!escaped) showFallbackBanner(); },600);
+    setTimeout(()=>{ if(!escaped) showToast(); }, TIMEOUT);
   } else if(isIOS){
-    // 라인 등 기타 iOS 인앱: anchor _blank 클릭
     const a=document.createElement('a');
     a.href=url; a.target='_blank'; a.rel='noopener';
-    document.body?document.body.appendChild(a):document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(a));
-    try{ a.click(); }catch(e){}
-    setTimeout(()=>{ if(!escaped) showFallbackBanner(); },600);
+    const run=()=>{ document.body.appendChild(a); try{a.click();}catch(e){} };
+    document.body?run():document.addEventListener('DOMContentLoaded',run);
+    setTimeout(()=>{ if(!escaped) showToast(); }, TIMEOUT);
   } else if(isAndroid){
-    // Android: Chrome intent:// 스킴 (자동 실행)
-    const intentUrl='intent://'+url.replace(/^https?:\/\//,'')
+    location.href='intent://'+url.replace(/^https?:\/\//,'')
       +'#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end';
-    location.href=intentUrl;
-    setTimeout(()=>{ if(!escaped) showFallbackBanner(); },700);
+    setTimeout(()=>{ if(!escaped) showToast(); }, TIMEOUT);
   } else {
-    // 기타 인앱: 안내 배너
-    const attach=()=>{ if(document.body) showFallbackBanner(); else setTimeout(attach,100); };
-    attach();
+    setTimeout(()=>showToast(), 300);
   }
 })();
+
 
 const params=new URLSearchParams(location.search);
 const liveId=(params.get('id')||'').toUpperCase();
