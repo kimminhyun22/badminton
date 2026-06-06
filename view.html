@@ -325,7 +325,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
         +'padding:14px 28px;font-size:1rem;font-weight:800;'
         +'text-decoration:none;box-shadow:0 4px 14px rgba(91,141,239,.4);">'
         +'브라우저에서 열기 &#8594;</a>'
-      :'<div style="font-size:.76rem;color:#9ea8b8;">이 창은 닫아도 됩니다</div>';
+      :'<div style="font-size:.82rem;font-weight:800;color:#5b8def;cursor:pointer;" onclick="window.close()">✕ 이 창은 닫아주세요!</div>';
     var ico=showBtn?'🏸':'✅';
     var ttl=showBtn?'브라우저에서 열어주세요':'브라우저에서 열렸어요!';
     var msg=showBtn
