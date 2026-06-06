@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.8  (2026-06)
+     APP VERSION: 1.10.10  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.8">
+<meta name="app-version" content="1.10.10">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1673,7 +1673,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.8';
+const APP_VERSION = '1.10.10';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3165,8 +3165,19 @@ function _buildLiveState(){
   const bn2=teamNames.blue||'청 팀', wn2=teamNames.white||'홍 팀';
   // 팀원 명단 (뷰어에서 팀원 리스트 표시용)
   // 이름+급수+성별 함께 전송 (뷰어 명단 표시용)
-  const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>({n:p.name||'',l:p.level||0,g:p.gender||''})):[];
-  const membersRed=isTeam?(teamAssignment?.white||[]).map(p=>({n:p.name||'',l:p.level||0,g:p.gender||''})):[];
+  // 단장/부단장 이름 추출
+  const _leaderBlue=captains?.blue?.leader||null;
+  const _subBlue=captains?.blue?.sub||null;
+  const _leaderWhite=captains?.white?.leader||null;
+  const _subWhite=captains?.white?.sub||null;
+  const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>({
+    n:p.name||'',l:p.level||0,g:p.gender||'',
+    isLeader:p.name===_leaderBlue, isSub:p.name===_subBlue
+  })):[];
+  const membersRed=isTeam?(teamAssignment?.white||[]).map(p=>({
+    n:p.name||'',l:p.level||0,g:p.gender||'',
+    isLeader:p.name===_leaderWhite, isSub:p.name===_subWhite
+  })):[];
   return {
     title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
     members: {blue:membersBlue, red:membersRed},
@@ -3230,8 +3241,15 @@ async function _tryResumeLive(){
       _updateLiveUI();
 
       // Firebase의 win 데이터로 winOverride 복원 (앱 재시작으로 초기화됐어도 승패 유지)
+      // round+court 기준으로 win 매핑 (인덱스 불일치 방지)
       const fbMatches=data.matches||[];
-      fbMatches.forEach((fm,i)=>{ if(fm.win) winOverride[i]=fm.win; else delete winOverride[i]; });
+      Object.keys(winOverride).forEach(k=>delete winOverride[k]);
+      const fbWinMap={};
+      fbMatches.forEach(fm=>{ if(fm.win) fbWinMap[`${fm.round}_${fm.court}`]=fm.win; });
+      currentMatches.forEach((m,i)=>{
+        const key=`${m.round||0}_${m.court||0}`;
+        if(fbWinMap[key]) winOverride[i]=fbWinMap[key];
+      });
       if(currentMatches.length) renderResults(currentMatches,currentParticipants,currentSettings);
 
       await pushLiveState(); // 복원된 승패로 Firebase 업데이트
