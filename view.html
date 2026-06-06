@@ -560,17 +560,13 @@ function _fillQuote(q, players){
   if(/\{H?[ABWN]+\}/.test(t)) return q.t.replace(/\{H?[ABWNn]+\}/g,'그 선수');
   return t;
 }
-// 재미있는 출처 목록
-const _SRCS_NORMAL=[
-  '익명의 미녀','코트의 철학자','셔틀콕 도사','배드민턴 클럽 현자',
-  '뭇 아저씨들의 대변인','오늘의 우승 예정자','이기는 자의 독백',
-  '승부의 신','인정받고 싶은 어느 선수','연습벌레의 고백',
-];
-const _SRCS_ARROGANT=[
-  '익명의 미녀','어느 여왕의 속삭임','승자의 여유','여기서 제일 잘하는 사람',
-  '이미 이긴 사람','겸손을 잊은 자','오늘의 MVP (자칭)',
-  '상대팀이 경계하는 그 사람','코트의 지배자','우아하게 이기는 법을 아는 자',
-];
+// 출처: 관전자 성별(M/F) 기반으로 분기
+const _SRCS_NF=['익명의 미녀','코트의 철학자','셔틀콕 도사','배드민턴 클럽 현자','연습벌레의 고백'];
+const _SRCS_NM=['익명의 형님','코트의 철학자','셔틀콕 도사','배드민턴 클럽 아저씨','열혈 배드민턴 팬'];
+const _SRCS_AF=['익명의 미녀','어느 여왕의 속삭임','승자의 여유','여기서 제일 잘하는 사람',
+  '이미 이긴 사람','오늘의 MVP (자칭)','코트의 지배자','우아하게 이기는 법을 아는 자'];
+const _SRCS_AM=['익명의 형님','코트 위의 왕자','승자의 여유','여기서 제일 잘하는 사람',
+  '이미 이긴 사람','오늘의 MVP (자칭)','코트의 지배자','이미 해본 사람'];
 function _getQuote(matches, players){
   const done=matches.filter(m=>m.win).length;
   const q=_QUOTES[(done+Math.floor(Date.now()/300000))%_QUOTES.length];
@@ -579,21 +575,22 @@ function _getQuote(matches, players){
   const isArrogant=q.t.includes('편해서')||q.t.includes('안 보여서')||
     q.t.includes('컨디션')||q.t.includes('봐주는')||q.t.includes('집중하게')||
     q.t.includes('결과는 제가')||q.t.includes('성격이 아니라서')||q.t.includes('멈춰드릴게요');
-  const srcs=isArrogant?_SRCS_ARROGANT:_SRCS_NORMAL;
+  const isM2=_viewerGender==='M';
+  const srcs=isArrogant?(isM2?_SRCS_AM:_SRCS_AF):(isM2?_SRCS_NM:_SRCS_NF);
   const src=srcs[(done+Math.floor(Date.now()/180000))%srcs.length];
   return {t:filled, src};
 }
 
-// ── 팀 한마디: 청팀=치어리더 / 홍팀=강렬 응원단 ──
+// ── 팀 한마디: 청팀=치어리더(관전자 성별 랜덤) / 홍팀=강렬 응원단 ──
 function _getTeamLine(team,diff,rec,top,curPlayers){
   const HT=top?_hn(top):null;
   const PP=curPlayers&&curPlayers.length
     ?curPlayers[Math.floor(Date.now()/400000)%curPlayers.length]:null;
   const HP=PP?_hn(PP):null;
+  const isM=_viewerGender==='M';
 
   if(team==='blue'){
-    // 청팀 치어리더: 밝고 신나게, ~해요!/해줘요!/있어요!
-    const lines={
+    const linesF={
       ahead:[
         HT?`${_hnJ(top,'이/가')} 오늘 진짜 대박이에요!! 청팀 이 기세 유지해줘요! 💙`
           :`청팀 지금 너무 잘하고 있어요!! 이대로만 해줘요! 💙`,
@@ -618,9 +615,34 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
         `팽팽해요!! 청팀이 한 발 더 나가줘요!! 응원할게요!! 🎉`,
       ]
     };
-    const bucket=diff>0?'ahead':diff<0?'behind':'even';
-    return lines[bucket][Math.floor(Date.now()/600000)%lines[bucket].length];
-  } else {
+    const linesM={
+      ahead:[
+        HT?`${_hnJ(top,'이/가')} 오늘 완전 장난 없네! 청팀 이 기세 죽이지 마!! 💪`
+          :`청팀 지금 제대로 가고 있어! 이대로 밀어붙여!! 💙`,
+        HP?`와 ${HP}! 오늘 진짜 잘한다! 청팀 화이팅!! 🔥`
+          :`청팀 지금 최고야! 이 흐름 절대 놓치지 마!! 💪`,
+        HT?`${HT}!! 청팀 전원 믿는다! 오늘 우리 이긴다!! 💙`
+          :`청팀 최고! 지금 이대로 끝까지 가자!! 🔥`,
+      ],
+      behind:[
+        HT?`${HT}!! 아직 안 끝났다! 청팀 뒤집을 수 있어!! 포기하지 마!! 🔥`
+          :`청팀 힘내! 아직 할 수 있어!! 포기만 하지 마!! 💙`,
+        HP?`${_hnJ(PP,'이/가')} 이 경기 꼭 가져와! 청팀 다 같이 믿는다!! 💪`
+          :`청팀 파이팅! 한 게임씩 따라잡자!! 할 수 있어!! 🔥`,
+        HT?`${_hnJ(top,'을/를')} 믿는다!! 청팀 전원 총력전! 역전 드라마 써줘!! 💙`
+          :`청팀 절대 무너지면 안 돼!! 끝까지 간다!! 💪`,
+      ],
+      even:[
+        HT?`${HT}!! 동점 이대로 뒤집어버려!! 청팀 할 수 있다!! 🎯`
+          :`동점이야!! 지금 청팀이 더 강하다는 거 보여줘!! 💙`,
+        HP?`${_hnJ(PP,'이/가')} 이번 경기 반드시 가져와! 청팀 파이팅!! 🔥`
+          :`지금 딱 한 방이야!! 청팀 같이 가자!! 화이팅!! 💪`,
+        `팽팽해! 청팀이 한 발 더 나가줘!! 다 같이 응원한다!! 🎉`,
+      ]
+    };
+    const _bucket=diff>0?'ahead':diff<0?'behind':'even';
+    const _tl=isM?linesM:linesF;
+    return _tl[_bucket][Math.floor(Date.now()/600000)%_tl[_bucket].length];
     // 홍팀: 강렬하고 단호한 응원단
     const lines={
       ahead:[
@@ -647,8 +669,8 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
         `빡빡하게 가자. 한 점 한 점이 전부다.`,
       ]
     };
-    const bucket=diff>0?'ahead':diff<0?'behind':'even';
-    return lines[bucket][Math.floor(Date.now()/600000)%lines[bucket].length];
+    const _bucket2=diff>0?'ahead':diff<0?'behind':'even';
+    return lines[_bucket2][Math.floor(Date.now()/600000)%lines[_bucket2].length];
   }
 }
 
@@ -858,7 +880,7 @@ function buildBriefing(matches, d){
     +'<div class="brief-momentum">'+momentum+'</div>'
     +extraHtml
     +'<div class="brief-says">'
-      +'<div class="brief-say t1side">📣 '+esc(d.teamBlue||'청팀')+' 치어리더 — "'+bSay+'"</div>'
+      +'<div class="brief-say t1side">'+(_viewerGender==='M'?'📣':'💃')+' '+esc(d.teamBlue||'청팀')+' '+(_viewerGender==='M'?'남성 서포터':'치어리더')+' — "'+bSay+'"</div>'
       +'<div class="brief-say t2side">🔴 '+esc(d.teamWhite||'홍팀')+' 응원단 — "'+rSay+'"</div>'
     +'</div>'
     +'</div>'
@@ -985,6 +1007,7 @@ function fireConfetti(isRepeat){
 }
 
 function render(d){
+  _randomizeViewerGender(); // 렌더마다 관전자 성별 랜덤 고정
   let html='';
   // 제목
   html+='<div class="title">'+esc(d.title||'대진표')+'</div>';
