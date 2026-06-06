@@ -325,7 +325,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
         +'padding:14px 28px;font-size:1rem;font-weight:800;'
         +'text-decoration:none;box-shadow:0 4px 14px rgba(91,141,239,.4);">'
         +'브라우저에서 열기 &#8594;</a>'
-      :'<div style="font-size:.82rem;font-weight:800;color:#5b8def;cursor:pointer;" onclick="window.close()">✕ 이 창은 닫아주세요!</div>';
+      :'<div style="font-size:.84rem;font-weight:800;color:#5b8def;cursor:pointer;" onclick="window.close()">✕ 이 창은 닫아주세요!</div>';
     var ico=showBtn?'🏸':'✅';
     var ttl=showBtn?'브라우저에서 열어주세요':'브라우저에서 열렸어요!';
     var msg=showBtn
@@ -487,12 +487,19 @@ function _hasBatchim(str){
   return c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28!==0;
 }
 // 호칭 문자열: "재관이 오빠", "은하 언니", "미라 언니"
+// 관전자 성별 전역 변수 (렌더 시마다 랜덤)
+// 'F': 여성 → 오빠/언니  |  'M': 남성 → 형님/누나
+let _viewerGender='F';
+function _randomizeViewerGender(){ _viewerGender=Math.random()<0.5?'M':'F'; }
+
 function _hn(name){
   if(!name) return '';
   const g=_gMap[name];
   if(g!=='M'&&g!=='F') return name;
   const fn=_firstName(name);
-  const title=g==='M'?'오빠':'언니';
+  const title=_viewerGender==='M'
+    ?(g==='M'?'형님':'누나')
+    :(g==='M'?'오빠':'언니');
   return _hasBatchim(fn)?`${fn}이 ${title}`:`${fn} ${title}`;
 }
 // 호칭+조사: josa='이/가','은/는','을/를','이/'
