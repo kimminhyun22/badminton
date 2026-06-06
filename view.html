@@ -299,26 +299,38 @@ const FB_CONFIG = {
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-// ── 카카오톡/인앱 브라우저 처리 ──
-// 인앱 감지 시: Safari/Chrome으로 자동 이동 + 인앱은 '이동 완료' 화면으로 교체
-// → 사용자가 카카오로 돌아와도 인앱에 빈 완료 화면만 보임 → 자연스럽게 닫기
+// ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
+// 플랫폼·OS별 최적 탈출 전략:
+//   카카오iOS: kakaotalk://openExternal 자동 → 완료화면(이 창 닫아도 됨)
+//   Android전체: intent://Chrome 자동 → 완료화면
+//   밴드/네이버iOS: WKWebView라 자동탈출 불가 → 버튼 1개만 있는 완료화면
 (function(){
   const ua=navigator.userAgent||'';
-  const isInApp=/KAKAO|kakaotalk|Line\/|NAVER|Instagram|FBAN|FBAV|Snapchat/i.test(ua);
+  const isInApp=/KAKAO|kakaotalk|Line\/|NAVER|NBandApp|Instagram|FBAN|FBAV|Snapchat/i.test(ua);
   if(!isInApp) return;
 
-  // 세션 내 이미 처리했으면 스킵 (중복 방지)
   if(sessionStorage.getItem('_esc_done')) return;
   sessionStorage.setItem('_esc_done','1');
 
   const url=location.href;
-  const isIOS=/iPhone|iPad|iPod/i.test(ua);
+  const isIOS    =/iPhone|iPad|iPod/i.test(ua);
   const isAndroid=/Android/i.test(ua);
-  const isKakao=/KAKAO/i.test(ua);
+  const isKakao  =/KAKAO/i.test(ua);
 
-  // 인앱을 '이동 완료' 화면으로 즉시 교체
-  // → 외부 브라우저 열린 후 사용자가 카카오로 돌아와도 인앱이 깔끔함
-  function replaceWithDonePage(){
+  function makeDonePage(showBtn){
+    var btnHtml=showBtn
+      ?'<a href="'+url+'" target="_blank" '
+        +'style="display:inline-flex;align-items:center;gap:8px;'
+        +'background:#5b8def;color:#fff;border-radius:14px;'
+        +'padding:14px 28px;font-size:1rem;font-weight:800;'
+        +'text-decoration:none;box-shadow:0 4px 14px rgba(91,141,239,.4);">'
+        +'브라우저에서 열기 &#8594;</a>'
+      :'<div style="font-size:.76rem;color:#9ea8b8;">이 창은 닫아도 됩니다</div>';
+    var ico=showBtn?'🏸':'✅';
+    var ttl=showBtn?'브라우저에서 열어주세요':'브라우저에서 열렸어요!';
+    var msg=showBtn
+      ?'아래 버튼을 눌러<br>Safari 또는 Chrome에서 열어주세요'
+      :'콕매치 실시간 현황을<br>브라우저에서 보고 계세요 🏸';
     document.open();
     document.write(
       '<!DOCTYPE html><html lang="ko"><head>'
@@ -328,41 +340,35 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
       +'*{margin:0;padding:0;box-sizing:border-box;}'
       +'body{font-family:-apple-system,sans-serif;background:#f4f6fb;'
         +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-        +'min-height:100vh;padding:32px;text-align:center;gap:16px;}'
+        +'min-height:100vh;padding:32px;text-align:center;gap:18px;}'
       +'.ico{font-size:3rem;line-height:1;}'
       +'.ttl{font-size:1.2rem;font-weight:900;color:#1e2430;letter-spacing:-.3px;}'
-      +'.msg{font-size:.92rem;color:#6b7585;line-height:1.7;}'
-      +'.hint{font-size:.78rem;color:#9ea8b8;margin-top:4px;}'
+      +'.msg{font-size:.92rem;color:#6b7585;line-height:1.75;}'
       +'</style></head><body>'
-      +'<div class="ico">✅</div>'
-      +'<div class="ttl">브라우저에서 열렸어요!</div>'
-      +'<div class="msg">콕매치 실시간 현황을<br>Safari에서 보고 계세요 🏸</div>'
-      +'<div class="hint">이 창은 닫아도 됩니다</div>'
+      +'<div class="ico">'+ico+'</div>'
+      +'<div class="ttl">'+ttl+'</div>'
+      +'<div class="msg">'+msg+'</div>'
+      +btnHtml
       +'</body></html>'
     );
     document.close();
   }
 
   if(isIOS && isKakao){
-    // 카카오 공식 외부브라우저 스킴
+    // 카카오 iOS: 공식 외부브라우저 스킴 자동실행 → 완료화면
     location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);
-    // 300ms 후 인앱 화면 교체 (스킴이 처리되고 난 뒤)
-    setTimeout(replaceWithDonePage, 300);
-  } else if(isIOS){
-    const a=document.createElement('a');
-    a.href=url; a.target='_blank'; a.rel='noopener';
-    const run=()=>{ document.body.appendChild(a); try{a.click();}catch(e){} };
-    document.body?run():document.addEventListener('DOMContentLoaded',run);
-    setTimeout(replaceWithDonePage, 300);
+    setTimeout(function(){ makeDonePage(false); }, 300);
   } else if(isAndroid){
+    // Android 전체(카카오·밴드·네이버): Chrome intent 자동실행 → 완료화면
     location.href='intent://'+url.replace(/^https?:\/\//,'')
       +'#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end';
-    setTimeout(replaceWithDonePage, 400);
+    setTimeout(function(){ makeDonePage(false); }, 400);
   } else {
-    // 기타: 바로 완료 페이지로
-    setTimeout(replaceWithDonePage, 100);
+    // 밴드·네이버 등 iOS WKWebView: 자동탈출 불가 → 버튼 제공
+    makeDonePage(true);
   }
 })();
+
 
 
 
