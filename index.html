@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.6  (2026-06)
+     APP VERSION: 1.10.7  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.6">
+<meta name="app-version" content="1.10.7">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1673,7 +1673,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.6';
+const APP_VERSION = '1.10.7';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3163,8 +3163,12 @@ function _buildLiveState(){
     if(cur===null && !byR[r].every(idx=>_isMatchDone(idx))) cur=r;
   });
   const bn2=teamNames.blue||'청 팀', wn2=teamNames.white||'홍 팀';
+  // 팀원 명단 (뷰어에서 팀원 리스트 표시용)
+  const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>p.name||''):[];
+  const membersRed=isTeam?(teamAssignment?.white||[]).map(p=>p.name||''):[];
   return {
     title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
+    members: {blue:membersBlue, red:membersRed},
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
     blueWins:bW||0, whiteWins:wW||0,
     currentRound: (cur==null?0:cur), matches,
@@ -3187,6 +3191,7 @@ async function startLiveBroadcast(){
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
   const url=base+'view.html?id='+_liveId;
+  try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
   _updateLiveUI();
   // 공유 또는 복사
   const text='🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+url;
@@ -3195,6 +3200,42 @@ async function startLiveBroadcast(){
     else if(navigator.clipboard){ await navigator.clipboard.writeText(url); alert('실시간 링크를 복사했어요!\n단톡방에 붙여넣기 하세요.\n\n'+url); }
     else { prompt('이 링크를 공유하세요:', url); }
   }catch(e){ if(e.name!=='AbortError'){ prompt('이 링크를 공유하세요:', url); } }
+}
+
+/* 앱 재시작 시 중계 자동 재연결 */
+async function _tryResumeLive(){
+  if(_liveOn) return; // 이미 중계 중
+  const savedId=localStorage.getItem('badminton_liveId');
+  if(!savedId) return;
+  if(!_fbInit()) return;
+  try{
+    const snap=await _fbDb.ref('live/'+savedId).once('value');
+    if(!snap.exists()){
+      localStorage.removeItem('badminton_liveId');
+      return;
+    }
+    const data=snap.val();
+    const age=Date.now()-(data.updatedAt||0);
+    // 48시간 초과 or 데이터 없으면 무시
+    if(age>48*60*60*1000){ localStorage.removeItem('badminton_liveId'); return; }
+    // 사용자에게 확인
+    const mins=Math.floor(age/60000);
+    const timeStr=mins<60?`${mins}분 전`:`${Math.floor(mins/60)}시간 ${mins%60}분 전`;
+    if(confirm(`📡 실시간 중계가 ${timeStr}에 끊겼어요.
+
+이어서 중계를 재개할까요?`)){
+      _liveId=savedId;
+      _liveOn=true;
+      _updateLiveUI();
+      await pushLiveState(); // 현재 상태로 즉시 업데이트
+      const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+      const url=base+'view.html?id='+_liveId;
+      alert(`✅ 중계 재개됐어요!
+링크: ${url}`);
+    } else {
+      localStorage.removeItem('badminton_liveId');
+    }
+  }catch(e){ /* 재연결 실패는 조용히 무시 */ }
 }
 
 /* 오래된 실시간 데이터 자동 정리: updatedAt이 48시간 지난 중계 노드 삭제.
@@ -3227,6 +3268,7 @@ async function stopLiveBroadcast(){
   if(!_liveId || !_fbDb){ _liveOn=false; _updateLiveUI(); return; }
   if(!confirm('실시간 중계를 종료할까요?\n링크로 접속한 사람들이 더 이상 볼 수 없게 됩니다.')) return;
   try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
+  localStorage.removeItem('badminton_liveId');
   _liveOn=false; _liveId=null; _updateLiveUI();
   alert('실시간 중계를 종료했어요.');
 }
@@ -4307,6 +4349,10 @@ function saveState(){
     lockedBeforeRound:_lockedBeforeRound,
     pointSystem:_pointSystem
   };
+  // 실시간 중계 ID 저장 (앱 종료 후 재시작 시 자동 재연결용)
+  if(_liveId) {
+    try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
+  }
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));setSaveStatus('saved');}
   catch(e){setSaveStatus('','⚠ 저장 실패');}
 }
@@ -4434,6 +4480,8 @@ function restoreState(){
       if(mb) mb.classList.add('hidden');
       setSaveStatus('saved');
       document.getElementById('resultArea').scrollIntoView({behavior:'smooth',block:'start'});
+      // 중계 자동 재연결: 저장된 liveId가 있으면 Firebase 확인 후 재개
+      _tryResumeLive();
     },100);
   }catch(e){alert('복원 중 오류: '+e.message);console.error(e);}
 }
