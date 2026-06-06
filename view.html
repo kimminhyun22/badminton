@@ -77,11 +77,31 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .roster-btn.t1side{border-color:#b3cef7;color:#4a78d6;background:#eaf1fe;}
 .roster-btn.t2side{border-color:#f7c3c2;color:#d84f4a;background:#fdf0f0;}
 .roster-panel{background:var(--sur);border:1.5px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
-.roster-panel-title{font-size:.72rem;font-weight:800;color:var(--dim);margin-bottom:6px;letter-spacing:.5px;}
-.roster-names{font-size:.86rem;font-weight:600;color:var(--txt);line-height:1.8;}
-.roster-dot-b{color:#5b8def;font-size:.6rem;}
-.roster-dot-r{color:#d84f4a;font-size:.6rem;}
+.roster-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.roster-panel-title{font-size:.78rem;font-weight:800;color:var(--dim);letter-spacing:.5px;}
+.roster-sort-btns{display:flex;gap:4px;}
+.rsort-btn{font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:700;padding:3px 9px;border:1.5px solid var(--bdr);border-radius:6px;background:var(--sur2);color:var(--dim);cursor:pointer;}
+.rsort-btn.active{background:var(--bl);color:#fff;border-color:var(--bl);}
+.roster-names{font-size:.86rem;line-height:1.3;}
+.roster-row{display:flex;align-items:center;gap:7px;padding:6px 2px;border-bottom:1px solid var(--bdr);}
+.roster-row:last-child,.roster-divider+.roster-row{border-bottom:none;}
+.roster-gender{font-size:.82rem;font-weight:900;min-width:18px;text-align:center;}
+.roster-m{color:#5b8def;}
+.roster-f{color:#e8736f;}
+.roster-name{flex:1;font-size:.92rem;font-weight:700;color:var(--txt);}
+.roster-lv{font-size:.72rem;font-weight:800;color:var(--dim);background:var(--sur2);border:1px solid var(--bdr);border-radius:5px;padding:2px 7px;white-space:nowrap;}
+.roster-divider{height:1px;background:var(--bdr2);margin:5px 0;}
+.roster-dot-b{color:#5b8def;font-size:.7rem;}
+.roster-dot-r{color:#d84f4a;font-size:.7rem;}
 .briefing{background:linear-gradient(135deg,#f0f6ff,#f8f0ff);border:1.5px solid #d4e2fc;border-radius:16px;padding:16px;margin-bottom:14px;}
+.brief-says{margin-top:10px;border-top:1px solid var(--bdr);padding-top:10px;display:flex;flex-direction:column;gap:6px;}
+.brief-say{font-size:.78rem;font-weight:600;color:var(--txt);line-height:1.5;padding:7px 10px;border-radius:8px;}
+.brief-say.t1side{background:#eaf1fe;border-left:3px solid #5b8def;}
+.brief-say.t2side{background:#fdf0f0;border-left:3px solid #e8736f;}
+/* 명언 카드 */
+.quote-card{background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:14px;padding:14px 18px;margin-bottom:14px;text-align:center;border:1px solid rgba(255,255,255,.08);}
+.quote-text{font-size:.88rem;font-weight:700;color:#e8e8ff;line-height:1.6;letter-spacing:-.2px;}
+.quote-src{font-size:.66rem;color:rgba(255,255,255,.4);margin-top:6px;}
 .brief-title{font-size:.7rem;font-weight:800;color:var(--dim);letter-spacing:1.5px;margin-bottom:8px;}
 .brief-situation{font-size:1.1rem;font-weight:900;color:var(--txt);margin-bottom:10px;letter-spacing:-.3px;}
 .brief-row{font-size:.82rem;font-weight:600;color:var(--txt);padding:4px 0;display:flex;align-items:center;gap:6px;}
@@ -110,7 +130,31 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .round-badge{font-weight:900;font-size:.86rem;letter-spacing:1px;padding:5px 16px;border-radius:8px;background:var(--sur2);color:var(--dim);border:1px solid var(--bdr);}
 .round.cur .round-badge{background:#d84f4a;color:#fff;border-color:#d84f4a;box-shadow:0 2px 8px rgba(216,79,74,.3);}
 .now{font-size:.68rem;font-weight:800;color:#fff;background:#d84f4a;border-radius:999px;padding:3px 11px;animation:pulse 1.4s ease-in-out infinite;letter-spacing:.3px;}
-.round.cur{background:rgba(216,79,74,.04);border-radius:14px;padding:12px 10px;margin-left:-10px;margin-right:-10px;border:1.5px solid rgba(216,79,74,.18);}
+/* 진행 중 라운드 네온 프레임 */
+.round.cur{border-radius:16px;padding:14px 12px;margin-left:-12px;margin-right:-12px;
+  background:rgba(20,20,35,.92);
+  border:2px solid #ff4d6d;
+  box-shadow:0 0 18px rgba(255,77,109,.55), inset 0 0 18px rgba(255,77,109,.08);
+  animation:neonPulse 2s ease-in-out infinite;}
+@keyframes neonPulse{
+  0%,100%{box-shadow:0 0 14px rgba(255,77,109,.5), inset 0 0 14px rgba(255,77,109,.06);}
+  50%{box-shadow:0 0 28px rgba(255,77,109,.9), 0 0 50px rgba(255,77,109,.3), inset 0 0 20px rgba(255,77,109,.12);}
+}
+.round.cur .round-badge{background:#ff4d6d;color:#fff;border-color:#ff4d6d;
+  box-shadow:0 0 10px rgba(255,77,109,.8);
+  text-shadow:0 0 8px rgba(255,255,255,.6);}
+.round.cur .now{background:#ff4d6d;box-shadow:0 0 8px rgba(255,77,109,.7);}
+.round.cur .m-player{color:#fff!important;text-shadow:0 1px 4px rgba(0,0,0,.4);}
+.round.cur .m-court{color:#fff;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);}
+.round.cur .m-type{opacity:.9;}
+.round.cur .match{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);}
+.round.cur .m-team-label{color:rgba(255,255,255,.7)!important;}
+.round.cur .m-grade{color:rgba(255,255,255,.55)!important;}
+.round.cur .m-team.t1side{background:rgba(91,141,239,.25)!important;border:1px solid rgba(91,141,239,.4);}
+.round.cur .m-team.t2side{background:rgba(216,79,74,.25)!important;border:1px solid rgba(216,79,74,.4);}
+.round.cur .m-vs{color:rgba(255,255,255,.5)!important;}
+.round.cur .round-line{background:rgba(255,77,109,.35);}
+.round.cur .m-court-label{color:rgba(255,255,255,.7);}
 .round-line{flex:1;height:1.5px;background:var(--bdr);}
 /* 경기 카드 */
 .match{background:var(--sur);border:1px solid var(--bdr);border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(45,55,75,.06);}
@@ -123,7 +167,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .m-type.men{background:var(--men-soft);color:var(--bl-deep);}
 .m-type.mixed{background:var(--mixed-soft);color:#7d68b0;}
 /* 코트 번호 크고 선명하게 */
-.m-court{font-size:.9rem;font-weight:900;color:var(--txt);background:var(--sur2);border:1.5px solid var(--bdr2);border-radius:8px;padding:3px 12px;letter-spacing:.5px;}
+.m-court{font-size:1rem;font-weight:900;color:var(--txt);background:var(--sur2);border:2px solid var(--bdr2);border-radius:8px;padding:4px 14px;letter-spacing:.5px;min-width:60px;text-align:center;}
 .m-body{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
 /* 청팀/홍팀 배경색 */
 .m-team{padding:10px;border-radius:10px;background:#eaf1fe;}
@@ -132,11 +176,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .m-team.t1side.win{background:#d6e8ff;border-color:#5b8def;}
 .m-team.t2side.win{background:#fddcdb;border-color:#d84f4a;}
 .m-team.win .m-player{opacity:.82;}
-.m-player{font-size:.92rem;font-weight:700;line-height:1.6;}
+.m-player{font-size:1.08rem;font-weight:900;line-height:1.7;letter-spacing:-.3px;}
 .m-grade{font-size:.7rem;color:var(--dim2);font-weight:500;}
 .m-vs{font-size:.72rem;font-weight:700;color:var(--dim2);text-align:center;}
 /* 팀 라벨 (청/홍) */
-.m-team-label{font-size:.62rem;font-weight:800;letter-spacing:.5px;margin-bottom:4px;opacity:.7;}
+.m-team-label{font-size:.7rem;font-weight:900;letter-spacing:.8px;margin-bottom:5px;opacity:.85;text-transform:uppercase;}
 .m-team.t1side .m-team-label{color:#4a78d6;}
 .m-team.t2side .m-team-label{color:#d84f4a;}
 .m-team{position:relative;overflow:hidden;}
@@ -296,6 +340,40 @@ function buildStreaks(matches){
 }
 
 /* AI 브리핑: 청/홍팀 현황 요약 */
+/* 명언 + 팀 한마디 */
+const _QUOTES=[
+  {t:'지금 이기고 있는 자, 방심은 패배의 시작이다.',s:'승자의 경고'},
+  {t:'오늘 너희가 기억하게 될 건, 우리가 얼마나 강했는지다.',s:'승자의 여유'},
+  {t:'한 번 더 해봐. 결과는 바뀌지 않을 테니까.',s:'완벽한 자신감'},
+  {t:'패배를 인정하는 순간, 그게 진짜 패배다.',s:'불굴의 정신'},
+  {t:'강한 자가 이기는 게 아니라, 이기는 자가 강한 거다.',s:'승리의 정의'},
+  {t:'져도 괜찮아. 어차피 오늘 네 상대는 나니까.',s:'오만방자 모드'},
+  {t:'셔틀콕은 거짓말 안 해. 실력이 다야.',s:'현실 직시'},
+  {t:'죄송합니다, 오늘 실력 낭비 좀 하겠습니다.',s:'겸손한 척 자신감'},
+  {t:'뭔가 잘못됐어. 나한테 너무 유리한 것 같은데?',s:'상황 파악 완료'},
+  {t:'지는 것도 실력이다. 그 실력, 오늘 맘껏 발휘해.',s:'독설가의 응원'},
+  {t:'오늘 내가 얼마나 착한지 봐봐 — 점수 드릴게.',s:'귀족 플레이'},
+  {t:'배드민턴은 마음이 이기는 스포츠다. 내 마음 상태? 최고.',s:'멘탈 갑'},
+  {t:'이미 이겼다고 생각하는 팀이 결국 진다.',s:'역전의 교훈'},
+];
+function _getQuote(matches){
+  const done=matches.filter(m=>m.win).length;
+  return _QUOTES[(done+Math.floor(Date.now()/300000))%_QUOTES.length];
+}
+function _getTeamLine(team,diff,rec,top){
+  const lines={
+    blue:{ahead:['앞서고 있지만 끝날 때까지 끝난 게 아니다. 더 밀어붙인다.','지금 이 흐름, 절대 놓치지 않겠다.','청팀, 오늘 진짜 압도적이다.'],
+          behind:['지금 지고 있어도 포기 없다. 역전은 지금부터.','한 게임 한 게임이 전부다. 집중.','청팀 절대 무너지지 않는다. 두고 봐.'],
+          even:['동점이다. 지금 이 순간이 승부처.','타이 게임, 멘탈 강한 팀이 이긴다.','팽팽하다. 한 발만 더.']},
+    red:{ahead:['리드는 리드일 뿐. 끝까지 집중.','홍팀의 기세, 오늘 꺾이지 않는다.','오늘 승리는 이미 정해졌다.'],
+         behind:['뒤집어야 한다. 지금 당장.','이 상황이 오히려 편하다. 잃을 게 없다.','홍팀의 역전 드라마, 지금 시작한다.'],
+         even:['동점 상황, 홍팀이 더 강하다는 거 보여줄 시간.','타이. 지금부터 진짜 시작.','빡빡하게 가자. 한 점 한 점이 전부.']}
+  };
+  const bucket=diff>0?'ahead':diff<0?'behind':'even';
+  const arr=lines[team][bucket];
+  return arr[Math.floor(Date.now()/600000)%arr.length];
+}
+
 function buildBriefing(matches, d){
   if(!d.isTeam) return '';
   const bW=d.blueWins||0, wW=d.whiteWins||0;
@@ -350,12 +428,24 @@ function buildBriefing(matches, d){
   if(bTop) bLine+=` · 에이스 ${esc(bTop.name)} ${bTop.w}승`;
   if(rTop) rLine+=` · 에이스 ${esc(rTop.name)} ${rTop.w}승`;
 
+  const bDiff=bW-wW, rDiff=wW-bW;
+  const bSay=_getTeamLine('blue',bDiff,bRec,bTop?bTop.name:null);
+  const rSay=_getTeamLine('red',rDiff,rRec,rTop?rTop.name:null);
+  const q=_getQuote(matches);
   return '<div class="briefing">'
     +'<div class="brief-title">📢 지금 현황</div>'
     +'<div class="brief-situation">'+situation+'</div>'
     +'<div class="brief-row brief-row-b"><span class="brief-dot-b">●</span>'+bLine+'</div>'
     +'<div class="brief-row brief-row-r"><span class="brief-dot-r">●</span>'+rLine+'</div>'
     +'<div class="brief-momentum">'+momentum+'</div>'
+    +'<div class="brief-says">'
+      +'<div class="brief-say t1side">🔵 '+esc(d.teamBlue||'청팀')+' 한마디 — "'+bSay+'"</div>'
+      +'<div class="brief-say t2side">🔴 '+esc(d.teamWhite||'홍팀')+' 한마디 — "'+rSay+'"</div>'
+    +'</div>'
+    +'</div>'
+    +'<div class="quote-card">'
+      +'<div class="quote-text">"'+q.t+'"</div>'
+      +'<div class="quote-src">— '+q.s+'</div>'
     +'</div>';
 }
 
@@ -478,20 +568,33 @@ function render(d){
   // 팀원 명단 버튼 (팀전이고 members 데이터 있을 때)
   if(d.isTeam && d.members && (d.members.blue||[]).length){
     const bn=esc(d.teamBlue||'청팀'), wn=esc(d.teamWhite||'홍팀');
-    const bList=(d.members.blue||[]).map(n=>esc(n)).join(' · ');
-    const wList=(d.members.red||[]).map(n=>esc(n)).join(' · ');
+    // 명단: 성별구분 + 급수 + 이름/급수 정렬
+    const _mkRoster=(list,sortBy)=>{
+      const arr=(list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x);
+      const males=[...arr].filter(p=>p.g==='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
+      const females=[...arr].filter(p=>p.g!=='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
+      const row=p=>'<div class="roster-row"><span class="roster-gender '+(p.g==='M'?'roster-m':'roster-f')+'">'+(p.g==='M'?'♂':'♀')+'</span><span class="roster-name">'+esc(p.n)+'</span><span class="roster-lv">Lv'+p.l+'</span></div>';
+      return males.map(row).join('')+(males.length&&females.length?'<div class="roster-divider"></div>':'')+females.map(row).join('');
+    };
+    window._rosterData=d.members;
     html+='<div class="roster-bar">'
-      +'<button class="roster-btn t1side" onclick="toggleRoster(\'blue\')">'
-        +'<span class="roster-dot-b">●</span> '+bn+' 명단</button>'
-      +'<button class="roster-btn t2side" onclick="toggleRoster(\'red\')">'
-        +'<span class="roster-dot-r">●</span> '+wn+' 명단</button>'
+      +'<button class="roster-btn t1side" onclick="toggleRoster(\'blue\')">'+'<span class="roster-dot-b">●</span> '+bn+' 명단</button>'
+      +'<button class="roster-btn t2side" onclick="toggleRoster(\'red\')">'+'<span class="roster-dot-r">●</span> '+wn+' 명단</button>'
       +'</div>'
       +'<div class="roster-panel" id="roster-blue" style="display:none">'
-        +'<div class="roster-panel-title"><span class="brief-dot-b">●</span> '+bn+'</div>'
-        +'<div class="roster-names">'+bList+'</div></div>'
+        +'<div class="roster-panel-head"><div class="roster-panel-title"><span class="roster-dot-b">●</span> '+bn+'</div>'
+        +'<div class="roster-sort-btns">'
+          +'<button class="rsort-btn active" onclick="rosterSort(\'blue\',\'level\',this)">급수순</button>'
+          +'<button class="rsort-btn" onclick="rosterSort(\'blue\',\'name\',this)">이름순</button>'
+        +'</div></div>'
+        +'<div class="roster-names" id="roster-names-blue">'+_mkRoster(d.members.blue,'level')+'</div></div>'
       +'<div class="roster-panel" id="roster-red" style="display:none">'
-        +'<div class="roster-panel-title"><span class="brief-dot-r">●</span> '+wn+'</div>'
-        +'<div class="roster-names">'+wList+'</div></div>';
+        +'<div class="roster-panel-head"><div class="roster-panel-title"><span class="roster-dot-r">●</span> '+wn+'</div>'
+        +'<div class="roster-sort-btns">'
+          +'<button class="rsort-btn active" onclick="rosterSort(\'red\',\'level\',this)">급수순</button>'
+          +'<button class="rsort-btn" onclick="rosterSort(\'red\',\'name\',this)">이름순</button>'
+        +'</div></div>'
+        +'<div class="roster-names" id="roster-names-red">'+_mkRoster(d.members.red,'level')+'</div></div>';
   }
 
   // 팀 스코어 (팀전일 때)
@@ -565,6 +668,21 @@ function toggleRoster(team){
   const el=document.getElementById('roster-'+team);
   if(!el) return;
   el.style.display=el.style.display==='none'?'block':'none';
+}
+
+function rosterSort(team,sortBy,btn){
+  if(!window._rosterData) return;
+  const list=window._rosterData[team==='blue'?'blue':'red']||[];
+  const arr=(list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x);
+  const males=[...arr].filter(p=>p.g==='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
+  const females=[...arr].filter(p=>p.g!=='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
+  const row=p=>'<div class="roster-row"><span class="roster-gender '+(p.g==='M'?'roster-m':'roster-f')+'">'+(p.g==='M'?'♂':'♀')+'</span><span class="roster-name">'+p.n+'</span><span class="roster-lv">Lv'+p.l+'</span></div>';
+  const html=males.map(row).join('')+(males.length&&females.length?'<div class="roster-divider"></div>':'')+females.map(row).join('');
+  const el=document.getElementById('roster-names-'+team);
+  if(el) el.innerHTML=html;
+  // 버튼 active 상태
+  const wrap=btn.closest('.roster-sort-btns');
+  if(wrap) wrap.querySelectorAll('.rsort-btn').forEach(b=>b.classList.toggle('active',b===btn));
 }
 
 function jumpToCurrent(){
