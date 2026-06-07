@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.16  (2026-06)
+     APP VERSION: 1.10.17  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.16">
+<meta name="app-version" content="1.10.17">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1481,9 +1481,13 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
         <input id="cpNewName" placeholder="이름" maxlength="8">
         <select id="cpNewGrade">
           <option value="E">E</option><option value="D">D</option>
-          <option value="C" selected>C</option><option value="B">B</option><option value="A">A</option>
+          <option value="C" selected>C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option>
         </select>
         <select id="cpNewGender"><option value="남">남</option><option value="여">여</option></select>
+        <select id="cpNewAge">
+          <option value="20대">20대</option><option value="30대">30대</option>
+          <option value="40대" selected>40대</option><option value="50대">50대</option><option value="60대+">60대+</option>
+        </select>
         <select id="cpNewTeam" style="display:none;">
           <option value="">팀없음</option><option value="청팀">청팀</option><option value="홍팀">홍팀</option>
         </select>
@@ -1746,7 +1750,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.16';
+const APP_VERSION = '1.10.17';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5053,7 +5057,7 @@ function _cpRenderPlayerList(){
     const teamBadge=isTeam?` · <span style="color:${p.team==='청팀'?'var(--bl)':'var(--dim)'}">${p.team||'미배정'}</span>`:'';
     return `<div class="cp-player-row">
       <div class="cp-player-name">${esc(p.name)}</div>
-      <div class="cp-player-meta"><span>${LV_LABEL[p.level]||p.level}</span><span>${p.gender==='M'?'남':'여'}</span>${teamBadge}</div>
+      <div class="cp-player-meta"><span>${p.grade||LV_LABEL[p.level]||p.level}</span><span>${p.gender==='M'?'남':'여'}</span><span>${p.ageGroup||'40대'}</span>${teamBadge}</div>
       ${gDone>0?`<span class="cp-done-badge">완료 ${gDone}G</span>`:''}
       <button class="cp-excl-btn${excl?' excluded':''}" data-pname="${esc(p.name)}" onclick="cpToggleExclude(this.dataset.pname)">${excl?'✕ 제외중':'제외'}</button>
     </div>`;
@@ -5073,10 +5077,11 @@ function cpAddNewPlayer(){
   }
   const grade=document.getElementById('cpNewGrade').value;
   const gender=document.getElementById('cpNewGender').value;
+  const ageGroup=document.getElementById('cpNewAge').value;
   const team=currentSettings.teamMode?document.getElementById('cpNewTeam').value:'';
   const _lvRaw=gradeToLevel(grade,gender);
   const level=(_lvRaw!==null&&_lvRaw!==undefined)?_lvRaw:1;
-  _cpNewPlayers.push({name,grade,level,gender,team});
+  _cpNewPlayers.push({name,grade,level,gender,ageGroup,team});
   document.getElementById('cpNewName').value='';
   _cpRenderNewList();_cpUpdateSummary();
 }
@@ -5089,7 +5094,7 @@ function _cpRenderNewList(){
   el.innerHTML=_cpNewPlayers.map((p,i)=>
     `<div class="cp-new-row">
       <span style="flex:1;">${esc(p.name)}</span>
-      <span style="color:var(--dim);font-size:.71rem;">${p.grade}급 · ${p.gender}${p.team?' · '+p.team:''}</span>
+      <span style="color:var(--dim);font-size:.71rem;">${p.grade}급 · ${p.gender} · ${p.ageGroup||'40대'}${p.team?' · '+p.team:''}</span>
       <button class="cp-rm-btn" onclick="cpRemoveNew(${i})">✕</button>
     </div>`
   ).join('');
