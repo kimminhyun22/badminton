@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.32  (2026-06)
+     APP VERSION: 1.10.33  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.32">
+<meta name="app-version" content="1.10.33">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -225,9 +225,10 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .qd-row-good{background:rgba(16,185,129,.05);}.qd-row-warn{background:rgba(245,158,11,.07);}.qd-row-bad{background:rgba(239,68,68,.07);}
 .qd-hint{padding:8px 14px;border-top:1px solid var(--bdr);font-size:.74rem;color:#b05a10;background:#fff8f0;}
 .qd-footer{padding:10px 14px 12px;border-top:1px solid var(--bdr);}
-.btn-undo{background:var(--bg2,#f5f5f7);color:var(--txt2);border:1px solid var(--bdr);border-radius:10px;cursor:pointer;transition:background .15s;}
+.btn-undo{background:var(--bg2,#f5f5f7);color:var(--txt2);border:1px solid var(--bdr);border-radius:10px;cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:rgba(0,0,0,.08);user-select:none;touch-action:manipulation;}
 .btn-undo:hover:not(:disabled){background:var(--bdr);}
-.btn-undo:disabled{cursor:default;}
+.btn-undo:active:not(:disabled){background:var(--bdr);transform:scale(.97);}
+.btn-undo:disabled{cursor:default;pointer-events:none;}
 .stat-pill b{color:var(--txt);}
 
 /* ── TABS ── */
@@ -1363,7 +1364,10 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
             🔀 다시 배정하기
           </button>
 
-          <button class="btn btn-gen" onclick="generate()">🎯 대진표 생성</button>
+          <div style="display:flex;gap:8px;align-items:stretch;">
+            <button class="btn btn-gen" style="flex:1;" onclick="generate()">🎯 대진표 생성</button>
+            <button id="undoBtnMain" class="btn btn-undo" style="padding:10px 12px;font-size:.82rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩</button>
+          </div>
           <div class="btn-row">
             <button class="btn btn-ghost btn-sm" onclick="resetAll()">✕ 전체 초기화</button>
           </div>
@@ -1754,7 +1758,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.32';
+const APP_VERSION = '1.10.33';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1819,12 +1823,16 @@ function _captureUndoSnapshot(label){
 }
 
 function _updateUndoBtn(){
-  const btn=document.getElementById('undoBtn');
-  if(!btn) return;
-  const canUndo=_undoStack.length>0;
-  btn.disabled=!canUndo;
-  btn.title=canUndo?'되돌리기: '+_undoStack[_undoStack.length-1].label:'되돌릴 내역 없음';
-  btn.style.opacity=canUndo?'1':'0.4';
+  const label=_undoStack.length>0?_undoStack[_undoStack.length-1].label:null;
+  ['undoBtn','undoBtnMain'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    btn.disabled=!label;
+    btn.title=label?'되돌리기: '+label:'되돌릴 내역 없음';
+    btn.style.opacity=label?'1':'0.4';
+    // undoBtnMain은 텍스트를 짧게 (↩ 아이콘만)
+    // undoBtn은 전체 텍스트 유지
+  });
 }
 
 function undoAction(){
