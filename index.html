@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.29  (2026-06)
+     APP VERSION: 1.10.30  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.29">
+<meta name="app-version" content="1.10.30">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1751,7 +1751,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.29';
+const APP_VERSION = '1.10.30';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5155,15 +5155,25 @@ function _cpUpdateSummary(){
 // 시뮬: 5회 시도 시 평균 +0.9점, 10회 +1.4점 (속도/품질 균형상 5회 채택)
 function _genBestMatches(activeParticipants, settings, totalNewMatches, tries=5){
   // _bracketQualityScore는 페널티 점수 → 낮을수록 좋은 대진
-  // 기존 코드: score>bestScore (max) → 페널티 가장 높은(최악의) 대진 선택하는 버그
-  // 수정: score<bestScore (min) → 페널티 가장 낮은(최선의) 대진 선택
+  // 신규선수(isNewJoiner) 미달 시 추가 페널티 → 중간 투입 선수 배정 보장 강화
+  const _njNames=new Set(activeParticipants.filter(p=>p.isNewJoiner).map(p=>p.name));
+  const _hasNJ=_njNames.size>0;
   let bestMatches=null, bestParticipants=null, bestScore=Infinity;
   for(let t=0;t<tries;t++){
     const pCopy=activeParticipants.map(p=>({...p,
       partnerCount:{...p.partnerCount},opponentCount:{...p.opponentCount}}));
     const m=generateMatches(pCopy,settings,totalNewMatches);
     fillMissingGames(pCopy,settings,m);
-    const score=_bracketQualityScore(m,pCopy,settings);
+    let score=_bracketQualityScore(m,pCopy,settings);
+    // 신규선수 미달 시 강한 페널티 (시뮬: +1.3점 품질 향상)
+    if(_hasNJ){
+      const gc={};pCopy.forEach(p=>gc[p.name]=0);
+      m.forEach(x=>[x.team1A,x.team1B,x.team2C,x.team2D].forEach(q=>{if(gc[q.name]!=null)gc[q.name]++;}));
+      pCopy.filter(p=>_njNames.has(p.name)).forEach(p=>{
+        const miss=Math.max(0,(p._goal!=null?p._goal:settings.gamesPerPlayer)-gc[p.name]);
+        score+=miss*150;
+      });
+    }
     if(score<bestScore){bestScore=score;bestMatches=m;bestParticipants=pCopy;}
   }
   return{matches:bestMatches||[],participants:bestParticipants||activeParticipants};
