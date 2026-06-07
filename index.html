@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.23  (2026-06)
+     APP VERSION: 1.10.24  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.23">
+<meta name="app-version" content="1.10.24">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1750,7 +1750,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.23';
+const APP_VERSION = '1.10.24';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2469,6 +2469,11 @@ function generateMatches(participants,settings,totalMatches){
         // 중간 투입 신규선수 및 출전 적은 선수가 먼저 배정되도록 보장
         avail.sort((a,b)=>a.gamesPlayed-b.gamesPlayed);
 
+        // 신규선수 우선 코트: avail에 신규선수(미출전 or 게임수 적음)가 있으면
+        // 이 코트를 'any' 먼저 시도 → 신규선수 포함 조합 우선 생성
+        // 혼복 비율은 나머지 코트에서 보전
+        const hasNewInAvail=avail.some(p=>p.isNewJoiner&&p.gamesPlayed<(p._goal!=null?p._goal:settings.gamesPerPlayer));
+
         const remX=settings.targetMixedDoubles-mixedCount;
         const remW=settings.targetWomenDoubles-womenCount;
         const remM=settings.targetMenDoubles-menCount;
@@ -2482,6 +2487,11 @@ function generateMatches(participants,settings,totalMatches){
         });
 
         const to=[];
+        // 신규선수가 avail에 있으면 'any'를 먼저 배치 → 신규선수 포함 조합 우선 생성
+        // 혼복 비율은 신규선수 없는 나머지 코트에서 보전됨
+        if(hasNewInAvail){
+          to.push('any');
+        }
         // 파트너 혼복은 remX 제한 무시하고 항상 먼저 시도
         if(hasPartnerMixed) to.push('mixed');
         if(remX>0&&!hasPartnerMixed){
@@ -3037,8 +3047,6 @@ function diversityScore(four,ld){
 
   const games=four.map(p=>p.gamesPlayed);
   // 게임 수 분산 패널티 강화: 8→30 (레벨차 80과 균형 맞춤)
-  // 게임 수 차이 1당 30점 패널티 → 신규(0게임)와 기존(2게임) 차이 2 = 60점
-  // 레벨차 0.5 = 40점보다 크므로 게임균형이 레벨차보다 우선됨
   score+=(Math.max(...games)-Math.min(...games))*30;
 
   // 라운드 간격 패널티 — 목표 간격(_partnerGapThreshold) 기준
