@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.15  (2026-06)
+     APP VERSION: 1.10.16  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.15">
+<meta name="app-version" content="1.10.16">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1746,7 +1746,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.15';
+const APP_VERSION = '1.10.16';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3116,7 +3116,7 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     // 상대 중복: 1회 허용, 2회+만 패널티
     t1.forEach(a=>t2.forEach(b=>{const oc=a.opponentCount[b.name]||0;score+=oc===0?0:oc===1?2:oc===2?15:oc===3?80:1e9;}));
     if(!teamMode&&type==='any'){const f1=t1.filter(p=>p.gender==='F').length,f2=t2.filter(p=>p.gender==='F').length;if(f1===1&&f2===1)score-=50;}
-    if(score<bestScore){bestScore=score;best={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:ld,team1Level:effLevel(t1[0])+effLevel(t1[1]),team2Level:effLevel(t2[0])+effLevel(t2[1])};}
+    if(score<bestScore){bestScore=score;best={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:Math.round(ld*10)/10,team1Level:effLevel(t1[0])+effLevel(t1[1]),team2Level:effLevel(t2[0])+effLevel(t2[1])};}
   }
   if(!best)return null;
   // 팀 모드: team1이 항상 청팀이 되도록 보장
@@ -3849,16 +3849,16 @@ function renderResults(matches,participants,settings){
           <div class="tm-side ${p1cls}">
             <span class="tm-prefix">${p1label}</span>
             <div class="tm-names">
-              <span class="tm-name">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${LV_LABEL[m.team1A.level]}</span></span>
-              <span class="tm-name">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${LV_LABEL[m.team1B.level]}</span></span>
+              <span class="tm-name">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team1A.grade||LV_LABEL[m.team1A.level]}</span></span>
+              <span class="tm-name">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team1B.grade||LV_LABEL[m.team1B.level]}</span></span>
             </div>
           </div>
           <div class="tm-vs">VS</div>
           <div class="tm-side ${p2cls}">
             <span class="tm-prefix">${p2label}</span>
             <div class="tm-names">
-              <span class="tm-name">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${LV_LABEL[m.team2C.level]}</span></span>
-              <span class="tm-name">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${LV_LABEL[m.team2D.level]}</span></span>
+              <span class="tm-name">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team2C.grade||LV_LABEL[m.team2C.level]}</span></span>
+              <span class="tm-name">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team2D.grade||LV_LABEL[m.team2D.level]}</span></span>
             </div>
           </div>
         </div>
@@ -4517,7 +4517,7 @@ function migrateStateIfNeeded(state){
       if(nm.team1A&&nm.team1B) nm.team1Level=effLevel(nm.team1A)+effLevel(nm.team1B);
       if(nm.team2C&&nm.team2D) nm.team2Level=effLevel(nm.team2C)+effLevel(nm.team2D);
       if(nm.team1Level!==undefined&&nm.team2Level!==undefined)
-        nm.levelDiff=Math.abs(nm.team1Level-nm.team2Level);
+        nm.levelDiff=Math.round(Math.abs(nm.team1Level-nm.team2Level)*10)/10;
       return nm;
     });
   }
@@ -4567,8 +4567,8 @@ function saveState(){
     partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
-      blue:teamAssignment.blue.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null})),
-      white:teamAssignment.white.map(p=>({name:p.name,level:p.level,gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null}))
+      blue:teamAssignment.blue.map(p=>({name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null})),
+      white:teamAssignment.white.map(p=>({name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null}))
     }:null,
     matches:currentMatches.map(m=>({
       matchNumber:m.matchNumber,round:m.round,court:m.court,
@@ -4578,7 +4578,7 @@ function saveState(){
       team2C:slim(m.team2C),team2D:slim(m.team2D)
     })),
     participants:currentParticipants.map(p=>({
-      name:p.name,level:p.level,gender:p.gender,team:p.team,
+      name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,
       isGuest:!!p.isGuest,
       gamesPlayed:p.gamesPlayed,
       womenDoublesPlayed:p.womenDoublesPlayed,
@@ -4599,7 +4599,7 @@ function saveState(){
   catch(e){setSaveStatus('','⚠ 저장 실패');}
 }
 
-function slim(p){return{name:p.name,level:p.level,gender:p.gender,team:p.team||'',isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대'};}
+function slim(p){return{name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team||'',isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대'};}
 
 function checkSavedState(){
   try{
@@ -5740,7 +5740,7 @@ function renderDirectPlayerList(){
         :_partnerSelectMode&&!pair
           ?`<button class="dpi-partner-btn" style="border-color:#22c55e;color:#22c55e;" onclick="confirmPartner('${esc(p.name)}')">P선택</button>`
           :!pair?`<button class="dpi-partner-btn" onclick="startPartnerSelect('${esc(p.name)}')">P+</button>`:'';
-    const ageBadge=p.ageGroup&&p.ageGroup!=='40대'?`<span class="age-badge">${p.ageGroup}</span>`:'';
+    const ageBadge=p.ageGroup?`<span class="age-badge">${p.ageGroup}</span>`:`<span class="age-badge">40대</span>`;
     return `<div class="${itemCls}" id="dpi-${p._origIdx}">
       <span class="dpi-name">${esc(p.name)}${gBadge}${pBadge}${ageBadge}</span>
       <span class="dpi-meta">
@@ -5880,7 +5880,7 @@ function renderClubList(){
 
     const mrows=indexed.map((m)=>`<div class="club-member-row">
         <span class="cmr-name">${esc(m.name)}</span>
-        <span class="cmr-meta"><span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender}${m.ageGroup&&m.ageGroup!=='40대'?' · '+m.ageGroup:''} · Lv${m.level}</span>
+        <span class="cmr-meta"><span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender} · ${m.ageGroup||'40대'} · Lv${m.level}</span>
         <button class="cmr-edit" onclick="editMember('${club.id}',${m._origIdx})" title="수정">✏</button>
         <button class="cmr-del" onclick="deleteMember('${club.id}',${m._origIdx})" title="삭제">✕</button>
       </div>`).join('');
