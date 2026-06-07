@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.22  (2026-06)
+     APP VERSION: 1.10.23  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.22">
+<meta name="app-version" content="1.10.23">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1750,7 +1750,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.22';
+const APP_VERSION = '1.10.23';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2931,8 +2931,14 @@ function selectFourTeamMode(pool,gf,maxLD){
 
 function selectFourFreeMode(pool,type,maxLD){
   const minG=pool[0].gamesPlayed;
-  let cands=pool.filter(p=>p.gamesPlayed<=minG+4);
+  // 윈도우를 minG+2로 좁혀 게임 수 적은 선수 우선 보장
+  // 단, 신규선수(isNewJoiner)는 반드시 cands 앞에 고정 포함
+  let cands=pool.filter(p=>p.gamesPlayed<=minG+2);
+  if(cands.length<4)cands=pool.filter(p=>p.gamesPlayed<=minG+4);
   if(cands.length<4)cands=pool.slice(0,20);
+  // 신규선수 강제 포함: cands에 없는 신규선수를 앞에 삽입
+  const newJoiners=pool.filter(p=>p.isNewJoiner&&!cands.includes(p));
+  if(newJoiners.length>0) cands=[...newJoiners,...cands];
   cands=cands.sort((a,b)=>{
     const gd=a.gamesPlayed-b.gamesPlayed;
     if(gd!==0)return gd;
@@ -3030,7 +3036,10 @@ function diversityScore(four,ld){
   let score=(ld||0)*80;
 
   const games=four.map(p=>p.gamesPlayed);
-  score+=(Math.max(...games)-Math.min(...games))*8;
+  // 게임 수 분산 패널티 강화: 8→30 (레벨차 80과 균형 맞춤)
+  // 게임 수 차이 1당 30점 패널티 → 신규(0게임)와 기존(2게임) 차이 2 = 60점
+  // 레벨차 0.5 = 40점보다 크므로 게임균형이 레벨차보다 우선됨
+  score+=(Math.max(...games)-Math.min(...games))*30;
 
   // 라운드 간격 패널티 — 목표 간격(_partnerGapThreshold) 기준
   const tg=_partnerGapThreshold||2;
