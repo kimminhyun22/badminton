@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.21  (2026-06)
+     APP VERSION: 1.10.22  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.21">
+<meta name="app-version" content="1.10.22">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1750,7 +1750,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.21';
+const APP_VERSION = '1.10.22';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2464,6 +2464,10 @@ function generateMatches(participants,settings,totalMatches){
         }
         avail=[...avail,...extraPartners];
         if(avail.length<4)continue;
+
+        // 게임 수 적은 선수 우선 배정: gamesPlayed 오름차순 정렬 (동률은 랜덤 유지)
+        // 중간 투입 신규선수 및 출전 적은 선수가 먼저 배정되도록 보장
+        avail.sort((a,b)=>a.gamesPlayed-b.gamesPlayed);
 
         const remX=settings.targetMixedDoubles-mixedCount;
         const remW=settings.targetWomenDoubles-womenCount;
