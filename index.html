@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.35  (2026-06)
+     APP VERSION: 1.10.36  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.35">
+<meta name="app-version" content="1.10.36">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1758,7 +1758,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.35';
+const APP_VERSION = '1.10.36';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1840,45 +1840,48 @@ function undoAction(){
   _undoInProgress=true;
   try{
     const snap=_undoStack.pop();
-    // 상태 복원
+    // ① 데이터 복원 (UI 이전에 먼저 완료)
     _directPlayers.length=0;
-    snap.directPlayers.forEach(p=>_directPlayers.push(p));
-    teamAssignment=snap.teamAssignment;
-    currentMatches=JSON.parse(JSON.stringify(snap.matches));
-    currentParticipants=JSON.parse(JSON.stringify(snap.participants));
-    currentSettings=JSON.parse(JSON.stringify(snap.settings));
-    _lockedBeforeRound=snap.lockedBeforeRound;
+    (snap.directPlayers||[]).forEach(p=>_directPlayers.push(p));
+    teamAssignment=snap.teamAssignment||null;
+    currentMatches=JSON.parse(JSON.stringify(snap.matches||[]));
+    currentParticipants=JSON.parse(JSON.stringify(snap.participants||[]));
+    currentSettings=JSON.parse(JSON.stringify(snap.settings||{}));
+    _lockedBeforeRound=snap.lockedBeforeRound!=null?snap.lockedBeforeRound:null;
     _pointSystem=snap.pointSystem||25;
     Object.keys(winOverride).forEach(k=>delete winOverride[k]);
     Object.assign(winOverride, snap.winOverride||{});
-    // 설정값 복원
-    if(snap.courtsVal && document.getElementById('courts'))
-      document.getElementById('courts').value=snap.courtsVal;
-    if(snap.gppVal && document.getElementById('gamesPerPlayer'))
-      document.getElementById('gamesPerPlayer').value=snap.gppVal;
-    if(snap.mixedDblVal && document.getElementById('mixedDbl'))
-      document.getElementById('mixedDbl').value=snap.mixedDblVal;
-    // UI 렌더링
-    renderDirectPlayerList();
-    if(teamAssignment) renderTeamList();
+    // ② 설정 입력값 복원
+    const _setVal=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
+    _setVal('courts',snap.courtsVal);
+    _setVal('gamesPerPlayer',snap.gppVal);
+    _setVal('mixedDbl',snap.mixedDblVal);
+    // ③ UI 렌더링 (각각 try-catch로 보호)
+    try{renderDirectPlayerList();}catch(e){console.warn('undo:renderDirectPlayerList',e);}
+    try{if(teamAssignment) renderTeamList();}catch(e){console.warn('undo:renderTeamList',e);}
     if(currentMatches.length){
-      renderResults(currentMatches,currentParticipants,currentSettings);
-      show('resultArea');
+      try{
+        renderResults(currentMatches,currentParticipants,currentSettings);
+        show('resultArea');
+      }catch(e){console.warn('undo:renderResults',e);}
       setTimeout(()=>{
-        // 점수 복원
-        snap.scores.forEach((sc,i)=>{
-          const s1=document.getElementById('s1_'+i);
-          const s2=document.getElementById('s2_'+i);
-          if(s1) s1.value=sc.s1||'';
-          if(s2) s2.value=sc.s2||'';
-        });
-        updateScores();
-        scheduleSave();
+        try{
+          (snap.scores||[]).forEach((sc,i)=>{
+            const s1=document.getElementById('s1_'+i);
+            const s2=document.getElementById('s2_'+i);
+            if(s1) s1.value=sc.s1||'';
+            if(s2) s2.value=sc.s2||'';
+          });
+          updateScores();
+          scheduleSave();
+        }catch(e){console.warn('undo:scores',e);}
       },100);
     }
-    // 토스트 메시지
-    _showUndoToast(snap.label);
+    _showUndoToast(snap.label||'변경');
     setSaveStatus('saving');
+  } catch(e){
+    console.error('undoAction 오류:', e);
+    alert('되돌리기 오류: '+e.message);
   } finally {
     _undoInProgress=false;
     _updateUndoBtn();
