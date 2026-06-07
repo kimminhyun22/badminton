@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.26  (2026-06)
+     APP VERSION: 1.10.27  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.26">
+<meta name="app-version" content="1.10.27">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1751,7 +1751,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.26';
+const APP_VERSION = '1.10.27';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5341,9 +5341,16 @@ function executeChangeModal(){
     : (completedMatches.length?Math.max(...completedMatches.map(m=>m.round)):0);
   // 잔여율 = 남은 라운드 / 전체 라운드
   const remainRatio=totalRounds>0?Math.max(0,(totalRounds-doneRoundMax)/totalRounds):1;
-  // 신규 선수 게임수 = 올림(잔여율 × 목표), 최소 1 최대 target
-  // 신규선수 목표: 잔여율 기반이되 최소 target-1 보장 (너무 낮아지면 출전균형 손실)
-  const newJoinerGames=Math.min(target,Math.max(target-1,Math.ceil(remainRatio*target)));
+  // 신규선수 목표게임 = D공식: 잔여율 기반 vs 코트슬롯 기반 중 보수적(작은) 값, 최소 1
+  // - 잔여율 기반: ceil(잔여율 × target)
+  // - 코트슬롯 기반: round((남은라운드 × 코트수 × 4) / 전체선수수)
+  //   → 남은 슬롯을 전체 선수에게 공정 분배 시 신규선수 몫
+  // 시뮬 결과: R6+ 투입 시 보완게임 5→2~3개, 초과인원 0으로 감소
+  const _remRounds=totalRounds-doneRoundMax;
+  const _courts=currentSettings.courts||3;
+  const _nPlayers=(currentParticipants.length||20)+_cpNewPlayers.length;
+  const _slotFair=_nPlayers>0?Math.round(_remRounds*_courts*4/_nPlayers):target;
+  const newJoinerGames=Math.min(target,Math.max(1,Math.min(Math.ceil(remainRatio*target),_slotFair)));
 
   const _hist3=_buildHistoryFromMatches(completedMatches);
   const activeParticipants=[];
