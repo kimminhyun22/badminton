@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.20  (2026-06)
+     APP VERSION: 1.10.21  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.20">
+<meta name="app-version" content="1.10.21">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1750,7 +1750,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.20';
+const APP_VERSION = '1.10.21';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5118,6 +5118,26 @@ function _cpUpdateSummary(){
     `재배정 선수 ${activeCount}명 · 예상 ${newMatchCount}게임`;
 }
 
+/* ═══ 완료 게임에서 대진 기록(상대/파트너) 역산 헬퍼 ═══ */
+function _buildHistoryFromMatches(completedMatches){
+  const hist={};
+  const _inc=(obj,key)=>{obj[key]=(obj[key]||0)+1;};
+  completedMatches.forEach(m=>{
+    [m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
+      if(!hist[p.name])hist[p.name]={partnerCount:{},opponentCount:{}};
+    });
+    _inc(hist[m.team1A.name].partnerCount,m.team1B.name);
+    _inc(hist[m.team1B.name].partnerCount,m.team1A.name);
+    _inc(hist[m.team2C.name].partnerCount,m.team2D.name);
+    _inc(hist[m.team2D.name].partnerCount,m.team2C.name);
+    [m.team1A,m.team1B].forEach(a=>[m.team2C,m.team2D].forEach(b=>{
+      _inc(hist[a.name].opponentCount,b.name);
+      _inc(hist[b.name].opponentCount,a.name);
+    }));
+  });
+  return hist;
+}
+
 /* ═══ 간편 재배정 (선수 변동 없이 현재 구성으로 다시 섞기) ═══ */
 /* 특정 라운드부터 재배정 (선수 변경 없이, r 이전 유지) */
 function reshuffleFromRound(r){
@@ -5135,8 +5155,10 @@ function reshuffleFromRound(r){
   });
 
   const target=currentSettings.gamesPerPlayer||4;
+  const _hist1=_buildHistoryFromMatches(completedMatches);
   const activeParticipants=currentParticipants.map(p=>{
     const wasJoiner=p.isNewJoiner||p._njGames!=null;
+    const h=_hist1[p.name]||{partnerCount:{},opponentCount:{}};
     return Object.assign({},p,{
       gamesPlayed:gDoneMap[p.name]||0,
       _goal: wasJoiner ? (p._njGames!=null?p._njGames:target) : target,
@@ -5144,7 +5166,7 @@ function reshuffleFromRound(r){
       _njGames: wasJoiner ? (p._njGames!=null?p._njGames:undefined) : undefined,
       lastRoundPlayed:0,
       womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,
-      partnerCount:{},opponentCount:{}
+      partnerCount:h.partnerCount,opponentCount:h.opponentCount
     });
   });
 
@@ -5191,9 +5213,11 @@ function reshuffleMatches(){
   });
 
   const target=currentSettings.gamesPerPlayer||4;
+  const _hist2=_buildHistoryFromMatches(completedMatches);
   // 현재 참가자 그대로 사용 — 신규선수 목표(_njGames) 보존 (재배정 반복해도 게임수 유지)
   const activeParticipants=currentParticipants.map(p=>{
     const wasJoiner=p.isNewJoiner||p._njGames!=null;
+    const h=_hist2[p.name]||{partnerCount:{},opponentCount:{}};
     return Object.assign({},p,{
       gamesPlayed:gDoneMap[p.name]||0,
       _goal: wasJoiner ? (p._njGames!=null?p._njGames:target) : target,
@@ -5201,7 +5225,7 @@ function reshuffleMatches(){
       _njGames: wasJoiner ? (p._njGames!=null?p._njGames:undefined) : undefined,
       lastRoundPlayed:0,
       womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,
-      partnerCount:{},opponentCount:{}
+      partnerCount:h.partnerCount,opponentCount:h.opponentCount
     });
   });
 
@@ -5272,13 +5296,16 @@ function executeChangeModal(){
   // 잔여율 = 남은 라운드 / 전체 라운드
   const remainRatio=totalRounds>0?Math.max(0,(totalRounds-doneRoundMax)/totalRounds):1;
   // 신규 선수 게임수 = 올림(잔여율 × 목표), 최소 1 최대 target
-  const newJoinerGames=Math.min(target,Math.max(1,Math.ceil(remainRatio*target)));
+  // 신규선수 목표: 잔여율 기반이되 최소 target-1 보장 (너무 낮아지면 출전균형 손실)
+  const newJoinerGames=Math.min(target,Math.max(target-1,Math.ceil(remainRatio*target)));
 
+  const _hist3=_buildHistoryFromMatches(completedMatches);
   const activeParticipants=[];
   currentParticipants.forEach(p=>{
     if(_cpExcluded.has(p.name))return;
     // 이미 투입된 신규선수는 원래 목표(_njGames) 유지 — 재배정 반복해도 4게임으로 늘지 않음
     const wasJoiner=p.isNewJoiner||p._njGames!=null;
+    const h=_hist3[p.name]||{partnerCount:{},opponentCount:{}};
     activeParticipants.push(Object.assign({},p,{
       gamesPlayed:gDoneMap[p.name]||0,
       _goal: wasJoiner ? (p._njGames!=null?p._njGames:newJoinerGames) : target,
@@ -5286,7 +5313,7 @@ function executeChangeModal(){
       _njGames: wasJoiner ? (p._njGames!=null?p._njGames:newJoinerGames) : undefined,
       lastRoundPlayed:0,
       womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,
-      partnerCount:{},opponentCount:{}
+      partnerCount:h.partnerCount,opponentCount:h.opponentCount
     }));
   });
   _cpNewPlayers.forEach(np=>{
