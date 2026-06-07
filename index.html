@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.30  (2026-06)
+     APP VERSION: 1.10.31  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.30">
+<meta name="app-version" content="1.10.31">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1751,7 +1751,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.30';
+const APP_VERSION = '1.10.31';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2330,7 +2330,15 @@ function generate(){
         const _m=generateMatches(_try,settings,totalMatches);
         fillMissingGames(_try,settings,_m);
         compactSchedule(_m,settings);
-        const _sc=_bracketQualityScore(_m,_try,settings);
+        let _sc=_bracketQualityScore(_m,_try,settings);
+        // 팀전: 파트너 중복 추가 패널티
+        if(settings.teamMode){
+          const _pc={};
+          _m.forEach(mx=>[[mx.team1A,mx.team1B],[mx.team2C,mx.team2D]].forEach(pr=>{
+            const k=[pr[0].name,pr[1].name].sort().join('|');_pc[k]=(_pc[k]||0)+1;
+          }));
+          _sc+=Object.values(_pc).filter(c=>c>=2).reduce((s,c)=>s+(c-1)*25,0);
+        }
         if(_sc<bestScore){ bestScore=_sc; matches=_m; bestPlayers=_try; }
       }
       // 최고 후보 채택
@@ -5155,9 +5163,9 @@ function _cpUpdateSummary(){
 // 시뮬: 5회 시도 시 평균 +0.9점, 10회 +1.4점 (속도/품질 균형상 5회 채택)
 function _genBestMatches(activeParticipants, settings, totalNewMatches, tries=5){
   // _bracketQualityScore는 페널티 점수 → 낮을수록 좋은 대진
-  // 신규선수(isNewJoiner) 미달 시 추가 페널티 → 중간 투입 선수 배정 보장 강화
   const _njNames=new Set(activeParticipants.filter(p=>p.isNewJoiner).map(p=>p.name));
   const _hasNJ=_njNames.size>0;
+  const _isTeam=!!(settings.teamMode);
   let bestMatches=null, bestParticipants=null, bestScore=Infinity;
   for(let t=0;t<tries;t++){
     const pCopy=activeParticipants.map(p=>({...p,
@@ -5173,6 +5181,15 @@ function _genBestMatches(activeParticipants, settings, totalNewMatches, tries=5)
         const miss=Math.max(0,(p._goal!=null?p._goal:settings.gamesPerPlayer)-gc[p.name]);
         score+=miss*150;
       });
+    }
+    // 팀전: 파트너 중복 추가 패널티 (시뮬: 파트너중복 4.8→3.1쌍, +0.7점)
+    if(_isTeam){
+      const pairCnt={};
+      m.forEach(mx=>[[mx.team1A,mx.team1B],[mx.team2C,mx.team2D]].forEach(pair=>{
+        const k=[pair[0].name,pair[1].name].sort().join('|');
+        pairCnt[k]=(pairCnt[k]||0)+1;
+      }));
+      score+=Object.values(pairCnt).filter(c=>c>=2).reduce((s,c)=>s+(c-1)*25,0);
     }
     if(score<bestScore){bestScore=score;bestMatches=m;bestParticipants=pCopy;}
   }
