@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.11  (2026-06)
+     APP VERSION: 1.10.12  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.11">
+<meta name="app-version" content="1.10.12">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1673,7 +1673,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.11';
+const APP_VERSION = '1.10.12';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2607,6 +2607,97 @@ function fillMissingGames(participants,settings,matches){
 
     currentRound++;
     if(!added)break;
+  }
+
+  // ── PHASE 3: 강제 출전균형 보완 ──
+  // 미달 선수를 반드시 포함하는 4인조를 직접 구성해 보완게임 생성
+  // cap/성별 제약 완화, 팀 구분도 최후 수단으로 무시
+  const _forceRound = (matches.length>0?Math.max(...matches.map(m=>m.round)):0)+1;
+  let _forceSafety = 40;
+  while(_forceSafety-- > 0) {
+    const _unmet = participants.filter(p => p.gamesPlayed < (p._goal!=null?p._goal:target));
+    if(!_unmet.length) break;
+
+    const _used = new Set();
+    let _added = 0;
+    _currentRound = _forceRound + (40-_forceSafety-1);
+
+    for(let court=1; court<=courts; court++) {
+      const _cu = _unmet.filter(p => !_used.has(p.name));
+      if(!_cu.length) break;
+
+      // 미달 선수를 anchor로 해서 4인조 직접 구성
+      const _anchor = _cu[0];
+      // cap+3까지 완화한 pool (반드시 채우기 위해)
+      const _pool = participants.filter(p =>
+        p.gamesPlayed < (p._goal!=null?p._goal:target)+3 && !_used.has(p.name)
+      );
+      if(_pool.length < 4) break;
+
+      // 팀전: anchor 성별 기준 4인조 직접 구성
+      // 혼복: anchor팀 남1+여1 vs 상대팀 남1+여1
+      // 남복: anchor팀 남2 vs 상대팀 남2 (anchor가 남성이고 여성 파트너 없을 때)
+      // 여복: anchor팀 여2 vs 상대팀 여2
+      let _four = null;
+      if(settings.teamMode) {
+        const _anchorTeam = _anchor.team;
+        const _otherTeam = _anchorTeam==='청팀'?'홍팀':'청팀';
+        const _sameTeam = _pool.filter(p=>p.team===_anchorTeam&&p.name!==_anchor.name);
+        const _otherTeamP = _pool.filter(p=>p.team===_otherTeam);
+
+        // 시도 1: 혼복 (anchor 포함, 같은팀 반대성별 + 상대팀 남1여1)
+        const _sameOpp = _sameTeam.filter(p=>p.gender!==_anchor.gender);
+        const _otherM = _otherTeamP.filter(p=>p.gender==='M');
+        const _otherF = _otherTeamP.filter(p=>p.gender==='F');
+        if(_sameOpp.length&&_otherM.length&&_otherF.length){
+          const _p2=_sameOpp[0];
+          const _p3=_anchor.gender==='M'?_otherF[0]:_otherM[0];
+          const _p4=_anchor.gender==='M'?_otherM[0]:_otherF[0];
+          if(_p3&&_p4&&_p3.name!==_p4.name) _four=[_anchor,_p2,_p3,_p4];
+        }
+        // 시도 2: 남복 (anchor가 남성인 경우 같은팀 남1 + 상대팀 남2)
+        if(!_four&&_anchor.gender==='M'){
+          const _sameM=_sameTeam.filter(p=>p.gender==='M');
+          if(_sameM.length&&_otherM.length>=2)
+            _four=[_anchor,_sameM[0],_otherM[0],_otherM[1]];
+        }
+        // 시도 3: 여복 (anchor가 여성인 경우 같은팀 여1 + 상대팀 여2)
+        if(!_four&&_anchor.gender==='F'){
+          const _sameF=_sameTeam.filter(p=>p.gender==='F');
+          if(_sameF.length&&_otherF.length>=2)
+            _four=[_anchor,_sameF[0],_otherF[0],_otherF[1]];
+        }
+        // 시도 4: 어떤 조합도 안 되면 같은팀 1명 + 상대팀 2명 (자유조합)
+        if(!_four&&_sameTeam.length&&_otherTeamP.length>=2)
+          _four=[_anchor,_sameTeam[0],_otherTeamP[0],_otherTeamP[1]];
+      }
+      // 자유모드 또는 팀전 실패 → pool에서 anchor 포함 4명
+      if(!_four){
+        const _rest=_pool.filter(p=>p.name!==_anchor.name);
+        if(_rest.length>=3) _four=[_anchor,..._rest.slice(0,3)];
+      }
+      if(!_four||_four.length<4) continue;
+
+      // 모든 타입으로 formTeams 시도
+      let _match = null;
+      for(const [_tm,_type] of [[true,'any'],[true,'men'],[true,'women'],[false,'any'],[false,'men'],[false,'women']]) {
+        _match = formTeams(_four, _tm, _type, 99);
+        if(_match) break;
+      }
+      if(!_match) continue;
+
+      _match.matchNumber = matches.length+1;
+      _match.round = _currentRound;
+      _match.court = court;
+      _match.isFiller = true;
+      [_match.team1A,_match.team1B,_match.team2C,_match.team2D].forEach(p=>{
+        _used.add(p.name);
+      });
+      updatePlayerRecords(_match);
+      matches.push(_match);
+      _added++;
+    }
+    if(!_added) break;
   }
 }
 
