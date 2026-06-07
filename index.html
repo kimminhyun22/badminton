@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.10  (2026-06)
+     APP VERSION: 1.10.11  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.10">
+<meta name="app-version" content="1.10.11">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1673,7 +1673,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.10';
+const APP_VERSION = '1.10.11';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3420,128 +3420,142 @@ function renderQualityDashboard(matches,participants,settings){
 
   // ① 레벨 밸런스
   const avgLD=matches.reduce((s,m)=>s+m.levelDiff,0)/matches.length;
-  const spikes=matches.filter(m=>m.levelDiff>=3); // 튀는 게임 (실효 레벨차 3 이상)
+  const spikes=matches.filter(m=>m.levelDiff>=3);
   const maxLD=Math.max(...matches.map(m=>m.levelDiff));
-  let lvStatus = (avgLD<=0.6 && spikes.length===0) ? 'good'
-               : (avgLD<=1.0 && spikes.length<=1) ? 'warn' : 'bad';
-  let lvDetail = `평균 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
-  if(spikes.length){
-    lvDetail += ` · 레벨차 큰 경기 ${spikes.length}개 (#${spikes.map(m=>m.matchNumber).join(', #')})`;
-  } else {
-    lvDetail += ' · 튀는 경기 없음';
-  }
-  items.push({icon:lvStatus, label:'레벨 밸런스', detail:lvDetail});
+  let lvStatus=(avgLD<=0.6&&spikes.length===0)?'good':(avgLD<=1.0&&spikes.length<=1)?'warn':'bad';
+  let lvDetail=`평균 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
+  if(spikes.length) lvDetail+=` · 레벨차 큰 경기 ${spikes.length}개 (#${spikes.map(m=>m.matchNumber).join(', #')})`;
+  else lvDetail+=' · 튀는 경기 없음';
+  items.push({icon:lvStatus,label:'레벨 밸런스',detail:lvDetail});
 
   // ② 게임 수 보장
   const counts={};
   participants.forEach(p=>counts[p.name]=0);
-  matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
-    if(counts[p.name]!==undefined)counts[p.name]++;
-  }));
+  matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{if(counts[p.name]!==undefined)counts[p.name]++;}));
   const under=participants.filter(p=>counts[p.name]<gpp);
   const over=participants.filter(p=>counts[p.name]>gpp);
-  let gameStatus = under.length===0 ? 'good' : under.length<=2 ? 'warn' : 'bad';
-  let gameDetail = under.length===0
-    ? `전원 ${gpp}게임 달성 (${participants.length}명)`
-    : `미달 ${under.length}명: ${under.map(p=>`${p.name}(${counts[p.name]})`).join(', ')}`;
-  if(over.length) gameDetail += ` · 초과 ${over.length}명`;
-  items.push({icon:gameStatus, label:'게임 수 보장', detail:gameDetail});
+  let gameStatus=under.length===0?'good':under.length<=2?'warn':'bad';
+  let gameDetail=under.length===0?`전원 ${gpp}게임 달성 (${participants.length}명)`:`미달 ${under.length}명: ${under.map(p=>`${p.name}(${counts[p.name]})`).join(', ')}`;
+  if(over.length) gameDetail+=` · 초과 ${over.length}명`;
+  items.push({icon:gameStatus,label:'게임 수 보장',detail:gameDetail});
 
-  // ③ 대진 간격 (직전 라운드 연속 출전 — 인원 대비 불가피분 제외)
+  // ③ 대진 간격
   const nPlayers=participants.length;
-  let excessConsec=0, totalConsec=0, totalSlots=0;
+  let excessConsec=0,totalConsec=0,totalSlots=0;
   const excessNames={};
   const maxRound=Math.max(...matches.map(m=>m.round));
   for(let r=2;r<=maxRound;r++){
     const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
     const cur=matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]);
-    let rConsec=0; const rNames=[];
-    cur.forEach(n=>{ if(prev.has(n)){rConsec++; rNames.push(n);} });
-    // 이 라운드 출전 인원 기준 이론적 최소 연속(휴식 가능 인원이 부족해 불가피한 연속)
-    const rPlaying=cur.length, rRest=nPlayers-rPlaying;
-    const rMin=Math.max(0, rPlaying-rRest);
-    const rExcess=Math.max(0, rConsec-rMin);
-    excessConsec+=rExcess;
-    totalConsec+=rConsec;
-    totalSlots+=rPlaying;
-    // 초과분에 해당하는 선수 기록 (참고용)
+    let rConsec=0;const rNames=[];
+    cur.forEach(n=>{if(prev.has(n)){rConsec++;rNames.push(n);}});
+    const rPlaying=cur.length,rRest=nPlayers-rPlaying;
+    const rMin=Math.max(0,rPlaying-rRest);
+    const rExcess=Math.max(0,rConsec-rMin);
+    excessConsec+=rExcess;totalConsec+=rConsec;totalSlots+=rPlaying;
     if(rExcess>0) rNames.slice(-rExcess).forEach(n=>{excessNames[n]=(excessNames[n]||0)+1;});
   }
-  const excessRatio = totalSlots>0 ? excessConsec/totalSlots : 0;
-  // 인원이 적어 연속이 불가피한 경우(이론최소>0)는 그 사실을 안내
-  const theoMin=Math.max(0, settings.courts*8-nPlayers);
-  let gapStatus = excessRatio<=0.10 ? 'good' : excessRatio<=0.20 ? 'warn' : 'bad';
+  const excessRatio=totalSlots>0?excessConsec/totalSlots:0;
+  const theoMin=Math.max(0,settings.courts*8-nPlayers);
+  let gapStatus=excessRatio<=0.10?'good':excessRatio<=0.20?'warn':'bad';
   let gapDetail;
-  if(excessConsec===0){
-    gapDetail = theoMin>0
-      ? `회피 가능한 연속 출전 없음 (인원상 일부 연속은 불가피)`
-      : `연속 출전 없음 · 라운드 간격 우수`;
-  } else {
-    const names=Object.keys(excessNames).slice(0,4);
-    gapDetail = `회피 가능했던 연속 출전 ${excessConsec}건 (${(excessRatio*100).toFixed(0)}%${names.length?' · '+names.join(', ')+(Object.keys(excessNames).length>4?' 외':''):''})`;
-  }
-  items.push({icon:gapStatus, label:'대진 간격', detail:gapDetail});
+  if(excessConsec===0) gapDetail=theoMin>0?'회피 가능한 연속 출전 없음 (인원상 일부 연속은 불가피)':'연속 출전 없음 · 라운드 간격 우수';
+  else{const names=Object.keys(excessNames).slice(0,4);gapDetail=`회피 가능했던 연속 출전 ${excessConsec}건 (${(excessRatio*100).toFixed(0)}%${names.length?' · '+names.join(', ')+(Object.keys(excessNames).length>4?' 외':''):''})`;}
+  items.push({icon:gapStatus,label:'대진 간격',detail:gapDetail});
 
-  // ④ 상대 다양성 (동일 상대 반복 — 만난 쌍 대비 3회+ 비율 기준)
+  // ④ 상대 다양성
   const oppCount={};
   matches.forEach(m=>{
-    const t1=[m.team1A.name,m.team1B.name], t2=[m.team2C.name,m.team2D.name];
+    const t1=[m.team1A.name,m.team1B.name],t2=[m.team2C.name,m.team2D.name];
     t1.forEach(a=>t2.forEach(b=>{const k=[a,b].sort().join('|');oppCount[k]=(oppCount[k]||0)+1;}));
   });
   const ocVals=Object.values(oppCount);
-  const distinctPairs=ocVals.length;        // 실제로 한 번이라도 만난 고유 쌍 수
+  const distinctPairs=ocVals.length;
   const rep2=ocVals.filter(c=>c===2).length;
   const rep3=ocVals.filter(c=>c>=3).length;
   const rep4=ocVals.filter(c=>c>=4).length;
   const rep3Ratio=distinctPairs>0?rep3/distinctPairs:0;
-  // 4회+ 있으면 개선 필요, 없으면 3회+ 비율 18% 기준
-  let divStatus = rep4>0 ? 'bad' : (rep3Ratio<=0.18 ? 'good' : 'warn');
+  let divStatus=rep4>0?'bad':(rep3Ratio<=0.18?'good':'warn');
   let divDetail;
-  if(rep4>0){
-    divDetail = `4회 이상 만난 상대 ${rep4}쌍 · 3회 ${rep3-rep4}쌍 · 분산 필요`;
-  } else if(rep3>0){
-    divDetail = `3회 만난 상대 ${rep3}쌍 (전체의 ${(rep3Ratio*100).toFixed(0)}%) · 2회 ${rep2}쌍`;
-  } else if(rep2>0){
-    divDetail = `최대 2회 · 동일 상대 2회 ${rep2}쌍 (3회+ 없음)`;
-  } else {
-    divDetail = '모든 상대 1회씩 · 다양성 우수';
-  }
-  items.push({icon:divStatus, label:'상대 다양성', detail:divDetail});
+  if(rep4>0) divDetail=`4회 이상 만난 상대 ${rep4}쌍 · 3회 ${rep3-rep4}쌍 · 분산 필요`;
+  else if(rep3>0) divDetail=`3회 만난 상대 ${rep3}쌍 (전체의 ${(rep3Ratio*100).toFixed(0)}%) · 2회 ${rep2}쌍`;
+  else if(rep2>0) divDetail=`최대 2회 · 동일 상대 2회 ${rep2}쌍 (3회+ 없음)`;
+  else divDetail='모든 상대 1회씩 · 다양성 우수';
+  items.push({icon:divStatus,label:'상대 다양성',detail:divDetail});
 
   // ⑤ 보완 게임
   const fillers=matches.filter(m=>m.isFiller);
-  let fillStatus = fillers.length===0 ? 'good' : fillers.length<=2 ? 'warn' : 'bad';
-  let fillDetail = fillers.length===0
-    ? '보완 게임 없음 · 정상 배정'
-    : `보완 게임 ${fillers.length}개 (#${fillers.map(m=>m.matchNumber).join(', #')})`;
-  items.push({icon:fillStatus, label:'보완 게임', detail:fillDetail});
+  let fillStatus=fillers.length===0?'good':fillers.length<=2?'warn':'bad';
+  let fillDetail=fillers.length===0?'보완 게임 없음 · 정상 배정':`보완 게임 ${fillers.length}개 (#${fillers.map(m=>m.matchNumber).join(', #')})`;
+  items.push({icon:fillStatus,label:'보완 게임',detail:fillDetail});
 
-  // 종합 점수
-  const score = items.reduce((s,it)=>s+(it.icon==='good'?2:it.icon==='warn'?1:0),0);
-  const maxScore = items.length*2;
-  let overall, ovClass;
-  if(score>=maxScore-1){ overall='우수'; ovClass='qd-ov-good'; }
-  else if(score>=maxScore*0.6){ overall='양호'; ovClass='qd-ov-warn'; }
-  else { overall='개선 필요'; ovClass='qd-ov-bad'; }
+  // ── 100점 만점 점수 계산 (시뮬레이션 1500회 기반) ──
+  // A. 레벨밸런스 35점
+  const _scoreA=Math.max(0,Math.min(35,35*(1-avgLD/1.5)-spikes.length*1.5));
+  // B. 출전균형 30점
+  const _metRate=1-under.length/participants.length;
+  const _avg2=Object.values(counts).reduce((s,v)=>s+v,0)/participants.length;
+  const _gameVar=Object.values(counts).reduce((s,v)=>s+(v-_avg2)**2,0)/participants.length;
+  const _scoreB=Math.max(0,Math.min(30,25*_metRate-Math.min(5,_gameVar*5)));
+  // C. 보완게임 20점
+  const _fillerRate=matches.length>0?fillers.length/matches.length:0;
+  const _scoreC=Math.max(0,Math.min(20,20*(1-_fillerRate/0.3)));
+  // D. 파트너 다양성 10점
+  const _pcVals={};
+  matches.forEach(m=>{[[m.team1A,m.team1B],[m.team2C,m.team2D]].forEach(pair=>{const k=[pair[0].name,pair[1].name].sort().join('|');_pcVals[k]=(_pcVals[k]||0)+1;});});
+  const _totalPairs=Object.keys(_pcVals).length;
+  const _rep3p=Object.values(_pcVals).filter(c=>c>=3).length;
+  const _repRate=_totalPairs>0?_rep3p/_totalPairs:0;
+  const _scoreD=Math.max(0,Math.min(10,10*(1-_repRate/0.3)));
+  // E. 종목유효성 5점
+  let _genderErr=0;
+  matches.forEach(m=>{if(!m.team1A)return;if(m.type==='혼복'){if([m.team1A,m.team1B].filter(p=>p.gender==='F').length!==1)_genderErr++;if([m.team2C,m.team2D].filter(p=>p.gender==='F').length!==1)_genderErr++;}});
+  const _scoreE=_genderErr===0?5:Math.max(0,5-_genderErr*2);
+  const _total=Math.round(_scoreA+_scoreB+_scoreC+_scoreD+_scoreE);
+  const _grade=_total>=90?'S':_total>=80?'A':_total>=70?'B':_total>=60?'C':'D';
+  const _gradeLabel={S:'완벽',A:'우수',B:'양호',C:'보통',D:'재생성 권장'}[_grade];
+  const _gradeCls=`qd-score-${_grade}`;
+
+  // 항목별 막대
+  function _barColor(pct){return pct>=0.85?'#3a8c5c':pct>=0.65?'#d48a10':'#c94040';}
+  const _bars=[
+    {l:'레벨밸런스',v:_scoreA,max:35},
+    {l:'출전균형',v:_scoreB,max:30},
+    {l:'보완최소화',v:_scoreC,max:20},
+    {l:'파트너',v:_scoreD,max:10},
+    {l:'종목유효성',v:_scoreE,max:5},
+  ];
+
+  // 종합 등급 (기존 로직 유지)
+  const score=items.reduce((s,it)=>s+(it.icon==='good'?2:it.icon==='warn'?1:0),0);
+  const maxScore=items.length*2;
+  let overall,ovClass;
+  if(score>=maxScore-1){overall='우수';ovClass='qd-ov-good';}
+  else if(score>=maxScore*0.6){overall='양호';ovClass='qd-ov-warn';}
+  else{overall='개선 필요';ovClass='qd-ov-bad';}
 
   const ICON={good:'✅',warn:'⚠️',bad:'❌'};
   const CLS={good:'qd-good',warn:'qd-warn',bad:'qd-bad'};
 
   el.innerHTML=`
+    <div class="qd-score-bar">
+      <div class="qd-score-badge ${_gradeCls}">
+        <span class="qd-pts">${_total}</span>
+        <span class="qd-grade">${_grade}등급</span>
+      </div>
+      <div class="qd-breakdown">
+        ${_bars.map(b=>{const pct=b.v/b.max;return `<div class="qd-br-row"><span class="qd-br-label">${b.l}</span><div class="qd-br-track"><div class="qd-br-fill" style="width:${Math.round(pct*100)}%;background:${_barColor(pct)};"></div></div><span class="qd-br-val">${Math.round(b.v)}/${b.max}</span></div>`;}).join('')}
+      </div>
+      <div style="font-size:.7rem;color:var(--dim);text-align:center;min-width:48px;line-height:1.4;">${_gradeLabel}<br><span style="font-size:.62rem;opacity:.6">100점 만점</span></div>
+    </div>
     <div class="qd-head">
-      <span class="qd-title">🎯 대진 품질 점검</span>
+      <span class="qd-title">🎯 항목별 점검</span>
       <span class="qd-overall ${ovClass}">${overall}</span>
     </div>
     <div class="qd-list">
-      ${items.map(it=>`
-        <div class="qd-item ${CLS[it.icon]}">
-          <span class="qd-icon">${ICON[it.icon]}</span>
-          <div class="qd-body">
-            <div class="qd-label">${it.label}</div>
-            <div class="qd-detail">${it.detail}</div>
-          </div>
-        </div>`).join('')}
-    </div>`;
+      ${items.map(it=>`<div class="qd-item ${CLS[it.icon]}"><span class="qd-icon">${ICON[it.icon]}</span><div class="qd-body"><div class="qd-label">${it.label}</div><div class="qd-detail">${it.detail}</div></div></div>`).join('')}
+    </div>
+    ${_total<=82?`<div style="padding:9px 14px;background:#fff8f0;border-top:1px solid var(--bdr);font-size:.76rem;color:#b05a10;">💡 ${_total<=70?'재생성을 권장합니다. "다시 배정하기"를 눌러보세요.':'점수가 낮은 항목을 확인하고 필요 시 재생성하세요.'}</div>`:''}`;
 }
 
 /* ═══ RENDER RESULTS ═══ */
