@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.18  (2026-06)
+     APP VERSION: 1.10.19  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.18">
+<meta name="app-version" content="1.10.19">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1750,7 +1750,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.18';
+const APP_VERSION = '1.10.19';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1984,12 +1984,14 @@ function renderTeamList(){
   const wF=white.filter(p=>p.gender==='F').length;
   const bM=blue.filter(p=>p.gender==='M').length;
   const wM=white.filter(p=>p.gender==='M').length;
-  document.getElementById('blueInfo').textContent=`${blue.length}명 · 남${bM} 여${bF} · Lv합${bSum}`;
-  document.getElementById('whiteInfo').textContent=`${white.length}명 · 남${wM} 여${wF} · Lv합${wSum}`;
-  const diff=bSum-wSum;
+  document.getElementById('blueInfo').textContent=`${blue.length}명 · 남${bM} 여${bF} · Lv합${Math.round(bSum*10)/10}`;
+  document.getElementById('whiteInfo').textContent=`${white.length}명 · 남${wM} 여${wF} · Lv합${Math.round(wSum*10)/10}`;
+  const bSumR=Math.round(bSum*10)/10;
+  const wSumR=Math.round(wSum*10)/10;
+  const diff=Math.round((bSum-wSum)*10)/10;
   const diffStr=diff>0?`+${diff}`:diff<0?`${diff}`:'균형';
   const diffColor=diff===0?'color:var(--green)':'color:var(--acc)';
-  document.getElementById('blueDiff').innerHTML=`레벨 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSum} : 백 ${wSum})`;
+  document.getElementById('blueDiff').innerHTML=`레벨 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSumR} : 백 ${wSumR})`;
   document.getElementById('whiteDiff').textContent='';
   const bn=teamNames.blue, wn=teamNames.white;
 
