@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.14  (2026-06)
+     APP VERSION: 1.10.15  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.14">
+<meta name="app-version" content="1.10.15">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -735,6 +735,10 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .btn-dir-add:hover{background:var(--bl-deep);}
 .btn-dir-add:active{transform:scale(.98);}
 .dir-player-list{display:flex;flex-direction:column;gap:3px;max-height:260px;overflow-y:auto;margin-top:4px;}
+.age-sel-btns{display:flex;gap:5px;flex-wrap:wrap;}
+.age-sel-btn{padding:5px 9px;border-radius:7px;border:1.5px solid var(--bdr);background:var(--bg);font-size:.76rem;font-weight:600;cursor:pointer;color:var(--dim);transition:all .15s;}
+.age-sel-btn.sel{background:var(--accent);color:#fff;border-color:var(--accent);}
+.age-badge{display:inline-block;font-size:.62rem;font-weight:700;padding:1px 6px;border-radius:5px;background:rgba(99,102,241,.1);color:#4f46e5;margin-left:3px;}
 .dir-sort-bar{display:flex;align-items:center;gap:5px;margin-top:6px;margin-bottom:2px;}
 .dir-sort-label{font-size:.62rem;color:#888;font-weight:600;letter-spacing:.5px;}
 .dir-sort-btn{padding:3px 10px;border-radius:999px;border:1.5px solid #ddd;background:#fff;color:#888;font-size:.68rem;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;}
@@ -1249,6 +1253,16 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
                   <button class="gender-sel-btn" data-gender="여" onclick="selectDirGender('여')">여</button>
                 </div>
               </div>
+              <div class="dir-row">
+                <span class="dir-label">연령대</span>
+                <div class="age-sel-btns" id="dirAgeBtns">
+                  <button class="age-sel-btn" data-age="20대" onclick="selectDirAge('20대')">20대</button>
+                  <button class="age-sel-btn sel" data-age="40대" onclick="selectDirAge('40대')">40대</button>
+                  <button class="age-sel-btn" data-age="30대" onclick="selectDirAge('30대')">30대</button>
+                  <button class="age-sel-btn" data-age="50대" onclick="selectDirAge('50대')">50대</button>
+                  <button class="age-sel-btn" data-age="60대+" onclick="selectDirAge('60대+')">60대+</button>
+                </div>
+              </div>
               <button class="btn-dir-add" onclick="addDirectPlayer()">+ 선수 추가</button>
               <!-- 명부에서 불러오기 -->
               <button class="btn btn-ghost" onclick="openImportModal()"
@@ -1550,15 +1564,69 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <button class="grade-sel-btn" data-grade="S" onclick="selectMemberGrade('S')">S</button>
         </div>
       </div>
-      <div class="dir-row" style="margin-bottom:14px;">
+      <div class="dir-row" style="margin-bottom:12px;">
         <span class="dir-label">성별</span>
         <div class="gender-sel-btns" id="memberGenderBtns">
           <button class="gender-sel-btn sel-m" data-gender="남" onclick="selectMemberGender('남')">남</button>
           <button class="gender-sel-btn" data-gender="여" onclick="selectMemberGender('여')">여</button>
         </div>
       </div>
-      <div id="memberErrMsg" style="font-size:.74rem;color:var(--red);min-height:16px;margin-bottom:6px;"></div>
+      <div class="dir-row" style="margin-bottom:14px;">
+        <span class="dir-label">연령대</span>
+        <div class="age-sel-btns" id="memberAgeBtns">
+          <button class="age-sel-btn" data-age="20대" onclick="selectMemberAge('20대')">20대</button>
+          <button class="age-sel-btn sel" data-age="40대" onclick="selectMemberAge('40대')">40대</button>
+          <button class="age-sel-btn" data-age="30대" onclick="selectMemberAge('30대')">30대</button>
+          <button class="age-sel-btn" data-age="50대" onclick="selectMemberAge('50대')">50대</button>
+          <button class="age-sel-btn" data-age="60대+" onclick="selectMemberAge('60대+')">60대+</button>
+        </div>
+      </div>
+      <div id="memberErrMsg"</div> style="font-size:.74rem;color:var(--red);min-height:16px;margin-bottom:6px;"></div>
       <button class="btn-dir-add" id="memberSaveBtn" onclick="saveMember()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 직접입력 선수 편집 모달 ── -->
+<div class="modal-overlay hidden" id="editDirectModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>✏️ 선수 정보 수정</span>
+      <button onclick="closeEditDirectModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input class="dir-input" id="editDirectName" type="text" placeholder="이름 입력"
+        style="width:100%;margin-bottom:12px;" onkeydown="if(event.key==='Enter')saveEditDirectPlayer()">
+      <div class="dir-row" style="margin-bottom:12px;">
+        <span class="dir-label">급수</span>
+        <div class="lv-sel-btns" id="editDirGradeBtns">
+          <button class="lv-sel-btn" data-grade="E" onclick="selectEditDirGrade('E')">E</button>
+          <button class="lv-sel-btn" data-grade="D" onclick="selectEditDirGrade('D')">D</button>
+          <button class="lv-sel-btn sel" data-grade="C" onclick="selectEditDirGrade('C')">C</button>
+          <button class="lv-sel-btn" data-grade="B" onclick="selectEditDirGrade('B')">B</button>
+          <button class="lv-sel-btn" data-grade="A" onclick="selectEditDirGrade('A')">A</button>
+          <button class="lv-sel-btn" data-grade="S" onclick="selectEditDirGrade('S')">S</button>
+        </div>
+      </div>
+      <div class="dir-row" style="margin-bottom:12px;">
+        <span class="dir-label">성별</span>
+        <div class="gender-sel-btns" id="editDirGenderBtns">
+          <button class="gender-sel-btn sel-m" data-gender="남" onclick="selectEditDirGender('남')">남</button>
+          <button class="gender-sel-btn" data-gender="여" onclick="selectEditDirGender('여')">여</button>
+        </div>
+      </div>
+      <div class="dir-row" style="margin-bottom:16px;">
+        <span class="dir-label">연령대</span>
+        <div class="age-sel-btns" id="editDirAgeBtns">
+          <button class="age-sel-btn" data-age="20대" onclick="selectEditDirAge('20대')">20대</button>
+          <button class="age-sel-btn sel" data-age="40대" onclick="selectEditDirAge('40대')">40대</button>
+          <button class="age-sel-btn" data-age="30대" onclick="selectEditDirAge('30대')">30대</button>
+          <button class="age-sel-btn" data-age="50대" onclick="selectEditDirAge('50대')">50대</button>
+          <button class="age-sel-btn" data-age="60대+" onclick="selectEditDirAge('60대+')">60대+</button>
+        </div>
+      </div>
+      <div id="editDirErrMsg" style="font-size:.74rem;color:var(--red);min-height:14px;margin-bottom:6px;"></div>
+      <button class="btn-dir-add" onclick="saveEditDirectPlayer()">✅ 수정 저장</button>
     </div>
   </div>
 </div>
@@ -1678,7 +1746,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.14';
+const APP_VERSION = '1.10.15';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1686,7 +1754,9 @@ const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
 // 예: C급 남(4) vs C급 여(3) → 실효 4 vs 2.5 → 격차 1.5
 function effLevel(p){
   const isF = p.gender==='F' || p.gender==='여';
-  return p.level - (isF ? 0.5 : 0);
+  const _AGE_BONUS={'20대':+0.4,'30대':+0.3,'40대':0,'50대':-0.4,'60대+':-0.8};
+  const ageMod = _AGE_BONUS[p.ageGroup] || 0;
+  return p.level - (isF ? 0.5 : 0) + ageMod;
 }
 let _currentRound=1;
 let _partnerGapThreshold=2; // 파트너 최소 간격 (generateMatches에서 자동 설정)
@@ -1845,7 +1915,7 @@ function doTeamAssign(){
   const all=_directPlayers.map(p=>({
     name:p.name, level:p.level,
     gender:p.gender==='남'?'M':'F',
-    grade:p.grade, team:'', isGuest:!!p.isGuest,
+    grade:p.grade, team:'', isGuest:!!p.isGuest, ageGroup:p.ageGroup||'40대',
     partnerId: (getPartnerInfo(p.name)||{}).id||null,
     partnerName: getPartnerOf(p.name)||null
   }));
@@ -2183,7 +2253,7 @@ function generate(){
   }
   let participants=_directPlayers.map(p=>({
     name:p.name,level:p.level,gender:p.gender==='남'?'M':'F',
-    team:p.team||'',isGuest:!!p.isGuest,_valid:true,_grade:p.grade,
+    team:p.team||'',isGuest:!!p.isGuest,_valid:true,_grade:p.grade,ageGroup:p.ageGroup||'40대',
     _levelRaw:String(p.level),_genderRaw:p.gender,
     partnerName: getPartnerOf(p.name)||null
   }));
@@ -4529,7 +4599,7 @@ function saveState(){
   catch(e){setSaveStatus('','⚠ 저장 실패');}
 }
 
-function slim(p){return{name:p.name,level:p.level,gender:p.gender,team:p.team||'',isGuest:!!p.isGuest};}
+function slim(p){return{name:p.name,level:p.level,gender:p.gender,team:p.team||'',isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대'};}
 
 function checkSavedState(){
   try{
@@ -5462,6 +5532,7 @@ function resetAll(){
 /* ═══ DIRECT ENTRY ═══ */
 let _dirGrade = 'C';
 let _dirGender = '남';
+let _dirAge = '40대';
 let _directPlayers = [];
 let _dirSort = 'reg'; // 'reg' | 'name' | 'level'
 
@@ -5490,6 +5561,11 @@ function levelToGrade(level,gender){
 
 function setInputMode(mode){ /* 미사용 — 직접입력 전용 */ }
 
+function selectDirAge(age){
+  _dirAge = age;
+  document.querySelectorAll('#dirAgeBtns .age-sel-btn').forEach(b=>
+    b.classList.toggle('sel', b.dataset.age===age));
+}
 function selectDirGrade(grade){
   _dirGrade = grade;
   document.querySelectorAll('#dirGradeBtns .lv-sel-btn').forEach(b=>
@@ -5553,11 +5629,71 @@ function addDirectPlayer(){
     return;
   }
   const _newLv = gradeToLevel(_dirGrade, _dirGender) ?? 1;
-  _directPlayers.push({name, grade:_dirGrade, level:_newLv, gender:_dirGender, isGuest:_isGuest});
+  _directPlayers.push({name, grade:_dirGrade, level:_newLv, gender:_dirGender, isGuest:_isGuest, ageGroup:_dirAge});
   nameEl.value='';
   nameEl.focus();
   renderDirectPlayerList();
   syncDirectToPaste();
+}
+
+// ── 직접입력 선수 편집 ──
+let _editDirIdx = -1;
+let _editDirGrade = 'C';
+let _editDirGender = '남';
+let _editDirAge = '40대';
+
+function openEditDirectPlayer(idx){
+  const p = _directPlayers[idx];
+  if(!p) return;
+  _editDirIdx = idx;
+  _editDirGrade = p.grade || 'C';
+  _editDirGender = p.gender || '남';
+  _editDirAge = p.ageGroup || '40대';
+  document.getElementById('editDirectName').value = p.name;
+  document.getElementById('editDirErrMsg').textContent = '';
+  document.querySelectorAll('#editDirGradeBtns .lv-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade===_editDirGrade));
+  document.querySelectorAll('#editDirGenderBtns .gender-sel-btn').forEach(b=>{
+    b.classList.remove('sel-m','sel-f');
+    if(b.dataset.gender===_editDirGender) b.classList.add(_editDirGender==='남'?'sel-m':'sel-f');
+  });
+  document.querySelectorAll('#editDirAgeBtns .age-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.age===_editDirAge));
+  document.getElementById('editDirectModal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('editDirectName').focus(),120);
+}
+function closeEditDirectModal(){
+  document.getElementById('editDirectModal').classList.add('hidden');
+  _editDirIdx = -1;
+}
+function selectEditDirGrade(grade){
+  _editDirGrade=grade;
+  document.querySelectorAll('#editDirGradeBtns .lv-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade===grade));
+}
+function selectEditDirGender(g){
+  _editDirGender=g;
+  document.querySelectorAll('#editDirGenderBtns .gender-sel-btn').forEach(b=>{
+    b.classList.remove('sel-m','sel-f');
+    if(b.dataset.gender===g) b.classList.add(g==='남'?'sel-m':'sel-f');
+  });
+}
+function selectEditDirAge(age){
+  _editDirAge=age;
+  document.querySelectorAll('#editDirAgeBtns .age-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.age===age));
+}
+function saveEditDirectPlayer(){
+  if(_editDirIdx<0) return;
+  const name = document.getElementById('editDirectName').value.trim();
+  const errEl = document.getElementById('editDirErrMsg');
+  if(!name){ errEl.textContent='이름을 입력해주세요.'; return; }
+  const newLevel = gradeToLevel(_editDirGrade, _editDirGender) ?? 1;
+  _directPlayers[_editDirIdx] = {
+    ..._directPlayers[_editDirIdx],
+    name, grade:_editDirGrade, level:newLevel,
+    gender:_editDirGender, ageGroup:_editDirAge
+  };
+  closeEditDirectModal();
+  renderDirectPlayerList();
+  syncDirectToPaste();
+  saveState();
 }
 
 function removeDirectPlayer(idx){
@@ -5604,12 +5740,14 @@ function renderDirectPlayerList(){
         :_partnerSelectMode&&!pair
           ?`<button class="dpi-partner-btn" style="border-color:#22c55e;color:#22c55e;" onclick="confirmPartner('${esc(p.name)}')">P선택</button>`
           :!pair?`<button class="dpi-partner-btn" onclick="startPartnerSelect('${esc(p.name)}')">P+</button>`:'';
+    const ageBadge=p.ageGroup&&p.ageGroup!=='40대'?`<span class="age-badge">${p.ageGroup}</span>`:'';
     return `<div class="${itemCls}" id="dpi-${p._origIdx}">
-      <span class="dpi-name">${esc(p.name)}${gBadge}${pBadge}</span>
+      <span class="dpi-name">${esc(p.name)}${gBadge}${pBadge}${ageBadge}</span>
       <span class="dpi-meta">
         <span class="lv-badge ${LV_COLOR[p.level]||'lv3'}">${p.grade||LV_LABEL[p.level]||p.level}</span>
         ${p.gender} · Lv${p.level}</span>
       ${pBtn}
+      <button class="dpi-edit" onclick="openEditDirectPlayer(${p._origIdx})" title="편집" style="background:none;border:none;cursor:pointer;color:var(--dim);font-size:.8rem;padding:4px 6px;">✏️</button>
       <button class="dpi-del" onclick="removeDirectPlayer(${p._origIdx})">✕</button>
     </div>`;
   }).join('');
@@ -5655,6 +5793,7 @@ let _editingMemberIdx=null;
 let _collapsedClubs=new Set();
 let _memberGrade='D';
 let _memberGender='남';
+let _memberAge='40대';
 let _importClubIdx=0;
 let _rosterSort='reg'; // 'reg' | 'name' | 'level'
 
@@ -5741,7 +5880,7 @@ function renderClubList(){
 
     const mrows=indexed.map((m)=>`<div class="club-member-row">
         <span class="cmr-name">${esc(m.name)}</span>
-        <span class="cmr-meta"><span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender} · Lv${m.level}</span>
+        <span class="cmr-meta"><span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender}${m.ageGroup&&m.ageGroup!=='40대'?' · '+m.ageGroup:''} · Lv${m.level}</span>
         <button class="cmr-edit" onclick="editMember('${club.id}',${m._origIdx})" title="수정">✏</button>
         <button class="cmr-del" onclick="deleteMember('${club.id}',${m._origIdx})" title="삭제">✕</button>
       </div>`).join('');
@@ -5777,7 +5916,7 @@ function openAddMemberModal(clubId){
   const sb=document.getElementById('memberSaveBtn');if(sb)sb.textContent='💾 저장';
   document.getElementById('memberName').value='';
   const errEl=document.getElementById('memberErrMsg');if(errEl)errEl.textContent='';
-  _memberGrade='D';_memberGender='남';
+  _memberGrade='D';_memberGender='남';_memberAge='40대';
   document.querySelectorAll('#memberGradeBtns .grade-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade==='D'));
   document.querySelectorAll('#memberGenderBtns .gender-sel-btn').forEach(b=>{
     b.classList.remove('sel-m','sel-f');
@@ -5788,6 +5927,11 @@ function openAddMemberModal(clubId){
 }
 function closeMemberModal(){document.getElementById('addMemberModal').classList.add('hidden');}
 
+function selectMemberAge(age){
+  _memberAge=age;
+  document.querySelectorAll('#memberAgeBtns .age-sel-btn').forEach(b=>
+    b.classList.toggle('sel', b.dataset.age===age));
+}
 function selectMemberGrade(grade){
   _memberGrade=grade;
   document.querySelectorAll('#memberGradeBtns .grade-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade===grade));
@@ -5814,7 +5958,7 @@ function saveMember(){
       document.getElementById('memberName').select();return;
     }
     if(errEl)errEl.textContent='';
-    club.members.push({name,grade:_memberGrade,gender:_memberGender,level});
+    club.members.push({name,grade:_memberGrade,gender:_memberGender,level,ageGroup:_memberAge});
     saveRosters();renderClubList();
     document.getElementById('memberName').value='';
     document.getElementById('memberName').focus();
@@ -5825,7 +5969,7 @@ function saveMember(){
       document.getElementById('memberName').select();return;
     }
     if(errEl)errEl.textContent='';
-    club.members[_editingMemberIdx]={name,grade:_memberGrade,gender:_memberGender,level};
+    club.members[_editingMemberIdx]={name,grade:_memberGrade,gender:_memberGender,level,ageGroup:_memberAge};
     saveRosters();renderClubList();closeMemberModal();
   }
 }
@@ -5970,7 +6114,7 @@ function importSelected(){
   let added=0,skipped=0;
   sel.forEach(m=>{
     if(!_directPlayers.some(p=>p.name===m.name)){
-      _directPlayers.push({name:m.name,grade:m.grade,level:m.level,gender:m.gender});
+      _directPlayers.push({name:m.name,grade:m.grade,level:m.level,gender:m.gender,ageGroup:m.ageGroup||'40대'});
       added++;
     }else skipped++;
   });
@@ -5994,12 +6138,13 @@ function editMember(clubId,idx){
   const sb=document.getElementById('memberSaveBtn');if(sb)sb.textContent='✏️ 수정 저장';
   document.getElementById('memberName').value=m.name;
   const errEl=document.getElementById('memberErrMsg');if(errEl)errEl.textContent='';
-  _memberGrade=m.grade||'D';_memberGender=m.gender||'남';
+  _memberGrade=m.grade||'D';_memberGender=m.gender||'남';_memberAge=m.ageGroup||'40대';
   document.querySelectorAll('#memberGradeBtns .grade-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade===_memberGrade));
   document.querySelectorAll('#memberGenderBtns .gender-sel-btn').forEach(b=>{
     b.classList.remove('sel-m','sel-f');
     if(b.dataset.gender===_memberGender)b.classList.add(_memberGender==='남'?'sel-m':'sel-f');
   });
+  document.querySelectorAll('#memberAgeBtns .age-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.age===_memberAge));
   document.getElementById('addMemberModal').classList.remove('hidden');
   setTimeout(()=>document.getElementById('memberName').focus(),120);
 }
