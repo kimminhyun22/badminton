@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.34  (2026-06)
+     APP VERSION: 1.10.35  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.34">
+<meta name="app-version" content="1.10.35">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1758,7 +1758,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.34';
+const APP_VERSION = '1.10.35';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3971,6 +3971,8 @@ function renderResults(matches,participants,settings){
   ].join('');
 
   renderQualityDashboard(matches,participants,settings);
+  // 품질 패널 렌더 후 되돌리기 버튼 상태 동기화 (동적 생성된 버튼이 disabled로 초기화되기 때문)
+  _updateUndoBtn();
 
   // 스코어보드: 팀 모드일 때만 표시
   document.getElementById('scoreboardSec').classList.toggle('hidden',!isTeam);
