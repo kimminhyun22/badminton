@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.24  (2026-06)
+     APP VERSION: 1.10.25  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.24">
+<meta name="app-version" content="1.10.25">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1750,7 +1750,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.24';
+const APP_VERSION = '1.10.25';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3617,8 +3617,11 @@ function renderQualityDashboard(matches,participants,settings){
   const counts={};
   participants.forEach(p=>counts[p.name]=0);
   matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{if(counts[p.name]!==undefined)counts[p.name]++;}));
-  const under=participants.filter(p=>counts[p.name]<gpp);
-  const over=participants.filter(p=>counts[p.name]>gpp);
+  // 선수별 목표 게임수(_goal) 기준으로 미달/초과 판단
+  // 중간 투입 신규선수는 _goal이 낮으므로(예: 3게임) 그 기준으로 판단해야 공정함
+  const _pGoal=(p)=>p._goal!=null?p._goal:gpp;
+  const under=participants.filter(p=>counts[p.name]<_pGoal(p));
+  const over=participants.filter(p=>counts[p.name]>_pGoal(p));
 
   const nPlayers=participants.length;
   let excessConsec=0,totalSlots=0;
@@ -3670,10 +3673,14 @@ function renderQualityDashboard(matches,participants,settings){
   // 출전균형: 전원 달성 시 30점 기준, 분산 패널티 차감
   // (기존: 25*metRate 구조로 만점 도달 불가 → 수정)
   const _metRate=1-under.length/participants.length;
-  const _avg2=Object.values(counts).reduce((s,v)=>s+v,0)/participants.length;
-  const _var=Object.values(counts).reduce((s,v)=>s+(v-_avg2)**2,0)/participants.length;
+  // 분산 계산: 실제 게임수 대신 (실제/목표) 달성률 기준으로 편차 계산
+  // → 신규선수 3게임/_goal=3 = 100%, 기존선수 4게임/_goal=4 = 100% → 분산 0
+  // → 미달 선수만 편차 발생
+  const _rates=participants.map(p=>counts[p.name]/_pGoal(p));
+  const _avgRate=_rates.reduce((a,b)=>a+b,0)/_rates.length;
+  const _var=_rates.reduce((s,v)=>s+(v-_avgRate)**2,0)/_rates.length;
   const _base=under.length===0?30:20*_metRate;
-  const _penalty=Math.min(5,_var*3);
+  const _penalty=Math.min(5,_var*15); // 달성률 기준이므로 스케일 조정 (3→15)
   const sB=Math.max(0,Math.min(30,_base-_penalty));
   const sC=Math.max(0,Math.min(20,20*(1-_fillerRate/0.3)));
   const sD=Math.max(0,Math.min(10,10*(1-_repRate/0.3)));
@@ -3708,8 +3715,8 @@ function renderQualityDashboard(matches,participants,settings){
     (()=>{
       const pct=sB/30;
       let detail=under.length===0
-        ?`전원 ${gpp}게임 달성 · ${participants.length}명`
-        :`미달 ${under.length}명 — ${under.map(p=>`${p.name}(${counts[p.name]})`).join(', ')}`;
+        ?`전원 목표달성 · ${participants.length}명`
+        :`미달 ${under.length}명 — ${under.map(p=>`${p.name}(${counts[p.name]}/${_pGoal(p)})`).join(', ')}`;
       if(over.length) detail+=` · 초과 ${over.length}명`;
       return {label:'출전 균형',detail,score:sB,max:30,pct};
     })(),
@@ -3796,7 +3803,7 @@ function renderResults(matches,participants,settings){
   const xD=matches.filter(m=>m.type==='혼복').length;
   const rounds=matches.length?Math.max(...matches.map(m=>m.round)):0;
   const avgLD=matches.length?matches.reduce((s,m)=>s+m.levelDiff,0)/matches.length:0;
-  const unmet=participants.filter(p=>p.gamesPlayed<settings.gamesPerPlayer);
+  const unmet=participants.filter(p=>p.gamesPlayed<(p._goal!=null?p._goal:settings.gamesPerPlayer));
   const fillerCnt=matches.filter(m=>m.isFiller).length;
 
   // 예상 시간 계산 (점수제별 경기당 시간 반영)
