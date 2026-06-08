@@ -65,9 +65,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .briefing{background:linear-gradient(135deg,#eef4ff,#f5efff);
   border:1.5px solid #d4e3fb;border-radius:18px;padding:18px;margin-bottom:14px;}
 .brief-title{font-size:.72rem;font-weight:800;color:var(--dim);letter-spacing:1.8px;margin-bottom:10px;text-transform:uppercase;}
-.brief-live{font-size:.88rem;font-weight:700;color:var(--txt);background:#fff;
-  border:1.5px solid var(--bdr2);border-radius:10px;padding:9px 12px;
-  margin-bottom:10px;line-height:1.55;}
 .brief-extras{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
 .brief-extra{font-size:.84rem;font-weight:600;color:var(--txt);
   background:linear-gradient(135deg,#fff9ec,#fff4e0);
@@ -887,31 +884,6 @@ function buildBriefing(matches, d){
   // 최근 경기 리액션
   const reaction=_lastMatchReaction(matches, bNames, rNames);
 
-  // 라이브 중계 코멘트 (진행 중 선수 + 경기 타이틀 + 호칭)
-  let liveComment='';
-  if(curRound>0 && curMatches.length>0){
-    const idx=Math.floor(Date.now()/500000)%curMatches.length;
-    const cm=curMatches[idx];
-    if(cm){
-      const bp=bNames.has(cm.t1[0])||bNames.has(cm.t1[1]);
-      const t1=[cm.t1[0],cm.t1[1]].filter(Boolean);
-      const t2=[cm.t2[0],cm.t2[1]].filter(Boolean);
-      const bSide=bp?t1:t2, rSide=bp?t2:t1;
-      const bHn=bSide.map(_hn).join('·');
-      const rHn=rSide.map(_hn).join('·');
-      const title=_matchTitle(cm.type, t1, t2);
-       // 이름만 사용 (호칭 없이 간결하게)
-       const bName=[bSide[0],bSide[1]].filter(Boolean).join(", ");
-       const rName=[rSide[0],rSide[1]].filter(Boolean).join(", ");
-       const commentPool=[
-         `🏸 ${bName} vs ${rName}`,
-         `${bName} vs ${rName} — 이 경기가 승부를 가를 수 있어요. 🔥`,
-         `${bName} VS ${rName} — 지금 눈 떼면 안 돼요! 🏸`,
-       ];
-      liveComment=commentPool[Math.floor(Date.now()/500000)%commentPool.length];
-    }
-  }
-
   // 브리핑 조합
   const extras=[streak, reaction].filter(Boolean);
   const extraHtml=extras.length
@@ -926,7 +898,6 @@ function buildBriefing(matches, d){
   return '<div class="briefing">'
     +'<div class="brief-title">📢 지금 현황</div>'
     +'<div class="brief-situation">'+situation+'</div>'
-    +(liveComment?'<div class="brief-live">'+liveComment+'</div>':'')
     +'<div class="brief-row brief-row-b"><span class="brief-dot-b">●</span>'+bLine+'</div>'
     +'<div class="brief-row brief-row-r"><span class="brief-dot-r">●</span>'+rLine+'</div>'
     +'<div class="brief-momentum">'+momentum+'</div>'
