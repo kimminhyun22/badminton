@@ -544,7 +544,7 @@ const _QUOTES=[
   {t:'{HB}, 열심히 하는 거 맞지? 제 눈엔 잘 안 보여서.',n:2},
   {t:'{HW}한테 지는 날엔 그냥 오늘 운이 없었다고 해.',n:'w'},
   {t:'{HA}, 저 오늘 컨디션이 너무 좋은 게 문제야.',n:1},
-  {t:'{HBN}은 잘 할수록 내가 더 집중하게 돼서 고마워.',n:2},
+  {t:'{HB}는 잘 할수록 내가 더 집중하게 돼서 고마워.',n:2},
   {t:'{HW} 오늘 진짜 잘 치네. 그래서 이기고 있는 거잖아.',n:'w'},
   {t:'{HA}, 오늘 나한테 이기는 게 목표야? 목표는 좋아.',n:1},
   {t:'{HB}한테 지는 날엔 나도 할 말 없지. 근데 그럴 일은 없을 것 같고.',n:2},
@@ -558,8 +558,6 @@ function _fillQuote(q, players){
   let t=q.t;
   const p=players||{};
   // 조사 포함 변형 먼저 처리
-  if(p.hbn!=null) t=t.replace(/\{HBN\}/g, p.hbn); // {HBN} = HB+은/는
-  if(p.hwn!=null) t=t.replace(/\{HWN\}/g, p.hwn); // {HWN} = HW+은/는
   if(p.ha) t=t.replace(/\{HA\}/g, p.ha);
   if(p.hb) t=t.replace(/\{HB\}/g, p.hb);
   if(p.hw) t=t.replace(/\{HW\}/g, p.hw);
@@ -603,9 +601,9 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
   if(team==='blue'){
     const linesF={
       ahead:[
-        HT?`${_hnJ(top,'이/가')} 오늘 진짜 대박이에요!! 청팀 이 기세 유지해줘요! 💙`
+        HT?`${_hn(top)} 오늘 진짜 대박이에요!! 청팀 이 기세 유지해줘요! 💙`
           :`청팀 지금 너무 잘하고 있어요!! 이대로만 해줘요! 💙`,
-        HP?`${_hnJ(PP,'이/가')} 뛰는 거 봤어요?! 오늘 완전 빛나고 있어요!! 청팀 화이팅!! 🎉`
+        HP?`${_hn(PP)} 뛰는 거 봤어요?! 오늘 완전 빛나고 있어요!! 청팀 화이팅!! 🎉`
           :`청팀 파이팅!! 지금 이 흐름 절대 놓치면 안 돼요! 🙏`,
         HT?`${HT}!! 청팀 전원 믿어요! 오늘 우리 이길 수 있어요!! ✨`
           :`청팀 최고예요!! 지금 이대로 쭉 가줘요!! 💪`,
@@ -613,22 +611,22 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
       behind:[
         HT?`${HT}!! 아직 안 끝났어요! 청팀 역전할 수 있어요!! 포기하면 안 돼요!! 🔥`
           :`청팀 힘내요!! 아직 할 수 있어요!! 포기만 하지 않으면 돼요!! 💙`,
-        HP?`${_hnJ(PP,'이/가')} 이 경기 꼭 잡아줘요!! 청팀 다 같이 믿고 있어요!! 🙏`
+        HP?`${_hn(PP)} 이 경기 꼭 잡아줘요!! 청팀 다 같이 믿고 있어요!! 🙏`
           :`청팀 파이팅!! 한 게임씩 따라잡아요!! 할 수 있어요!! 💪`,
-        HT?`${_hnJ(top,'을/를')} 믿어요!! 청팀 전원 지금 총력전이에요!! 역전 드라마 써줘요!! ✨`
+        HT?`${_hn(top)} 믿어요!! 청팀 전원 지금 총력전이에요!! 역전 드라마 써줘요!! ✨`
           :`청팀 절대 무너지면 안 돼요!! 우리 팬들 다 응원하고 있어요!! 💙`,
       ],
       even:[
         HT?`${HT}!! 지금 이 동점 반드시 뒤집어줘요!! 청팀 할 수 있어요!! 🎯`
           :`동점이에요!! 지금 청팀이 더 강하다는 거 보여줄 시간이에요!! 💙`,
-        HP?`${_hnJ(PP,'이/가')} 이번 경기 꼭 가져와줘요!! 청팀 파이팅!! 🔥`
+        HP?`${_hn(PP)} 이번 경기 꼭 가져와줘요!! 청팀 파이팅!! 🔥`
           :`지금 딱 한 방이에요!! 청팀 같이 해요!! 화이팅!! 💪`,
         `팽팽해요!! 청팀이 한 발 더 나가줘요!! 응원할게요!! 🎉`,
       ]
     };
     const linesM={
       ahead:[
-        HT?`${_hnJ(top,'이/가')} 오늘 완전 장난 없네! 청팀 이 기세 죽이지 마!! 💪`
+        HT?`${_hn(top)} 오늘 완전 장난 없네! 청팀 이 기세 죽이지 마!! 💪`
           :`청팀 지금 제대로 가고 있어! 이대로 밀어붙여!! 💙`,
         HP?`와 ${HP}! 오늘 진짜 잘한다! 청팀 화이팅!! 🔥`
           :`청팀 지금 최고야! 이 흐름 절대 놓치지 마!! 💪`,
@@ -638,15 +636,15 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
       behind:[
         HT?`${HT}!! 아직 안 끝났다! 청팀 뒤집을 수 있어!! 포기하지 마!! 🔥`
           :`청팀 힘내! 아직 할 수 있어!! 포기만 하지 마!! 💙`,
-        HP?`${_hnJ(PP,'이/가')} 이 경기 꼭 가져와! 청팀 다 같이 믿는다!! 💪`
+        HP?`${_hn(PP)} 이 경기 꼭 가져와! 청팀 다 같이 믿는다!! 💪`
           :`청팀 파이팅! 한 게임씩 따라잡자!! 할 수 있어!! 🔥`,
-        HT?`${_hnJ(top,'을/를')} 믿는다!! 청팀 전원 총력전! 역전 드라마 써줘!! 💙`
+        HT?`${_hn(top)} 믿는다!! 청팀 전원 총력전! 역전 드라마 써줘!! 💙`
           :`청팀 절대 무너지면 안 돼!! 끝까지 간다!! 💪`,
       ],
       even:[
         HT?`${HT}!! 동점 이대로 뒤집어버려!! 청팀 할 수 있다!! 🎯`
           :`동점이야!! 지금 청팀이 더 강하다는 거 보여줘!! 💙`,
-        HP?`${_hnJ(PP,'이/가')} 이번 경기 반드시 가져와! 청팀 파이팅!! 🔥`
+        HP?`${_hn(PP)} 이번 경기 반드시 가져와! 청팀 파이팅!! 🔥`
           :`지금 딱 한 방이야!! 청팀 같이 가자!! 화이팅!! 💪`,
         `팽팽해! 청팀이 한 발 더 나가줘!! 다 같이 응원한다!! 🎉`,
       ]
@@ -658,23 +656,23 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
   // 홍팀: 강렬하고 단호한 응원단
   const lines={
     ahead:[
-      HT?`${_hnJ(top,'이/가')} 흔들리지 않는 한 홍팀은 이 경기 잡는다. ${_hnJ(top,'은/는')} 안 흔들린다.`
+      HT?`${_hn(top)} 흔들리지 않는 한 홍팀은 이 경기 잡는다. ${_hn(top)} 안 흔들린다.`
         :`리드는 리드일 뿐. 끝까지 집중해서 반드시 마무리 짓는다.`,
       HP?`${HP}, 오늘 네 이름이 기억될 거야. 계속 이대로 가자.`
         :`홍팀의 기세, 오늘 꺾이지 않는다. 끝까지 간다.`,
-      HT?`${_hnJ(top,'이/가')} 앞서는 홍팀 — 오늘 승리는 우리 것이다.`
+      HT?`${_hn(top)} 앞서는 홍팀 — 오늘 승리는 우리 것이다.`
         :`오늘 승리는 이미 정해졌다. 집중만 잃지 않으면 된다.`,
     ],
     behind:[
       HT?`${HT}! 지금 네가 나서야 할 때야. 홍팀은 아직 안 끝났다.`
         :`뒤집어야 한다. 지금 당장. 홍팀 전원 집중.`,
-      HP?`${_hnJ(PP,'이/가')} 코트에 있는 한, 홍팀은 끝나지 않았다. 믿는다.`
+      HP?`${_hn(PP)} 코트에 있는 한, 홍팀은 끝나지 않았다. 믿는다.`
         :`이 상황이 오히려 편하다. 잃을 게 없다. 맘껏 뒤집자.`,
-      HT?`${_hnJ(top,'을/를')} 중심으로 홍팀 역전 드라마 지금 시작한다.`
+      HT?`${_hn(top)} 중심으로 홍팀 역전 드라마 지금 시작한다.`
         :`홍팀의 역전 드라마, 지금 시작한다. 모두 집결.`,
     ],
     even:[
-      HT?`${_hnJ(top,'이/가')} 실력, 동점 상황에서 빛난다. 지금이 진짜 승부처다.`
+      HT?`${_hn(top)} 실력, 동점 상황에서 빛난다. 지금이 진짜 승부처다.`
         :`동점 상황, 홍팀이 더 강하다는 거 보여줄 시간이다.`,
       HP?`${HP}, 지금 한 방이 전부를 바꾼다. 믿고 간다.`
         :`타이. 지금부터 진짜 시작이다.`,
@@ -737,7 +735,7 @@ function _streakComment(matches, bNames, rNames){
   if(!streakers.length) return '';
   const [name,cnt]=streakers[0];
   const hn=_hn(name);
-  const hnJ=_hnJ(name,'이/가');
+  const hnJ=_hn(name);
   const msgs=[
     `🔥 ${hnJ} ${cnt}연승 중! 지금 건드리면 다쳐요.`,
     `${hn} ${cnt}연승 행진... 오늘 이분 막을 수 있는 사람 있나요? 😮`,
@@ -832,8 +830,7 @@ function buildBriefing(matches, d){
     ha:_qpB?_hn(_qpB):null,
     hb:_qpR?_hn(_qpR):null,
     hw:_qpW?_hn(_qpW):null,
-    hbn:_qpR?_hnJ(_qpR,'은/는'):null,
-    hwn:_qpW?_hnJ(_qpW,'은/는'):null,
+
   };
   const bSay=_getTeamLine('blue',bDiff,bRec,bTop?bTop.name:null,curBlue);
   const rSay=_getTeamLine('red',rDiff,rRec,rTop?rTop.name:null,curRed);
@@ -860,7 +857,6 @@ function buildBriefing(matches, d){
       // 선수별 호칭 (조사 포함)
       const b0=bSide[0]?_hn(bSide[0]):'', b1=bSide[1]?_hn(bSide[1]):'';
       const r0=rSide[0]?_hn(rSide[0]):'', r1=rSide[1]?_hn(rSide[1]):'';
-      const b0J=bSide[0]?_hnJ(bSide[0],'이/가'):'', r0J=rSide[0]?_hnJ(rSide[0],'이/가'):'';
       const bPair=[b0,b1].filter(Boolean).join('+');
       const rPair=[r0,r1].filter(Boolean).join('+');
       const commentPool=[
