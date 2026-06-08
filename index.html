@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.52  (2026-06)
+     APP VERSION: 1.10.53  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.52">
+<meta name="app-version" content="1.10.53">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1765,7 +1765,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.52';
+const APP_VERSION = '1.10.53';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4952,38 +4952,40 @@ const SLOTS_KEY='badminton_slots_v1';
 const BEST_KEY_FULL='badminton_best_full_v1';      // generate() 전용
 const BEST_KEY_RESHUFFLE='badminton_best_reshuffle_v1'; // reshuffle 전용 (lockedBefore 포함)
 
-function _calcTotalScore(matches, participants, settings, lockedBefore){
-  // lockedBefore가 있으면 해당 라운드 이후만 평가
-  const targets=lockedBefore ? matches.filter(m=>m.round>=lockedBefore) : matches;
-  const parts=lockedBefore ? participants : participants; // participants는 전체 그대로
-  if(!targets.length||!parts.length) return 0;
+function _calcTotalScore(matches, participants, settings){
+  // renderQualityDashboard와 완전히 동일한 로직 → 화면 점수 = 저장 점수
+  if(!matches||!matches.length||!participants||!participants.length) return 0;
   const gpp=settings.gamesPerPlayer||4;
-  const avgLD=targets.reduce((s,m)=>s+(m.levelDiff||0),0)/targets.length;
-  const spikes=targets.filter(m=>(m.levelDiff||0)>=3).length;
-  const counts={};parts.forEach(p=>counts[p.name]=0);
-  targets.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{if(p&&counts[p.name]!==undefined)counts[p.name]++;}));
+  const avgLD=matches.reduce((s,m)=>s+(m.levelDiff||0),0)/matches.length;
+  const spikes=matches.filter(m=>(m.levelDiff||0)>=3);
+  const counts={};participants.forEach(p=>{counts[p.name]=0;});
+  matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{if(p&&counts[p.name]!==undefined)counts[p.name]++;}));
   const _pGoal=p=>p._goal!=null?p._goal:gpp;
-  const under=parts.filter(p=>counts[p.name]<_pGoal(p));
-  const fillers=targets.filter(m=>m.isFiller).length;
-  const pairCnt={};
-  targets.forEach(m=>[[m.team1A,m.team1B],[m.team2C,m.team2D]].forEach(pr=>{
-    if(pr[0]&&pr[1]){const k=[pr[0].name,pr[1].name].sort().join('|');pairCnt[k]=(pairCnt[k]||0)+1;}
-  }));
-  const rep3=Object.values(pairCnt).filter(c=>c>=3).length;
-  const _repRate=Object.keys(pairCnt).length>0?rep3/Object.keys(pairCnt).length:0;
-  const _fillerRate=fillers/Math.max(targets.length,1);
-  const goals=parts.map(p=>({actual:counts[p.name],goal:_pGoal(p)}));
-  const goalRates=goals.map(g=>g.goal>0?g.actual/g.goal:1);
-  const avgRate=goalRates.reduce((a,b)=>a+b,0)/goalRates.length;
-  const _var=goalRates.reduce((s,r)=>s+(r-avgRate)**2,0)/goalRates.length;
-  const sA=Math.max(0,Math.min(35,35*(1-avgLD/1.5)-spikes*1.5));
-  const _base=under.length===0?30:20*(1-under.length/parts.length);
+  const under=participants.filter(p=>counts[p.name]<_pGoal(p));
+  const fillers=matches.filter(m=>m.isFiller);
+  const _fillerRate=matches.length>0?fillers.length/matches.length:0;
+  const _pcVals={};
+  matches.forEach(m=>{[[m.team1A,m.team1B],[m.team2C,m.team2D]].forEach(pair=>{
+    if(pair[0]&&pair[1]){const k=[pair[0].name,pair[1].name].sort().join('|');_pcVals[k]=(_pcVals[k]||0)+1;}
+  });});
+  const _totalPairs=Object.keys(_pcVals).length;
+  const _rep3p=Object.values(_pcVals).filter(c=>c>=3).length;
+  const _repRate=_totalPairs>0?_rep3p/_totalPairs:0;
+  let _genderErr=0;
+  matches.forEach(m=>{if(!m.team1A)return;if(m.type==='혼복'){
+    if([m.team1A,m.team1B].filter(p=>p.gender==='F').length!==1)_genderErr++;
+    if([m.team2C,m.team2D].filter(p=>p.gender==='F').length!==1)_genderErr++;
+  }});
+  const sA=Math.max(0,Math.min(35,35*(1-avgLD/1.5)-spikes.length*1.5));
+  const _metRate=1-under.length/participants.length;
+  const _rates=participants.map(p=>counts[p.name]/_pGoal(p));
+  const _avgRate=_rates.reduce((a,b)=>a+b,0)/_rates.length;
+  const _var=_rates.reduce((s,v)=>s+(v-_avgRate)**2,0)/_rates.length;
+  const _base=under.length===0?30:20*_metRate;
   const _penalty=Math.min(5,_var*15);
   const sB=Math.max(0,Math.min(30,_base-_penalty));
   const sC=Math.max(0,Math.min(20,20*(1-_fillerRate/0.3)));
   const sD=Math.max(0,Math.min(10,10*(1-_repRate/0.3)));
-  let _genderErr=0;
-  if(settings.teamMode){targets.forEach(m=>{const ps=[m.team1A,m.team1B,m.team2C,m.team2D].filter(Boolean);if(ps.length===4&&m.type==='혼복'){const fs=ps.filter(p=>p.gender==='F').length,ms=ps.filter(p=>p.gender==='M').length;if(!(fs===2&&ms===2))_genderErr++;}});}
   const sE=_genderErr===0?5:Math.max(0,5-_genderErr*2);
   return Math.round(sA+sB+sC+sD+sE);
 }
@@ -5009,7 +5011,9 @@ function _tryAutoSaveBest(source){
   const isReshuffle=(source==='reshuffle');
   const KEY=isReshuffle?BEST_KEY_RESHUFFLE:BEST_KEY_FULL;
   const lockedBefore=isReshuffle?_lockedBeforeRound:null;
-  const score=_calcTotalScore(currentMatches,currentParticipants,currentSettings,lockedBefore);
+  // 화면 점수(renderQualityDashboard)와 동일한 전체 경기 기준으로 점수 계산
+  // → 사용자가 보는 점수와 저장 기준 일치
+  const score=_calcTotalScore(currentMatches,currentParticipants,currentSettings);
   if(!score) return;
   // 현재 컨텍스트 서명 (generate vs reshuffle 분리)
   // reshuffle: 잠금 라운드 기준 서명 → 선수 변동해도 같은 경기·잠금이면 점수 비교 유지
