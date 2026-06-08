@@ -875,8 +875,14 @@ function buildBriefing(matches, d){
     hw:_qpW?_hn(_qpW):null,
 
   };
-  const bSay=_getTeamLine('blue',bDiff,bRec,bTop?bTop.name:null,curBlue);
-  const rSay=_getTeamLine('red',rDiff,rRec,rTop?rTop.name:null,curRed);
+  // 진행 중 선수 중 에이스 우선, 없으면 curPlayers 중 승수 가장 많은 선수
+  const _curTop=(curList, topName)=>{
+    if(topName && curList.includes(topName)) return topName; // 에이스가 현재 뛰는 중
+    // 진행 중 선수 중 에이스가 없으면 curList 자체를 top으로 사용 (PP에서 선택)
+    return null;
+  };
+  const bSay=_getTeamLine('blue',bDiff,bRec,_curTop(curBlue,bTop?bTop.name:null),curBlue);
+  const rSay=_getTeamLine('red',rDiff,rRec,_curTop(curRed,rTop?rTop.name:null),curRed);
 
   // 연승 코멘트
   const streak=_streakComment(matches, bNames, rNames);
