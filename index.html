@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.37  (2026-06)
+     APP VERSION: 1.10.38  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.37">
+<meta name="app-version" content="1.10.38">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -337,6 +337,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .tm-side.tm-b .tm-prefix{color:#c0453f;}
 .tm-names{display:flex;flex-direction:column;gap:3px;flex:1;}
 .tm-name{font-size:1.26rem;font-weight:700;color:var(--txt);letter-spacing:-.2px;}
+.tm-name.consec-warn{color:#c0453f;position:relative;}
+.tm-name.consec-warn::after{content:'⚡';font-size:.55rem;vertical-align:super;margin-left:1px;opacity:.7;}
 .tm-lv{font-size:.7rem;font-weight:700;margin-left:3px;color:var(--dim2);}
 .tm-vs{display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:.72rem;font-weight:800;color:var(--dim2);background:var(--sur2);flex-shrink:0;letter-spacing:.5px;}
 /* ── WIN ROW ── */
@@ -383,7 +385,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .st-bad{color:var(--red);font-weight:700;}
 .st-plus{color:var(--acc);font-weight:700;}
 .td-blue{color:var(--bl-deep);font-weight:600;}
-.td-brown{color:var(--dim);font-weight:600;}
+.td-brown{color:#c0453f;font-weight:600;}
 .td-dim{color:var(--dim);}
 .td-bold{font-weight:700;font-size:.86rem;}
 
@@ -652,14 +654,14 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .p-body{display:flex;align-items:stretch;}
   .p-side{flex:1;display:flex;align-items:center;gap:5px;padding:6px 8px;}
   .p-side.pb{background:#eef4ff !important;}
-  .p-side.pw2{background:#fdf8f0 !important;}
+  .p-side.pw2{background:#fff3f3 !important;}
   .p-side.pa{background:#eef4ff !important;}
-  .p-side.pbb{background:#f0f7ee !important;}
+  .p-side.pbb{background:#fff3f3 !important;}
   .p-prefix{font-weight:700;font-size:.72rem;flex-shrink:0;}
-  .p-side.pb .p-prefix{color:var(--bl-deep);}
-  .p-side.pw2 .p-prefix{color:#6b5a3e;}
-  .p-side.pa .p-prefix{color:var(--bl-deep);}
-  .p-side.pbb .p-prefix{color:#2d6a1e;}
+  .p-side.pb .p-prefix{color:#1e4db7;}
+  .p-side.pw2 .p-prefix{color:#c0453f;}
+  .p-side.pa .p-prefix{color:#1e4db7;}
+  .p-side.pbb .p-prefix{color:#c0453f;}
   .p-row{font-size:.88rem;font-weight:700;color:#1a1a1a;line-height:1.55;}
   .p-lv{font-size:.62rem;font-weight:500;color:#666;margin-left:1px;}
   .p-vs{display:flex;align-items:center;justify-content:center;padding:0 5px;font-size:.66rem;font-weight:800;color:#aaa;background:#f0f0f0 !important;flex-shrink:0;}
@@ -670,7 +672,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     margin-bottom:6px;border-radius:3px;display:inline-block;}
   .p-roster-title.all{background:#f0f0f0;color:#222;}
   .p-roster-title.blue{background:var(--bl-soft);color:var(--bl-deep);}
-  .p-roster-title.white{background:#fdf6e3;color:#6b5a3e;}
+  .p-roster-title.white{background:#ffeaea;color:#c0453f;}
   .p-roster-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px 8px;}
   .p-roster-name{font-size:.85rem;font-weight:600;color:#1a1a1a;
     padding:4px 6px;border-bottom:1px solid #e8e8e8;display:flex;align-items:center;gap:4px;}
@@ -809,6 +811,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   /* 라운드 배지 */
   .round-badge{font-size:.78rem;}
   .tm-name{font-size:1.12rem;font-weight:700;}
+  .tm-name.consec-warn::after{font-size:.5rem;}
   .tm-prefix{font-size:.85rem;}
   .tm-vs{padding:0 5px;font-size:.68rem;}
   /* 요약 */
@@ -1758,7 +1761,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.37';
+const APP_VERSION = '1.10.38';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3983,6 +3986,16 @@ function renderResults(matches,participants,settings){
   document.getElementById('sbBlueName').value=teamNames.blue;
   document.getElementById('sbWhiteName').value=teamNames.white;
 
+  // 연속 출전 선수 사전 계산 (매치카드 강조 표시용)
+  const _consecWarning={};
+  const _maxR2=matches.length?Math.max(...matches.map(m=>m.round)):0;
+  for(let r=2;r<=_maxR2;r++){
+    const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
+    matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]).forEach(n=>{
+      if(prev.has(n)) _consecWarning[n]=true;
+    });
+  }
+
   // Build bracket
   const byRound={};
   matches.forEach(m=>{if(!byRound[m.round])byRound[m.round]=[];byRound[m.round].push(m);});
@@ -4022,16 +4035,16 @@ function renderResults(matches,participants,settings){
           <div class="tm-side ${p1cls}">
             <span class="tm-prefix">${p1label}</span>
             <div class="tm-names">
-              <span class="tm-name">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team1A.grade||LV_LABEL[m.team1A.level]}</span></span>
-              <span class="tm-name">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team1B.grade||LV_LABEL[m.team1B.level]}</span></span>
+              <span class="tm-name${_consecWarning[m.team1A.name]?' consec-warn':''}">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team1A.grade||LV_LABEL[m.team1A.level]}</span></span>
+              <span class="tm-name${_consecWarning[m.team1B.name]?' consec-warn':''}">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team1B.grade||LV_LABEL[m.team1B.level]}</span></span>
             </div>
           </div>
           <div class="tm-vs">VS</div>
           <div class="tm-side ${p2cls}">
             <span class="tm-prefix">${p2label}</span>
             <div class="tm-names">
-              <span class="tm-name">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team2C.grade||LV_LABEL[m.team2C.level]}</span></span>
-              <span class="tm-name">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team2D.grade||LV_LABEL[m.team2D.level]}</span></span>
+              <span class="tm-name${_consecWarning[m.team2C.name]?' consec-warn':''}">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team2C.grade||LV_LABEL[m.team2C.level]}</span></span>
+              <span class="tm-name${_consecWarning[m.team2D.name]?' consec-warn':''}">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team2D.grade||LV_LABEL[m.team2D.level]}</span></span>
             </div>
           </div>
         </div>
@@ -4115,7 +4128,8 @@ function renderPlayersTable(){
     const stEl=p.gamesPlayed<pGoal?`<span class="st-bad">❌${p.gamesPlayed}</span>`:
                p.gamesPlayed===pGoal?`<span class="st-ok">✅${p.gamesPlayed}</span>`:
                `<span class="st-plus">+${p.gamesPlayed-pGoal}(${p.gamesPlayed})</span>`;
-    const tn=p.team==='청팀'?bn:p.team==='홍팀'?wn:'—';
+    const _ti=p.team==='청팀'?'🔵':p.team==='홍팀'?'🔴':'';
+    const tn=p.team==='청팀'?(_ti+' '+bn):p.team==='홍팀'?(_ti+' '+wn):'—';
     const tc=p.team==='청팀'?'class="td-blue"':p.team==='홍팀'?'class="td-brown"':'class="td-dim"';
     const joinerBadge=p.isNewJoiner?`<span class="joiner-badge" title="중간 투입 (목표 ${pGoal}게임)">중간</span>`:'';
     return `<tr>
