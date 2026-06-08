@@ -81,6 +81,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .brief-b{color:var(--bl-deep);}
 .brief-r{color:var(--red);}
 .brief-says{margin-top:12px;border-top:1px solid var(--bdr);padding-top:12px;display:flex;flex-direction:column;gap:8px;}
+.cheer-bar{display:flex;flex-direction:column;gap:8px;margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.7);border:1px solid var(--bdr);}
+.cheer-blue{font-size:.84rem;font-weight:600;color:var(--txt);line-height:1.6;padding:9px 12px;border-radius:10px;background:#e8f0fd;border-left:3px solid #5b8def;}
+.cheer-red{font-size:.84rem;font-weight:600;color:var(--txt);line-height:1.6;padding:9px 12px;border-radius:10px;background:#fdf0ef;border-left:3px solid #e8736f;}
 .brief-say{font-size:.84rem;font-weight:600;color:var(--txt);line-height:1.6;padding:9px 12px;border-radius:10px;}
 .brief-say.t1side{background:#e8f0fd;border-left:3px solid var(--bl);}
 .brief-say.t2side{background:#fdf0ef;border-left:3px solid var(--red);}
@@ -588,13 +591,15 @@ function _getQuote(matches, players){
   return {t:filled, src};
 }
 
-// ── 팀 한마디: 청팀=치어리더(관전자 성별 랜덤) / 홍팀=강렬 응원단 ──
+// ── 팀 한마디: 청팀/홍팀 응원단 ──
 function _getTeamLine(team,diff,rec,top,curPlayers){
   const HT=top?_hn(top):null;
   const PP=curPlayers&&curPlayers.length
     ?curPlayers[Math.floor(Date.now()/400000)%curPlayers.length]:null;
   const HP=PP?_hn(PP):null;
   const isM=_viewerGender==='M';
+  const _bucket=diff>0?'ahead':diff<0?'behind':'even';
+  const _idx=Math.floor(Date.now()/600000);
 
   if(team==='blue'){
     const linesF={
@@ -647,39 +652,39 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
         `팽팽해! 청팀이 한 발 더 나가줘!! 다 같이 응원한다!! 🎉`,
       ]
     };
-    const _bucket=diff>0?'ahead':diff<0?'behind':'even';
     const _tl=isM?linesM:linesF;
-    return _tl[_bucket][Math.floor(Date.now()/600000)%_tl[_bucket].length];
-    // 홍팀: 강렬하고 단호한 응원단
-    const lines={
-      ahead:[
-        HT?`${_hnJ(top,'이/가')} 흔들리지 않는 한 홍팀은 이 경기 잡는다. ${_hnJ(top,'은/는')} 안 흔들린다.`
-          :`리드는 리드일 뿐. 끝까지 집중해서 반드시 마무리 짓는다.`,
-        HP?`${HP}, 오늘 네 이름이 기억될 거야. 계속 이대로 가자.`
-          :`홍팀의 기세, 오늘 꺾이지 않는다. 끝까지 간다.`,
-        HT?`${_hnJ(top,'이/가')} 앞서는 홍팀 — 오늘 승리는 우리 것이다.`
-          :`오늘 승리는 이미 정해졌다. 집중만 잃지 않으면 된다.`,
-      ],
-      behind:[
-        HT?`${HT}! 지금 네가 나서야 할 때야. 홍팀은 아직 안 끝났다.`
-          :`뒤집어야 한다. 지금 당장. 홍팀 전원 집중.`,
-        HP?`${_hnJ(PP,'이/가')} 코트에 있는 한, 홍팀은 끝나지 않았다. 믿는다.`
-          :`이 상황이 오히려 편하다. 잃을 게 없다. 맘껏 뒤집자.`,
-        HT?`${_hnJ(top,'을/를')} 중심으로 홍팀 역전 드라마 지금 시작한다.`
-          :`홍팀의 역전 드라마, 지금 시작한다. 모두 집결.`,
-      ],
-      even:[
-        HT?`${_hnJ(top,'이/가')} 실력, 동점 상황에서 빛난다. 지금이 진짜 승부처다.`
-          :`동점 상황, 홍팀이 더 강하다는 거 보여줄 시간이다.`,
-        HP?`${HP}, 지금 한 방이 전부를 바꾼다. 믿고 간다.`
-          :`타이. 지금부터 진짜 시작이다.`,
-        `빡빡하게 가자. 한 점 한 점이 전부다.`,
-      ]
-    };
-    const _bucket2=diff>0?'ahead':diff<0?'behind':'even';
-    return lines[_bucket2][Math.floor(Date.now()/600000)%lines[_bucket2].length];
+    return _tl[_bucket][_idx%_tl[_bucket].length];
   }
+
+  // 홍팀: 강렬하고 단호한 응원단
+  const lines={
+    ahead:[
+      HT?`${_hnJ(top,'이/가')} 흔들리지 않는 한 홍팀은 이 경기 잡는다. ${_hnJ(top,'은/는')} 안 흔들린다.`
+        :`리드는 리드일 뿐. 끝까지 집중해서 반드시 마무리 짓는다.`,
+      HP?`${HP}, 오늘 네 이름이 기억될 거야. 계속 이대로 가자.`
+        :`홍팀의 기세, 오늘 꺾이지 않는다. 끝까지 간다.`,
+      HT?`${_hnJ(top,'이/가')} 앞서는 홍팀 — 오늘 승리는 우리 것이다.`
+        :`오늘 승리는 이미 정해졌다. 집중만 잃지 않으면 된다.`,
+    ],
+    behind:[
+      HT?`${HT}! 지금 네가 나서야 할 때야. 홍팀은 아직 안 끝났다.`
+        :`뒤집어야 한다. 지금 당장. 홍팀 전원 집중.`,
+      HP?`${_hnJ(PP,'이/가')} 코트에 있는 한, 홍팀은 끝나지 않았다. 믿는다.`
+        :`이 상황이 오히려 편하다. 잃을 게 없다. 맘껏 뒤집자.`,
+      HT?`${_hnJ(top,'을/를')} 중심으로 홍팀 역전 드라마 지금 시작한다.`
+        :`홍팀의 역전 드라마, 지금 시작한다. 모두 집결.`,
+    ],
+    even:[
+      HT?`${_hnJ(top,'이/가')} 실력, 동점 상황에서 빛난다. 지금이 진짜 승부처다.`
+        :`동점 상황, 홍팀이 더 강하다는 거 보여줄 시간이다.`,
+      HP?`${HP}, 지금 한 방이 전부를 바꾼다. 믿고 간다.`
+        :`타이. 지금부터 진짜 시작이다.`,
+      `빡빡하게 가자. 한 점 한 점이 전부다.`,
+    ]
+  };
+  return lines[_bucket][_idx%lines[_bucket].length];
 }
+
 
 // ── 경기 타이틀 자동 생성 ──
 function _matchTitle(type, t1, t2){
@@ -878,6 +883,11 @@ function buildBriefing(matches, d){
     ?'<div class="brief-extras">'+extras.map(e=>'<div class="brief-extra">'+e+'</div>').join('')+'</div>'
     :'';
 
+  // 응원단 메시지 전역 저장 (라운드 렌더링 시 DOM 의존 없이 직접 참조)
+  window._cheerBSay  = bSay  || '';
+  window._cheerRSay  = rSay  || '';
+  window._cheerTeamB = d.teamBlue  || '청팀';
+  window._cheerTeamW = d.teamWhite || '홍팀';
   return '<div class="briefing">'
     +'<div class="brief-title">📢 지금 현황</div>'
     +'<div class="brief-situation">'+situation+'</div>'
@@ -886,10 +896,6 @@ function buildBriefing(matches, d){
     +'<div class="brief-row brief-row-r"><span class="brief-dot-r">●</span>'+rLine+'</div>'
     +'<div class="brief-momentum">'+momentum+'</div>'
     +extraHtml
-    +'<div class="brief-says">'
-      +'<div class="brief-say t1side">'+(_viewerGender==='M'?'📣':'💃')+' '+esc(d.teamBlue||'청팀')+' '+(_viewerGender==='M'?'남성 서포터':'치어리더')+' — "'+bSay+'"</div>'
-      +'<div class="brief-say t2side">🔴 '+esc(d.teamWhite||'홍팀')+' 응원단 — "'+rSay+'"</div>'
-    +'</div>'
     +'</div>'
     +'<div class="quote-card">'
       +'<div class="quote-text">"'+q.t+'"</div>'
@@ -1103,6 +1109,19 @@ function render(d){
       html+='<div class="m-team t1side'+(t1win?' win':'')+'">'        +'<div class="m-team-label">'+_t1label+'</div>'        +'<div class="m-player">'+esc(m.t1[0])+"</div>"        +'<div class="m-player">'+esc(m.t1[1])+"</div>"        +(t1win?'<span class="win-stamp">승리</span>':'')+"</div>";      html+='<div class="m-vs">VS</div>';      html+='<div class="m-team t2side'+(t2win?' win':'')+'">'        +'<div class="m-team-label">'+_t2label+'</div>'        +'<div class="m-player">'+esc(m.t2[0])+"</div>"        +'<div class="m-player">'+esc(m.t2[1])+"</div>"        +(t2win?'<span class="win-stamp">승리</span>':'')+"</div>";      html+='</div></div>';
 
     });
+    // 진행 중 라운드 바로 아래: 응원단 메시지
+    if(isCur && d.isTeam){
+      const _bs=window._cheerBSay||'';
+      const _rs=window._cheerRSay||'';
+      const _tbl=window._cheerTeamB||'청팀';
+      const _twh=window._cheerTeamW||'홍팀';
+      if(_bs||_rs){
+        html+='<div class="cheer-bar">'
+          +'<div class="cheer-blue">📣 '+esc(_tbl)+' 응원단 — "'+esc(_bs)+'"</div>'
+          +'<div class="cheer-red">🔴 '+esc(_twh)+' 응원단 — "'+esc(_rs)+'"</div>'
+          +'</div>';
+      }
+    }
     html+='</div>';
   });
 
