@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.36  (2026-06)
+     APP VERSION: 1.10.37  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.36">
+<meta name="app-version" content="1.10.37">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -316,41 +316,41 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .match-card.women{border-left:3px solid var(--women);}
 .match-card.men{border-left:3px solid var(--men);}
 .match-card.mixed{border-left:3px solid var(--mixed);}
-.match-card.filler{border-left:3px solid #7c3aed;opacity:.9;}
+.match-card.filler{border-left:3px solid #7c3aed;opacity:.85;}
 .match-top{display:flex;align-items:center;justify-content:space-between;padding:5px 9px;border-bottom:1px solid var(--bdr);background:var(--sur2);}
 .match-num{font-size:.68rem;color:var(--dim2);font-weight:600;}
 .mtb{font-size:.72rem;padding:2px 8px;border-radius:999px;font-weight:800;letter-spacing:.3px;}
 .tb-w{background:var(--women-soft);color:#b06b85;}
 .tb-m{background:var(--men-soft);color:var(--bl-deep);}
 .tb-x{background:var(--mixed-soft);color:#7d68b0;}
-.court-badge{font-size:.7rem;color:var(--txt);background:#fff;border:1.5px solid var(--bdr2);padding:2px 8px;border-radius:4px;font-weight:700;}
+.court-badge{font-size:.7rem;color:var(--txt);background:#fff;border:1.5px solid var(--bdr2);padding:2px 9px;border-radius:6px;font-weight:800;letter-spacing:.3px;}
 .match-body{display:flex;align-items:stretch;}
 .tm-side{flex:1;display:flex;align-items:center;gap:8px;padding:11px 11px;}
 .tm-side.tm-blue{background:#eef4fc;}
-.tm-side.tm-white{background:#fdf8f0;}
+.tm-side.tm-white{background:#fff3f3;}
 .tm-side.tm-a{background:#eef4fc;}
-.tm-side.tm-b{background:#edf7f1;}
+.tm-side.tm-b{background:#fff3f3;}
 .tm-prefix{font-family:'Noto Sans KR',sans-serif;font-weight:800;font-size:1rem;flex-shrink:0;}
 .tm-side.tm-blue .tm-prefix{color:var(--bl-deep);}
-.tm-side.tm-white .tm-prefix{color:var(--dim);}
+.tm-side.tm-white .tm-prefix{color:#c0453f;}
 .tm-side.tm-a .tm-prefix{color:var(--bl-deep);}
-.tm-side.tm-b .tm-prefix{color:var(--dim);}
+.tm-side.tm-b .tm-prefix{color:#c0453f;}
 .tm-names{display:flex;flex-direction:column;gap:3px;flex:1;}
 .tm-name{font-size:1.26rem;font-weight:700;color:var(--txt);letter-spacing:-.2px;}
-.tm-lv{font-size:.7rem;font-weight:700;margin-left:3px;color:var(--dim);}
-.tm-vs{display:flex;align-items:center;justify-content:center;padding:0 7px;font-size:.68rem;font-weight:700;color:var(--dim2);background:var(--sur2);flex-shrink:0;}
+.tm-lv{font-size:.7rem;font-weight:700;margin-left:3px;color:var(--dim2);}
+.tm-vs{display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:.72rem;font-weight:800;color:var(--dim2);background:var(--sur2);flex-shrink:0;letter-spacing:.5px;}
 /* ── WIN ROW ── */
 .win-row{display:flex;align-items:center;gap:5px;padding:6px 9px;border-top:1px solid var(--bdr);background:var(--sur2);}
 .win-btn{flex:1;padding:5px 4px;border:1.5px solid;border-radius:6px;font-size:.72rem;font-weight:700;
   cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;text-align:center;background:#fff;}
 .win-btn.side1{border-color:var(--bl-softbdr);color:var(--bl-deep);}
 .win-btn.side1:hover,.win-btn.side1.active{background:var(--bl-deep);border-color:var(--bl-deep);color:#fff;}
-.win-btn.side2{border-color:#f7cdcb;color:#c0453f;}
+.win-btn.side2{border-color:#f0b8b5;color:#c0453f;}
 .win-btn.side2:hover,.win-btn.side2.active{background:#d84f4a;border-color:#d84f4a;color:#fff;}
 .match-card.win-s1{box-shadow:0 0 0 2px rgba(37,99,235,.4);}
-.match-card.win-s2{box-shadow:0 0 0 2px rgba(146,64,14,.35);}
+.match-card.win-s2{box-shadow:0 0 0 2px rgba(192,69,63,.4);}
 .score-result{font-size:.66rem;font-weight:700;flex-shrink:0;}
-.sr-b{color:var(--bl-deep);}.sr-w{color:var(--dim);}.sr-d{color:var(--dim);}
+.sr-b{color:var(--bl-deep);}.sr-w{color:#c0453f;}.sr-d{color:var(--dim);}
 .hidden{display:none!important;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .anim{animation:fadeUp .3s ease both;}
@@ -1758,7 +1758,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.36';
+const APP_VERSION = '1.10.37';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4010,8 +4010,8 @@ function renderResults(matches,participants,settings){
       const p2label=isTeam?(t1b?teamNames.white:teamNames.blue):'B';
       const p1cls=isTeam?(t1b?'tm-blue':'tm-white'):'tm-a';
       const p2cls=isTeam?(t1b?'tm-white':'tm-blue'):'tm-b';
-      const sl1=isTeam?(t1b?`🔵${teamNames.blue}`:`⚪${teamNames.white}`):'A';
-      const sl2=isTeam?(t1b?`⚪${teamNames.white}`:`🔵${teamNames.blue}`):'B';
+      const sl1=isTeam?(t1b?`🔵${teamNames.blue}`:`🔴${teamNames.white}`):'A';
+      const sl2=isTeam?(t1b?`🔴${teamNames.white}`:`🔵${teamNames.blue}`):'B';
       return `<div class="match-card ${tc}${m.isFiller?' filler':''}" id="mc_${idx}">
         <div class="match-top">
           <span class="match-num">#${m.matchNumber}</span>
