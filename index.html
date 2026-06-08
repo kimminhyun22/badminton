@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.47  (2026-06)
+     APP VERSION: 1.10.48  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.47">
+<meta name="app-version" content="1.10.48">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1765,7 +1765,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.47';
+const APP_VERSION = '1.10.48';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4007,6 +4007,8 @@ function renderResults(matches,participants,settings){
   renderQualityDashboard(matches,participants,settings);
   // 품질 패널 렌더 후 되돌리기 버튼 상태 동기화 (동적 생성된 버튼이 disabled로 초기화되기 때문)
   _updateUndoBtn();
+  // 최고 대진 버튼 갱신 (참가자·모드 변경 시 자동 반영)
+  _initBestBtn();
 
   // 스코어보드: 팀 모드일 때만 표시
   document.getElementById('scoreboardSec').classList.toggle('hidden',!isTeam);
@@ -4980,6 +4982,13 @@ function _calcTotalScore(matches, participants, settings, lockedBefore){
   return Math.round(sA+sB+sC+sD+sE);
 }
 
+function _bestSig(participants, settings){
+  // 참가자 구성 + 모드 + 설정의 "서명" - 동일 컨텍스트 여부 판단
+  const names=participants.map(p=>p.name).sort().join(',');
+  const mode=settings.teamMode?'team':'free';
+  return `${mode}|c${settings.courts||0}|g${settings.gamesPerPlayer||0}|${names}`;
+}
+
 function _tryAutoSaveBest(source){
   // source: 'full' = generate(), 'reshuffle' = reshuffle 계열
   if(!currentMatches.length||!currentParticipants.length) return;
@@ -4988,16 +4997,20 @@ function _tryAutoSaveBest(source){
   const lockedBefore=isReshuffle?_lockedBeforeRound:null;
   const score=_calcTotalScore(currentMatches,currentParticipants,currentSettings,lockedBefore);
   if(!score) return;
+  // 현재 참가자·모드 서명
+  const currentSig=_bestSig(currentParticipants,currentSettings);
   try{
     const prev=JSON.parse(localStorage.getItem(KEY)||'null');
-    if(!prev||score>prev.score){
+    // 서명이 다르면(참가자 변경/모드 변경) 이전 최고 무효화 → 현재가 새 최고
+    const sameCtx=prev&&prev.signature===currentSig;
+    if(!prev||!sameCtx||score>prev.score){
       const sc=currentMatches.map((_,i)=>{
         const s1=document.getElementById('s1_'+i),s2=document.getElementById('s2_'+i);
         return{s1:s1?parseInt(s1.value)||0:0,s2:s2?parseInt(s2.value)||0:0};
       });
       const slim=p=>({name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대'});
       const state={
-        score,source,lockedBefore,savedAt:Date.now(),
+        score,source,lockedBefore,savedAt:Date.now(),signature:currentSig,
         directPlayers:_directPlayers.map(p=>({...p})),
         teamAssignment:teamAssignment?JSON.parse(JSON.stringify(teamAssignment)):null,
         matches:currentMatches.map(m=>({
@@ -5089,13 +5102,18 @@ function loadBestBracket(source){
 }
 
 function _initBestBtn(){
+  // 현재 참가자·모드 서명과 일치하는 최고 대진만 버튼 표시
   try{
+    const curSig=currentParticipants.length?_bestSig(currentParticipants,currentSettings):null;
     const full=JSON.parse(localStorage.getItem(BEST_KEY_FULL)||'null');
     const re=JSON.parse(localStorage.getItem(BEST_KEY_RESHUFFLE)||'null');
     const b1=document.getElementById('bestBracketBtn');
     const b2=document.getElementById('bestReshuffleBtn');
-    if(b1&&full?.score){b1.style.display='';b1.textContent='🏆 '+full.score+'점';b1.title='최고 대진 '+full.score+'점';}
-    if(b2&&re?.score){b2.style.display='';b2.textContent='🔀 '+re.score+'점';b2.title='재배정 최고 대진 '+re.score+'점 (R'+(re.lockedBefore||1)+'~)';}
+    // 서명이 없는 구버전 데이터는 표시 허용 (하위 호환)
+    const fullOk=full&&full.score&&(!full.signature||!curSig||full.signature===curSig);
+    const reOk=re&&re.score&&(!re.signature||!curSig||re.signature===curSig);
+    if(b1){b1.style.display=fullOk?'':'none';if(fullOk){b1.textContent='🏆 '+full.score+'점';b1.title='최고 대진 '+full.score+'점';}}
+    if(b2){b2.style.display=reOk?'':'none';if(reOk){b2.textContent='🔀 '+re.score+'점';b2.title='재배정 최고 대진 '+re.score+'점 (R'+(re.lockedBefore||1)+'~)';}}
   }catch(e){}
 }
 const MAX_SLOTS=10;
