@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.42  (2026-06)
+     APP VERSION: 1.10.43  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.42">
+<meta name="app-version" content="1.10.43">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -337,9 +337,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .tm-side.tm-b .tm-prefix{color:#c0453f;}
 .tm-names{display:flex;flex-direction:column;gap:3px;flex:1;}
 .tm-name{font-size:1.26rem;font-weight:700;color:var(--txt);letter-spacing:-.2px;}
-/* 연속 출전 경고: 이름 색은 유지, 노란 배경 + ⚡ 아이콘으로 명확히 구분 */
-.tm-name.consec-warn{color:var(--txt);position:relative;background:rgba(255,180,0,.18);border-radius:4px;padding:0 3px;}
-.tm-name.consec-warn::after{content:' ⚡';font-size:.6rem;color:#d97706;margin-left:1px;}
+/* consec-warn 기능 제거 — 품질점검 대진간격 항목으로 확인 */
 .tm-lv{font-size:.65rem;font-weight:500;margin-left:4px;color:var(--dim2);letter-spacing:-.1px;white-space:nowrap;}
 .tm-vs{display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:.72rem;font-weight:800;color:var(--dim2);background:var(--sur2);flex-shrink:0;letter-spacing:.5px;}
 /* ── WIN ROW ── */
@@ -812,7 +810,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   /* 라운드 배지 */
   .round-badge{font-size:.78rem;}
   .tm-name{font-size:1.12rem;font-weight:700;}
-  .tm-name.consec-warn::after{font-size:.55rem;}
+
   .tm-lv{font-size:.6rem;}
   .tm-prefix{font-size:.85rem;}
   .tm-vs{padding:0 5px;font-size:.68rem;}
@@ -1763,7 +1761,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.42';
+const APP_VERSION = '1.10.43';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4001,21 +3999,8 @@ function renderResults(matches,participants,settings){
   document.getElementById('sbBlueName').value=teamNames.blue;
   document.getElementById('sbWhiteName').value=teamNames.white;
 
-  // 연속 출전 선수 사전 계산 (매치카드 강조 표시용)
-  // 품질점검과 동일 로직: 인원상 불가피한 연속 출전은 제외, 진짜 과다 연속만 경고
+  // 연속 출전 경고 제거 (품질점검 "대진 간격" 항목으로 충분히 확인 가능)
   const _consecWarning={};
-  const _nP=participants.length||1;
-  const _maxR2=matches.length?Math.max(...matches.map(m=>m.round)):0;
-  for(let r=2;r<=_maxR2;r++){
-    const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
-    const cur=matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]);
-    const consecNames=cur.filter(n=>prev.has(n));
-    // 불가피한 최소 연속 출전 수 계산 (인원 < 코트*8 일 때 수학적 불가피)
-    const inevitable=Math.max(0,cur.length-(_nP-cur.length));
-    // 불가피 수를 초과하는 연속 출전자만 경고
-    const excess=consecNames.length-inevitable;
-    if(excess>0) consecNames.slice(-excess).forEach(n=>{_consecWarning[n]=true;});
-  }
 
   // Build bracket
   const byRound={};
@@ -4056,16 +4041,16 @@ function renderResults(matches,participants,settings){
           <div class="tm-side ${p1cls}">
             <span class="tm-prefix">${p1label}</span>
             <div class="tm-names">
-              <span class="tm-name${_consecWarning[m.team1A.name]?' consec-warn':''}">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team1A)}</span></span>
-              <span class="tm-name${_consecWarning[m.team1B.name]?' consec-warn':''}">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team1B)}</span></span>
+              <span class="tm-name">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team1A)}</span></span>
+              <span class="tm-name">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team1B)}</span></span>
             </div>
           </div>
           <div class="tm-vs">VS</div>
           <div class="tm-side ${p2cls}">
             <span class="tm-prefix">${p2label}</span>
             <div class="tm-names">
-              <span class="tm-name${_consecWarning[m.team2C.name]?' consec-warn':''}">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team2C)}</span></span>
-              <span class="tm-name${_consecWarning[m.team2D.name]?' consec-warn':''}">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team2D)}</span></span>
+              <span class="tm-name">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team2C)}</span></span>
+              <span class="tm-name">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team2D)}</span></span>
             </div>
           </div>
         </div>
