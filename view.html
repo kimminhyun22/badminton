@@ -864,12 +864,10 @@ function buildBriefing(matches, d){
       const bPair=[b0,b1].filter(Boolean).join('+');
       const rPair=[r0,r1].filter(Boolean).join('+');
       const commentPool=[
-        `🏸 ${title} | ${bPair} vs ${rPair}`,
-        `👀 ${curRound}라운드 ${cm.court}코트 — ${bPair} vs ${rPair} 지금 눈을 떼면 안 돼요!`,
-        `${b0J} 오늘 여기서 왜 이렇게 잘하는 거예요?! ${rPair} 팀 진짜 긴장해야 해요. 🔥`,
-        `${bPair} 조 대 ${rPair} 조 — ${curRound}라운드 이 경기가 승부를 가를 수 있어요.`,
-        `지금 ${cm.court}코트에서 ${b0}과 ${r0}의 대결! 이거 진짜 명승부예요. 🏸`,
-        `${bPair} vs ${rPair} — 두 팀 다 오늘 최고 컨디션이에요. 누가 이길까요?!`,
+        `🏸 ${bPair} vs ${rPair}`,
+        `👀 R${curRound} C${cm.court} — ${bPair} vs ${rPair}`,
+        `${bPair} vs ${rPair} — 이 경기가 승부를 가를 수 있어요. 🔥`,
+        `${bPair} vs ${rPair} — 지금 눈 떼면 안 돼요! 🏸`,
       ];
       liveComment=commentPool[Math.floor(Date.now()/500000)%commentPool.length];
     }
