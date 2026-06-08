@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.50  (2026-06)
+     APP VERSION: 1.10.51  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.50">
+<meta name="app-version" content="1.10.51">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1765,7 +1765,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.50';
+const APP_VERSION = '1.10.51';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2165,7 +2165,9 @@ function renderTeamList(){
     sortWithCaptain(blue,'blue').map(p=>renderRow(p,'blue','white')).join('');
   document.getElementById('whiteList').innerHTML=
     sortWithCaptain(white,'white').map(p=>renderRow(p,'white','blue')).join('');
-  document.getElementById('teamListWrap').classList.add('show');
+  // 팀 모드가 꺼진 상태면 목록 표시 안 함
+  const _isTeamOn = teamAssignment && _teamModeOverride!==false;
+  document.getElementById('teamListWrap').classList.toggle('show', !!_isTeamOn);
 }
 
 function cycleRole(team, name){
