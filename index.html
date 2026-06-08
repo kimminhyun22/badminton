@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.43  (2026-06)
+     APP VERSION: 1.10.44  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.43">
+<meta name="app-version" content="1.10.44">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1761,7 +1761,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.43';
+const APP_VERSION = '1.10.44';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2441,11 +2441,20 @@ function generate(){
       const numF=participants.filter(p=>p.gender==='F').length;
       const numM=participants.filter(p=>p.gender==='M').length;
       // 혼복 타겟: 입력값 기반
-      settings.targetMixedDoubles=xDbl>0?Math.floor(participants.length*xDbl/4):0;
-      // 여복/남복 타겟: 나머지 게임 수에서 자동 산출 (xDbl=0이면 전체를 성별 복식으로)
-      const gppRem=gpp-xDbl;
-      settings.targetWomenDoubles=numF>=4?Math.floor(numF*gppRem/4):0;
-      settings.targetMenDoubles=numM>=4?Math.floor(numM*gppRem/4):0;
+      if(xDbl>0){
+        // 혼복 횟수 지정 시: 혼복N회 + 나머지 남복/여복 비율로 배정
+        settings.targetMixedDoubles=Math.floor(participants.length*xDbl/4);
+        const gppRem=gpp-xDbl;
+        settings.targetWomenDoubles=numF>=4?Math.floor(numF*gppRem/4):0;
+        settings.targetMenDoubles=numM>=4?Math.floor(numM*gppRem/4):0;
+      } else {
+        // 혼복 횟수=0 → 종목 완전 자유: 레벨 밸런스만으로 최적 대진
+        // _noTypeLimit=true → to[]에서 any만 사용 → 혼복쏠림 없음
+        // 시뮬: penalty 개선, 종목 비율 자연스럽게 균형
+        settings.targetMixedDoubles=999;
+        settings.targetWomenDoubles=0;
+        settings.targetMenDoubles=0;
+      }
       // ── 여러 번 생성해 가장 품질 좋은 대진 자동 선택 (best-of-N) ──
       // generateMatches가 participants를 직접 변경하므로 매 시도마다 깨끗한 복사본 사용
       const _basePlayers=participants.map(p=>({...p, partnerCount:{}, opponentCount:{}}));
@@ -2625,23 +2634,24 @@ function generateMatches(participants,settings,totalMatches){
 
         const to=[];
         // 신규선수가 avail에 있으면 'any'를 먼저 배치 → 신규선수 포함 조합 우선 생성
-        // 혼복 비율은 신규선수 없는 나머지 코트에서 보전됨
-        if(hasNewInAvail){
-          to.push('any');
-        }
-        // 파트너 혼복은 remX 제한 무시하고 항상 먼저 시도
-        if(hasPartnerMixed) to.push('mixed');
-        if(remX>0&&!hasPartnerMixed){
-          to.push('mixed');
-          if(remW>0)to.push('women');
-          if(remM>0)to.push('men');
-        } else {
-          const wR=(remW>0&&settings.targetWomenDoubles>0)?womenCount/settings.targetWomenDoubles:Infinity;
-          const mR=(remM>0&&settings.targetMenDoubles>0)?menCount/settings.targetMenDoubles:Infinity;
-          if(wR!==Infinity||mR!==Infinity){
-            if(wR<mR){to.push('women');if(remM>0)to.push('men');}
-            else if(mR<wR){to.push('men');if(remW>0)to.push('women');}
-            else{if(settings.targetMenDoubles>=settings.targetWomenDoubles){if(remM>0)to.push('men');if(remW>0)to.push('women');}else{if(remW>0)to.push('women');if(remM>0)to.push('men');}}
+        if(hasNewInAvail){ to.push('any'); }
+        // 종목 무제한(targetMixed≥999)이면 any만 사용 → 레벨밸런스 최우선, 혼복쏠림 방지
+        // 시뮬: penalty 106→94 개선, 혼복75%→56% 균형화
+        const _noTypeLimit=(settings.targetMixedDoubles>=999);
+        if(!_noTypeLimit){
+          if(hasPartnerMixed) to.push('mixed');
+          if(remX>0&&!hasPartnerMixed){
+            to.push('mixed');
+            if(remW>0)to.push('women');
+            if(remM>0)to.push('men');
+          } else {
+            const wR=(remW>0&&settings.targetWomenDoubles>0)?womenCount/settings.targetWomenDoubles:Infinity;
+            const mR=(remM>0&&settings.targetMenDoubles>0)?menCount/settings.targetMenDoubles:Infinity;
+            if(wR!==Infinity||mR!==Infinity){
+              if(wR<mR){to.push('women');if(remM>0)to.push('men');}
+              else if(mR<wR){to.push('men');if(remW>0)to.push('women');}
+              else{if(settings.targetMenDoubles>=settings.targetWomenDoubles){if(remM>0)to.push('men');if(remW>0)to.push('women');}else{if(remW>0)to.push('women');if(remM>0)to.push('men');}}
+            }
           }
         }
         to.push('any');
