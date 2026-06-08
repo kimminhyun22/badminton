@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.51  (2026-06)
+     APP VERSION: 1.10.52  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.51">
+<meta name="app-version" content="1.10.52">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1765,7 +1765,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.51';
+const APP_VERSION = '1.10.52';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5594,6 +5594,8 @@ function _buildHistoryFromMatches(completedMatches){
 function reshuffleFromRound(r){
   if(!currentMatches.length){alert('먼저 대진표를 생성해주세요.');return;}
   if(_lockedBeforeRound!=null && r<_lockedBeforeRound){alertRoundLocked(r);return;}
+  // 잠금 라운드 업데이트 → 이후 reshuffleMatches() 반복 시 동일 서명으로 점수 누적 비교
+  _lockedBeforeRound = Math.max(_lockedBeforeRound||0, r);
 
   // r 이전 라운드 유지, r 이후(r 포함) 재생성
   const completedMatches=currentMatches.filter(m=>m.round<r);
@@ -5693,6 +5695,8 @@ function reshuffleMatches(){
       compactSchedule(newMatches,currentSettings);
       newMatches.sort((a,b)=>a.round-b.round||a.court-b.court);
       const lastDoneRound=completedMatches.length?Math.max(...completedMatches.map(m=>m.round)):0;
+      // 잠금 라운드를 완료 라운드+1로 동기화 → 서명 일치로 점수 누적 비교 보장
+      if(lastDoneRound>0) _lockedBeforeRound=Math.max(_lockedBeforeRound||0, lastDoneRound+1);
       newMatches.forEach(m=>m.round+=lastDoneRound);
       const allMatches=[...completedMatches,...newMatches];
       allMatches.forEach((m,i)=>m.matchNumber=i+1);
