@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.45  (2026-06)
+     APP VERSION: 1.10.46  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.45">
+<meta name="app-version" content="1.10.46">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1371,6 +1371,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
             <button class="btn btn-gen" style="flex:1;" onclick="generate()">🎯 대진표 생성</button>
             <button id="undoBtnMain" class="btn btn-undo" style="padding:10px 12px;font-size:.82rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩</button>
           </div>
+          <button id="bestBracketBtn" class="btn btn-ghost btn-sm" style="display:none;width:100%;margin-top:6px;font-weight:700;color:#3a8c5c;border-color:#b2ddc8;" onclick="loadBestBracket()" title="">🏆</button>
           <div class="btn-row">
             <button class="btn btn-ghost btn-sm" onclick="resetAll()">✕ 전체 초기화</button>
           </div>
@@ -1761,7 +1762,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.45';
+const APP_VERSION = '1.10.46';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2513,6 +2514,7 @@ function generate(){
       if(_warnParts.length){showWarn(_warnParts.join('\n\n'));}
       else{hideWarn();}
       scheduleSave();
+      setTimeout(_tryAutoSaveBest, 300); // 최고 대진 자동 비교·저장
       // 모바일/데스크탑 모두 결과 영역으로 스크롤
       setTimeout(()=>{
         const el=document.getElementById('resultArea');
@@ -4936,6 +4938,154 @@ function restoreState(){
    이름 붙여 저장 (슬롯 시스템)
 ════════════════════════════════ */
 const SLOTS_KEY='badminton_slots_v1';
+const BEST_KEY='badminton_best_v1';
+
+function _calcTotalScore(matches, participants, settings){
+  // renderQualityDashboard와 동일 로직으로 total 점수 계산
+  if(!matches||!matches.length||!participants||!participants.length) return 0;
+  const gpp=settings.gamesPerPlayer||4;
+  const avgLD=matches.reduce((s,m)=>s+(m.levelDiff||0),0)/matches.length;
+  const spikes=matches.filter(m=>(m.levelDiff||0)>=3).length;
+  const counts={};
+  participants.forEach(p=>counts[p.name]=0);
+  matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{if(p&&counts[p.name]!==undefined)counts[p.name]++;}));
+  const _pGoal=p=>p._goal!=null?p._goal:gpp;
+  const under=participants.filter(p=>counts[p.name]<_pGoal(p));
+  const fillers=matches.filter(m=>m.isFiller).length;
+  const pairCnt={};
+  matches.forEach(m=>[[m.team1A,m.team1B],[m.team2C,m.team2D]].forEach(pr=>{
+    if(pr[0]&&pr[1]){const k=[pr[0].name,pr[1].name].sort().join('|');pairCnt[k]=(pairCnt[k]||0)+1;}
+  }));
+  const rep3=Object.values(pairCnt).filter(c=>c>=3).length;
+  const _repRate=Object.keys(pairCnt).length>0?rep3/Object.keys(pairCnt).length:0;
+  const _fillerRate=fillers/Math.max(matches.length,1);
+  const goals=participants.map(p=>({actual:counts[p.name],goal:_pGoal(p)}));
+  const goalRates=goals.map(g=>g.goal>0?g.actual/g.goal:1);
+  const avgRate=goalRates.reduce((a,b)=>a+b,0)/goalRates.length;
+  const _var=goalRates.reduce((s,r)=>s+(r-avgRate)**2,0)/goalRates.length;
+  const sA=Math.max(0,Math.min(35,35*(1-avgLD/1.5)-spikes*1.5));
+  const _base=under.length===0?30:20*(1-under.length/participants.length);
+  const _penalty=Math.min(5,_var*15);
+  const sB=Math.max(0,Math.min(30,_base-_penalty));
+  const sC=Math.max(0,Math.min(20,20*(1-_fillerRate/0.3)));
+  const sD=Math.max(0,Math.min(10,10*(1-_repRate/0.3)));
+  const numF=participants.filter(p=>p.gender==='F').length;
+  const numM=participants.filter(p=>p.gender==='M').length;
+  let _genderErr=0;
+  if(settings.teamMode){matches.forEach(m=>{const ps=[m.team1A,m.team1B,m.team2C,m.team2D].filter(Boolean);if(ps.length===4&&m.type==='혼복'){const fs=ps.filter(p=>p.gender==='F').length,ms=ps.filter(p=>p.gender==='M').length;if(!(fs===2&&ms===2))_genderErr++;}});}
+  const sE=_genderErr===0?5:Math.max(0,5-_genderErr*2);
+  return Math.round(sA+sB+sC+sD+sE);
+}
+
+function _tryAutoSaveBest(){
+  if(!currentMatches.length||!currentParticipants.length) return;
+  const score=_calcTotalScore(currentMatches,currentParticipants,currentSettings);
+  if(!score) return;
+  try{
+    const prev=JSON.parse(localStorage.getItem(BEST_KEY)||'null');
+    if(!prev||score>prev.score){
+      // 현재 상태를 그대로 직렬화 (saveState와 동일 구조)
+      const scores=currentMatches.map((_,i)=>{
+        const s1=document.getElementById('s1_'+i),s2=document.getElementById('s2_'+i);
+        return{s1:s1?parseInt(s1.value)||0:0,s2:s2?parseInt(s2.value)||0:0};
+      });
+      const slim=p=>({name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대'});
+      const state={
+        score,
+        savedAt:Date.now(),
+        directPlayers:_directPlayers.map(p=>({...p})),
+        teamAssignment:teamAssignment?JSON.parse(JSON.stringify(teamAssignment)):null,
+        matches:currentMatches.map(m=>({
+          matchNumber:m.matchNumber,round:m.round,court:m.court,
+          type:m.type,isFiller:m.isFiller||false,levelDiff:m.levelDiff,
+          team1Level:m.team1Level,team2Level:m.team2Level,
+          team1A:slim(m.team1A),team1B:slim(m.team1B),
+          team2C:slim(m.team2C),team2D:slim(m.team2D)
+        })),
+        participants:currentParticipants.map(p=>({
+          name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,
+          team:p.team,isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대',
+          gamesPlayed:p.gamesPlayed,_goal:p._goal,isNewJoiner:!!p.isNewJoiner,
+          womenDoublesPlayed:p.womenDoublesPlayed,menDoublesPlayed:p.menDoublesPlayed,
+          mixedDoublesPlayed:p.mixedDoublesPlayed,_njGames:p._njGames||null
+        })),
+        settings:currentSettings,scores,
+        lockedBeforeRound:_lockedBeforeRound,
+        pointSystem:_pointSystem,
+        teamNames:JSON.parse(JSON.stringify(teamNames)),
+        winOverride:JSON.parse(JSON.stringify(winOverride))
+      };
+      localStorage.setItem(BEST_KEY,JSON.stringify(state));
+      _showBestBracketBtn(score, prev?prev.score:null);
+    }
+  }catch(e){console.warn('최고 대진 저장 오류',e);}
+}
+
+function _showBestBracketBtn(newScore, oldScore){
+  const btn=document.getElementById('bestBracketBtn');
+  if(!btn) return;
+  btn.style.display='';
+  btn.title=newScore+'점 최고 대진 저장됨'+(oldScore?` (이전: ${oldScore}점)`:'');
+  btn.textContent='🏆 '+newScore+'점';
+  // 토스트
+  let t=document.getElementById('bestToast');
+  if(!t){t=document.createElement('div');t.id='bestToast';
+    t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,.9);color:#fff;padding:8px 18px;border-radius:20px;font-size:.78rem;z-index:9999;pointer-events:none;transition:opacity .3s;';
+    document.body.appendChild(t);}
+  t.textContent=oldScore?`🏆 최고 대진 갱신! ${oldScore}→${newScore}점`:`🏆 최고 대진 저장! ${newScore}점`;
+  t.style.opacity='1';
+  clearTimeout(t._t);t._t=setTimeout(()=>{t.style.opacity='0';},2500);
+}
+
+function loadBestBracket(){
+  try{
+    const raw=localStorage.getItem(BEST_KEY);
+    if(!raw){alert('저장된 최고 대진이 없습니다.');return;}
+    const state=JSON.parse(raw);
+    if(!confirm(`${state.score}점 최고 대진을 불러올까요?\n현재 대진표는 덮어씌워집니다.`)) return;
+    // restoreState 동일 방식으로 복원
+    _directPlayers.length=0;
+    (state.directPlayers||[]).forEach(p=>_directPlayers.push(p));
+    teamAssignment=state.teamAssignment||null;
+    currentParticipants=state.participants.map(p=>Object.assign({
+      _valid:true,partnerCount:{},opponentCount:{},lastRoundPlayed:0,ageGroup:'40대'
+    },p));
+    const findP=name=>currentParticipants.find(p=>p.name===name)||{name,level:3,gender:'M',team:'',ageGroup:'40대',grade:''};
+    currentMatches=state.matches.map(m=>({
+      ...m,
+      team1A:findP(m.team1A.name),team1B:findP(m.team1B.name),
+      team2C:findP(m.team2C.name),team2D:findP(m.team2D.name)
+    }));
+    currentSettings=state.settings||{};
+    _lockedBeforeRound=state.lockedBeforeRound||null;
+    _pointSystem=state.pointSystem||25;
+    if(state.teamNames) Object.assign(teamNames,state.teamNames);
+    Object.keys(winOverride).forEach(k=>delete winOverride[k]);
+    Object.assign(winOverride,state.winOverride||{});
+    renderDirectPlayerList();
+    if(teamAssignment) renderTeamList();
+    renderResults(currentMatches,currentParticipants,currentSettings);
+    show('resultArea');
+    setTimeout(()=>{
+      (state.scores||[]).forEach((sc,i)=>{
+        const s1=document.getElementById('s1_'+i),s2=document.getElementById('s2_'+i);
+        if(s1)s1.value=sc.s1||'';if(s2)s2.value=sc.s2||'';
+      });
+      updateScores();scheduleSave();
+    },150);
+    setSaveStatus('saved');
+  }catch(e){alert('최고 대진 불러오기 오류: '+e.message);}
+}
+
+function _initBestBtn(){
+  try{
+    const raw=localStorage.getItem(BEST_KEY);
+    if(!raw) return;
+    const state=JSON.parse(raw);
+    const btn=document.getElementById('bestBracketBtn');
+    if(btn&&state.score){btn.style.display='';btn.textContent='🏆 '+state.score+'점';btn.title=state.score+'점 최고 대진';}
+  }catch(e){}
+}
 const MAX_SLOTS=10;
 
 function getSlots(){
@@ -5427,7 +5577,7 @@ function reshuffleFromRound(r){
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       completedScores.forEach((sc,i)=>{if(sc.wo)winOverride[i]=sc.wo;});
       renderResults(currentMatches,currentParticipants,currentSettings);
-      setTimeout(()=>{updateScores();scheduleSave();},100);
+      setTimeout(()=>{updateScores();scheduleSave();setTimeout(_tryAutoSaveBest,200);},100);
       const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
       if(_cw.length){let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
     }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
@@ -5486,7 +5636,7 @@ function reshuffleMatches(){
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       completedScores.forEach((sc,i)=>{if(sc.wo)winOverride[i]=sc.wo;});
       renderResults(currentMatches,currentParticipants,currentSettings);
-      setTimeout(()=>{updateScores();scheduleSave();
+      setTimeout(()=>{updateScores();scheduleSave();setTimeout(_tryAutoSaveBest,200);
         document.getElementById('resultArea').scrollIntoView({behavior:'smooth',block:'start'});},100);
       const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
       if(_cw.length){let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
