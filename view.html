@@ -854,17 +854,15 @@ function buildBriefing(matches, d){
       const bHn=bSide.map(_hn).join('·');
       const rHn=rSide.map(_hn).join('·');
       const title=_matchTitle(cm.type, t1, t2);
-      // 선수별 호칭 (조사 포함)
-      const b0=bSide[0]?_hn(bSide[0]):'', b1=bSide[1]?_hn(bSide[1]):'';
-      const r0=rSide[0]?_hn(rSide[0]):'', r1=rSide[1]?_hn(rSide[1]):'';
-      const bPair=[b0,b1].filter(Boolean).join('+');
-      const rPair=[r0,r1].filter(Boolean).join('+');
-      const commentPool=[
-        `🏸 ${bPair} vs ${rPair}`,
-        `👀 R${curRound} C${cm.court} — ${bPair} vs ${rPair}`,
-        `${bPair} vs ${rPair} — 이 경기가 승부를 가를 수 있어요. 🔥`,
-        `${bPair} vs ${rPair} — 지금 눈 떼면 안 돼요! 🏸`,
-      ];
+       // 이름만 사용 (호칭 없이 간결하게)
+       const bName=[bSide[0],bSide[1]].filter(Boolean).join(", ");
+       const rName=[rSide[0],rSide[1]].filter(Boolean).join(", ");
+       const commentPool=[
+         `🏸 ${bName} vs ${rName}`,
+         `👀 R${curRound} C${cm.court} — ${bName} vs ${rName}`,
+         `${bName} vs ${rName} — 이 경기가 승부를 가를 수 있어요. 🔥`,
+         `${bName} VS ${rName} — 지금 눈 떼면 안 돼요! 🏸`,
+       ];
       liveComment=commentPool[Math.floor(Date.now()/500000)%commentPool.length];
     }
   }
