@@ -861,8 +861,8 @@ function buildBriefing(matches, d){
 
   let bLine=`${bn} ${bW}승 ${wW>bW?'(추격 중)':bW>wW?'(선두)':'(동점)'}`;
   let rLine=`${wn} ${wW}승 ${bW>wW?'(추격 중)':wW>bW?'(선두)':'(동점)'}`;
-  if(bTop) bLine+=` · 에이스 ${_hn(bTop.name)} ${bTop.w}승`;
-  if(rTop) rLine+=` · 에이스 ${_hn(rTop.name)} ${rTop.w}승`;
+   if(bTop) bLine+=` 🏅 ${bTop.name} ${bTop.w}승`;
+   if(rTop) rLine+=` 🏅 ${rTop.name} ${rTop.w}승`;
 
   const bDiff=bW-wW, rDiff=wW-bW;
   const _qpB=bTop?bTop.name:(curBlue.length?curBlue[0]:null);
