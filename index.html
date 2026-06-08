@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.49  (2026-06)
+     APP VERSION: 1.10.50  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.49">
+<meta name="app-version" content="1.10.50">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1371,9 +1371,9 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
             <button class="btn btn-gen" style="flex:1;" onclick="generate()">🎯 대진표 생성</button>
             <button id="undoBtnMain" class="btn btn-undo" style="padding:10px 12px;font-size:.82rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩</button>
           </div>
-          <div id="bestBtns" style="display:flex;gap:6px;margin-top:6px;">
+          <div id="bestBtns" style="display:flex;gap:6px;margin-top:6px;align-items:center;">
             <button id="bestBracketBtn" class="btn btn-ghost btn-sm" style="display:none;flex:1;font-weight:700;color:#3a8c5c;border-color:#b2ddc8;" onclick="loadBestBracket('full')" title="">🏆</button>
-            <button id="bestReshuffleBtn" class="btn btn-ghost btn-sm" style="display:none;flex:1;font-weight:700;color:#7952c7;border-color:#c9b8ef;" onclick="loadBestBracket('reshuffle')" title="">🔀</button>
+            <button id="bestBracketDel" class="btn btn-ghost btn-sm" style="display:none;padding:4px 7px;font-size:.7rem;color:var(--dim);border-color:var(--bdr);" onclick="clearBestBracket('full')" title="최고 대진 삭제">✕</button>
           </div>
           <div class="btn-row">
             <button class="btn btn-ghost btn-sm" onclick="resetAll()">✕ 전체 초기화</button>
@@ -1765,7 +1765,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.49';
+const APP_VERSION = '1.10.50';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3948,6 +3948,10 @@ function renderQualityDashboard(matches,participants,settings){
         <button class="btn btn-gen" style="flex:1;padding:10px;font-size:.88rem;" onclick="reshuffleMatches()">🎲 재배정 (최적 대진 자동 선택)</button>
         <button id="undoBtn" class="btn btn-undo" style="padding:10px 14px;font-size:.88rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩ 되돌리기</button>
       </div>
+      <div id="bestReshuffleRow" style="display:none;margin-top:8px;display:none;align-items:center;gap:6px;">
+        <button id="bestReshuffleBtn" class="btn btn-ghost btn-sm" style="flex:1;font-weight:700;color:#7952c7;border-color:#c9b8ef;" onclick="loadBestBracket('reshuffle')" title="">🔀</button>
+        <button id="bestReshuffleDel" class="btn btn-ghost btn-sm" style="padding:4px 7px;font-size:.7rem;color:var(--dim);border-color:var(--bdr);" onclick="clearBestBracket('reshuffle')" title="재배정 최고 대진 삭제">✕</button>
+      </div>
     </div>
     ${total<=82?`<div class="qd-hint">💡 ${total<=70?'재생성을 권장합니다. 재배정 버튼을 눌러보세요.':'점수가 낮은 항목을 확인하고 필요 시 재배정하세요.'}</div>`:''}`;
 }
@@ -5051,16 +5055,28 @@ function _tryAutoSaveBest(source){
   }catch(e){console.warn('최고 대진 저장 오류',e);}
 }
 
+// 버튼 UI 동기화 헬퍼
+function _syncBestUI(isReshuffle, score){
+  const show=!!(score&&score>0);
+  if(isReshuffle){
+    const row=document.getElementById('bestReshuffleRow');
+    const btn=document.getElementById('bestReshuffleBtn');
+    const del=document.getElementById('bestReshuffleDel');
+    if(row){row.style.display=show?'flex':'none';}
+    if(btn&&show){btn.textContent='🔀 '+score+'점 최고 대진 불러오기';btn.title='재배정 최고 대진 '+score+'점';}
+    if(del){del.style.display=show?'':'none';}
+  }else{
+    const btn=document.getElementById('bestBracketBtn');
+    const del=document.getElementById('bestBracketDel');
+    const btns=document.getElementById('bestBtns');
+    if(btn){btn.style.display=show?'':'none';if(show){btn.textContent='🏆 '+score+'점 최고 대진 불러오기';btn.title='최고 대진 '+score+'점';}}
+    if(del){del.style.display=show?'':'none';}
+    if(btns){btns.style.display=show?'flex':'none';}
+  }
+}
 function _updateBestBtns(key,newScore,oldScore){
   const isReshuffle=(key===BEST_KEY_RESHUFFLE);
-  const btnId=isReshuffle?'bestReshuffleBtn':'bestBracketBtn';
-  const btn=document.getElementById(btnId);
-  if(btn){
-    btn.style.display='';
-    btn.textContent=(isReshuffle?'🔀 ':'🏆 ')+newScore+'점';
-    btn.title=(isReshuffle?'재배정 최고 대진 ':'최고 대진 ')+newScore+'점'+(oldScore?` (이전 ${oldScore}점)`:'');
-  }
-  // 토스트
+  _syncBestUI(isReshuffle,newScore);
   let t=document.getElementById('bestToast');
   if(!t){t=document.createElement('div');t.id='bestToast';
     t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,.9);color:#fff;padding:8px 18px;border-radius:20px;font-size:.78rem;z-index:9999;pointer-events:none;transition:opacity .3s;';
@@ -5114,22 +5130,24 @@ function loadBestBracket(source){
 }
 
 function _initBestBtn(){
-  // 현재 참가자·모드 서명과 일치하는 최고 대진만 버튼 표시
   try{
-    // generate 버튼: 참가자 구성 서명으로 비교
     const curSig=currentParticipants.length?_bestSig(currentParticipants,currentSettings):null;
-    // reshuffle 버튼: 잠금 라운드 서명으로 비교 (현재 잠금 기준)
     const curReSig=_reshuffleSig(currentSettings,_lockedBeforeRound);
     const full=JSON.parse(localStorage.getItem(BEST_KEY_FULL)||'null');
     const re=JSON.parse(localStorage.getItem(BEST_KEY_RESHUFFLE)||'null');
-    const b1=document.getElementById('bestBracketBtn');
-    const b2=document.getElementById('bestReshuffleBtn');
-    // 서명이 없는 구버전 데이터는 표시 허용 (하위 호환)
-    const fullOk=full&&full.score&&(!full.signature||!curSig||full.signature===curSig);
-    const reOk=re&&re.score&&(!re.signature||re.signature===curReSig);
-    if(b1){b1.style.display=fullOk?'':'none';if(fullOk){b1.textContent='🏆 '+full.score+'점';b1.title='최고 대진 '+full.score+'점';}}
-    if(b2){b2.style.display=reOk?'':'none';if(reOk){b2.textContent='🔀 '+re.score+'점';b2.title='재배정 최고 대진 '+re.score+'점 (R'+(re.lockedBefore||1)+'~)';}}
+    const fullOk=!!(full&&full.score&&(!full.signature||!curSig||full.signature===curSig));
+    const reOk=!!(re&&re.score&&(!re.signature||re.signature===curReSig));
+    _syncBestUI(false, fullOk?full.score:0);
+    _syncBestUI(true,  reOk ?re.score :0);
   }catch(e){}
+}
+function clearBestBracket(source){
+  const isReshuffle=(source==='reshuffle');
+  const KEY=isReshuffle?BEST_KEY_RESHUFFLE:BEST_KEY_FULL;
+  const label=isReshuffle?'재배정 최고 대진':'최고 대진';
+  if(!confirm(label+'을 삭제할까요?')) return;
+  localStorage.removeItem(KEY);
+  _syncBestUI(isReshuffle, 0);
 }
 const MAX_SLOTS=10;
 
