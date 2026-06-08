@@ -1100,7 +1100,7 @@ function render(d){
       const _t1label=d.isTeam?(esc(d.teamBlue||'청팀')):'1팀';
       const _t2label=d.isTeam?(esc(d.teamWhite||'홍팀')):'2팀';
       html+='<div class="m-body">';
-      html+='<div class="m-team t1side'+(t1win?' win':'')+'">'        +'<div class="m-team-label">'+_t1label+'</div>'        +'<div class="m-player">'+esc(m.t1[0])+' <span class="m-grade">'+esc(m.t1g?m.t1g[0]:'')+"</span></div>"        +'<div class="m-player">'+esc(m.t1[1])+' <span class="m-grade">'+esc(m.t1g?m.t1g[1]:'')+"</span></div>"        +(t1win?'<span class="win-stamp">승리</span>':'')+"</div>";      html+='<div class="m-vs">VS</div>';      html+='<div class="m-team t2side'+(t2win?' win':'')+'">'        +'<div class="m-team-label">'+_t2label+'</div>'        +'<div class="m-player">'+esc(m.t2[0])+' <span class="m-grade">'+esc(m.t2g?m.t2g[0]:'')+"</span></div>"        +'<div class="m-player">'+esc(m.t2[1])+' <span class="m-grade">'+esc(m.t2g?m.t2g[1]:'')+"</span></div>"        +(t2win?'<span class="win-stamp">승리</span>':'')+"</div>";      html+='</div></div>';
+      html+='<div class="m-team t1side'+(t1win?' win':'')+'">'        +'<div class="m-team-label">'+_t1label+'</div>'        +'<div class="m-player">'+esc(m.t1[0])+"</div>"        +'<div class="m-player">'+esc(m.t1[1])+"</div>"        +(t1win?'<span class="win-stamp">승리</span>':'')+"</div>";      html+='<div class="m-vs">VS</div>';      html+='<div class="m-team t2side'+(t2win?' win':'')+'">'        +'<div class="m-team-label">'+_t2label+'</div>'        +'<div class="m-player">'+esc(m.t2[0])+"</div>"        +'<div class="m-player">'+esc(m.t2[1])+"</div>"        +(t2win?'<span class="win-stamp">승리</span>':'')+"</div>";      html+='</div></div>';
 
     });
     html+='</div>';
