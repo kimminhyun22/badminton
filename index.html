@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.39  (2026-06)
+     APP VERSION: 1.10.40  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.39">
+<meta name="app-version" content="1.10.40">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1762,7 +1762,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.39';
+const APP_VERSION = '1.10.40';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3942,7 +3942,9 @@ function renderQualityDashboard(matches,participants,settings){
 /* ═══ RENDER RESULTS ═══ */
 // 매치카드 선수 정보 표시 헬퍼: '40/D/남' 형식 (관리자용, 인쇄·중계 제외)
 function _pInfo(p){
-  const age=(p.ageGroup||'').replace('대','').replace('+','') || '?';
+  // ageGroup 없으면 40대 기본값 (구버전 저장 데이터 호환)
+  const ageRaw=p.ageGroup||'40대';
+  const age=ageRaw.replace('대','').replace('+','');
   const grade=p.grade||LV_LABEL[p.level]||'?';
   const gender=p.gender==='M'||p.gender==='남'?'남':'여';
   return age+'/'+grade+'/'+gender;
@@ -4778,7 +4780,7 @@ function saveState(){
     })),
     participants:currentParticipants.map(p=>({
       name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,
-      isGuest:!!p.isGuest,
+      isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대',
       gamesPlayed:p.gamesPlayed,
       womenDoublesPlayed:p.womenDoublesPlayed,
       menDoublesPlayed:p.menDoublesPlayed,
@@ -4887,10 +4889,11 @@ function restoreState(){
     } else {teamAssignment=null;updateTeamModeBadge();}
 
     currentParticipants=state.participants.map(p=>Object.assign({
-      _valid:true,partnerCount:{},opponentCount:{},lastRoundPlayed:0,_levelRaw:'',_genderRaw:'',isGuest:!!p.isGuest
+      _valid:true,partnerCount:{},opponentCount:{},lastRoundPlayed:0,_levelRaw:'',_genderRaw:'',isGuest:!!p.isGuest,
+      ageGroup:'40대' // 구버전 저장 데이터 호환: ageGroup 없으면 40대 기본값
     },p));
     currentMatches=state.matches.map(m=>{
-      const findP=name=>currentParticipants.find(p=>p.name===name)||{name,level:3,gender:'M',team:''};
+      const findP=name=>currentParticipants.find(p=>p.name===name)||{name,level:3,gender:'M',team:'',ageGroup:'40대',grade:''};
       return{
         matchNumber:m.matchNumber,round:m.round,court:m.court,
         type:m.type,isFiller:m.isFiller||false,levelDiff:m.levelDiff,
