@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.38  (2026-06)
+     APP VERSION: 1.10.39  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.38">
+<meta name="app-version" content="1.10.39">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -339,7 +339,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .tm-name{font-size:1.26rem;font-weight:700;color:var(--txt);letter-spacing:-.2px;}
 .tm-name.consec-warn{color:#c0453f;position:relative;}
 .tm-name.consec-warn::after{content:'⚡';font-size:.55rem;vertical-align:super;margin-left:1px;opacity:.7;}
-.tm-lv{font-size:.7rem;font-weight:700;margin-left:3px;color:var(--dim2);}
+.tm-lv{font-size:.65rem;font-weight:500;margin-left:4px;color:var(--dim2);letter-spacing:-.1px;white-space:nowrap;}
 .tm-vs{display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:.72rem;font-weight:800;color:var(--dim2);background:var(--sur2);flex-shrink:0;letter-spacing:.5px;}
 /* ── WIN ROW ── */
 .win-row{display:flex;align-items:center;gap:5px;padding:6px 9px;border-top:1px solid var(--bdr);background:var(--sur2);}
@@ -812,6 +812,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .round-badge{font-size:.78rem;}
   .tm-name{font-size:1.12rem;font-weight:700;}
   .tm-name.consec-warn::after{font-size:.5rem;}
+  .tm-lv{font-size:.6rem;}
   .tm-prefix{font-size:.85rem;}
   .tm-vs{padding:0 5px;font-size:.68rem;}
   /* 요약 */
@@ -888,7 +889,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .tm-side{padding:13px 13px;gap:10px;}
   .tm-prefix{font-size:1.2rem;font-weight:900;}
   .tm-name{font-size:1.46rem;font-weight:700;line-height:1.45;letter-spacing:-.2px;}
-  .tm-lv{font-size:.8rem;font-weight:700;}
+  .tm-lv{font-size:.72rem;font-weight:500;}
   .tm-vs{font-size:.85rem;font-weight:800;padding:0 10px;}
 
   /* 승패 버튼 */
@@ -1761,7 +1762,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.38';
+const APP_VERSION = '1.10.39';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2384,7 +2385,10 @@ function generate(){
   }
   let participants=_directPlayers.map(p=>({
     name:p.name,level:p.level,gender:p.gender==='남'?'M':'F',
-    team:p.team||'',isGuest:!!p.isGuest,_valid:true,_grade:p.grade,ageGroup:p.ageGroup||'40대',
+    team:p.team||'',isGuest:!!p.isGuest,_valid:true,
+    grade:p.grade,  // 입력한 실제 급수 (남: B→level5, 여: B→level4 이므로 grade로 표시해야 정확)
+    _grade:p.grade, // 하위 호환 유지
+    ageGroup:p.ageGroup||'40대',
     _levelRaw:String(p.level),_genderRaw:p.gender,
     partnerName: getPartnerOf(p.name)||null
   }));
@@ -3936,6 +3940,14 @@ function renderQualityDashboard(matches,participants,settings){
 
 
 /* ═══ RENDER RESULTS ═══ */
+// 매치카드 선수 정보 표시 헬퍼: '40/D/남' 형식 (관리자용, 인쇄·중계 제외)
+function _pInfo(p){
+  const age=(p.ageGroup||'').replace('대','').replace('+','') || '?';
+  const grade=p.grade||LV_LABEL[p.level]||'?';
+  const gender=p.gender==='M'||p.gender==='남'?'남':'여';
+  return age+'/'+grade+'/'+gender;
+}
+
 function renderResults(matches,participants,settings){
   const isTeam=settings.teamMode;
   const wD=matches.filter(m=>m.type==='여복').length;
@@ -4035,16 +4047,16 @@ function renderResults(matches,participants,settings){
           <div class="tm-side ${p1cls}">
             <span class="tm-prefix">${p1label}</span>
             <div class="tm-names">
-              <span class="tm-name${_consecWarning[m.team1A.name]?' consec-warn':''}">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team1A.grade||LV_LABEL[m.team1A.level]}</span></span>
-              <span class="tm-name${_consecWarning[m.team1B.name]?' consec-warn':''}">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team1B.grade||LV_LABEL[m.team1B.level]}</span></span>
+              <span class="tm-name${_consecWarning[m.team1A.name]?' consec-warn':''}">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team1A)}</span></span>
+              <span class="tm-name${_consecWarning[m.team1B.name]?' consec-warn':''}">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team1B)}</span></span>
             </div>
           </div>
           <div class="tm-vs">VS</div>
           <div class="tm-side ${p2cls}">
             <span class="tm-prefix">${p2label}</span>
             <div class="tm-names">
-              <span class="tm-name${_consecWarning[m.team2C.name]?' consec-warn':''}">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team2C.grade||LV_LABEL[m.team2C.level]}</span></span>
-              <span class="tm-name${_consecWarning[m.team2D.name]?' consec-warn':''}">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${m.team2D.grade||LV_LABEL[m.team2D.level]}</span></span>
+              <span class="tm-name${_consecWarning[m.team2C.name]?' consec-warn':''}">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team2C)}</span></span>
+              <span class="tm-name${_consecWarning[m.team2D.name]?' consec-warn':''}">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team2D)}</span></span>
             </div>
           </div>
         </div>
