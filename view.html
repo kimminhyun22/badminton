@@ -488,9 +488,9 @@ function _hasBatchim(str){
   const c=str.charCodeAt(str.length-1);
   return c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28!==0;
 }
-// 호칭 문자열: "재관이 오빠", "은하 언니", "미라 언니"
+// 호칭 문자열: "재관 오빠", "은하 언니", "미라 언니"
 // 관전자 성별 전역 변수 (렌더 시마다 랜덤)
-// 'F': 여성 → 오빠/언니  |  'M': 남성 → 형님/누나
+// 'F': 여성 → 오빠/언니  |  'M': 남성 → 형/누나
 let _viewerGender='F';
 function _randomizeViewerGender(){ _viewerGender=Math.random()<0.5?'M':'F'; }
 
@@ -500,9 +500,9 @@ function _hn(name){
   if(g!=='M'&&g!=='F') return name;
   const fn=_firstName(name);
   const title=_viewerGender==='M'
-    ?(g==='M'?'형님':'누나')
+    ?(g==='M'?'형':'누나')
     :(g==='M'?'오빠':'언니');
-  return _hasBatchim(fn)?`${fn}이 ${title}`:`${fn} ${title}`;
+  return `${fn} ${title}`;
 }
 // 호칭+조사: josa='이/가','은/는','을/를','이/'
 function _hnJ(name, josa){
@@ -571,10 +571,10 @@ function _fillQuote(q, players){
 }
 // 출처: 관전자 성별(M/F) 기반으로 분기
 const _SRCS_NF=['익명의 미녀','코트의 철학자','셔틀콕 도사','배드민턴 클럽 현자','연습벌레의 고백'];
-const _SRCS_NM=['익명의 형님','코트의 철학자','셔틀콕 도사','배드민턴 클럽 아저씨','열혈 배드민턴 팬'];
+const _SRCS_NM=['익명의 형','코트의 철학자','셔틀콕 도사','배드민턴 클럽 아저씨','열혈 배드민턴 팬'];
 const _SRCS_AF=['익명의 미녀','어느 여왕의 속삭임','승자의 여유','여기서 제일 잘하는 사람',
   '이미 이긴 사람','오늘의 MVP (자칭)','코트의 지배자','우아하게 이기는 법을 아는 자'];
-const _SRCS_AM=['익명의 형님','코트 위의 왕자','승자의 여유','여기서 제일 잘하는 사람',
+const _SRCS_AM=['익명의 형','코트 위의 왕자','승자의 여유','여기서 제일 잘하는 사람',
   '이미 이긴 사람','오늘의 MVP (자칭)','코트의 지배자','이미 해본 사람'];
 function _getQuote(matches, players){
   const done=matches.filter(m=>m.win).length;
@@ -692,7 +692,7 @@ function _matchTitle(type, t1, t2){
   const allM=[...g1,...g2].every(g=>g==='M');
   const allF=[...g1,...g2].every(g=>g==='F');
   if(type==='남복'||allM){
-    const titles=['오빠들의 남복 한판 승부 ⚡','남자들의 자존심 대결 💪','형님들의 스매시 배틀 🔥'];
+    const titles=['오빠들의 남복 한판 승부 ⚡','남자들의 자존심 대결 💪','형들의 스매시 배틀 🔥'];
     return titles[Math.floor(Date.now()/700000)%titles.length];
   }
   if(type==='여복'||allF){
