@@ -89,11 +89,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .brief-say.t2side{background:#fdf0ef;border-left:3px solid var(--red);}
 
 /* ── 명언 카드 (파스텔 그라디언트로 통일) ── */
-.quote-card{background:linear-gradient(135deg,#e8eeff,#f0e8ff);
   border:1.5px solid #d0d8f8;border-radius:16px;padding:16px 20px;
   margin-bottom:14px;text-align:center;}
-.quote-text{font-size:.95rem;font-weight:700;color:#3a3060;line-height:1.7;letter-spacing:-.2px;}
-.quote-src{font-size:.72rem;color:#7a7aaa;margin-top:7px;font-weight:600;}
+
+
 
 /* ── 진행 정보 ── */
 .progress{text-align:center;font-size:.82rem;color:var(--dim);
@@ -838,7 +837,6 @@ function buildBriefing(matches, d){
   };
   const bSay=_getTeamLine('blue',bDiff,bRec,bTop?bTop.name:null,curBlue);
   const rSay=_getTeamLine('red',rDiff,rRec,rTop?rTop.name:null,curRed);
-  const q=_getQuote(matches, qPlayers);
 
   // 연승 코멘트
   const streak=_streakComment(matches, bNames, rNames);
@@ -897,10 +895,6 @@ function buildBriefing(matches, d){
     +'<div class="brief-momentum">'+momentum+'</div>'
     +extraHtml
     +'</div>'
-    +'<div class="quote-card">'
-      +'<div class="quote-text">"'+q.t+'"</div>'
-      +'<div class="quote-src">— '+q.src+'</div>'
-    +'</div>';
 }
 
 function buildRanking(matches, d){
