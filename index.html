@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.48  (2026-06)
+     APP VERSION: 1.10.49  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.48">
+<meta name="app-version" content="1.10.49">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1765,7 +1765,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.48';
+const APP_VERSION = '1.10.49';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4983,10 +4983,18 @@ function _calcTotalScore(matches, participants, settings, lockedBefore){
 }
 
 function _bestSig(participants, settings){
-  // 참가자 구성 + 모드 + 설정의 "서명" - 동일 컨텍스트 여부 판단
+  // generate() 전용: 참가자 구성 + 모드 + 설정의 "서명"
+  // 참가자 변경 / 모드 변경 / 코트 변경 시 무효화
   const names=participants.map(p=>p.name).sort().join(',');
   const mode=settings.teamMode?'team':'free';
-  return `${mode}|c${settings.courts||0}|g${settings.gamesPerPlayer||0}|${names}`;
+  return `full|${mode}|c${settings.courts||0}|g${settings.gamesPerPlayer||0}|${names}`;
+}
+function _reshuffleSig(settings, lockedBefore){
+  // reshuffle 전용: 잠금 라운드 + 모드 + 설정 기준
+  // 선수 추가/제거해도 같은 경기/같은 잠금 시점이면 동일 서명 → 점수 누적 비교 가능
+  // 잠금 라운드가 바뀌면(더 진행됨) 자동으로 새 서명 → 별도 최고점 관리
+  const mode=settings.teamMode?'team':'free';
+  return `reshuffle|${mode}|c${settings.courts||0}|g${settings.gamesPerPlayer||0}|lock${lockedBefore||0}`;
 }
 
 function _tryAutoSaveBest(source){
@@ -4997,8 +5005,12 @@ function _tryAutoSaveBest(source){
   const lockedBefore=isReshuffle?_lockedBeforeRound:null;
   const score=_calcTotalScore(currentMatches,currentParticipants,currentSettings,lockedBefore);
   if(!score) return;
-  // 현재 참가자·모드 서명
-  const currentSig=_bestSig(currentParticipants,currentSettings);
+  // 현재 컨텍스트 서명 (generate vs reshuffle 분리)
+  // reshuffle: 잠금 라운드 기준 서명 → 선수 변동해도 같은 경기·잠금이면 점수 비교 유지
+  // generate:  참가자 구성 기준 서명 → 구성 변경 시 자동 무효화
+  const currentSig=isReshuffle
+    ?_reshuffleSig(currentSettings,lockedBefore)
+    :_bestSig(currentParticipants,currentSettings);
   try{
     const prev=JSON.parse(localStorage.getItem(KEY)||'null');
     // 서명이 다르면(참가자 변경/모드 변경) 이전 최고 무효화 → 현재가 새 최고
@@ -5104,14 +5116,17 @@ function loadBestBracket(source){
 function _initBestBtn(){
   // 현재 참가자·모드 서명과 일치하는 최고 대진만 버튼 표시
   try{
+    // generate 버튼: 참가자 구성 서명으로 비교
     const curSig=currentParticipants.length?_bestSig(currentParticipants,currentSettings):null;
+    // reshuffle 버튼: 잠금 라운드 서명으로 비교 (현재 잠금 기준)
+    const curReSig=_reshuffleSig(currentSettings,_lockedBeforeRound);
     const full=JSON.parse(localStorage.getItem(BEST_KEY_FULL)||'null');
     const re=JSON.parse(localStorage.getItem(BEST_KEY_RESHUFFLE)||'null');
     const b1=document.getElementById('bestBracketBtn');
     const b2=document.getElementById('bestReshuffleBtn');
     // 서명이 없는 구버전 데이터는 표시 허용 (하위 호환)
     const fullOk=full&&full.score&&(!full.signature||!curSig||full.signature===curSig);
-    const reOk=re&&re.score&&(!re.signature||!curSig||re.signature===curSig);
+    const reOk=re&&re.score&&(!re.signature||re.signature===curReSig);
     if(b1){b1.style.display=fullOk?'':'none';if(fullOk){b1.textContent='🏆 '+full.score+'점';b1.title='최고 대진 '+full.score+'점';}}
     if(b2){b2.style.display=reOk?'':'none';if(reOk){b2.textContent='🔀 '+re.score+'점';b2.title='재배정 최고 대진 '+re.score+'점 (R'+(re.lockedBefore||1)+'~)';}}
   }catch(e){}
