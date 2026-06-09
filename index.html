@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.83  (2026-06)
+     APP VERSION: 1.10.84  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.83">
+<meta name="app-version" content="1.10.84">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1730,14 +1730,14 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   <button class="manual-back-btn" onclick="switchNav('main');window.scrollTo({top:0});">← 대진표로 돌아가기</button>
   <div class="manual-section">
     <h2>📌 프로그램 개요</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">팀 자동 배정 + 대진표 자동 생성</strong> 도구입니다. 실력 균형, 게임 수 보장, 경기 중 선수 변경까지 한 번에 처리합니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">팀 자동 배정 + 대진표 자동 생성</strong> 도구입니다. 실력 균형, 게임 수 보장, 실시간 중계, 경기 중 재배정까지 한 번에 처리합니다.</p>
     <div class="feat-grid">
-      <div class="feat-card"><h4>📊 구글 시트 연동</h4><p>명부 탭에서 CSV로 내보내기·불러오기 지원</p></div>
+      <div class="feat-card"><h4>📊 명부 관리</h4><p>회원 명부 저장, JSON/CSV 내보내기·불러오기 지원</p></div>
       <div class="feat-card"><h4>⚖️ 팀 자동/수동 배정</h4><p>자동 배정 후 청팀·홍팀 간 선수 수동 이동 가능</p></div>
       <div class="feat-card"><h4>✏️ 팀명 변경</h4><p>청팀/홍팀 명칭을 직접 수정, 대진표·인쇄에 반영</p></div>
-      <div class="feat-card"><h4>⏱ 예상 시간</h4><p>라운드 수 × 15분으로 총 경기 예상 시간 표시</p></div>
+      <div class="feat-card"><h4>⏱ 예상 시간</h4><p>25점·21점·15점 점수제별 예상 진행 시간 표시</p></div>
       <div class="feat-card"><h4>💾 자동저장</h4><p>대진표·점수 자동저장, 재실행 시 복원 가능</p></div>
-      <div class="feat-card"><h4>🖨️ A4 인쇄</h4><p>깔끔한 간결 레이아웃, 청팀/홍팀 색상 구분</p></div>
+      <div class="feat-card"><h4>📡 실시간 중계</h4><p>카톡 링크로 대진표, 팀원, 점수, MVP 현황 공유</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -1745,7 +1745,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text">참가자 입력 영역에서 이름·급수·성별을 선택 후 <strong>+ 선수 추가</strong> 버튼 클릭 (또는 Enter). 명부에서 선수를 불러올 수도 있습니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">팀전을 할 경우 <strong>🔀 청/홍팀 자동 배정</strong> 버튼으로 팀을 나누거나, 선수 목록에서 팀을 직접 선택합니다. (팀전이 아니면 생략)</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text">코트 수, 인당 게임 수, 혼복 횟수 등을 설정하고 <strong>🎯 대진표 생성</strong> 클릭</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text">코트 수, 인당 게임 수, 혼복 횟수 등을 설정하고 <strong>🎯 대진표 생성</strong> 클릭. 버튼 한 번으로 여러 후보를 비교해 가장 좋은 대진을 자동 선택합니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text">각 경기의 <strong>승/패 버튼</strong>을 눌러 결과를 입력합니다. 점수는 자동 저장됩니다.</p></div>
     </div>
   </div>
@@ -1757,6 +1757,18 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="feat-card"><h4>🔁 재대결 다양성</h4><p>같은 4명이 다시 경기하거나 똑같은 팀 대결이 반복되지 않도록 분산</p></div>
       <div class="feat-card"><h4>⏱ 대진 간격</h4><p>직전 라운드 연속 출전을 최소화해 충분히 쉬도록</p></div>
       <div class="feat-card"><h4>🎽 게임 수 보장</h4><p>모든 선수가 목표 게임 수를 채우도록 배정</p></div>
+      <div class="feat-card"><h4>🟧 성비 보정</h4><p>팀전 성비가 반대로 남으면 여1/남3 같은 예외 조합으로 공정성 보완</p></div>
+      <div class="feat-card"><h4>🏸 혼복 0 해석</h4><p>혼복 금지가 아니라 남복·여복 우선. 필요 시 최소한의 혼복·보정경기 허용</p></div>
+    </div>
+  </div>
+  <div class="manual-section">
+    <h2>🟧 보정경기란?</h2>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">팀전에서 양팀 성비가 서로 반대로 남으면 남복·여복·혼복만으로는 전원 4게임을 정확히 맞추기 어려울 수 있습니다. 이때 콕매치는 <strong style="color:var(--txt)">보정경기</strong>를 만들어 일부 조합을 예외적으로 허용합니다.</p>
+    <div class="step-list">
+      <div class="step-item"><span class="step-num ico">예</span><p class="step-text"><strong>청팀 여1/남1 vs 홍팀 남2</strong> 또는 <strong>청팀 남2 vs 홍팀 여1/남1</strong>처럼 한 경기 안의 남녀 수가 1:3 또는 3:1이 될 수 있습니다.</p></div>
+      <div class="step-item"><span class="step-num ico">왜</span><p class="step-text">목표 게임 수를 맞추고, 특정 선수만 3게임 또는 5게임이 되는 문제를 줄이기 위한 장치입니다.</p></div>
+      <div class="step-item"><span class="step-num ico">표시</span><p class="step-text">대진표에는 <strong>보정</strong>으로 따로 표시됩니다. 혼복 통계와는 별도로 집계됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">주의</span><p class="step-text">보정경기는 남복·여복·혼복으로 해결하기 어려울 때만 사용합니다. 품질점검의 실전 특이사항에서 개수를 확인하세요.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -1778,19 +1790,19 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   </div>
   <div class="manual-section">
     <h2>📊 대진 품질 점검 보는 법</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">결과 요약의 품질 대시보드는 5가지 항목을 신호등으로 보여줍니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">결과 요약의 품질 대시보드는 실력 균형, 출전 공정성, 파트너 다양성, 재대결, 휴식 간격, 일정 효율성, 설정 준수를 신호등으로 보여줍니다.</p>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">✅</span><p class="step-text"><strong>양호</strong> — 문제 없음</p></div>
       <div class="step-item"><span class="step-num ico">⚠️</span><p class="step-text"><strong>주의</strong> — 개선 여지 있으나 인원·조건상 일부 불가피할 수 있음</p></div>
-      <div class="step-item"><span class="step-num ico">❌</span><p class="step-text"><strong>개선 필요</strong> — 재배정을 권장. 실력차가 큰 경기 번호 등 구체적 위치도 표시됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">❌</span><p class="step-text"><strong>개선 필요</strong> — 재배정을 권장. 미달 선수, 반복 경기, 보정경기 수 등 실전 특이사항을 함께 확인하세요.</p></div>
     </div>
     <p style="font-size:.74rem;color:var(--dim);line-height:1.7;margin-top:8px;">※ 인원이 적으면 연속 출전·상대 반복이 수학적으로 불가피할 수 있습니다. 대시보드는 이런 불가피한 부분을 감안해 판정합니다.</p>
   </div>
   <div class="manual-section">
     <h2>📡 실시간 중계</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">결과 화면의 <strong>📡 실시간 중계</strong> 버튼을 누르면 관전용 링크가 만들어집니다. 단톡방에 링크를 공유하면 회원들이 휴대폰으로 경기 현황을 실시간으로 볼 수 있어요.</p></div>
-      <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">중계 중에는 <strong>승/패를 입력할 때마다 자동으로 갱신</strong>됩니다. 관전자 화면의 MVP·전적순위·연승 행진도 함께 업데이트됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">결과 화면의 <strong>📡 실시간 중계</strong> 버튼을 누르면 관전용 링크가 만들어집니다. 단톡방에 링크를 공유하면 회원들이 휴대폰으로 대진표와 팀원을 바로 확인할 수 있어요.</p></div>
+      <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">중계 중에는 <strong>승/패를 입력할 때마다 자동으로 갱신</strong>됩니다. 관전자 화면의 팀 점수, MVP, 개인 순위도 함께 업데이트됩니다.</p></div>
       <div class="step-item"><span class="step-num ico">🎉</span><p class="step-text">모든 경기가 끝나면 관전 화면에 <strong>경기 종료 축하 연출</strong>이 자동으로 표시됩니다. (팀전은 우승 팀, 개인전은 승률 1위)</p></div>
       <div class="step-item"><span class="step-num ico">🕓</span><p class="step-text">중계 데이터는 <strong>48시간 후 자동으로 정리</strong>됩니다. 별도로 종료하지 않아도 며칠 뒤 사라지니 신경 쓰지 않아도 됩니다. (즉시 끄려면 버튼을 다시 눌러 종료)</p></div>
     </div>
@@ -1815,7 +1827,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.83';
+const APP_VERSION = '1.10.84';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
