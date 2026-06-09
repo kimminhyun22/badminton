@@ -253,15 +253,350 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .foot b{color:var(--txt);font-weight:700;}
 .refresh-note{text-align:center;font-size:.72rem;color:var(--dim);margin-top:4px;}
 
-/* ── 플로팅 바로가기 ── */
-.jump-fab{position:fixed;right:16px;z-index:900;display:flex;flex-direction:column;gap:8px;}
-.jump-fab.bottom{bottom:20px;}
-.jb{display:flex;align-items:center;gap:6px;padding:11px 16px;border:none;
-  border-radius:999px;font-family:'Noto Sans KR',sans-serif;font-weight:700;
-  font-size:.82rem;cursor:pointer;box-shadow:0 3px 14px rgba(45,55,75,.18);}
-.jb-now{background:#fdeceb;color:#c94040;}
-.jb-score{background:var(--bl);color:#fff;}
-.jb:active{transform:scale(.96);}
+/* ── v2 모바일 라이브 보드 ── */
+body{
+  max-width:520px;padding:12px;background:
+    radial-gradient(circle at 18% -10%,rgba(91,141,239,.34),transparent 34%),
+    radial-gradient(circle at 100% 8%,rgba(224,90,88,.24),transparent 30%),
+    linear-gradient(180deg,#08111f 0%,#111827 48%,#0b1220 100%);
+  color:#f8fafc;
+}
+.head{position:sticky;top:0;z-index:20;margin:-12px -12px 12px;padding:11px 14px;
+  background:rgba(8,17,31,.82);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,255,255,.08);}
+.head h1{font-size:.98rem;letter-spacing:-.2px;color:#fff;}
+.live-label{font-size:.68rem;letter-spacing:.8px;color:#fecaca;}
+.status{color:#cbd5e1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:18px;}
+.title{font-size:.86rem;color:#cbd5e1;text-align:left;margin:4px 2px 10px;font-weight:800;}
+.live-board{display:flex;flex-direction:column;gap:12px;}
+.live-top{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#cbd5e1;font-size:.72rem;font-weight:800;letter-spacing:.2px;}
+.live-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);}
+.live-dot-mini{width:7px;height:7px;border-radius:50%;background:#fb7185;box-shadow:0 0 0 5px rgba(251,113,133,.14);}
+.score-hero{position:relative;overflow:hidden;border-radius:24px;padding:18px;
+  background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
+  border:1px solid rgba(255,255,255,.14);box-shadow:0 22px 48px rgba(0,0,0,.24);}
+.score-hero:before{content:"";position:absolute;inset:-60% -20% auto auto;width:220px;height:220px;border-radius:50%;
+  background:rgba(91,141,239,.18);filter:blur(4px);}
+.score-row{position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;}
+.score-team{min-width:0;}
+.score-team.right{text-align:right;}
+.score-name{font-size:.76rem;font-weight:900;color:#cbd5e1;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.score-num{font-size:3.05rem;font-weight:900;line-height:.95;letter-spacing:-2px;}
+.score-team.blue .score-num{color:#93c5fd;text-shadow:0 0 28px rgba(59,130,246,.32);}
+.score-team.red .score-num{color:#fca5a5;text-shadow:0 0 28px rgba(239,68,68,.28);}
+.score-vs{font-size:.78rem;font-weight:900;color:#64748b;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:4px 8px;}
+.score-lead{position:relative;margin-top:14px;padding-top:13px;border-top:1px solid rgba(255,255,255,.1);
+  color:#e2e8f0;font-size:.82rem;font-weight:800;display:flex;justify-content:space-between;gap:8px;}
+.score-progress{height:7px;margin-top:12px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden;}
+.score-progress span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#60a5fa,#f87171);}
+.section-kicker{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 8px;color:#cbd5e1;}
+.section-kicker b{font-size:.78rem;letter-spacing:1px;}
+.section-kicker span{font-size:.7rem;color:#94a3b8;font-weight:800;}
+.current-panel{border-radius:24px;padding:15px;background:#f8fafc;color:#0f172a;
+  box-shadow:0 18px 40px rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.55);}
+.current-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.current-round{font-size:1.15rem;font-weight:900;letter-spacing:-.5px;}
+.current-badge{font-size:.68rem;font-weight:900;color:#fff;background:#ef4444;border-radius:999px;padding:5px 10px;box-shadow:0 0 0 5px rgba(239,68,68,.12);}
+.live-match{position:relative;border-radius:20px;padding:13px;margin-bottom:10px;background:#fff;border:1px solid #e5e7eb;box-shadow:0 6px 16px rgba(15,23,42,.06);}
+.live-match:last-child{margin-bottom:0;}
+.live-match.is-current{border-color:#bfdbfe;box-shadow:0 12px 28px rgba(37,99,235,.14);}
+.live-match-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.live-type{font-size:.72rem;font-weight:900;color:#475569;background:#f1f5f9;border-radius:999px;padding:5px 9px;}
+.live-court{font-size:.92rem;font-weight:900;color:#0f172a;background:#e0f2fe;border:1px solid #bae6fd;border-radius:11px;padding:5px 11px;}
+.live-versus{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:8px;}
+.live-side{position:relative;border-radius:16px;padding:11px 10px;min-width:0;}
+.live-side.blue{background:linear-gradient(180deg,#eff6ff,#dbeafe);}
+.live-side.red{background:linear-gradient(180deg,#fff1f2,#ffe4e6);}
+.live-side.win{outline:2px solid #f59e0b;box-shadow:0 0 0 5px rgba(245,158,11,.13);}
+.live-team-label{font-size:.65rem;font-weight:900;letter-spacing:.7px;margin-bottom:5px;color:#64748b;}
+.live-player{font-size:1.14rem;font-weight:900;line-height:1.55;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.live-vs{align-self:center;font-size:.68rem;font-weight:900;color:#94a3b8;}
+.win-chip{position:absolute;right:8px;top:8px;background:#f59e0b;color:#fff;border-radius:999px;padding:3px 7px;font-size:.62rem;font-weight:900;}
+.next-panel{border-radius:20px;padding:13px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);}
+.next-title{font-size:.78rem;color:#e2e8f0;font-weight:900;margin-bottom:8px;}
+.next-list{display:flex;flex-direction:column;gap:7px;}
+.next-item{display:flex;align-items:center;gap:9px;padding:10px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);color:#f8fafc;}
+.next-court{font-size:.72rem;font-weight:900;color:#0f172a;background:#bfdbfe;border-radius:999px;padding:4px 8px;white-space:nowrap;}
+.next-names{font-size:.82rem;font-weight:800;line-height:1.45;min-width:0;}
+.info-details{border-radius:18px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);overflow:hidden;}
+.info-details>summary{list-style:none;cursor:pointer;padding:13px 14px;font-size:.82rem;font-weight:900;color:#e2e8f0;display:flex;justify-content:space-between;}
+.info-details>summary::-webkit-details-marker{display:none;}
+.info-details>summary:after{content:"펼치기";font-size:.68rem;color:#93c5fd;}
+.info-details[open]>summary:after{content:"접기";}
+.info-body{padding:0 12px 12px;}
+.progress{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);color:#cbd5e1;}
+.briefing,.rank-box,.roster-panel{box-shadow:none;}
+.round{margin-bottom:12px;}
+.round:not(.cur){opacity:.76;}
+.round-h{margin:14px 2px 9px;}
+.round-badge{background:rgba(255,255,255,.1);color:#e2e8f0;border-color:rgba(255,255,255,.1);}
+.round-line{background:rgba(255,255,255,.1);}
+.round.cur{background:transparent;border:none;box-shadow:none;padding:0;margin-left:0;margin-right:0;animation:none;}
+.round.cur .round-badge{background:#ef4444;border-color:#ef4444;}
+.match{background:rgba(255,255,255,.95);box-shadow:none;}
+.m-player{font-size:1rem;}
+.foot{color:#94a3b8;}
+.foot b{color:#e2e8f0;}
+@media(max-width:380px){
+  body{padding:10px;}
+  .head{margin:-10px -10px 10px;}
+  .score-num{font-size:2.55rem;}
+  .live-player{font-size:1.02rem;}
+  .live-versus{gap:6px;}
+  .live-side{padding:10px 8px;}
+}
+
+/* ── v3 선수 FAQ 중심 라이브 화면 ── */
+.live-top span:last-child{color:#93c5fd;}
+.score-hero{padding:16px 16px 14px;}
+.score-hero .section-kicker{position:relative;margin:0 0 10px;color:#bfdbfe;}
+.score-hero .section-kicker b{font-size:.74rem;}
+.score-lead{align-items:center;}
+.score-lead b{font-size:1rem;color:#fff;}
+.score-lead.blue b{color:#93c5fd;}
+.score-lead.red b{color:#fca5a5;}
+.score-lead.tie b{color:#fde68a;}
+.mvp-card.live-mvp,.mvp-card.mvp-empty{margin-bottom:0;border-radius:22px;padding:15px 14px;
+  background:linear-gradient(135deg,#fbbf24 0%,#f59e0b 58%,#b45309 100%);
+  box-shadow:0 18px 38px rgba(180,83,9,.26);}
+.mvp-card.mvp-empty{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.11);box-shadow:none;}
+.mvp-card.mvp-empty .mvp-label{color:#cbd5e1;text-shadow:none;}
+.mvp-card.mvp-empty .mvp-sub{color:#94a3b8;text-shadow:none;}
+.mvp-card.live-mvp .mvp-label{font-size:.72rem;letter-spacing:.8px;text-transform:uppercase;}
+.mvp-card.live-mvp .mvp-sub{font-size:.78rem;}
+.rank-box{background:rgba(255,255,255,.95);border:none;border-radius:18px;margin-bottom:0;}
+.rank-title{color:#0f172a;}
+.team-roster-card{border-radius:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);overflow:hidden;}
+.team-roster-head{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px;color:#e2e8f0;}
+.team-roster-head b{font-size:.9rem;font-weight:900;}
+.team-roster-head span{font-size:.7rem;color:#94a3b8;font-weight:800;}
+.team-roster-columns{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 10px 10px;}
+.team-roster-side{border-radius:16px;padding:11px 9px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.08);min-width:0;}
+.team-roster-side.blue{background:linear-gradient(180deg,rgba(59,130,246,.18),rgba(255,255,255,.07));}
+.team-roster-side.red{background:linear-gradient(180deg,rgba(239,68,68,.16),rgba(255,255,255,.07));}
+.team-roster-title{font-size:.78rem;color:#f8fafc;font-weight:900;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.team-roster-title small{font-size:.65rem;color:#cbd5e1;font-weight:800;}
+.team-member{display:flex;align-items:center;gap:5px;padding:5px 0;border-top:1px solid rgba(255,255,255,.08);
+  font-size:.78rem;font-weight:800;color:#e2e8f0;min-width:0;}
+.team-member:first-of-type{border-top:none;}
+.team-member-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.team-member-lv{margin-left:auto;color:#94a3b8;font-size:.68rem;font-weight:900;}
+.team-member-badge{font-size:.6rem;color:#fff;border-radius:999px;padding:2px 5px;background:#f59e0b;white-space:nowrap;}
+.team-member-g{font-size:.68rem;width:14px;text-align:center;color:#bfdbfe;}
+.team-roster-more{margin-top:7px;font-size:.68rem;color:#bfdbfe;font-weight:900;}
+.faq-note{font-size:.72rem;line-height:1.6;color:#94a3b8;padding:0 2px;}
+.info-details.primary{background:rgba(255,255,255,.1);}
+.info-details.primary>summary{font-size:.88rem;}
+@media(max-width:380px){
+  .team-roster-columns{grid-template-columns:1fr;}
+}
+
+/* ── v4 콕매치 통일 톤: 메인 앱과 같은 라이트 카드 디자인 ── */
+:root{
+  --bg:#f7f8fb;--sur:#ffffff;--sur2:#f3f5f9;
+  --bdr:#e9edf3;--bdr2:#d4dae4;
+  --txt:#2b3038;--dim:#737a86;--dim2:#a2a9b5;
+  --bl:#5b8def;--bl-deep:#4a78d6;--bl-soft:#eaf1fe;--bl-softbdr:#d3e2fc;
+  --red:#e8736f;--red-deep:#c0453f;--red-soft:#fdf0ef;--amber:#e8a44a;
+  --shadow:0 1px 3px rgba(45,55,75,.06),0 1px 2px rgba(45,55,75,.04);
+  --shadow-md:0 4px 16px rgba(45,55,75,.08);
+}
+body{
+  max-width:600px;padding:14px;background:
+    radial-gradient(circle at 15% -8%,rgba(91,141,239,.16),transparent 28%),
+    linear-gradient(180deg,#ffffff 0%,var(--bg) 210px,var(--bg) 100%);
+  color:var(--txt);
+}
+.head{
+  position:sticky;top:0;z-index:20;margin:-14px -14px 12px;padding:13px 16px;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--bdr);box-shadow:0 1px 8px rgba(45,55,75,.04);
+}
+.head h1{font-size:1.03rem;font-weight:800;letter-spacing:.2px;color:var(--txt);}
+.live-dot{background:var(--red);box-shadow:0 0 0 5px rgba(232,115,111,.12);}
+.live-label{font-size:.7rem;color:var(--red-deep);font-weight:800;letter-spacing:.8px;}
+.status{background:#fff;border:1px solid var(--bdr);box-shadow:var(--shadow);color:var(--dim);}
+.live-board{gap:11px;}
+.live-top{color:var(--dim);font-size:.7rem;}
+.live-top span:last-child{color:var(--dim2);}
+.live-pill{
+  background:var(--red-soft);border:1px solid #f7c3c2;color:var(--red-deep);
+  box-shadow:var(--shadow);
+}
+.live-dot-mini{background:var(--red);box-shadow:0 0 0 4px rgba(232,115,111,.12);}
+.title{
+  color:var(--txt);font-size:1rem;text-align:left;font-weight:900;margin:0 2px 2px;
+  letter-spacing:-.3px;
+}
+.score-hero{
+  padding:16px;border-radius:18px;background:#fff;border:1px solid var(--bdr);
+  box-shadow:var(--shadow-md);
+}
+.score-hero:before{
+  inset:-70px -70px auto auto;width:180px;height:180px;
+  background:radial-gradient(circle,rgba(91,141,239,.16),transparent 64%);
+  filter:none;
+}
+.score-hero .section-kicker{color:var(--dim);margin-bottom:9px;}
+.score-hero .section-kicker b{font-size:.68rem;letter-spacing:1.6px;text-transform:uppercase;}
+.score-hero .section-kicker span{color:var(--dim2);}
+.score-row{gap:10px;}
+.score-team.blue{text-align:left;}
+.score-team.red{text-align:right;}
+.score-name{color:var(--dim);font-size:.78rem;}
+.score-num{font-size:3rem;color:var(--txt);text-shadow:none;}
+.score-team.blue .score-num{color:var(--bl-deep);text-shadow:none;}
+.score-team.red .score-num{color:var(--red-deep);text-shadow:none;}
+.score-vs{background:var(--sur2);border:1px solid var(--bdr);color:var(--dim2);}
+.score-lead{
+  margin-top:13px;padding:11px 12px;border:1px solid var(--bdr);border-radius:12px;
+  background:var(--sur2);color:var(--txt);
+}
+.score-lead span{font-weight:900;}
+.score-lead b{font-size:1rem;color:var(--txt);}
+.score-lead.blue{background:var(--bl-soft);border-color:var(--bl-softbdr);}
+.score-lead.blue b{color:var(--bl-deep);}
+.score-lead.red{background:var(--red-soft);border-color:#f7c3c2;}
+.score-lead.red b{color:var(--red-deep);}
+.score-lead.tie{background:#fff8ed;border-color:#f4d6a8;}
+.score-lead.tie b{color:#9a650c;}
+.score-progress{background:var(--sur2);height:8px;}
+.score-progress span{background:linear-gradient(90deg,var(--bl),var(--red));}
+.score-hero .progress,.progress{
+  background:var(--sur2);border:1px solid var(--bdr);color:var(--dim);box-shadow:none;
+  margin:10px 0 0;border-radius:9px;
+}
+.mvp-card.live-mvp,.mvp-card.mvp-empty{
+  border-radius:18px;padding:16px;background:linear-gradient(135deg,#fff8ed,#fff);
+  border:1px solid #f4d6a8;box-shadow:var(--shadow-md);color:var(--txt);
+}
+.mvp-card::after{display:none;}
+.mvp-card.live-mvp .mvp-label,.mvp-card.mvp-empty .mvp-label{
+  color:#9a650c;text-shadow:none;font-size:.72rem;letter-spacing:1.2px;
+}
+.mvp-chip{
+  background:#fff;border:1px solid #f4d6a8;color:#8a5808;box-shadow:var(--shadow);
+}
+.mvp-sub,.mvp-card.live-mvp .mvp-sub,.mvp-card.mvp-empty .mvp-sub{
+  color:var(--dim);text-shadow:none;margin-top:9px;
+}
+.current-panel,.next-panel,.info-details,.team-roster-card{
+  border-radius:18px;background:#fff;color:var(--txt);border:1px solid var(--bdr);
+  box-shadow:var(--shadow);
+}
+.current-panel{padding:14px;}
+.current-head{margin-bottom:11px;}
+.section-kicker{color:var(--dim);}
+.current-round{font-size:1.12rem;color:var(--txt);}
+.current-badge{background:var(--red);box-shadow:none;}
+.live-match{
+  border-radius:14px;padding:13px;background:#fff;border:1px solid var(--bdr);
+  box-shadow:none;
+}
+.live-match.is-current{border-color:var(--bl-softbdr);box-shadow:0 0 0 3px rgba(91,141,239,.08);}
+.live-match.women{border-left:4px solid #d99bb0;}
+.live-match.men{border-left:4px solid #7fa8f2;}
+.live-match.mixed{border-left:4px solid #b3a0db;}
+.live-type{background:var(--sur2);color:var(--dim);border:1px solid var(--bdr);font-size:.7rem;}
+.live-court{background:var(--bl-soft);border:1px solid var(--bl-softbdr);color:var(--bl-deep);}
+.live-side.blue{background:var(--bl-soft);}
+.live-side.red{background:var(--red-soft);}
+.live-side.win{outline:2px solid var(--amber);box-shadow:0 0 0 4px rgba(232,164,74,.14);}
+.live-team-label{color:var(--dim);}
+.live-player{color:var(--txt);font-size:1.08rem;}
+.live-vs{color:var(--dim2);}
+.win-chip{background:var(--amber);color:#fff;}
+.next-panel{padding:13px;}
+.next-title{color:var(--txt);font-size:.78rem;}
+.next-item{
+  background:var(--sur2);border:1px solid var(--bdr);color:var(--txt);
+  box-shadow:none;
+}
+.next-court{background:#fff;border:1px solid var(--bl-softbdr);color:var(--bl-deep);}
+.next-names{color:var(--txt);}
+.info-details{overflow:hidden;}
+.info-details.primary{background:#fff;}
+.info-details>summary{
+  color:var(--txt);background:#fff;border-bottom:1px solid transparent;
+}
+.info-details[open]>summary{border-bottom-color:var(--bdr);}
+.info-details>summary:after{color:var(--bl-deep);}
+.info-body{padding:0 12px 12px;}
+.team-roster-card{box-shadow:none;}
+.team-roster-head{color:var(--txt);border-bottom:1px solid var(--bdr);padding:13px 14px;}
+.team-roster-head span{color:var(--dim);}
+.team-roster-columns{padding:10px;}
+.team-roster-side{background:var(--sur2);border:1px solid var(--bdr);}
+.team-roster-side.blue{background:var(--bl-soft);border-color:var(--bl-softbdr);}
+.team-roster-side.red{background:var(--red-soft);border-color:#f7c3c2;}
+.team-roster-title{color:var(--txt);}
+.team-roster-title small{color:var(--dim);}
+.team-member{border-top:1px solid rgba(45,55,75,.08);color:var(--txt);}
+.team-member-lv{color:var(--dim);}
+.team-member-g{color:var(--bl-deep);}
+.team-member-badge{background:var(--amber);}
+.faq-note{color:var(--dim);}
+.rank-box{background:#fff;border:1px solid var(--bdr);box-shadow:none;}
+.rank-title{color:var(--dim);}
+.rank-row.top{background:var(--bl-soft);}
+.round:not(.cur){opacity:1;}
+.round-h{margin:12px 2px 9px;}
+.round-badge{background:var(--sur2);color:var(--dim);border-color:var(--bdr);}
+.round-line{background:var(--bdr);}
+.round.cur{background:transparent;border:none;box-shadow:none;padding:0;margin-left:0;margin-right:0;}
+.round.cur .round-badge{background:var(--red);border-color:var(--red);color:#fff;}
+.now{background:var(--red);}
+.finale{
+  background:linear-gradient(135deg,var(--bl),#7fa8f2);box-shadow:var(--shadow-md);
+}
+.streak-box{margin-bottom:0;}
+.foot{color:var(--dim2);}
+.foot b{color:var(--txt);}
+.foot a{color:var(--bl-deep)!important;}
+@media(max-width:380px){
+  body{padding:12px;}
+  .head{margin:-12px -12px 12px;}
+  .score-num{font-size:2.62rem;}
+  .live-player{font-size:1rem;}
+}
+
+/* ── v5 실전 가독성 조정: 행동 정보 우선 ── */
+.score-hero{padding:15px;}
+.score-hero .section-kicker span{display:inline-flex;align-items:center;gap:5px;}
+.score-hero .section-kicker span:before{content:"";width:6px;height:6px;border-radius:50%;background:#4caf7a;}
+.score-row{margin-top:2px;}
+.score-name{font-size:.82rem;font-weight:900;color:var(--dim);}
+.score-num{font-size:3.18rem;letter-spacing:-1.5px;}
+.score-lead{margin-top:10px;}
+.score-hero .progress{font-size:.76rem;padding:8px;}
+.current-panel{border-color:var(--bl-softbdr);box-shadow:0 0 0 3px rgba(91,141,239,.06),var(--shadow);}
+.current-head{margin-bottom:9px;}
+.current-round{font-size:1.18rem;}
+.current-badge{padding:4px 9px;font-size:.66rem;}
+.live-match{padding:12px;}
+.live-player{font-size:1.14rem;line-height:1.5;}
+.next-panel{padding:12px;}
+.next-list{gap:6px;}
+.next-item{padding:8px 9px;}
+.next-court{font-size:.68rem;}
+.next-names{font-size:.78rem;}
+.mvp-card.live-mvp,.mvp-card.mvp-empty{padding:13px 14px;}
+.mvp-card.live-mvp .mvp-label,.mvp-card.mvp-empty .mvp-label{margin-bottom:7px;}
+.mvp-chip{font-size:.96rem;padding:5px 13px;}
+.mvp-chip.solo{font-size:1.18rem;padding:6px 18px;}
+.mvp-sub,.mvp-card.live-mvp .mvp-sub,.mvp-card.mvp-empty .mvp-sub{
+  font-size:.72rem;line-height:1.5;
+}
+.team-roster-columns{grid-template-columns:1fr;gap:8px;padding:10px;}
+.team-roster-side{padding:10px;}
+.team-roster-title{font-size:.84rem;}
+.team-member{font-size:.86rem;padding:7px 0;}
+.team-member-lv{font-size:.72rem;}
+@media(max-width:380px){
+  .score-num{font-size:2.9rem;}
+  .live-player{font-size:1.06rem;}
+}
 </style>
 </head>
 <body>
@@ -273,10 +608,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 </div>
 <div id="content">
   <div class="status">현황을 불러오는 중…</div>
-</div>
-<div class="jump-fab bottom" id="jumpFab" style="display:none">
-  <button class="jb jb-now" id="jbNow" onclick="jumpToCurrent()" style="display:none">🔴 진행중</button>
-  <button class="jb jb-score" id="jbScore" onclick="jumpToScore()" style="display:none">📊 점수</button>
 </div>
 <div class="foot">
   🏸 <b>콕매치</b> · 기획·제작 김민현<br>
@@ -911,7 +1242,7 @@ function buildBriefing(matches, d){
     +'</div>'
 }
 
-function buildRanking(matches, d){
+function collectLivePlayerStats(matches, d){
   const goal=(typeof d.gamesPerPlayer==='number'&&d.gamesPerPlayer>0)?d.gamesPerPlayer:4;
   const stat={}; const played={};
   const ordered=[...matches].sort((a,b)=>(a.round-b.round)||(a.court-b.court));
@@ -926,21 +1257,39 @@ function buildRanking(matches, d){
     winners.forEach(n=>{ if(n&&within[n])stat[n].w++; });
     losers.forEach(n=>{ if(n&&within[n])stat[n].l++; });
   });
-  const arr=Object.values(stat).filter(s=>(s.w+s.l)>0);
+  return Object.values(stat).filter(s=>(s.w+s.l)>0);
+}
+
+function buildMvpSpotlight(matches, d){
+  const arr=collectLivePlayerStats(matches,d);
+  if(!arr.length){
+    return '<section class="mvp-card mvp-empty" id="mvpBoard">'
+      +'<div class="mvp-label">🏆 실시간 MVP</div>'
+      +'<div class="mvp-sub">승패가 입력되면 승률 기준으로 자동 표시됩니다.</div>'
+      +'</section>';
+  }
+  const rate=s=>(s.w+s.l)>0?s.w/(s.w+s.l):0;
+  const rateStr=s=>(s.w+s.l)>0?Math.round(rate(s)*100)+'%':'—';
+  const sameRank=(a,b)=>a&&b&&a.w===b.w&&Math.round(rate(a)*100)===Math.round(rate(b)*100);
+  const byRate=[...arr].sort((a,b)=>rate(b)-rate(a)||b.w-a.w||a.l-b.l||a.name.localeCompare(b.name,'ko'));
+  const top=byRate[0];
+  const mvps=byRate.filter(s=>sameRank(s,top));
+  const _solo=mvps.length===1?' solo':'';
+  return '<section class="mvp-card live-mvp" id="mvpBoard">'
+    +'<div class="mvp-label">🏆 실시간 MVP'+(mvps.length>1?' · 공동 '+mvps.length+'명':'')+'</div>'
+    +'<div class="mvp-names">'+mvps.map(s=>'<span class="mvp-chip'+_solo+'">'+esc(s.name)+'</span>').join('')+'</div>'
+    +'<div class="mvp-sub">'+top.w+'승 '+top.l+'패 · 승률 '+rateStr(top)+' · 현재 입력된 승패 기준</div>'
+    +'</section>';
+}
+
+function buildRanking(matches, d){
+  const arr=collectLivePlayerStats(matches,d);
   if(arr.length<2) return '';
   const rate=s=>(s.w+s.l)>0?s.w/(s.w+s.l):0;
   const rateStr=s=>(s.w+s.l)>0?Math.round(rate(s)*100)+'%':'—';
-  const byRate=[...arr].sort((a,b)=>rate(b)-rate(a)||b.w-a.w);
   const byWin=[...arr].sort((a,b)=>b.w-a.w||rate(b)-rate(a));
   const sameRank=(a,b)=>a&&b&&a.w===b.w&&Math.round(rate(a)*100)===Math.round(rate(b)*100);
-  const top=byRate[0];
-  const mvps=byRate.filter(s=>sameRank(s,top));
-  let html='';
-  const _solo=mvps.length===1?' solo':'';
-  html+='<div class="mvp-card"><div class="mvp-label">🏆 실시간 MVP'+(mvps.length>1?' · 공동 '+mvps.length+'명':'')+'</div>'
-    +'<div class="mvp-names">'+mvps.map(s=>'<span class="mvp-chip'+_solo+'">'+esc(s.name)+'</span>').join('')+'</div>'
-    +'<div class="mvp-sub">'+top.w+'승 '+top.l+'패 · 승률 '+rateStr(top)+'</div></div>';
-  html+='<div class="rank-box"><div class="rank-title">전적 순위</div>';
+  let html='<div class="rank-box"><div class="rank-title">전적 순위 TOP 5</div>';
   let rankNum=0,prev=null;
   byWin.slice(0,5).forEach((s,i)=>{
     if(prev===null||!sameRank(s,prev))rankNum=i+1; prev=s;
@@ -1027,125 +1376,201 @@ function fireConfetti(isRepeat){
   requestAnimationFrame(tick);
 }
 
-function render(d){
-  _randomizeViewerGender(); // 렌더마다 관전자 성별 랜덤 고정
-  let html='';
-  // 제목
-  html+='<div class="title">'+esc(d.title||'대진표')+'</div>';
-  // 팀원 명단 버튼 (팀전이고 members 데이터 있을 때)
-  if(d.isTeam && d.members && (d.members.blue||[]).length){
-    const bn=esc(d.teamBlue||'청팀'), wn=esc(d.teamWhite||'홍팀');
-    // 명단: 성별구분 + 급수 + 이름/급수 정렬
-    const _mkRoster=(list,sortBy)=>{
-      const arr=(list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x);
-      const males=[...arr].filter(p=>p.g==='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
-      const females=[...arr].filter(p=>p.g!=='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
-      const row=p=>{
-        const capBadge=p.isLeader?'<span class="roster-cap-badge leader">단장</span>'
-          :p.isSub?'<span class="roster-cap-badge sub">부단장</span>':'';
-        return '<div class="roster-row'+(p.isLeader?' is-leader':p.isSub?' is-sub':'')+'">'          +'<span class="roster-gender '+(p.g==='M'?'roster-m':'roster-f')+'">'+(p.g==='M'?'♂':'♀')+'</span>'          +'<span class="roster-name">'+esc(p.n)+'</span>'          +capBadge          +'<span class="roster-lv">Lv'+p.l+'</span></div>';
-      };
-      return males.map(row).join('')+(males.length&&females.length?'<div class="roster-divider"></div>':'')+females.map(row).join('');
-    };
-    window._rosterData=d.members;
-    html+='<div class="roster-bar">'
-      +'<button class="roster-btn t1side" onclick="toggleRoster(\'blue\')">'+'<span class="roster-dot-b">●</span> '+bn+' 명단</button>'
-      +'<button class="roster-btn t2side" onclick="toggleRoster(\'red\')">'+'<span class="roster-dot-r">●</span> '+wn+' 명단</button>'
+function liveTeamLabel(d, side){
+  if(!d.isTeam) return side==='blue'?'1팀':'2팀';
+  return side==='blue'?(d.teamBlue||'청팀'):(d.teamWhite||'홍팀');
+}
+
+function formatUpdatedAgo(ts){
+  if(!ts) return '실시간 대기';
+  const diff=Math.max(0,Date.now()-Number(ts));
+  const sec=Math.floor(diff/1000);
+  if(sec<20) return '방금 업데이트';
+  if(sec<60) return sec+'초 전 업데이트';
+  const min=Math.floor(sec/60);
+  if(min<60) return min+'분 전 업데이트';
+  const hr=Math.floor(min/60);
+  if(hr<24) return hr+'시간 전 업데이트';
+  return '오래 전 업데이트';
+}
+
+function buildLiveScore(d,totalR,doneR){
+  const bW=d.blueWins||0, wW=d.whiteWins||0;
+  const blueName=esc(liveTeamLabel(d,'blue'));
+  const redName=esc(liveTeamLabel(d,'red'));
+  let lead='동점', leadDetail='팽팽한 접전', leadCls=' tie';
+  if(bW>wW){ lead=blueName+' 리드'; leadDetail=(bW-wW)+'승 차'; leadCls=' blue'; }
+  else if(wW>bW){ lead=redName+' 리드'; leadDetail=(wW-bW)+'승 차'; leadCls=' red'; }
+  const pct=Math.max(0,Math.min(100,Math.round((doneR/Math.max(1,totalR))*100)));
+  return '<section class="score-hero" id="scoreBoard">'
+    +'<div class="section-kicker"><b>현재 점수</b><span>'+esc(formatUpdatedAgo(d.updatedAt))+'</span></div>'
+    +'<div class="score-row">'
+      +'<div class="score-team blue"><div class="score-name">'+blueName+'</div><div class="score-num">'+bW+'</div></div>'
+      +'<div class="score-vs">VS</div>'
+      +'<div class="score-team red"><div class="score-name">'+redName+'</div><div class="score-num">'+wW+'</div></div>'
+    +'</div>'
+    +'<div class="score-lead'+leadCls+'"><span>'+lead+'</span><b>'+leadDetail+'</b></div>'
+    +'<div class="score-progress"><span style="width:'+pct+'%"></span></div>'
+    +'<div class="progress">📊 '+totalR+'라운드 중 '+doneR+'라운드 완료 · '+pct+'% 진행'
+      +(d.pointSystem?' · '+esc(d.pointSystem)+'점 경기':'')+'</div>'
+    +'</section>';
+}
+
+function buildTeamRosterCard(d){
+  if(!d.isTeam || !d.members || (!(d.members.blue||[]).length && !(d.members.red||[]).length)) return '';
+  const mk=(list)=>{
+    const arr=(list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x)
+      .sort((a,b)=>(a.g||'').localeCompare(b.g||'')||b.l-a.l||a.n.localeCompare(b.n,'ko'));
+    if(!arr.length) return '<div class="faq-note">명단이 없습니다.</div>';
+    return arr.map(p=>{
+      const badge=p.isLeader?'<span class="team-member-badge">단장</span>':p.isSub?'<span class="team-member-badge">부</span>':'';
+      return '<div class="team-member">'
+        +'<span class="team-member-g">'+(p.g==='M'?'♂':p.g==='F'?'♀':'·')+'</span>'
+        +'<span class="team-member-name">'+esc(p.n)+'</span>'
+        +badge
+        +'<span class="team-member-lv">Lv'+(p.l||0)+'</span>'
+      +'</div>';
+    }).join('');
+  };
+  const blue=d.members.blue||[], red=d.members.red||[];
+  return '<details class="info-details primary" id="teamRoster">'
+    +'<summary>우리팀 멤버 보기</summary>'
+    +'<div class="info-body">'
+      +'<section class="team-roster-card">'
+        +'<div class="team-roster-head"><b>팀 명단</b><span>청팀 '+blue.length+'명 · 홍팀 '+red.length+'명</span></div>'
+        +'<div class="team-roster-columns">'
+          +'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.length+'명</small></div>'+mk(blue)+'</div>'
+          +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.length+'명</small></div>'+mk(red)+'</div>'
+        +'</div>'
+      +'</section>'
+    +'</div>'
+  +'</details>';
+}
+
+function buildLiveMatchCard(m,d,opts){
+  opts=opts||{};
+  const tc=m.type==='여복'?'women':m.type==='남복'?'men':'mixed';
+  const t1=m.t1||[], t2=m.t2||[];
+  const t1win=m.win==='t1', t2win=m.win==='t2';
+  return '<article class="live-match '+tc+(opts.current?' is-current':'')+'">'
+    +'<div class="live-match-top">'
+      +'<span class="live-type">'+esc(m.type||'경기')+(m.isFiller?' · 보완':'')+'</span>'
+      +'<span class="live-court">'+esc(String(m.court||''))+'코트</span>'
+    +'</div>'
+    +'<div class="live-versus">'
+      +'<div class="live-side blue'+(t1win?' win':'')+'">'
+        +(t1win?'<span class="win-chip">WIN</span>':'')
+        +'<div class="live-team-label">'+esc(liveTeamLabel(d,'blue'))+'</div>'
+        +'<div class="live-player">'+esc(t1[0]||'-')+'</div>'
+        +'<div class="live-player">'+esc(t1[1]||'-')+'</div>'
       +'</div>'
-      +'<div class="roster-panel" id="roster-blue" style="display:none">'
-        +'<div class="roster-panel-head"><div class="roster-panel-title"><span class="roster-dot-b">●</span> '+bn+'</div>'
-        +'<div class="roster-sort-btns">'
-          +'<button class="rsort-btn active" onclick="rosterSort(\'blue\',\'level\',this)">급수순</button>'
-          +'<button class="rsort-btn" onclick="rosterSort(\'blue\',\'name\',this)">이름순</button>'
-        +'</div></div>'
-        +'<div class="roster-names" id="roster-names-blue">'+_mkRoster(d.members.blue,'level')+'</div></div>'
-      +'<div class="roster-panel" id="roster-red" style="display:none">'
-        +'<div class="roster-panel-head"><div class="roster-panel-title"><span class="roster-dot-r">●</span> '+wn+'</div>'
-        +'<div class="roster-sort-btns">'
-          +'<button class="rsort-btn active" onclick="rosterSort(\'red\',\'level\',this)">급수순</button>'
-          +'<button class="rsort-btn" onclick="rosterSort(\'red\',\'name\',this)">이름순</button>'
-        +'</div></div>'
-        +'<div class="roster-names" id="roster-names-red">'+_mkRoster(d.members.red,'level')+'</div></div>';
-  }
+      +'<div class="live-vs">VS</div>'
+      +'<div class="live-side red'+(t2win?' win':'')+'">'
+        +(t2win?'<span class="win-chip">WIN</span>':'')
+        +'<div class="live-team-label">'+esc(liveTeamLabel(d,'red'))+'</div>'
+        +'<div class="live-player">'+esc(t2[0]||'-')+'</div>'
+        +'<div class="live-player">'+esc(t2[1]||'-')+'</div>'
+      +'</div>'
+    +'</div>'
+  +'</article>';
+}
 
-  // 팀 스코어 (팀전일 때)
-  if(d.isTeam){
-    const bW=d.blueWins||0, wW=d.whiteWins||0;
-    html+=buildGauge(bW, wW, d.teamBlue, d.teamWhite);
-    let lead='', cls='';
-    if(bW>wW){ lead='🔵 '+esc(d.teamBlue||'청 팀')+' '+(bW-wW)+'점 차로 앞서는 중!'; cls=''; }
-    else if(wW>bW){ lead='🔴 '+esc(d.teamWhite||'홍 팀')+' '+(wW-bW)+'점 차로 앞서는 중!'; cls='white-lead'; }
-    else { lead='⚖️ 동점! 접전 중'; cls='tie'; }
-    html+='<div class="ts-lead '+cls+'">'+lead+'</div>';
+function buildCurrentPanel(curRound, curMatches, d){
+  if(!curRound) return '';
+  const openCnt=(curMatches||[]).filter(m=>!m.win).length;
+  const badge=openCnt>0?'진행 중':'라운드 완료';
+  let html='<section class="current-panel" id="round_'+curRound+'">'
+    +'<div class="current-head">'
+      +'<div><div class="section-kicker">지금 볼 경기</div><div class="current-round">ROUND '+curRound+'</div></div>'
+      +'<span class="current-badge">'+badge+'</span>'
+    +'</div>';
+  if((curMatches||[]).length){
+    curMatches.sort((a,b)=>a.court-b.court).forEach(m=>{ html+=buildLiveMatchCard(m,d,{current:true}); });
+  } else {
+    html+='<div class="live-match is-current"><div class="live-match-top"><span class="live-type">대기 중</span></div>'
+      +'<div class="progress">아직 표시할 경기가 없습니다.</div></div>';
   }
+  html+='</section>';
+  return html;
+}
 
-  // 진행 현황
+function buildNextPanel(nextMatches,d){
+  if(!nextMatches || !nextMatches.length) return '';
+  let html='<section class="next-panel"><div class="next-title">다음 대기 경기</div><div class="next-list">';
+  nextMatches.slice(0,4).forEach(m=>{
+    const names=[...(m.t1||[]),...(m.t2||[])].filter(Boolean).map(esc).join(' · ');
+    html+='<div class="next-item">'
+      +'<div class="next-court">R'+m.round+' · '+esc(String(m.court||''))+'코트</div>'
+      +'<div class="next-names">'+names+'</div>'
+    +'</div>';
+  });
+  if(nextMatches.length>4){
+    html+='<div class="next-item"><div class="next-court">대기</div><div class="next-names">외 '+(nextMatches.length-4)+'경기</div></div>';
+  }
+  html+='</div></section>';
+  return html;
+}
+
+function render(d){
+  _randomizeViewerGender();
   const matches=d.matches||[];
   const byRound={};
-  matches.forEach(m=>{(byRound[m.round]=byRound[m.round]||[]).push(m);});
+  matches.forEach(m=>{ (byRound[m.round]=byRound[m.round]||[]).push(m); });
   const rounds=Object.keys(byRound).map(Number).sort((a,b)=>a-b);
   const totalR=rounds.length;
   let doneR=0;
-  rounds.forEach(r=>{ if(byRound[r].every(m=>m.win)) doneR++; });
-  html+='<div class="progress">📊 '+totalR+'라운드 중 '+doneR+'라운드 완료'
-    + (d.pointSystem? ' · '+d.pointSystem+'점 경기':'') +'</div>';
+  rounds.forEach(r=>{ if((byRound[r]||[]).every(m=>m.win)) doneR++; });
+  const allDone=totalR>0 && matches.length>0 && matches.every(m=>m.win);
+  const firstOpenRound=rounds.find(r=>(byRound[r]||[]).some(m=>!m.win));
+  let curRound=d.currentRound||null;
+  if(!curRound || !byRound[curRound] || ((byRound[curRound]||[]).every(m=>m.win) && firstOpenRound)){
+    curRound=firstOpenRound || curRound || rounds[0] || null;
+  }
+  const curRoundMatches=curRound?(byRound[curRound]||[]): [];
+  const curOpen=curRoundMatches.filter(m=>!m.win);
+  const curDisplay=curOpen.length?curOpen:curRoundMatches;
+  const nextMatches=matches
+    .filter(m=>!m.win && m.round!==curRound)
+    .sort((a,b)=>(a.round-b.round)||(a.court-b.court));
 
-  // ── 경기 종료 축하 연출 ──
-  const allDone = totalR>0 && matches.length>0 && matches.every(m=>m.win);
-  if(allDone){ html+=buildFinale(matches, d); }
+  if(d.isTeam && d.members) window._rosterData=d.members;
 
-  html+=buildBriefing(matches, d);
-  html+=buildRanking(matches, d);
-  html+=buildStreaks(matches);
+  let html='<div class="live-board">';
+  html+='<div class="live-top"><span class="live-pill"><span class="live-dot-mini"></span>LIVE</span><span>선수용 라이브 보드</span></div>';
+  html+='<div class="title">'+esc(d.title||'대진표')+'</div>';
+  if(d.isTeam){
+    html+=buildLiveScore(d,totalR,doneR);
+  } else {
+    html+='<div class="progress" id="scoreBoard">📊 '+totalR+'라운드 중 '+doneR+'라운드 완료'
+      +(d.pointSystem?' · '+esc(d.pointSystem)+'점 경기':'')+'</div>';
+  }
 
-  // 라운드별 경기
+  if(allDone){
+    html+=buildFinale(matches,d);
+  } else {
+    html+=buildCurrentPanel(curRound,curDisplay,d);
+    html+=buildNextPanel(nextMatches,d);
+  }
+  html+=buildMvpSpotlight(matches,d);
+  html+=buildTeamRosterCard(d);
+
+  html+='<details class="info-details primary" id="fullBracket"><summary>전체 대진표 보기</summary><div class="info-body">';
   rounds.forEach(r=>{
-    const isCur=(r===d.currentRound);
-    html+='<div class="round'+(isCur?' cur':'')+'" id="round_'+r+'">';
+    const isCur=(r===curRound);
+    html+='<div class="round'+(isCur?' cur':'')+'" id="round_all_'+r+'">';
     html+='<div class="round-h"><span class="round-badge">ROUND '+r+'</span>'
-      +(isCur?'<span class="now">● 진행중</span>':'')+'<span class="round-line"></span></div>';
-    byRound[r].sort((a,b)=>a.court-b.court).forEach(m=>{
-      const tc=m.type==='여복'?'women':m.type==='남복'?'men':'mixed';
-      const t1win=m.win==='t1', t2win=m.win==='t2';
-      html+='<div class="match '+tc+'">';
-      html+='<div class="m-top"><span class="m-type '+tc+'">'+esc(m.type)+(m.isFiller?'(보완)':'')+'</span>'
-        +'<span class="m-court">코트 '+m.court+'</span></div>';
-      // 청팀/홍팀 배경색 구분 + 라벨
-      const _t1label=d.isTeam?(esc(d.teamBlue||'청팀')):'1팀';
-      const _t2label=d.isTeam?(esc(d.teamWhite||'홍팀')):'2팀';
-      html+='<div class="m-body">';
-      html+='<div class="m-team t1side'+(t1win?' win':'')+'">'        +'<div class="m-team-label">'+_t1label+'</div>'        +'<div class="m-player">'+esc(m.t1[0])+"</div>"        +'<div class="m-player">'+esc(m.t1[1])+"</div>"        +(t1win?'<span class="win-stamp">승리</span>':'')+"</div>";      html+='<div class="m-vs">VS</div>';      html+='<div class="m-team t2side'+(t2win?' win':'')+'">'        +'<div class="m-team-label">'+_t2label+'</div>'        +'<div class="m-player">'+esc(m.t2[0])+"</div>"        +'<div class="m-player">'+esc(m.t2[1])+"</div>"        +(t2win?'<span class="win-stamp">승리</span>':'')+"</div>";      html+='</div></div>';
-
-    });
-    // 진행 중 라운드 바로 아래: 응원단 메시지
-    if(isCur && d.isTeam){
-      const _bs=window._cheerBSay||'';
-      const _rs=window._cheerRSay||'';
-      const _tbl=window._cheerTeamB||'청팀';
-      const _twh=window._cheerTeamW||'홍팀';
-      if(_bs||_rs){
-        html+='<div class="cheer-bar">'
-          +'<div class="cheer-blue">📣 '+esc(_tbl)+' 응원단 — "'+esc(_bs)+'"</div>'
-          +'<div class="cheer-red">📣 '+esc(_twh)+' 응원단 — "'+esc(_rs)+'"</div>'
-          +'</div>';
-      }
-    }
+      +(isCur&&!allDone?'<span class="now">● 현재</span>':'')+'<span class="round-line"></span></div>';
+    (byRound[r]||[]).sort((a,b)=>a.court-b.court).forEach(m=>{ html+=buildLiveMatchCard(m,d,{current:isCur&&!m.win&&!allDone}); });
     html+='</div>';
   });
+  html+='</div></details>';
+  const rankingHtml=buildRanking(matches,d);
+  if(rankingHtml){
+    html+='<details class="info-details"><summary>전적 순위 보기</summary><div class="info-body">'+rankingHtml+'</div></details>';
+  }
+  html+='</div>';
 
   content.innerHTML=html;
-  // 바로가기 버튼 표시
-  window._viewCurRound = d.currentRound||null;
-  window._viewHasScore = !!d.isTeam;
-  const fab=document.getElementById('jumpFab');
-  const jbNow=document.getElementById('jbNow');
-  const jbScore=document.getElementById('jbScore');
-  if(fab){
-    let any=false;
-    if(window._viewCurRound){ jbNow.style.display='flex'; any=true; } else { jbNow.style.display='none'; }
-    if(window._viewHasScore){ jbScore.style.display='flex'; any=true; } else { jbScore.style.display='none'; }
-    fab.style.display = any?'flex':'none';
-  }
 }
 
 function toggleRoster(team){
@@ -1176,15 +1601,6 @@ function rosterSort(team,sortBy,btn){
   if(wrap) wrap.querySelectorAll('.rsort-btn').forEach(b=>b.classList.toggle('active',b===btn));
 }
 
-function jumpToCurrent(){
-  const r=window._viewCurRound;
-  if(r==null) return;
-  const el=document.getElementById('round_'+r);
-  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
-}
-function jumpToScore(){
-  window.scrollTo({top:0,behavior:'smooth'});
-}
 </script>
 </body>
 </html>
