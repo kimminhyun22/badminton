@@ -15,7 +15,7 @@
   --txt:#1e2430;--dim:#6b7585;--dim2:#9ea8b8;
   --bl:#5b8def;--bl-deep:#4270cc;--bl-soft:#e8f0fd;--bl-softbdr:#c8d9f8;
   --red:#e05a58;--amber:#c48a20;
-  --women-soft:#fdeef4;--men-soft:#e8f0fd;--mixed-soft:#ede9f8;
+  --women-soft:#fdeef4;--men-soft:#e8f0fd;--mixed-soft:#ede9f8;--adjust-soft:#fff7e6;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);
@@ -214,11 +214,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .match.women{border-left:4px solid #d99bb0;}
 .match.men{border-left:4px solid #7fa8f2;}
 .match.mixed{border-left:4px solid #b3a0db;}
+.match.adjust{border-left:4px solid #f59e0b;}
 .m-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .m-type{font-size:.76rem;font-weight:700;padding:3px 11px;border-radius:7px;}
 .m-type.women{background:var(--women-soft);color:#b06b85;}
 .m-type.men{background:var(--men-soft);color:var(--bl-deep);}
 .m-type.mixed{background:var(--mixed-soft);color:#7d68b0;}
+.m-type.adjust{background:var(--adjust-soft);color:#b45309;}
 .m-court{font-size:1rem;font-weight:900;color:var(--txt);background:var(--sur2);
   border:2px solid var(--bdr2);border-radius:9px;padding:4px 14px;
   letter-spacing:.5px;min-width:62px;text-align:center;}
@@ -495,7 +497,9 @@ body{
 .live-match.women{border-left:4px solid #d99bb0;}
 .live-match.men{border-left:4px solid #7fa8f2;}
 .live-match.mixed{border-left:4px solid #b3a0db;}
+.live-match.adjust{border-left:4px solid #f59e0b;}
 .live-type{background:var(--sur2);color:var(--dim);border:1px solid var(--bdr);font-size:.7rem;}
+.live-type.adjust{background:var(--adjust-soft);color:#b45309;border-color:#f5d08a;}
 .live-court{background:var(--bl-soft);border:1px solid var(--bl-softbdr);color:var(--bl-deep);}
 .live-side.blue{background:var(--bl-soft);}
 .live-side.red{background:var(--red-soft);}
@@ -1443,12 +1447,12 @@ function buildTeamRosterCard(d){
 
 function buildLiveMatchCard(m,d,opts){
   opts=opts||{};
-  const tc=m.type==='여복'?'women':m.type==='남복'?'men':'mixed';
+  const tc=m.type==='여복'?'women':m.type==='남복'?'men':m.type==='보정'?'adjust':'mixed';
   const t1=m.t1||[], t2=m.t2||[];
   const t1win=m.win==='t1', t2win=m.win==='t2';
   return '<article class="live-match '+tc+(opts.current?' is-current':'')+'">'
     +'<div class="live-match-top">'
-      +'<span class="live-type">'+esc(m.type||'경기')+(m.isFiller?' · 보완':'')+'</span>'
+      +'<span class="live-type '+tc+'">'+esc(m.type||'경기')+(m.isFiller?' · 보완':'')+'</span>'
       +'<span class="live-court">'+esc(String(m.court||''))+'코트</span>'
     +'</div>'
     +'<div class="live-versus">'
