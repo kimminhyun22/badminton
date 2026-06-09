@@ -172,8 +172,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .roster-m{color:var(--bl);}
 .roster-f{color:var(--red);}
 .roster-name{flex:1;font-size:.95rem;font-weight:700;color:var(--txt);}
-.roster-lv{font-size:.76rem;font-weight:800;color:var(--dim);background:var(--sur2);
-  border:1px solid var(--bdr);border-radius:6px;padding:2px 8px;white-space:nowrap;}
 .roster-divider{height:1px;background:var(--bdr2);margin:6px 0;}
 .roster-dot-b{color:var(--bl);font-size:.72rem;}
 .roster-dot-r{color:var(--red);font-size:.72rem;}
@@ -381,7 +379,6 @@ body{
   font-size:.78rem;font-weight:800;color:#e2e8f0;min-width:0;}
 .team-member:first-of-type{border-top:none;}
 .team-member-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.team-member-lv{margin-left:auto;color:#94a3b8;font-size:.68rem;font-weight:900;}
 .team-member-badge{font-size:.6rem;color:#fff;border-radius:999px;padding:2px 5px;background:#f59e0b;white-space:nowrap;}
 .team-member-g{font-size:.68rem;width:14px;text-align:center;color:#bfdbfe;}
 .team-roster-more{margin-top:7px;font-size:.68rem;color:#bfdbfe;font-weight:900;}
@@ -533,7 +530,6 @@ body{
 .team-roster-title{color:var(--txt);}
 .team-roster-title small{color:var(--dim);}
 .team-member{border-top:1px solid rgba(45,55,75,.08);color:var(--txt);}
-.team-member-lv{color:var(--dim);}
 .team-member-g{color:var(--bl-deep);}
 .team-member-badge{background:var(--amber);}
 .faq-note{color:var(--dim);}
@@ -592,7 +588,6 @@ body{
 .team-roster-side{padding:10px;}
 .team-roster-title{font-size:.84rem;}
 .team-member{font-size:.86rem;padding:7px 0;}
-.team-member-lv{font-size:.72rem;}
 @media(max-width:380px){
   .score-num{font-size:2.9rem;}
   .live-player{font-size:1.06rem;}
@@ -1428,7 +1423,6 @@ function buildTeamRosterCard(d){
         +'<span class="team-member-g">'+(p.g==='M'?'♂':p.g==='F'?'♀':'·')+'</span>'
         +'<span class="team-member-name">'+esc(p.n)+'</span>'
         +badge
-        +'<span class="team-member-lv">Lv'+(p.l||0)+'</span>'
       +'</div>';
     }).join('');
   };
@@ -1592,7 +1586,7 @@ function rosterSort(team,sortBy,btn){
   const arr=(list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x);
   const males=[...arr].filter(p=>p.g==='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
   const females=[...arr].filter(p=>p.g!=='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
-  const row=p=>'<div class="roster-row"><span class="roster-gender '+(p.g==='M'?'roster-m':'roster-f')+'">'+(p.g==='M'?'♂':'♀')+'</span><span class="roster-name">'+p.n+'</span><span class="roster-lv">Lv'+p.l+'</span></div>';
+  const row=p=>'<div class="roster-row"><span class="roster-gender '+(p.g==='M'?'roster-m':'roster-f')+'">'+(p.g==='M'?'♂':'♀')+'</span><span class="roster-name">'+p.n+'</span></div>';
   const html=males.map(row).join('')+(males.length&&females.length?'<div class="roster-divider"></div>':'')+females.map(row).join('');
   const el=document.getElementById('roster-names-'+team);
   if(el) el.innerHTML=html;

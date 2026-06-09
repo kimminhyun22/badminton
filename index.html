@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.81  (2026-06)
+     APP VERSION: 1.10.82  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.81">
+<meta name="app-version" content="1.10.82">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -119,7 +119,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* 선수 목록 */
 .tlb-body{background:var(--sur2);padding:3px 5px;}
 .tlb-diff{padding:5px 10px;background:#fff;border-top:1px solid var(--bdr);font-size:.65rem;color:var(--dim);text-align:center;}
-/* 행: [아이콘] [이름  레벨·성별] [⇄] */
+/* 행: [아이콘] [이름  급수·성별] [⇄] */
 .tlb-player{display:flex;align-items:center;gap:3px;padding:5px 4px;border-radius:5px;transition:background .15s;}
 .tlb-player:hover{background:rgba(0,0,0,.05);}
 .tlb-role{font-size:.72rem;width:18px;text-align:center;flex-shrink:0;opacity:.28;cursor:pointer;transition:opacity .15s;user-select:none;}
@@ -358,7 +358,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .tm-names{display:flex;flex-direction:column;gap:3px;flex:1;}
 .tm-name{font-size:1.26rem;font-weight:700;color:var(--txt);letter-spacing:-.2px;}
 /* consec-warn 기능 제거 — 품질점검 대진간격 항목으로 확인 */
-.tm-lv{font-size:.65rem;font-weight:500;margin-left:4px;color:var(--dim2);letter-spacing:-.1px;white-space:nowrap;}
 .tm-vs{display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:.72rem;font-weight:800;color:var(--dim2);background:var(--sur2);flex-shrink:0;letter-spacing:.5px;}
 /* ── WIN ROW ── */
 .win-row{display:flex;align-items:center;gap:5px;padding:6px 9px;border-top:1px solid var(--bdr);background:var(--sur2);}
@@ -689,7 +688,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .p-side.pa .p-prefix{color:#1e4db7;}
   .p-side.pbb .p-prefix{color:#c0453f;}
   .p-row{font-size:.88rem;font-weight:700;color:#1a1a1a;line-height:1.55;}
-  .p-lv{font-size:.62rem;font-weight:500;color:#666;margin-left:1px;}
   .p-vs{display:flex;align-items:center;justify-content:center;padding:0 5px;font-size:.66rem;font-weight:800;color:#aaa;background:#f0f0f0 !important;flex-shrink:0;}
 
   /* 선수 명단 인쇄 */
@@ -838,7 +836,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .round-badge{font-size:.78rem;}
   .tm-name{font-size:1.12rem;font-weight:700;}
 
-  .tm-lv{font-size:.6rem;}
   .tm-prefix{font-size:.85rem;}
   .tm-vs{padding:0 5px;font-size:.68rem;}
   /* 요약 */
@@ -915,7 +912,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   .tm-side{padding:13px 13px;gap:10px;}
   .tm-prefix{font-size:1.2rem;font-weight:900;}
   .tm-name{font-size:1.46rem;font-weight:700;line-height:1.45;letter-spacing:-.2px;}
-  .tm-lv{font-size:.72rem;font-weight:500;}
   .tm-vs{font-size:.85rem;font-weight:800;padding:0 10px;}
 
   /* 승패 버튼 */
@@ -1235,7 +1231,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <p>배드민턴 팀 배정 + 자동 대진표 생성기</p>
   </div>
   <div class="hbs">
-    <span class="hb on">레벨 밸런스</span><span class="hb on">여성 균등</span>
+    <span class="hb on">실력 균형</span><span class="hb on">여성 균등</span>
     <span class="hb on">랜덤</span><span class="hb on">연속배정 패널티</span><span class="hb on">파트너 중복 방지</span>
   </div>
   <button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
@@ -1333,7 +1329,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
               <span class="dir-sort-label">정렬</span>
               <button class="dir-sort-btn active" id="dsb-reg" onclick="setDirSort('reg')">등록순</button>
               <button class="dir-sort-btn" id="dsb-name" onclick="setDirSort('name')">이름순</button>
-              <button class="dir-sort-btn" id="dsb-level" onclick="setDirSort('level')">레벨순</button>
+              <button class="dir-sort-btn" id="dsb-level" onclick="setDirSort('level')">급수순</button>
             </div>
             <div class="partner-hint" id="partnerHint"></div>
             <div class="dir-player-list" id="directPlayerList">
@@ -1604,7 +1600,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
         <span style="font-size:.62rem;color:#888;font-weight:600;">회원 정렬</span>
         <button class="dir-sort-btn active" id="rsb-reg"   onclick="setRosterSort('reg')"  >등록순</button>
         <button class="dir-sort-btn"        id="rsb-name"  onclick="setRosterSort('name')" >이름순</button>
-        <button class="dir-sort-btn"        id="rsb-level" onclick="setRosterSort('level')">레벨순</button>
+        <button class="dir-sort-btn"        id="rsb-level" onclick="setRosterSort('level')">급수순</button>
       </div>
       <div id="clubListEl"></div>
     </div>
@@ -1730,7 +1726,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   <button class="manual-back-btn" onclick="switchNav('main');window.scrollTo({top:0});">← 대진표로 돌아가기</button>
   <div class="manual-section">
     <h2>📌 프로그램 개요</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">팀 자동 배정 + 대진표 자동 생성</strong> 도구입니다. 레벨 밸런스, 게임 수 보장, 경기 중 선수 변경까지 한 번에 처리합니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">팀 자동 배정 + 대진표 자동 생성</strong> 도구입니다. 실력 균형, 게임 수 보장, 경기 중 선수 변경까지 한 번에 처리합니다.</p>
     <div class="feat-grid">
       <div class="feat-card"><h4>📊 구글 시트 연동</h4><p>명부 탭에서 CSV로 내보내기·불러오기 지원</p></div>
       <div class="feat-card"><h4>⚖️ 팀 자동/수동 배정</h4><p>자동 배정 후 청팀·홍팀 간 선수 수동 이동 가능</p></div>
@@ -1753,7 +1749,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <h2>🎯 똑똑한 대진 배정</h2>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">콕매치는 단순 랜덤이 아니라 다음을 함께 고려해 대진을 짭니다.</p>
     <div class="feat-grid">
-      <div class="feat-card"><h4>⚖️ 레벨 밸런스</h4><p>양 팀 실력 합이 비슷하도록 배정. 남녀 실력차도 반영</p></div>
+      <div class="feat-card"><h4>⚖️ 실력 균형</h4><p>양 팀 실력 합이 비슷하도록 배정. 남녀 실력차도 반영</p></div>
       <div class="feat-card"><h4>🔁 재대결 다양성</h4><p>같은 4명이 다시 경기하거나 똑같은 팀 대결이 반복되지 않도록 분산</p></div>
       <div class="feat-card"><h4>⏱ 대진 간격</h4><p>직전 라운드 연속 출전을 최소화해 충분히 쉬도록</p></div>
       <div class="feat-card"><h4>🎽 게임 수 보장</h4><p>모든 선수가 목표 게임 수를 채우도록 배정</p></div>
@@ -1782,7 +1778,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">✅</span><p class="step-text"><strong>양호</strong> — 문제 없음</p></div>
       <div class="step-item"><span class="step-num ico">⚠️</span><p class="step-text"><strong>주의</strong> — 개선 여지 있으나 인원·조건상 일부 불가피할 수 있음</p></div>
-      <div class="step-item"><span class="step-num ico">❌</span><p class="step-text"><strong>개선 필요</strong> — 재배정을 권장. 레벨차가 큰 경기 번호 등 구체적 위치도 표시됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">❌</span><p class="step-text"><strong>개선 필요</strong> — 재배정을 권장. 실력차가 큰 경기 번호 등 구체적 위치도 표시됩니다.</p></div>
     </div>
     <p style="font-size:.74rem;color:var(--dim);line-height:1.7;margin-top:8px;">※ 인원이 적으면 연속 출전·상대 반복이 수학적으로 불가피할 수 있습니다. 대시보드는 이런 불가피한 부분을 감안해 판정합니다.</p>
   </div>
@@ -1815,7 +1811,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.81';
+const APP_VERSION = '1.10.82';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2173,18 +2169,18 @@ function renderTeamList(){
   const wF=white.filter(p=>p.gender==='F').length;
   const bM=blue.filter(p=>p.gender==='M').length;
   const wM=white.filter(p=>p.gender==='M').length;
-  document.getElementById('blueInfo').textContent=`${blue.length}명 · 남${bM} 여${bF} · Lv합${Math.round(bSum*10)/10}`;
-  document.getElementById('whiteInfo').textContent=`${white.length}명 · 남${wM} 여${wF} · Lv합${Math.round(wSum*10)/10}`;
+  document.getElementById('blueInfo').textContent=`${blue.length}명 · 남${bM} 여${bF} · 실력합 ${Math.round(bSum*10)/10}`;
+  document.getElementById('whiteInfo').textContent=`${white.length}명 · 남${wM} 여${wF} · 실력합 ${Math.round(wSum*10)/10}`;
   const bSumR=Math.round(bSum*10)/10;
   const wSumR=Math.round(wSum*10)/10;
   const diff=Math.round((bSum-wSum)*10)/10;
   const diffStr=diff>0?`+${diff}`:diff<0?`${diff}`:'균형';
   const diffColor=diff===0?'color:var(--green)':'color:var(--acc)';
-  document.getElementById('blueDiff').innerHTML=`레벨 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSumR} : 백 ${wSumR})`;
+  document.getElementById('blueDiff').innerHTML=`실력 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSumR} : 백 ${wSumR})`;
   document.getElementById('whiteDiff').textContent='';
   const bn=teamNames.blue, wn=teamNames.white;
 
-  // 정렬 함수: 단장→부단장→일반(레벨순)
+  // 정렬 함수: 단장→부단장→일반(실력순)
   const sortWithCaptain=(list, side)=>{
     const ldr=captains[side].leader, sub=captains[side].sub;
     return [...list].sort((a,b)=>{
@@ -2210,12 +2206,13 @@ function renderTeamList(){
     const roleCls=`tlb-role${isLeader?' on leader':isSub?' on sub':''}${bothFull&&!isLeader&&!isSub?' locked':''}`;
     const roleClick=`cycleRole('${side}','${esc(p.name)}')`;
     const genderLabel=p.gender==='F'?'여':'남';
+    const gradeLabel=p.grade||LV_LABEL[p.level]||'?';
     return `<div class="tlb-player${isLeader?' tlb-captain':isSub?' tlb-sub':''}">
       <span class="${roleCls}" onclick="${roleClick}" title="${roleTitle}">${roleIcon}</span>
       <div class="tlb-info">
         <span class="tlb-name" style="color:${nameColor}">${esc(p.name)}</span>
         ${p.isGuest?'<span class="guest-badge" style="flex-shrink:0;">G</span>':''}
-        <span class="tlb-meta">Lv${p.level} ${genderLabel}</span>
+        <span class="tlb-meta">${gradeLabel} · ${genderLabel}</span>
       </div>
       <button class="move-btn" onclick="movePlayer('${esc(p.name)}','${toTeam}')" title="${toTeam==='white'?wn:bn}으로 이동">⇄</button>
     </div>`;
@@ -2739,10 +2736,10 @@ function generateMatches(participants,settings,totalMatches){
 
         let match=null;
         const hasRepeat4=(m)=>{if(!m)return false;const t1=[m.team1A,m.team1B],t2=[m.team2C,m.team2D];for(const a of t1)for(const b of t2){if((a.opponentCount[b.name]||0)>=3)return true;}return false;};
-        // 1단계: 파트너 쌍 우선 배정 — 레벨차 작은 조합부터
+        // 1단계: 파트너 쌍 우선 배정 — 실력차 작은 조합부터
         for(const pL of[1,2]){match=tryCreateMatchWithPartners(avail,settings,'any',pL);if(match)break;}
         if(hasRepeat4(match)) match=null; // 4회째 만남이면 파트너매치도 거부
-        // 2단계: 일반 배정 (레벨차 엄격, 4회째 만남 회피)
+        // 2단계: 일반 배정 (실력차 엄격, 4회째 만남 회피)
         if(!match){
           let fb=null;
           for(const maxLD of[1,2,4]){
@@ -2754,7 +2751,7 @@ function generateMatches(participants,settings,totalMatches){
             }
             if(match)break;
           }
-          // 4회 회피 실패 시: 혼복 등 다른 종목 + 레벨차 무제한으로 4회아닌 매치 탐색
+          // 4회 회피 실패 시: 혼복 등 다른 종목 + 실력차 무제한으로 4회아닌 매치 탐색
           if(!match){
             for(const t of['mixed','women','men','any']){
               const cand=tryCreateMatch(avail,settings,t,99);
@@ -3261,11 +3258,11 @@ function selectFillerFour(pool,unmet,target,settings){
 }
 
 function diversityScore(four,ld){
-  // LD 가중치 최우선 — 레벨차 최소화
+  // LD 가중치 최우선 — 실력차 최소화
   let score=(ld||0)*80;
 
   const games=four.map(p=>p.gamesPlayed);
-  // 게임 수 분산 패널티 강화: 8→30 (레벨차 80과 균형 맞춤)
+  // 게임 수 분산 패널티 강화: 8→30 (실력차 80과 균형 맞춤)
   score+=(Math.max(...games)-Math.min(...games))*30;
 
   // 라운드 간격 패널티 — 목표 간격(_partnerGapThreshold) 기준
@@ -3301,7 +3298,7 @@ function diversityScore(four,ld){
     else score+=1e9;              // 4회+: 하드 차단
   }
 
-  // 팀 내 레벨 차이 패널티
+  // 팀 내 실력 차이 패널티
   const minIntra=Math.min(
     Math.abs(effLevel(four[0])-effLevel(four[1]))+Math.abs(effLevel(four[2])-effLevel(four[3])),
     Math.abs(effLevel(four[0])-effLevel(four[2]))+Math.abs(effLevel(four[1])-effLevel(four[3])),
@@ -3390,7 +3387,7 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     if(teamMode){if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)continue;}
     const ld=Math.abs((effLevel(t1[0])+effLevel(t1[1]))-(effLevel(t2[0])+effLevel(t2[1])));
     if(ld>maxLD)continue;
-    let score=ld*80; // 레벨차 최우선
+    let score=ld*80; // 실력차 최우선
     score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
     score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
     const p1pair=t1[0].partnerName===t1[1].name;
@@ -3541,7 +3538,7 @@ function _repairParticipation(matches,participants,settings,historyMatches=[]){
 function _bracketQualityScore(matches, participants, settings){
   const N=participants.length;
   let penalty=0;
-  // ① 레벨 밸런스
+  // ① 실력 균형
   let ldSum=0, ldMax=0;
   matches.forEach(m=>{ const ld=Math.abs(m.levelDiff||0); ldSum+=ld; if(ld>ldMax)ldMax=ld; });
   penalty += ldSum*2 + ldMax*3;
@@ -4150,8 +4147,8 @@ function renderQualityDashboard(matches,participants,settings){
   const rows=[
     (()=>{
       const pct=sBalance/30;
-      let detail=`평균 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
-      if(spikes.length) detail+=` · 튀는 경기(레벨차 3+) ${spikes.length}개`;
+      let detail=`평균 실력차 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
+      if(spikes.length) detail+=` · 실력차 큰 경기(3+) ${spikes.length}개`;
       else detail+=' · 튀는 경기 없음';
       return {label:'경기 실력 균형',detail,score:sBalance,max:30,pct};
     })(),
@@ -4327,16 +4324,6 @@ function renderQualityDashboard(matches,participants,settings){
 
 
 /* ═══ RENDER RESULTS ═══ */
-// 매치카드 선수 정보 표시 헬퍼: '40/D/남' 형식 (관리자용, 인쇄·중계 제외)
-function _pInfo(p){
-  // ageGroup 없으면 40대 기본값 (구버전 저장 데이터 호환)
-  const ageRaw=p.ageGroup||'40대';
-  const age=ageRaw.replace('대','').replace('+','');
-  const grade=p.grade||LV_LABEL[p.level]||'?';
-  const gender=p.gender==='M'||p.gender==='남'?'남':'여';
-  return age+'/'+grade+'/'+gender;
-}
-
 function renderResults(matches,participants,settings){
   const isTeam=settings.teamMode;
   const wD=matches.filter(m=>m.type==='여복').length;
@@ -4361,7 +4348,6 @@ function renderResults(matches,participants,settings){
     ['라운드',rounds,'sv-bl'],
     [`예상 시간<span class="sv-sub">${_pointSystem}점 기준</span>`,timeStr,'sv-time'],
     ['여복',wD,'sv-wo'],['남복',mD,'sv-me'],['혼복',xD,'sv-mx'],
-    ['평균레벨차',avgLD.toFixed(2),'sv-ac'],
   ].map(([l,v,c])=>`<div class="sum-box"><div class="sum-box-l">${l}</div><div class="sum-box-v ${c}" style="${String(v).length>4?'font-size:.9rem':''}">${v}</div></div>`).join('');
 
   // 점수제 비교 안내 (코트 부족 시 의사결정 도움)
@@ -4428,16 +4414,16 @@ function renderResults(matches,participants,settings){
           <div class="tm-side ${p1cls}">
             <span class="tm-prefix">${p1label}</span>
             <div class="tm-names">
-              <span class="tm-name">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team1A)}</span></span>
-              <span class="tm-name">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team1B)}</span></span>
+              <span class="tm-name">${esc(m.team1A.name)}${m.team1A.isGuest?'<span class="guest-badge">G</span>':''}</span>
+              <span class="tm-name">${esc(m.team1B.name)}${m.team1B.isGuest?'<span class="guest-badge">G</span>':''}</span>
             </div>
           </div>
           <div class="tm-vs">VS</div>
           <div class="tm-side ${p2cls}">
             <span class="tm-prefix">${p2label}</span>
             <div class="tm-names">
-              <span class="tm-name">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team2C)}</span></span>
-              <span class="tm-name">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''} <span class="tm-lv">${_pInfo(m.team2D)}</span></span>
+              <span class="tm-name">${esc(m.team2C.name)}${m.team2C.isGuest?'<span class="guest-badge">G</span>':''}</span>
+              <span class="tm-name">${esc(m.team2D.name)}${m.team2D.isGuest?'<span class="guest-badge">G</span>':''}</span>
             </div>
           </div>
         </div>
@@ -4529,7 +4515,6 @@ function renderPlayersTable(){
     return `<tr>
       <td>${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}${joinerBadge}</td>
       <td ${tc}>${tn}</td>
-      <td><span class="lv-badge lv${p.level}">${LV_LABEL[p.level]}(${p.level})</span></td>
       <td>${p.gender==='M'?'남':'여'}</td>
       <td>${stEl}</td>
       <td class="td-blue td-bold">${p._wins||0}</td>
@@ -4574,7 +4559,7 @@ function renderPlayersTable(){
   document.getElementById('ptTableArea').innerHTML=`
     <div class="ptable-wrap"><table class="ptable">
       <thead><tr>
-        ${th('name','이름')}${th('team','팀')}${th('level','레벨')}${th('gender','성별')}
+        ${th('name','이름')}${th('team','팀')}${th('gender','성별')}
         ${th('games','게임수')}${th('wins','승')}${th('losses','패')}${th('women','여복')}${th('men','남복')}${th('mixed','혼복')}
       </tr></thead>
       <tbody>${pRowsHtml}</tbody>
@@ -5675,7 +5660,7 @@ function _cpRenderPlayerList(){
     const teamBadge=isTeam?` · <span style="color:${p.team==='청팀'?'var(--bl)':'var(--dim)'}">${p.team||'미배정'}</span>`:'';
     return `<div class="cp-player-row">
       <div class="cp-player-name">${esc(p.name)}</div>
-      <div class="cp-player-meta"><span>${p.grade||LV_LABEL[p.level]||p.level}</span><span>${p.gender==='M'?'남':'여'}</span><span>${p.ageGroup||'40대'}</span>${teamBadge}</div>
+      <div class="cp-player-meta"><span>${p.grade||LV_LABEL[p.level]||'?'}</span><span>${p.gender==='M'?'남':'여'}</span><span>${p.ageGroup||'40대'}</span>${teamBadge}</div>
       ${gDone>0?`<span class="cp-done-badge">완료 ${gDone}G</span>`:''}
       <button class="cp-excl-btn${excl?' excluded':''}" data-pname="${esc(p.name)}" onclick="cpToggleExclude(this.dataset.pname)">${excl?'✕ 제외중':'제외'}</button>
     </div>`;
@@ -6501,8 +6486,8 @@ function renderDirectPlayerList(){
     return `<div class="${itemCls}" id="dpi-${p._origIdx}">
       <span class="dpi-name">${esc(p.name)}${gBadge}${pBadge}${ageBadge}</span>
       <span class="dpi-meta">
-        <span class="lv-badge ${LV_COLOR[p.level]||'lv3'}">${p.grade||LV_LABEL[p.level]||p.level}</span>
-        ${p.gender} · Lv${p.level}</span>
+        <span class="lv-badge ${LV_COLOR[p.level]||'lv3'}">${p.grade||LV_LABEL[p.level]||'?'}</span>
+        ${p.gender}</span>
       ${pBtn}
       <button class="dpi-edit" onclick="openEditDirectPlayer(${p._origIdx})" title="편집" style="background:none;border:none;cursor:pointer;color:var(--dim);font-size:.8rem;padding:4px 6px;">✏️</button>
       <button class="dpi-del" onclick="removeDirectPlayer(${p._origIdx})">✕</button>
@@ -6637,7 +6622,7 @@ function renderClubList(){
 
     const mrows=indexed.map((m)=>`<div class="club-member-row">
         <span class="cmr-name">${esc(m.name)}</span>
-        <span class="cmr-meta"><span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender} · ${m.ageGroup||'40대'} · Lv${m.level}</span>
+        <span class="cmr-meta"><span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender} · ${m.ageGroup||'40대'}</span>
         <button class="cmr-edit" onclick="editMember('${club.id}',${m._origIdx})" title="수정">✏</button>
         <button class="cmr-del" onclick="deleteMember('${club.id}',${m._origIdx})" title="삭제">✕</button>
       </div>`).join('');
@@ -6849,7 +6834,7 @@ function renderImportMembers(){
       <input type="checkbox" class="import-chk" value="${m._origIdx}" ${isChecked?'checked':''}>
       <span style="flex:1;font-size:.84rem;font-weight:700;">${esc(m.name)}</span>
       <span style="font-size:.68rem;color:var(--dim);">
-        <span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender} · Lv${m.level}
+        <span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender}
       </span>
     </label>`;
   }).join('');
