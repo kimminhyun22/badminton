@@ -40,6 +40,18 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   font-size:14px;
   line-height:1.5;
 }
+.last-sent{
+  margin:12px 0 0;
+  padding:11px 13px;
+  border-radius:17px;
+  border:1px solid #bbf7d0;
+  background:#f0fdf4;
+  color:#166534;
+  font-size:14px;
+  font-weight:900;
+  line-height:1.45;
+}
+.last-sent.hidden{display:none}
 .panel{
   margin-top:16px;
   padding:14px;
@@ -80,6 +92,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   margin-top:10px;
 }
 .player.locked{border-color:#f3cf8f;background:#fffaf0}
+.player.recent{border-color:#bbf7d0;box-shadow:0 0 0 3px rgba(53,165,106,.12)}
 .phead{
   display:flex;
   justify-content:space-between;
@@ -108,7 +121,16 @@ button{
   font-weight:900;
   background:#f2f5fa;
   color:#273246;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  min-height:58px;
 }
+button small{display:block;font-size:11px;font-weight:700;line-height:1.25;color:rgba(39,50,70,.62)}
+button.primary small{color:rgba(255,255,255,.82)}
+button:disabled{opacity:.55}
 button.primary{background:var(--blue);color:#fff}
 button.green{background:#eaf8f0;color:#187347}
 button.amber{background:#fff5df;color:#9a610b}
@@ -144,7 +166,8 @@ button.red{background:#fff0f0;color:#c33b35}
     <div class="eyebrow">KOKMATCH CHECK-IN</div>
     <h1>오늘 운동 상태를 알려주세요</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
-    <div class="notice">본인 이름을 찾아 현재 상태를 눌러주세요. 경기중이거나 이미 임박대기에 들어간 경우에는 관리자가 확인한 뒤 반영됩니다.</div>
+    <div class="notice">1. 이름 검색 → 2. 본인 카드에서 현재 상태 선택. 경기중이거나 이미 임박대기에 들어간 경우에는 관리자가 확인한 뒤 반영됩니다.</div>
+    <div class="last-sent hidden" id="lastSent"></div>
   </section>
   <section class="panel">
     <div class="toolbar">
@@ -168,7 +191,7 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='';
+let db=null,checkinId='',session=null,query='',sendingKey='';
 const statusClass={wait:'green',lesson:'amber',rest:'',leaving:'amber',last:'primary',done:'red'};
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -184,6 +207,28 @@ function statusLabel(key){
 function checkinPath(){
   return 'live/checkin_'+checkinId;
 }
+function lastKey(){
+  return 'kokmatch_checkin_last_'+checkinId;
+}
+function getLastSent(){
+  try{return JSON.parse(localStorage.getItem(lastKey())||'null');}catch(e){return null;}
+}
+function setLastSent(req){
+  try{localStorage.setItem(lastKey(),JSON.stringify({...req,savedAt:Date.now()}));}catch(e){}
+}
+function renderLastSent(){
+  const el=document.getElementById('lastSent');
+  if(!el)return;
+  const last=getLastSent();
+  if(!last){
+    el.className='last-sent hidden';
+    el.textContent='';
+    return;
+  }
+  const when=last.savedAt?new Date(last.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
+  el.className='last-sent';
+  el.textContent=`최근 전송: ${last.playerName} · ${statusLabel(last.status)} (${when})`;
+}
 function render(){
   const sub=document.getElementById('sessionSub');
   const box=document.getElementById('players');
@@ -191,8 +236,10 @@ function render(){
   if(!session){
     sub.textContent='출석 링크를 확인하고 있습니다.';
     box.className='empty';box.textContent='명단을 불러오는 중입니다.';count.textContent='0명';
+    renderLastSent();
     return;
   }
+  renderLastSent();
   const players=(session.players||[]).filter(p=>!query||p.name.includes(query));
   const updated=session.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   sub.textContent=`${session.title||'콕매치 오늘운동'} · ${updated} 업데이트`;
@@ -202,10 +249,12 @@ function render(){
     return;
   }
   box.className='';
+  const last=getLastSent();
   box.innerHTML=players.map(p=>{
     const locked=!!p.locked;
-    const buttons=(session.statuses||[]).map(s=>`<button class="${statusClass[s.key]||''}" onclick="sendStatus('${esc(p.id)}','${esc(s.key)}')">${esc(s.label)}</button>`).join('');
-    return `<article class="player ${locked?'locked':''}">
+    const recent=last&&last.playerId===p.id;
+    const buttons=(session.statuses||[]).map(s=>`<button class="${statusClass[s.key]||''}" ${sendingKey?'disabled':''} onclick="sendStatus('${esc(p.id)}','${esc(s.key)}')"><span>${esc(s.label)}</span><small>${esc(s.desc||'')}</small></button>`).join('');
+    return `<article class="player ${locked?'locked':''} ${recent?'recent':''}">
       <div class="phead">
         <div>
           <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}</div>
@@ -218,9 +267,15 @@ function render(){
   }).join('');
 }
 async function sendStatus(playerId,status){
-  if(!db||!checkinId||!session)return;
+  if(!db||!checkinId||!session||sendingKey)return;
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
+  const last=getLastSent();
+  if(last&&last.playerId===p.id&&last.status===status&&Date.now()-(last.savedAt||0)<10000){
+    return toast('방금 같은 상태를 전송했어요.');
+  }
+  sendingKey=playerId+'_'+status;
+  render();
   const req={
     playerId:p.id,
     playerName:p.name,
@@ -231,9 +286,13 @@ async function sendStatus(playerId,status){
   };
   try{
     await db.ref(checkinPath()+'/requests').push(req);
+    setLastSent(req);
     toast(`${p.name} · ${statusLabel(status)} 전송 완료`);
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';
+    render();
   }
 }
 function boot(){

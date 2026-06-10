@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.109  (2026-06)
+     APP VERSION: 1.10.110  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.109">
+<meta name="app-version" content="1.10.110">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2242,7 +2242,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.109';
+const APP_VERSION = '1.10.110';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3790,8 +3790,10 @@ function dailyRenderOpsStats(){
   const live=_dailyPlayers.filter(p=>p.status!=='done').length;
   const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.isGuest).length;
   const cap=_dailyQueueCapacity();
+  const checkinPending=_dailyCheckinPendingRequests().length;
   const cards=[
     {label:'라이브인원',value:live,hint:guestLive?`게스트 ${guestLive}명 포함`:'현재 현장 기준',cls:'primary'},
+    {label:'출석링크',value:_dailyCheckinId?(checkinPending||'ON'):'OFF',hint:_dailyCheckinId?(checkinPending?'관리자 확인 필요':'회원 직접 입력 중'):'공유 전',cls:checkinPending||!_dailyCheckinId?'warn':'primary'},
     {label:'대기풀',value:ready,hint:'임박/예비/자유 포함',cls:'primary'},
     {label:'임박대기',value:locked,hint:'확정 대기 경기',cls:'primary'},
     {label:'예비대기',value:flex,hint:cap.short?`인원 부족 · ${cap.target}/${cap.goal}경기만 유지`:'선수 수정 가능',cls:cap.short?'warn':''},
@@ -3946,6 +3948,12 @@ function _dailyCheckinBlockReason(req,p){
 function _dailyCheckinRequestRef(key){
   return _fbDb&&_dailyCheckinId?_fbDb.ref(_dailyCheckinPath()+'/requests/'+key):null;
 }
+function _dailyCheckinPendingRequests(){
+  return _dailyCheckinRequests.filter(req=>{
+    const p=_dailyPlayer(req.playerId);
+    return _dailyCheckinBlockReason(req,p);
+  });
+}
 function dailyProcessCheckinRequests(){
   if(_dailyCheckinApplying)return;
   _dailyCheckinApplying=true;
@@ -4018,10 +4026,7 @@ function dailyRenderCheckinRequests(){
   const box=document.getElementById('dailyCheckinBox');
   const summary=document.getElementById('dailyCheckinSummary');
   if(summary){
-    const pending=_dailyCheckinRequests.filter(r=>{
-      const p=_dailyPlayer(r.playerId);
-      return _dailyCheckinBlockReason(r,p);
-    }).length;
+    const pending=_dailyCheckinPendingRequests().length;
     summary.textContent=_dailyCheckinId?`(${pending}건 확인 필요)`:''; 
   }
   if(!box)return;
@@ -4031,10 +4036,7 @@ function dailyRenderCheckinRequests(){
     return;
   }
   const url=_dailyCheckinUrl();
-  const pending=_dailyCheckinRequests.filter(req=>{
-    const p=_dailyPlayer(req.playerId);
-    return _dailyCheckinBlockReason(req,p);
-  });
+  const pending=_dailyCheckinPendingRequests();
   const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong><br>회원이 상태를 누르면 안전한 요청은 자동 반영됩니다.</div>`;
   const actions=`<div class="daily-checkin-req-actions">
     <button class="daily-mini-btn" onclick="dailyShareCheckinLink()">다시 공유</button>
