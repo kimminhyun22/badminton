@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.84  (2026-06)
+     APP VERSION: 1.10.85  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.84">
+<meta name="app-version" content="1.10.85">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1827,7 +1827,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.84';
+const APP_VERSION = '1.10.85';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3211,7 +3211,7 @@ function _teamGenderRemaining(participants,settings){
     '홍팀':{M:0,F:0}
   };
   participants.forEach(p=>{
-    if(!rem[p.team]||!rem[p.team][p.gender])return;
+    if(!rem[p.team]||!(p.gender in rem[p.team]))return;
     rem[p.team][p.gender]+=Math.max(0,_goalForPlayer(p,settings)-(p.gamesPlayed||0));
   });
   return rem;
@@ -5266,6 +5266,8 @@ function saveState(){
     })),
     participants:currentParticipants.map(p=>({
       name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,
+      partnerName:p.partnerName||getPartnerOf(p.name)||null,
+      partnerId:p.partnerId||(getPartnerInfo(p.name)||{}).id||null,
       isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대',
       gamesPlayed:p.gamesPlayed,
       womenDoublesPlayed:p.womenDoublesPlayed,
@@ -5376,6 +5378,8 @@ function restoreState(){
 
     if(state.teamAssignment){
       teamAssignment=state.teamAssignment;
+      _attachPartnerNames(teamAssignment.blue||[]);
+      _attachPartnerNames(teamAssignment.white||[]);
       _teamWanted=true; // 팀전 상태 복원
       const btn=document.getElementById('teamAssignBtn');
       btn.classList.add('done','hidden');
@@ -5394,6 +5398,7 @@ function restoreState(){
       adjustmentPlayed:0,
       ageGroup:'40대' // 구버전 저장 데이터 호환: ageGroup 없으면 40대 기본값
     },p));
+    _attachPartnerNames(currentParticipants);
     _restoreJoinerGoals(currentParticipants,state.settings);
     currentMatches=state.matches.map(m=>{
       const findP=name=>currentParticipants.find(p=>p.name===name)||{name,level:3,gender:'M',team:'',ageGroup:'40대',grade:''};
@@ -5692,6 +5697,23 @@ function _isMatchDone(idx){
   const wo=winOverride[idx];
   return(wo==='t1'||wo==='t2')||(s1>0||s2>0);
 }
+function _readCompletedScoreState(idx){
+  const s1=document.getElementById('s1_'+idx);
+  const s2=document.getElementById('s2_'+idx);
+  return{
+    wo:winOverride[idx]||null,
+    s1:s1?parseInt(s1.value)||0:0,
+    s2:s2?parseInt(s2.value)||0:0
+  };
+}
+function _restoreCompletedScoreState(sc,idx){
+  if(!sc)return;
+  if(sc.wo)winOverride[idx]=sc.wo;
+  const s1=document.getElementById('s1_'+idx);
+  const s2=document.getElementById('s2_'+idx);
+  if(s1&&sc.s1)s1.value=sc.s1;
+  if(s2&&sc.s2)s2.value=sc.s2;
+}
 
 /* 라운드 단위 선수 변경: 선택 라운드부터 이후 전부 재생성 */
 /* 잠긴 라운드 클릭 시 안내 */
@@ -5926,7 +5948,7 @@ function reshuffleFromRound(r){
   // r 이전 라운드 유지, r 이후(r 포함) 재생성
   const completedMatches=currentMatches.filter(m=>m.round<r);
   const completedScores=[];
-  currentMatches.forEach((m,i)=>{ if(m.round<r) completedScores.push({wo:winOverride[i]||null}); });
+  currentMatches.forEach((m,i)=>{ if(m.round<r) completedScores.push(_readCompletedScoreState(i)); });
 
   const gDoneMap={};
   completedMatches.forEach(m=>{
@@ -5970,9 +5992,11 @@ function reshuffleFromRound(r){
       currentMatches=allMatches;
       currentParticipants=bestP1;
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
-      completedScores.forEach((sc,i)=>{if(sc.wo)winOverride[i]=sc.wo;});
       renderResults(currentMatches,currentParticipants,currentSettings);
-      setTimeout(()=>{updateScores();scheduleSave();},100);
+      setTimeout(()=>{
+        completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
+        updateScores();scheduleSave();
+      },100);
       const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
       if(_cw.length){let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
     }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
@@ -5988,7 +6012,7 @@ function reshuffleMatches(){
     if(_isMatchDone(i)||(_lockedBeforeRound!=null&&m.round<_lockedBeforeRound))doneIdxs.push(i);
   });
   const completedMatches=doneIdxs.map(i=>currentMatches[i]);
-  const completedScores=doneIdxs.map(i=>({wo:winOverride[i]||null}));
+  const completedScores=doneIdxs.map(i=>_readCompletedScoreState(i));
 
   const gDoneMap={};
   completedMatches.forEach(m=>{
@@ -6035,9 +6059,10 @@ function reshuffleMatches(){
       currentMatches=allMatches;
       currentParticipants=bestP2;
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
-      completedScores.forEach((sc,i)=>{if(sc.wo)winOverride[i]=sc.wo;});
       renderResults(currentMatches,currentParticipants,currentSettings);
-      setTimeout(()=>{updateScores();scheduleSave();
+      setTimeout(()=>{
+        completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
+        updateScores();scheduleSave();
         (document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});},100);
       const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
       if(_cw.length){let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
@@ -6061,13 +6086,13 @@ function executeChangeModal(){
     doneIdxs=[];
     currentMatches.forEach((m,i)=>{ if(m.round<_cpFromRound) doneIdxs.push(i); });
     completedMatches=doneIdxs.map(i=>currentMatches[i]);
-    completedScores=doneIdxs.map(i=>({wo:winOverride[i]||null}));
+    completedScores=doneIdxs.map(i=>_readCompletedScoreState(i));
   } else {
     // 기존 방식: 점수 입력된 완료 게임 유지
     doneIdxs=[];
     currentMatches.forEach((_,i)=>{if(_isMatchDone(i))doneIdxs.push(i);});
     completedMatches=doneIdxs.map(i=>currentMatches[i]);
-    completedScores=doneIdxs.map(i=>({wo:winOverride[i]||null}));
+    completedScores=doneIdxs.map(i=>_readCompletedScoreState(i));
   }
 
   // 2. 완료 게임당 선수별 gamesPlayed 집계
@@ -6191,11 +6216,8 @@ function executeChangeModal(){
 
       // 9. 완료된 게임 점수 복원 + winOverride 복원
       setTimeout(()=>{
-        // winOverride 복원
         Object.keys(winOverride).forEach(k=>delete winOverride[k]);
-        completedScores.forEach((sc,i)=>{
-          if(sc.wo) winOverride[i]=sc.wo;
-        });
+        completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
         updateScores();
         scheduleSave();
         (document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});
@@ -6436,6 +6458,16 @@ function getPartnerOf(name){
   const pair = getPartnerInfo(name);
   if(!pair) return null;
   return pair.members.find(m=>m!==name) || null;
+}
+function _attachPartnerNames(players){
+  if(!Array.isArray(players))return players;
+  players.forEach(p=>{
+    const pair=getPartnerInfo(p.name);
+    if(!pair)return;
+    p.partnerName=pair.members.find(m=>m!==p.name)||p.partnerName||null;
+    p.partnerId=pair.id||p.partnerId||null;
+  });
+  return players;
 }
 
 function _teamAssignmentHasSplitPartners(){
