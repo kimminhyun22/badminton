@@ -132,7 +132,8 @@ function renderHeader(){
   document.getElementById('title').textContent=title;
   const sub=document.getElementById('sessionSub');
   const updated=session?.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
-  sub.textContent=session?`${updated} 업데이트 · 예상 ${session.gamesPerPlayer||4}게임 기준`:'참석부를 확인하고 있습니다.';
+  const club=session?.clubName?session.clubName+' · ':'';
+  sub.textContent=session?`${club}${updated} 업데이트 · 예상 ${session.gamesPerPlayer||4}게임 기준`:'참석부를 확인하고 있습니다.';
   const last=getLast();
   const my=document.getElementById('myState');
   if(!last){my.className='my-state hidden';my.textContent='';return;}
