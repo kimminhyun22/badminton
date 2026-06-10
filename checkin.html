@@ -181,6 +181,9 @@ function statusLabel(key){
   const s=(session?.statuses||[]).find(x=>x.key===key);
   return s?.label||key;
 }
+function checkinPath(){
+  return 'live/checkin_'+checkinId;
+}
 function render(){
   const sub=document.getElementById('sessionSub');
   const box=document.getElementById('players');
@@ -227,7 +230,7 @@ async function sendStatus(playerId,status){
     source:'member-checkin'
   };
   try{
-    await db.ref('dailyCheckin/'+checkinId+'/requests').push(req);
+    await db.ref(checkinPath()+'/requests').push(req);
     toast(`${p.name} · ${statusLabel(status)} 전송 완료`);
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
@@ -246,7 +249,7 @@ function boot(){
     document.getElementById('players').textContent='서버 연결에 실패했습니다.';
     return;
   }
-  db.ref('dailyCheckin/'+checkinId+'/session').on('value',snap=>{
+  db.ref(checkinPath()+'/session').on('value',snap=>{
     session=snap.val();
     if(!session){
       document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';

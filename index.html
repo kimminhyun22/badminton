@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.108  (2026-06)
+     APP VERSION: 1.10.109  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.108">
+<meta name="app-version" content="1.10.109">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2242,7 +2242,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.108';
+const APP_VERSION = '1.10.109';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2976,7 +2976,7 @@ function _dailyLoadAsNewDay(s){
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
   _dailyAutoAssign=false;_dailyClosing=false;_dailyClosingAt='';
   _dailyPairSelectId=null;
-  if(_dailyCheckinId&&_fbDb)_fbDb.ref('dailyCheckin/'+_dailyCheckinId).remove().catch(()=>{});
+  if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
   _dailyCheckinId=null;_dailyCheckinRequests=[];_dailyCheckinListening=false;
   localStorage.removeItem(DAILY_CHECKIN_KEY);
   _dailyMarkFourCacheDirty();
@@ -3251,7 +3251,7 @@ function dailyReset(){
   _dailyAutoAssign=false;
   _dailyClosing=false;
   _dailyClosingAt='';
-  if(_dailyCheckinId&&_fbDb)_fbDb.ref('dailyCheckin/'+_dailyCheckinId).remove().catch(()=>{});
+  if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
   _dailyCheckinId=null;
   _dailyCheckinRequests=[];
   _dailyCheckinListening=false;
@@ -3839,6 +3839,9 @@ function _dailyCheckinUrl(){
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
   return base+'checkin.html?id='+_dailyCheckinId;
 }
+function _dailyCheckinPath(){
+  return _dailyCheckinId?'live/checkin_'+_dailyCheckinId:'';
+}
 function _dailyCheckinPayload(){
   return {
     title:'콕매치 오늘운동 출석',
@@ -3875,7 +3878,9 @@ function dailyEnsureCheckinId(){
 }
 function dailyPushCheckinSession(){
   if(!_dailyCheckinId||!_fbDb)return;
-  _fbDb.ref('dailyCheckin/'+_dailyCheckinId+'/session').set(_dailyCheckinPayload()).catch(()=>{});
+  const path=_dailyCheckinPath();
+  _fbDb.ref(path).update({kind:'dailyCheckin',updatedAt:_dailyNow()}).catch(()=>{});
+  _fbDb.ref(path+'/session').set(_dailyCheckinPayload()).catch(()=>{});
 }
 async function dailyPublishCheckinSession(silent){
   if(!_dailyPlayers.length){
@@ -3887,7 +3892,9 @@ async function dailyPublishCheckinSession(silent){
     return null;
   }
   const id=dailyEnsureCheckinId();
-  await _fbDb.ref('dailyCheckin/'+id+'/session').set(_dailyCheckinPayload());
+  const path=_dailyCheckinPath();
+  await _fbDb.ref(path).update({kind:'dailyCheckin',updatedAt:_dailyNow()});
+  await _fbDb.ref(path+'/session').set(_dailyCheckinPayload());
   dailyStartCheckinListener();
   dailyRenderCheckinRequests();
   return id;
@@ -3920,7 +3927,7 @@ function dailyResumeCheckin(){
 function dailyStartCheckinListener(){
   if(!_dailyCheckinId||!_fbDb||_dailyCheckinListening)return;
   _dailyCheckinListening=true;
-  _fbDb.ref('dailyCheckin/'+_dailyCheckinId+'/requests').on('value',snap=>{
+  _fbDb.ref(_dailyCheckinPath()+'/requests').on('value',snap=>{
     const raw=snap.val()||{};
     _dailyCheckinRequests=Object.keys(raw).map(key=>({key,...raw[key]}))
       .filter(r=>!r.appliedAt&&!r.ignoredAt)
@@ -3937,7 +3944,7 @@ function _dailyCheckinBlockReason(req,p){
   return '';
 }
 function _dailyCheckinRequestRef(key){
-  return _fbDb&&_dailyCheckinId?_fbDb.ref('dailyCheckin/'+_dailyCheckinId+'/requests/'+key):null;
+  return _fbDb&&_dailyCheckinId?_fbDb.ref(_dailyCheckinPath()+'/requests/'+key):null;
 }
 function dailyProcessCheckinRequests(){
   if(_dailyCheckinApplying)return;
@@ -3999,8 +4006,8 @@ function dailyIgnoreCheckinRequest(key){
 async function dailyStopCheckinLink(){
   if(!_dailyCheckinId)return;
   if(!confirm('회원 출석 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 명단을 볼 수 없습니다.'))return;
-  const id=_dailyCheckinId;
-  if(_fbDb)await _fbDb.ref('dailyCheckin/'+id).remove().catch(()=>{});
+  const path=_dailyCheckinPath();
+  if(_fbDb)await _fbDb.ref(path).remove().catch(()=>{});
   localStorage.removeItem(DAILY_CHECKIN_KEY);
   _dailyCheckinId=null;
   _dailyCheckinRequests=[];
