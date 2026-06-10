@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#5b8def">
+<title>콕매치 월례대회 참석 확인</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f8fc;--card:#fff;--line:#e3e9f3;--txt:#18202d;--mut:#6f7a8a;
+  --blue:#5b8def;--blue2:#eaf1fe;--green:#35a56a;--red:#e35b55;--amber:#f0a73a;
+  --shadow:0 18px 45px rgba(35,55,90,.12);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Noto Sans KR',system-ui,-apple-system,sans-serif;background:linear-gradient(180deg,#edf4ff 0%,#f8fafc 48%,#fff 100%);color:var(--txt);}
+.wrap{max-width:760px;margin:0 auto;padding:18px 14px 34px}
+.hero{padding:22px 18px;border:1px solid rgba(91,141,239,.22);border-radius:26px;background:linear-gradient(135deg,#fff 0%,#eef5ff 100%);box-shadow:var(--shadow);}
+.eyebrow{font-size:13px;font-weight:900;color:#4f78c9;letter-spacing:.02em}
+h1{margin:8px 0 8px;font-size:27px;line-height:1.18;letter-spacing:-.5px}
+.sub{margin:0;color:var(--mut);font-size:15px;line-height:1.55}
+.notice{margin:14px 0 0;padding:12px 13px;border-radius:18px;background:rgba(255,255,255,.82);border:1px solid var(--line);color:#344055;font-size:14px;line-height:1.5}
+.my-state{margin:12px 0 0;padding:12px 13px;border-radius:18px;border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;font-size:14px;font-weight:900;line-height:1.45}
+.my-state.hidden{display:none}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stat{padding:10px 8px;text-align:center;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.85)}
+.stat b{display:block;font-size:20px;line-height:1.1}
+.stat span{display:block;font-size:12px;color:var(--mut);font-weight:900;margin-top:3px}
+.panel{margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:24px;background:rgba(255,255,255,.88);box-shadow:0 10px 28px rgba(35,55,90,.08)}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.search{flex:1;height:48px;padding:0 14px;border:1px solid var(--line);border-radius:16px;font-size:16px;background:#fff}
+.pill{padding:9px 12px;border-radius:999px;background:var(--blue2);color:#406fc7;font-weight:900;font-size:13px;white-space:nowrap}
+.member{padding:14px;border:1px solid var(--line);border-radius:21px;background:#fff;margin-top:10px}
+.member.recent{border-color:#bbf7d0;box-shadow:0 0 0 3px rgba(53,165,106,.12)}
+.mhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:11px}
+.name{font-size:18px;font-weight:900;line-height:1.35}
+.meta{color:var(--mut);font-size:13px;margin-top:3px;line-height:1.45}
+.badge{padding:7px 10px;border-radius:999px;background:#f2f5fa;color:#4b5668;font-weight:900;font-size:12px;white-space:nowrap}
+.badge.attend{background:#ecfdf3;color:#166534}
+.badge.decline{background:#f1f5f9;color:#64748b}
+.badge.maybe{background:#fffbeb;color:#92400e}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+button{appearance:none;border:0;border-radius:15px;padding:12px 8px;font:inherit;font-weight:900;background:#f2f5fa;color:#273246;min-height:50px}
+button.attend{background:#eaf8f0;color:#187347}
+button.maybe{background:#fff5df;color:#9a610b}
+button.decline{background:#f1f5f9;color:#64748b}
+button:disabled{opacity:.55}
+.guest{margin-top:10px;border:1px solid var(--line);border-radius:18px;background:#fbfcff;overflow:hidden}
+.guest summary{cursor:pointer;padding:11px 12px;font-size:14px;font-weight:900;color:#344055;list-style:none}
+.guest summary::-webkit-details-marker{display:none}
+.guest-body{padding:0 12px 12px;display:grid;grid-template-columns:1fr 80px 80px;gap:8px}
+.guest input,.guest select{height:42px;border:1px solid var(--line);border-radius:13px;padding:0 10px;font:inherit;background:#fff;min-width:0}
+.guest button{grid-column:1/-1;background:var(--blue);color:#fff}
+.empty{padding:28px 14px;text-align:center;color:var(--mut);line-height:1.55}
+.toast{position:fixed;left:14px;right:14px;bottom:16px;max-width:700px;margin:0 auto;padding:14px 16px;border-radius:18px;background:#18202d;color:#fff;font-weight:900;text-align:center;box-shadow:0 16px 44px rgba(0,0,0,.26);transform:translateY(120%);transition:.22s ease;z-index:10}
+.toast.show{transform:translateY(0)}
+@media(max-width:520px){.stats{grid-template-columns:repeat(3,1fr)}.guest-body{grid-template-columns:1fr 1fr}.guest input{grid-column:1/-1}.actions{gap:7px}button{font-size:14px}.name{font-size:17px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">KOKMATCH RSVP</div>
+    <h1 id="title">월례대회 참석 확인</h1>
+    <p class="sub" id="sessionSub">참석부를 불러오는 중입니다.</p>
+    <div class="notice">이름을 찾고 참석 여부를 누르면 끝입니다. 게스트가 있으면 같은 카드에서 바로 신청할 수 있어요.</div>
+    <div class="my-state hidden" id="myState"></div>
+    <div class="stats">
+      <div class="stat"><b id="attendCount">0</b><span>참석</span></div>
+      <div class="stat"><b id="guestCount">0</b><span>게스트</span></div>
+      <div class="stat"><b id="pendingCount">0</b><span>미응답</span></div>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="toolbar">
+      <input id="search" class="search" placeholder="이름 또는 초성 검색" autocomplete="off">
+      <span class="pill" id="countPill">0명</span>
+    </div>
+    <div id="members" class="empty">명단을 불러오는 중입니다.</div>
+  </section>
+</main>
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+const FB_CONFIG={
+  apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
+  authDomain:"kokmatch-23b31.firebaseapp.com",
+  databaseURL:"https://kokmatch-23b31-default-rtdb.firebaseio.com",
+  projectId:"kokmatch-23b31",
+  storageBucket:"kokmatch-23b31.firebasestorage.app",
+  messagingSenderId:"57349245242",
+  appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
+};
+let db=null,rsvpId='',session=null,responses={},query='',sendingKey='';
+const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function qs(k){return new URLSearchParams(location.search).get(k)||'';}
+function path(){return 'live/rsvp_'+rsvpId;}
+function initials(s){
+  return String(s||'').split('').map(ch=>{
+    const code=ch.charCodeAt(0)-44032;
+    if(code<0||code>11171)return ch;
+    return CHO[Math.floor(code/588)]||ch;
+  }).join('');
+}
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),2600);
+}
+function lastKey(){return 'kokmatch_rsvp_last_'+rsvpId;}
+function getLast(){try{return JSON.parse(localStorage.getItem(lastKey())||'null');}catch(e){return null;}}
+function setLast(v){try{localStorage.setItem(lastKey(),JSON.stringify({...v,savedAt:Date.now()}));}catch(e){}}
+function statusLabel(s){return s==='attend'?'참석':s==='decline'?'불참':'미정';}
+function counts(){
+  const members=session?.members||[];
+  const vals=Object.values(responses||{}).filter(r=>members.some(m=>m.id===(r.memberId||r.id)));
+  return {
+    attend:vals.filter(r=>r.status==='attend').length,
+    guest:vals.filter(r=>r.guest&&r.guest.name).length,
+    pending:Math.max(0,members.length-vals.length)
+  };
+}
+function renderHeader(){
+  const c=counts();
+  document.getElementById('attendCount').textContent=c.attend;
+  document.getElementById('guestCount').textContent=c.guest;
+  document.getElementById('pendingCount').textContent=c.pending;
+  const title=session?.title||'월례대회 참석 확인';
+  document.getElementById('title').textContent=title;
+  const sub=document.getElementById('sessionSub');
+  const updated=session?.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
+  sub.textContent=session?`${updated} 업데이트 · 예상 ${session.gamesPerPlayer||4}게임 기준`:'참석부를 확인하고 있습니다.';
+  const last=getLast();
+  const my=document.getElementById('myState');
+  if(!last){my.className='my-state hidden';my.textContent='';return;}
+  const when=last.savedAt?new Date(last.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
+  my.className='my-state';
+  my.textContent=`내 최근 선택: ${last.memberName} · ${statusLabel(last.status)} (${when})`;
+}
+function memberResponse(id){return responses?.[id]||null;}
+function filteredMembers(){
+  const q=query.trim();
+  let list=[...(session?.members||[])];
+  const last=getLast();
+  if(last){
+    list.sort((a,b)=>(a.id===last.memberId?-1:b.id===last.memberId?1:0)||a.name.localeCompare(b.name,'ko'));
+  }else{
+    list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  }
+  if(!q)return list;
+  return list.filter(m=>m.name.includes(q)||initials(m.name).includes(q)||(m.club||'').includes(q));
+}
+function render(){
+  renderHeader();
+  const box=document.getElementById('members');
+  const pill=document.getElementById('countPill');
+  if(!session){box.className='empty';box.textContent='참석부를 불러오는 중입니다.';pill.textContent='0명';return;}
+  const list=filteredMembers();
+  pill.textContent=`${list.length}명`;
+  if(!list.length){box.className='empty';box.textContent='검색된 회원이 없습니다.';return;}
+  box.className='';
+  const last=getLast();
+  box.innerHTML=list.map(m=>memberCard(m,last&&last.memberId===m.id)).join('');
+}
+function memberCard(m,recent){
+  const r=memberResponse(m.id);
+  const status=r?.status||'none';
+  const guest=r?.guest||{};
+  const badge=status==='none'?'미응답':statusLabel(status);
+  const guestOpen=guest.name?' open':'';
+  return `<article class="member ${recent?'recent':''}">
+    <div class="mhead">
+      <div>
+        <div class="name">${esc(m.name)}</div>
+        <div class="meta">${esc(m.club||'소속 없음')} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급${guest.name?` · 게스트 ${esc(guest.name)}`:''}</div>
+      </div>
+      <span class="badge ${esc(status)}">${esc(badge)}</span>
+    </div>
+    <div class="actions">
+      <button class="attend" ${sendingKey?'disabled':''} onclick="sendStatus('${esc(m.id)}','attend')">참석</button>
+      <button class="maybe" ${sendingKey?'disabled':''} onclick="sendStatus('${esc(m.id)}','maybe')">미정</button>
+      <button class="decline" ${sendingKey?'disabled':''} onclick="sendStatus('${esc(m.id)}','decline')">불참</button>
+    </div>
+    <details class="guest"${guestOpen}>
+      <summary>게스트 신청/수정</summary>
+      <div class="guest-body">
+        <input id="gName_${esc(m.id)}" placeholder="게스트 이름" value="${esc(guest.name||'')}">
+        <select id="gGender_${esc(m.id)}"><option value="남" ${guest.gender==='남'?'selected':''}>남</option><option value="여" ${guest.gender==='여'?'selected':''}>여</option></select>
+        <select id="gGrade_${esc(m.id)}">${['E','D','C','B','A','S'].map(g=>`<option value="${g}" ${guest.grade===g?'selected':''}>${g}</option>`).join('')}</select>
+        <button onclick="saveGuest('${esc(m.id)}')">게스트 저장하고 참석</button>
+      </div>
+    </details>
+  </article>`;
+}
+function responseFor(m,status,extra={}){
+  const prev=memberResponse(m.id)||{};
+  return {
+    memberId:m.id,
+    memberName:m.name,
+    name:m.name,
+    club:m.club||'',
+    grade:m.grade||'C',
+    gender:m.gender||'남',
+    ageGroup:m.ageGroup||'40대',
+    status,
+    guest:extra.guest!==undefined?extra.guest:(prev.guest||null),
+    updatedAt:Date.now(),
+    source:'member-rsvp'
+  };
+}
+async function sendStatus(memberId,status){
+  if(!db||!session||sendingKey)return;
+  const m=(session.members||[]).find(x=>x.id===memberId);
+  if(!m)return toast('회원 정보를 찾지 못했습니다.');
+  const last=getLast();
+  if(last&&last.memberId===m.id&&last.status===status&&Date.now()-(last.savedAt||0)<10000){
+    return toast('방금 같은 선택을 전송했어요.');
+  }
+  sendingKey=memberId+'_'+status;render();
+  const payload=responseFor(m,status);
+  try{
+    await db.ref(path()+'/responses/'+memberId).set(payload);
+    responses[memberId]=payload;
+    setLast(payload);
+    toast(`${m.name} · ${statusLabel(status)} 전송 완료`);
+  }catch(e){
+    toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';render();
+  }
+}
+async function saveGuest(memberId){
+  if(!db||!session||sendingKey)return;
+  const m=(session.members||[]).find(x=>x.id===memberId);
+  if(!m)return toast('회원 정보를 찾지 못했습니다.');
+  const name=document.getElementById('gName_'+memberId)?.value.trim();
+  if(!name)return toast('게스트 이름을 입력해 주세요.');
+  const guest={
+    name,
+    gender:document.getElementById('gGender_'+memberId)?.value||'남',
+    grade:document.getElementById('gGrade_'+memberId)?.value||'C',
+    ageGroup:m.ageGroup||'40대'
+  };
+  sendingKey=memberId+'_guest';render();
+  const payload=responseFor(m,'attend',{guest});
+  try{
+    await db.ref(path()+'/responses/'+memberId).set(payload);
+    responses[memberId]=payload;
+    setLast(payload);
+    toast(`${m.name} · 게스트 포함 참석 저장 완료`);
+  }catch(e){
+    toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';render();
+  }
+}
+function boot(){
+  rsvpId=qs('id');
+  if(!rsvpId){document.getElementById('members').textContent='참석 링크가 올바르지 않습니다.';return;}
+  try{
+    firebase.initializeApp(FB_CONFIG);
+    db=firebase.database();
+  }catch(e){
+    document.getElementById('members').textContent='서버 연결에 실패했습니다.';
+    return;
+  }
+  db.ref(path()).on('value',snap=>{
+    const data=snap.val();
+    if(!data||!data.session){
+      session=null;responses={};
+      renderHeader();
+      document.getElementById('sessionSub').textContent='종료된 참석 링크입니다.';
+      document.getElementById('members').className='empty';
+      document.getElementById('members').textContent='관리자가 링크를 종료했거나 아직 참석부를 공유하지 않았습니다.';
+      return;
+    }
+    session=data.session;
+    responses=data.responses||{};
+    render();
+  });
+  document.getElementById('search').addEventListener('input',e=>{query=e.target.value.trim();render();});
+}
+boot();
+</script>
+</body>
+</html>
