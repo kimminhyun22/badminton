@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#5b8def">
+<title>콕매치 오늘운동 출석</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f8fc;--card:#fff;--line:#e3e9f3;--txt:#18202d;--mut:#6f7a8a;
+  --blue:#5b8def;--blue2:#eaf1fe;--green:#35a56a;--red:#e35b55;--amber:#f0a73a;
+  --shadow:0 18px 45px rgba(35,55,90,.12);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:'Noto Sans KR',system-ui,-apple-system,sans-serif;
+  background:linear-gradient(180deg,#edf4ff 0%,#f8fafc 46%,#fff 100%);
+  color:var(--txt);
+}
+.wrap{max-width:720px;margin:0 auto;padding:18px 14px 34px}
+.hero{
+  padding:22px 18px;
+  border:1px solid rgba(91,141,239,.22);
+  border-radius:26px;
+  background:linear-gradient(135deg,#ffffff 0%,#eef5ff 100%);
+  box-shadow:var(--shadow);
+}
+.eyebrow{font-size:13px;font-weight:900;color:#4f78c9;letter-spacing:.02em}
+h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
+.sub{margin:0;color:var(--mut);font-size:15px;line-height:1.55}
+.notice{
+  margin:14px 0 0;
+  padding:12px 13px;
+  border-radius:18px;
+  background:rgba(255,255,255,.8);
+  border:1px solid var(--line);
+  color:#344055;
+  font-size:14px;
+  line-height:1.5;
+}
+.panel{
+  margin-top:16px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:24px;
+  background:rgba(255,255,255,.86);
+  box-shadow:0 10px 28px rgba(35,55,90,.08);
+}
+.toolbar{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  margin-bottom:12px;
+}
+.search{
+  flex:1;
+  height:46px;
+  padding:0 14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  font-size:16px;
+  background:#fff;
+}
+.pill{
+  padding:9px 12px;
+  border-radius:999px;
+  background:var(--blue2);
+  color:#406fc7;
+  font-weight:900;
+  font-size:13px;
+  white-space:nowrap;
+}
+.player{
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:#fff;
+  margin-top:10px;
+}
+.player.locked{border-color:#f3cf8f;background:#fffaf0}
+.phead{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+  margin-bottom:10px;
+}
+.name{font-size:18px;font-weight:900}
+.meta{color:var(--mut);font-size:13px;margin-top:3px}
+.badge{
+  padding:7px 10px;
+  border-radius:999px;
+  background:#f2f5fa;
+  color:#4b5668;
+  font-weight:900;
+  font-size:12px;
+  white-space:nowrap;
+}
+.buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+button{
+  appearance:none;
+  border:0;
+  border-radius:15px;
+  padding:12px 10px;
+  font:inherit;
+  font-weight:900;
+  background:#f2f5fa;
+  color:#273246;
+}
+button.primary{background:var(--blue);color:#fff}
+button.green{background:#eaf8f0;color:#187347}
+button.amber{background:#fff5df;color:#9a610b}
+button.red{background:#fff0f0;color:#c33b35}
+.empty{
+  padding:28px 14px;
+  text-align:center;
+  color:var(--mut);
+  line-height:1.55;
+}
+.toast{
+  position:fixed;
+  left:14px;right:14px;bottom:16px;
+  max-width:680px;margin:0 auto;
+  padding:14px 16px;
+  border-radius:18px;
+  background:#18202d;
+  color:#fff;
+  font-weight:900;
+  text-align:center;
+  box-shadow:0 16px 44px rgba(0,0,0,.26);
+  transform:translateY(120%);
+  transition:.22s ease;
+  z-index:10;
+}
+.toast.show{transform:translateY(0)}
+@media (min-width:620px){.buttons{grid-template-columns:repeat(3,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">KOKMATCH CHECK-IN</div>
+    <h1>오늘 운동 상태를 알려주세요</h1>
+    <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
+    <div class="notice">본인 이름을 찾아 현재 상태를 눌러주세요. 경기중이거나 이미 임박대기에 들어간 경우에는 관리자가 확인한 뒤 반영됩니다.</div>
+  </section>
+  <section class="panel">
+    <div class="toolbar">
+      <input id="search" class="search" placeholder="이름 검색" autocomplete="off">
+      <span class="pill" id="countPill">0명</span>
+    </div>
+    <div id="players" class="empty">명단을 불러오는 중입니다.</div>
+  </section>
+</main>
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+const FB_CONFIG={
+  apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
+  authDomain:"kokmatch-23b31.firebaseapp.com",
+  databaseURL:"https://kokmatch-23b31-default-rtdb.firebaseio.com",
+  projectId:"kokmatch-23b31",
+  storageBucket:"kokmatch-23b31.firebasestorage.app",
+  messagingSenderId:"57349245242",
+  appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
+};
+let db=null,checkinId='',session=null,query='';
+const statusClass={wait:'green',lesson:'amber',rest:'',leaving:'amber',last:'primary',done:'red'};
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function qs(k){return new URLSearchParams(location.search).get(k)||'';}
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),2600);
+}
+function statusLabel(key){
+  const s=(session?.statuses||[]).find(x=>x.key===key);
+  return s?.label||key;
+}
+function render(){
+  const sub=document.getElementById('sessionSub');
+  const box=document.getElementById('players');
+  const count=document.getElementById('countPill');
+  if(!session){
+    sub.textContent='출석 링크를 확인하고 있습니다.';
+    box.className='empty';box.textContent='명단을 불러오는 중입니다.';count.textContent='0명';
+    return;
+  }
+  const players=(session.players||[]).filter(p=>!query||p.name.includes(query));
+  const updated=session.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
+  sub.textContent=`${session.title||'콕매치 오늘운동'} · ${updated} 업데이트`;
+  count.textContent=`${players.length}명`;
+  if(!players.length){
+    box.className='empty';box.textContent='검색된 선수가 없습니다.';
+    return;
+  }
+  box.className='';
+  box.innerHTML=players.map(p=>{
+    const locked=!!p.locked;
+    const buttons=(session.statuses||[]).map(s=>`<button class="${statusClass[s.key]||''}" onclick="sendStatus('${esc(p.id)}','${esc(s.key)}')">${esc(s.label)}</button>`).join('');
+    return `<article class="player ${locked?'locked':''}">
+      <div class="phead">
+        <div>
+          <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}</div>
+          <div class="meta">현재 ${esc(p.statusLabel||statusLabel(p.status))} · ${p.games||0}게임${locked?' · 관리자 확인 필요':''}</div>
+        </div>
+        <div class="badge">${locked?'확인 후 반영':'바로 반영'}</div>
+      </div>
+      <div class="buttons">${buttons}</div>
+    </article>`;
+  }).join('');
+}
+async function sendStatus(playerId,status){
+  if(!db||!checkinId||!session)return;
+  const p=(session.players||[]).find(x=>x.id===playerId);
+  if(!p)return toast('선수를 찾지 못했습니다.');
+  const req={
+    playerId:p.id,
+    playerName:p.name,
+    status,
+    statusLabel:statusLabel(status),
+    createdAt:Date.now(),
+    source:'member-checkin'
+  };
+  try{
+    await db.ref('dailyCheckin/'+checkinId+'/requests').push(req);
+    toast(`${p.name} · ${statusLabel(status)} 전송 완료`);
+  }catch(e){
+    toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }
+}
+function boot(){
+  checkinId=qs('id');
+  if(!checkinId){
+    document.getElementById('players').textContent='출석 링크가 올바르지 않습니다.';
+    return;
+  }
+  try{
+    firebase.initializeApp(FB_CONFIG);
+    db=firebase.database();
+  }catch(e){
+    document.getElementById('players').textContent='서버 연결에 실패했습니다.';
+    return;
+  }
+  db.ref('dailyCheckin/'+checkinId+'/session').on('value',snap=>{
+    session=snap.val();
+    if(!session){
+      document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';
+      document.getElementById('players').className='empty';
+      document.getElementById('players').textContent='관리자가 링크를 종료했거나 아직 명단을 공유하지 않았습니다.';
+      return;
+    }
+    render();
+  });
+  document.getElementById('search').addEventListener('input',e=>{
+    query=e.target.value.trim();
+    render();
+  });
+}
+boot();
+</script>
+</body>
+</html>
