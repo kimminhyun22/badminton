@@ -523,6 +523,15 @@ body{
 }
 .info-details[open]>summary{border-bottom-color:var(--bdr);}
 .info-details>summary:after{color:var(--bl-deep);}
+.info-details[open]>summary:after{
+  content:"▲ 접기";
+  color:#fff;
+  background:var(--bl-deep);
+  border-radius:999px;
+  padding:5px 11px;
+  font-size:.76rem;
+  box-shadow:var(--shadow);
+}
 .info-body{padding:0 12px 12px;}
 .team-roster-card{box-shadow:none;}
 .team-roster-head{color:var(--txt);border-bottom:1px solid var(--bdr);padding:13px 14px;}
@@ -623,7 +632,7 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
   color:#1d4ed8;
 }
 .live-versus{gap:10px;}
-.live-side{border-radius:18px;padding:14px 12px;border:2px solid transparent;}
+.live-side{border-radius:18px;padding:12px 10px;border:2px solid transparent;min-width:0;}
 .live-side.blue{background:#e8f1ff;border-color:#9fc0fa;}
 .live-side.red{background:#fff0f0;border-color:#f2aaa7;}
 .live-side.win{outline:3px solid #e8a44a;box-shadow:0 0 0 5px rgba(232,164,74,.18);}
@@ -641,12 +650,12 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
 .live-side.blue .live-team-label{color:#1d4ed8;border:1px solid #bfdbfe;}
 .live-side.red .live-team-label{color:#b91c1c;border:1px solid #fecaca;}
 .live-player{
-  font-size:1.34rem;
-  line-height:1.42;
+  font-size:1.22rem;
+  line-height:1.38;
   letter-spacing:-.6px;
-  white-space:normal;
-  overflow:visible;
-  text-overflow:clip;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
   word-break:keep-all;
 }
 .live-vs{font-size:.88rem;color:#6b7280;}
@@ -676,6 +685,7 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
 }
 .team-roster-sort.active{background:#1f2937;color:#fff;border-color:#1f2937;}
 .team-roster-columns{gap:10px;padding:12px;}
+.team-roster-columns{grid-template-columns:1fr 1fr;}
 .team-roster-side{border-radius:18px;padding:13px;}
 .team-roster-title{font-size:1.02rem;margin-bottom:10px;}
 .team-member{
@@ -685,10 +695,13 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
   align-items:center;
 }
 .team-member-name{
-  font-size:1.08rem;
+  font-size:1.02rem;
   font-weight:900;
-  white-space:normal;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
   word-break:keep-all;
+  min-width:0;
 }
 .team-member-g{font-size:.9rem;width:20px;}
 .team-member-badge{font-size:.72rem;padding:3px 7px;}
@@ -706,15 +719,43 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
 }
 .team-member-att.on{background:#16a34a;color:#fff;border-color:#16a34a;}
 .team-att-summary{font-size:.84rem;font-weight:900;color:#166534;background:#dcfce7;border:1px solid #86efac;border-radius:12px;padding:9px 11px;margin:10px 12px 0;}
+.team-roster-close{
+  width:100%;
+  margin:0 12px 12px;
+  max-width:calc(100% - 24px);
+  border:0;
+  border-radius:14px;
+  background:#1f2937;
+  color:#fff;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:.98rem;
+  font-weight:900;
+  padding:12px 14px;
+  box-shadow:var(--shadow-md);
+}
 @media(max-width:430px){
   body{font-size:17px;padding:12px;}
   .head{margin:-12px -12px 12px;}
   .score-num{font-size:3.1rem;}
-  .live-versus{grid-template-columns:1fr;gap:7px;}
-  .live-vs{display:none;}
-  .live-player{font-size:1.28rem;}
+  .live-versus{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px;}
+  .live-vs{display:flex;align-items:center;justify-content:center;font-size:.72rem;}
+  .live-side{padding:10px 8px;border-radius:15px;}
+  .live-team-label{font-size:.72rem;padding:3px 7px;margin-bottom:6px;}
+  .live-player{font-size:1.08rem;line-height:1.35;}
+  .live-court{font-size:1rem;padding:6px 10px;}
+  .live-type{font-size:.78rem;padding:6px 9px;}
+  .current-panel{padding:13px;}
+  .next-panel{padding:13px;}
   .team-roster-head{flex-direction:column;}
   .team-roster-head span{text-align:left;}
+  .team-roster-columns{grid-template-columns:1fr 1fr;gap:7px;padding:9px;}
+  .team-roster-side{padding:9px 8px;}
+  .team-roster-title{font-size:.9rem;}
+  .team-member{gap:5px;padding:7px 0;}
+  .team-member-g{width:14px;font-size:.78rem;}
+  .team-member-name{font-size:.9rem;}
+  .team-member-att{font-size:.7rem;padding:5px 7px;}
+  .team-member-badge{font-size:.62rem;padding:2px 5px;}
 }
 </style>
 </head>
@@ -825,6 +866,7 @@ const params=new URLSearchParams(location.search);
 const liveId=(params.get('id')||'').toUpperCase();
 let liveDb=null;
 let _teamRosterSort=localStorage.getItem('kokmatch_live_roster_sort')||'name';
+let _teamRosterOpen=false;
 let _latestLiveData=null;
 
 const content=document.getElementById('content');
@@ -1582,6 +1624,19 @@ function setTeamRosterSort(sort){
   if(window._lastLiveData) render(window._lastLiveData);
 }
 
+function setTeamRosterOpen(open){
+  _teamRosterOpen=!!open;
+}
+
+function closeTeamRoster(){
+  _teamRosterOpen=false;
+  const el=document.getElementById('teamRoster');
+  if(el) {
+    el.open=false;
+    el.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+}
+
 async function toggleMemberAttendance(name, team){
   if(!name) return;
   if(!liveDb || !liveId){
@@ -1629,7 +1684,7 @@ function buildTeamRosterCard(d){
   const all=[...blue,...red];
   const attCount=all.filter(p=>_attOn(p.n)).length;
   const sortBtn=(key,label)=>'<button type="button" class="team-roster-sort '+(_teamRosterSort===key?'active':'')+'" onclick="setTeamRosterSort(\''+key+'\')">'+label+'</button>';
-  return '<details class="info-details primary" id="teamRoster">'
+  return '<details class="info-details primary" id="teamRoster" '+(_teamRosterOpen?'open':'')+' ontoggle="setTeamRosterOpen(this.open)">'
     +'<summary>팀 명단 · 출석 확인</summary>'
     +'<div class="info-body">'
       +'<section class="team-roster-card">'
@@ -1640,6 +1695,7 @@ function buildTeamRosterCard(d){
           +'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_attOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
           +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.filter(p=>_attOn(p.n)).length+'/'+red.length+'명</small></div>'+mk(red,'red')+'</div>'
         +'</div>'
+        +'<button type="button" class="team-roster-close" onclick="closeTeamRoster()">▲ 출석부 접기</button>'
       +'</section>'
     +'</div>'
   +'</details>';
