@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.116  (2026-06)
+     APP VERSION: 1.10.117  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.116">
+<meta name="app-version" content="1.10.117">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -372,6 +372,32 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .match-card.win-s1{box-shadow:0 0 0 2px rgba(37,99,235,.4);}
 .match-card.win-s2{box-shadow:0 0 0 2px rgba(192,69,63,.4);}
 .score-result{font-size:.66rem;font-weight:700;flex-shrink:0;}
+.fast-play-panel{display:flex;flex-direction:column;gap:9px;}
+.fast-play-note{font-size:.72rem;color:var(--dim);line-height:1.55;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;}
+.fast-play-note.warn{background:#fffbeb;border-color:#fde68a;color:#92400e;}
+.fast-play-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:7px;}
+.fast-play-stat{border:1px solid var(--bdr);border-radius:10px;background:#fff;text-align:center;padding:8px;}
+.fast-play-stat b{display:block;font-size:1.05rem;line-height:1.1;color:var(--txt);}
+.fast-play-stat span{display:block;font-size:.62rem;font-weight:900;color:var(--dim);margin-top:3px;}
+.fast-court-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;}
+.fast-court{border:1px solid var(--bdr);border-radius:12px;background:#fff;overflow:hidden;}
+.fast-court-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:var(--sur2);border-bottom:1px solid var(--bdr);}
+.fast-court-title{font-size:.72rem;font-weight:900;color:var(--txt);}
+.fast-court-state{font-size:.6rem;font-weight:900;border:1px solid var(--bdr);border-radius:999px;padding:2px 7px;background:#fff;color:var(--dim);}
+.fast-court-state.on{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
+.fast-court-body{padding:10px;}
+.fast-match-title{font-size:.78rem;font-weight:900;color:var(--txt);line-height:1.35;margin-bottom:6px;}
+.fast-match-players{font-size:.72rem;color:var(--dim);line-height:1.55;}
+.fast-court-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px;}
+.fast-court-empty{font-size:.72rem;color:var(--dim);line-height:1.55;}
+.fast-mini-btn{border:1px solid var(--bdr);border-radius:8px;background:#fff;color:var(--dim);font-family:'Noto Sans KR',sans-serif;font-size:.7rem;font-weight:900;padding:8px 9px;cursor:pointer;}
+.fast-mini-btn:hover{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
+.fast-mini-btn:disabled{opacity:.45;cursor:not-allowed;background:#f8fafc;color:#94a3b8;}
+.fast-mini-btn:disabled:hover{border-color:var(--bdr);background:#f8fafc;color:#94a3b8;}
+.fast-mini-btn.primary{background:var(--bl);border-color:var(--bl);color:#fff;}
+.fast-mini-btn.danger:hover{background:#fee2e2;border-color:#fecaca;color:#b91c1c;}
+.match-card.fast-active{outline:2.5px solid #22c55e;outline-offset:3px;}
+.match-card.fast-active .match-top{background:#ecfdf3;}
 .sr-b{color:var(--bl-deep);}.sr-w{color:#c0453f;}.sr-d{color:var(--dim);}
 .hidden{display:none!important;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -1654,6 +1680,17 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
         </div>
       </div>
 
+      <!-- 빠른 진행 모드 -->
+      <div class="card hidden" id="fastPlaySec">
+        <div class="card-head">
+          <span class="card-title">⚡ 빠른 진행 모드</span>
+          <button class="btn btn-ghost btn-sm" id="fastPlayToggleBtn" onclick="toggleFastPlayMode()">빠른 진행 시작</button>
+        </div>
+        <div class="card-body">
+          <div id="fastPlayBox" class="fast-play-panel"></div>
+        </div>
+      </div>
+
       <!-- 스코어보드 -->
       <div class="hidden" id="scoreboardSec">
         <div class="card">
@@ -2284,7 +2321,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.116';
+const APP_VERSION = '1.10.117';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2312,6 +2349,16 @@ let teamAssignment=null;
 let currentMatches=[];
 let currentParticipants=[];
 let currentSettings={};
+let _fastPlayOn=false;
+let _fastActive={};
+let _fastLastFinishedPlayers=[];
+let _fastLastNote='';
+function _fastResetState(){
+  _fastPlayOn=false;
+  _fastActive={};
+  _fastLastFinishedPlayers=[];
+  _fastLastNote='';
+}
 
 /* ═══ 되돌리기(Undo) 스택 ═══ */
 const _UNDO_MAX=20;
@@ -2373,6 +2420,7 @@ function undoAction(){
     currentMatches=JSON.parse(JSON.stringify(snap.matches||[]));
     currentParticipants=JSON.parse(JSON.stringify(snap.participants||[]));
     currentSettings=JSON.parse(JSON.stringify(snap.settings||{}));
+    _fastResetState();
     _lockedBeforeRound=snap.lockedBeforeRound!=null?snap.lockedBeforeRound:null;
     _pointSystem=snap.pointSystem||25;
     Object.keys(winOverride).forEach(k=>delete winOverride[k]);
@@ -4518,6 +4566,7 @@ function _rsvpClearUnstartedBracket(){
   currentMatches=[];
   currentParticipants=[];
   currentSettings={};
+  _fastResetState();
   _lockedBeforeRound=null;
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
   _resetScoreboard();
@@ -5347,6 +5396,7 @@ function generate(){
       matches.sort((a,b)=>a.round-b.round||a.court-b.court);
       matches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=matches;currentParticipants=participants;currentSettings=settings;
+      _fastResetState();
       _lockedBeforeRound=null; // 새 대진 생성 시 잠금 해제
       // 이전 점수·승패 완전 초기화
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
@@ -6539,6 +6589,208 @@ function _resetScoreboard(){
   const wb=document.getElementById('winnerBanner');if(wb)wb.innerHTML='';
 }
 
+function _matchPlayerNamesByIdx(idx){
+  const m=currentMatches[idx];
+  if(!m)return[];
+  return [m.team1A,m.team1B,m.team2C,m.team2D].map(p=>p&&p.name).filter(Boolean);
+}
+function _fastCourtCount(){
+  return parseInt(currentSettings.courts||document.getElementById('courts')?.value||'4',10)||4;
+}
+function _fastNormalize(){
+  if(!_fastPlayOn)return;
+  Object.keys(_fastActive).forEach(c=>{
+    const idx=parseInt(_fastActive[c],10);
+    if(!currentMatches[idx]||_isMatchDone(idx))delete _fastActive[c];
+  });
+}
+function _fastActiveIdxSet(exceptCourt){
+  _fastNormalize();
+  const set=new Set();
+  Object.keys(_fastActive).forEach(c=>{
+    if(String(c)===String(exceptCourt))return;
+    const idx=parseInt(_fastActive[c],10);
+    if(Number.isFinite(idx))set.add(idx);
+  });
+  return set;
+}
+function _fastActivePlayers(exceptCourt){
+  const names=new Set();
+  _fastActiveIdxSet(exceptCourt).forEach(idx=>_matchPlayerNamesByIdx(idx).forEach(n=>names.add(n)));
+  return names;
+}
+function _fastPendingIdxs(exceptCourt){
+  const active=_fastActiveIdxSet(exceptCourt);
+  return currentMatches
+    .map((m,i)=>({m,i}))
+    .filter(x=>!_isMatchDone(x.i)&&!active.has(x.i))
+    .sort((a,b)=>(a.m.matchNumber||a.i+1)-(b.m.matchNumber||b.i+1))
+    .map(x=>x.i);
+}
+function _fastPickNext(court){
+  const activeNames=_fastActivePlayers(court);
+  const safe=_fastPendingIdxs(court).filter(idx=>!_matchPlayerNamesByIdx(idx).some(n=>activeNames.has(n)));
+  if(!safe.length)return null;
+  const recent=new Set(_fastLastFinishedPlayers||[]);
+  const preferred=safe.find(idx=>!_matchPlayerNamesByIdx(idx).some(n=>recent.has(n)));
+  return {idx:preferred!=null?preferred:safe[0], consecutive:preferred==null};
+}
+function _fastSideLabel(m,side){
+  if(!m)return side==='t1'?'A팀':'B팀';
+  const t1b=currentSettings.teamMode&&m.team1A.team==='청팀';
+  if(!currentSettings.teamMode)return side==='t1'?'A팀':'B팀';
+  if(side==='t1')return t1b?teamNames.blue:teamNames.white;
+  return t1b?teamNames.white:teamNames.blue;
+}
+function _fastMatchTitle(idx){
+  const m=currentMatches[idx];
+  if(!m)return'경기 없음';
+  return `#${m.matchNumber||idx+1} · ${m.type}${m.isFiller?'(보완)':''} · 원래 ${m.round}R/${m.court}코트`;
+}
+function _fastMatchPlayersHtml(idx){
+  const m=currentMatches[idx];
+  if(!m)return'';
+  return `${esc(m.team1A.name)} · ${esc(m.team1B.name)} <b>vs</b> ${esc(m.team2C.name)} · ${esc(m.team2D.name)}`;
+}
+function _fastAssignCourt(court){
+  const pick=_fastPickNext(court);
+  if(!pick)return null;
+  _fastActive[String(court)]=pick.idx;
+  _fastLastNote=pick.consecutive?'현재 경기 중 선수와 겹치지 않는 대안이 적어 방금 끝난 선수가 포함된 경기를 배정했습니다. 이미 뛰고 있는 선수 중복은 없습니다.':'';
+  return pick;
+}
+function _fastFillOpenCourts(){
+  if(!_fastPlayOn)return 0;
+  _fastNormalize();
+  let assigned=0;
+  for(let c=1;c<=_fastCourtCount();c++){
+    if(_fastActive[String(c)]!=null)continue;
+    if(_fastAssignCourt(c))assigned++;
+  }
+  return assigned;
+}
+function _fastClearMarks(){
+  document.querySelectorAll('.match-card.fast-active').forEach(el=>el.classList.remove('fast-active'));
+}
+function _fastMarkCards(){
+  _fastClearMarks();
+  if(!_fastPlayOn)return;
+  Object.values(_fastActive).forEach(idx=>{
+    const card=document.getElementById('mc_'+idx);
+    if(card)card.classList.add('fast-active');
+  });
+}
+function _fastStats(){
+  const total=currentMatches.length;
+  const done=currentMatches.filter((_,i)=>_isMatchDone(i)).length;
+  _fastNormalize();
+  const active=Object.keys(_fastActive).length;
+  return {total,done,active,pending:Math.max(0,total-done-active)};
+}
+function renderFastPlayPanel(){
+  const sec=document.getElementById('fastPlaySec');
+  const box=document.getElementById('fastPlayBox');
+  const btn=document.getElementById('fastPlayToggleBtn');
+  if(!sec||!box||!btn)return;
+  if(!currentMatches.length){
+    sec.classList.add('hidden');
+    box.innerHTML='';
+    _fastClearMarks();
+    return;
+  }
+  sec.classList.remove('hidden');
+  btn.textContent=_fastPlayOn?'빠른 진행 끄기':'빠른 진행 시작';
+  btn.classList.toggle('danger',_fastPlayOn);
+  if(!_fastPlayOn){
+    _fastClearMarks();
+    box.innerHTML=`<div class="fast-play-note">기본은 라운드제 진행입니다. 빠른 진행을 켜면 코트가 끝나는 즉시 현재 경기 중인 선수와 겹치지 않는 다음 경기를 자동 배정합니다.</div>`;
+    return;
+  }
+  _fastNormalize();
+  const st=_fastStats();
+  const activeNames=[..._fastActivePlayers()].sort((a,b)=>a.localeCompare(b,'ko')).join(', ')||'없음';
+  let courts='';
+  for(let c=1;c<=_fastCourtCount();c++){
+    const idx=_fastActive[String(c)];
+    if(idx!=null&&currentMatches[idx]){
+      const m=currentMatches[idx];
+      courts+=`<div class="fast-court">
+        <div class="fast-court-head"><span class="fast-court-title">${c}코트</span><span class="fast-court-state on">진행중</span></div>
+        <div class="fast-court-body">
+          <div class="fast-match-title">${esc(_fastMatchTitle(idx))}</div>
+          <div class="fast-match-players">${_fastMatchPlayersHtml(idx)}</div>
+          <div class="fast-court-actions">
+            <button class="fast-mini-btn primary" onclick="fastFinishCourt(${c},'t1')">${esc(_fastSideLabel(m,'t1'))} 승 종료</button>
+            <button class="fast-mini-btn primary" onclick="fastFinishCourt(${c},'t2')">${esc(_fastSideLabel(m,'t2'))} 승 종료</button>
+          </div>
+        </div>
+      </div>`;
+    }else{
+      const next=_fastPickNext(c);
+      courts+=`<div class="fast-court">
+        <div class="fast-court-head"><span class="fast-court-title">${c}코트</span><span class="fast-court-state">빈 코트</span></div>
+        <div class="fast-court-body">
+          <div class="fast-court-empty">${next?`배정 가능: ${esc(_fastMatchTitle(next.idx))}`:'현재 진행중 선수와 겹치지 않는 대기 경기가 없습니다.'}</div>
+          <div class="fast-court-actions" style="grid-template-columns:1fr;">
+            <button class="fast-mini-btn" onclick="fastAssignEmptyCourt(${c})" ${next?'':'disabled'}>이 코트에 배정</button>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+  box.innerHTML=`
+    <div class="fast-play-stats">
+      <div class="fast-play-stat"><b>${st.active}</b><span>진행중</span></div>
+      <div class="fast-play-stat"><b>${st.done}/${st.total}</b><span>완료</span></div>
+      <div class="fast-play-stat"><b>${st.pending}</b><span>대기</span></div>
+    </div>
+    <div class="fast-play-note">현재 경기 중 선수: ${esc(activeNames)}<br>다음 배정은 이 선수들과 겹치지 않는 경기만 허용합니다.</div>
+    ${_fastLastNote?`<div class="fast-play-note warn">${esc(_fastLastNote)}</div>`:''}
+    <div class="fast-court-grid">${courts}</div>`;
+  _fastMarkCards();
+}
+function toggleFastPlayMode(){
+  if(!currentMatches.length){alert('대진표를 먼저 생성해 주세요.');return;}
+  if(_fastPlayOn){
+    if(!confirm('빠른 진행 모드를 끌까요?\n대진표와 입력된 승패는 그대로 유지됩니다.'))return;
+    _fastPlayOn=false;
+    _fastActive={};
+    _fastLastFinishedPlayers=[];
+    _fastLastNote='';
+  }else{
+    _fastPlayOn=true;
+    _fastActive={};
+    _fastLastFinishedPlayers=[];
+    _fastLastNote='';
+    _fastFillOpenCourts();
+  }
+  renderFastPlayPanel();
+  scheduleSave();
+  pushLiveState();
+}
+function fastAssignEmptyCourt(court){
+  if(!_fastPlayOn)return;
+  const pick=_fastAssignCourt(court);
+  if(!pick){alert('현재 경기 중인 선수와 겹치지 않는 대기 경기가 없습니다. 다른 코트 종료 후 다시 시도해 주세요.');}
+  renderFastPlayPanel();
+  scheduleSave();
+  pushLiveState();
+}
+function fastFinishCourt(court,side){
+  if(!_fastPlayOn)return;
+  _fastNormalize();
+  const idx=parseInt(_fastActive[String(court)],10);
+  if(!currentMatches[idx]){alert('이 코트에 진행중인 경기가 없습니다.');renderFastPlayPanel();return;}
+  winOverride[idx]=side;
+  _fastLastFinishedPlayers=_matchPlayerNamesByIdx(idx);
+  delete _fastActive[String(court)];
+  updateScores();
+  _fastAssignCourt(court);
+  renderFastPlayPanel();
+  scheduleSave();
+  pushLiveState();
+}
+
 /* ═══ SCORE ═══ */
 function updateScores(){
   const isTeam=currentSettings.teamMode;
@@ -6612,6 +6864,7 @@ function updateScores(){
   // 참가자 현황 테이블 갱신 (승패 컬럼 반영)
   if(_ptParticipants.length) renderPlayersTable();
   updateCurrentRoundHighlight();
+  renderFastPlayPanel();
   scheduleSave();
   pushLiveState();
 }
@@ -6674,6 +6927,7 @@ function _buildLiveState(){
     currentRound: (cur==null?0:cur), matches,
     pointSystem: (typeof _pointSystem!=='undefined'?_pointSystem:25),
     gamesPerPlayer: (currentSettings&&currentSettings.gamesPerPlayer)||4,
+    fastPlay:{on:!!_fastPlayOn,active:{..._fastActive}},
     updatedAt: Date.now()
   };
 }
@@ -7356,6 +7610,7 @@ function renderResults(matches,participants,settings){
     return `<div class="round-block${isCurrent?' round-current':''}" id="roundBlock_${r}"><div class="round-header"><span class="round-badge">ROUND ${r}</span>${nowBadge}${editBtn}<div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
   }).join('');
   document.getElementById('tabBracket').innerHTML=bracketHtml;
+  renderFastPlayPanel();
 
   // Players tab — sortable + filterable
   buildPlayersTable(participants, settings);
@@ -8073,7 +8328,8 @@ function saveState(){
     settings:currentSettings,scores,
     winOverride:JSON.parse(JSON.stringify(winOverride)),
     lockedBeforeRound:_lockedBeforeRound,
-    pointSystem:_pointSystem
+    pointSystem:_pointSystem,
+    fastPlay:{on:!!_fastPlayOn,active:{..._fastActive},lastFinished:[...(_fastLastFinishedPlayers||[])],note:_fastLastNote||''}
   };
   // 실시간 중계 ID 저장 (앱 종료 후 재시작 시 자동 재연결용)
   if(_liveId) {
@@ -8204,6 +8460,10 @@ function restoreState(){
       };
     });
     currentSettings=state.settings;
+    _fastPlayOn=!!(state.fastPlay&&state.fastPlay.on);
+    _fastActive={...(state.fastPlay&&state.fastPlay.active||{})};
+    _fastLastFinishedPlayers=[...((state.fastPlay&&state.fastPlay.lastFinished)||[])];
+    _fastLastNote=(state.fastPlay&&state.fastPlay.note)||'';
     _lockedBeforeRound = state.lockedBeforeRound ?? null;
     Object.keys(winOverride).forEach(k=>delete winOverride[k]);
     Object.assign(winOverride,state.winOverride||{});
@@ -8784,6 +9044,7 @@ function reshuffleFromRound(r){
       allMatches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=allMatches;
       currentParticipants=bestP1;
+      _fastResetState();
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       renderResults(currentMatches,currentParticipants,currentSettings);
       setTimeout(()=>{
@@ -8851,6 +9112,7 @@ function reshuffleMatches(){
       allMatches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=allMatches;
       currentParticipants=bestP2;
+      _fastResetState();
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       renderResults(currentMatches,currentParticipants,currentSettings);
       setTimeout(()=>{
@@ -8988,6 +9250,7 @@ function executeChangeModal(){
 
       currentMatches=allMatches;
       currentParticipants=bestP3;
+      _fastResetState();
 
       // 라운드 기준 + 신규 선수 투입 시: 선택 라운드 이전을 대진 잠금
       if(_cpFromRound!=null && _cpNewPlayers.length>0){
@@ -9165,6 +9428,7 @@ function resetAll(){
   teamAssignment=null;_teamModeOverride=null;_teamWanted=false;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
   currentMatches=[];currentParticipants=[];currentSettings={};
+  _fastResetState();
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
   teamNames={blue:'청 팀',white:'홍 팀'};
   document.getElementById('blueNameInput').value='청 팀';
