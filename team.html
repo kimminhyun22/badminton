@@ -3911,7 +3911,12 @@ async function startLiveBroadcast(){
   // 오래된 중계 데이터 자동 정리 (48시간 경과분 삭제) — 새 중계 시작하는 김에 청소
   _cleanupOldLive();
   try{
-    await _fbDb.ref('live/'+_liveId).set(_buildLiveState());
+    const liveRef=_fbDb.ref('live/'+_liveId);
+    const prev=await liveRef.once('value').catch(()=>null);
+    const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
+    const state=_buildLiveState();
+    if(prevData.attendance) state.attendance=prevData.attendance;
+    await liveRef.set(state);
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
   const url=base+'view.html?id='+_liveId;
