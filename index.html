@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.115  (2026-06)
+     APP VERSION: 1.10.116  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.115">
+<meta name="app-version" content="1.10.116">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2284,7 +2284,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.115';
+const APP_VERSION = '1.10.116';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4503,16 +4503,51 @@ function _rsvpRowHtml(r,warn){
     <span class="rsvp-badge ${esc(r.status||'maybe')}">${esc(_rsvpStatusLabel(r.status))}</span>
   </div>`;
 }
+function _rsvpBracketHasStarted(){
+  if(!currentMatches.length)return false;
+  if(_liveOn)return true;
+  return currentMatches.some((_,i)=>_isMatchDone(i));
+}
+function _rsvpClearUnstartedBracket(){
+  if(!currentMatches.length)return;
+  _captureUndoSnapshot('월례대회 참석자 가져오기 전');
+  teamAssignment=null;
+  _teamModeOverride=null;
+  _teamWanted=false;
+  captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  currentMatches=[];
+  currentParticipants=[];
+  currentSettings={};
+  _lockedBeforeRound=null;
+  Object.keys(winOverride).forEach(k=>delete winOverride[k]);
+  _resetScoreboard();
+  const result=document.getElementById('resultArea');
+  if(result)result.classList.add('hidden');
+  const teamWrap=document.getElementById('teamListWrap');
+  if(teamWrap)teamWrap.classList.remove('show');
+  updateTeamModeBadge();
+  hideErr();
+  rsvpPushEventState();
+}
 function rsvpImportAttendees(){
   const {responses,counts}= _rsvpStats();
   const attendees=responses.filter(r=>r.status==='attend');
   if(!attendees.length){alert('참석 확정자가 아직 없습니다.');return;}
+  let confirmedReplace=false;
+  let clearedBracket=false;
   if(currentMatches.length){
-    alert('이미 대진표가 생성되어 있습니다. 새 참석자를 가져오려면 먼저 전체 초기화 후 진행하세요.');
-    return;
+    if(_rsvpBracketHasStarted()){
+      alert('이미 진행되었거나 결과가 입력된 대진표가 있습니다.\n기록 보호를 위해 자동 초기화하지 않습니다.\n필요하면 전체 초기화 또는 선수 변동 재배정을 먼저 확인해 주세요.');
+      return;
+    }
+    const replaceLine=_directPlayers.length?`\n현재 참가자 ${_directPlayers.length}명도 참석 확정자 ${counts.attend}명으로 교체됩니다.`:'';
+    if(!confirm(`이미 생성된 대진표가 있지만 아직 경기 결과는 입력되지 않았습니다.\n\n새 참석자를 반영하려면 현재 대진표를 초기화하고 참석자 명단을 다시 가져옵니다.${replaceLine}\n계속할까요?`))return;
+    confirmedReplace=true;
+    _rsvpClearUnstartedBracket();
+    clearedBracket=true;
   }
-  if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 참석 확정자 ${counts.attend}명으로 교체할까요?`))return;
-  if(_directPlayers.length)_captureUndoSnapshot('월례대회 참석자 가져오기 전');
+  if(_directPlayers.length&&!confirmedReplace&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 참석 확정자 ${counts.attend}명으로 교체할까요?`))return;
+  if(_directPlayers.length&&!clearedBracket)_captureUndoSnapshot('월례대회 참석자 가져오기 전');
   const next=[];
   const seen=new Set();
   const add=p=>{
