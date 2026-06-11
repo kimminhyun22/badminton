@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.117  (2026-06)
+     APP VERSION: 1.10.118  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.117">
+<meta name="app-version" content="1.10.118">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1680,11 +1680,11 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
         </div>
       </div>
 
-      <!-- 빠른 진행 모드 -->
+      <!-- 코트 진행 -->
       <div class="card hidden" id="fastPlaySec">
         <div class="card-head">
-          <span class="card-title">⚡ 빠른 진행 모드</span>
-          <button class="btn btn-ghost btn-sm" id="fastPlayToggleBtn" onclick="toggleFastPlayMode()">빠른 진행 시작</button>
+          <span class="card-title">⚡ 코트 진행</span>
+          <button class="btn btn-ghost btn-sm" id="fastPlayToggleBtn" onclick="toggleFastPlayMode()">코트 진행 켜기</button>
         </div>
         <div class="card-body">
           <div id="fastPlayBox" class="fast-play-panel"></div>
@@ -2211,6 +2211,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="feat-card"><h4>⏱ 예상 시간</h4><p>25점·21점·15점 점수제별 예상 진행 시간 표시</p></div>
       <div class="feat-card"><h4>💾 자동저장</h4><p>대진표·점수 자동저장, 재실행 시 복원 가능</p></div>
       <div class="feat-card"><h4>🗳️ 참석 링크</h4><p>밴드 공지용 링크 하나로 참석 확인, 대진 확정, 실시간 중계까지 연결</p></div>
+      <div class="feat-card"><h4>⚡ 코트 진행</h4><p>끝난 코트에 현재 경기 중 선수와 겹치지 않는 다음 경기 자동 배정</p></div>
       <div class="feat-card"><h4>📡 실시간 중계</h4><p>카톡 링크로 대진표, 팀원, 점수, MVP 현황 공유</p></div>
       <div class="feat-card"><h4>☀️ 오늘운동 베타</h4><p>레슨·휴식·예약 대진·마감 예약을 반영해 대기 경기표 자동 생성</p></div>
     </div>
@@ -2222,7 +2223,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>참석자 대진표로 가져오기</strong>를 누르면 참석 확정자와 게스트가 참가자 입력에 자동 반영됩니다. 직접 입력하거나 명부에서 불러오는 방식도 그대로 사용할 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text">팀전을 할 경우 <strong>🔀 청/홍팀 자동 배정</strong> 버튼으로 팀을 나누거나, 선수 목록에서 팀을 직접 선택합니다. (팀전이 아니면 생략)</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text">코트 수, 인당 게임 수, 혼복 횟수 등을 설정하고 <strong>🎯 대진표 생성</strong> 클릭. 버튼 한 번으로 여러 후보를 비교해 가장 좋은 대진을 자동 선택합니다.</p></div>
-      <div class="step-item"><span class="step-num">5</span><p class="step-text">각 경기의 <strong>승/패 버튼</strong>을 눌러 결과를 입력합니다. 점수는 자동 저장됩니다.</p></div>
+      <div class="step-item"><span class="step-num">5</span><p class="step-text">대진 생성 후 <strong>코트 진행</strong>이 자동으로 켜집니다. 코트가 끝나면 해당 코트의 <strong>승 종료</strong>를 눌러 다음 경기를 바로 배정합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2231,7 +2232,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <div class="feat-grid">
       <div class="feat-card"><h4>⚖️ 실력 균형</h4><p>양 팀 실력 합이 비슷하도록 배정. 남녀 실력차도 반영</p></div>
       <div class="feat-card"><h4>🔁 재대결 다양성</h4><p>같은 4명이 다시 경기하거나 똑같은 팀 대결이 반복되지 않도록 분산</p></div>
-      <div class="feat-card"><h4>⏱ 대진 간격</h4><p>직전 라운드 연속 출전을 최소화해 충분히 쉬도록</p></div>
+      <div class="feat-card"><h4>⏱ 대진 간격</h4><p>방금 뛴 사람의 연속 출전을 줄이고, 진행 중 선수 중복은 차단</p></div>
       <div class="feat-card"><h4>🎽 게임 수 보장</h4><p>모든 선수가 목표 게임 수를 채우도록 배정</p></div>
       <div class="feat-card"><h4>🟧 성비 보정</h4><p>팀전 성비가 반대로 남으면 여1/남3 같은 예외 조합으로 공정성 보완</p></div>
       <div class="feat-card"><h4>🏸 혼복 0 해석</h4><p>혼복 금지가 아니라 남복·여복 우선. 필요 시 최소한의 혼복·보정경기 허용</p></div>
@@ -2260,10 +2261,10 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
     <h2>🔄 경기 중 선수 변경 · 재배정</h2>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">경기가 진행되는 도중에도 대진을 유연하게 조정할 수 있습니다.</p>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">각 라운드 제목 옆 <strong>✏️ 선수 변경</strong> — 늦게 온 선수를 추가하거나 먼저 간 선수를 빼고, 그 라운드부터 다시 배정합니다. <strong>팀전은 새 선수 중간투입을 막고</strong> 기존 선수 제외만 허용합니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🎲</span><p class="step-text"><strong>🎲 재배정</strong> — 선수 변경 없이 그 라운드부터 대진만 다시 섞습니다. 결과가 마음에 안 들 때 사용하세요.</p></div>
+      <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">각 묶음 제목 옆 <strong>✏️ 선수 변경</strong> — 늦게 온 선수를 추가하거나 먼저 간 선수를 빼고, 그 묶음부터 다시 배정합니다. <strong>팀전은 새 선수 중간투입을 막고</strong> 기존 선수 제외만 허용합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">🎲</span><p class="step-text"><strong>🎲 재배정</strong> — 선수 변경 없이 그 묶음부터 대진만 다시 섞습니다. 결과가 마음에 안 들 때 사용하세요.</p></div>
       <div class="step-item"><span class="step-num ico">⏰</span><p class="step-text"><strong>중간 투입 선수</strong>는 남은 경기 비율만큼만 게임을 배정받습니다. (예: 절반 진행 후 투입 시 4게임 중 2게임) 참가자 현황에 <strong>「중간」</strong> 배지로 표시됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🔒</span><p class="step-text">중간 투입을 하면 그 이전 라운드는 <strong>🔒 변경 잠금</strong>되어 대진이 보존됩니다. 단, 승/패 입력은 계속 가능합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">🔒</span><p class="step-text">중간 투입을 하면 그 이전 묶음은 <strong>🔒 변경 잠금</strong>되어 대진이 보존됩니다. 단, 승/패 입력은 계속 가능합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2321,7 +2322,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.117';
+const APP_VERSION = '1.10.118';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2358,6 +2359,13 @@ function _fastResetState(){
   _fastActive={};
   _fastLastFinishedPlayers=[];
   _fastLastNote='';
+}
+function _fastStartFresh(){
+  _fastPlayOn=true;
+  _fastActive={};
+  _fastLastFinishedPlayers=[];
+  _fastLastNote='';
+  _fastFillOpenCourts();
 }
 
 /* ═══ 되돌리기(Undo) 스택 ═══ */
@@ -5396,11 +5404,11 @@ function generate(){
       matches.sort((a,b)=>a.round-b.round||a.court-b.court);
       matches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=matches;currentParticipants=participants;currentSettings=settings;
-      _fastResetState();
       _lockedBeforeRound=null; // 새 대진 생성 시 잠금 해제
       // 이전 점수·승패 완전 초기화
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       _resetScoreboard();
+      _fastStartFresh();
       renderResults(matches,participants,settings);
       show('resultArea');
       // 생성 후 결과 영역으로 부드럽게 이동 (특히 모바일)
@@ -5428,9 +5436,9 @@ function generate(){
       }
       if(_cw.length){
         const _mc=Math.floor(participants.length/4);
-        let _msg='⚠ 일부 라운드에 빈 코트가 있습니다 (최대 압축 후 기준)\n';
+        let _msg='⚠ 일부 묶음에 빈 코트가 있습니다 (최대 압축 후 기준)\n';
         _cw.forEach(w=>{
-          _msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+' 비어 있음\n';
+          _msg+='• 묶음 '+w.round+': 코트 '+w.emptyCourts.join(', ')+' 비어 있음\n';
         });
         _msg+='💡 코트 수를 '+_mc+'개 이하로 줄이거나 참가자를 추가해보세요';
         _warnParts.push(_msg);
@@ -6645,7 +6653,7 @@ function _fastSideLabel(m,side){
 function _fastMatchTitle(idx){
   const m=currentMatches[idx];
   if(!m)return'경기 없음';
-  return `#${m.matchNumber||idx+1} · ${m.type}${m.isFiller?'(보완)':''} · 원래 ${m.round}R/${m.court}코트`;
+  return `#${m.matchNumber||idx+1} · ${m.type}${m.isFiller?'(보완)':''}`;
 }
 function _fastMatchPlayersHtml(idx){
   const m=currentMatches[idx];
@@ -6699,11 +6707,11 @@ function renderFastPlayPanel(){
     return;
   }
   sec.classList.remove('hidden');
-  btn.textContent=_fastPlayOn?'빠른 진행 끄기':'빠른 진행 시작';
+  btn.textContent=_fastPlayOn?'코트 진행 끄기':'코트 진행 켜기';
   btn.classList.toggle('danger',_fastPlayOn);
   if(!_fastPlayOn){
     _fastClearMarks();
-    box.innerHTML=`<div class="fast-play-note">기본은 라운드제 진행입니다. 빠른 진행을 켜면 코트가 끝나는 즉시 현재 경기 중인 선수와 겹치지 않는 다음 경기를 자동 배정합니다.</div>`;
+    box.innerHTML=`<div class="fast-play-note">대진표 생성 후에는 코트 진행이 기본으로 켜집니다. 끈 상태에서는 대진표 확인과 일반 승패 입력만 사용합니다.</div>`;
     return;
   }
   _fastNormalize();
@@ -6744,7 +6752,7 @@ function renderFastPlayPanel(){
       <div class="fast-play-stat"><b>${st.done}/${st.total}</b><span>완료</span></div>
       <div class="fast-play-stat"><b>${st.pending}</b><span>대기</span></div>
     </div>
-    <div class="fast-play-note">현재 경기 중 선수: ${esc(activeNames)}<br>다음 배정은 이 선수들과 겹치지 않는 경기만 허용합니다.</div>
+    <div class="fast-play-note">현재 경기 중 선수: ${esc(activeNames)}<br>코트가 끝나면 이 선수들과 겹치지 않는 다음 경기만 자동 배정합니다.</div>
     ${_fastLastNote?`<div class="fast-play-note warn">${esc(_fastLastNote)}</div>`:''}
     <div class="fast-court-grid">${courts}</div>`;
   _fastMarkCards();
@@ -6752,17 +6760,13 @@ function renderFastPlayPanel(){
 function toggleFastPlayMode(){
   if(!currentMatches.length){alert('대진표를 먼저 생성해 주세요.');return;}
   if(_fastPlayOn){
-    if(!confirm('빠른 진행 모드를 끌까요?\n대진표와 입력된 승패는 그대로 유지됩니다.'))return;
+    if(!confirm('코트 진행을 끌까요?\n대진표와 입력된 승패는 그대로 유지됩니다.'))return;
     _fastPlayOn=false;
     _fastActive={};
     _fastLastFinishedPlayers=[];
     _fastLastNote='';
   }else{
-    _fastPlayOn=true;
-    _fastActive={};
-    _fastLastFinishedPlayers=[];
-    _fastLastNote='';
-    _fastFillOpenCourts();
+    _fastStartFresh();
   }
   renderFastPlayPanel();
   scheduleSave();
@@ -7105,7 +7109,7 @@ async function shareTeamStatus(){
   else if(wW>bW) lead=`\n⚪ ${wn} ${wW-bW}점 차로 앞서는 중!`;
   else lead='\n⚖️ 동점! 접전 중';
   const text=`🏸 콕매치 팀전 현황\n\n🔵 ${bn}  ${bW}승\n⚪ ${wn}  ${wW}승`
-    + (totalR? `\n\n📊 ${totalR}라운드 중 ${doneR}라운드 완료`:'')
+    + (totalR? `\n\n📊 ${totalR}묶음 중 ${doneR}묶음 완료`:'')
     + lead;
   try{
     if(navigator.share){
@@ -7125,7 +7129,7 @@ async function shareTeamStatus(){
 }
 
 
-/* 현재 진행 라운드 하이라이트 갱신 (점수 입력에 따라 이동) */
+/* 현재 진행 묶음 하이라이트 갱신 (점수 입력에 따라 이동) */
 function updateCurrentRoundHighlight(){
   if(!currentMatches.length) return;
   const byRound={};
@@ -7155,7 +7159,7 @@ function updateCurrentRoundHighlight(){
         badge.insertAdjacentElement('afterend', span);
       }
     }
-    if(goBtn){ goBtn.style.display='flex'; goBtn.querySelector('.gcb-round').textContent='R'+cur; }
+    if(goBtn){ goBtn.style.display='flex'; goBtn.querySelector('.gcb-round').textContent='묶음 '+cur; }
   } else {
     // 전부 완료
     if(goBtn) goBtn.style.display='none';
@@ -7432,7 +7436,7 @@ function renderQualityDashboard(matches,participants,settings){
     });
     issueItems.push('P 파트너는 강한 조건이라 전체 품질점수가 조금 낮아질 수 있습니다.');
   }
-  if(!issueItems.length)issueItems.push('특이사항 없음: 바로 1라운드 진행해도 됩니다.');
+  if(!issueItems.length)issueItems.push('특이사항 없음: 바로 코트 진행해도 됩니다.');
   const issueHtml=issueItems.map(x=>`<div class="op-issue">${x}</div>`).join('');
 
   el.innerHTML=`
@@ -7507,7 +7511,7 @@ function renderResults(matches,participants,settings){
 
   const sumItems=[
     ['총 경기',matches.length,'sv-bl'],
-    ['라운드',rounds,'sv-bl'],
+    ['대진 묶음',rounds,'sv-bl'],
     [`예상 시간<span class="sv-sub">${_pointSystem}점 기준</span>`,timeStr,'sv-time'],
     ['여복',wD,'sv-wo'],['남복',mD,'sv-me'],['혼복',xD,'sv-mx'],
   ];
@@ -7607,7 +7611,7 @@ function renderResults(matches,participants,settings){
       : `<button class="round-edit-btn" onclick="openRoundChange(${r})">${editLabel}</button>`;
     const isCurrent = (+r===_currentPlayRound);
     const nowBadge = isCurrent ? `<span class="round-now-badge">● 진행중</span>` : '';
-    return `<div class="round-block${isCurrent?' round-current':''}" id="roundBlock_${r}"><div class="round-header"><span class="round-badge">ROUND ${r}</span>${nowBadge}${editBtn}<div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
+    return `<div class="round-block${isCurrent?' round-current':''}" id="roundBlock_${r}"><div class="round-header"><span class="round-badge">묶음 ${r}</span>${nowBadge}${editBtn}<div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
   }).join('');
   document.getElementById('tabBracket').innerHTML=bracketHtml;
   renderFastPlayPanel();
@@ -7841,7 +7845,7 @@ function buildPrintHtml(mode, isTeam, bn, wn){
           </div>
         </div>`;
       }).join('');
-      return `<div class="p-round-block"><div class="p-round-title">ROUND ${r}</div><div class="p-match-grid">${cards}</div></div>`;
+      return `<div class="p-round-block"><div class="p-round-title">묶음 ${r}</div><div class="p-match-grid">${cards}</div></div>`;
     }).join('');
     const titleSuffix=isTeam?` — ${bn} vs ${wn}`:'';
     return `<div class="p-main-head"><h1>🏸 배드민턴 대진표${titleSuffix}</h1></div>${roundsHtml}`;
@@ -7909,7 +7913,7 @@ function buildMobileHtml(mode, isTeam, bn, wn){
           </div>
         </div>`;
       }).join('');
-      return `<div class="render-round"><div class="render-round-badge">ROUND ${r}</div><div class="render-match-grid">${cards}</div></div>`;
+      return `<div class="render-round"><div class="render-round-badge">묶음 ${r}</div><div class="render-match-grid">${cards}</div></div>`;
     }).join('');
     return `<div class="render-wrap"><div class="render-title">🏸 배드민턴 대진표${isTeam?' — '+bn+' vs '+wn:''}</div>${roundsHtml}</div>`;
   } else {
@@ -8089,7 +8093,7 @@ function buildMobileChunks(mode, isTeam, bn, wn){
           </div>
         </div>`;
       }).join('');
-      return `<div class="render-round"><div class="render-round-badge">ROUND ${r}</div><div class="render-match-grid">${cards}</div></div>`;
+      return `<div class="render-round"><div class="render-round-badge">묶음 ${r}</div><div class="render-match-grid">${cards}</div></div>`;
     }).join('');
     const totalChunks=numChunks;
     const chunkNum=c+1;
@@ -8771,7 +8775,7 @@ function _restoreCompletedScoreState(sc,idx){
 /* 라운드 단위 선수 변경: 선택 라운드부터 이후 전부 재생성 */
 /* 잠긴 라운드 클릭 시 안내 */
 function alertRoundLocked(r){
-  alert(`ROUND ${r}은(는) 중간 선수 투입 이후 확정되어 대진을 변경할 수 없습니다.\n\n승/패 입력은 그대로 가능합니다.\n(변경하려면 ROUND ${_lockedBeforeRound} 이상에서 선수 변경을 하세요.)`);
+  alert(`묶음 ${r}은(는) 중간 선수 투입 이후 확정되어 대진을 변경할 수 없습니다.\n\n승/패 입력은 그대로 가능합니다.\n(변경하려면 묶음 ${_lockedBeforeRound} 이상에서 선수 변경을 하세요.)`);
 }
 
 function _syncChangeModalTeamPolicy(){
@@ -8808,8 +8812,8 @@ function openRoundChange(r){
     ?'<br><b>팀전 안내:</b> 경기 중 새 선수 추가는 막혀 있습니다. 늦게 온 선수가 있으면 전체 새 대진을 생성하세요.'
     :'';
   document.getElementById('cpInfoBox').innerHTML=
-    `<b>ROUND ${r}부터</b> 선수 변경 후 재배정합니다.<br>`+
-    `유지: <b>ROUND ${r} 이전 ${keepCount}게임</b> · 재생성: <b>ROUND ${r}~ ${regenCount}게임</b>${teamNote}`;
+    `<b>묶음 ${r}부터</b> 선수 변경 후 재배정합니다.<br>`+
+    `유지: <b>묶음 ${r} 이전 ${keepCount}게임</b> · 재생성: <b>묶음 ${r}~ ${regenCount}게임</b>${teamNote}`;
   _cpRenderPlayerList();
   _cpRenderNewList();
   _cpUpdateSummary();
@@ -9049,10 +9053,11 @@ function reshuffleFromRound(r){
       renderResults(currentMatches,currentParticipants,currentSettings);
       setTimeout(()=>{
         completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
+        _fastStartFresh();
         updateScores();scheduleSave();
       },100);
       const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
-      if(_cw.length){let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
+      if(_cw.length){let _msg='⚠ 일부 묶음에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 묶음 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
     }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
     finally{document.getElementById('loadingOverlay').classList.remove('on');_skipNewFirstRound=true;}
   },50);
@@ -9117,10 +9122,11 @@ function reshuffleMatches(){
       renderResults(currentMatches,currentParticipants,currentSettings);
       setTimeout(()=>{
         completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
+        _fastStartFresh();
         updateScores();scheduleSave();
         (document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});},100);
       const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
-      if(_cw.length){let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
+      if(_cw.length){let _msg='⚠ 일부 묶음에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 묶음 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
     }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
     finally{document.getElementById('loadingOverlay').classList.remove('on');_skipNewFirstRound=true;}
   },50);
@@ -9274,6 +9280,7 @@ function executeChangeModal(){
       setTimeout(()=>{
         Object.keys(winOverride).forEach(k=>delete winOverride[k]);
         completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
+        _fastStartFresh();
         updateScores();
         scheduleSave();
         (document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});
@@ -9282,8 +9289,8 @@ function executeChangeModal(){
       // 빈 코트 경고
       const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
       if(_cw.length){
-        let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';
-        _cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');
+        let _msg='⚠ 일부 묶음에 빈 코트가 있습니다\n\n';
+        _cw.forEach(w=>_msg+='• 묶음 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');
         showWarn(_msg);
       }else{hideWarn();}
     }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
@@ -10538,7 +10545,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<!-- 현재 라운드로 이동 (플로팅) -->
+<!-- 현재 진행 묶음으로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()">
   <span class="gcb-icon" aria-hidden="true">
     <svg viewBox="0 0 24 24">
