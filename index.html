@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.112  (2026-06)
+     APP VERSION: 1.10.113  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.112">
+<meta name="app-version" content="1.10.113">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2170,7 +2170,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="feat-card"><h4>✏️ 팀명 변경</h4><p>청팀/홍팀 명칭을 직접 수정, 대진표·인쇄에 반영</p></div>
       <div class="feat-card"><h4>⏱ 예상 시간</h4><p>25점·21점·15점 점수제별 예상 진행 시간 표시</p></div>
       <div class="feat-card"><h4>💾 자동저장</h4><p>대진표·점수 자동저장, 재실행 시 복원 가능</p></div>
-      <div class="feat-card"><h4>🗳️ 참석 링크</h4><p>밴드 공지용 링크로 참석·불참·게스트 신청 자동 집계</p></div>
+      <div class="feat-card"><h4>🗳️ 참석 링크</h4><p>밴드 공지용 링크 하나로 참석 확인, 대진 확정, 실시간 중계까지 연결</p></div>
       <div class="feat-card"><h4>📡 실시간 중계</h4><p>카톡 링크로 대진표, 팀원, 점수, MVP 현황 공유</p></div>
       <div class="feat-card"><h4>☀️ 오늘운동 베타</h4><p>레슨·휴식·예약 대진·마감 예약을 반영해 대기 경기표 자동 생성</p></div>
     </div>
@@ -2239,7 +2239,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   <div class="manual-section">
     <h2>📡 실시간 중계</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">결과 화면의 <strong>📡 실시간 중계</strong> 버튼을 누르면 관전용 링크가 만들어집니다. 단톡방에 링크를 공유하면 회원들이 휴대폰으로 대진표와 팀원을 바로 확인할 수 있어요.</p></div>
+      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">월례대회 참석 링크로 출석을 받은 경우, 결과 화면의 <strong>📡 실시간 중계</strong> 버튼을 누르면 처음 보낸 참석 링크 안에 중계 버튼이 자동으로 붙습니다. 단톡방에는 새 링크 대신 같은 참석 링크를 다시 안내하면 됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">🔗</span><p class="step-text">참석 링크 없이 바로 대진표를 만든 경우에는 기존처럼 별도의 실시간 중계 링크가 만들어집니다.</p></div>
       <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">중계 중에는 <strong>승/패를 입력할 때마다 자동으로 갱신</strong>됩니다. 관전자 화면의 팀 점수, MVP, 개인 순위도 함께 업데이트됩니다.</p></div>
       <div class="step-item"><span class="step-num ico">🎉</span><p class="step-text">모든 경기가 끝나면 관전 화면에 <strong>경기 종료 축하 연출</strong>이 자동으로 표시됩니다. (팀전은 우승 팀, 개인전은 승률 1위)</p></div>
       <div class="step-item"><span class="step-num ico">🕓</span><p class="step-text">중계 데이터는 <strong>48시간 후 자동으로 정리</strong>됩니다. 별도로 종료하지 않아도 며칠 뒤 사라지니 신경 쓰지 않아도 됩니다. (즉시 끄려면 버튼을 다시 눌러 종료)</p></div>
@@ -2280,7 +2281,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.112';
+const APP_VERSION = '1.10.113';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4186,6 +4187,33 @@ function _rsvpUrl(){
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
   return base+'rsvp.html?id='+_rsvpId;
 }
+function _liveUrl(){
+  if(!_liveId)return '';
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  return base+'view.html?id='+_liveId;
+}
+function _rsvpEventPayload(){
+  const roundCount=currentMatches.length?Math.max(...currentMatches.map(m=>m.round||0)):0;
+  const liveActive=!!(_liveOn&&_liveId);
+  return {
+    phase:liveActive?'live':(currentMatches.length?'bracket':'rsvp'),
+    bracketReady:!!currentMatches.length,
+    matchCount:currentMatches.length||0,
+    roundCount,
+    liveId:liveActive?_liveId:null,
+    liveUrl:liveActive?_liveUrl():null,
+    eventUpdatedAt:Date.now()
+  };
+}
+async function rsvpPushEventState(){
+  if(!_rsvpId||!_fbDb)return null;
+  const payload=_rsvpEventPayload();
+  try{
+    await _fbDb.ref(_rsvpPath()).update({kind:'tournamentRsvp',updatedAt:Date.now()});
+    await _fbDb.ref(_rsvpPath()+'/session').update(payload);
+    return payload;
+  }catch(e){return null;}
+}
 function _rsvpHash(str){
   let h=2166136261;
   for(let i=0;i<str.length;i++){
@@ -4280,7 +4308,8 @@ function _rsvpSessionPayload(){
     updatedAt:Date.now(),
     version:APP_VERSION,
     gamesPerPlayer:parseInt(document.getElementById('gamesPerPlayer')?.value||'4',10)||4,
-    members:_rsvpRosterMembers()
+    members:_rsvpRosterMembers(),
+    ..._rsvpEventPayload()
   };
 }
 function rsvpSaveLocal(){
@@ -6592,15 +6621,20 @@ async function startLiveBroadcast(){
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
   const url=base+'view.html?id='+_liveId;
+  const rsvpPayload=await rsvpPushEventState();
+  const useRsvpLink=!!(_rsvpId&&rsvpPayload);
+  const shareUrl=useRsvpLink?_rsvpUrl():url;
   try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
   _updateLiveUI();
   // 공유 또는 복사
-  const text='🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+url;
+  const text=useRsvpLink
+    ?'🏸 콕매치 대진표/실시간 현황\n아까 참석 확인했던 링크에서 내 경기와 실시간 현황을 볼 수 있어요.\n\n'+shareUrl
+    :'🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+shareUrl;
   try{
     if(navigator.share){ await navigator.share({title:'콕매치 실시간 현황', text}); }
-    else if(navigator.clipboard){ await navigator.clipboard.writeText(url); alert('실시간 링크를 복사했어요!\n단톡방에 붙여넣기 하세요.\n\n'+url); }
-    else { _showCopyFallback('이 링크를 공유하세요:', url); }
-  }catch(e){ if(e.name!=='AbortError'){ _showCopyFallback('이 링크를 공유하세요:', url); } }
+    else if(navigator.clipboard){ await navigator.clipboard.writeText(text); alert((useRsvpLink?'통합 참석 링크':'실시간 링크')+'를 복사했어요!\n단톡방에 붙여넣기 하세요.\n\n'+shareUrl); }
+    else { _showCopyFallback('이 링크를 공유하세요:', shareUrl); }
+  }catch(e){ if(e.name!=='AbortError'){ _showCopyFallback('이 링크를 공유하세요:', shareUrl); } }
 }
 
 /* 앱 재시작 시 중계 자동 재연결 */
@@ -6642,6 +6676,7 @@ async function _tryResumeLive(){
       if(currentMatches.length) renderResults(currentMatches,currentParticipants,currentSettings);
 
       await pushLiveState(); // 복원된 승패로 Firebase 업데이트
+      await rsvpPushEventState();
       const base=location.origin+location.pathname.replace(/[^/]*$/,'');
       const url=base+'view.html?id='+_liveId;
       alert(`✅ 중계 재개됐어요!
@@ -6689,7 +6724,9 @@ async function stopLiveBroadcast(){
   if(!confirm('실시간 중계를 종료할까요?\n링크로 접속한 사람들이 더 이상 볼 수 없게 됩니다.')) return;
   try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
   localStorage.removeItem('badminton_liveId');
-  _liveOn=false; _liveId=null; _updateLiveUI();
+  _liveOn=false; _liveId=null;
+  await rsvpPushEventState();
+  _updateLiveUI();
   alert('실시간 중계를 종료했어요.');
 }
 
@@ -6706,8 +6743,14 @@ function onLiveBtnClick(){
   if(_liveOn){
     const base=location.origin+location.pathname.replace(/[^/]*$/,'');
     const url=base+'view.html?id='+_liveId;
-    if(confirm('실시간 중계 중입니다.\n\n링크: '+url+'\n\n[확인] 링크 다시 공유 / [취소] 중계 종료')){
-      navigator.clipboard?.writeText(url).then(()=>alert('링크 복사됨!\n'+url)).catch(()=>_showCopyFallback('링크:',url));
+    const useRsvpLink=!!_rsvpId;
+    const shareUrl=useRsvpLink?_rsvpUrl():url;
+    const label=useRsvpLink?'통합 참석 링크':'실시간 링크';
+    if(confirm('실시간 중계 중입니다.\n\n'+label+': '+shareUrl+'\n\n[확인] 링크 다시 공유 / [취소] 중계 종료')){
+      const text=useRsvpLink
+        ?'🏸 콕매치 대진표/실시간 현황\n아까 참석 확인했던 링크에서 내 경기와 실시간 현황을 볼 수 있어요.\n\n'+shareUrl
+        :'🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+shareUrl;
+      navigator.clipboard?.writeText(text).then(()=>alert(label+' 복사됨!\n'+shareUrl)).catch(()=>_showCopyFallback('링크:',shareUrl));
     } else {
       stopLiveBroadcast();
     }
@@ -7118,6 +7161,7 @@ function renderQualityDashboard(matches,participants,settings){
 
 /* ═══ RENDER RESULTS ═══ */
 function renderResults(matches,participants,settings){
+  if(typeof rsvpPushEventState==='function')rsvpPushEventState();
   const isTeam=settings.teamMode;
   const wD=matches.filter(m=>m.type==='여복').length;
   const mD=matches.filter(m=>m.type==='남복').length;
