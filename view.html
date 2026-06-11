@@ -826,7 +826,6 @@ const liveId=(params.get('id')||'').toUpperCase();
 let liveDb=null;
 let _teamRosterSort=localStorage.getItem('kokmatch_live_roster_sort')||'name';
 let _latestLiveData=null;
-let _latestAttendanceData={};
 
 const content=document.getElementById('content');
 
@@ -849,13 +848,9 @@ if(!liveId){
         return;
       }
       _latestLiveData=data;
-      render(Object.assign({},_latestLiveData,{attendance:_latestAttendanceData}));
+      render(_latestLiveData);
     }, err=>{
       content.innerHTML='<div class="status">데이터를 불러올 수 없습니다.<br>'+esc(err.message)+'</div>';
-    });
-    db.ref('liveAttendance/'+liveId).on('value', snap=>{
-      _latestAttendanceData=snap.val()||{};
-      if(_latestLiveData) render(Object.assign({},_latestLiveData,{attendance:_latestAttendanceData}));
     });
   }
 }
@@ -1594,7 +1589,7 @@ async function toggleMemberAttendance(name, team){
     return;
   }
   const key=_attKey(name);
-  const ref=liveDb.ref('liveAttendance/'+liveId+'/'+key);
+  const ref=liveDb.ref('live/'+liveId+'/attendance/'+key);
   try{
     if(_attOn(name)){
       if(!confirm(name+'님의 출석 확인을 취소할까요?')) return;

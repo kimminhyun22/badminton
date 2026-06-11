@@ -3997,7 +3997,7 @@ async function _cleanupOldLive(){
 /* 실시간 상태 갱신 (점수 입력 시 자동 호출) */
 async function pushLiveState(){
   if(!_liveOn || !_liveId || !_fbDb) return;
-  try{ await _fbDb.ref('live/'+_liveId).set(_buildLiveState()); }catch(e){ /* 조용히 무시 */ }
+  try{ await _fbDb.ref('live/'+_liveId).update(_buildLiveState()); }catch(e){ /* 조용히 무시 */ }
 }
 
 function _showCopyFallback(label,text){
