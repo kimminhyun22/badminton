@@ -1674,6 +1674,12 @@ function _sortMembers(list){
       const gd=genderRank(a)-genderRank(b);
       if(gd!==0) return gd;
     }
+    if(sort==='gender'){
+      const gd=genderRank(a)-genderRank(b);
+      if(gd!==0) return gd;
+      const ld=(b.l||0)-(a.l||0);
+      if(ld!==0) return ld;
+    }
     return String(a.n).localeCompare(String(b.n),'ko');
   });
 }
@@ -1783,7 +1789,7 @@ function buildTeamRosterCard(d){
       +'<section class="team-roster-card">'
         +'<div class="team-roster-head"><b>팀 명단</b><span>출석 '+attCount+'/'+all.length+' · 뒤풀이 '+partyCount+'명</span></div>'
         +'<div class="team-att-summary">도착 <b>출석</b> · 뒤풀이 <b>참석</b></div>'
-        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('att','출석')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
+        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('att','출석')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
         +'<div class="team-roster-columns">'
           +'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_attOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
           +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.filter(p=>_attOn(p.n)).length+'/'+red.length+'명</small></div>'+mk(red,'red')+'</div>'
