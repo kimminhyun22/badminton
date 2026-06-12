@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.86  (2026-06)
+     APP VERSION: 1.10.87  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.86">
+<meta name="app-version" content="1.10.87">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1827,7 +1827,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.86';
+const APP_VERSION = '1.10.87';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2799,6 +2799,7 @@ function generateMatches(participants,settings,totalMatches){
           if(!match && fb && !hasRepeat4(fb)) match=fb;
         }
         if(!match)continue;
+        if(_matchStructureErrorCount(match,settings)>0)continue;
         if(match.type==='여복')womenCount++;else if(match.type==='남복')menCount++;else if(match.type==='혼복')mixedCount++;
         match.matchNumber=matches.length+1;match.round=currentRound;match.court=court;
         [match.team1A,match.team1B,match.team2C,match.team2D].forEach(p=>used.add(p.name));
@@ -2853,6 +2854,7 @@ function fillMissingGames(participants,settings,matches,maxMatches=Infinity){
           match=formTeams(four,settings.teamMode,_fallType,99)||formTeams(four,settings.teamMode,'adjust',99);
         }
         if(!match)continue;
+        if(_matchStructureErrorCount(match,settings)>0)continue;
         if(fillerRepeat4(match)){
           const t1=[match.team1A,match.team1B],t2=[match.team2C,match.team2D];
           let blk=null;
@@ -2939,6 +2941,7 @@ function fillMissingGames(participants,settings,matches,maxMatches=Infinity){
           if(f3){const m3=formTeams(f3,settings.teamMode,'any',99)||formTeams(f3,settings.teamMode,'adjust',99);if(m3&&!fillerRepeat4(m3)){Object.assign(match,m3);}}
         }
       }
+      if(_matchStructureErrorCount(match,settings)>0)continue;
 
       match.matchNumber=matches.length+1;
       match.round=currentRound;
@@ -3027,14 +3030,19 @@ function fillMissingGames(participants,settings,matches,maxMatches=Infinity){
         if(_rest.length>=3) _four=[_anchor,..._rest.slice(0,3)];
       }
       if(!_four||_four.length<4) continue;
+      if(new Set(_four.map(p=>p.name)).size<4) continue;
 
       // 모든 타입으로 formTeams 시도
       let _match = null;
-      for(const [_tm,_type] of [[true,'any'],[true,'adjust'],[true,'men'],[true,'women'],[false,'any'],[false,'men'],[false,'women']]) {
+      const _modeTypes=settings.teamMode
+        ?[[true,'any'],[true,'adjust'],[true,'men'],[true,'women']]
+        :[[false,'any'],[false,'men'],[false,'women']];
+      for(const [_tm,_type] of _modeTypes) {
         _match = formTeams(_four, _tm, _type, 99);
         if(_match) break;
       }
       if(!_match) continue;
+      if(_matchStructureErrorCount(_match,settings)>0) continue;
 
       _match.matchNumber = matches.length+1;
       _match.round = _currentRound;
@@ -3416,6 +3424,18 @@ function _matchGenderErrorCount(m){
   return 1;
 }
 
+function _matchStructureErrorCount(m,settings){
+  if(!m)return 1;
+  const players=[m.team1A,m.team1B,m.team2C,m.team2D];
+  if(players.some(p=>!p||!p.name))return 1;
+  if(new Set(players.map(p=>p.name)).size!==4)return 1;
+  if(settings?.teamMode){
+    if(m.team1A.team!=='청팀'||m.team1B.team!=='청팀')return 1;
+    if(m.team2C.team!=='홍팀'||m.team2D.team!=='홍팀')return 1;
+  }
+  return 0;
+}
+
 function _participationSlotStats(participants,settings,counts){
   const gpp=settings.gamesPerPlayer||4;
   const goal=p=>p._goal!=null?p._goal:gpp;
@@ -3585,7 +3605,11 @@ function _repairParticipation(matches,participants,settings,historyMatches=[]){
     let best=null;
     matches.forEach((m,mi)=>{
       const names=new Set(slots.map(k=>m[k].name));
+      const roundNames=new Set(matches
+        .filter((x,xi)=>xi!==mi&&x.round===m.round)
+        .flatMap(x=>slots.map(k=>x[k].name)));
       if(names.has(p.name))return;
+      if(roundNames.has(p.name))return;
       slots.forEach(slot=>{
         const q=m[slot];
         if(!over.includes(q)||q.gender!==p.gender)return;
@@ -3594,6 +3618,7 @@ function _repairParticipation(matches,participants,settings,historyMatches=[]){
         if(p.partnerName&&!names.has(p.partnerName))return;
         const test={...m,[slot]:p};
         if(_matchGenderErrorCount(test)>0)return;
+        if(_matchStructureErrorCount(test,settings)>0)return;
         const team1=effLevel(test.team1A)+effLevel(test.team1B);
         const team2=effLevel(test.team2C)+effLevel(test.team2D);
         const ld=Math.abs(team1-team2);
@@ -3608,10 +3633,12 @@ function _repairParticipation(matches,participants,settings,historyMatches=[]){
         const q=m[slot];
         if(!over.includes(q))return;
         if(settings.teamMode&&q.team!==p.team)return;
+        if(roundNames.has(p.name))return;
         const four=slots.map(k=>m[k]===q?p:m[k]);
         if(new Set(four.map(x=>x.name)).size<4)return;
         const rebuilt=formTeams(four,settings.teamMode,'any',99)||formTeams(four,settings.teamMode,'adjust',99);
         if(!rebuilt)return;
+        if(_matchStructureErrorCount(rebuilt,settings)>0)return;
         rebuilt.matchNumber=m.matchNumber;
         rebuilt.round=m.round;
         rebuilt.court=m.court;
@@ -3648,6 +3675,7 @@ function _bracketQualityScore(matches, participants, settings){
   matches.forEach(m=>{ const ld=Math.abs(m.levelDiff||0); ldSum+=ld; if(ld>ldMax)ldMax=ld; });
   penalty += ldSum*2 + ldMax*3;
   penalty += matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0)*10000;
+  penalty += matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0)*10000;
   // ② 게임 수 보장 (미달 페널티 큼)
   const goal=(p)=>(p._goal!=null?p._goal:settings.gamesPerPlayer);
   // generateMatches/fillMissingGames가 완료 경기까지 포함한 누적 출전 수를 갱신한다.
@@ -3686,6 +3714,7 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
   const {underSlots,overSlots,avoidableUnderSlots,avoidableOverSlots}= _slotStats;
   const partnerCounts={},sameFourCounts={},exactMatchCounts={};
   const genderErr=matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0);
+  const structureErr=matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0);
   const adjustmentCount=matches.filter(m=>m.type==='보정').length;
   matches.forEach(m=>{
     [[m.team1A,m.team1B],[m.team2C,m.team2D]].forEach(pair=>{
@@ -3706,6 +3735,7 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
   const sameFourRepeats=Object.values(sameFourCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
   const exactMatchRepeats=Object.values(exactMatchCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
   return [
+    structureErr,
     genderErr,
     avoidableUnderSlots,
     avoidableOverSlots,
@@ -4224,6 +4254,7 @@ function _qualityAssessment(matches,participants,settings){
   const fillerRate=fillers.length/matches.length;
 
   const genderErr=matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0);
+  const structureErr=matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0);
   const adjustments=matches.filter(m=>m.type==='보정');
 
   const sBalance=clamp(30-avgLD/1.5*22-spikes.length*2-Math.max(0,maxLD-2)*2,0,30);
@@ -4236,12 +4267,12 @@ function _qualityAssessment(matches,participants,settings){
   const extraRate=avoidableOverSlots/Math.max(1,totalGoalSlots);
   const extraMatchRate=extraMatchCount/Math.max(1,minimumMatches);
   const sEfficiency=clamp(5*(1-Math.max(extraMatchRate/.2,extraRate/.1)),0,5);
-  const sValid=genderErr===0?5:Math.max(0,5-genderErr*2);
+  const sValid=(genderErr===0&&structureErr===0)?5:Math.max(0,5-(genderErr+structureErr)*2);
   let total=Math.round(sBalance+sFair+sPartner+sOpponent+sInterval+sEfficiency+sValid);
   if((partner4>0&&avoidablePartnerExcess>0)||avoidableExact>0)total=Math.min(total,84);
   else if(avoidableSameFour>0)total=Math.min(total,94);
   else if(partner3>0&&avoidablePartnerExcess>0)total=Math.min(total,94);
-  if(avoidableUnderSlots>0||genderErr>0)total=Math.min(total,89);
+  if(avoidableUnderSlots>0||genderErr>0||structureErr>0)total=Math.min(total,89);
   const grade=total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D';
   const gradeLabel={S:'완벽',A:'우수',B:'양호',C:'보통',D:'재생성 권장'}[grade];
   return {gpp,avgLD,spikes,maxLD,counts,pGoal,under,over,underSlots,overSlots,
@@ -4249,7 +4280,7 @@ function _qualityAssessment(matches,participants,settings){
     excessConsec,excessNames,excessRatio,partner2,partner3,partner4,
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
-    unavoidablePartnerExcess,fillers,fillerRate,adjustments,genderErr,
+    unavoidablePartnerExcess,fillers,fillerRate,adjustments,genderErr,structureErr,
     sBalance,sFair,sPartner,sOpponent,sInterval,sEfficiency,sValid,total,grade,gradeLabel};
 }
 
@@ -4264,7 +4295,7 @@ function renderQualityDashboard(matches,participants,settings){
     excessConsec,excessNames,excessRatio,partner2,partner3,partner4,
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
-    unavoidablePartnerExcess,fillers,adjustments,genderErr,
+    unavoidablePartnerExcess,fillers,adjustments,genderErr,structureErr,
     sBalance,sFair,sPartner,sOpponent,sInterval,sEfficiency,sValid,total,grade,gradeLabel}=q;
 
   // ── 헬퍼 ──
@@ -4336,9 +4367,9 @@ function renderQualityDashboard(matches,participants,settings){
     })(),
     (()=>{
       const pct=sValid/5;
-      const detail=genderErr===0
-        ?(adjustments.length?`종목 조건 정상 · 성비 보정 ${adjustments.length}경기`:'종목 성별 조건 정상')
-        :'종목 성별 오류 '+genderErr+'건';
+      const detail=(genderErr===0&&structureErr===0)
+        ?(adjustments.length?`팀 배치·종목 정상 · 성비 보정 ${adjustments.length}경기`:'팀 배치·종목 조건 정상')
+        :`구조 오류 ${structureErr}건 · 종목 성별 오류 ${genderErr}건`;
       return {label:'설정 준수',detail,score:sValid,max:5,pct};
     })(),
   ];
@@ -4371,6 +4402,7 @@ function renderQualityDashboard(matches,participants,settings){
   });
 
   const blocking=[];
+  if(structureErr>0)blocking.push('팀 배치/선수 중복 오류');
   if(genderErr>0)blocking.push('종목 성별 오류');
   if(avoidableUnderSlots>0)blocking.push('목표 미달');
   if(avoidableExact>0)blocking.push('똑같은 경기 반복');
@@ -4391,6 +4423,7 @@ function renderQualityDashboard(matches,participants,settings){
   }
   const chip=(label,cls)=>`<span class="op-chip ${cls}">${label}</span>`;
   const opChips=[
+    chip(structureErr===0?'팀배치 정상':'팀배치 오류 '+structureErr+'건',structureErr===0?'ok':'bad'),
     chip(genderErr===0?'종목 정상':'종목 오류 '+genderErr+'건',genderErr===0?'ok':'bad'),
     adjustments.length?chip(`성비보정 ${adjustments.length}경기`,'warn'):'',
     chip(under.length===0?'목표 달성':'미달 '+under.length+'명',avoidableUnderSlots===0?'ok':'bad'),
