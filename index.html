@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.85  (2026-06)
+     APP VERSION: 1.10.86  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.85">
+<meta name="app-version" content="1.10.86">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1827,7 +1827,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.85';
+const APP_VERSION = '1.10.86';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3743,10 +3743,13 @@ function fisherYates(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Mat
 /* ═══ WIN BUTTON ═══ */
 // winOverride: {idx -> 't1'|'t2'|null}
 const winOverride={};
+const liveWinAt={};
 function clickWin(idx,side){
   const prev=winOverride[idx];
   // 같은 버튼 다시 누르면 취소
   winOverride[idx]=(prev===side)?null:side;
+  if(winOverride[idx]) liveWinAt[idx]=Date.now();
+  else delete liveWinAt[idx];
   // 승패 버튼 사용 시 점수 입력 초기화
   if(winOverride[idx]){
     const s1=document.getElementById('s1_'+idx);
@@ -3854,15 +3857,26 @@ function _genLiveId(){
 function _buildLiveState(){
   const isTeam=!!(currentSettings && currentSettings.teamMode);
   const _s=(v)=>(v==null?'':String(v));
-  const matches=currentMatches.map((m,i)=>({
-    round:m.round||0, court:m.court||0, type:_s(m.type), num:m.matchNumber||(i+1),
-    isFiller:!!m.isFiller,
-    t1:[_s(m.team1A&&m.team1A.name), _s(m.team1B&&m.team1B.name)],
-    t2:[_s(m.team2C&&m.team2C.name), _s(m.team2D&&m.team2D.name)],
-    t1g:[_s(m.team1A&&m.team1A.grade), _s(m.team1B&&m.team1B.grade)],
-    t2g:[_s(m.team2C&&m.team2C.grade), _s(m.team2D&&m.team2D.grade)],
-    win: winOverride[i]||null
-  }));
+  const matches=currentMatches.map((m,i)=>{
+    const win=winOverride[i]||null;
+    if(win && !liveWinAt[i]) liveWinAt[i]=Date.now();
+    return {
+      round:m.round||0, court:m.court||0, type:_s(m.type), num:m.matchNumber||(i+1),
+      isFiller:!!m.isFiller,
+      t1:[_s(m.team1A&&m.team1A.name), _s(m.team1B&&m.team1B.name)],
+      t2:[_s(m.team2C&&m.team2C.name), _s(m.team2D&&m.team2D.name)],
+      t1g:[_s(m.team1A&&m.team1A.grade), _s(m.team1B&&m.team1B.grade)],
+      t2g:[_s(m.team2C&&m.team2C.grade), _s(m.team2D&&m.team2D.grade)],
+      win,
+      winAt: win ? (liveWinAt[i]||Date.now()) : null
+    };
+  });
+  const ordered=matches.map((m,i)=>({m,i})).sort((a,b)=>(a.m.round-b.m.round)||(a.m.court-b.m.court));
+  ordered.forEach(({m},pos)=>{
+    if(!m.winAt) return;
+    const next=ordered.slice(pos+1).find(x=>!x.m.win && x.m.court===m.court);
+    if(next && !next.m.startAt) next.m.startAt=m.winAt;
+  });
   let bW=0,wW=0;
   if(isTeam){
     bW=parseInt(document.getElementById('blueWins')?.textContent||'0',10);
@@ -3896,6 +3910,7 @@ function _buildLiveState(){
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
     blueWins:bW||0, whiteWins:wW||0,
     currentRound: (cur==null?0:cur), matches,
+    courts: (currentSettings&&currentSettings.courts)||parseInt(document.getElementById('courts')?.value||'3',10)||3,
     pointSystem: (typeof _pointSystem!=='undefined'?_pointSystem:25),
     gamesPerPlayer: (currentSettings&&currentSettings.gamesPerPlayer)||4,
     updatedAt: Date.now()
@@ -3916,6 +3931,7 @@ async function startLiveBroadcast(){
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
     const state=_buildLiveState();
     if(prevData.attendance) state.attendance=prevData.attendance;
+    if(prevData.party) state.party=prevData.party;
     await liveRef.set(state);
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
@@ -3961,11 +3977,17 @@ async function _tryResumeLive(){
       // round+court 기준으로 win 매핑 (인덱스 불일치 방지)
       const fbMatches=data.matches||[];
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
+      Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);
       const fbWinMap={};
-      fbMatches.forEach(fm=>{ if(fm.win) fbWinMap[`${fm.round}_${fm.court}`]=fm.win; });
+      const fbWinAtMap={};
+      fbMatches.forEach(fm=>{
+        if(fm.win) fbWinMap[`${fm.round}_${fm.court}`]=fm.win;
+        if(fm.winAt) fbWinAtMap[`${fm.round}_${fm.court}`]=fm.winAt;
+      });
       currentMatches.forEach((m,i)=>{
         const key=`${m.round||0}_${m.court||0}`;
         if(fbWinMap[key]) winOverride[i]=fbWinMap[key];
+        if(fbWinAtMap[key]) liveWinAt[i]=fbWinAtMap[key];
       });
       if(currentMatches.length) renderResults(currentMatches,currentParticipants,currentSettings);
 
@@ -5284,6 +5306,7 @@ function saveState(){
     })),
     settings:currentSettings,scores,
     winOverride:JSON.parse(JSON.stringify(winOverride)),
+    liveWinAt:JSON.parse(JSON.stringify(liveWinAt)),
     lockedBeforeRound:_lockedBeforeRound,
     pointSystem:_pointSystem
   };
@@ -5419,6 +5442,8 @@ function restoreState(){
     _lockedBeforeRound = state.lockedBeforeRound ?? null;
     Object.keys(winOverride).forEach(k=>delete winOverride[k]);
     Object.assign(winOverride,state.winOverride||{});
+    Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);
+    Object.assign(liveWinAt,state.liveWinAt||{});
     if(state.pointSystem){ _pointSystem=state.pointSystem; document.querySelectorAll('.pseg-btn').forEach(b=>b.classList.toggle('active',+b.dataset.pt===_pointSystem)); }
 
     renderResults(currentMatches,currentParticipants,currentSettings);
