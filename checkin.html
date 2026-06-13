@@ -304,7 +304,7 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
     <div class="eyebrow">KOKMATCH CHECK-IN</div>
     <h1>민턴LIVE 상태를 알려주세요</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
-    <div class="notice">1. 이름/초성으로 내 카드 찾기 → 2. 참석 또는 시작 선택. 버튼에 불이 켜지면 전송 완료입니다.</div>
+    <div class="notice">이름을 찾고 <strong>참석</strong> 또는 <strong>시작/종료</strong>만 누르세요. 버튼에 불이 켜지면 전송 완료입니다.</div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
   <section class="panel event-panel hidden" id="eventPanel"></section>
@@ -492,7 +492,7 @@ function render(){
     const requested=!!latestStatusRequest(p.id);
     const highlighted=recent||requested;
     const mainButtons=statusButtons(p,MAIN_STATUS_KEYS,disabled);
-    const subSection=statusSection(p,'상태 변경',SUB_STATUS_KEYS,disabled);
+    const subSection=statusSection(p,'레슨·휴식·마지막',SUB_STATUS_KEYS,disabled);
     return `<article class="player ${locked?'locked':''} ${highlighted?'recent':''}">
       <div class="phead">
         <div>
@@ -547,7 +547,7 @@ function requestPlayerOptions(selfId,selected){
 function gameRequestBox(p,disabled){
   if(p.voteLocked||p.status==='invited'||getSelectedStatus(p)==='done')return '';
   return `<details class="game-request">
-    <summary>게임 신청</summary>
+    <summary>게임 신청(선택)</summary>
     <div class="request-body">
       <select id="reqPartner_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select>
       <select id="reqOpp1_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select>
