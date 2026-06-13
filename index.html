@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.90  (2026-06)
+     APP VERSION: 1.10.91  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.90">
+<meta name="app-version" content="1.10.91">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -203,6 +203,15 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .sv-time{color:#059669;}
 .stat-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;}
 .stat-pill{font-size:.66rem;padding:2px 8px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--dim);}
+.live-ops-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px;}
+.live-ops-summary.hidden{display:none!important;}
+.live-ops-card{background:#fff;border:1px solid var(--bdr);border-radius:10px;padding:9px 10px;min-width:0;}
+.live-ops-card.warn{background:#fff7ed;border-color:#fed7aa;}
+.live-ops-card.party{background:#fffbeb;border-color:#fde68a;}
+.live-ops-l{font-size:.62rem;font-weight:800;color:var(--dim);letter-spacing:.3px;margin-bottom:2px;}
+.live-ops-v{font-size:1rem;font-weight:900;color:var(--txt);line-height:1.2;}
+.live-ops-names{font-size:.66rem;color:var(--dim);line-height:1.45;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.live-ops-dups{grid-column:1/-1;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:9px;padding:8px 10px;font-size:.68rem;line-height:1.55;}
 .qual-dash{margin-top:4px;border:1px solid var(--bdr);border-radius:12px;overflow:hidden;}
 .qd-header{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--bdr);}
 .qd-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;width:58px;height:58px;border-radius:13px;flex-shrink:0;}
@@ -828,6 +837,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   /* 스코어보드 */
   .scoreboard{grid-template-columns:1fr;}
   .sb-score-v{font-size:1.5rem;}
+  .live-ops-summary{grid-template-columns:1fr;}
   /* 탭 */
   .tabs{overflow-x:auto;}
   .res-tab{white-space:nowrap;padding:9px 13px;}
@@ -1448,6 +1458,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <div class="sum-grid" id="sumGrid"></div>
           <div class="time-compare" id="timeCompare"></div>
           <div class="stat-row" id="statRow"></div>
+          <div class="live-ops-summary hidden" id="liveOpsSummary"></div>
           <div class="qual-dash" id="qualDash"></div>
         </div>
       </div>
@@ -1827,7 +1838,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.90';
+const APP_VERSION = '1.10.91';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3875,6 +3886,7 @@ function updateScores(){
 
 /* 팀전 중간 현황 공유 (단톡방/밴드) */
 let _liveId=null, _liveOn=false;
+let _liveAttendance={}, _liveParty={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
 
 /* 대회 고유 ID 생성 (6자리) */
 function _genLiveId(){
@@ -3952,9 +3964,101 @@ function _buildLiveState(){
   };
 }
 
+function _liveKey(name){
+  return encodeURIComponent(String(name||'')).replace(/[.#$[\]\/]/g,'_');
+}
+function _liveHas(map,name){
+  return !!(map && map[_liveKey(name)]);
+}
+function _duplicateNames(list=currentParticipants){
+  const counts={};
+  (list||[]).forEach(p=>{
+    const n=String(p&&p.name||'').trim();
+    if(n) counts[n]=(counts[n]||0)+1;
+  });
+  return Object.keys(counts).filter(n=>counts[n]>1);
+}
+function _liveNamesPreview(names,max=5){
+  if(!names||!names.length) return '없음';
+  const shown=names.slice(0,max).map(esc).join(', ');
+  return shown+(names.length>max?` 외 ${names.length-max}명`:'');
+}
+function _upcomingLiveNames(){
+  if(!currentMatches.length) return [];
+  const courtCount=Math.max(1,parseInt(currentSettings?.courts||document.getElementById('courts')?.value||'4',10)||4);
+  const pending=currentMatches.map((m,i)=>({m,i}))
+    .filter(x=>!_isMatchDone(x.i))
+    .sort((a,b)=>(a.m.round-b.m.round)||(a.m.court-b.m.court))
+    .slice(0,courtCount);
+  const seen=new Set(), names=[];
+  pending.forEach(({m})=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
+    const n=p&&p.name;
+    if(n&&!seen.has(n)){seen.add(n);names.push(n);}
+  }));
+  return names;
+}
+function _renderLiveOpsSummary(){
+  const el=document.getElementById('liveOpsSummary');
+  if(!el) return;
+  if(!_liveOn || !currentParticipants.length){
+    el.classList.add('hidden');
+    el.innerHTML='';
+    return;
+  }
+  const names=currentParticipants.map(p=>p.name).filter(Boolean);
+  const attCount=names.filter(n=>_liveHas(_liveAttendance,n)).length;
+  const missing=names.filter(n=>!_liveHas(_liveAttendance,n));
+  const upcoming=_upcomingLiveNames();
+  const upcomingMissing=upcoming.filter(n=>!_liveHas(_liveAttendance,n));
+  const partyNames=names.filter(n=>_liveHas(_liveParty,n));
+  const dups=_duplicateNames(currentParticipants);
+  const targetMissing=upcomingMissing.length?upcomingMissing:missing;
+  const targetLabel=upcomingMissing.length?'출전 미확인':'전체 미확인';
+  el.classList.remove('hidden');
+  el.innerHTML=`
+    <div class="live-ops-card">
+      <div class="live-ops-l">출석 확인</div>
+      <div class="live-ops-v">${attCount}/${names.length}명</div>
+      <div class="live-ops-names">미확인 ${missing.length}명</div>
+    </div>
+    <div class="live-ops-card ${targetMissing.length?'warn':''}">
+      <div class="live-ops-l">${targetLabel}</div>
+      <div class="live-ops-v">${targetMissing.length}명</div>
+      <div class="live-ops-names">${targetMissing.length?_liveNamesPreview(targetMissing):'다음 경기 전원 확인'}</div>
+    </div>
+    <div class="live-ops-card party">
+      <div class="live-ops-l">뒤풀이 참석</div>
+      <div class="live-ops-v">${partyNames.length}명</div>
+      <div class="live-ops-names">${_liveNamesPreview(partyNames)}</div>
+    </div>
+    ${dups.length?`<div class="live-ops-dups">동명이인: ${_liveNamesPreview(dups,8)} · 출석/뒤풀이 체크가 합쳐질 수 있어 이름 뒤에 A/B 같은 구분자를 붙여주세요.</div>`:''}`;
+}
+function _unbindLiveAdminListener(){
+  if(_liveAdminRef&&_liveAdminHandler){
+    try{_liveAdminRef.off('value',_liveAdminHandler);}catch(e){}
+  }
+  _liveAdminRef=null;_liveAdminHandler=null;_liveAdminId=null;
+}
+function _bindLiveAdminListener(){
+  if(!_fbDb||!_liveId) return;
+  if(_liveAdminRef&&_liveAdminId===_liveId) return;
+  _unbindLiveAdminListener();
+  _liveAdminId=_liveId;
+  _liveAdminRef=_fbDb.ref('live/'+_liveId);
+  _liveAdminHandler=snap=>{
+    const data=(snap&&snap.exists&&snap.exists())?(snap.val()||{}):{};
+    _liveAttendance=data.attendance||{};
+    _liveParty=data.party||{};
+    _renderLiveOpsSummary();
+  };
+  _liveAdminRef.on('value',_liveAdminHandler);
+}
+
 /* 실시간 중계 시작 */
 async function startLiveBroadcast(){
   if(!currentMatches.length){ alert('대진표를 먼저 생성하세요.'); return; }
+  const dups=_duplicateNames(currentParticipants);
+  if(dups.length&&!confirm('동명이인이 있습니다.\n\n'+dups.join(', ')+'\n\n출석/뒤풀이 체크가 같은 이름으로 합쳐질 수 있어요.\n가능하면 이름 뒤에 A/B 같은 구분자를 붙이는 것을 권장합니다.\n\n그래도 중계를 시작할까요?')) return;
   if(!_fbInit()){ alert('실시간 서버 연결에 실패했어요. 네트워크를 확인해주세요.'); return; }
   if(!_liveId) _liveId=_genLiveId();
   _liveOn=true;
@@ -3965,10 +4069,12 @@ async function startLiveBroadcast(){
     const prev=await liveRef.once('value').catch(()=>null);
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
     const state=_buildLiveState();
-    if(prevData.attendance) state.attendance=prevData.attendance;
-    if(prevData.party) state.party=prevData.party;
-    await liveRef.set(state);
-  }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
+    _liveAttendance=prevData.attendance||{};
+    _liveParty=prevData.party||{};
+    await liveRef.update(state);
+  }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; _updateLiveUI(); _renderLiveOpsSummary(); return; }
+  _bindLiveAdminListener();
+  _renderLiveOpsSummary();
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
   const url=base+'view.html?id='+_liveId;
   try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
@@ -4006,6 +4112,10 @@ async function _tryResumeLive(){
 이어서 중계를 재개할까요?`)){
       _liveId=savedId;
       _liveOn=true;
+      _liveAttendance=data.attendance||{};
+      _liveParty=data.party||{};
+      _bindLiveAdminListener();
+      _renderLiveOpsSummary();
       _updateLiveUI();
 
       // Firebase의 win 데이터로 winOverride 복원 (앱 재시작으로 초기화됐어도 승패 유지)
@@ -4068,11 +4178,18 @@ function _showCopyFallback(label,text){
 
 /* 실시간 중계 종료 */
 async function stopLiveBroadcast(){
-  if(!_liveId || !_fbDb){ _liveOn=false; _updateLiveUI(); return; }
+  if(!_liveId || !_fbDb){
+    _unbindLiveAdminListener();
+    _liveAttendance={};_liveParty={};
+    _liveOn=false; _updateLiveUI(); _renderLiveOpsSummary(); return;
+  }
   if(!confirm('실시간 중계를 종료할까요?\n링크로 접속한 사람들이 더 이상 볼 수 없게 됩니다.')) return;
   try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
   localStorage.removeItem('badminton_liveId');
+  _unbindLiveAdminListener();
+  _liveAttendance={};_liveParty={};
   _liveOn=false; _liveId=null; _updateLiveUI();
+  _renderLiveOpsSummary();
   alert('실시간 중계를 종료했어요.');
 }
 
@@ -4634,6 +4751,7 @@ function renderResults(matches,participants,settings){
 
   // 현재 진행 라운드 하이라이트 + 플로팅 버튼 초기화
   updateCurrentRoundHighlight();
+  _renderLiveOpsSummary();
 
 }
 
