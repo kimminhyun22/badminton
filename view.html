@@ -695,6 +695,7 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
 .team-roster-sort.active{background:#1f2937;color:#fff;border-color:#1f2937;}
 .team-roster-columns{gap:10px;padding:12px;}
 .team-roster-columns{grid-template-columns:1fr 1fr;}
+.team-roster-columns.single{grid-template-columns:1fr;}
 .team-roster-side{border-radius:18px;padding:13px;}
 .team-roster-title{font-size:1.02rem;margin-bottom:10px;}
 .team-member{
@@ -796,6 +797,7 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
   .team-roster-head{flex-direction:column;}
   .team-roster-head span{text-align:left;}
   .team-roster-columns{grid-template-columns:1fr 1fr;gap:7px;padding:9px;}
+  .team-roster-columns.single{grid-template-columns:1fr;}
   .team-roster-side{padding:9px 8px;}
   .team-roster-title{font-size:.9rem;}
   .team-member{gap:5px 6px;padding:8px 0;}
@@ -1752,7 +1754,13 @@ async function toggleMemberParty(name, team){
 }
 
 function buildTeamRosterCard(d){
-  if(!d.isTeam || !d.members || (!(d.members.blue||[]).length && !(d.members.red||[]).length)) return '';
+  if(!d.members) return '';
+  const blue=_normalizeMembers(d.members.blue||[]);
+  const red=_normalizeMembers(d.members.red||[]);
+  const solo=_normalizeMembers(d.members.all||[]);
+  const showTeam=!!(d.isTeam && (blue.length||red.length));
+  const showSolo=!showTeam && !!solo.length;
+  if(!showTeam && !showSolo) return '';
   const attendance=d.attendance||{};
   const party=d.party||{};
   window._liveAttendance=attendance;
@@ -1778,21 +1786,22 @@ function buildTeamRosterCard(d){
       +'</div>';
     }).join('');
   };
-  const blue=_normalizeMembers(d.members.blue||[]), red=_normalizeMembers(d.members.red||[]);
-  const all=[...blue,...red];
+  const all=showTeam?[...blue,...red]:solo;
   const attCount=all.filter(p=>_attOn(p.n)).length;
   const partyCount=all.filter(p=>_partyOn(p.n)).length;
   const sortBtn=(key,label)=>'<button type="button" class="team-roster-sort '+(_teamRosterSort===key?'active':'')+'" onclick="setTeamRosterSort(\''+key+'\')">'+label+'</button>';
   return '<details class="info-details primary" id="teamRoster" '+(_teamRosterOpen?'open':'')+' ontoggle="setTeamRosterOpen(this.open)">'
-    +'<summary>팀 명단 · 출석 · 뒤풀이</summary>'
+    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 출석 · 뒤풀이</summary>'
     +'<div class="info-body">'
       +'<section class="team-roster-card">'
-        +'<div class="team-roster-head"><b>팀 명단</b><span>출석 '+attCount+'/'+all.length+' · 뒤풀이 '+partyCount+'명</span></div>'
+        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>출석 '+attCount+'/'+all.length+' · 뒤풀이 '+partyCount+'명</span></div>'
         +'<div class="team-att-summary">도착 <b>출석</b> · 뒤풀이 <b>참석</b></div>'
         +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('att','출석')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
-        +'<div class="team-roster-columns">'
-          +'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_attOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
-          +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.filter(p=>_attOn(p.n)).length+'/'+red.length+'명</small></div>'+mk(red,'red')+'</div>'
+        +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
+          +(showTeam
+            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_attOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
+              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.filter(p=>_attOn(p.n)).length+'/'+red.length+'명</small></div>'+mk(red,'red')+'</div>'
+            :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>'+attCount+'/'+solo.length+'명</small></div>'+mk(solo,'all')+'</div>')
         +'</div>'
         +'<button type="button" class="team-roster-close" onclick="closeTeamRoster()">▲ 출석부 접기</button>'
       +'</section>'
@@ -1810,7 +1819,7 @@ function _isImminentMatch(m){
 function _playerLine(name,d){
   const n=String(name||'');
   if(!n) return '<div class="live-player">-</div>';
-  const flag=!!(d&&d.isTeam&&_hasAttendanceData()&&!_attOn(n));
+  const flag=!!(d&&_hasAttendanceData()&&!_attOn(n));
   return '<div class="live-player '+(flag?'not-ready':'')+'">'+esc(n)
     +(flag?'<span class="ready-badge">미확인</span>':'')
   +'</div>';
@@ -1910,7 +1919,7 @@ function render(d){
     .filter(m=>!m.win && m.round!==curRound)
     .sort((a,b)=>(a.round-b.round)||(a.court-b.court));
 
-  if(d.isTeam && d.members) window._rosterData=d.members;
+  if(d.members) window._rosterData=d.members;
 
   let html='<div class="live-board">';
   html+='<div class="live-top"><span class="live-pill"><span class="live-dot-mini"></span>LIVE</span><span>선수용 라이브 보드</span></div>';

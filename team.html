@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.89  (2026-06)
+     APP VERSION: 1.10.90  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.89">
+<meta name="app-version" content="1.10.90">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1827,7 +1827,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.89';
+const APP_VERSION = '1.10.90';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3926,17 +3926,22 @@ function _buildLiveState(){
   const _subBlue=captains?.blue?.sub||null;
   const _leaderWhite=captains?.white?.leader||null;
   const _subWhite=captains?.white?.sub||null;
-  const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>({
+  const liveMember=p=>({
     n:p.name||'',l:p.level||0,g:p.gender||'',
+    isGuest:!!p.isGuest
+  });
+  const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>({
+    ...liveMember(p),
     isLeader:p.name===_leaderBlue, isSub:p.name===_subBlue
   })):[];
   const membersRed=isTeam?(teamAssignment?.white||[]).map(p=>({
-    n:p.name||'',l:p.level||0,g:p.gender||'',
+    ...liveMember(p),
     isLeader:p.name===_leaderWhite, isSub:p.name===_subWhite
   })):[];
+  const membersAll=isTeam?[]:currentParticipants.map(liveMember);
   return {
     title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
-    members: {blue:membersBlue, red:membersRed},
+    members: {blue:membersBlue, red:membersRed, all:membersAll},
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
     blueWins:bW||0, whiteWins:wW||0,
     currentRound: (cur==null?0:cur), matches,
