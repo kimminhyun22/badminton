@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.92  (2026-06)
+     APP VERSION: 1.10.93  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.92">
+<meta name="app-version" content="1.10.93">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1461,7 +1461,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
           <div class="sum-grid" id="sumGrid"></div>
           <div class="time-compare" id="timeCompare"></div>
           <div class="stat-row" id="statRow"></div>
-          <div class="live-ops-summary hidden" id="liveOpsSummary"></div>
           <div class="qual-dash" id="qualDash"></div>
         </div>
       </div>
@@ -1507,6 +1506,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div style="text-align:right;margin-bottom:8px;">
         <button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">📡 실시간 중계</button>
       </div>
+      <div class="live-ops-summary hidden" id="liveOpsSummary"></div>
 
       <!-- 대진표 탭 + 인쇄 -->
       <div class="card">
@@ -1841,7 +1841,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.92';
+const APP_VERSION = '1.10.93';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
