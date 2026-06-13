@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.91  (2026-06)
+     APP VERSION: 1.10.92  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.91">
+<meta name="app-version" content="1.10.92">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -203,15 +203,17 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .sv-time{color:#059669;}
 .stat-row{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;}
 .stat-pill{font-size:.66rem;padding:2px 8px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--dim);}
-.live-ops-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px;}
+.live-ops-summary{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 9px;padding:6px;background:var(--sur2);border:1px solid var(--bdr);border-radius:11px;}
 .live-ops-summary.hidden{display:none!important;}
-.live-ops-card{background:#fff;border:1px solid var(--bdr);border-radius:10px;padding:9px 10px;min-width:0;}
-.live-ops-card.warn{background:#fff7ed;border-color:#fed7aa;}
-.live-ops-card.party{background:#fffbeb;border-color:#fde68a;}
-.live-ops-l{font-size:.62rem;font-weight:800;color:var(--dim);letter-spacing:.3px;margin-bottom:2px;}
-.live-ops-v{font-size:1rem;font-weight:900;color:var(--txt);line-height:1.2;}
-.live-ops-names{font-size:.66rem;color:var(--dim);line-height:1.45;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.live-ops-dups{grid-column:1/-1;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:9px;padding:8px 10px;font-size:.68rem;line-height:1.55;}
+.live-ops-card{display:flex;align-items:center;gap:5px;min-width:0;flex:1 1 126px;background:#fff;border:1px solid transparent;border-radius:8px;padding:6px 8px;}
+.live-ops-card.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412;}
+.live-ops-card.party{background:#fffbeb;border-color:#fde68a;color:#92400e;}
+.live-ops-l{font-size:.64rem;font-weight:900;color:var(--dim);white-space:nowrap;}
+.live-ops-v{font-size:.84rem;font-weight:900;color:var(--txt);line-height:1;white-space:nowrap;}
+.live-ops-card.warn .live-ops-v{color:#9a3412;}
+.live-ops-card.party .live-ops-v{color:#92400e;}
+.live-ops-names{font-size:.62rem;color:var(--dim);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-left:auto;}
+.live-ops-dups{flex-basis:100%;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:6px 9px;font-size:.66rem;line-height:1.45;}
 .qual-dash{margin-top:4px;border:1px solid var(--bdr);border-radius:12px;overflow:hidden;}
 .qd-header{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--bdr);}
 .qd-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;width:58px;height:58px;border-radius:13px;flex-shrink:0;}
@@ -837,7 +839,8 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   /* 스코어보드 */
   .scoreboard{grid-template-columns:1fr;}
   .sb-score-v{font-size:1.5rem;}
-  .live-ops-summary{grid-template-columns:1fr;}
+  .live-ops-summary{gap:5px;padding:5px;}
+  .live-ops-card{flex-basis:100%;padding:6px 8px;}
   /* 탭 */
   .tabs{overflow-x:auto;}
   .res-tab{white-space:nowrap;padding:9px 13px;}
@@ -1838,7 +1841,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.91';
+const APP_VERSION = '1.10.92';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4017,7 +4020,7 @@ function _renderLiveOpsSummary(){
   el.classList.remove('hidden');
   el.innerHTML=`
     <div class="live-ops-card">
-      <div class="live-ops-l">출석 확인</div>
+      <div class="live-ops-l">출석</div>
       <div class="live-ops-v">${attCount}/${names.length}명</div>
       <div class="live-ops-names">미확인 ${missing.length}명</div>
     </div>
@@ -4027,7 +4030,7 @@ function _renderLiveOpsSummary(){
       <div class="live-ops-names">${targetMissing.length?_liveNamesPreview(targetMissing):'다음 경기 전원 확인'}</div>
     </div>
     <div class="live-ops-card party">
-      <div class="live-ops-l">뒤풀이 참석</div>
+      <div class="live-ops-l">뒤풀이</div>
       <div class="live-ops-v">${partyNames.length}명</div>
       <div class="live-ops-names">${_liveNamesPreview(partyNames)}</div>
     </div>
