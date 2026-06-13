@@ -335,7 +335,7 @@ const FB_CONFIG={
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[];
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['planned','toggle'];
-const SUB_STATUS_KEYS=['lesson','rest','last'];
+const SUB_STATUS_KEYS=['rest'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
 function toast(msg){
@@ -351,7 +351,7 @@ function statusInfo(key){
   return (session?.statuses||[]).find(x=>x.key===key)||{key,label:statusLabel(key),desc:''};
 }
 function compactLabel(key){
-  const map={planned:'참석',wait:'시작',lesson:'레슨',rest:'휴식',last:'마지막',done:'종료'};
+  const map={planned:'참석',wait:'시작',lesson:'휴식',rest:'휴식',last:'종료',leaving:'종료',done:'종료'};
   return map[key]||statusLabel(key);
 }
 function normalizeText(s){
@@ -433,7 +433,7 @@ function renderEvent(){
   const el=document.getElementById('eventPanel');
   if(!el)return;
   const ev=session?.event;
-  const has=ev&&(ev.activeCount||ev.completed||ev.resultCount||(ev.next||[]).length||(ev.mvp||[]).length);
+  const has=ev&&(ev.activeCount||ev.completed||(ev.next||[]).length);
   if(!has){
     el.className='panel event-panel hidden';
     el.innerHTML='';
@@ -441,13 +441,7 @@ function renderEvent(){
   }
   el.className='panel event-panel';
   const updated=ev.updatedAt?new Date(ev.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
-  const score=ev.teamMode?`<div class="event-score">
-    <div class="event-team"><span>${esc(ev.teamBlue||'청팀')}</span><b>${ev.blueWins||0}</b></div>
-    <div class="event-vs">VS</div>
-    <div class="event-team red"><span>${esc(ev.teamWhite||'홍팀')}</span><b>${ev.whiteWins||0}</b></div>
-  </div>`:'';
-  const mvp=(ev.mvp||[]).length?`<span class="event-chip gold">MVP ${esc(ev.mvp.map(x=>x.name).join(' · '))}</span>`:'';
-  const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>${mvp}`;
+  const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>`;
   const active=(ev.active||[]).slice(0,4).map(m=>`<div class="event-row">
     <div><strong>${m.court}코트 진행중</strong><small>${esc(teamNames(m))}</small></div>
     <em>${esc(remainText(m.remain))}</em>
@@ -457,7 +451,6 @@ function renderEvent(){
     <em>대기</em>
   </div>`).join('');
   el.innerHTML=`<div class="event-title"><b>민턴LIVE 현황</b><span>${esc(updated)} 업데이트</span></div>
-    ${score}
     <div>${summary}</div>
     ${active?`<div class="event-list">${active}</div>`:''}
     ${next?`<div class="event-list">${next}</div>`:''}`;
