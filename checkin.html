@@ -510,8 +510,9 @@ function render(){
 function statusButtonSpec(p,key){
   const selected=getSelectedStatus(p);
   if(key==='toggle'){
-    const isDone=selected==='done';
-    return {key:isDone?'done':'wait',label:isDone?'종료':'시작',action:isDone?'wait':'done'};
+    if(selected==='wait')return {key:'wait',label:'종료',action:'done'};
+    if(selected==='done')return {key:'done',label:'종료',action:'wait'};
+    return {key:'wait',label:'시작',action:'wait'};
   }
   return {key,label:compactLabel(key),action:key};
 }
