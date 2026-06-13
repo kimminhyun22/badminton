@@ -330,7 +330,7 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='';
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[];
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['planned','wait'];
 const SUB_STATUS_KEYS=['lesson','rest','last'];
@@ -369,11 +369,6 @@ function playerMatchesQuery(p,q){
   const cho=normalizeText(chosungText(p.name));
   return name.includes(needle)||cho.includes(needle);
 }
-function getSelectedStatus(p){
-  const last=getLastSent();
-  if(last&&last.playerId===p.id)return last.status;
-  return p.status;
-}
 function voteDeadlineText(){
   if(!session?.voteDeadlineAt)return '';
   return `${session.voteDeadlineAt} 참석투표 ${session.voteClosed?'마감':'마감 예정'}`;
@@ -389,6 +384,25 @@ function getLastSent(){
 }
 function setLastSent(req){
   try{localStorage.setItem(lastKey(),JSON.stringify({...req,savedAt:Date.now()}));}catch(e){}
+}
+function latestStatusRequest(playerId){
+  return statusRequests
+    .filter(r=>r.playerId===playerId&&r.status&&!r.ignoredAt&&r.type!=='reservation')
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0]||null;
+}
+function getSelectedStatus(p){
+  const req=latestStatusRequest(p.id);
+  const last=getLastSent();
+  let selected=p.status;
+  let ts=p.lastStatusAt||0;
+  if(req&&(req.createdAt||0)>=ts){
+    selected=req.status;
+    ts=req.createdAt||0;
+  }
+  if(last&&last.playerId===p.id&&(last.savedAt||0)>=ts){
+    selected=last.status;
+  }
+  return selected;
 }
 function renderLastSent(){
   const el=document.getElementById('lastSent');
@@ -475,15 +489,17 @@ function render(){
     const recent=last&&last.playerId===p.id;
     const disabled=sendingKey||voteLocked?'disabled':'';
     const selected=getSelectedStatus(p);
+    const requested=!!latestStatusRequest(p.id);
+    const highlighted=recent||requested;
     const mainButtons=statusButtons(p,MAIN_STATUS_KEYS,disabled);
     const subSection=statusSection(p,'상태 변경',SUB_STATUS_KEYS,disabled);
-    return `<article class="player ${locked?'locked':''} ${recent?'recent':''}">
+    return `<article class="player ${locked?'locked':''} ${highlighted?'recent':''}">
       <div class="phead">
         <div>
           <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}</div>
-          <div class="meta">현재 ${esc(compactLabel(p.status))} · ${p.games||0}게임${locked?' · 관리자 확인 필요':''}${voteLocked?' · 투표 마감':''}</div>
+          <div class="meta">현재 ${esc(compactLabel(selected))} · ${p.games||0}게임${locked?' · 관리자 확인 필요':''}${voteLocked?' · 투표 마감':''}</div>
         </div>
-        <div class="badge ${recent?'selected':''}">${recent?`선택 ${esc(compactLabel(selected))}`:(voteLocked?'마감':(locked?'확인 후 반영':'바로 반영'))}</div>
+        <div class="badge ${highlighted?'selected':''}">${highlighted?`선택 ${esc(compactLabel(selected))}`:(voteLocked?'마감':(locked?'확인 후 반영':'바로 반영'))}</div>
       </div>
       <div class="buttons main-actions">${mainButtons}</div>
       ${subSection}
@@ -621,6 +637,13 @@ function boot(){
       document.getElementById('players').textContent='관리자가 링크를 종료했거나 아직 명단을 공유하지 않았습니다.';
       return;
     }
+    render();
+  });
+  db.ref(checkinPath()+'/requests').on('value',snap=>{
+    const raw=snap.val()||{};
+    statusRequests=Object.keys(raw).map(key=>({key,...raw[key]}))
+      .filter(r=>!r.ignoredAt&&r.type!=='reservation'&&r.status)
+      .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
     render();
   });
   document.getElementById('search').addEventListener('input',e=>{
