@@ -64,6 +64,7 @@
 - GitHub Pages 배포는 `main` 브랜치 push 후 보통 1~3분 안에 반영됩니다.
 - 전체 기능 검증과 실전 케이스별 사용법은 [KOKMATCH_FEATURE_REVIEW.md](KOKMATCH_FEATURE_REVIEW.md)를 참고하세요.
 - 오늘운동 전용 외부 리뷰 요청서는 [TODAY_MODE_FABLE_REVIEW.md](TODAY_MODE_FABLE_REVIEW.md)를 참고하세요.
+- 실전 안정 버전 보관 기록은 [STABLE_VERSIONS.md](STABLE_VERSIONS.md)를 참고하세요.
 
 ## 개발 메모
 
