@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#5b8def">
-<title>콕매치 오늘운동 출석</title>
+<title>콕매치 민턴LIVE 출석</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -176,6 +176,34 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   white-space:nowrap;
 }
 .buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.game-request{
+  margin-top:10px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fbfcff;
+  overflow:hidden;
+}
+.game-request summary{
+  cursor:pointer;
+  padding:11px 12px;
+  font-size:14px;
+  font-weight:900;
+  color:#344055;
+  list-style:none;
+}
+.game-request summary::-webkit-details-marker{display:none}
+.request-body{padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.request-body select,.request-body input{
+  height:42px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  padding:0 10px;
+  font:inherit;
+  background:#fff;
+  min-width:0;
+}
+.request-body input{grid-column:1/-1}
+.request-body button{grid-column:1/-1;background:var(--blue);color:#fff}
 button{
   appearance:none;
   border:0;
@@ -222,13 +250,14 @@ button.red{background:#fff0f0;color:#c33b35}
 }
 .toast.show{transform:translateY(0)}
 @media (min-width:620px){.buttons{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:520px){.request-body{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main class="wrap">
   <section class="hero">
     <div class="eyebrow">KOKMATCH CHECK-IN</div>
-    <h1>오늘 운동 상태를 알려주세요</h1>
+    <h1>민턴LIVE 상태를 알려주세요</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice">1. 이름 검색 → 2. 본인 카드에서 현재 상태 선택. 경기중이거나 이미 임박대기에 들어간 경우에는 관리자가 확인한 뒤 반영됩니다.</div>
     <div class="last-sent hidden" id="lastSent"></div>
@@ -257,7 +286,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='';
-const statusClass={wait:'green',lesson:'amber',rest:'',leaving:'amber',last:'primary',done:'red'};
+const statusClass={planned:'primary',wait:'green',lesson:'amber',rest:'',leaving:'amber',last:'primary',done:'red'};
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
 function toast(msg){
@@ -268,6 +297,10 @@ function toast(msg){
 function statusLabel(key){
   const s=(session?.statuses||[]).find(x=>x.key===key);
   return s?.label||key;
+}
+function voteDeadlineText(){
+  if(!session?.voteDeadlineAt)return '';
+  return `${session.voteDeadlineAt} 참석투표 ${session.voteClosed?'마감':'마감 예정'}`;
 }
 function checkinPath(){
   return 'live/checkin_'+checkinId;
@@ -331,7 +364,7 @@ function renderEvent(){
     <div><strong>다음 준비 ${m.idx}</strong><small>${esc(teamNames(m))}</small></div>
     <em>대기</em>
   </div>`).join('');
-  el.innerHTML=`<div class="event-title"><b>오늘운동 현황</b><span>${esc(updated)} 업데이트</span></div>
+  el.innerHTML=`<div class="event-title"><b>민턴LIVE 현황</b><span>${esc(updated)} 업데이트</span></div>
     ${score}
     <div>${summary}</div>
     ${active?`<div class="event-list">${active}</div>`:''}
@@ -352,7 +385,7 @@ function render(){
   renderEvent();
   const players=(session.players||[]).filter(p=>!query||p.name.includes(query));
   const updated=session.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
-  sub.textContent=`${session.title||'콕매치 오늘운동'} · ${updated} 업데이트`;
+  sub.textContent=`${session.title||'콕매치 민턴LIVE'} · ${updated} 업데이트${voteDeadlineText()?` · ${voteDeadlineText()}`:''}`;
   count.textContent=`${players.length}명`;
   if(!players.length){
     box.className='empty';box.textContent='검색된 선수가 없습니다.';
@@ -362,24 +395,45 @@ function render(){
   const last=getLastSent();
   box.innerHTML=players.map(p=>{
     const locked=!!p.locked;
+    const voteLocked=!!p.voteLocked;
     const recent=last&&last.playerId===p.id;
-    const buttons=(session.statuses||[]).map(s=>`<button class="${statusClass[s.key]||''}" ${sendingKey?'disabled':''} onclick="sendStatus('${esc(p.id)}','${esc(s.key)}')"><span>${esc(s.label)}</span><small>${esc(s.desc||'')}</small></button>`).join('');
+    const disabled=sendingKey||voteLocked?'disabled':'';
+    const buttons=(session.statuses||[]).map(s=>`<button class="${statusClass[s.key]||''}" ${disabled} onclick="sendStatus('${esc(p.id)}','${esc(s.key)}')"><span>${esc(s.label)}</span><small>${esc(s.desc||'')}</small></button>`).join('');
     return `<article class="player ${locked?'locked':''} ${recent?'recent':''}">
       <div class="phead">
         <div>
           <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}</div>
-          <div class="meta">현재 ${esc(p.statusLabel||statusLabel(p.status))} · ${p.games||0}게임${locked?' · 관리자 확인 필요':''}</div>
+          <div class="meta">현재 ${esc(p.statusLabel||statusLabel(p.status))} · ${p.games||0}게임${locked?' · 관리자 확인 필요':''}${voteLocked?' · 투표 마감':''}</div>
         </div>
-        <div class="badge">${locked?'확인 후 반영':'바로 반영'}</div>
+        <div class="badge">${voteLocked?'마감':(locked?'확인 후 반영':'바로 반영')}</div>
       </div>
       <div class="buttons">${buttons}</div>
+      ${gameRequestBox(p,disabled)}
     </article>`;
   }).join('');
+}
+function requestPlayerOptions(selfId,selected){
+  const players=(session?.players||[]).filter(p=>p.id!==selfId&&!p.voteLocked&&p.status!=='invited'&&p.status!=='done');
+  return '<option value="">선택 안 함</option>'+players.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)} · ${esc(p.statusLabel||statusLabel(p.status))}</option>`).join('');
+}
+function gameRequestBox(p,disabled){
+  if(p.voteLocked||p.status==='invited'||p.status==='done')return '';
+  return `<details class="game-request">
+    <summary>게임 신청 · 파트너/상대 지정</summary>
+    <div class="request-body">
+      <select id="reqPartner_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select>
+      <select id="reqOpp1_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select>
+      <select id="reqOpp2_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select>
+      <input id="reqNote_${esc(p.id)}" placeholder="메모 선택: 예) 혼복 연습, 오늘 한 번만">
+      <button ${disabled} onclick="sendGameRequest('${esc(p.id)}')">게임 신청 보내기</button>
+    </div>
+  </details>`;
 }
 async function sendStatus(playerId,status){
   if(!db||!checkinId||!session||sendingKey)return;
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
+  if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
   const last=getLastSent();
   if(last&&last.playerId===p.id&&last.status===status&&Date.now()-(last.savedAt||0)<10000){
     return toast('방금 같은 상태를 전송했어요.');
@@ -398,6 +452,42 @@ async function sendStatus(playerId,status){
     await db.ref(checkinPath()+'/requests').push(req);
     setLastSent(req);
     toast(`${p.name} · ${statusLabel(status)} 전송 완료`);
+  }catch(e){
+    toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';
+    render();
+  }
+}
+async function sendGameRequest(playerId){
+  if(!db||!checkinId||!session||sendingKey)return;
+  const p=(session.players||[]).find(x=>x.id===playerId);
+  if(!p)return toast('선수를 찾지 못했습니다.');
+  if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
+  const partnerId=document.getElementById('reqPartner_'+playerId)?.value||'';
+  const opp1=document.getElementById('reqOpp1_'+playerId)?.value||'';
+  const opp2=document.getElementById('reqOpp2_'+playerId)?.value||'';
+  const ids=[playerId,partnerId,opp1,opp2].filter(Boolean);
+  if(!partnerId)return toast('같은 편으로 뛸 선수를 선택해 주세요.');
+  if(new Set(ids).size!==ids.length)return toast('같은 선수가 중복 선택됐어요.');
+  if((opp1&&!opp2)||(!opp1&&opp2))return toast('상대를 지정하려면 2명을 모두 선택해 주세요.');
+  const mode=opp1&&opp2?'match':'pair';
+  const req={
+    type:'reservation',
+    mode,
+    playerId:p.id,
+    playerName:p.name,
+    team1:[p.id,partnerId],
+    team2:mode==='match'?[opp1,opp2]:[],
+    note:(document.getElementById('reqNote_'+playerId)?.value||'').trim(),
+    createdAt:Date.now(),
+    source:'member-game-request'
+  };
+  sendingKey=playerId+'_reservation';
+  render();
+  try{
+    await db.ref(checkinPath()+'/requests').push(req);
+    toast(mode==='match'?'4명 경기 신청을 보냈어요.':'같은 편 신청을 보냈어요.');
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
   }finally{

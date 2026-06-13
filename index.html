@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.136  (2026-06)
+     APP VERSION: 1.10.141  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.136">
+<meta name="app-version" content="1.10.141">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -825,7 +825,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .operation-option.daily small{color:#166534;background:#ecfdf3;border-color:#bbf7d0;}
 .operation-hint{margin-top:10px;font-size:.7rem;color:var(--dim);line-height:1.55;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:9px 10px;}
 .operation-current{font-size:.62rem;font-weight:900;color:var(--bl-deep);background:var(--bl-soft);border:1px solid var(--bl-softbdr);border-radius:999px;padding:4px 9px;letter-spacing:0;text-transform:none;}
-.operation-flow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.operation-flow{display:grid;grid-template-columns:repeat(4,max-content);gap:6px;margin-top:8px;}
 .operation-flow span{font-size:.64rem;font-weight:800;color:var(--dim);background:#fff;border:1px solid var(--bdr);border-radius:999px;padding:4px 8px;}
 .team-focus-flow{display:none;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px 11px;border:1px solid var(--bl-softbdr);border-radius:12px;background:linear-gradient(135deg,#eef5ff 0%,#ffffff 100%);}
 .team-focus-flow b{font-size:.76rem;color:var(--bl-deep);margin-right:2px;}
@@ -923,17 +923,17 @@ body.monthly-team-mode .team-partner-help{display:block;}
 }
 
 /* ── DAILY MODE ── */
-.daily-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px;border:1px solid var(--bl-softbdr);border-radius:16px;background:linear-gradient(135deg,#f7fbff 0%,#eef5ff 100%);box-shadow:var(--shadow);margin-bottom:14px;}
+.daily-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 18px;border:1px solid var(--bl-softbdr);border-radius:18px;background:linear-gradient(135deg,#f8fbff 0%,#eef5ff 100%);box-shadow:0 10px 28px rgba(36,65,110,.08);margin-bottom:14px;}
 .daily-kicker{display:inline-flex;align-items:center;gap:5px;font-size:.62rem;font-weight:900;letter-spacing:1.2px;color:var(--bl-deep);background:#fff;border:1px solid var(--bl-softbdr);border-radius:999px;padding:3px 9px;margin-bottom:8px;}
-.daily-hero h2{font-size:1.35rem;font-weight:900;color:var(--txt);letter-spacing:-.5px;margin-bottom:5px;}
-.daily-hero p{font-size:.82rem;color:var(--dim);line-height:1.65;max-width:760px;}
+.daily-hero h2{font-size:1.35rem;font-weight:900;color:var(--txt);letter-spacing:-.5px;margin-bottom:4px;}
+.daily-hero p{font-size:.8rem;color:var(--dim);line-height:1.55;max-width:720px;}
 .daily-hero-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}
 .daily-layout{display:grid;grid-template-columns:350px 1fr;gap:16px;align-items:start;}
 .daily-side,.daily-main{min-width:0;}
 .daily-form-grid{display:grid;grid-template-columns:1fr 86px 76px 46px;gap:7px;margin-bottom:8px;}
 .daily-form-grid .guest-btn{width:100%;height:38px;}
 .daily-select{width:100%;background:#fff;border:1.5px solid var(--bdr);border-radius:8px;padding:9px 10px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:.82rem;outline:none;}
-.daily-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px;}
+.daily-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-bottom:10px;}
 .daily-stat{background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:9px;text-align:center;}
 .daily-stat b{display:block;font-size:1.08rem;color:var(--txt);line-height:1.1;}
 .daily-stat span{display:block;font-size:.62rem;color:var(--dim);margin-top:2px;font-weight:700;}
@@ -943,6 +943,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-player-name{font-size:.92rem;font-weight:900;color:var(--txt);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
 .daily-player-meta{font-size:.68rem;color:var(--dim);margin-top:3px;line-height:1.45;}
 .daily-status{font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;border:1px solid var(--bdr);}
+.daily-status.invited{background:#f8fafc;border-color:#e2e8f0;color:#64748b;}
+.daily-status.planned{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
 .daily-status.wait{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
 .daily-status.playing{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
 .daily-status.lesson{background:#fff7ed;border-color:#fed7aa;color:#9a3412;}
@@ -1046,6 +1048,16 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-op b{display:block;font-size:1.28rem;color:var(--txt);line-height:1.05;}
 .daily-op span{display:block;font-size:.66rem;color:var(--dim);font-weight:900;margin-top:4px;}
 .daily-op small{display:block;font-size:.62rem;color:var(--dim2);line-height:1.4;margin-top:4px;}
+.daily-admin-alerts{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.daily-admin-alert{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border:1px solid var(--bdr);border-radius:12px;background:#fff;padding:10px 11px;}
+.daily-admin-alert.primary{background:linear-gradient(135deg,#eef5ff 0%,#fff 100%);border-color:var(--bl-softbdr);}
+.daily-admin-alert.warn{background:#fffbeb;border-color:#fde68a;}
+.daily-admin-alert.danger{background:#fef2f2;border-color:#fecaca;}
+.daily-admin-alert-title{font-size:.8rem;font-weight:900;color:var(--txt);line-height:1.4;}
+.daily-admin-alert-desc{font-size:.66rem;color:var(--dim);line-height:1.5;margin-top:2px;}
+.daily-admin-alert-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}
+.daily-main>.card{margin-bottom:12px;}
+.daily-primary-card{border-color:var(--bl-softbdr);box-shadow:0 10px 24px rgba(91,141,239,.08);}
 .daily-queue-list{display:flex;flex-direction:column;gap:9px;}
 .daily-urgent-list{display:flex;flex-direction:column;gap:10px;}
 .daily-urgent-list .daily-queue-item{border-color:#93c5fd;box-shadow:0 10px 24px rgba(91,141,239,.14);}
@@ -1054,6 +1066,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-queue-item{border:1px solid var(--bdr);border-radius:13px;background:#fff;overflow:hidden;}
 .daily-queue-item.locked{border-color:#bfdbfe;box-shadow:0 6px 18px rgba(91,141,239,.09);}
 .daily-queue-item.flex{border-style:dashed;}
+.daily-queue-item.emergency{border-color:#f59e0b;box-shadow:0 10px 24px rgba(245,158,11,.16);}
 .daily-queue-head{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--sur2);border-bottom:1px solid var(--bdr);padding:9px 11px;}
 .daily-queue-title{font-size:.76rem;font-weight:900;color:var(--txt);line-height:1.4;}
 .daily-queue-badge{display:inline-flex;align-items:center;font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;white-space:nowrap;border:1px solid var(--bdr);}
@@ -1155,7 +1168,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .rsvp-badge.decline{background:#f1f5f9;border-color:#dbe3ec;color:#64748b;}
 .rsvp-badge.maybe{background:#fffbeb;border-color:#fde68a;color:#92400e;}
 @media(max-width:900px){.daily-layout{display:flex;flex-direction:column;}.daily-main{order:1;width:100%;}.daily-side{order:2;width:100%;}.daily-hero{flex-direction:column;}.daily-hero-actions{justify-content:flex-start;}.daily-stats,.daily-ops-grid{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:640px){.daily-hero{padding:14px 15px;}.daily-hero h2{font-size:1.13rem;}.daily-hero p{font-size:.76rem;}.daily-form-grid{grid-template-columns:1fr 1fr;}.daily-form-grid .dir-input{grid-column:1/-1;}.daily-player{grid-template-columns:1fr;}.daily-player-actions{justify-content:space-between;flex-wrap:wrap;}.daily-res-grid{grid-template-columns:1fr 1fr;}.daily-res-grid .daily-vs{display:none;}.daily-res-body{grid-template-columns:1fr;}.daily-res-vs{display:none;}.daily-rec-body,.daily-match-body,.daily-queue-edit,.daily-court-teams,.daily-result-score,.daily-team-roster-grid{grid-template-columns:1fr;}.daily-vs,.daily-court-vs,.daily-result-vs{padding:7px;}.daily-team-name{font-size:1.08rem;}.daily-criteria-item{grid-template-columns:1fr;gap:3px;}.daily-match-top,.daily-queue-head{align-items:flex-start;flex-direction:column;}.daily-queue-actions,.daily-court-actions,.daily-win-actions,.daily-win-actions.three{width:100%;grid-template-columns:1fr;}.daily-queue-actions .daily-mini-btn,.daily-court-actions .daily-mini-btn{flex:1;}.daily-rank-row{grid-template-columns:24px 1fr auto;}.daily-rank-rate{display:none;}.rsvp-grid{grid-template-columns:1fr;}.rsvp-grid .btn{width:100%;justify-content:center;}}
+@media(max-width:640px){.daily-hero{padding:13px 14px;border-radius:16px;}.daily-hero h2{font-size:1.12rem;}.daily-hero p{font-size:.74rem;}.daily-hero-actions{display:grid;grid-template-columns:repeat(3,1fr);width:100%;}.daily-hero-actions .btn{justify-content:center;padding:9px 6px;font-size:.72rem;}.operation-flow{grid-template-columns:repeat(4,1fr);gap:4px;}.operation-flow span{font-size:.58rem;padding:5px 4px;}.daily-op{min-height:62px;padding:9px 8px;}.daily-op b{font-size:1.12rem;}.daily-admin-alert{flex-direction:column;}.daily-admin-alert-actions{width:100%;}.daily-admin-alert-actions .daily-mini-btn{flex:1;}.daily-note{font-size:.68rem;line-height:1.5;padding:8px 10px;}.daily-form-grid{grid-template-columns:1fr 1fr;}.daily-form-grid .dir-input{grid-column:1/-1;}.daily-player{grid-template-columns:1fr;}.daily-player-actions{justify-content:space-between;flex-wrap:wrap;}.daily-res-grid{grid-template-columns:1fr 1fr;}.daily-res-grid .daily-vs{display:none;}.daily-res-body{grid-template-columns:1fr;}.daily-res-vs{display:none;}.daily-rec-body,.daily-match-body,.daily-queue-edit,.daily-court-teams,.daily-result-score,.daily-team-roster-grid{grid-template-columns:1fr;}.daily-vs,.daily-court-vs,.daily-result-vs{padding:7px;}.daily-team-name{font-size:1.08rem;}.daily-criteria-item{grid-template-columns:1fr;gap:3px;}.daily-match-top,.daily-queue-head{align-items:flex-start;flex-direction:column;}.daily-queue-actions,.daily-court-actions,.daily-win-actions,.daily-win-actions.three{width:100%;grid-template-columns:1fr;}.daily-queue-actions .daily-mini-btn,.daily-court-actions .daily-mini-btn{flex:1;}.daily-rank-row{grid-template-columns:24px 1fr auto;}.daily-rank-rate{display:none;}.rsvp-grid{grid-template-columns:1fr;}.rsvp-grid .btn{width:100%;justify-content:center;}}
 @media(max-width:400px){
   .nav-tab{font-size:.72rem;padding:12px 8px;}
   .win-btn{padding:7px 9px;font-size:.72rem;}
@@ -1551,7 +1564,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 </header>
 
 <div class="nav-bar">
-  <button class="nav-tab active" data-nav="daily" onclick="switchNav('daily')">☀️ 오늘운동</button>
+  <button class="nav-tab active" data-nav="daily" onclick="switchNav('daily')">☀️ 민턴LIVE</button>
   <button class="nav-tab" data-nav="roster" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" data-nav="manual" onclick="switchNav('manual')">📖 설명서</button>
   <div class="nav-save-area">
@@ -1575,14 +1588,14 @@ body.monthly-team-mode .team-partner-help{display:block;}
   <div class="err-bar" id="errBar"></div>
   <div class="warn-bar" id="warnBar"></div>
   <div class="card operation-card" id="operationModeCard">
-    <div class="card-head"><span class="card-title">🧭 운영 방식 선택</span><span class="operation-current" id="operationModeSummary">현재: 오늘운동</span></div>
+    <div class="card-head"><span class="card-title">🧭 운영 방식 선택</span><span class="operation-current" id="operationModeSummary">현재: 민턴LIVE</span></div>
     <div class="card-body">
       <div class="operation-intro">
-        콕매치는 지금부터 오늘운동을 중심으로 운영합니다. 클럽 명부, 출석 링크, 상태 변경, 대기표, 코트 진행에 집중합니다.
+        콕매치는 지금부터 민턴LIVE를 중심으로 운영합니다. 클럽 명부, 출석 링크, 상태 변경, 대기표, 코트 진행에 집중합니다.
       </div>
       <div class="operation-grid">
         <button class="operation-option daily" data-operation-option="daily" onclick="selectOperationPreset('daily')">
-          <b>오늘운동</b>
+          <b>민턴LIVE</b>
           <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 출석·레슨·휴식·귀가 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
@@ -1676,7 +1689,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
               <button class="btn btn-ghost team-secondary-action" onclick="importDirectFromDaily()"
                 style="width:100%;justify-content:center;padding:10px;font-size:.84rem;
                 color:var(--green);border-color:rgba(76,175,122,.35);margin-top:7px;border-radius:9px;min-height:44px;">
-                ☀️ 오늘운동 명단 가져오기
+                ☀️ 민턴LIVE 명단 가져오기
               </button>
             </div>
 
@@ -1743,7 +1756,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
           <button class="tmb hidden" id="teamModeBadge" onclick="toggleTeamMode()"
             title="클릭하여 팀 모드 켜기/끄기">팀 모드: 꺼짐 (자유 배정)</button>
 
-          <!-- 보류 기능: 오늘운동 집중을 위해 화면에서는 숨김 -->
+          <!-- 보류 기능: 민턴LIVE 집중을 위해 화면에서는 숨김 -->
           <button class="btn-ta hidden" id="teamAssignBtn" onclick="doTeamAssign()">
             ⚖️ 청/홍팀 자동 배정
           </button>
@@ -1898,24 +1911,24 @@ body.monthly-team-mode .team-partner-help{display:block;}
 <div class="wrap">
   <div class="daily-hero">
     <div>
-      <div class="daily-kicker">메인 운영 · 오늘운동</div>
-      <h2>오늘운동 하나로 운영합니다</h2>
-      <p>클럽 명부를 가져와 모두 대기에서 시작합니다. 추가 접수, 레슨, 휴식, 귀가 상태를 반영하고 코트가 빌 때마다 다음 대기표를 보충합니다.</p>
+      <div class="daily-kicker">메인 운영 · 민턴LIVE</div>
+      <h2>민턴LIVE</h2>
+      <p>출석을 받고, 현장 상태에 맞춰 대기표를 자동 보충합니다.</p>
       <div class="operation-flow">
-        <span>출석 링크</span><span>상태 반영</span><span>대기표 보충</span><span>코트 진행</span>
+        <span>출석</span><span>대기</span><span>배정</span><span>진행</span>
       </div>
     </div>
     <div class="daily-hero-actions">
-      <button class="btn btn-ghost btn-sm" onclick="dailyImportRoster()">클럽 명부 가져오기</button>
-      <button class="btn btn-ghost btn-sm" onclick="dailyShareCheckinLink()">출석 링크 공유</button>
-      <button class="btn btn-ghost btn-sm" onclick="dailyReset()">오늘 초기화</button>
+      <button class="btn btn-ghost btn-sm" onclick="dailyImportRoster()">명부</button>
+      <button class="btn btn-ghost btn-sm" onclick="dailyShareCheckinLink()">링크 공유</button>
+      <button class="btn btn-ghost btn-sm" onclick="dailyReset()">초기화</button>
     </div>
   </div>
 
   <div class="daily-layout">
     <div class="daily-side">
       <div class="card">
-        <div class="card-head"><span class="card-title">⚙️ 오늘운동 설정</span></div>
+        <div class="card-head"><span class="card-title">운영 설정</span></div>
         <div class="card-body">
           <div class="setting-grid" style="grid-template-columns:1fr;">
             <div class="si">
@@ -1928,20 +1941,20 @@ body.monthly-team-mode .team-partner-help{display:block;}
             </div>
           </div>
           <div class="daily-note">
-            <strong>대기중</strong>은 지금 경기 준비가 됐다는 뜻입니다. 빈 코트와 대기 가능 선수 4명 이상 조건이 맞으면 다음 대진 후보가 자동으로 표시되고, 추천을 확정하면 해당 선수는 경기중으로 바뀝니다.
+            미응답·참석예정은 후보 제외. 현장에서 <strong>대기중</strong>이 되면 배정합니다.
           </div>
           <label class="daily-auto-row">
             <input type="checkbox" id="dailyAutoAssign" onchange="dailyToggleAutoAssign(this.checked)">
             <span>
-              <span class="daily-auto-title">조건 충족 시 자동 시작</span>
-              <span class="daily-auto-desc">추천 확인 없이 빈 코트와 대기 가능 선수 4명 이상 조건이 맞으면 바로 진행중 경기를 만듭니다. 일반 운영에서는 꺼두고 추천을 확인한 뒤 시작하세요.</span>
+              <span class="daily-auto-title">자동 시작</span>
+              <span class="daily-auto-desc">빈 코트가 생기면 1순위 대기를 바로 시작합니다.</span>
             </span>
           </label>
           <label class="daily-auto-row">
             <input type="checkbox" id="dailyClosingMode" onchange="dailyToggleClosing(this.checked)">
             <span>
               <span class="daily-auto-title">마감 모드</span>
-              <span class="daily-auto-desc">새 경기 자동 시작과 임박대기 생성을 멈춥니다. 진행중 경기만 마무리할 때 켜세요.</span>
+              <span class="daily-auto-desc">새 경기 없이 진행중 경기만 마무리합니다.</span>
             </span>
           </label>
           <div class="si" style="margin-top:9px;">
@@ -1950,14 +1963,14 @@ body.monthly-team-mode .team-partner-help{display:block;}
               <input type="time" id="dailyClosingAt" class="dir-input" onchange="dailySetClosingAt(this.value)">
               <button class="daily-mini-btn" onclick="dailyClearClosingAt()">해제</button>
             </div>
-            <p class="daily-auto-desc" id="dailyClosingHint">예: 21:00으로 예약하면 그 시각부터 자동으로 마감 모드가 켜집니다.</p>
+            <p class="daily-auto-desc" id="dailyClosingHint">설정 시각부터 자동 마감합니다.</p>
           </div>
-          <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:8px;padding:9px;" onclick="dailyRunAutoAssign()">조건 맞는 코트 바로 시작</button>
+          <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:8px;padding:9px;" onclick="dailyRunAutoAssign()">가능한 코트 시작</button>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-head"><span class="card-title">➕ 오늘 선수 추가</span></div>
+        <div class="card-head"><span class="card-title">선수 추가</span></div>
         <div class="card-body">
           <div class="daily-form-grid">
             <input class="dir-input" id="dailyName" type="text" placeholder="이름"
@@ -1975,7 +1988,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
             <option value="20대">20대</option><option value="30대">30대</option>
             <option value="40대" selected>40대</option><option value="50대">50대</option><option value="60대+">60대+</option>
           </select>
-          <button class="btn-dir-add" onclick="dailyAddPlayer()">+ 오늘 대기자 추가</button>
+          <button class="btn-dir-add" onclick="dailyAddPlayer()">+ 추가</button>
         </div>
       </div>
 
@@ -1984,7 +1997,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <div class="daily-section-fold-body">
           <div class="daily-note">
             <strong>대기중</strong>, <strong>곧 귀가</strong>, <strong>마지막게임</strong>이 추천 후보입니다.<br>
-            레슨중·휴식중·종료·경기중 선수는 자동 제외됩니다.<br>
+            미응답·참석예정·레슨중·휴식중·종료·경기중 선수는 자동 제외됩니다.<br>
             <strong>마지막게임</strong>은 우선 배정하고, 경기 완료 후 자동으로 종료 처리합니다.
           </div>
         </div>
@@ -1994,7 +2007,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <summary>추천 기준</summary>
         <div class="daily-section-fold-body">
           <div class="daily-criteria">
-            <div class="daily-criteria-item"><b>1. 참여 가능</b><span>대기중·곧 귀가·마지막게임 선수만 후보로 봅니다. 경기중·레슨중·휴식중·종료는 빠집니다.</span></div>
+            <div class="daily-criteria-item"><b>1. 참여 가능</b><span>대기중·곧 귀가·마지막게임 선수만 후보로 봅니다. 미응답·참석예정·경기중·레슨중·휴식중·종료는 빠집니다.</span></div>
             <div class="daily-criteria-item"><b>2. 기본 균형</b><span>가능하면 남복·여복·혼복 형태를 유지하고, 양팀 실력 합계 차이를 작게 맞춥니다.</span></div>
             <div class="daily-criteria-item"><b>3. 공정성</b><span>오늘 적게 친 사람, 오래 기다린 사람, 곧 가는 사람을 우선하고 같은 파트너·상대 반복은 줄입니다.</span></div>
             <div class="daily-criteria-item"><b>4. 대기표</b><span>코트 수만큼 임박대기를 만들고 예비대기는 1경기만 둡니다. 이후 경기 종료·시작 흐름에 맞춰 계속 보충합니다.</span></div>
@@ -2004,79 +2017,51 @@ body.monthly-team-mode .team-partner-help{display:block;}
     </div>
 
     <div class="daily-main">
-      <div class="card">
+      <div class="card daily-primary-card">
         <div class="card-head" id="dailyOpsCard">
-          <span class="card-title">📍 운영 상황판</span>
+          <span class="card-title">운영 상황판</span>
           <button class="btn btn-ghost btn-sm" onclick="dailyRender()">새로고침</button>
         </div>
         <div class="card-body">
           <div class="daily-ops-grid" id="dailyOpsStats"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head" id="dailyResultCard">
-          <span class="card-title">🏆 오늘운동 결과 <span id="dailyResultSummary"></span></span>
-          <button class="btn btn-ghost btn-sm" onclick="dailyShareCheckinLink()">현황 공유</button>
-        </div>
-        <div class="card-body">
-          <div id="dailyResultBox" class="daily-empty">경기가 시작되면 팀 점수, MVP, 품질 요약이 여기에 표시됩니다.</div>
+          <div class="daily-admin-alerts" id="dailyAdminAlerts"></div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-head" id="dailyCheckinCard">
-          <span class="card-title">📲 회원 출석 링크 <span id="dailyCheckinSummary"></span></span>
+          <span class="card-title">회원 링크 <span id="dailyCheckinSummary"></span></span>
           <button class="btn btn-ghost btn-sm" onclick="dailyShareCheckinLink()">공유</button>
         </div>
         <div class="card-body">
           <div class="daily-note" style="margin-bottom:10px;">
-            카톡방에 링크를 보내면 회원이 직접 출석/대기/레슨/휴식/귀가 상태를 선택할 수 있습니다. 경기중·임박대기처럼 잠긴 선수 요청은 관리자 확인 대기로 남깁니다.
+            회원이 직접 참석, 대기, 레슨, 휴식, 게임 신청을 남깁니다.
+          </div>
+          <div class="si" style="margin-bottom:10px;">
+            <label>참석투표 마감</label>
+            <div style="display:grid;grid-template-columns:1fr auto auto;gap:7px;align-items:center;">
+              <input type="time" id="dailyVoteDeadlineAt" class="dir-input" onchange="dailySetVoteDeadline(this.value)">
+              <button class="daily-mini-btn" onclick="dailyClearVoteDeadline()">해제</button>
+              <button class="daily-mini-btn" onclick="dailyFilterAttendees()">참석자만 남기기</button>
+            </div>
+            <p class="daily-auto-desc" id="dailyVoteDeadlineHint">마감 후 미응답을 제외합니다.</p>
           </div>
           <div id="dailyCheckinBox" class="daily-empty">아직 출석 링크가 만들어지지 않았습니다.</div>
         </div>
       </div>
 
-      <details class="card" id="dailyReservationCard">
-        <summary class="card-head">
-          <span class="card-title">🎯 예약 대진</span>
-          <span class="monthly-optional-action"></span>
-        </summary>
-        <div class="card-body">
-          <div class="daily-note" style="margin-bottom:10px;">
-            같은 편으로 한 게임 치고 싶거나, 특정 4명이 한 번 붙어보고 싶을 때 1회성 예약으로 넣습니다. 임박대기는 유지하고 새 대기표를 채울 때 우선 반영합니다.
-          </div>
-          <div class="daily-res-form">
-            <select class="daily-select" id="dailyReservationType" onchange="dailyRenderReservations()">
-              <option value="pair">같은 편 예약 · 상대 자동</option>
-              <option value="match">4명 맞대결 예약</option>
-            </select>
-            <div class="daily-res-grid">
-              <div class="daily-res-field"><label>A팀 1</label><select class="daily-select" id="dailyResA1"></select></div>
-              <div class="daily-res-field"><label>A팀 2</label><select class="daily-select" id="dailyResA2"></select></div>
-              <div class="daily-vs">VS</div>
-              <div class="daily-res-field"><label>B팀 1</label><select class="daily-select" id="dailyResB1"></select></div>
-              <div class="daily-res-field"><label>B팀 2</label><select class="daily-select" id="dailyResB2"></select></div>
-            </div>
-            <input class="dir-input" id="dailyResNote" type="text" placeholder="메모 선택: 예) 혼복 연습, 요청 경기">
-            <button class="btn-dir-add" onclick="dailyAddReservation()">+ 예약 추가</button>
-          </div>
-          <div id="dailyReservationBox" class="daily-empty" style="margin-top:10px;">예약 대진이 없습니다.</div>
-        </div>
-      </details>
-
-      <div class="card">
+      <div class="card daily-primary-card">
         <div class="card-head" id="dailyActiveCard">
-          <span class="card-title">🏸 진행중 코트 <span id="dailyMatchSummary"></span></span>
+          <span class="card-title">진행 코트 <span id="dailyMatchSummary"></span></span>
         </div>
         <div class="card-body">
           <div class="daily-active-list" id="dailyMatchList"></div>
         </div>
       </div>
 
-      <div class="card">
+      <div class="card daily-primary-card">
         <div class="card-head" id="dailyUrgentCard">
-          <span class="card-title">🔥 임박대기</span>
+          <span class="card-title">임박 대기</span>
         </div>
         <div class="card-body">
           <div id="dailyUrgentBox" class="daily-empty">대기 가능 선수가 4명 이상이면 임박대기가 자동으로 만들어집니다.</div>
@@ -2085,7 +2070,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
       <div class="card">
         <div class="card-head" id="dailyReserveCard">
-          <span class="card-title">📋 예비 대기표 <span id="dailyReserveSummary"></span></span>
+          <span class="card-title">예비 대기 <span id="dailyReserveSummary"></span></span>
         </div>
         <div class="card-body">
           <div id="dailyRecommendBox" class="daily-rec empty">예비 대기 경기가 있으면 여기에 표시됩니다.</div>
@@ -2094,15 +2079,53 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
       <div class="card">
         <div class="card-head" id="dailyFreeWaitCard">
-          <span class="card-title">🧍 자유 대기자</span>
+          <span class="card-title">자유 대기자</span>
         </div>
         <div class="card-body">
           <div id="dailyUnscheduledBox" class="daily-empty">임박/예비 대기표에 아직 들어가지 않은 대기자가 여기에 표시됩니다.</div>
         </div>
       </div>
 
+      <details class="card" id="dailyReservationCard">
+        <summary class="card-head">
+          <span class="card-title">게임 신청/예약</span>
+          <span class="monthly-optional-action"></span>
+        </summary>
+        <div class="card-body">
+          <div class="daily-note" style="margin-bottom:10px;">
+            특정 파트너 또는 4명 경기를 1회 예약합니다. 조건이 맞으면 대기표에 우선 반영됩니다.
+          </div>
+          <div class="daily-res-form">
+            <select class="daily-select" id="dailyReservationType" onchange="dailyRenderReservations()">
+              <option value="pair">같은 편 · 상대 자동</option>
+              <option value="match">4명 맞대결</option>
+            </select>
+            <div class="daily-res-grid">
+              <div class="daily-res-field"><label>A팀 1</label><select class="daily-select" id="dailyResA1"></select></div>
+              <div class="daily-res-field"><label>A팀 2</label><select class="daily-select" id="dailyResA2"></select></div>
+              <div class="daily-vs">VS</div>
+              <div class="daily-res-field"><label>B팀 1</label><select class="daily-select" id="dailyResB1"></select></div>
+              <div class="daily-res-field"><label>B팀 2</label><select class="daily-select" id="dailyResB2"></select></div>
+            </div>
+            <input class="dir-input" id="dailyResNote" type="text" placeholder="메모 선택">
+            <button class="btn-dir-add" onclick="dailyAddReservation()">+ 예약 추가</button>
+          </div>
+          <div id="dailyReservationBox" class="daily-empty" style="margin-top:10px;">예약 대진이 없습니다.</div>
+        </div>
+      </details>
+
+      <div class="card">
+        <div class="card-head" id="dailyResultCard">
+          <span class="card-title">결과 <span id="dailyResultSummary"></span></span>
+          <button class="btn btn-ghost btn-sm" onclick="dailyShareCheckinLink()">현황 공유</button>
+        </div>
+        <div class="card-body">
+          <div id="dailyResultBox" class="daily-empty">경기가 시작되면 결과가 표시됩니다.</div>
+        </div>
+      </div>
+
       <details class="daily-section-fold" id="dailyPlayersManage">
-        <summary>👥 전체 선수 상태 관리</summary>
+        <summary>전체 선수 상태</summary>
         <div class="daily-section-fold-body">
           <div class="daily-stats" id="dailyStats"></div>
           <div class="daily-player-list" id="dailyPlayerList"></div>
@@ -2314,16 +2337,16 @@ body.monthly-team-mode .team-partner-help{display:block;}
   </div>
 </div>
 
-<!-- ── 오늘운동 명부 선택 모달 ── -->
+<!-- ── 민턴LIVE 명부 선택 모달 ── -->
 <div class="modal-overlay hidden" id="dailyImportModal">
   <div class="modal-box">
     <div class="modal-head">
-      <span>☀️ 오늘운동 명부 불러오기</span>
+      <span>☀️ 민턴LIVE 명부 불러오기</span>
       <button onclick="closeDailyImportModal()">✕</button>
     </div>
     <div class="modal-body">
       <p style="font-size:.76rem;color:var(--dim);line-height:1.6;margin-bottom:10px;">
-        오늘 온 회원만 선택해서 대기자로 추가하세요. 기본은 추가 가능한 회원 전체 선택입니다.
+        링크를 보낼 회원을 선택하세요. 선택한 회원은 먼저 미응답으로 들어가고, 링크에서 참석예정 또는 대기중을 눌러야 운영에 반영됩니다.
       </p>
       <div id="dailyImportClubTabs"></div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;">
@@ -2335,7 +2358,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
       <div id="dailyImportMemberList" style="max-height:330px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;"></div>
       <div style="display:flex;gap:8px;margin-top:11px;">
         <button class="btn btn-ghost btn-sm" onclick="toggleDailySelectAll()" style="flex-shrink:0;">전체 선택/해제</button>
-        <button class="btn btn-gen" style="flex:1;padding:10px;" onclick="importDailySelected()">✅ 오늘운동에 추가</button>
+        <button class="btn btn-gen" style="flex:1;padding:10px;" onclick="importDailySelected()">✅ 민턴LIVE에 추가</button>
       </div>
     </div>
   </div>
@@ -2344,12 +2367,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
 <!-- ═══════════════ MANUAL PAGE ═══════════════ -->
 <div class="page" id="pageManual">
 <div class="manual-wrap">
-  <button class="manual-back-btn" onclick="switchNav('daily');window.scrollTo({top:0});">← 오늘운동으로 돌아가기</button>
+  <button class="manual-back-btn" onclick="switchNav('daily');window.scrollTo({top:0});">← 민턴LIVE로 돌아가기</button>
   <div class="manual-section">
     <h2>📌 프로그램 개요</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">오늘운동 운영</strong> 도구입니다. 클럽 명부, 출석 링크, 상태 변경, 대기표, 코트 진행을 중심으로 평소 운동을 빠르게 운영합니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">민턴LIVE 운영</strong> 도구입니다. 클럽 명부, 출석 링크, 상태 변경, 대기표, 코트 진행을 중심으로 평소 운동을 빠르게 운영합니다.</p>
     <div class="feat-grid">
-      <div class="feat-card"><h4>☀️ 오늘운동 중심</h4><p>클럽 명부를 가져오고 출석·상태를 반영해 대기표와 코트 진행을 운영</p></div>
+      <div class="feat-card"><h4>☀️ 민턴LIVE 중심</h4><p>클럽 명부를 가져오고 출석·상태를 반영해 대기표와 코트 진행을 운영</p></div>
       <div class="feat-card"><h4>📊 명부 관리</h4><p>회원 명부 저장, JSON/CSV 내보내기·불러오기 지원</p></div>
       <div class="feat-card"><h4>⏱ 예상 시간</h4><p>25점·21점·15점 점수제별 예상 진행 시간 표시</p></div>
       <div class="feat-card"><h4>💾 자동저장</h4><p>대진표·점수 자동저장, 재실행 시 복원 가능</p></div>
@@ -2361,7 +2384,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
   <div class="manual-section">
     <h2>🚀 기본 사용 순서</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>오늘운동</strong>에서 클럽 명부를 가져오거나 출석 링크를 공유합니다. 회원이 직접 대기중·레슨중·휴식중·귀가 상태를 남기게 하는 흐름이 기본입니다.</p></div>
+      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong>에서 클럽 명부를 가져오거나 출석 링크를 공유합니다. 회원이 직접 참석예정·대기중·레슨중·휴식중·귀가 상태를 남기게 하는 흐름이 기본입니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">관리자는 운영 상황판에서 라이브 인원, 임박대기, 예비대기, 자유 대기자를 보고 코트를 진행합니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text">코트가 끝나면 경기 종료를 누르고, 다음 임박대기를 확인해 바로 투입합니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text">후반 정리 시간이 가까워지면 마감 예약 또는 마감 모드로 새 경기 생성을 멈춥니다.</p></div>
@@ -2382,13 +2405,13 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">P</span><p class="step-text">선수 목록의 <strong>P 버튼</strong>으로 두 사람을 <strong>고정 파트너</strong>로 묶을 수 있습니다. 같은 편으로 함께 경기합니다.</p></div>
       <div class="step-item"><span class="step-num ico">G</span><p class="step-text">정식 회원이 아닌 손님은 <strong>G 버튼</strong>으로 게스트 표시할 수 있습니다. 이름 앞에 G 배지가 붙습니다.</p></div>
-      <div class="step-item"><span class="step-num ico">예약</span><p class="step-text"><strong>오늘운동 예약 대진</strong>은 특정 2명을 같은 편으로 넣고 상대를 자동 배정하거나, 특정 4명의 맞대결을 1회성으로 대기표에 우선 반영합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">예약</span><p class="step-text"><strong>민턴LIVE 예약 대진</strong>은 특정 2명을 같은 편으로 넣고 상대를 자동 배정하거나, 특정 4명의 맞대결을 1회성으로 대기표에 우선 반영합니다.</p></div>
       <div class="step-item"><span class="step-num ico">마감</span><p class="step-text"><strong>마감 예약</strong>에 시각을 입력하면 해당 시각부터 자동으로 마감 모드가 켜져 새 경기 생성을 멈춥니다. 마감 5분 전부터는 완료 후 자동 승계도 멈춰 실수로 새 경기가 시작되는 일을 줄입니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
     <h2>🔄 경기 중 상태 변경</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">오늘운동은 사람이 오가고 레슨이 섞이는 상황을 전제로 운영합니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">민턴LIVE는 사람이 오가고 레슨이 섞이는 상황을 전제로 운영합니다.</p>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">출석 링크나 관리자 화면에서 상태를 바꿔 늦게 온 사람, 레슨 복귀자, 먼저 가는 사람을 즉시 반영합니다.</p></div>
       <div class="step-item"><span class="step-num ico">🔒</span><p class="step-text">경기중이거나 임박/예비 대기표에 들어간 선수는 실수 방지를 위해 바로 바꾸지 않고 확인 대상으로 남깁니다.</p></div>
@@ -2408,17 +2431,17 @@ body.monthly-team-mode .team-partner-help{display:block;}
   <div class="manual-section">
     <h2>📡 실시간 중계</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">출석 링크를 공유하면 회원은 같은 링크에서 본인 상태와 오늘운동 현황을 확인할 수 있습니다.</p></div>
+      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">출석 링크를 공유하면 회원은 같은 링크에서 본인 상태와 민턴LIVE 현황을 확인할 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">경기 종료와 승패를 입력하면 진행중 경기, 다음 준비 경기, MVP 현황이 함께 갱신됩니다.</p></div>
       <div class="step-item"><span class="step-num ico">🎉</span><p class="step-text">운동이 끝나면 개인 승률과 MVP를 기준으로 오늘 결과를 확인할 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num ico">🕓</span><p class="step-text">중계 데이터는 <strong>48시간 후 자동으로 정리</strong>됩니다. 별도로 종료하지 않아도 며칠 뒤 사라지니 신경 쓰지 않아도 됩니다. (즉시 끄려면 버튼을 다시 눌러 종료)</p></div>
     </div>
   </div>
   <div class="manual-section">
-    <h2>☀️ 오늘운동</h2>
+    <h2>☀️ 민턴LIVE</h2>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">콕매치의 기본 운영 화면입니다. 전체 대진표를 한 번에 확정하기보다, 현장 상태를 보고 다음 경기들을 짧게 확정하며 계속 보충합니다.</p>
     <div class="step-list">
-      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>오늘운동</strong> 메뉴에서 <strong>클럽 명부 가져오기</strong>로 회원을 선택해 불러옵니다. 게스트는 <strong>G</strong> 버튼을 켜고 추가합니다.</p></div>
+      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong> 메뉴에서 <strong>클럽 명부 가져오기</strong>로 회원을 선택해 불러옵니다. 게스트는 <strong>G</strong> 버튼을 켜고 추가합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">레슨중·휴식중·곧 귀가·마지막게임·종료 상태를 바꿔 현재 운동 가능한 사람만 남깁니다. 추천 후보는 <strong>대기중</strong>, <strong>곧 귀가</strong>, <strong>마지막게임</strong> 선수입니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text">특정 두 사람을 같은 편으로 넣어달라는 요청이 있으면 선수 카드의 <strong>묶기</strong>를 누른 뒤 상대를 선택합니다. 묶음 요청은 같은 경기·같은 편 조건으로 반영됩니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>예약 대진</strong>은 특정 2명을 같은 편으로 넣고 상대를 자동 배정하거나, 특정 4명의 맞대결을 1회성으로 예약합니다. 이미 확정된 임박대기는 유지하고 새 대기표를 채울 때 우선 반영됩니다.</p></div>
@@ -2449,7 +2472,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.136';
+const APP_VERSION = '1.10.141';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2480,16 +2503,16 @@ let currentSettings={};
 let _operationPreset='daily';
 const OPERATION_PRESETS={
   monthlyTeam:{
-    label:'오늘운동',
-    hint:'오늘운동 중심 운영입니다. 클럽 명부와 상태 변경을 기준으로 대기표를 자동 보충합니다.'
+    label:'민턴LIVE',
+    hint:'민턴LIVE 중심 운영입니다. 클럽 명부와 상태 변경을 기준으로 대기표를 자동 보충합니다.'
   },
   monthlyPersonal:{
-    label:'오늘운동',
-    hint:'개인전 운영은 오늘운동 흐름에서 처리합니다. 클럽 명부와 상태 변경을 중심으로 대기표를 보충하세요.'
+    label:'민턴LIVE',
+    hint:'개인전 운영은 민턴LIVE 흐름에서 처리합니다. 클럽 명부와 상태 변경을 중심으로 대기표를 보충하세요.'
   },
   daily:{
-    label:'오늘운동',
-    hint:'오늘운동 모드입니다. 클럽 명부를 가져오고 출석 링크와 상태 변경을 중심으로 대기표를 자동 보충합니다.'
+    label:'민턴LIVE',
+    hint:'민턴LIVE 모드입니다. 클럽 명부를 가져오고 출석 링크와 상태 변경을 중심으로 대기표를 자동 보충합니다.'
   }
 };
 function setOperationPreset(mode,hintOverride){
@@ -2680,11 +2703,13 @@ function openManual(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-/* ═══ DAILY MODE: 오늘운동 실시간 추천 ═══ */
+/* ═══ DAILY MODE: 민턴LIVE 실시간 추천 ═══ */
 const DAILY_KEY='kokmatch_daily_v1';
 const DAILY_CHECKIN_KEY='kokmatch_daily_checkin_id';
 const DAILY_MATCH_MINUTES=15;
 const DAILY_STATUS={
+  invited:{label:'미응답',eligible:false},
+  planned:{label:'참석예정',eligible:false},
   wait:{label:'대기중',eligible:true},
   playing:{label:'경기중',eligible:false},
   lesson:{label:'레슨중',eligible:false},
@@ -2714,6 +2739,8 @@ let _dailyCheckinId=null;
 let _dailyCheckinListening=false;
 let _dailyCheckinRequests=[];
 let _dailyCheckinApplying=false;
+let _dailyVoteDeadlineAt='';
+let _dailyEmergencyEditQueueId=null;
 
 function _dailyNow(){return Date.now();}
 function _dailyId(){return 'dp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);}
@@ -2847,7 +2874,7 @@ function dailyToggleTeamMode(on){
   dailyRender();
 }
 function dailyAssignTeams(){
-  alert('오늘운동에서는 간단 팀 나눔을 제거했습니다. 지금은 상태 관리, 대기표, 코트 진행에 집중합니다.');
+  alert('민턴LIVE에서는 간단 팀 나눔을 제거했습니다. 지금은 상태 관리, 대기표, 코트 진행에 집중합니다.');
 }
 function dailyToggleTeamLock(){
   _dailyClearSimpleTeamState();
@@ -3012,6 +3039,74 @@ function _dailyReservationStatus(r){
   });
   const q=_dailyBuildReservationQueueItem(used,r.id);
   return q?{cls:'ready',text:'반영 가능',ready:true}:{cls:'',text:'묶음 조건 확인 필요',ready:false};
+}
+function _dailyReservationReadyCount(){
+  return _dailyReservations.filter(r=>_dailyReservationStatus(r).ready).length;
+}
+function dailyPromoteReadyReservations(){
+  if(_dailyClosing){
+    alert('마감 모드에서는 새 예약 대진을 반영하지 않습니다.');
+    return;
+  }
+  let changed=false;
+  for(const r of _dailyReservations){
+    if(_dailyQueue.some(q=>q.reservationId===r.id))continue;
+    const locked=_dailyQueue.slice(0,_dailyQueueLockCount());
+    const lockedIds=new Set();
+    locked.forEach(q=>_dailyQueueIds(q).forEach(pid=>lockedIds.add(pid)));
+    const q=_dailyBuildReservationQueueItem(lockedIds,r.id);
+    if(!q)continue;
+    const ids=new Set(_dailyQueueIds(q));
+    const flex=_dailyQueue.slice(_dailyQueueLockCount())
+      .filter(item=>item.reservationId!==r.id&&!_dailyQueueIds(item).some(pid=>ids.has(pid)));
+    _dailyQueue=[...locked,q,...flex].slice(0,_dailyQueueCapacity().target);
+    changed=true;
+  }
+  if(!changed){
+    alert('지금 바로 반영 가능한 예약대진이 없습니다. 신청 선수 4명이 대기 가능한 상태인지 확인해 주세요.');
+    return;
+  }
+  _dailyRefreshNextFromQueue();
+  dailySave();
+  dailyRender();
+}
+function dailyForceRebuildQueue(){
+  if(_dailyClosing){
+    alert('마감 모드에서는 대기표를 새로 만들지 않습니다.');
+    return;
+  }
+  if(!confirm('임박/예비 대기표를 현재 대기자 기준으로 다시 짤까요?\n준비 알림을 보낸 대기표도 바뀔 수 있습니다.'))return;
+  _dailyEmergencyEditQueueId=null;
+  _dailyQueue=[];
+  dailyEnsureQueue();
+  dailySave();
+  dailyRender();
+}
+function dailyMoveQueueItem(queueId,dir){
+  const idx=_dailyQueue.findIndex(q=>q.id===queueId);
+  if(idx<0)return;
+  const nextIdx=idx+(dir<0?-1:1);
+  if(nextIdx<0||nextIdx>=_dailyQueue.length)return;
+  const item=_dailyQueue.splice(idx,1)[0];
+  _dailyQueue.splice(nextIdx,0,item);
+  _dailyRefreshNextFromQueue();
+  dailySave();
+  dailyRender();
+}
+function dailyToggleEmergencyQueueEdit(queueId){
+  const q=_dailyQueue.find(x=>x.id===queueId);
+  if(!q)return;
+  if(q.reservationId){
+    alert('예약 대진은 신청 의도를 보호하기 위해 선수 직접 수정이 잠겨 있습니다. 예약 삭제 후 다시 등록해 주세요.');
+    return;
+  }
+  if(_dailyEmergencyEditQueueId===queueId){
+    _dailyEmergencyEditQueueId=null;
+  }else{
+    if(!confirm('이 임박대기는 이미 확정된 대기표입니다.\n비상 상황으로 선수 교체 권한을 열까요?'))return;
+    _dailyEmergencyEditQueueId=queueId;
+  }
+  dailyRender();
 }
 function _dailyMatchEndAt(m){
   return (m.startedAt||_dailyNow())+(m.expectedMinutes||DAILY_MATCH_MINUTES)*60000;
@@ -3309,6 +3404,7 @@ function dailyEnsureQueue(){
     changed=true;
   }
   if(changed||next.length!==_dailyQueue.length)_dailyQueue=next;
+  if(_dailyEmergencyEditQueueId&&!_dailyQueue.some(q=>q.id===_dailyEmergencyEditQueueId))_dailyEmergencyEditQueueId=null;
   _dailyRefreshNextFromQueue();
   return changed;
 }
@@ -3326,6 +3422,7 @@ function dailySave(){
       captains:JSON.parse(JSON.stringify(captains)),
       closing:_dailyClosing,
       closingAt:_dailyClosingAt,
+      voteDeadlineAt:_dailyVoteDeadlineAt,
       players:_dailyPlayers,
       matches:_dailyMatches,
       queue:_dailyQueue,
@@ -3354,12 +3451,14 @@ function _dailySyncControls(courts){
   if(closingEl)closingEl.checked=_dailyClosing;
   const closingAtEl=document.getElementById('dailyClosingAt');
   if(closingAtEl)closingAtEl.value=_dailyClosingAt||'';
+  const voteEl=document.getElementById('dailyVoteDeadlineAt');
+  if(voteEl)voteEl.value=_dailyVoteDeadlineAt||'';
 }
 function _dailyLoadAsNewDay(s){
   const now=_dailyNow();
   _dailyPlayers=(s.players||[]).map(_dailyNormalize).filter(p=>p.name).map(p=>({
     ...p,
-    status:'wait',
+    status:'invited',
     joinedAt:now,
     waitFrom:now,
     lastStatusAt:now,
@@ -3372,6 +3471,7 @@ function _dailyLoadAsNewDay(s){
   }));
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
   _dailyAutoAssign=false;_dailyTeamMode=false;_dailyTeamLocked=false;_dailyClosing=false;_dailyClosingAt='';
+  _dailyVoteDeadlineAt='';
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _dailyPairSelectId=null;
   if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
@@ -3388,7 +3488,7 @@ function dailyLoad(){
     if(!raw)return;
     const s=JSON.parse(raw);
     if(s.savedAt&&!_dailySameLocalDay(s.savedAt,_dailyNow())){
-      const resume=confirm(`${_dailySavedDateLabel(s.savedAt)} 오늘운동 기록입니다.\n\n확인: 어제 기록을 이어서 보기\n취소: 명단만 남기고 오늘 새로 시작`);
+      const resume=confirm(`${_dailySavedDateLabel(s.savedAt)} 민턴LIVE 기록입니다.\n\n확인: 어제 기록을 이어서 보기\n취소: 명단만 남기고 오늘 새로 시작`);
       if(!resume){
         _dailyLoadAsNewDay(s);
         return;
@@ -3413,6 +3513,7 @@ function dailyLoad(){
     _dailyClearSimpleTeamState();
     _dailyClosing=!!s.closing;
     _dailyClosingAt=s.closingAt||'';
+    _dailyVoteDeadlineAt=s.voteDeadlineAt||'';
     _dailyCheckinId=s.checkinId||localStorage.getItem(DAILY_CHECKIN_KEY)||null;
     if(_dailyCheckinId)localStorage.setItem(DAILY_CHECKIN_KEY,_dailyCheckinId);
     _dailyMarkFourCacheDirty();
@@ -3433,7 +3534,7 @@ function dailyAddPlayer(){
   const name=(nameEl?.value||'').trim();
   if(!name){nameEl?.focus();return;}
   if(_dailyPlayers.some(p=>p.name===name)){
-    alert('오늘운동 명단에 이미 있는 선수입니다.');
+    alert('민턴LIVE 명단에 이미 있는 선수입니다.');
     nameEl.select();return;
   }
   const grade=document.getElementById('dailyGrade')?.value||'C';
@@ -3451,19 +3552,19 @@ function dailyAddPlayer(){
 function dailyImportDirect(){
   if(!_dailyCanChangeRoster())return;
   if(!_directPlayers.length){
-    alert('기존 대진표 참가자 입력에 선수를 먼저 추가하거나, 오늘운동에서 직접 추가하세요.');
+    alert('기존 대진표 참가자 입력에 선수를 먼저 추가하거나, 민턴LIVE에서 직접 추가하세요.');
     return;
   }
   let added=0;
   _directPlayers.forEach(p=>{
     if(!p.name||_dailyPlayers.some(x=>x.name===p.name))return;
-    _dailyPlayers.push(_dailyNormalize(p));
+    _dailyPlayers.push(_dailyNormalize({...p,status:'invited'}));
     added++;
   });
   if(added)_dailyNext=null;
   dailySave();dailyRender();
   dailyMaybeAutoAssign();
-  alert(added?`${added}명을 오늘운동 대기자로 가져왔습니다.`:'기존 참가자에서 새로 가져올 선수가 없습니다.');
+  alert(added?`${added}명을 민턴LIVE 출석링크 대상자로 가져왔습니다.`:'기존 참가자에서 새로 가져올 선수가 없습니다.');
 }
 function dailyImportRoster(){
   if(!_dailyCanChangeRoster())return;
@@ -3481,7 +3582,7 @@ function _dailyApplyPlayerStatus(p,status){
   p.afterMatchStatus=null;
   p.lastStatusAt=_dailyNow();
   if(status==='wait'||status==='leaving'||status==='last') p.waitFrom=_dailyNow();
-  if(status==='done'||status==='lesson'||status==='rest') p.currentMatchId=null;
+  if(status==='done'||status==='lesson'||status==='rest'||status==='planned'||status==='invited') p.currentMatchId=null;
   _dailyNext=null;
 }
 function dailySetStatus(id,status){
@@ -3643,7 +3744,7 @@ function dailyRemovePlayer(id){
   if(!p)return;
   if(p.currentMatchId){alert('경기중 선수는 먼저 경기 완료 또는 취소를 해주세요.');return;}
   if(_dailyIsLockedQueued(id)){alert('고정/예약 대기 선수는 대기 경기표에서 재배정하거나 예약 삭제 후 제외할 수 있습니다.');return;}
-  if(!confirm(`${p.name} 선수를 오늘운동 명단에서 제외할까요?`))return;
+  if(!confirm(`${p.name} 선수를 민턴LIVE 명단에서 제외할까요?`))return;
   const partner=_dailyPlayers.find(x=>(p.partnerId&&x.partnerId===p.partnerId)||x.name===p.partnerName);
   if(partner&&partner.id!==p.id){
     partner.partnerName=null;
@@ -3657,7 +3758,7 @@ function dailyRemovePlayer(id){
   dailySave();dailyRender();
 }
 function dailyReset(){
-  if(!confirm('오늘운동 기록을 모두 초기화할까요?\n기존 대진표와 명부는 지워지지 않습니다.'))return;
+  if(!confirm('민턴LIVE 기록을 모두 초기화할까요?\n기존 대진표와 명부는 지워지지 않습니다.'))return;
   _dailyPlayers=[];_dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
   _dailyPairSelectId=null;
   _dailyAutoAssign=false;
@@ -3665,6 +3766,7 @@ function dailyReset(){
   _dailyTeamLocked=false;
   _dailyClosing=false;
   _dailyClosingAt='';
+  _dailyVoteDeadlineAt='';
   if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
   _dailyCheckinId=null;
   _dailyCheckinRequests=[];
@@ -3678,6 +3780,8 @@ function dailyReset(){
   if(closingEl)closingEl.checked=false;
   const closingAtEl=document.getElementById('dailyClosingAt');
   if(closingAtEl)closingAtEl.value='';
+  const voteEl=document.getElementById('dailyVoteDeadlineAt');
+  if(voteEl)voteEl.value='';
   localStorage.removeItem(DAILY_KEY);
   dailyRender();
 }
@@ -3718,14 +3822,70 @@ function dailyClearClosingAt(){
   dailySave();
   dailyRender();
 }
+function _dailyVoteDeadlineTs(){
+  if(!_dailyVoteDeadlineAt)return 0;
+  const [h,m]=_dailyVoteDeadlineAt.split(':').map(n=>parseInt(n,10));
+  if(!Number.isFinite(h)||!Number.isFinite(m))return 0;
+  const d=new Date();
+  d.setHours(h,m,0,0);
+  return d.getTime();
+}
+function _dailyVoteClosed(){
+  const ts=_dailyVoteDeadlineTs();
+  return !!ts&&_dailyNow()>=ts;
+}
+function _dailyVoteDeadlineLabel(){
+  if(!_dailyVoteDeadlineAt)return '마감 시간 없음';
+  return `${_dailyVoteDeadlineAt}${_dailyVoteClosed()?' 마감됨':' 마감 예정'}`;
+}
+function dailySetVoteDeadline(value){
+  _dailyVoteDeadlineAt=value||'';
+  dailySave();
+  dailyRender();
+}
+function dailyClearVoteDeadline(){
+  _dailyVoteDeadlineAt='';
+  const el=document.getElementById('dailyVoteDeadlineAt');
+  if(el)el.value='';
+  dailySave();
+  dailyRender();
+}
+function dailyFilterAttendees(){
+  const removable=_dailyPlayers.filter(p=>p.status==='invited'||(p.status==='done'&&!(p.games||0)&&!p.currentMatchId));
+  if(!removable.length){
+    alert('제외할 미응답 회원이 없습니다.');
+    return;
+  }
+  const invited=removable.filter(p=>p.status==='invited').length;
+  const declined=removable.length-invited;
+  if(!confirm(`참석자만 남기고 미응답 ${invited}명${declined?`, 불참 ${declined}명`:''}을 제외할까요?\n\n이미 경기한 선수 기록은 삭제하지 않습니다.`))return;
+  const removeIds=new Set(removable.map(p=>p.id));
+  _dailyPlayers=_dailyPlayers.filter(p=>!removeIds.has(p.id));
+  _dailyReservations=_dailyReservations.filter(r=>!_dailyReservationIds(r).some(id=>removeIds.has(id)));
+  _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).some(id=>removeIds.has(id)));
+  if(_dailyPairSelectId&&removeIds.has(_dailyPairSelectId))_dailyPairSelectId=null;
+  _dailyNext=null;
+  dailyEnsureQueue();
+  dailySave();
+  dailyRender();
+}
 function dailyRenderClosingSchedule(){
   const el=document.getElementById('dailyClosingAt');
   if(el&&el.value!==_dailyClosingAt)el.value=_dailyClosingAt||'';
+  const voteEl=document.getElementById('dailyVoteDeadlineAt');
+  if(voteEl&&voteEl.value!==_dailyVoteDeadlineAt)voteEl.value=_dailyVoteDeadlineAt||'';
+  const voteHint=document.getElementById('dailyVoteDeadlineHint');
+  if(voteHint){
+    const invited=_dailyPlayers.filter(p=>p.status==='invited').length;
+    voteHint.textContent=_dailyVoteDeadlineAt
+      ? `${_dailyVoteDeadlineLabel()} · 미응답 ${invited}명은 참석자만 남기기로 제외할 수 있습니다.`
+      : '마감 후 미응답 회원을 제외하면 참석예정 이상만 운영 명단에 남습니다.';
+  }
   const hint=document.getElementById('dailyClosingHint');
   if(!hint)return;
-  if(_dailyClosing)hint.textContent='마감 모드가 켜져 있습니다. 진행중 경기만 마무리하세요.';
-  else if(_dailyClosingAt)hint.textContent=`${_dailyClosingAt}에 자동으로 마감 모드가 켜집니다. 마감 5분 전부터는 완료 후 자동 시작을 멈춥니다.`;
-  else hint.textContent='예: 21:00으로 예약하면 그 시각부터 자동으로 마감 모드가 켜집니다.';
+  if(_dailyClosing)hint.textContent='마감 중입니다. 진행중 경기만 마무리하세요.';
+  else if(_dailyClosingAt)hint.textContent=`${_dailyClosingAt} 자동 마감. 5분 전부터 새 경기 시작을 멈춥니다.`;
+  else hint.textContent='설정 시각부터 자동 마감합니다.';
 }
 function _dailyClosingScheduleReached(){
   const target=_dailyMinutesOfDay(_dailyClosingAt);
@@ -3925,7 +4085,8 @@ function dailyEditQueuePlayer(queueId,side,pos,newId){
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0)return;
   const q=_dailyQueue[idx];
-  if(idx<_dailyQueueLockCount()||q.reservationId){
+  const emergencyEdit=_dailyEmergencyEditQueueId===q.id&&!q.reservationId;
+  if((idx<_dailyQueueLockCount()&&!emergencyEdit)||q.reservationId){
     alert(q.reservationId?'예약 대진은 선수 직접 수정이 잠겨 있습니다. 예약 삭제 후 다시 등록해 주세요.':'앞쪽 고정 대기 경기는 안정성을 위해 선수 직접 수정이 잠겨 있습니다. 필요하면 관리자 재배정을 눌러주세요.');
     dailyRender();return;
   }
@@ -3955,6 +4116,7 @@ function dailyRegenerateQueueItem(queueId){
   const next=_dailyBuildQueueItem(used);
   if(!next){alert('현재 대기 인원으로 새 대기 경기를 만들 수 없습니다.');return;}
   _dailyQueue[idx]=next;
+  if(_dailyEmergencyEditQueueId===queueId)_dailyEmergencyEditQueueId=null;
   dailySave();dailyRender();
 }
 async function dailyNotifyQueue(queueId){
@@ -4064,6 +4226,7 @@ function _dailyRenderQueueItem(q,idx,mode){
   const lockCount=_dailyQueueLockCount();
   const reserved=!!q.reservationId;
   const locked=idx<lockCount||reserved;
+  const emergencyEdit=_dailyEmergencyEditQueueId===q.id&&!reserved;
   const teamA=[m.team1A,m.team1B];
   const teamB=[m.team2C,m.team2D];
   const teamMode=!!(q.teamMode||m.teamMode||_dailyTeamMode);
@@ -4072,13 +4235,13 @@ function _dailyRenderQueueItem(q,idx,mode){
   const orderLabel=teamMode?`투입순서 ${idx+1}`:`#${idx+1}`;
   const next={match:m,score:q.score,strict:q.strict,label:`${idx+1}순위 대기`,queueIndex:idx};
   const canStart=!!_dailyAvailableCourt();
-  const badgeText=reserved?'예약 대기 · 수정잠금':(locked?'고정 대기 · 수정잠금':'예비 대기 · 선수수정 가능');
-  const editHtml=locked?'':`<div class="daily-queue-edit">
+  const badgeText=reserved?'예약 대기 · 수정잠금':(emergencyEdit?'비상 수정중':(locked?'고정 대기 · 수정잠금':'예비 대기 · 선수수정 가능'));
+  const editHtml=(locked&&!emergencyEdit)?'':`<div class="daily-queue-edit">
     <div class="daily-queue-side"><label>${esc(labelA)}</label>${_dailyQueueSelect(q,'team1',0,q.team1[0])}${_dailyQueueSelect(q,'team1',1,q.team1[1])}</div>
     <div class="daily-vs">VS</div>
     <div class="daily-queue-side"><label>${esc(labelB)}</label>${_dailyQueueSelect(q,'team2',0,q.team2[0])}${_dailyQueueSelect(q,'team2',1,q.team2[1])}</div>
   </div>`;
-  return `<div class="daily-queue-item ${locked?'locked':'flex'}">
+  return `<div class="daily-queue-item ${locked?'locked':'flex'} ${emergencyEdit?'emergency':''}">
     <div class="daily-queue-head">
       <div>
         <div class="daily-queue-title">${orderLabel} · ${m.reservationLabel?'예약경기 · ':''}${esc(m.type)}${m.isFlexible?' · 예외':''} · 팀 실력차 ${esc(String(m.levelDiff))}</div>
@@ -4086,8 +4249,11 @@ function _dailyRenderQueueItem(q,idx,mode){
         ${locked?_dailyQueueStartCueHtml(idx):''}
       </div>
       <div class="daily-queue-actions">
+        ${idx>0?`<button class="daily-mini-btn" onclick="dailyMoveQueueItem('${q.id}',-1)">순서↑</button>`:''}
+        ${idx<_dailyQueue.length-1?`<button class="daily-mini-btn" onclick="dailyMoveQueueItem('${q.id}',1)">순서↓</button>`:''}
         ${locked?`<button class="daily-mini-btn" title="카톡에 보낼 준비 알림 문구를 공유하거나 복사합니다." onclick="dailyNotifyQueue('${q.id}')">준비 알림</button>`:''}
         ${canStart?`<button class="daily-mini-btn" onclick="dailyStartQueueItem('${q.id}')">${teamMode?'빈 코트 배정':'경기 시작'}</button>`:`<span class="daily-queue-badge flex">코트 대기중</span>`}
+        ${locked&&!reserved?`<button class="daily-mini-btn ${emergencyEdit?'danger':''}" onclick="dailyToggleEmergencyQueueEdit('${q.id}')">${emergencyEdit?'수정 닫기':'긴급 선수교체'}</button>`:''}
         ${reserved?`<button class="daily-mini-btn" onclick="dailyDeleteReservation('${q.reservationId}')">예약 삭제</button>`:(mode==='urgent'?`<button class="daily-mini-btn" onclick="dailyRegenerateQueueItem('${q.id}')">관리자 재배정</button>`:`<button class="daily-mini-btn" onclick="dailyRegenerateQueueItem('${q.id}')">${locked?'관리자 재배정':'자동 재배정'}</button>`)}
       </div>
     </div>
@@ -4109,11 +4275,11 @@ function dailyRenderQueue(){
     if(reserveSummary)reserveSummary.textContent='(마감)';
     if(urgentBox){
       urgentBox.className='daily-empty';
-      urgentBox.textContent='마감 모드가 켜져 있어 새 임박대기를 만들지 않습니다. 진행중 경기만 마무리하세요.';
+      urgentBox.textContent='마감 중입니다. 진행중 경기만 마무리하세요.';
     }
     if(reserveBox){
       reserveBox.className='daily-rec empty';
-      reserveBox.textContent='마감 모드에서는 예비대기를 유지하지 않습니다.';
+      reserveBox.textContent='마감 중에는 예비대기를 만들지 않습니다.';
     }
     return;
   }
@@ -4126,7 +4292,7 @@ function dailyRenderQueue(){
   if(urgentBox){
     if(!urgent.length){
       urgentBox.className='daily-empty';
-      urgentBox.textContent='임박대기가 없습니다. 대기 가능 선수가 4명 이상이면 자동으로 만들어집니다.';
+      urgentBox.textContent='대기 가능 선수 4명이 모이면 자동 생성됩니다.';
     }else{
       urgentBox.className='daily-urgent-list';
       urgentBox.innerHTML=urgent.map((q,i)=>_dailyRenderQueueItem(q,i,'urgent')).join('');
@@ -4136,11 +4302,11 @@ function dailyRenderQueue(){
     if(!reserve.length){
       reserveBox.className='daily-rec empty';
       reserveBox.textContent=cap.short
-        ? `라이브/대기 인원이 줄어 현재는 ${cap.target}경기만 유지합니다. 대기 가능 선수가 늘면 자동으로 예비 대기를 채웁니다.`
-        : '예비 대기 경기가 없습니다. 대기 인원이 더 생기면 자동으로 채워집니다.';
+        ? `현재 ${cap.target}경기만 유지합니다.`
+        : '대기자가 늘면 자동으로 채워집니다.';
     }else{
       reserveBox.className='daily-queue-list';
-      reserveBox.innerHTML=`<div class="daily-queue-guide">${cap.short?`대기 인원이 부족해 목표 ${cap.goal}경기 중 ${cap.target}경기만 유지합니다. `:''}예비 대기는 1경기만 유지합니다. 너무 많이 미리 확정하지 않아, 진행중 선수가 돌아오거나 늦게 온 선수를 반영할 여지를 남깁니다.</div>`+
+      reserveBox.innerHTML=`<div class="daily-queue-guide">${cap.short?`목표 ${cap.goal}경기 중 ${cap.target}경기 유지. `:''}예비는 1경기만 둡니다.</div>`+
         reserve.map((q,i)=>_dailyRenderQueueItem(q,i+courts,'reserve')).join('');
     }
   }
@@ -4384,6 +4550,74 @@ function dailyCancelMatch(id){
   dailySave();dailyRender();
   dailyMaybeAutoAssign();
 }
+function dailyToggleClosingFromDashboard(){
+  dailyToggleClosing(!_dailyClosing);
+  _dailySyncControls(_dailyCourtCount());
+}
+function dailyRenderAdminAlerts(){
+  const el=document.getElementById('dailyAdminAlerts');
+  if(!el)return;
+  const courts=_dailyCourtCount();
+  const active=_dailyActiveMatches().length;
+  const free=Math.max(0,courts-active);
+  const firstQueue=_dailyQueue[0];
+  const firstReady=firstQueue&&_dailyQueueItemValid(firstQueue,null);
+  const checkinPending=_dailyCheckinPendingRequests().length;
+  const readyReservations=_dailyReservationReadyCount();
+  const cap=_dailyQueueCapacity();
+  const invited=_dailyPlayers.filter(p=>p.status==='invited').length;
+  const alerts=[];
+  if(free&&firstReady&&!_dailyClosing){
+    alerts.push({
+      cls:'warn',
+      title:`빈 코트 ${free}개 · 1순위 바로 시작 가능`,
+      desc:'1순위 대기를 바로 투입할 수 있습니다.',
+      actions:`<button class="daily-mini-btn" onclick="dailyRunAutoAssign()">가능한 코트 시작</button>`
+    });
+  }
+  if(checkinPending){
+    alerts.push({
+      cls:'warn',
+      title:`확인 필요한 회원 요청 ${checkinPending}건`,
+      desc:'상태 변경 또는 게임 신청을 확인하세요.',
+      actions:`<button class="daily-mini-btn" onclick="document.getElementById('dailyCheckinCard')?.scrollIntoView({behavior:'smooth',block:'start'})">요청 확인</button>`
+    });
+  }
+  if(readyReservations){
+    alerts.push({
+      cls:'primary',
+      title:`예약대진 자동반영 가능 ${readyReservations}건`,
+      desc:'신청 선수가 모두 대기 가능합니다.',
+      actions:`<button class="daily-mini-btn" onclick="dailyPromoteReadyReservations()">예약 자동반영</button>`
+    });
+  }
+  if(cap.short&&!_dailyClosing){
+    alerts.push({
+      cls:'danger',
+      title:'대기 인원 부족',
+      desc:`목표 ${cap.goal}경기 중 ${cap.target}경기만 유지 중입니다.`,
+      actions:`<button class="daily-mini-btn" onclick="dailyImportRoster()">명부 추가</button>`
+    });
+  }
+  if(_dailyVoteClosed()&&invited){
+    alerts.push({
+      cls:'warn',
+      title:`참석투표 마감 · 미응답 ${invited}명`,
+      desc:'미응답 회원을 제외할 수 있습니다.',
+      actions:`<button class="daily-mini-btn" onclick="dailyFilterAttendees()">참석자만 남기기</button>`
+    });
+  }
+  alerts.push({
+    cls:'primary',
+    title:'관리자 비상 통제',
+    desc:'순서 변경, 선수 교체, 마감 처리를 즉시 실행합니다.',
+    actions:`<button class="daily-mini-btn" onclick="dailyForceRebuildQueue()">대기표 재생성</button><button class="daily-mini-btn" onclick="dailyPromoteReadyReservations()">예약 우선반영</button><button class="daily-mini-btn ${_dailyClosing?'danger':''}" onclick="dailyToggleClosingFromDashboard()">${_dailyClosing?'마감 해제':'마감 모드'}</button>`
+  });
+  el.innerHTML=alerts.map(a=>`<div class="daily-admin-alert ${a.cls||''}">
+    <div><div class="daily-admin-alert-title">${esc(a.title)}</div><div class="daily-admin-alert-desc">${esc(a.desc)}</div></div>
+    <div class="daily-admin-alert-actions">${a.actions||''}</div>
+  </div>`).join('');
+}
 function dailyRenderOpsStats(){
   const el=document.getElementById('dailyOpsStats');
   if(!el)return;
@@ -4394,12 +4628,16 @@ function dailyRenderOpsStats(){
   const flex=Math.max(0,_dailyQueue.length-locked);
   const ready=_dailyEligible().length;
   const unscheduled=_dailyEligible().filter(p=>!_dailyIsQueued(p.id)).length;
-  const live=_dailyPlayers.filter(p=>p.status!=='done').length;
-  const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.isGuest).length;
+  const invited=_dailyPlayers.filter(p=>p.status==='invited').length;
+  const planned=_dailyPlayers.filter(p=>p.status==='planned').length;
+  const live=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited').length;
+  const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited'&&p.isGuest).length;
   const cap=_dailyQueueCapacity();
   const checkinPending=_dailyCheckinPendingRequests().length;
   const cards=[
     {label:'라이브인원',value:live,hint:guestLive?`게스트 ${guestLive}명 포함`:'현재 현장 기준',cls:'primary'},
+    {label:'미응답',value:invited,hint:'아직 투표 전',cls:invited?'warn':''},
+    {label:'참석예정',value:planned,hint:'도착 전 · 대진 제외',cls:planned?'warn':''},
     {label:'출석링크',value:_dailyCheckinId?(checkinPending||'ON'):'OFF',hint:_dailyCheckinId?(checkinPending?'관리자 확인 필요':'회원 직접 입력 중'):'공유 전',cls:checkinPending||!_dailyCheckinId?'warn':'primary'},
     {label:'대기풀',value:ready,hint:'임박/예비/자유 포함',cls:'primary'},
     {label:'임박대기',value:locked,hint:'확정 대기 경기',cls:'primary'},
@@ -4408,8 +4646,9 @@ function dailyRenderOpsStats(){
     {label:'빈 코트',value:free,hint:free?'바로 시작 가능':'진행중',cls:free?'warn':''}
   ];
   if(_dailyClosing)cards.unshift({label:'마감모드',value:'ON',hint:'새 경기 중지',cls:'warn'});
-  if(_dailyReservations.length)cards.splice(_dailyClosing?1:0,0,{label:'예약대진',value:_dailyReservations.length,hint:'요청 경기 대기',cls:'primary'});
+  if(_dailyReservations.length)cards.splice(_dailyClosing?1:0,0,{label:'예약대진',value:_dailyReservations.length,hint:_dailyReservationReadyCount()?`${_dailyReservationReadyCount()}건 자동반영 가능`:'요청 경기 대기',cls:'primary'});
   el.innerHTML=cards.map(x=>`<div class="daily-op ${x.cls||''}"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></div>`).join('');
+  dailyRenderAdminAlerts();
 }
 function dailyRenderUnscheduled(){
   const el=document.getElementById('dailyUnscheduledBox');
@@ -4420,7 +4659,7 @@ function dailyRenderUnscheduled(){
   });
   if(!players.length){
     el.className='daily-empty';
-    el.textContent='대기 가능한 선수는 모두 임박/예비 대기표에 들어가 있습니다. 한 웨이브가 돌면 다시 섞어 다양성을 확보합니다.';
+    el.textContent='대기 가능 선수는 모두 대기표에 들어가 있습니다.';
     return;
   }
   el.className='daily-unscheduled-list';
@@ -4436,7 +4675,7 @@ function _dailyCheckinStatusLabel(status){
   return (DAILY_STATUS[status]&&DAILY_STATUS[status].label)||status||'';
 }
 function _dailyCheckinAllowedStatus(status){
-  return ['wait','lesson','rest','leaving','last','done'].includes(status);
+  return ['planned','wait','lesson','rest','leaving','last','done'].includes(status);
 }
 function _dailyCheckinGenId(){
   const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -4452,10 +4691,14 @@ function _dailyCheckinPath(){
   return _dailyCheckinId?'live/checkin_'+_dailyCheckinId:'';
 }
 function _dailyCheckinPayload(){
+  const voteClosed=_dailyVoteClosed();
   return {
-    title:'콕매치 오늘운동 출석',
+    title:'콕매치 민턴LIVE 출석',
     updatedAt:_dailyNow(),
     version:APP_VERSION,
+    voteDeadlineAt:_dailyVoteDeadlineAt,
+    voteDeadlineTs:_dailyVoteDeadlineTs(),
+    voteClosed,
     event:_dailyPublicEvent(),
     players:_dailyPlayers
       .filter(p=>p.name&&p.status!=='done')
@@ -4467,9 +4710,11 @@ function _dailyCheckinPayload(){
         statusLabel:_dailyCheckinStatusLabel(p.status),
         isGuest:!!p.isGuest,
         games:p.games||0,
+        voteLocked:voteClosed&&p.status==='invited',
         locked:_dailyIsLockedQueued(p.id)||p.status==='playing'||!!p.currentMatchId
       })),
     statuses:[
+      {key:'planned',label:'참석예정',desc:'운동 갈 예정'},
       {key:'wait',label:'대기중',desc:'지금 경기 가능'},
       {key:'lesson',label:'레슨중',desc:'레슨/준비 중'},
       {key:'rest',label:'휴식중',desc:'잠시 쉬는 중'},
@@ -4494,7 +4739,7 @@ function dailyPushCheckinSession(){
 }
 async function dailyPublishCheckinSession(silent){
   if(!_dailyPlayers.length){
-    if(!silent)alert('먼저 오늘운동 명단을 추가하거나 명부를 가져오세요.');
+    if(!silent)alert('먼저 민턴LIVE 명단을 추가하거나 명부를 가져오세요.');
     return null;
   }
   if(!_fbInit()){
@@ -4513,10 +4758,11 @@ async function dailyShareCheckinLink(){
   const id=await dailyPublishCheckinSession(false);
   if(!id)return;
   const url=_dailyCheckinUrl();
-  const text='🏸 오늘 운동 출석/상태 체크\n아래 링크에서 본인 상태를 선택해 주세요.\n\n'+url;
+  const deadline=_dailyVoteDeadlineAt?`\n참석투표 마감: ${_dailyVoteDeadlineAt}`:'';
+  const text=`🏸 민턴LIVE 출석/상태 체크${deadline}\n아래 링크에서 본인 상태를 선택하고, 필요한 경우 파트너/게임 신청도 남겨주세요.\n\n`+url;
   try{
     if(navigator.share){
-      await navigator.share({title:'콕매치 오늘운동 출석',text});
+      await navigator.share({title:'콕매치 민턴LIVE 출석',text});
       return;
     }
   }catch(e){}
@@ -4547,7 +4793,7 @@ function dailyStartCheckinListener(){
   });
 }
 function _dailyCheckinBlockReason(req,p){
-  if(!p)return '오늘운동 명단에 없는 선수';
+  if(!p)return '민턴LIVE 명단에 없는 선수';
   if(!_dailyCheckinAllowedStatus(req.status))return '알 수 없는 상태 요청';
   if(p.status==='playing'||p.currentMatchId)return '경기중이라 경기 완료/취소 후 반영 가능';
   if(_dailyIsLockedQueued(p.id))return '임박/예약 대기표에 포함되어 관리자 확인 필요';
@@ -4558,6 +4804,7 @@ function _dailyCheckinRequestRef(key){
 }
 function _dailyCheckinPendingRequests(){
   return _dailyCheckinRequests.filter(req=>{
+    if(req.type==='reservation')return true;
     const p=_dailyPlayer(req.playerId);
     return _dailyCheckinBlockReason(req,p);
   });
@@ -4568,6 +4815,7 @@ function dailyProcessCheckinRequests(){
   let changed=false;
   try{
     _dailyCheckinRequests.forEach(req=>{
+      if(req.type==='reservation')return;
       const p=_dailyPlayer(req.playerId);
       const reason=_dailyCheckinBlockReason(req,p);
       if(reason)return;
@@ -4591,6 +4839,10 @@ function dailyProcessCheckinRequests(){
 function dailyApproveCheckinRequest(key){
   const req=_dailyCheckinRequests.find(r=>r.key===key);
   if(!req)return;
+  if(req.type==='reservation'){
+    dailyApproveReservationRequest(key);
+    return;
+  }
   const p=_dailyPlayer(req.playerId);
   if(!p){dailyIgnoreCheckinRequest(key);return;}
   if(p.status==='playing'||p.currentMatchId){
@@ -4612,6 +4864,50 @@ function dailyApproveCheckinRequest(key){
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
+}
+function _dailyReservationRequestIds(req){
+  const team1=(req.team1||[]).filter(Boolean);
+  const team2=(req.mode==='match'?(req.team2||[]):[]).filter(Boolean);
+  return [...team1,...team2];
+}
+function dailyApproveReservationRequest(key){
+  const req=_dailyCheckinRequests.find(r=>r.key===key);
+  if(!req)return;
+  const team1=(req.team1||[]).filter(Boolean);
+  const team2=(req.mode==='match'?(req.team2||[]):[]).filter(Boolean);
+  const ids=_dailyReservationRequestIds(req);
+  if(req.mode==='match'){
+    if(team1.length!==2||team2.length!==2||new Set(ids).size!==4){
+      alert('4명 경기 신청 정보가 부족하거나 중복되어 있습니다.');
+      return;
+    }
+  }else if(team1.length!==2||new Set(team1).size!==2){
+    alert('같은 편 신청에는 서로 다른 2명이 필요합니다.');
+    return;
+  }
+  const missing=ids.filter(id=>!_dailyPlayer(id));
+  if(missing.length){
+    alert('신청 선수 중 현재 명단에 없는 선수가 있습니다.');
+    return;
+  }
+  if(_dailyReservationPairConflict(team1,team2)){
+    alert('기존 묶음 요청과 충돌합니다. 먼저 선수 카드의 묶음해제를 확인해 주세요.');
+    return;
+  }
+  _dailyReservations.push({
+    id:'dres_'+_dailyNow().toString(36)+'_'+Math.random().toString(36).slice(2,5),
+    mode:req.mode==='match'?'match':'pair',
+    team1,
+    team2,
+    note:req.note||`회원 신청: ${req.playerName||'이름 없음'}`,
+    createdAt:_dailyNow(),
+    source:'member-request'
+  });
+  const ref=_dailyCheckinRequestRef(key);
+  if(ref)ref.update({appliedAt:_dailyNow(),appliedBy:'admin-reservation'}).catch(()=>{});
+  dailyEnsureQueue();
+  dailySave();
+  dailyRender();
 }
 function dailyIgnoreCheckinRequest(key){
   const ref=_dailyCheckinRequestRef(key);
@@ -4645,7 +4941,8 @@ function dailyRenderCheckinRequests(){
   }
   const url=_dailyCheckinUrl();
   const pending=_dailyCheckinPendingRequests();
-  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong><br>회원이 상태를 누르면 안전한 요청은 자동 반영됩니다.</div>`;
+  const voteLine=_dailyVoteDeadlineAt?`<br>참석투표: <strong>${esc(_dailyVoteDeadlineLabel())}</strong>`:'';
+  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong>${voteLine}<br>상태는 자동 반영, 게임 신청은 확인 후 예약됩니다.</div>`;
   const actions=`<div class="daily-checkin-req-actions">
     <button class="daily-mini-btn" onclick="dailyShareCheckinLink()">다시 공유</button>
     <button class="daily-mini-btn danger" onclick="dailyStopCheckinLink()">링크 종료</button>
@@ -4662,6 +4959,25 @@ function dailyRenderCheckinRequests(){
   }
   box.className='daily-checkin-panel';
   box.innerHTML=linkHtml+pending.map(req=>{
+    if(req.type==='reservation'){
+      const names=_dailyReservationNames(_dailyReservationRequestIds(req));
+      const mode=req.mode==='match'?'4명 경기 신청':'같은 편 신청';
+      const label=req.mode==='match'
+        ? `${(names.slice(0,2).join('·')||'A팀')} vs ${(names.slice(2,4).join('·')||'B팀')}`
+        : `${(names.slice(0,2).join('·')||'선수 확인')} 같은 편`;
+      return `<div class="daily-checkin-req pending">
+        <div class="daily-checkin-req-head">
+          <div>
+            <div class="daily-checkin-req-title">${esc(req.playerName||'회원')} · ${esc(mode)}</div>
+            <div class="daily-checkin-req-meta">${esc(label)}${req.note?` · ${esc(req.note)}`:''}</div>
+          </div>
+          <div class="daily-checkin-req-actions">
+            <button class="daily-mini-btn" onclick="dailyApproveCheckinRequest('${req.key}')">예약 추가</button>
+            <button class="daily-mini-btn danger" onclick="dailyIgnoreCheckinRequest('${req.key}')">무시</button>
+          </div>
+        </div>
+      </div>`;
+    }
     const p=_dailyPlayer(req.playerId);
     const reason=_dailyCheckinBlockReason(req,p);
     const name=req.playerName||p?.name||'알 수 없음';
@@ -4694,10 +5010,12 @@ function dailyRender(){
   dailyRenderUnscheduled();
   const stats=document.getElementById('dailyStats');
   if(stats){
-    const counts={wait:0,playing:0,lesson:0,rest:0,leaving:0,last:0,done:0};
+    const counts={invited:0,planned:0,wait:0,playing:0,lesson:0,rest:0,leaving:0,last:0,done:0};
     _dailyPlayers.forEach(p=>counts[p.status]=(counts[p.status]||0)+1);
     const active=_dailyActiveMatches().length;
     stats.innerHTML=[
+      ['미응답',counts.invited],
+      ['참석예정',counts.planned],
       ['대기',counts.wait+counts.leaving+counts.last],
       ['경기중',counts.playing],
       ['레슨/휴식',counts.lesson+counts.rest],
@@ -4706,9 +5024,9 @@ function dailyRender(){
   }
   const list=document.getElementById('dailyPlayerList');
   if(list){
-    if(!_dailyPlayers.length)list.innerHTML='<div class="daily-empty">오늘운동 명단이 비어 있습니다. 클럽 명부를 가져오거나 선수를 직접 추가하세요.</div>';
+    if(!_dailyPlayers.length)list.innerHTML='<div class="daily-empty">민턴LIVE 명단이 비어 있습니다. 클럽 명부를 가져오거나 선수를 직접 추가하세요.</div>';
     else{
-      const order={last:0,leaving:1,wait:2,playing:3,lesson:4,rest:5,done:6};
+      const order={last:0,leaving:1,wait:2,planned:3,invited:4,playing:5,lesson:6,rest:7,done:8};
       const sorted=[..._dailyPlayers].sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||(a.games-b.games)||((a.waitFrom||0)-(b.waitFrom||0)));
       list.innerHTML=sorted.map(p=>`<div class="daily-player ${_dailyPairSelectId===p.id?'daily-pair-selecting':''}">
         <div class="daily-player-main">
@@ -4740,7 +5058,7 @@ let _rsvpSyncTimer=null;
 
 function _rsvpDefaultTitle(){
   const d=new Date();
-  return `${d.getMonth()+1}월 오늘운동`;
+  return `${d.getMonth()+1}월 민턴LIVE`;
 }
 function _rsvpTitle(){
   const el=document.getElementById('rsvpTitle');
@@ -5209,7 +5527,7 @@ function dailyRenderMatches(){
           <span class="daily-court-state free">빈 코트</span>
         </div>
         <div class="daily-court-body">
-          <div class="daily-court-empty">${canStart?'1순위 임박대기를 바로 시작할 수 있습니다.':'시작할 임박대기가 없습니다.'}</div>
+          <div class="daily-court-empty">${canStart?'1순위 대기 시작 가능':'시작할 대기가 없습니다.'}</div>
           ${canStart?`<div class="daily-court-actions single"><button class="daily-mini-btn" onclick="dailyStartQueueItem('${firstQueue.id}',{court:${c}})">1순위 경기 시작</button></div>`:''}
         </div>
       </div>`;
@@ -5320,7 +5638,7 @@ function renderDailyImportMembers(){
       return `<label class="import-member-row" style="opacity:.45;cursor:default;background:#f8f8f8;">
         <input type="checkbox" class="daily-import-chk" value="${m._origIdx}" disabled>
         <span style="flex:1;font-size:.84rem;font-weight:700;color:#999;">${esc(m.name)}</span>
-        <span style="font-size:.65rem;color:#bbb;margin-right:6px;">이미 오늘운동에 있음</span>
+        <span style="font-size:.65rem;color:#bbb;margin-right:6px;">이미 민턴LIVE에 있음</span>
         <span style="font-size:.68rem;color:#ccc;"><span class="lv-badge" style="background:#f0f0f0;color:#bbb;border-color:#e0e0e0;">${esc(m.grade||'')}</span> ${esc(m.gender||'')}</span>
       </label>`;
     }
@@ -5350,7 +5668,7 @@ function importDailySelected(){
   let added=0,skipped=0;
   sel.forEach(m=>{
     if(!_dailyPlayers.some(p=>p.name===m.name)){
-      _dailyPlayers.push(_dailyNormalize(m));
+      _dailyPlayers.push(_dailyNormalize({...m,status:'invited'}));
       added++;
     }else skipped++;
   });
@@ -5359,7 +5677,7 @@ function importDailySelected(){
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
-  alert(added?`${added}명을 오늘운동 대기자로 추가했습니다.${skipped?` (중복 ${skipped}명 제외)`:''}`:'새로 추가된 선수가 없습니다.');
+  alert(added?`${added}명을 민턴LIVE 출석링크 대상자로 추가했습니다.${skipped?` (중복 ${skipped}명 제외)`:''}`:'새로 추가된 선수가 없습니다.');
 }
 
 /* ═══ TEAM NAME CHANGE ═══ */
@@ -10167,16 +10485,16 @@ function addDirectPlayer(){
 
 function importDirectFromDaily(){
   if(currentMatches.length){
-    alert('이미 대진이 생성되어 있습니다. 기록 보호를 위해 오늘운동 명단은 대진 생성 전에 가져와 주세요.');
+    alert('이미 대진이 생성되어 있습니다. 기록 보호를 위해 민턴LIVE 명단은 대진 생성 전에 가져와 주세요.');
     return;
   }
   if(!_dailyPlayers.length){
-    alert('오늘운동 명단이 비어 있습니다. 오늘운동에서 출석자나 대기자를 먼저 추가하세요.');
+    alert('민턴LIVE 명단이 비어 있습니다. 민턴LIVE에서 출석자나 대기자를 먼저 추가하세요.');
     return;
   }
   const candidates=_dailyPlayers.filter(p=>p.status!=='done');
   if(!candidates.length){
-    alert('가져올 오늘운동 선수가 없습니다. 종료 처리된 선수는 제외됩니다.');
+    alert('가져올 민턴LIVE 선수가 없습니다. 종료 처리된 선수는 제외됩니다.');
     return;
   }
   const existing=new Set(_directPlayers.map(p=>p.name));
@@ -11177,7 +11495,7 @@ function switchMobileTab(tab){
     window.scrollTo({top:0,behavior:'smooth'});
     return;
   }
-  // 오늘운동 안에서 주요 운영 구역으로 이동
+  // 민턴LIVE 안에서 주요 운영 구역으로 이동
   switchNav('daily');
   if(tab==='players'){
     const details=document.getElementById('dailyPlayersManage');
