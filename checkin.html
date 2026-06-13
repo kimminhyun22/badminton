@@ -473,7 +473,16 @@ function render(){
   }
   renderLastSent();
   renderEvent();
-  const players=(session.players||[]).filter(p=>playerMatchesQuery(p,query));
+  const last=getLastSent();
+  const players=(session.players||[])
+    .filter(p=>playerMatchesQuery(p,query))
+    .sort((a,b)=>{
+      if(last&&last.playerId){
+        if(a.id===last.playerId&&b.id!==last.playerId)return -1;
+        if(b.id===last.playerId&&a.id!==last.playerId)return 1;
+      }
+      return String(a.name||'').localeCompare(String(b.name||''),'ko');
+    });
   const updated=session.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   sub.textContent=`${session.title||'콕매치 민턴LIVE'} · ${updated} 업데이트${voteDeadlineText()?` · ${voteDeadlineText()}`:''}`;
   count.textContent=`${players.length}명`;
@@ -482,7 +491,6 @@ function render(){
     return;
   }
   box.className='';
-  const last=getLastSent();
   box.innerHTML=players.map(p=>{
     const locked=!!p.locked;
     const voteLocked=!!p.voteLocked;
@@ -511,7 +519,7 @@ function statusButtonSpec(p,key){
   const selected=getSelectedStatus(p);
   if(key==='toggle'){
     if(selected==='wait')return {key:'wait',label:'종료',action:'done'};
-    if(selected==='done')return {key:'done',label:'종료',action:'wait'};
+    if(selected==='done')return {key:'done',label:'다시 시작',action:'wait'};
     return {key:'wait',label:'시작',action:'wait'};
   }
   return {key,label:compactLabel(key),action:key};

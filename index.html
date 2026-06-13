@@ -9,7 +9,7 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.148  (2026-06)
+     APP VERSION: 1.10.149  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
@@ -2502,7 +2502,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.148';
+const APP_VERSION = '1.10.149';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4739,7 +4739,7 @@ function _dailyCheckinPayload(){
     voteClosed,
     event:_dailyPublicEvent(),
     players:_dailyPlayers
-      .filter(p=>p.name&&p.status!=='done')
+      .filter(p=>p.name)
       .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
       .map(p=>({
         id:p.id,
@@ -4756,6 +4756,7 @@ function _dailyCheckinPayload(){
       {key:'wait',label:'시작',desc:''},
       {key:'lesson',label:'레슨',desc:''},
       {key:'rest',label:'휴식',desc:''},
+      {key:'done',label:'종료',desc:''},
       {key:'last',label:'마지막',desc:''}
     ]
   };
@@ -4849,9 +4850,30 @@ function dailyProcessCheckinRequests(){
   if(_dailyCheckinApplying)return;
   _dailyCheckinApplying=true;
   let changed=false;
+  const now=_dailyNow();
   try{
+    const latestByPlayer=new Map();
+    const superseded=[];
     _dailyCheckinRequests.forEach(req=>{
       if(req.type==='reservation')return;
+      if(!req.playerId){superseded.push(req);return;}
+      const cur=latestByPlayer.get(req.playerId);
+      if(!cur||(req.createdAt||0)>=(cur.createdAt||0)){
+        if(cur)superseded.push(cur);
+        latestByPlayer.set(req.playerId,req);
+      }else{
+        superseded.push(req);
+      }
+    });
+    superseded.forEach(req=>{
+      const ref=_dailyCheckinRequestRef(req.key);
+      if(ref)ref.update({appliedAt:now,appliedBy:'admin-superseded'}).catch(()=>{});
+    });
+    if(superseded.length){
+      const keys=new Set(superseded.map(req=>req.key));
+      _dailyCheckinRequests=_dailyCheckinRequests.filter(req=>!keys.has(req.key));
+    }
+    latestByPlayer.forEach(req=>{
       const p=_dailyPlayer(req.playerId);
       const reason=_dailyCheckinBlockReason(req,p);
       if(reason)return;
@@ -4860,7 +4882,7 @@ function dailyProcessCheckinRequests(){
         changed=true;
       }
       const ref=_dailyCheckinRequestRef(req.key);
-      if(ref)ref.update({appliedAt:_dailyNow(),appliedBy:'admin-auto'}).catch(()=>{});
+      if(ref)ref.update({appliedAt:now,appliedBy:'admin-auto'}).catch(()=>{});
     });
   }finally{
     _dailyCheckinApplying=false;
