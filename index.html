@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.134  (2026-06)
+     APP VERSION: 1.10.135  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.134">
+<meta name="app-version" content="1.10.135">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1552,7 +1552,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
 <div class="nav-bar">
   <button class="nav-tab active" data-nav="daily" onclick="switchNav('daily')">☀️ 오늘운동</button>
-  <button class="nav-tab" data-nav="main" onclick="selectOperationPreset('monthlyTeam')">🏆 팀전</button>
   <button class="nav-tab" data-nav="roster" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" data-nav="manual" onclick="switchNav('manual')">📖 설명서</button>
   <div class="nav-save-area">
@@ -1579,7 +1578,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div class="card-head"><span class="card-title">🧭 운영 방식 선택</span><span class="operation-current" id="operationModeSummary">현재: 오늘운동</span></div>
     <div class="card-body">
       <div class="operation-intro">
-        평소 운동은 오늘운동으로 빠르게 운영하고, 월례 팀전은 전체 대진표와 라운드제를 기준으로 안정적으로 진행합니다.
+        콕매치는 지금부터 오늘운동을 중심으로 운영합니다. 클럽 명부, 출석 링크, 상태 변경, 대기표, 코트 진행에 집중합니다.
       </div>
       <div class="operation-grid">
         <button class="operation-option daily" data-operation-option="daily" onclick="selectOperationPreset('daily')">
@@ -1587,31 +1586,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
           <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 출석·레슨·휴식·귀가 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
-        <button class="operation-option team" data-operation-option="monthlyTeam" onclick="selectOperationPreset('monthlyTeam')">
-          <b>월례 팀전</b>
-          <span>참가자를 확정한 뒤 청/홍팀, 파트너 묶기, 전체 라운드 대진, 품질점검, 재배정을 함께 관리합니다.</span>
-          <small>전체 대진 · 라운드제</small>
-        </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
-        추천: 평소 운동은 오늘운동, 월례 팀전은 전체 대진표 방식으로 분리해 운영하세요.
+        추천: 평소 운동 흐름을 기준으로 먼저 안정화하고, 필요한 기능만 차례로 더하세요.
       </div>
       <div class="operation-flow" id="operationFlow">
-        <span>참석 링크</span><span>대진표 참가자</span><span>청/홍팀</span><span>전체 라운드</span><span>품질점검</span>
-      </div>
-      <div class="team-focus-flow" id="teamFocusFlow">
-        <b>월례 팀전</b><span>1 참가자 확정</span><span>2 청/홍팀 배정</span><span>3 전체 대진 생성</span><span>4 품질점검·재배정</span>
-      </div>
-      <div class="team-core-panel" id="teamCorePanel">
-        <strong>기존 팀전 핵심 기능 그대로 사용</strong>
-        <div class="team-core-list">
-          <span>인당 게임 수 보장</span>
-          <span>혼복 횟수 설정</span>
-          <span>P+ 파트너 묶기</span>
-          <span>청/홍팀 자동 배정</span>
-          <span>품질점검·재배정</span>
-          <span>실시간 중계</span>
-        </div>
+        <span>클럽 명부</span><span>출석 링크</span><span>상태 반영</span><span>대기표 보충</span><span>코트 진행</span>
       </div>
     </div>
   </div>
@@ -1619,29 +1599,29 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
     <!-- ── LEFT ── -->
     <div>
-      <!-- 팀전 참석 링크 -->
+      <!-- 출석 링크 -->
       <details class="card" id="sec-rsvp">
         <summary class="card-head">
-          <span class="card-title">🗳️ 팀전 참석 링크 <span id="rsvpSummary"></span></span>
+          <span class="card-title">🗳️ 출석 링크 <span id="rsvpSummary"></span></span>
           <span class="monthly-optional-action"></span>
         </summary>
         <div class="card-body">
           <div class="rsvp-grid">
             <select class="dir-input" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
-            <input class="dir-input" id="rsvpTitle" type="text" placeholder="예: 6월 팀전" oninput="rsvpSaveLocal();rsvpRender();">
+            <input class="dir-input" id="rsvpTitle" type="text" placeholder="예: 토요일 운동" oninput="rsvpSaveLocal();rsvpRender();">
             <input class="dir-input" id="rsvpGuestLimit" type="number" min="0" inputmode="numeric" placeholder="게스트 제한" oninput="rsvpSaveLocal();rsvpRender();">
             <button class="btn btn-ghost btn-sm" onclick="rsvpShareLink()">밴드 공지 복사</button>
           </div>
           <div class="daily-note" style="margin-bottom:10px;">
             먼저 발송할 클럽 명부를 선택하세요. 밴드에는 링크만 올리고, 회원은 본인 카드에서 참석·불참·게스트를 직접 확정합니다.
           </div>
-          <div id="rsvpBox" class="daily-empty">아직 팀전 참석 링크가 만들어지지 않았습니다.</div>
+          <div id="rsvpBox" class="daily-empty">아직 출석 링크가 만들어지지 않았습니다.</div>
         </div>
       </details>
 
       <!-- 참가자 입력 -->
       <div class="card" id="sec-players">
-        <div class="card-head"><span class="card-title" id="playersCardTitle">📋 기존 대진표 참가자 입력</span></div>
+        <div class="card-head"><span class="card-title" id="playersCardTitle">📋 참가자 입력</span></div>
         <div class="card-body">
 
           <!-- 모바일 저장/불러오기 바 -->
@@ -1723,7 +1703,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
       <!-- 대회 설정 -->
       <div class="card" id="sec-settings">
-        <div class="card-head"><span class="card-title" id="settingsCardTitle">⚙️ 팀전 세부 설정</span></div>
+        <div class="card-head"><span class="card-title" id="settingsCardTitle">⚙️ 대진 설정</span></div>
         <div class="card-body">
           <div class="setting-grid">
             <div class="si">
@@ -1760,10 +1740,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
               </div>
             </div>
           </div>
-          <button class="tmb" id="teamModeBadge" onclick="toggleTeamMode()"
+          <button class="tmb hidden" id="teamModeBadge" onclick="toggleTeamMode()"
             title="클릭하여 팀 모드 켜기/끄기">팀 모드: 꺼짐 (자유 배정)</button>
 
-          <!-- 팀 배정 컨트롤: 팀 모드와 함께 한곳에 -->
+          <!-- 보류 기능: 오늘운동 집중을 위해 화면에서는 숨김 -->
           <button class="btn-ta hidden" id="teamAssignBtn" onclick="doTeamAssign()">
             ⚖️ 청/홍팀 자동 배정
           </button>
@@ -1879,7 +1859,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         </div>
       </div>
 
-      <!-- 실시간 중계 버튼 (팀전/개인전 모두 표시) -->
+      <!-- 실시간 중계 버튼 -->
       <div id="liveShareWrap" style="text-align:right;margin-bottom:8px;">
         <button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">📡 실시간 중계</button>
       </div>
@@ -1920,7 +1900,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div>
       <div class="daily-kicker">메인 운영 · 오늘운동</div>
       <h2>오늘운동 하나로 운영합니다</h2>
-      <p>클럽 명부를 가져와 모두 대기에서 시작합니다. 평소 운동은 추가 접수와 상태 변경을 받고, 팀전은 청/홍팀으로 나눈 뒤 추가 접수를 잠그면 됩니다.</p>
+      <p>클럽 명부를 가져와 모두 대기에서 시작합니다. 추가 접수, 레슨, 휴식, 귀가 상태를 반영하고 코트가 빌 때마다 다음 대기표를 보충합니다.</p>
       <div class="operation-flow">
         <span>출석 링크</span><span>상태 반영</span><span>대기표 보충</span><span>코트 진행</span>
       </div>
@@ -2368,18 +2348,15 @@ body.monthly-team-mode .team-partner-help{display:block;}
   <button class="manual-back-btn" onclick="switchNav('daily');window.scrollTo({top:0});">← 오늘운동으로 돌아가기</button>
   <div class="manual-section">
     <h2>📌 프로그램 개요</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">클럽 운동 운영</strong> 도구입니다. 평소 운동은 오늘운동으로 빠르게 운영하고, 월례 팀전처럼 모두 모인 고정 명부 운영은 전체 라운드 대진표 방식으로 처리합니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">오늘운동 운영</strong> 도구입니다. 클럽 명부, 출석 링크, 상태 변경, 대기표, 코트 진행을 중심으로 평소 운동을 빠르게 운영합니다.</p>
     <div class="feat-grid">
       <div class="feat-card"><h4>☀️ 오늘운동 중심</h4><p>클럽 명부를 가져오고 출석·상태를 반영해 대기표와 코트 진행을 운영</p></div>
       <div class="feat-card"><h4>📊 명부 관리</h4><p>회원 명부 저장, JSON/CSV 내보내기·불러오기 지원</p></div>
-      <div class="feat-card"><h4>⚖️ 팀 자동/수동 배정</h4><p>자동 배정 후 청팀·홍팀 간 선수 수동 이동 가능</p></div>
-      <div class="feat-card"><h4>✏️ 팀명 변경</h4><p>청팀/홍팀 명칭을 직접 수정, 대진표·인쇄에 반영</p></div>
       <div class="feat-card"><h4>⏱ 예상 시간</h4><p>25점·21점·15점 점수제별 예상 진행 시간 표시</p></div>
       <div class="feat-card"><h4>💾 자동저장</h4><p>대진표·점수 자동저장, 재실행 시 복원 가능</p></div>
-      <div class="feat-card"><h4>🗳️ 참석 링크</h4><p>밴드 공지용 링크 하나로 참석 확인, 대진 확정, 실시간 중계까지 연결</p></div>
+      <div class="feat-card"><h4>🗳️ 출석 링크</h4><p>회원이 직접 대기·레슨·휴식·귀가 상태를 입력</p></div>
       <div class="feat-card"><h4>⚡ 코트 진행</h4><p>끝난 코트에 현재 경기 중 선수와 겹치지 않는 다음 경기 자동 배정</p></div>
-      <div class="feat-card"><h4>📡 실시간 중계</h4><p>카톡 링크로 대진표, 팀원, 점수, MVP 현황 공유</p></div>
-      <div class="feat-card"><h4>🏆 월례 팀전</h4><p>모두 모인 고정 명부에서 전체 라운드 대진, 팀 점수, MVP를 관리</p></div>
+      <div class="feat-card"><h4>📡 실시간 현황</h4><p>카톡 링크로 진행중 경기, 다음 대기, MVP 현황 공유</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2387,8 +2364,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>오늘운동</strong>에서 클럽 명부를 가져오거나 출석 링크를 공유합니다. 회원이 직접 대기중·레슨중·휴식중·귀가 상태를 남기게 하는 흐름이 기본입니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">관리자는 운영 상황판에서 라이브 인원, 임박대기, 예비대기, 자유 대기자를 보고 코트를 진행합니다.</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text">월례 팀전처럼 모두 모인 상태에서 청팀/홍팀으로 겨루는 날에는 <strong>월례 팀전</strong>에서 참가자를 확정하고 청/홍팀을 배정합니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text">팀전은 중간 투입 없이 전체 라운드 대진표를 먼저 만들고, 품질점검과 재배정으로 안정성을 확인한 뒤 진행합니다.</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text">코트가 끝나면 경기 종료를 누르고, 다음 임박대기를 확인해 바로 투입합니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text">후반 정리 시간이 가까워지면 마감 예약 또는 마감 모드로 새 경기 생성을 멈춥니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2398,19 +2375,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
       <div class="feat-card"><h4>⚖️ 실력 균형</h4><p>양 팀 실력 합이 비슷하도록 배정. 남녀 실력차도 반영</p></div>
       <div class="feat-card"><h4>🔁 재대결 다양성</h4><p>같은 4명이 다시 경기하거나 똑같은 팀 대결이 반복되지 않도록 분산</p></div>
       <div class="feat-card"><h4>⏱ 대진 간격</h4><p>방금 뛴 사람의 연속 출전을 줄이고, 진행 중 선수 중복은 차단</p></div>
-      <div class="feat-card"><h4>🎽 게임 수 보장</h4><p>모든 선수가 목표 게임 수를 채우도록 배정</p></div>
-      <div class="feat-card"><h4>🟧 성비 보정</h4><p>팀전 성비가 반대로 남으면 여1/남3 같은 예외 조합으로 공정성 보완</p></div>
-      <div class="feat-card"><h4>🏸 혼복 0 해석</h4><p>혼복 금지가 아니라 남복·여복 우선. 필요 시 최소한의 혼복·보정경기 허용</p></div>
-    </div>
-  </div>
-  <div class="manual-section">
-    <h2>🟧 보정경기란?</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">팀전에서 양팀 성비가 서로 반대로 남으면 남복·여복·혼복만으로는 전원 4게임을 정확히 맞추기 어려울 수 있습니다. 이때 콕매치는 <strong style="color:var(--txt)">보정경기</strong>를 만들어 일부 조합을 예외적으로 허용합니다.</p>
-    <div class="step-list">
-      <div class="step-item"><span class="step-num ico">예</span><p class="step-text"><strong>청팀 여1/남1 vs 홍팀 남2</strong> 또는 <strong>청팀 남2 vs 홍팀 여1/남1</strong>처럼 한 경기 안의 남녀 수가 1:3 또는 3:1이 될 수 있습니다.</p></div>
-      <div class="step-item"><span class="step-num ico">왜</span><p class="step-text">목표 게임 수를 맞추고, 특정 선수만 3게임 또는 5게임이 되는 문제를 줄이기 위한 장치입니다.</p></div>
-      <div class="step-item"><span class="step-num ico">표시</span><p class="step-text">대진표에는 <strong>보정</strong>으로 따로 표시됩니다. 혼복 통계와는 별도로 집계됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">주의</span><p class="step-text">보정경기는 남복·여복·혼복으로 해결하기 어려울 때만 사용합니다. 품질점검의 실전 특이사항에서 개수를 확인하세요.</p></div>
+      <div class="feat-card"><h4>🎽 참여 균형</h4><p>적게 친 사람, 오래 기다린 사람, 곧 가는 사람을 우선 반영</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2423,13 +2388,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
     </div>
   </div>
   <div class="manual-section">
-    <h2>🔄 경기 중 선수 변경 · 재배정</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">경기가 진행되는 도중에도 대진을 유연하게 조정할 수 있습니다.</p>
+    <h2>🔄 경기 중 상태 변경</h2>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">오늘운동은 사람이 오가고 레슨이 섞이는 상황을 전제로 운영합니다.</p>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">각 라운드 제목 옆 <strong>✏️ 선수 변경</strong> — 늦게 온 선수를 추가하거나 먼저 간 선수를 빼고, 그 라운드부터 다시 배정합니다. <strong>팀전은 새 선수 중간투입을 막고</strong> 기존 선수 제외만 허용합니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🎲</span><p class="step-text"><strong>🎲 재배정</strong> — 선수 변경 없이 그 라운드부터 대진만 다시 섞습니다. 결과가 마음에 안 들 때 사용하세요.</p></div>
-      <div class="step-item"><span class="step-num ico">⏰</span><p class="step-text"><strong>중간 투입 선수</strong>는 남은 경기 비율만큼만 게임을 배정받습니다. (예: 절반 진행 후 투입 시 4게임 중 2게임) 참가자 현황에 <strong>「중간」</strong> 배지로 표시됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🔒</span><p class="step-text">중간 투입을 하면 그 이전 라운드는 <strong>🔒 변경 잠금</strong>되어 대진이 보존됩니다. 단, 승/패 입력은 계속 가능합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">출석 링크나 관리자 화면에서 상태를 바꿔 늦게 온 사람, 레슨 복귀자, 먼저 가는 사람을 즉시 반영합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">🔒</span><p class="step-text">경기중이거나 임박/예비 대기표에 들어간 선수는 실수 방지를 위해 바로 바꾸지 않고 확인 대상으로 남깁니다.</p></div>
+      <div class="step-item"><span class="step-num ico">⏰</span><p class="step-text">마지막게임 선수는 우선 배정하고, 경기 완료 후 자동으로 종료 처리합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2438,17 +2402,16 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">✅</span><p class="step-text"><strong>양호</strong> — 문제 없음</p></div>
       <div class="step-item"><span class="step-num ico">⚠️</span><p class="step-text"><strong>주의</strong> — 개선 여지 있으나 인원·조건상 일부 불가피할 수 있음</p></div>
-      <div class="step-item"><span class="step-num ico">❌</span><p class="step-text"><strong>개선 필요</strong> — 재배정을 권장. 미달 선수, 반복 경기, 보정경기 수 등 실전 특이사항을 함께 확인하세요.</p></div>
+      <div class="step-item"><span class="step-num ico">❌</span><p class="step-text"><strong>개선 필요</strong> — 반복 경기, 연속 출전, 대기 인원 부족 등 실전 특이사항을 함께 확인하세요.</p></div>
     </div>
     <p style="font-size:.74rem;color:var(--dim);line-height:1.7;margin-top:8px;">※ 인원이 적으면 연속 출전·상대 반복이 수학적으로 불가피할 수 있습니다. 대시보드는 이런 불가피한 부분을 감안해 판정합니다.</p>
   </div>
   <div class="manual-section">
     <h2>📡 실시간 중계</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">팀전 참석 링크로 출석을 받은 경우, 결과 화면의 <strong>📡 실시간 중계</strong> 버튼을 누르면 처음 보낸 참석 링크 안에 중계 버튼이 자동으로 붙습니다. 단톡방에는 새 링크 대신 같은 참석 링크를 다시 안내하면 됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🔗</span><p class="step-text">참석 링크 없이 바로 대진표를 만든 경우에는 기존처럼 별도의 실시간 중계 링크가 만들어집니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">중계 중에는 <strong>승/패를 입력할 때마다 자동으로 갱신</strong>됩니다. 관전자 화면의 팀 점수, MVP, 개인 순위도 함께 업데이트됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🎉</span><p class="step-text">모든 경기가 끝나면 관전 화면에 <strong>경기 종료 축하 연출</strong>이 자동으로 표시됩니다. (팀전은 우승 팀, 개인전은 승률 1위)</p></div>
+      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">출석 링크를 공유하면 회원은 같은 링크에서 본인 상태와 오늘운동 현황을 확인할 수 있습니다.</p></div>
+      <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">경기 종료와 승패를 입력하면 진행중 경기, 다음 준비 경기, MVP 현황이 함께 갱신됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">🎉</span><p class="step-text">운동이 끝나면 개인 승률과 MVP를 기준으로 오늘 결과를 확인할 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num ico">🕓</span><p class="step-text">중계 데이터는 <strong>48시간 후 자동으로 정리</strong>됩니다. 별도로 종료하지 않아도 며칠 뒤 사라지니 신경 쓰지 않아도 됩니다. (즉시 끄려면 버튼을 다시 눌러 종료)</p></div>
     </div>
   </div>
@@ -2487,7 +2450,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.134';
+const APP_VERSION = '1.10.135';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2518,8 +2481,8 @@ let currentSettings={};
 let _operationPreset='daily';
 const OPERATION_PRESETS={
   monthlyTeam:{
-    label:'월례 팀전',
-    hint:'팀전 운영입니다. 참가자 확정 후 청/홍팀, 파트너 묶기, 전체 라운드 대진, 품질점검, 재배정을 사용합니다.'
+    label:'오늘운동',
+    hint:'오늘운동 중심 운영입니다. 클럽 명부와 상태 변경을 기준으로 대기표를 자동 보충합니다.'
   },
   monthlyPersonal:{
     label:'오늘운동',
@@ -2531,10 +2494,10 @@ const OPERATION_PRESETS={
   }
 };
 function setOperationPreset(mode,hintOverride){
-  if(!OPERATION_PRESETS[mode])mode='daily';
+  mode='daily';
   _operationPreset=mode;
   if(document.body&&document.body.classList){
-    document.body.classList.toggle('monthly-team-mode',mode==='monthlyTeam');
+    document.body.classList.remove('monthly-team-mode');
   }
   document.querySelectorAll('[data-operation-option]').forEach(btn=>{
     btn.classList.toggle('active',btn.dataset.operationOption===mode);
@@ -2544,26 +2507,19 @@ function setOperationPreset(mode,hintOverride){
   const hint=document.getElementById('operationModeHint');
   if(hint)hint.textContent=hintOverride||OPERATION_PRESETS[mode].hint;
   const playersTitle=document.getElementById('playersCardTitle');
-  if(playersTitle)playersTitle.textContent=mode==='monthlyTeam'?'📋 팀전 참가자':'📋 참가자 입력';
+  if(playersTitle)playersTitle.textContent='📋 참가자 입력';
   const settingsTitle=document.getElementById('settingsCardTitle');
-  if(settingsTitle)settingsTitle.textContent=mode==='monthlyTeam'?'⚙️ 팀전 대진 설정':'⚙️ 대진 설정';
+  if(settingsTitle)settingsTitle.textContent='⚙️ 대진 설정';
   syncMonthlyTeamFolds();
 }
 function syncMonthlyTeamFolds(){
   const rsvp=document.getElementById('sec-rsvp');
   if(rsvp&&rsvp.tagName==='DETAILS'){
-    if(_operationPreset==='monthlyTeam'){
-      rsvp.open=!!_rsvpId;
-    }else{
-      rsvp.open=true;
-    }
+    rsvp.open=true;
   }
 }
 function inferOperationPreset(){
-  if(currentSettings&&currentSettings.operationPreset)return currentSettings.operationPreset;
-  if(currentSettings&&currentSettings.teamMode)return 'monthlyTeam';
-  if(teamAssignment&&_teamModeOverride!==false)return 'monthlyTeam';
-  return _operationPreset||'daily';
+  return 'daily';
 }
 let _fastPlayOn=false;
 let _fastActive={};
@@ -2703,49 +2659,18 @@ let teamNames={blue:'청 팀',white:'홍 팀'};
 
 /* ═══ NAV ═══ */
 function switchNav(p){
+  if(p==='main')p='daily';
   const pages=['main','daily','roster','manual'];
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active',t.dataset.nav===p));
   ['pageMain','pageDaily','pageRoster','pageManual'].forEach((id,i)=>document.getElementById(id).classList.toggle('active',pages[i]===p));
   if(p==='daily')setOperationPreset('daily');
-  else if(p==='main'&&_operationPreset==='daily'){
-    setOperationPreset('monthlyTeam');
-  }
 }
 
 function selectOperationPreset(mode){
-  const scrollTo=(id)=>{
-    const el=document.getElementById(id);
-    if(el){
-      const top=el.getBoundingClientRect().top+window.scrollY-10;
-      window.scrollTo({top,behavior:'smooth'});
-    }
-  };
-  setOperationPreset(mode);
-  if(mode==='daily'){
-    switchNav('daily');
-    if(typeof syncBottomNav==='function') syncBottomNav('daily');
-    window.scrollTo({top:0,behavior:'smooth'});
-    return;
-  }
-  if(mode==='monthlyTeam'){
-    switchNav('main');
-    _teamWanted=true;
-    _teamModeOverride=null;
-    updateTeamModeBadge();
-    if(teamAssignment)renderTeamList();
-    if(typeof syncBottomNav==='function') syncBottomNav('team');
-    scrollTo(_directPlayers.length?'sec-settings':'sec-players');
-    return;
-  }
-  if(mode==='monthlyPersonal'){
-    _teamWanted=false;
-    _teamModeOverride=false;
-    updateTeamModeBadge();
-    if(teamAssignment)renderTeamList();
-    switchNav('daily');
-    if(typeof syncBottomNav==='function') syncBottomNav('daily');
-    window.scrollTo({top:0,behavior:'smooth'});
-  }
+  setOperationPreset('daily');
+  switchNav('daily');
+  if(typeof syncBottomNav==='function') syncBottomNav('daily');
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 
 /* 설명서 열기 (PC·모바일 공통) */
@@ -2923,7 +2848,7 @@ function dailyToggleTeamMode(on){
   dailyRender();
 }
 function dailyAssignTeams(){
-  alert('팀전은 상단 팀전 탭에서 별도로 진행하세요. 오늘운동은 일반 대기/자동 대진에 집중합니다.');
+  alert('오늘운동에서는 간단 팀 나눔을 제거했습니다. 지금은 상태 관리, 대기표, 코트 진행에 집중합니다.');
 }
 function dailyToggleTeamLock(){
   _dailyClearSimpleTeamState();
@@ -4816,7 +4741,7 @@ let _rsvpSyncTimer=null;
 
 function _rsvpDefaultTitle(){
   const d=new Date();
-  return `${d.getMonth()+1}월 팀전`;
+  return `${d.getMonth()+1}월 오늘운동`;
 }
 function _rsvpTitle(){
   const el=document.getElementById('rsvpTitle');
@@ -5155,7 +5080,7 @@ function _rsvpBracketHasStarted(){
 }
 function _rsvpClearUnstartedBracket(){
   if(!currentMatches.length)return;
-  _captureUndoSnapshot('팀전 참석자 가져오기 전');
+  _captureUndoSnapshot('출석자 가져오기 전');
   teamAssignment=null;
   _teamModeOverride=null;
   _teamWanted=false;
@@ -5184,7 +5109,7 @@ function rsvpImportAttendees(){
       alert('이미 진행되었거나 결과가 입력된 기존 대진표가 있습니다.\n기록 보호를 위해 자동 초기화하지 않습니다.\n필요하면 전체 초기화 또는 선수 변동 재배정을 먼저 확인해 주세요.');
       return;
     }
-    if(!confirm('기존 대진표가 아직 남아 있습니다.\n미진행 대진표를 초기화하고 참석자를 팀전 참가자로 가져올까요?'))return;
+    if(!confirm('기존 대진표가 아직 남아 있습니다.\n미진행 대진표를 초기화하고 출석자를 참가자로 가져올까요?'))return;
     _rsvpClearUnstartedBracket();
   }
   if(_directPlayers.length&&!confirm(`현재 대진표 참가자 ${_directPlayers.length}명을 지우고 참석 확정자 ${counts.attend}명으로 교체할까요?`))return;
@@ -5225,11 +5150,11 @@ function rsvpImportAttendees(){
     if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-10,behavior:'smooth'});
   },30);
   scheduleSave();
-  alert(`참석 확정자 ${counts.attend}명과 게스트 ${counts.guest}명을 팀전 참가자로 가져왔습니다.\n이제 청/홍팀 자동 배정 후 전체 대진을 생성하세요.`);
+  alert(`참석 확정자 ${counts.attend}명과 게스트 ${counts.guest}명을 참가자로 가져왔습니다.`);
 }
 async function rsvpStopLink(){
   if(!_rsvpId)return;
-  if(!confirm('팀전 참석 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 참석부를 볼 수 없습니다.'))return;
+  if(!confirm('출석 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 참석부를 볼 수 없습니다.'))return;
   const path=_rsvpPath();
   if(_fbDb)await _fbDb.ref(path).remove().catch(()=>{});
   localStorage.removeItem(RSVP_KEY);
@@ -11253,12 +11178,6 @@ function switchMobileTab(tab){
     window.scrollTo({top:0,behavior:'smooth'});
     return;
   }
-  if(tab === 'team'){
-    selectOperationPreset('monthlyTeam');
-    window.scrollTo({top:0,behavior:'smooth'});
-    return;
-  }
-
   // 오늘운동 안에서 주요 운영 구역으로 이동
   switchNav('daily');
   if(tab==='players'){
@@ -11294,7 +11213,7 @@ function syncBottomNav(page){
 function updateActiveBnavByScroll(){
   if(!isMobile()) return;
   if(document.getElementById('pageMain')?.classList.contains('active')){
-    syncBottomNav('team');
+    switchNav('daily');
     return;
   }
   const sections = [
@@ -11386,17 +11305,6 @@ window.addEventListener('DOMContentLoaded', () => {
       </svg>
     </span>
     <span class="bnav-label">현황</span>
-  </button>
-  <button class="bnav-btn" id="bnav-team" onclick="switchMobileTab('team')">
-    <span class="bnav-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24">
-        <path d="M4 7h16"></path>
-        <path d="M7 11h10"></path>
-        <path d="M9 15h6"></path>
-        <path d="M12 4v16"></path>
-      </svg>
-    </span>
-    <span class="bnav-label">팀전</span>
   </button>
   <button class="bnav-btn" id="bnav-queue" onclick="switchMobileTab('queue')">
     <span class="bnav-icon" aria-hidden="true">
