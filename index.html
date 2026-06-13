@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.144  (2026-06)
+     APP VERSION: 1.10.145  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.144">
+<meta name="app-version" content="1.10.145">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2472,7 +2472,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.144';
+const APP_VERSION = '1.10.145';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4719,7 +4719,8 @@ function _dailyCheckinPayload(){
       {key:'wait',label:'시작',desc:''},
       {key:'lesson',label:'레슨',desc:''},
       {key:'rest',label:'휴식',desc:''},
-      {key:'last',label:'마지막',desc:''}
+      {key:'last',label:'마지막',desc:''},
+      {key:'done',label:'종료',desc:''}
     ]
   };
 }
