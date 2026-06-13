@@ -9,7 +9,7 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.151  (2026-06)
+     APP VERSION: 1.10.152  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
@@ -827,6 +827,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .operation-current{font-size:.62rem;font-weight:900;color:var(--bl-deep);background:var(--bl-soft);border:1px solid var(--bl-softbdr);border-radius:999px;padding:4px 9px;letter-spacing:0;text-transform:none;}
 .operation-flow{display:grid;grid-template-columns:repeat(4,max-content);gap:6px;margin-top:8px;}
 .operation-flow span{font-size:.64rem;font-weight:800;color:var(--dim);background:#fff;border:1px solid var(--bdr);border-radius:999px;padding:4px 8px;}
+.operation-flow span.active{background:var(--bl);border-color:var(--bl);color:#fff;box-shadow:0 6px 14px rgba(91,141,239,.22);}
 .team-focus-flow{display:none;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px 11px;border:1px solid var(--bl-softbdr);border-radius:12px;background:linear-gradient(135deg,#eef5ff 0%,#ffffff 100%);}
 .team-focus-flow b{font-size:.76rem;color:var(--bl-deep);margin-right:2px;}
 .team-focus-flow span{font-size:.66rem;font-weight:900;color:var(--txt);background:#fff;border:1px solid var(--bdr);border-radius:999px;padding:5px 9px;}
@@ -1974,15 +1975,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div>
       <div class="daily-kicker">메인 운영 · 민턴LIVE</div>
       <h2>민턴LIVE</h2>
-      <p>출석을 받고, 현장 상태에 맞춰 대기표를 자동 보충합니다.</p>
+      <p>공지부터 종료까지, 관리자는 상황판만 보고 운영합니다.</p>
       <div class="operation-flow">
-        <span>출석</span><span>대기</span><span>배정</span><span>진행</span>
+        <span data-daily-stage="notice">공지/투표</span><span data-daily-stage="checkin">출석/대기</span><span data-daily-stage="auto">자동대진</span><span data-daily-stage="finish">자동종료</span>
       </div>
-    </div>
-    <div class="daily-hero-actions">
-      <button class="btn btn-ghost btn-sm" onclick="dailyImportRoster()">명부</button>
-      <button class="btn btn-ghost btn-sm" onclick="dailyShareCheckinLink()">링크 공유</button>
-      <button class="btn btn-ghost btn-sm btn-danger-ghost" onclick="dailyReset()">초기화</button>
     </div>
   </div>
 
@@ -1992,7 +1988,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 	  <div class="daily-layout">
 	    <div class="daily-side">
 	      <details class="daily-section-fold daily-setup-fold" id="dailySetupDetails">
-	        <summary>상세 관리 · 코트/마감/선수</summary>
+	        <summary>설정 · 명부/코트/마감</summary>
 	        <div class="daily-section-fold-body">
 	        <div class="daily-detail-stack">
 	      <div class="card">
@@ -2008,16 +2004,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
               </div>
             </div>
           </div>
-          <div class="daily-note">
-            미응답·참석은 후보 제외. 현장에서 <strong>시작</strong>을 누르면 배정합니다.
-          </div>
-          <label class="daily-auto-row">
-            <input type="checkbox" id="dailyAutoAssign" onchange="dailyToggleAutoAssign(this.checked)">
-            <span>
-              <span class="daily-auto-title">자동 시작</span>
-              <span class="daily-auto-desc">빈 코트가 생기면 1순위 대기를 바로 시작합니다.</span>
-            </span>
-          </label>
+	          <div class="daily-note">코트 수와 마감 시간처럼 운영 전에 정할 값만 조정하세요.</div>
           <label class="daily-auto-row">
             <input type="checkbox" id="dailyClosingMode" onchange="dailyToggleClosing(this.checked)">
             <span>
@@ -2033,9 +2020,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
             </div>
             <p class="daily-auto-desc" id="dailyClosingHint">설정 시각부터 자동 마감합니다.</p>
           </div>
-          <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:8px;padding:9px;" onclick="dailyRunAutoAssign()">가능한 코트 시작</button>
-        </div>
-      </div>
+	        </div>
+	      </div>
 
       <div class="card">
         <div class="card-head"><span class="card-title">선수 추가</span></div>
@@ -2116,10 +2102,11 @@ body.monthly-team-mode .team-partner-help{display:block;}
                 <button class="daily-mini-btn" onclick="dailyRunAutoAssign()">가능한 코트 시작</button>
                 <button class="daily-mini-btn" onclick="dailyForceRebuildQueue()">대기표 재생성</button>
                 <button class="daily-mini-btn" onclick="dailyPromoteReadyReservations()">예약 우선반영</button>
-                <button class="daily-mini-btn" onclick="dailyToggleClosingFromDashboard()">마감 모드 전환</button>
-                <button class="daily-mini-btn" onclick="dailyImportRoster()">명부 추가</button>
-                <button class="daily-mini-btn" onclick="dailyShareCheckinLink()">링크 공유</button>
-              </div>
+	                <button class="daily-mini-btn" onclick="dailyToggleClosingFromDashboard()">마감 모드 전환</button>
+	                <button class="daily-mini-btn" onclick="dailyImportRoster()">명부 추가</button>
+	                <button class="daily-mini-btn" onclick="dailyShareCheckinLink()">링크 공유</button>
+	                <button class="daily-mini-btn danger" onclick="dailyReset()">전체 초기화</button>
+	              </div>
             </div>
           </details>
         </div>
@@ -2127,12 +2114,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
 	      <details class="card" id="dailyCheckinDetails">
 	        <summary class="card-head" id="dailyCheckinCard">
-	          <span class="card-title">회원 링크 <span id="dailyCheckinSummary"></span></span>
+		          <span class="card-title">공지/투표 링크 <span id="dailyCheckinSummary"></span></span>
 	        </summary>
 	        <div class="card-body">
-	          <div class="daily-note" style="margin-bottom:10px;">
-	            회원이 직접 참석, 대기, 레슨, 휴식, 게임 신청을 남깁니다.
-	          </div>
+		          <div class="daily-note" style="margin-bottom:10px;">회원은 이 링크에서 참석과 현장 상태를 누릅니다.</div>
 	          <div class="daily-dashboard-actions" style="margin-bottom:10px;">
 	            <button class="daily-mini-btn" onclick="dailyShareCheckinLink()">링크 공유</button>
 	            <button class="daily-mini-btn danger" onclick="dailyStopCheckinLink()">링크 종료</button>
@@ -2177,18 +2162,18 @@ body.monthly-team-mode .team-partner-help{display:block;}
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head" id="dailyFreeWaitCard">
-          <span class="card-title">자유 대기자</span>
-        </div>
-        <div class="card-body">
-          <div id="dailyUnscheduledBox" class="daily-empty">임박/예비 대기표에 아직 들어가지 않은 대기자가 여기에 표시됩니다.</div>
-        </div>
-      </div>
+	      <details class="card" id="dailyUnscheduledDetails">
+	        <summary class="card-head" id="dailyFreeWaitCard">
+	          <span class="card-title">자유 대기자</span>
+	        </summary>
+	        <div class="card-body">
+	          <div id="dailyUnscheduledBox" class="daily-empty">임박/예비 대기표에 아직 들어가지 않은 대기자가 여기에 표시됩니다.</div>
+	        </div>
+	      </details>
 
       <details class="card" id="dailyReservationCard">
         <summary class="card-head">
-          <span class="card-title">게임 신청/예약</span>
+	          <span class="card-title">예약 요청</span>
           <span class="monthly-optional-action"></span>
         </summary>
         <div class="card-body">
@@ -2572,7 +2557,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.151';
+const APP_VERSION = '1.10.152';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4679,6 +4664,21 @@ function dailyRenderAdminAlerts(){
   const cap=_dailyQueueCapacity();
   const invited=_dailyPlayers.filter(p=>p.status==='invited').length;
   const alerts=[];
+  if(!_dailyPlayers.length){
+    alerts.push({
+      cls:'primary',
+      title:'클럽 명부를 먼저 불러오세요',
+      desc:'명부가 있어야 출석 링크와 자동 대진을 시작할 수 있습니다.',
+      actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailySetupDetails','dailySetupDetails')">명부 불러오기</button>`
+    });
+  }else if(!_dailyCheckinId){
+    alerts.push({
+      cls:'primary',
+      title:'공지/투표 링크를 공유하세요',
+      desc:'회원이 참석과 현장 상태를 직접 누를 수 있게 단톡방에 보냅니다.',
+      actions:`<button class="daily-mini-btn" onclick="dailyShareCheckinLink()">링크 공유</button>`
+    });
+  }
   if(free&&firstReady&&!_dailyClosing){
     alerts.push({
       cls:'warn',
@@ -4703,7 +4703,7 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn" onclick="dailyPromoteReadyReservations()">예약 자동반영</button>`
     });
   }
-  if(cap.short&&!_dailyClosing){
+  if(_dailyCheckinId&&cap.short&&!_dailyClosing){
     alerts.push({
       cls:'danger',
       title:'대기 인원 부족',
@@ -4731,6 +4731,12 @@ function dailyRenderAdminAlerts(){
     <div><div class="daily-admin-alert-title">${esc(a.title)}</div><div class="daily-admin-alert-desc">${esc(a.desc)}</div></div>
     <div class="daily-admin-alert-actions">${a.actions||''}</div>
   </div>`).join('');
+}
+function dailyCurrentStage(){
+  if(_dailyClosing)return 'finish';
+  if(!_dailyPlayers.length||!_dailyCheckinId)return 'notice';
+  if(_dailyActiveMatches().length||_dailyQueue.length)return 'auto';
+  return 'checkin';
 }
 function dailyRenderOpsStats(){
   const el=document.getElementById('dailyOpsStats');
@@ -4773,8 +4779,11 @@ function dailyRenderStatusBar(){
   const todo=dailyCountActionItems();
   const autoOn=_dailyAutoAssign;
   const closing=_dailyClosing;
+  const stage=dailyCurrentStage();
+  const stageLabel={notice:'공지/투표',checkin:'출석/대기',auto:'자동대진',finish:'자동종료'}[stage]||'운영';
   const chips=[];
-  chips.push(`<span class="daily-sb-chip live">민턴LIVE 운영 중</span>`);
+  document.querySelectorAll('[data-daily-stage]').forEach(node=>node.classList.toggle('active',node.dataset.dailyStage===stage));
+  chips.push(`<span class="daily-sb-chip live">${stageLabel}</span>`);
   chips.push(`<span class="daily-sb-chip ${autoOn?'on':'off'}">자동 시작 ${autoOn?'켜짐':'꺼짐'}</span>`);
   chips.push(`<span class="daily-sb-chip">${courts}코트${free?` · 빈 ${free}`:''}</span>`);
   if(closing)chips.push(`<span class="daily-sb-chip warn">마감 모드</span>`);
@@ -4785,6 +4794,8 @@ function dailyRenderStatusBar(){
   el.innerHTML=`<div class="daily-sb-chips">${chips.join('')}</div>${stateChip}`;
 }
 function dailyCountActionItems(){
+  if(!_dailyPlayers.length)return 1;
+  if(!_dailyCheckinId)return 1;
   let n=0;
   const courts=_dailyCourtCount();
   const free=Math.max(0,courts-_dailyActiveMatches().length);
