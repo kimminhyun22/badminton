@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.133  (2026-06)
+     APP VERSION: 1.10.134  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.133">
+<meta name="app-version" content="1.10.134">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1952,20 +1952,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
             <strong>대기중</strong>은 지금 경기 준비가 됐다는 뜻입니다. 빈 코트와 대기 가능 선수 4명 이상 조건이 맞으면 다음 대진 후보가 자동으로 표시되고, 추천을 확정하면 해당 선수는 경기중으로 바뀝니다.
           </div>
           <label class="daily-auto-row">
-            <input type="checkbox" id="dailyTeamMode" onchange="dailyToggleTeamMode(this.checked)">
-            <span>
-              <span class="daily-auto-title">간단 팀 나눔</span>
-              <span class="daily-auto-desc">평소 운동에서 임시로 청팀/홍팀을 나눠 진행할 때만 사용합니다. 월례 팀전은 전체 라운드 대진표 방식이 더 안전합니다.</span>
-            </span>
-          </label>
-          <div class="daily-note" id="dailyTeamPanel" style="margin-top:8px;">
-            월례 팀전은 운영 방식 선택에서 <strong>월례 팀전</strong>을 사용하세요. 이 옵션은 평소 운동 중 간단히 팀을 나눌 때 쓰는 보조 기능입니다.
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px;">
-            <button class="daily-mini-btn" onclick="dailyAssignTeams()">청/홍팀 자동 배정</button>
-            <button class="daily-mini-btn" onclick="dailyToggleTeamLock()">간단 팀 잠금</button>
-          </div>
-          <label class="daily-auto-row">
             <input type="checkbox" id="dailyAutoAssign" onchange="dailyToggleAutoAssign(this.checked)">
             <span>
               <span class="daily-auto-title">조건 충족 시 자동 시작</span>
@@ -2046,19 +2032,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
         </div>
         <div class="card-body">
           <div class="daily-ops-grid" id="dailyOpsStats"></div>
-        </div>
-      </div>
-
-      <div class="card" id="dailyTeamRosterCard" style="display:none;">
-        <div class="card-head">
-          <span class="card-title">👥 팀별 명단 · 단장 지정</span>
-          <button class="btn btn-ghost btn-sm" onclick="dailyAssignTeams()">청/홍팀 재배정</button>
-        </div>
-        <div class="card-body">
-          <div class="daily-note" style="margin-bottom:10px;">
-            간단 팀 나눔은 평소 운동 중 임시로 청/홍팀을 나눌 때만 사용합니다. 월례 팀전은 대진표 화면에서 전체 라운드와 품질점검을 확인하세요.
-          </div>
-          <div id="dailyTeamRosterBox" class="daily-empty">간단 팀 나눔을 켜고 청/홍팀을 배정하면 팀별 명단이 표시됩니다.</div>
         </div>
       </div>
 
@@ -2514,7 +2487,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.133';
+const APP_VERSION = '1.10.134';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2851,6 +2824,13 @@ function _dailyNormalize(raw){
     isGuest:!!raw.isGuest
   };
 }
+function _dailyClearSimpleTeamState(){
+  _dailyTeamMode=false;
+  _dailyTeamLocked=false;
+  _dailyPlayers.forEach(p=>{p.team='';});
+  _dailyMatches.forEach(m=>{m.teamMode=false;});
+  _dailyQueue.forEach(q=>{q.teamMode=false;});
+}
 function _dailyTeamSide(p){
   return p&&(p.team==='청팀'||p.team==='홍팀')?p.team:'';
 }
@@ -2913,9 +2893,7 @@ function dailySetCaptain(side,role,playerId){
   dailyRender();
 }
 function _dailyCanChangeRoster(){
-  if(!_dailyTeamLocked)return true;
-    alert('간단 팀 잠금 상태입니다. 중간 투입을 막기 위해 선수 추가/삭제를 할 수 없습니다. 필요하면 간단 팀 잠금을 먼저 해제하세요.');
-  return false;
+  return true;
 }
 function _dailyMinutes(ts){
   if(!ts)return 0;
@@ -2923,8 +2901,7 @@ function _dailyMinutes(ts){
 }
 function _dailyNameHtml(p){
   if(!p)return '';
-  const team=_dailyTeamSide(p);
-  return `${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}${team?`<span class="daily-pair-badge">${team==='청팀'?'청':'홍'}</span>`:''}`;
+  return `${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}`;
 }
 function _dailyNameText(p){
   if(!p)return '';
@@ -2941,165 +2918,23 @@ function toggleDailyGuestMode(force){
   if(name)name.placeholder=_dailyIsGuest?'게스트 이름':'이름';
 }
 function dailyToggleTeamMode(on){
-  if(!on&&_dailyActiveMatches().length){
-    alert('진행중 경기가 있을 때는 간단 팀 나눔을 끌 수 없습니다. 경기 종료 후 변경하세요.');
-    const el=document.getElementById('dailyTeamMode');
-    if(el)el.checked=true;
-    return;
-  }
-  _dailyTeamMode=!!on;
-  if(!_dailyTeamMode)_dailyTeamLocked=false;
-  _dailyQueue=[];
-  _dailyRefreshNextFromQueue();
+  _dailyClearSimpleTeamState();
   dailySave();
   dailyRender();
 }
 function dailyAssignTeams(){
-  if(_dailyActiveMatches().length){
-    alert('진행중 경기가 있을 때는 팀을 다시 나눌 수 없습니다. 경기 종료 후 배정하세요.');
-    return;
-  }
-  const pool=_dailyPlayers.filter(p=>p.status!=='done');
-  if(pool.length<4){alert('팀전 배정에는 최소 4명이 필요합니다.');return;}
-  _dailyEnsureCaptains();
-  const blueFixedNames=new Set([captains.blue.leader,captains.blue.sub].filter(Boolean));
-  const whiteFixedNames=new Set([captains.white.leader,captains.white.sub].filter(Boolean));
-  const conflict=[...blueFixedNames].filter(n=>whiteFixedNames.has(n));
-  if(conflict.length){
-    alert(`단장/부단장 지정이 청/홍팀에 중복되어 있습니다: ${conflict.join(', ')}`);
-    return;
-  }
-  const blueSeed=pool.filter(p=>blueFixedNames.has(p.name));
-  const whiteSeed=pool.filter(p=>whiteFixedNames.has(p.name));
-  const fixed=new Set([...blueSeed,...whiteSeed].map(p=>p.id));
-  const free=pool.filter(p=>!fixed.has(p.id));
-  const balanced=balanceTeams(free,blueSeed,whiteSeed);
-  const blue=[...blueSeed,...balanced.blue];
-  const white=[...whiteSeed,...balanced.white];
-  pool.forEach(p=>{
-    p.team=blue.includes(p)?'청팀':'홍팀';
-    p.status='wait';
-    p.currentMatchId=null;
-    p.afterMatchStatus=null;
-    p.waitFrom=_dailyNow();
-    p.lastStatusAt=_dailyNow();
-  });
-  _dailyTeamMode=true;
-  _dailyTeamLocked=false;
-  _dailyCleanCaptains();
-  _dailyQueue=[];
-  _dailyRefreshNextFromQueue();
-  dailySave();
-  dailyRender();
-  alert(`청팀 ${blue.length}명, 홍팀 ${white.length}명으로 배정했습니다. 평소 운동용 간단 팀 나눔이면 간단 팀 잠금을 켜세요.`);
+  alert('팀전은 상단 팀전 탭에서 별도로 진행하세요. 오늘운동은 일반 대기/자동 대진에 집중합니다.');
 }
 function dailyToggleTeamLock(){
-  if(!_dailyTeamMode){
-    _dailyTeamMode=true;
-  }
-  if(_dailyActiveMatches().length){
-    alert('진행중 경기가 있을 때는 간단 팀 잠금을 변경할 수 없습니다.');
-    return;
-  }
-  if(_dailyTeamLocked){
-    if(!confirm('간단 팀 잠금을 해제할까요?\n해제하면 선수 추가/삭제와 상태 변경이 다시 자유로워집니다.'))return;
-    _dailyTeamLocked=false;
-    dailySave();
-    dailyRender();
-    return;
-  }
-  const {live,blue,white,unassigned}=_dailyTeamCounts();
-  if(live.length<4){alert('팀전 시작에는 최소 4명이 필요합니다.');return;}
-  if(unassigned>0){alert(`청/홍팀이 배정되지 않은 선수가 ${unassigned}명 있습니다. 먼저 청/홍팀 자동 배정을 해주세요.`);return;}
-  if(blue<2||white<2){alert('팀전은 청팀과 홍팀이 각각 최소 2명 필요합니다.');return;}
-  live.forEach(p=>{
-    p.status='wait';
-    p.currentMatchId=null;
-    p.afterMatchStatus=null;
-    p.waitFrom=_dailyNow();
-    p.lastStatusAt=_dailyNow();
-  });
-  _dailyTeamLocked=true;
-  _dailyQueue=[];
-  _dailyRefreshNextFromQueue();
+  _dailyClearSimpleTeamState();
   dailySave();
   dailyRender();
-  alert('간단 팀 잠금을 켰습니다. 이제 추가 접수 없이 현재 청/홍팀 인원만으로 대기표를 진행합니다.');
 }
 function dailyRenderTeamControls(){
-  const modeEl=document.getElementById('dailyTeamMode');
-  if(modeEl)modeEl.checked=!!_dailyTeamMode;
-  const panel=document.getElementById('dailyTeamPanel');
-  if(!panel)return;
-  const {live,blue,white,unassigned}=_dailyTeamCounts();
-  if(!_dailyTeamMode){
-    panel.innerHTML='평소 운동 중 청/홍팀을 임시로 나눌 때만 사용하세요. 월례 팀전은 전체 대진표 방식이 더 적합합니다.';
-    return;
-  }
-  panel.innerHTML=`<strong>${_dailyTeamLocked?'간단 팀 잠금 ON':'간단 팀 준비중'}</strong><br>
-    라이브 ${live.length}명 · 청팀 ${blue}명 · 홍팀 ${white}명${unassigned?` · 미배정 ${unassigned}명`:''}<br>
-    ${_dailyTeamLocked?'추가 접수는 막고, 경기 종료 후 대기표를 청팀 vs 홍팀으로 계속 보충합니다.':'청/홍팀 자동 배정 후 간단 팀 잠금을 켜면 현재 대기 인원으로 진행합니다.'}`;
+  _dailyClearSimpleTeamState();
 }
 function dailyRenderTeamRoster(){
-  const card=document.getElementById('dailyTeamRosterCard');
-  const box=document.getElementById('dailyTeamRosterBox');
-  if(!card||!box)return;
-  if(!_dailyTeamMode){
-    card.style.display='none';
-    return;
-  }
-  card.style.display='';
-  _dailyCleanCaptains();
-  const blue=_dailyTeamRoster('blue');
-  const red=_dailyTeamRoster('white');
-  if(!blue.length&&!red.length){
-    box.className='daily-empty';
-    box.textContent='청/홍팀 자동 배정을 실행하면 팀별 명단이 표시됩니다.';
-    return;
-  }
-  const st=_dailyResultStats();
-  const renderSide=(side,list)=>{
-    const isBlue=side==='blue';
-    const stat=_dailyTeamStat(list);
-    const sideName=isBlue?teamNames.blue:teamNames.white;
-    const score=isBlue?st.blueWins:st.whiteWins;
-    const sorted=[...list].sort((a,b)=>{
-      const ra=a.name===captains[side].leader?0:a.name===captains[side].sub?1:2;
-      const rb=b.name===captains[side].leader?0:b.name===captains[side].sub?1:2;
-      if(ra!==rb)return ra-rb;
-      return _dailyLevel(b)-_dailyLevel(a)||a.name.localeCompare(b.name,'ko');
-    });
-    const members=sorted.map(p=>{
-      const leader=captains[side].leader===p.name;
-      const sub=captains[side].sub===p.name;
-      return `<div class="daily-team-member">
-        <div class="daily-team-member-main">
-          <div class="daily-team-member-name">${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}${leader?'<span class="daily-winner-pill">단장</span>':sub?'<span class="daily-winner-pill empty">부단장</span>':''}</div>
-          <div class="daily-team-member-meta">${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')}급 · 오늘 ${p.games||0}게임</div>
-        </div>
-        <div class="daily-role-actions">
-          <button class="daily-role-btn ${leader?'on':''}" onclick="dailySetCaptain('${side}','leader','${p.id}')">단장</button>
-          <button class="daily-role-btn ${sub?'on':''}" onclick="dailySetCaptain('${side}','sub','${p.id}')">부단장</button>
-        </div>
-      </div>`;
-    }).join('');
-    return `<div class="daily-team-roster-card ${isBlue?'blue':'red'}">
-      <div class="daily-team-roster-head">
-        <div>
-          <div class="daily-team-roster-name">${esc(sideName)}</div>
-          <div class="daily-team-roster-meta">${list.length}명 · 남${stat.men} 여${stat.women} · 실력합 ${stat.level}</div>
-        </div>
-        <div class="daily-team-roster-score">${score}</div>
-      </div>
-      <div class="daily-team-leaders">
-        <div class="daily-team-leader"><b>단장</b><span>${esc(_dailyRoleLabel(side,'leader'))}</span></div>
-        <div class="daily-team-leader"><b>부단장</b><span>${esc(_dailyRoleLabel(side,'sub'))}</span></div>
-      </div>
-      <div class="daily-team-members">${members||'<div class="daily-empty">선수가 없습니다.</div>'}</div>
-    </div>`;
-  };
-  box.className='daily-team-roster-grid';
-  box.innerHTML=renderSide('blue',blue)+renderSide('white',red);
+  _dailyClearSimpleTeamState();
 }
 function _dailyStatusBadge(status){
   const s=DAILY_STATUS[status]||DAILY_STATUS.wait;
@@ -3555,13 +3390,14 @@ function dailyEnsureQueue(){
 }
 function dailySave(){
   try{
+    _dailyClearSimpleTeamState();
     dailyEnsureQueue();
     localStorage.setItem(DAILY_KEY,JSON.stringify({
       savedAt:_dailyNow(),
       courts:document.getElementById('dailyCourts')?.value||3,
       autoAssign:_dailyAutoAssign,
-      teamMode:_dailyTeamMode,
-      teamLocked:_dailyTeamLocked,
+      teamMode:false,
+      teamLocked:false,
       teamNames:{...teamNames},
       captains:JSON.parse(JSON.stringify(captains)),
       closing:_dailyClosing,
@@ -3590,8 +3426,6 @@ function _dailySyncControls(courts){
   if(c)c.value=courts||3;
   const autoEl=document.getElementById('dailyAutoAssign');
   if(autoEl)autoEl.checked=_dailyAutoAssign;
-  const teamEl=document.getElementById('dailyTeamMode');
-  if(teamEl)teamEl.checked=_dailyTeamMode;
   const closingEl=document.getElementById('dailyClosingMode');
   if(closingEl)closingEl.checked=_dailyClosing;
   const closingAtEl=document.getElementById('dailyClosingAt');
@@ -3643,8 +3477,8 @@ function dailyLoad(){
     _dailySeq=s.seq||((_dailyMatches.reduce((m,x)=>Math.max(m,x.seq||0),0))+1);
     _dailyWaveStarts=s.waveStarts||0;
     _dailyAutoAssign=!!s.autoAssign;
-    _dailyTeamMode=!!s.teamMode;
-    _dailyTeamLocked=!!s.teamLocked;
+    _dailyTeamMode=false;
+    _dailyTeamLocked=false;
     if(s.teamNames){
       teamNames={...teamNames,...s.teamNames};
       if(teamNames.white==='백 팀'||teamNames.white==='백팀')teamNames.white='홍 팀';
@@ -3652,6 +3486,7 @@ function dailyLoad(){
     if(s.captains)captains=s.captains;
     _dailyEnsureCaptains();
     _dailyCleanCaptains();
+    _dailyClearSimpleTeamState();
     _dailyClosing=!!s.closing;
     _dailyClosingAt=s.closingAt||'';
     _dailyCheckinId=s.checkinId||localStorage.getItem(DAILY_CHECKIN_KEY)||null;
@@ -3915,8 +3750,6 @@ function dailyReset(){
   toggleDailyGuestMode(false);
   const autoEl=document.getElementById('dailyAutoAssign');
   if(autoEl)autoEl.checked=false;
-  const teamEl=document.getElementById('dailyTeamMode');
-  if(teamEl)teamEl.checked=false;
   const closingEl=document.getElementById('dailyClosingMode');
   if(closingEl)closingEl.checked=false;
   const closingAtEl=document.getElementById('dailyClosingAt');
@@ -4383,7 +4216,7 @@ function dailyRenderQueue(){
         : '예비 대기 경기가 없습니다. 대기 인원이 더 생기면 자동으로 채워집니다.';
     }else{
       reserveBox.className='daily-queue-list';
-      reserveBox.innerHTML=`<div class="daily-queue-guide">${_dailyTeamLocked?'간단 팀 잠금 상태라 현재 대기 가능한 인원으로 전체 대기표를 미리 보여줍니다. 코트 번호는 경기 시작 순간에만 배정됩니다.':`${cap.short?`대기 인원이 부족해 목표 ${cap.goal}경기 중 ${cap.target}경기만 유지합니다. `:''}예비 대기는 1경기만 유지합니다. 너무 많이 미리 확정하지 않아, 진행중 선수가 돌아오거나 늦게 온 선수를 반영할 여지를 남깁니다.`}</div>`+
+      reserveBox.innerHTML=`<div class="daily-queue-guide">${cap.short?`대기 인원이 부족해 목표 ${cap.goal}경기 중 ${cap.target}경기만 유지합니다. `:''}예비 대기는 1경기만 유지합니다. 너무 많이 미리 확정하지 않아, 진행중 선수가 돌아오거나 늦게 온 선수를 반영할 여지를 남깁니다.</div>`+
         reserve.map((q,i)=>_dailyRenderQueueItem(q,i+courts,'reserve')).join('');
     }
   }
@@ -4650,7 +4483,6 @@ function dailyRenderOpsStats(){
     {label:'자유대기',value:unscheduled,hint:'다음 재조합 후보',cls:unscheduled?'warn':''},
     {label:'빈 코트',value:free,hint:free?'바로 시작 가능':'진행중',cls:free?'warn':''}
   ];
-  if(_dailyTeamMode)cards.unshift({label:'팀전운영',value:_dailyTeamLocked?'잠금':'준비',hint:`청 ${_dailyTeamCounts().blue} · 홍 ${_dailyTeamCounts().white}`,cls:_dailyTeamLocked?'primary':'warn'});
   if(_dailyClosing)cards.unshift({label:'마감모드',value:'ON',hint:'새 경기 중지',cls:'warn'});
   if(_dailyReservations.length)cards.splice(_dailyClosing?1:0,0,{label:'예약대진',value:_dailyReservations.length,hint:'요청 경기 대기',cls:'primary'});
   el.innerHTML=cards.map(x=>`<div class="daily-op ${x.cls||''}"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></div>`).join('');
