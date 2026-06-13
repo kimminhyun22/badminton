@@ -4,7 +4,7 @@
 
 - 배포 주소: https://kimminhyun22.github.io/badminton/
 - 실시간 중계 화면: `view.html`
-- 현재 버전: `1.10.149`
+- 현재 버전: `1.10.150`
 - Firebase 프로젝트: `kokmatch-23b31`
 
 ## 주요 기능
