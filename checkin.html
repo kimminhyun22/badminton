@@ -416,6 +416,17 @@ function voteDeadlineText(){
   if(!session?.voteDeadlineAt)return '';
   return `${session.voteDeadlineAt} 참석투표 ${session.voteClosed?'마감':'마감 예정'}`;
 }
+function sessionExpired(){
+  return !!(session?.expiresAt&&Date.now()>Number(session.expiresAt));
+}
+function showEndedLink(){
+  session=null;
+  renderEvent();
+  renderVoteSummary();
+  document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';
+  document.getElementById('players').className='empty';
+  document.getElementById('players').textContent='이 링크는 24시간이 지나 자동 종료되었습니다. 새 링크를 확인해 주세요.';
+}
 function checkinPath(){
   return 'live/checkin_'+checkinId;
 }
@@ -652,6 +663,7 @@ function gameRequestBox(p,disabled){
 }
 async function sendStatus(playerId,status){
   if(!db||!checkinId||!session||sendingKey)return;
+  if(sessionExpired())return showEndedLink();
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
   if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
@@ -683,6 +695,7 @@ async function sendStatus(playerId,status){
 }
 async function sendGameRequest(playerId){
   if(!db||!checkinId||!session||sendingKey)return;
+  if(sessionExpired())return showEndedLink();
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
   if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
@@ -737,6 +750,10 @@ function boot(){
       document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';
       document.getElementById('players').className='empty';
       document.getElementById('players').textContent='관리자가 링크를 종료했거나 아직 명단을 공유하지 않았습니다.';
+      return;
+    }
+    if(sessionExpired()){
+      showEndedLink();
       return;
     }
     render();

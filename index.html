@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.158  (2026-06)
+     APP VERSION: 1.10.159  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.158">
+<meta name="app-version" content="1.10.159">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2524,7 +2524,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.158';
+const APP_VERSION = '1.10.159';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2758,7 +2758,9 @@ function openManual(){
 /* ═══ DAILY MODE: 민턴LIVE 실시간 추천 ═══ */
 const DAILY_KEY='kokmatch_daily_v1';
 const DAILY_CHECKIN_KEY='kokmatch_daily_checkin_id';
+const DAILY_CHECKIN_CREATED_KEY='kokmatch_daily_checkin_created_at';
 const DAILY_MATCH_MINUTES=15;
+const DAILY_CHECKIN_TTL_MS=24*60*60*1000;
 const DAILY_STATUS={
   invited:{label:'미응답',eligible:false},
   planned:{label:'참석',eligible:false},
@@ -2790,6 +2792,7 @@ let _dailyIsGuest=false;
 let _dailyWaveStarts=0;
 let _dailyFourRepeatCache=null;
 let _dailyCheckinId=null;
+let _dailyCheckinCreatedAt=0;
 let _dailyCheckinListening=false;
 let _dailyCheckinRequests=[];
 let _dailyCheckinApplying=false;
@@ -3573,7 +3576,8 @@ function dailySave(){
       reservations:_dailyReservations,
       seq:_dailySeq,
       waveStarts:_dailyWaveStarts,
-      checkinId:_dailyCheckinId
+      checkinId:_dailyCheckinId,
+      checkinCreatedAt:_dailyCheckinCreatedAt
     }));
     dailyPushCheckinSession();
   }catch(e){console.warn('daily save 실패',e);}
@@ -3621,8 +3625,9 @@ function _dailyLoadAsNewDay(s){
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _dailyPairSelectId=null;
   if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
-  _dailyCheckinId=null;_dailyCheckinRequests=[];_dailyCheckinListening=false;
+  _dailyCheckinId=null;_dailyCheckinCreatedAt=0;_dailyCheckinRequests=[];_dailyCheckinListening=false;
   localStorage.removeItem(DAILY_CHECKIN_KEY);
+  localStorage.removeItem(DAILY_CHECKIN_CREATED_KEY);
   _dailyMarkFourCacheDirty();
   _dailySyncControls(s.courts||3);
   localStorage.removeItem(DAILY_KEY);
@@ -3661,7 +3666,12 @@ function dailyLoad(){
     _dailyClosingAt=s.closingAt||'';
     _dailyVoteDeadlineAt=s.voteDeadlineAt||'';
     _dailyCheckinId=s.checkinId||localStorage.getItem(DAILY_CHECKIN_KEY)||null;
-    if(_dailyCheckinId)localStorage.setItem(DAILY_CHECKIN_KEY,_dailyCheckinId);
+    _dailyCheckinCreatedAt=s.checkinCreatedAt||parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||(_dailyCheckinId?(s.savedAt||_dailyNow()):0);
+    if(_dailyCheckinId){
+      localStorage.setItem(DAILY_CHECKIN_KEY,_dailyCheckinId);
+      if(_dailyCheckinCreatedAt)localStorage.setItem(DAILY_CHECKIN_CREATED_KEY,String(_dailyCheckinCreatedAt));
+    }
+    if(_dailyCheckinExpired())_dailyExpireCheckinLink(true);
     _dailyMarkFourCacheDirty();
     _dailySyncControls(s.courts||3);
   }catch(e){console.warn('daily load 실패',e);}
@@ -3920,9 +3930,11 @@ function dailyReset(){
   _dailyVoteDeadlineAt='';
   if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
   _dailyCheckinId=null;
+  _dailyCheckinCreatedAt=0;
   _dailyCheckinRequests=[];
   _dailyCheckinListening=false;
   localStorage.removeItem(DAILY_CHECKIN_KEY);
+  localStorage.removeItem(DAILY_CHECKIN_CREATED_KEY);
   _dailyMarkFourCacheDirty();
   toggleDailyGuestMode(false);
   const autoEl=document.getElementById('dailyAutoAssign');
@@ -4278,10 +4290,25 @@ function _dailyFindQueueReplacement(playerId){
 function _dailyTryReplaceQueuedPlayer(playerId){
   const found=_dailyFindQueueReplacement(playerId);
   if(!found)return false;
-  if(found.loc.q.reservationId)return false;
+  if(found.loc.q.reservationId){
+    _dailyReservations=_dailyReservations.filter(r=>r.id!==found.loc.q.reservationId);
+    found.loc.q.reservationId=null;
+    found.loc.q.reservationLabel=null;
+  }
   found.loc.q[found.loc.side][found.loc.pos]=found.candidate.id;
   _dailyRecalcQueueItem(found.loc.q);
   return true;
+}
+function _dailyRemoveQueuedPlayer(playerId){
+  let changed=false;
+  _dailyQueue=_dailyQueue.filter(q=>{
+    if(!_dailyQueueIds(q).includes(playerId))return true;
+    if(q.reservationId)_dailyReservations=_dailyReservations.filter(r=>r.id!==q.reservationId);
+    changed=true;
+    return false;
+  });
+  if(changed)_dailyRefreshNextFromQueue();
+  return changed;
 }
 function dailyEditQueuePlayer(queueId,side,pos,newId){
   if(!newId){dailyRender();return;}
@@ -4892,6 +4919,22 @@ function _dailyCheckinGenId(){
   let s='D';for(let i=0;i<7;i++)s+=c[Math.floor(Math.random()*c.length)];
   return s;
 }
+function _dailyCheckinExpired(){
+  return !!(_dailyCheckinId&&_dailyCheckinCreatedAt&&(_dailyNow()-_dailyCheckinCreatedAt)>=DAILY_CHECKIN_TTL_MS);
+}
+function _dailyExpireCheckinLink(silent){
+  if(!_dailyCheckinId)return false;
+  const path=_dailyCheckinPath();
+  if(_fbDb&&path)_fbDb.ref(path).remove().catch(()=>{});
+  _dailyCheckinId=null;
+  _dailyCheckinCreatedAt=0;
+  _dailyCheckinRequests=[];
+  _dailyCheckinListening=false;
+  localStorage.removeItem(DAILY_CHECKIN_KEY);
+  localStorage.removeItem(DAILY_CHECKIN_CREATED_KEY);
+  if(!silent)alert('민턴LIVE 링크가 24시간이 지나 자동 종료되었습니다. 새 링크를 만들어 공유해 주세요.');
+  return true;
+}
 function _dailyCheckinUrl(){
   if(!_dailyCheckinId)return '';
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
@@ -4905,6 +4948,8 @@ function _dailyCheckinPayload(){
   return {
     title:'콕매치 민턴LIVE 출석',
     updatedAt:_dailyNow(),
+    createdAt:_dailyCheckinCreatedAt||_dailyNow(),
+    expiresAt:(_dailyCheckinCreatedAt||_dailyNow())+DAILY_CHECKIN_TTL_MS,
     version:APP_VERSION,
     voteDeadlineAt:_dailyVoteDeadlineAt,
     voteDeadlineTs:_dailyVoteDeadlineTs(),
@@ -4933,13 +4978,25 @@ function _dailyCheckinPayload(){
 }
 function dailyEnsureCheckinId(){
   if(!_dailyCheckinId){
-    _dailyCheckinId=localStorage.getItem(DAILY_CHECKIN_KEY)||_dailyCheckinGenId();
+    _dailyCheckinId=localStorage.getItem(DAILY_CHECKIN_KEY)||null;
+    _dailyCheckinCreatedAt=parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||0;
+  }
+  if(_dailyCheckinExpired())_dailyExpireCheckinLink(true);
+  if(!_dailyCheckinId){
+    _dailyCheckinId=_dailyCheckinGenId();
+    _dailyCheckinCreatedAt=_dailyNow();
     localStorage.setItem(DAILY_CHECKIN_KEY,_dailyCheckinId);
+    localStorage.setItem(DAILY_CHECKIN_CREATED_KEY,String(_dailyCheckinCreatedAt));
   }
   return _dailyCheckinId;
 }
 function dailyPushCheckinSession(){
   if(!_dailyCheckinId||!_fbDb)return;
+  if(_dailyCheckinExpired()){
+    _dailyExpireCheckinLink(true);
+    dailyRenderCheckinRequests();
+    return;
+  }
   const path=_dailyCheckinPath();
   _fbDb.ref(path).update({kind:'dailyCheckin',updatedAt:_dailyNow()}).catch(()=>{});
   _fbDb.ref(path+'/session').set(_dailyCheckinPayload()).catch(()=>{});
@@ -4955,7 +5012,7 @@ async function dailyPublishCheckinSession(silent){
   }
   const id=dailyEnsureCheckinId();
   const path=_dailyCheckinPath();
-  await _fbDb.ref(path).update({kind:'dailyCheckin',updatedAt:_dailyNow()});
+  await _fbDb.ref(path).update({kind:'dailyCheckin',createdAt:_dailyCheckinCreatedAt,expiresAt:_dailyCheckinCreatedAt+DAILY_CHECKIN_TTL_MS,updatedAt:_dailyNow()});
   await _fbDb.ref(path+'/session').set(_dailyCheckinPayload());
   dailyStartCheckinListener();
   dailyRenderCheckinRequests();
@@ -4982,7 +5039,12 @@ async function dailyShareCheckinLink(){
 }
 function dailyResumeCheckin(){
   _dailyCheckinId=localStorage.getItem(DAILY_CHECKIN_KEY)||null;
+  _dailyCheckinCreatedAt=parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||0;
   if(_dailyCheckinId&&_fbInit()){
+    if(_dailyCheckinExpired()){
+      _dailyExpireCheckinLink(true);
+      return;
+    }
     dailyPushCheckinSession();
     dailyStartCheckinListener();
   }
@@ -5006,11 +5068,7 @@ function _dailyCheckinBlockReason(req,p){
   const nextStatus=_dailyNormalizeStatus(req.status);
   if(nextStatus==='done')return '';
   if(_dailyIsLockedQueued(p.id)){
-    if(nextStatus==='rest'){
-      const loc=_dailyQueuedPlayerLocation(p.id);
-      if(loc?.q?.reservationId)return '게임신청 대기표에 포함되어 관리자 확인 필요';
-      return _dailyFindQueueReplacement(p.id)?'':'임박 대기표 교체 후보가 없어 관리자 확인 필요';
-    }
+    if(nextStatus==='rest')return '';
     return '임박/신청 대기표에 포함되어 관리자 확인 필요';
   }
   return '';
@@ -5114,7 +5172,8 @@ function dailyProcessCheckinRequests(){
       const reason=_dailyCheckinBlockReason(req,p);
       if(reason)return;
       const nextStatus=_dailyNormalizeStatus(req.status);
-      if(nextStatus==='rest'&&_dailyIsLockedQueued(p.id)&&_dailyTryReplaceQueuedPlayer(p.id)){
+      if((nextStatus==='rest'||nextStatus==='done')&&_dailyIsQueued(p.id)){
+        if(!_dailyTryReplaceQueuedPlayer(p.id))_dailyRemoveQueuedPlayer(p.id);
         changed=true;
       }
       if(p.status!==req.status){
@@ -5195,7 +5254,9 @@ async function dailyStopCheckinLink(){
   const path=_dailyCheckinPath();
   if(_fbDb)await _fbDb.ref(path).remove().catch(()=>{});
   localStorage.removeItem(DAILY_CHECKIN_KEY);
+  localStorage.removeItem(DAILY_CHECKIN_CREATED_KEY);
   _dailyCheckinId=null;
+  _dailyCheckinCreatedAt=0;
   _dailyCheckinRequests=[];
   _dailyCheckinListening=false;
   dailyRenderCheckinRequests();
