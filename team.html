@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.172  (2026-06)
+     APP VERSION: 1.10.173  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.172">
+<meta name="app-version" content="1.10.173">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1885,7 +1885,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">결과 화면의 <strong>📡 실시간 중계</strong> 버튼을 누르면 관전용 링크가 만들어집니다. 단톡방에 링크를 공유하면 회원들이 휴대폰으로 대진표와 팀원을 바로 확인할 수 있어요.</p></div>
       <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">중계 중에는 <strong>승/패를 입력할 때마다 자동으로 갱신</strong>됩니다. 관전자 화면의 팀 점수, MVP, 개인 순위도 함께 업데이트됩니다.</p></div>
       <div class="step-item"><span class="step-num ico">🎉</span><p class="step-text">모든 경기가 끝나면 관전 화면에 <strong>경기 종료 축하 연출</strong>이 자동으로 표시됩니다. (팀전은 우승 팀, 개인전은 승률 1위)</p></div>
-      <div class="step-item"><span class="step-num ico">🕓</span><p class="step-text">중계 데이터는 <strong>48시간 후 자동으로 정리</strong>됩니다. 별도로 종료하지 않아도 며칠 뒤 사라지니 신경 쓰지 않아도 됩니다. (즉시 끄려면 버튼을 다시 눌러 종료)</p></div>
+      <div class="step-item"><span class="step-num ico">🕓</span><p class="step-text">중계 데이터는 <strong>대진 시작 후 48시간 뒤 자동으로 정리</strong>됩니다. 참석투표 기록은 별도로 보존되며, 중계만 정리됩니다. (즉시 끄려면 버튼을 다시 눌러 종료)</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -1908,7 +1908,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.172';
+const APP_VERSION = '1.10.173';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3956,7 +3956,8 @@ function updateScores(){
 }
 
 /* 팀전 중간 현황 공유 (단톡방/밴드) */
-let _liveId=null, _liveOn=false;
+const LIVE_TTL_MS=48*60*60*1000;
+let _liveId=null, _liveOn=false, _liveMatchStartedAt=null;
 let _liveAttendance={}, _liveParty={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
 
 /* 대회 고유 ID 생성 (6자리) */
@@ -4031,6 +4032,8 @@ function _buildLiveState(){
     courts: (currentSettings&&currentSettings.courts)||parseInt(document.getElementById('courts')?.value||'3',10)||3,
     pointSystem: (typeof _pointSystem!=='undefined'?_pointSystem:25),
     gamesPerPlayer: (currentSettings&&currentSettings.gamesPerPlayer)||4,
+    matchStartedAt: _liveMatchStartedAt||null,
+    expiresAt: _liveMatchStartedAt?(_liveMatchStartedAt+LIVE_TTL_MS):null,
     updatedAt: Date.now()
   };
 }
@@ -4139,6 +4142,7 @@ async function startLiveBroadcast(){
     const liveRef=_fbDb.ref('live/'+_liveId);
     const prev=await liveRef.once('value').catch(()=>null);
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
+    _liveMatchStartedAt=prevData.matchStartedAt||Date.now();
     const state=_buildLiveState();
     _liveAttendance=prevData.attendance||{};
     _liveParty=prevData.party||{};
@@ -4173,9 +4177,10 @@ async function _tryResumeLive(){
       return;
     }
     const data=snap.val();
-    const age=Date.now()-(data.updatedAt||0);
-    // 48시간 초과 or 데이터 없으면 무시
-    if(age>48*60*60*1000){ localStorage.removeItem('badminton_liveId'); return; }
+    const startedAt=data.matchStartedAt||data.createdAt||data.updatedAt||0;
+    const age=Date.now()-startedAt;
+    // 대진 시작 후 48시간 초과 or 데이터 없으면 무시
+    if(!startedAt||age>LIVE_TTL_MS){ localStorage.removeItem('badminton_liveId'); return; }
     // 사용자에게 확인
     const mins=Math.floor(age/60000);
     const timeStr=mins<60?`${mins}분 전`:`${Math.floor(mins/60)}시간 ${mins%60}분 전`;
@@ -4184,6 +4189,7 @@ async function _tryResumeLive(){
 이어서 중계를 재개할까요?`)){
       _liveId=savedId;
       _liveOn=true;
+      _liveMatchStartedAt=startedAt;
       _liveAttendance=data.attendance||{};
       _liveParty=data.party||{};
       _bindLiveAdminListener();
@@ -4219,20 +4225,22 @@ async function _tryResumeLive(){
   }catch(e){ /* 재연결 실패는 조용히 무시 */ }
 }
 
-/* 오래된 실시간 데이터 자동 정리: updatedAt이 48시간 지난 중계 노드 삭제.
-   별도 서버 없이, 새 중계를 시작할 때마다 한 번씩 청소한다. */
+/* 오래된 실시간 데이터 자동 정리: 대진 시작 후 48시간 지난 중계 노드만 삭제.
+   참석투표(rsvp_)와 민턴LIVE 체크인 노드는 장기 투표/운영 기록이므로 삭제하지 않는다. */
 async function _cleanupOldLive(){
   if(!_fbDb) return;
-  const TTL=48*60*60*1000; // 48시간(ms)
-  const cutoff=Date.now()-TTL;
+  const cutoff=Date.now()-LIVE_TTL_MS;
   try{
     const snap=await _fbDb.ref('live').once('value');
     const all=snap.val()||{};
     const dead=[];
     for(const id in all){
-      const u=all[id] && all[id].updatedAt;
-      // updatedAt이 없거나(구버전) 48시간 지난 것 삭제. 단, 지금 내 중계는 제외.
-      if(id!==_liveId && (!u || u<cutoff)) dead.push(id);
+      const node=all[id]||{};
+      const kind=String(node.kind||node.session?.kind||'');
+      if(id===_liveId) continue;
+      if(id.startsWith('rsvp_')||kind==='tournamentRsvp'||kind==='dailyCheckin') continue;
+      const startedAt=node.matchStartedAt||node.createdAt||node.updatedAt||0;
+      if(!startedAt||startedAt<cutoff) dead.push(id);
     }
     await Promise.all(dead.map(id=>_fbDb.ref('live/'+id).remove().catch(()=>{})));
   }catch(e){ /* 정리는 실패해도 중계엔 영향 없음 */ }
@@ -4254,14 +4262,14 @@ async function stopLiveBroadcast(){
   if(!_liveId || !_fbDb){
     _unbindLiveAdminListener();
     _liveAttendance={};_liveParty={};
-    _liveOn=false; _updateLiveUI(); _renderLiveOpsSummary(); return;
+    _liveOn=false; _liveMatchStartedAt=null; _updateLiveUI(); _renderLiveOpsSummary(); return;
   }
   if(!confirm('실시간 중계를 종료할까요?\n링크로 접속한 사람들이 더 이상 볼 수 없게 됩니다.')) return;
   try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
   localStorage.removeItem('badminton_liveId');
   _unbindLiveAdminListener();
   _liveAttendance={};_liveParty={};
-  _liveOn=false; _liveId=null; _updateLiveUI();
+  _liveOn=false; _liveId=null; _liveMatchStartedAt=null; _updateLiveUI();
   rsvpPushEventState();
   _renderLiveOpsSummary();
   alert('실시간 중계를 종료했어요.');
@@ -6950,8 +6958,11 @@ const RSVP_KEY='kokmatch_team_rsvp_id';
 const RSVP_TITLE_KEY='kokmatch_team_rsvp_title';
 const RSVP_CLUB_KEY='kokmatch_team_rsvp_club_id';
 const RSVP_GUEST_LIMIT_KEY='kokmatch_team_rsvp_guest_limit';
+const RSVP_CREATED_KEY='kokmatch_team_rsvp_created_at';
+const RSVP_HISTORY_KEY='kokmatch_team_rsvp_history';
 const RSVP_DIRECT_VALUE='__direct__';
 let _rsvpId=null;
+let _rsvpCreatedAt=null;
 let _rsvpListening=false;
 let _rsvpResponses={};
 let _rsvpSyncTimer=null;
@@ -6999,6 +7010,8 @@ function _rsvpEventPayload(){
     roundCount,
     liveId:liveActive?_liveId:null,
     liveUrl:liveActive?_liveUrl():null,
+    matchStartedAt:liveActive?(_liveMatchStartedAt||null):null,
+    expiresAt:liveActive&&_liveMatchStartedAt?(_liveMatchStartedAt+LIVE_TTL_MS):null,
     eventUpdatedAt:Date.now()
   };
 }
@@ -7098,6 +7111,8 @@ function _rsvpSessionPayload(){
     kind:'tournamentRsvp',
     mode:'team',
     title:_rsvpTitle(),
+    rsvpId:_rsvpId||'',
+    createdAt:_rsvpCreatedAt||Date.now(),
     clubId:src===RSVP_DIRECT_VALUE?'':(club?.id||''),
     clubName:src===RSVP_DIRECT_VALUE?'현재 참가자 입력':(club?.name||''),
     source:src===RSVP_DIRECT_VALUE?'directPlayers':'clubRoster',
@@ -7121,13 +7136,35 @@ function rsvpEnsureId(){
     _rsvpId=localStorage.getItem(RSVP_KEY)||_rsvpGenId();
     localStorage.setItem(RSVP_KEY,_rsvpId);
   }
+  if(!_rsvpCreatedAt){
+    const saved=parseInt(localStorage.getItem(RSVP_CREATED_KEY)||'0',10);
+    _rsvpCreatedAt=Number.isFinite(saved)&&saved>0?saved:Date.now();
+    localStorage.setItem(RSVP_CREATED_KEY,String(_rsvpCreatedAt));
+  }
   return _rsvpId;
+}
+function _rsvpRememberHistory(){
+  if(!_rsvpId)return;
+  let list=[];
+  try{list=JSON.parse(localStorage.getItem(RSVP_HISTORY_KEY)||'[]')||[];}catch(e){list=[];}
+  const item={
+    id:_rsvpId,
+    title:_rsvpTitle(),
+    clubName:_rsvpSelectedLabel(),
+    createdAt:_rsvpCreatedAt||Date.now(),
+    updatedAt:Date.now(),
+    url:_rsvpUrl()
+  };
+  list=[item,...list.filter(x=>x&&x.id!==_rsvpId)].slice(0,20);
+  try{localStorage.setItem(RSVP_HISTORY_KEY,JSON.stringify(list));}catch(e){}
 }
 function rsvpPushSession(){
   if(!_rsvpId||!_fbDb)return;
   if(_rsvpNeedsClubSelection()||!_rsvpRosterMembers().length)return;
   const path=_rsvpPath();
-  _fbDb.ref(path).update({kind:'tournamentRsvp',updatedAt:Date.now()}).catch(()=>{});
+  if(!_rsvpCreatedAt)rsvpEnsureId();
+  _rsvpRememberHistory();
+  _fbDb.ref(path).update({kind:'tournamentRsvp',mode:'team',createdAt:_rsvpCreatedAt||Date.now(),updatedAt:Date.now()}).catch(()=>{});
   _fbDb.ref(path+'/session').set(_rsvpSessionPayload()).catch(()=>{});
 }
 function rsvpSyncRosterChange(){
@@ -7153,7 +7190,8 @@ async function rsvpPublishSession(silent){
   }
   rsvpEnsureId();
   const path=_rsvpPath();
-  await _fbDb.ref(path).update({kind:'tournamentRsvp',updatedAt:Date.now()});
+  _rsvpRememberHistory();
+  await _fbDb.ref(path).update({kind:'tournamentRsvp',mode:'team',createdAt:_rsvpCreatedAt||Date.now(),updatedAt:Date.now()});
   await _fbDb.ref(path+'/session').set(_rsvpSessionPayload());
   rsvpStartListener();
   rsvpRender();
@@ -7188,6 +7226,8 @@ function rsvpLoad(){
   if(limitEl&&!limitEl.value)limitEl.value=localStorage.getItem(RSVP_GUEST_LIMIT_KEY)||'';
   rsvpRenderClubSelect();
   _rsvpId=localStorage.getItem(RSVP_KEY)||null;
+  const savedCreated=parseInt(localStorage.getItem(RSVP_CREATED_KEY)||'0',10);
+  _rsvpCreatedAt=Number.isFinite(savedCreated)&&savedCreated>0?savedCreated:null;
   if(_rsvpId&&_fbInit()){
     if(!_rsvpNeedsClubSelection()&&_rsvpRosterMembers().length)rsvpPushSession();
     rsvpStartListener();
@@ -7370,7 +7410,9 @@ async function rsvpStopLink(){
   const path=_rsvpPath();
   if(_fbDb)await _fbDb.ref(path).remove().catch(()=>{});
   localStorage.removeItem(RSVP_KEY);
+  localStorage.removeItem(RSVP_CREATED_KEY);
   _rsvpId=null;
+  _rsvpCreatedAt=null;
   _rsvpResponses={};
   _rsvpListening=false;
   rsvpRender();
