@@ -1,6 +1,13 @@
 // network-first 서비스워커: PWA(홈 화면 설치본)도 항상 최신 코드를 받도록 함
-const CACHE = 'badminton-v1.10.171';
-const FILES = ['/badminton/', '/badminton/index.html', '/badminton/team.html'];
+const CACHE = 'badminton-v1.10.178';
+const FILES = [
+  '/badminton/',
+  '/badminton/index.html',
+  '/badminton/team.html',
+  '/badminton/rsvp.html',
+  '/badminton/view.html',
+  '/badminton/checkin.html'
+];
 
 self.addEventListener('install', e => {
   self.skipWaiting(); // 새 SW 즉시 대기상태 진입

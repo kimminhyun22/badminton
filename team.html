@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.176  (2026-06)
+     APP VERSION: 1.10.178  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.176">
+<meta name="app-version" content="1.10.178">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1221,9 +1221,9 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .collapse-btn.collapsed{transform:rotate(-90deg);}
 
 /* ── 팀전 참석 링크 ── */
-.rsvp-grid{display:grid;grid-template-columns:minmax(140px,.9fr) minmax(180px,1fr) minmax(112px,.5fr) auto;gap:7px;align-items:center;margin-bottom:9px;}
+.rsvp-grid{display:grid;grid-template-columns:minmax(150px,.9fr) minmax(190px,1fr) auto;gap:7px;align-items:center;margin-bottom:9px;}
 .rsvp-panel{display:flex;flex-direction:column;gap:8px;}
-.rsvp-link{font-size:.72rem;color:var(--dim);line-height:1.55;word-break:break-all;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:9px 10px;}
+.rsvp-link{font-size:.82rem;color:var(--dim);line-height:1.55;word-break:break-all;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:10px 11px;}
 .rsvp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;}
 .rsvp-stat{border:1px solid var(--bdr);border-radius:10px;background:#fff;padding:9px;text-align:center;}
 .rsvp-stat.warn{background:#fffbeb;border-color:#fde68a;}
@@ -1234,8 +1234,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;border:1px solid var(--bdr);border-radius:10px;background:#fff;padding:9px 10px;}
 .rsvp-row.warn{background:#fff7ed;border-color:#fed7aa;}
 .rsvp-row.guest{background:#f8fbff;border-color:#bfdbfe;}
-.rsvp-name{font-size:.84rem;font-weight:900;color:var(--txt);line-height:1.35;}
-.rsvp-meta{font-size:.66rem;color:var(--dim);line-height:1.45;margin-top:2px;}
+.rsvp-name{font-size:.9rem;font-weight:900;color:var(--txt);line-height:1.35;}
+.rsvp-meta{font-size:.72rem;color:var(--dim);line-height:1.45;margin-top:2px;}
 .rsvp-badge{display:inline-flex;font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;border:1px solid var(--bdr);background:var(--sur2);color:var(--dim);white-space:nowrap;}
 .rsvp-badge.attend{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
 .rsvp-badge.decline{background:#f1f5f9;border-color:#dbe3ec;color:#64748b;}
@@ -1245,7 +1245,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-action-btn:hover{background:var(--bl-soft);color:var(--bl-deep);border-color:var(--bl-softbdr);}
 .rsvp-action-btn.primary{background:var(--bl);border-color:var(--bl);color:#fff;box-shadow:0 6px 16px rgba(91,141,239,.18);}
 .rsvp-action-btn.danger:hover{background:#fee2e2;color:#b91c1c;border-color:#fecaca;}
-.rsvp-empty{font-size:.78rem;color:var(--dim);text-align:center;padding:22px;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff;}
+.rsvp-empty{font-size:.86rem;color:var(--dim);text-align:center;padding:22px;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff;}
 
 /* ── 팀전 오토 운영 단계판 ── */
 .auto-flow-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 52%,#f0fdf4 100%);
@@ -1253,7 +1253,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .auto-flow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
 .auto-flow-kicker{font-size:.68rem;font-weight:900;color:#2563eb;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;}
 .auto-flow-title{font-size:1.08rem;font-weight:1000;color:#172033;line-height:1.32;}
-.auto-flow-sub{font-size:.76rem;font-weight:700;color:var(--dim);line-height:1.45;margin-top:4px;}
+.auto-flow-sub{font-size:.84rem;font-weight:700;color:var(--dim);line-height:1.45;margin-top:4px;}
 .auto-flow-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;
   border-radius:999px;padding:6px 10px;background:#dbeafe;color:#1d4ed8;font-size:.72rem;font-weight:1000;white-space:nowrap;}
 .auto-flow-badge.live{background:#fee2e2;color:#b91c1c;}
@@ -1282,7 +1282,10 @@ details.card:not([open]) .card-head{border-bottom:none;}
   .auto-flow-card{border-radius:18px;}
   .auto-flow-head{margin-bottom:10px;}
   .auto-flow-title{font-size:1.28rem;}
-  .auto-flow-sub{font-size:.82rem;}
+  .auto-flow-sub{font-size:.92rem;}
+  .rsvp-link{font-size:.9rem;}
+  .rsvp-name{font-size:.98rem;}
+  .rsvp-meta{font-size:.78rem;}
   .auto-flow-badge{font-size:.76rem;padding:7px 10px;}
   .auto-flow-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
   .auto-flow-metric{padding:12px 8px;}
@@ -1395,10 +1398,9 @@ details.card:not([open]) .card-head{border-bottom:none;}
           <div class="rsvp-grid">
             <select class="inp" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
             <input class="inp" id="rsvpTitle" placeholder="예: 6월 월례 팀전" oninput="rsvpSaveLocal()">
-            <input class="inp" id="rsvpGuestLimit" type="number" min="0" inputmode="numeric" placeholder="게스트 제한" oninput="rsvpSaveLocal()">
             <button class="btn btn-gen" onclick="rsvpShareLink()">공지 복사</button>
           </div>
-          <div class="hint" style="margin-bottom:8px;">처음 보낸 링크 하나로 투표, 대진표, 실시간 중계까지 이어집니다.</div>
+          <div class="hint" style="margin-bottom:8px;">링크 하나로 참석, 대진표, 실시간 중계까지 이어집니다.</div>
           <div id="rsvpBox" class="rsvp-empty">아직 참석 링크가 만들어지지 않았습니다.</div>
         </div>
       </details>
@@ -1961,7 +1963,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.176';
+const APP_VERSION = '1.10.178';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7015,7 +7017,6 @@ function syncDirectToPaste(){ /* 미사용 */ }
 const RSVP_KEY='kokmatch_team_rsvp_id';
 const RSVP_TITLE_KEY='kokmatch_team_rsvp_title';
 const RSVP_CLUB_KEY='kokmatch_team_rsvp_club_id';
-const RSVP_GUEST_LIMIT_KEY='kokmatch_team_rsvp_guest_limit';
 const RSVP_CREATED_KEY='kokmatch_team_rsvp_created_at';
 const RSVP_HISTORY_KEY='kokmatch_team_rsvp_history';
 const RSVP_DIRECT_VALUE='__direct__';
@@ -7036,10 +7037,7 @@ function _rsvpTitle(){
   return (el&&el.value.trim())||localStorage.getItem(RSVP_TITLE_KEY)||_rsvpDefaultTitle();
 }
 function _rsvpGuestLimit(){
-  const el=document.getElementById('rsvpGuestLimit');
-  const raw=el?el.value.trim():(localStorage.getItem(RSVP_GUEST_LIMIT_KEY)||'');
-  const n=parseInt(raw,10);
-  return Number.isFinite(n)&&n>0?n:null;
+  return null;
 }
 function _rsvpGenId(){
   const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -7198,9 +7196,7 @@ function _rsvpSessionPayload(){
 }
 function rsvpSaveLocal(){
   localStorage.setItem(RSVP_TITLE_KEY,_rsvpTitle());
-  const limit=_rsvpGuestLimit();
-  if(limit)localStorage.setItem(RSVP_GUEST_LIMIT_KEY,String(limit));
-  else localStorage.removeItem(RSVP_GUEST_LIMIT_KEY);
+  localStorage.removeItem('kokmatch_team_rsvp_guest_limit');
   if(_rsvpId)rsvpPushSession();
 }
 function rsvpEnsureId(){
@@ -7275,9 +7271,7 @@ async function rsvpShareLink(){
   const url=_rsvpUrl();
   const title=_rsvpTitle();
   const target=_rsvpSelectedLabel();
-  const guestLimit=_rsvpGuestLimit();
-  const guestLine=guestLimit?`\n게스트는 ${guestLimit}명까지 신청 가능합니다.`:'';
-  const text=`🏸 ${target} · ${title} 참석 확인\n\n본인 이름을 누르고 참석 여부를 표시해 주세요.${guestLine}\n대진표와 실시간 현황도 같은 링크에서 이어서 확인할 수 있습니다.\n\n${url}`;
+  const text=`🏸 ${target} · ${title} 참석 확인\n\n본인 이름을 누르고 참석 여부를 표시해 주세요.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
   try{
     if(navigator.share){
       await navigator.share({title:`${title} 참석 확인`,text});
@@ -7294,8 +7288,7 @@ async function rsvpShareLink(){
 function rsvpLoad(){
   const titleEl=document.getElementById('rsvpTitle');
   if(titleEl&&!titleEl.value)titleEl.value=localStorage.getItem(RSVP_TITLE_KEY)||_rsvpDefaultTitle();
-  const limitEl=document.getElementById('rsvpGuestLimit');
-  if(limitEl&&!limitEl.value)limitEl.value=localStorage.getItem(RSVP_GUEST_LIMIT_KEY)||'';
+  localStorage.removeItem('kokmatch_team_rsvp_guest_limit');
   rsvpRenderClubSelect();
   _rsvpId=localStorage.getItem(RSVP_KEY)||null;
   const savedCreated=parseInt(localStorage.getItem(RSVP_CREATED_KEY)||'0',10);
@@ -7367,19 +7360,19 @@ function renderAutoFlowDashboard(){
     let cfg={
       badge:'준비',
       title:'1. 참석 링크 만들기',
-      sub:'클럽 명부를 선택하고 공지를 보내면 회원 신청이 자동 집계됩니다.',
-      next:'클럽 명부, 공지 제목, 게스트 제한을 확인한 뒤 링크를 공유하세요.',
+      sub:'클럽 명부로 링크를 만들면 회원 신청이 자동 집계됩니다.',
+      next:'클럽 명부와 공지 제목을 확인한 뒤 링크를 공유하세요.',
       actionLabel:'공지 복사',
       actionFn:'rsvpShareLink',
-      checks:['클럽 명부', '게스트 제한', '공지 제목']
+      checks:['클럽 명부', '공지 제목']
     };
     if(live){
       stage='live';
       cfg={
         badge:'운영 중',
         title:'6. 실시간 중계 운영 중',
-        sub:'회원은 같은 링크에서 대진표와 출석, 뒤풀이 정보를 확인합니다.',
-        next:'운영자는 승패 입력과 출석/뒤풀이 현황만 확인하면 됩니다.',
+        sub:'회원은 같은 링크에서 대진표와 출석, 뒤풀이를 확인합니다.',
+        next:'승패 입력과 출석/뒤풀이만 확인하세요.',
         actionLabel:'중계 링크 공유',
         actionFn:'onLiveBtnClick',
         checks:['현재 라운드', '승패 입력', '출석/뒤풀이']
@@ -7389,8 +7382,8 @@ function renderAutoFlowDashboard(){
       cfg={
         badge:'중계 전',
         title:'5. 대진표 준비 완료',
-        sub:'품질점수와 청/홍 배치가 정상인지 확인한 뒤 실시간 중계를 시작하세요.',
-        next:'문제가 없으면 실시간 중계를 시작합니다.',
+        sub:'품질점수와 청/홍 배치만 확인하세요.',
+        next:'문제가 없으면 중계를 시작합니다.',
         actionLabel:'실시간 중계 시작',
         actionFn:'startLiveBroadcast',
         checks:['품질점수', '청/홍 혼입 없음', '대진 수']
@@ -7400,7 +7393,7 @@ function renderAutoFlowDashboard(){
       cfg={
         badge:'팀 완료',
         title:'4. 청/홍팀 세팅 완료',
-        sub:'팀 명단과 단장/부단장을 확인하고 전체 대진표를 생성합니다.',
+        sub:'팀 명단과 단장/부단장을 확인하세요.',
         next:'대진 생성 후 품질점검을 먼저 확인하세요.',
         actionLabel:'대진 생성',
         actionFn:'generate',
@@ -7411,7 +7404,7 @@ function renderAutoFlowDashboard(){
       cfg={
         badge:'팀 배정',
         title:'3. 참석자 명단 준비',
-        sub:'참석 확정자와 게스트가 참가자 명단에 들어왔습니다.',
+        sub:'참석자와 게스트가 명단에 들어왔습니다.',
         next:'청/홍팀 자동 배정을 진행하세요.',
         actionLabel:'청/홍팀 자동 배정',
         actionFn:'doTeamAssign',
@@ -7422,7 +7415,7 @@ function renderAutoFlowDashboard(){
       cfg={
         badge:'투표 집계',
         title:'2. 참석 투표 집계 중',
-        sub:'참석 확정자와 게스트 신청이 모였습니다.',
+        sub:'참석자와 게스트 신청이 모였습니다.',
         next:'참석자 가져오기로 팀전 참가자 명단을 만듭니다.',
         actionLabel:'참석자 가져오기',
         actionFn:'rsvpImportAttendees',
@@ -7433,11 +7426,11 @@ function renderAutoFlowDashboard(){
       cfg={
         badge:'공지 완료',
         title:'2. 회원 응답 대기',
-        sub:'보낸 링크에서 회원들이 참석 여부와 게스트를 신청합니다.',
+        sub:'회원이 참석 여부와 게스트를 신청합니다.',
         next:'응답이 모이면 참석자 가져오기를 진행합니다.',
         actionLabel:'공지 다시 복사',
         actionFn:'rsvpShareLink',
-        checks:['응답 수', '미응답', '게스트 제한']
+        checks:['응답 수', '미응답', '게스트']
       };
     }
     badgeEl.textContent=cfg.badge;
@@ -7575,10 +7568,25 @@ function rsvpImportAttendees(){
   if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 참석 확정자 ${counts.attend}명으로 교체할까요?`))return;
   const next=[];
   const seen=new Set();
-  const add=p=>{
-    const name=(p.name||'').trim();
-    if(!name||seen.has(name))return;
-    seen.add(name);
+  const usedNames=new Set();
+  const uniqueName=(name,isGuest)=>{
+    if(!usedNames.has(name)){
+      usedNames.add(name);
+      return name;
+    }
+    const suffix=isGuest?'게스트':'동명이인';
+    let candidate=`${name}(${suffix})`;
+    let n=2;
+    while(usedNames.has(candidate))candidate=`${name}(${suffix}${n++})`;
+    usedNames.add(candidate);
+    return candidate;
+  };
+  const add=(p,scope='member')=>{
+    const rawName=(p.name||'').trim();
+    const key=`${scope}|${_rsvpNameKey(rawName)}|${p.club||''}`;
+    if(!rawName||seen.has(key))return;
+    seen.add(key);
+    const name=uniqueName(rawName,!!p.isGuest);
     const gender=p.gender||'남';
     const grade=p.grade||levelToGrade(p.level||4,gender)||'C';
     next.push({
@@ -7592,8 +7600,8 @@ function rsvpImportAttendees(){
     });
   };
   attendees.forEach(r=>{
-    add({name:r.memberName||r.name,grade:r.grade,gender:r.gender,ageGroup:r.ageGroup,club:r.club});
-    if(r.guest&&r.guest.name)add({name:r.guest.name,grade:r.guest.grade||'C',gender:r.guest.gender||'남',ageGroup:r.guest.ageGroup||r.ageGroup||'40대',isGuest:true});
+    add({name:r.memberName||r.name,grade:r.grade,gender:r.gender,ageGroup:r.ageGroup,club:r.club},'member');
+    if(r.guest&&r.guest.name)add({name:r.guest.name,grade:r.guest.grade||'C',gender:r.guest.gender||'남',ageGroup:r.guest.ageGroup||r.ageGroup||'40대',club:r.club,isGuest:true},`guest:${_rsvpNameKey(r.memberName||r.name||'')}`);
   });
   _directPlayers=next;
   teamAssignment=null;
