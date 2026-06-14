@@ -133,12 +133,62 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:10px;
-  padding:10px 11px;
+  gap:12px;
+  padding:12px;
   border:1px solid var(--line);
   border-radius:16px;
   background:#fff;
 }
+.event-row-main{
+  min-width:0;
+  flex:1;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  gap:10px;
+  align-items:center;
+}
+.event-court-badge{
+  min-width:62px;
+  min-height:54px;
+  padding:8px 9px;
+  border-radius:16px;
+  background:#eaf1fe;
+  color:#315fb2;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  font-weight:900;
+  line-height:1;
+}
+.event-court-badge b{font-size:23px;line-height:1}
+.event-court-badge span{font-size:12px;margin-top:4px}
+.event-row.next .event-court-badge{background:#edf7ff;color:#2563eb}
+.event-row.soon .event-court-badge,.event-row.due .event-court-badge{background:#fee2e2;color:#b91c1c}
+.event-match-title{
+  font-size:15px;
+  font-weight:900;
+  color:#273244;
+  line-height:1.25;
+  margin-bottom:5px;
+}
+.event-teams{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.event-teamline{
+  min-width:0;
+  font-size:18px;
+  font-weight:900;
+  color:#111827;
+  line-height:1.28;
+  letter-spacing:-.02em;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.event-teamline.b{color:#374151}
 .event-row.next{
   border-color:#bfdbfe;
   background:linear-gradient(135deg,#f8fbff 0%,#fff 100%);
@@ -151,19 +201,38 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   border-color:#fecaca;
   background:#fff7f7;
 }
-.event-row strong{display:block;font-size:14px}
+.event-row strong{display:block;font-size:15px}
 .event-row small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
 .event-row .event-cue{color:#315fb2;font-weight:900}
 .event-row.due .event-cue,.event-row.soon .event-cue{color:#b91c1c}
 .event-row em{
   flex-shrink:0;
   font-style:normal;
-  font-size:12px;
+  font-size:13px;
   font-weight:900;
   color:#4f78c9;
   background:#eaf1fe;
   border-radius:999px;
-  padding:6px 8px;
+  padding:8px 10px;
+  align-self:center;
+  white-space:nowrap;
+}
+.event-row.soon em,.event-row.due em{
+  color:#fff;
+  background:#dc2626;
+  animation:eventPulse 1.2s ease-in-out infinite;
+}
+@keyframes eventPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.22)}
+  50%{box-shadow:0 0 0 6px rgba(220,38,38,.08)}
+}
+@media(max-width:430px){
+  .event-row{padding:11px 10px;gap:8px}
+  .event-row-main{grid-template-columns:auto minmax(0,1fr);gap:8px}
+  .event-court-badge{min-width:56px;min-height:50px;border-radius:14px}
+  .event-court-badge b{font-size:21px}
+  .event-teamline{font-size:17px}
+  .event-row em{font-size:12px;padding:7px 8px}
 }
 .toolbar{
   display:flex;
@@ -555,6 +624,17 @@ function teamNames(row){
   const b=(row.t2||[]).join(' · ');
   return `${a} vs ${b}`;
 }
+function teamLines(row){
+  const a=(row.t1||[]).join(' · ')||'A팀';
+  const b=(row.t2||[]).join(' · ')||'B팀';
+  return `<div class="event-teamline">${esc(a)}</div><div class="event-teamline b">${esc(b)}</div>`;
+}
+function courtBadge(label){
+  const text=String(label||'대기');
+  const m=text.match(/(\d+)\s*코트/);
+  if(m)return `<div class="event-court-badge"><b>${esc(m[1])}</b><span>코트</span></div>`;
+  return `<div class="event-court-badge"><b>대기</b><span>순번</span></div>`;
+}
 function renderEvent(){
   const el=document.getElementById('eventPanel');
   if(!el)return;
@@ -572,15 +652,24 @@ function renderEvent(){
     const remain=remainMinutes(m);
     const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
     return `<div class="event-row ${state}">
-    <div><strong>${m.court}코트 진행중</strong><small>${esc(teamNames(m))}</small></div>
+    <div class="event-row-main">
+      ${courtBadge(`${m.court}코트`)}
+      <div>
+        <div class="event-match-title">진행중</div>
+        <div class="event-teams">${teamLines(m)}</div>
+      </div>
+    </div>
     <em>${esc(remainText(m))}</em>
   </div>`;
   }).join('');
   const next=(ev.next||[]).slice(0,4).map(m=>`<div class="event-row next ${esc(m.cueState||'')}">
-    <div>
-      <strong>${m.idx===1?'다음 투입 1순위':`대기 ${m.idx}순위`}</strong>
-      <small>${esc(teamNames(m))}</small>
-      <small class="event-cue">${esc(m.cue||'코트 배정 대기')} · ${esc(m.cueDetail||'이름을 먼저 확인해주세요')}</small>
+    <div class="event-row-main">
+      ${courtBadge(m.cue||'대기')}
+      <div>
+        <div class="event-match-title">${m.idx===1?'다음 투입 1순위':`대기 ${m.idx}순위`}</div>
+        <div class="event-teams">${teamLines(m)}</div>
+        <small class="event-cue">${esc(m.cue||'코트 배정 대기')} · ${esc(m.cueDetail||'이름을 먼저 확인해주세요')}</small>
+      </div>
     </div>
     <em>${m.idx===1?'준비':'대기'}</em>
   </div>`).join('');
@@ -638,9 +727,9 @@ function render(){
       <div class="phead">
         <div>
           <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}</div>
-          <div class="meta">현재 ${esc(compactLabel(selected))} · ${p.games||0}게임${locked?' · 관리자 확인 필요':''}${voteLocked?' · 투표 마감':''}</div>
+          <div class="meta">현재 ${esc(compactLabel(selected))} · ${p.games||0}게임${locked?' · 경기중 예약 반영':''}${voteLocked?' · 투표 마감':''}</div>
         </div>
-        <div class="badge ${highlighted?'selected':''}">${highlighted?'전송완료':(voteLocked?'마감':(locked?'확인필요':compactLabel(selected)))}</div>
+        <div class="badge ${highlighted?'selected':''}">${highlighted?'전송완료':(voteLocked?'마감':(locked?'경기중':compactLabel(selected)))}</div>
       </div>
       <div class="buttons main-actions">${mainButtons}</div>
       ${subSection}
@@ -818,8 +907,11 @@ function boot(){
     render();
   });
   if(!eventTimer){
-    eventTimer=setInterval(()=>renderEvent(),15000);
+    eventTimer=setInterval(()=>renderEvent(),5000);
   }
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden)renderEvent();
+  });
 }
 boot();
 </script>

@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.163  (2026-06)
+     APP VERSION: 1.10.165  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.163">
+<meta name="app-version" content="1.10.165">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2440,7 +2440,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">민턴LIVE는 사람이 오가고 휴식이 섞이는 상황을 전제로 운영합니다.</p>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">출석 링크나 관리자 화면에서 상태를 바꿔 늦게 온 사람, 쉬는 사람, 먼저 가는 사람을 즉시 반영합니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🔒</span><p class="step-text">경기중이거나 임박 대기표에 들어간 선수는 실수 방지를 위해 바로 바꾸지 않고 확인 대상으로 남깁니다. 종료 요청은 즉시 반영됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">🔄</span><p class="step-text">경기중 선수는 경기 종료 후 반영하고, 임박대기는 임시 편성으로 보고 상태 변경·선수교체·대진변경을 바로 반영합니다.</p></div>
       <div class="step-item"><span class="step-num ico">⏹</span><p class="step-text">운동을 멈출 선수는 종료를 누르면 즉시 자동 대진 후보에서 빠집니다.</p></div>
     </div>
   </div>
@@ -2468,7 +2468,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong> 메뉴에서 <strong>클럽 명부 가져오기</strong>로 회원을 선택해 불러옵니다. 게스트는 <strong>G</strong> 버튼을 켜고 추가합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">휴식·종료 상태를 바꿔 현재 운동 가능한 사람만 남깁니다. 추천 후보는 <strong>시작</strong> 선수입니다.</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text">회원이 출석 링크에서 파트너 또는 4명 경기를 신청하면 자동 등록됩니다. 이미 확정된 임박대기는 유지하고, 새 대기표를 채울 때 우선 반영됩니다.</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text">회원이 출석 링크에서 파트너 또는 4명 경기를 신청하면 자동 등록됩니다. 신청 선수가 임박대기에 있으면 임시 대진에서 빼고 신청을 우선 반영합니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>임박대기</strong>는 코트 수만큼만 만들고, 나머지는 <strong>대기선수</strong>로 둡니다. 코트 수만큼 한 바퀴가 돌면 곧 시작할 1순위와 준비 알림을 보낸 대기표를 지키고, 나머지 대기표는 오래 기다린 사람 중심으로 다시 섞습니다.</p></div>
       <div class="step-item"><span class="step-num">5</span><p class="step-text">임박대기에는 다음 코트의 <strong>바로 시작/종료임박/예상 종료</strong> 상태와 <strong>준비 알림</strong>, <strong>경기 시작</strong> 버튼이 표시됩니다. 준비 알림은 카톡에 보낼 문구를 공유하거나 복사하는 기능입니다.</p></div>
       <div class="step-item"><span class="step-num">6</span><p class="step-text">경기가 끝나면 코트 카드에서 <strong>경기 종료</strong>를 누릅니다. 방금 끝난 선수들은 대기자로 돌아가고 다음 대기표가 보충됩니다. 자동 시작을 꺼둔 기본 운영에서는 빈 코트 카드에서 관리자가 1순위 임박대기를 직접 시작합니다. 남은 시간이 5분 이하이면 빨간색 종료임박으로 표시됩니다.</p></div>
@@ -2496,7 +2496,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.163';
+const APP_VERSION = '1.10.165';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2920,9 +2920,8 @@ function _dailyStatusBadge(status){
   return `<span class="daily-status ${status}">${s.label}</span>`;
 }
 function _dailyStatusSelect(p){
-  const locked=_dailyIsLockedQueued(p.id);
   const keys=Object.keys(DAILY_STATUS);
-  return `<select class="daily-select" onchange="dailySetStatus('${p.id}',this.value)" ${(p.status==='playing'||locked)?'disabled':''}>
+  return `<select class="daily-select" onchange="dailySetStatus('${p.id}',this.value)" ${(p.status==='playing'||p.currentMatchId)?'disabled':''}>
     ${keys.map(k=>`<option value="${k}" ${p.status===k?'selected':''}>${DAILY_STATUS[k].label}</option>`).join('')}
   </select>`;
 }
@@ -3089,16 +3088,15 @@ function _dailyPromoteReadyReservations(silent){
       }
       continue;
     }
-    const locked=forceMember
-      ? _dailyQueue.slice(0,_dailyQueueLockCount()).filter(q=>q.reservationId)
-      : _dailyQueue.slice(0,_dailyQueueLockCount());
+    const locked=_dailyQueue.filter(q=>q.reservationId&&q.reservationId!==r.id);
     const lockedIds=new Set();
     locked.forEach(q=>_dailyQueueIds(q).forEach(pid=>lockedIds.add(pid)));
     const q=_dailyBuildReservationQueueItem(lockedIds,r.id);
     if(!q)continue;
     const ids=new Set(_dailyQueueIds(q));
-    const flex=_dailyQueue.slice(_dailyQueueLockCount())
-      .filter(item=>item.reservationId!==r.id&&!_dailyQueueIds(item).some(pid=>ids.has(pid)));
+    const lockedQueueIds=new Set(locked.map(item=>item.id));
+    const flex=_dailyQueue
+      .filter(item=>item.reservationId!==r.id&&!lockedQueueIds.has(item.id)&&!_dailyQueueIds(item).some(pid=>ids.has(pid)));
     _dailyQueue=[...locked,q,...flex].slice(0,_dailyQueueCapacity().target);
     changed=true;
   }
@@ -3365,8 +3363,7 @@ function _dailyIsQueued(id){
   return _dailyQueue.some(q=>_dailyQueueIds(q).includes(id));
 }
 function _dailyIsLockedQueued(id){
-  const lockCount=_dailyQueueLockCount();
-  return _dailyQueue.some((q,idx)=>(idx<lockCount||q.reservationId)&&_dailyQueueIds(q).includes(id));
+  return _dailyQueue.some(q=>q.reservationId&&_dailyQueueIds(q).includes(id));
 }
 function _dailyQueueLabelForPlayer(id){
   const idx=_dailyQueue.findIndex(q=>_dailyQueueIds(q).includes(id));
@@ -3713,7 +3710,7 @@ function dailySetStatus(id,status){
   const p=_dailyPlayer(id);
   if(!p)return;
   if(_dailyIsLockedQueued(id)){
-    alert('고정/신청 대기 선수는 안정성을 위해 선수 목록에서 수정할 수 없습니다. 필요하면 대기 경기표에서 재배정하거나 신청을 삭제하세요.');
+    alert('게임신청 대기 선수는 신청 의도 보호를 위해 목록에서 바로 수정하지 않습니다. 필요하면 신청을 삭제하거나 대기표에서 조정하세요.');
     dailyRender();return;
   }
   if(p.status==='playing'){
@@ -3802,8 +3799,7 @@ function dailyAddReservation(){
   const noteEl=document.getElementById('dailyResNote');
   if(noteEl)noteEl.value='';
   const reservedIds=_dailyReservationIds(_dailyReservations[_dailyReservations.length-1]);
-  const lockCount=_dailyQueueLockCount();
-  _dailyQueue=_dailyQueue.filter((q,idx)=>idx<lockCount||!reservedIds.some(id=>_dailyQueueIds(q).includes(id)));
+  _dailyReleaseTemporaryQueueForReservationIds(reservedIds);
   dailySave();dailyRender();
 }
 function dailyDeleteReservation(id){
@@ -3812,7 +3808,7 @@ function dailyDeleteReservation(id){
   dailySave();dailyRender();
 }
 function dailyPromoteReservation(id){
-  const locked=_dailyQueue.slice(0,_dailyQueueLockCount());
+  const locked=_dailyQueue.filter(q=>q.reservationId&&q.reservationId!==id);
   const lockedIds=new Set();
   locked.forEach(q=>_dailyQueueIds(q).forEach(pid=>lockedIds.add(pid)));
   const q=_dailyBuildReservationQueueItem(lockedIds,id);
@@ -3821,8 +3817,9 @@ function dailyPromoteReservation(id){
     return;
   }
   const ids=new Set(_dailyQueueIds(q));
-  const flex=_dailyQueue.slice(_dailyQueueLockCount())
-    .filter(item=>item.reservationId!==id&&!_dailyQueueIds(item).some(pid=>ids.has(pid)));
+  const lockedQueueIds=new Set(locked.map(item=>item.id));
+  const flex=_dailyQueue
+    .filter(item=>item.reservationId!==id&&!lockedQueueIds.has(item.id)&&!_dailyQueueIds(item).some(pid=>ids.has(pid)));
   _dailyQueue=[...locked,q,...flex].slice(0,_dailyQueueCapacity().target);
   _dailyRefreshNextFromQueue();
   dailySave();dailyRender();
@@ -4376,7 +4373,7 @@ function _dailyRenderQueueItem(q,idx,mode){
   if(!m)return '';
   const lockCount=_dailyQueueLockCount();
   const reserved=!!q.reservationId;
-  const locked=idx<lockCount||reserved;
+  const urgent=idx<lockCount;
   const teamA=[m.team1A,m.team1B];
   const teamB=[m.team2C,m.team2D];
   const teamMode=!!(q.teamMode||m.teamMode||_dailyTeamMode);
@@ -4385,7 +4382,7 @@ function _dailyRenderQueueItem(q,idx,mode){
   const orderLabel=teamMode?`투입순서 ${idx+1}`:`#${idx+1}`;
   const next={match:m,score:q.score,strict:q.strict,label:`${idx+1}순위 대기`,queueIndex:idx};
   const canStart=!!_dailyAvailableCourt();
-  const badgeText=reserved?'게임신청 · 수정잠금':(locked?'임박 대기':'대기');
+  const badgeText=reserved?'게임신청':(urgent?'임박 대기':'대기');
   const swapRow=(side,pos,p)=>`<div class="daily-queue-swap-row"><span>${_dailyNameHtml(p)} 교체</span>${_dailyQueueSelect(q,side,pos,p.id)}</div>`;
   const editHtml=reserved
     ? `<details class="daily-queue-editor">
@@ -4402,22 +4399,22 @@ function _dailyRenderQueueItem(q,idx,mode){
           <div class="daily-queue-side"><label>${esc(labelB)}</label>${swapRow('team2',0,m.team2C)}${swapRow('team2',1,m.team2D)}</div>
         </div>
         <div class="daily-queue-editor-actions">
-          <button class="daily-mini-btn" onclick="dailyRegenerateQueueItem('${q.id}')">${locked?'관리자 재배정':'자동 재배정'}</button>
+          <button class="daily-mini-btn" onclick="dailyRegenerateQueueItem('${q.id}')">대진 재배정</button>
           <button class="daily-mini-btn danger" onclick="dailyDeleteQueueItem('${q.id}')">삭제</button>
         </div>
       </details>`;
-  return `<div class="daily-queue-item ${locked?'locked':'flex'}" data-daily-queue-id="${q.id}" data-daily-queue-idx="${idx}" draggable="true" ondragstart="dailyQueueDragStart(event,'${q.id}')" ondragover="dailyQueueDragOver(event,'${q.id}')" ondrop="dailyQueueDrop(event,'${q.id}')" ondragend="dailyQueueDragEnd()">
+  return `<div class="daily-queue-item ${reserved?'locked':'flex'}" data-daily-queue-id="${q.id}" data-daily-queue-idx="${idx}" draggable="true" ondragstart="dailyQueueDragStart(event,'${q.id}')" ondragover="dailyQueueDragOver(event,'${q.id}')" ondrop="dailyQueueDrop(event,'${q.id}')" ondragend="dailyQueueDragEnd()">
     <div class="daily-queue-head">
       <div class="daily-queue-head-main">
         <button class="daily-drag-handle" type="button" title="끌어서 대기 순서 변경" onpointerdown="dailyQueuePointerDown(event,'${q.id}')">☰</button>
         <div>
           <div class="daily-queue-title">${orderLabel} · ${m.reservationLabel?'신청경기 · ':''}${esc(m.type)}${m.isFlexible?' · 예외':''} · 팀 실력차 ${esc(String(m.levelDiff))}</div>
-          <span class="daily-queue-badge ${locked?'locked':'flex'}">${badgeText}</span>
-          ${locked?_dailyQueueStartCueHtml(idx):''}
+          <span class="daily-queue-badge ${reserved?'locked':'flex'}">${badgeText}</span>
+          ${urgent?_dailyQueueStartCueHtml(idx):''}
         </div>
       </div>
       <div class="daily-queue-actions">
-        ${locked?`<button class="daily-mini-btn" title="카톡에 보낼 준비 알림 문구를 공유하거나 복사합니다." onclick="dailyNotifyQueue('${q.id}')">알림</button>`:''}
+        ${urgent?`<button class="daily-mini-btn" title="카톡에 보낼 준비 알림 문구를 공유하거나 복사합니다." onclick="dailyNotifyQueue('${q.id}')">알림</button>`:''}
         ${canStart?`<button class="daily-mini-btn primary-action" onclick="dailyStartQueueItem('${q.id}')">${teamMode?'빈 코트 배정':'경기 시작'}</button>`:`<span class="daily-queue-badge flex">코트 대기중</span>`}
       </div>
     </div>
@@ -4882,7 +4879,7 @@ function _dailyCheckinPayload(){
         isGuest:!!p.isGuest,
         games:p.games||0,
         voteLocked:voteClosed&&p.status==='invited',
-        locked:_dailyIsLockedQueued(p.id)||p.status==='playing'||!!p.currentMatchId
+        locked:p.status==='playing'||!!p.currentMatchId
       })),
     statuses:[
       {key:'planned',label:'참석',desc:''},
@@ -4985,7 +4982,7 @@ function _dailyCheckinBlockReason(req,p){
   if(nextStatus==='done')return '';
   if(_dailyIsLockedQueued(p.id)){
     if(nextStatus==='rest')return '';
-    return '임박/신청 대기표에 포함되어 관리자 확인 필요';
+    return '게임신청 대기표에 포함되어 관리자 확인 필요';
   }
   return '';
 }
@@ -5100,7 +5097,7 @@ function dailyProcessCheckinRequests(){
       const reason=_dailyCheckinBlockReason(req,p);
       if(reason)return;
       const nextStatus=_dailyNormalizeStatus(req.status);
-      if((nextStatus==='rest'||nextStatus==='done')&&_dailyIsQueued(p.id)){
+      if(_dailyIsQueued(p.id)&&!DAILY_STATUS[nextStatus]?.eligible){
         if(!_dailyTryReplaceQueuedPlayer(p.id))_dailyRemoveQueuedPlayer(p.id);
         changed=true;
       }
