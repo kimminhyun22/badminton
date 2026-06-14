@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.175  (2026-06)
+     APP VERSION: 1.10.176  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.175">
+<meta name="app-version" content="1.10.176">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -93,8 +93,12 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ── CARD ── */
 .card{background:#ffffff;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow);}
 .card-head{padding:10px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;background:#ffffff;}
+summary.card-head{cursor:pointer;list-style:none;}
+summary.card-head::-webkit-details-marker{display:none;}
+details.card:not([open]) .card-head{border-bottom:none;}
 .card-title{font-size:.68rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);font-weight:700;}
 .card-body{padding:14px 16px;}
+.low-priority{display:none!important;}
 
 /* ── PASTE (미사용 — CSS 정리) ── */
 #parseStatus{font-size:.7rem;margin-bottom:8px;min-height:14px;}
@@ -1373,7 +1377,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="card auto-flow-card" id="autoFlowCard">
         <div class="auto-flow-head">
           <div>
-            <div class="auto-flow-kicker">TEAM AUTO FLOW</div>
+            <div class="auto-flow-kicker">AUTO FLOW</div>
             <div class="auto-flow-title" id="autoFlowTitle">팀전 오토시스템 준비</div>
             <div class="auto-flow-sub" id="autoFlowSub">회원 신청을 기준으로 참석자, 팀세팅, 대진, 실시간 중계까지 한 흐름으로 진행합니다.</div>
           </div>
@@ -1394,17 +1398,14 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
             <input class="inp" id="rsvpGuestLimit" type="number" min="0" inputmode="numeric" placeholder="게스트 제한" oninput="rsvpSaveLocal()">
             <button class="btn btn-gen" onclick="rsvpShareLink()">공지 복사</button>
           </div>
-          <div class="hint" style="margin-bottom:8px;">
-            클럽 명부를 선택해 참석 링크를 보내고, 참석 확정자만 참가자로 가져온 뒤 청/홍 팀세팅을 진행하세요.
-            대진표나 실시간 중계가 준비되면 같은 링크에서 이어서 볼 수 있습니다.
-          </div>
+          <div class="hint" style="margin-bottom:8px;">처음 보낸 링크 하나로 투표, 대진표, 실시간 중계까지 이어집니다.</div>
           <div id="rsvpBox" class="rsvp-empty">아직 참석 링크가 만들어지지 않았습니다.</div>
         </div>
       </details>
 
       <!-- 참가자 입력 -->
-      <div class="card" id="sec-players">
-        <div class="card-head"><span class="card-title">📋 참가자 입력</span></div>
+      <details class="card" id="sec-players">
+        <summary class="card-head"><span class="card-title">참가자</span></summary>
         <div class="card-body">
 
           <!-- 모바일 저장/불러오기 바 -->
@@ -1474,11 +1475,11 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
             </div>
           </div>
         </div>
-      </div>
+      </details>
 
       <!-- 대회 설정 -->
-      <div class="card" id="sec-settings">
-        <div class="card-head"><span class="card-title">⚙️ 대회 설정</span></div>
+      <details class="card" id="sec-settings">
+        <summary class="card-head"><span class="card-title">진행 설정</span></summary>
         <div class="card-body">
           <div class="setting-grid">
             <div class="si">
@@ -1568,7 +1569,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
             </div>
           </details>
         </div>
-      </div>
+      </details>
     </div>
 
     <!-- ── RIGHT ── -->
@@ -1576,11 +1577,11 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
       <!-- 결과 요약 -->
       <div class="card">
-        <div class="card-head"><span class="card-title">📊 결과 요약</span></div>
+        <div class="card-head"><span class="card-title">품질 점검</span></div>
         <div class="card-body">
           <div class="sum-grid" id="sumGrid"></div>
           <div class="time-compare" id="timeCompare"></div>
-          <div class="stat-row" id="statRow"></div>
+          <div class="stat-row low-priority" id="statRow"></div>
           <div class="qual-dash" id="qualDash"></div>
         </div>
       </div>
@@ -1589,8 +1590,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="hidden" id="scoreboardSec">
         <div class="card">
           <div class="card-head">
-            <span class="card-title">🏆 팀 승패 집계</span>
-            <span style="font-size:.62rem;color:var(--dim)">팀명 클릭 시 수정 가능</span>
+            <span class="card-title">승패 집계</span>
           </div>
           <div class="card-body">
             <div id="winnerBanner"></div>
@@ -1624,7 +1624,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
       <!-- 실시간 중계 버튼 (팀전/개인전 모두 표시) -->
       <div style="text-align:right;margin-bottom:8px;">
-        <button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">📡 실시간 중계</button>
+        <button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">중계 시작</button>
       </div>
       <div class="live-ops-summary hidden" id="liveOpsSummary"></div>
 
@@ -1632,9 +1632,9 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
       <div class="card">
         <div class="card-head" style="padding:0 14px 0 0;">
           <div class="tabs" style="border-bottom:none;margin-bottom:0;flex:1;">
-            <button class="res-tab active" onclick="showTab('bracket')">🏸 대진표</button>
-            <button class="res-tab" onclick="showTab('players')">👥 참가자 현황</button>
-            <button class="res-tab" onclick="showTab('summary')">🏆 오늘의 요약</button>
+            <button class="res-tab active" onclick="showTab('bracket')">대진표</button>
+            <button class="res-tab" onclick="showTab('players')">참가자</button>
+            <button class="res-tab" onclick="showTab('summary')">요약</button>
           </div>
           <div class="print-menu-wrap" id="printMenuWrap">
             <button class="btn btn-print btn-sm" onclick="togglePrintMenu()">📤 공유 ▾</button>
@@ -1961,7 +1961,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.175';
+const APP_VERSION = '1.10.176';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4333,8 +4333,8 @@ async function stopLiveBroadcast(){
 function _updateLiveUI(){
   const btn=document.getElementById('liveBtn');
   if(!btn) return;
-  if(_liveOn){ btn.classList.add('on'); btn.innerHTML='🔴 실시간 중계 중'; }
-  else { btn.classList.remove('on'); btn.innerHTML='📡 실시간 중계'; }
+  if(_liveOn){ btn.classList.add('on'); btn.innerHTML='중계 중'; }
+  else { btn.classList.remove('on'); btn.innerHTML='중계 시작'; }
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
 }
 
@@ -7341,6 +7341,11 @@ function _autoFlowMetric(label,value){
 function _autoFlowAction(label,fnName){
   return label&&fnName?`<button class="auto-flow-btn" onclick="${fnName}()">${esc(label)}</button>`:'';
 }
+function _autoFlowSetSection(id,open){
+  const el=document.getElementById(id);
+  if(!el||el.tagName!=='DETAILS')return;
+  el.open=!!open;
+}
 function renderAutoFlowDashboard(){
   if(_autoFlowRendering)return;
   const titleEl=document.getElementById('autoFlowTitle');
@@ -7358,6 +7363,7 @@ function renderAutoFlowDashboard(){
     const matches=currentMatches.length;
     const done=matches?currentMatches.filter((_,i)=>_isMatchDone(i)).length:0;
     const live=!!_liveOn;
+    let stage='rsvpCreate';
     let cfg={
       badge:'준비',
       title:'1. 참석 링크 만들기',
@@ -7368,6 +7374,7 @@ function renderAutoFlowDashboard(){
       checks:['클럽 명부', '게스트 제한', '공지 제목']
     };
     if(live){
+      stage='live';
       cfg={
         badge:'운영 중',
         title:'6. 실시간 중계 운영 중',
@@ -7378,6 +7385,7 @@ function renderAutoFlowDashboard(){
         checks:['현재 라운드', '승패 입력', '출석/뒤풀이']
       };
     } else if(matches){
+      stage='broadcast';
       cfg={
         badge:'중계 전',
         title:'5. 대진표 준비 완료',
@@ -7388,6 +7396,7 @@ function renderAutoFlowDashboard(){
         checks:['품질점수', '청/홍 혼입 없음', '대진 수']
       };
     } else if(teamReady){
+      stage='generate';
       cfg={
         badge:'팀 완료',
         title:'4. 청/홍팀 세팅 완료',
@@ -7398,6 +7407,7 @@ function renderAutoFlowDashboard(){
         checks:['팀 인원', '실력 균형', '단장/부단장']
       };
     } else if(players>=4){
+      stage='teamAssign';
       cfg={
         badge:'팀 배정',
         title:'3. 참석자 명단 준비',
@@ -7408,6 +7418,7 @@ function renderAutoFlowDashboard(){
         checks:['참가자 수', '게스트', '동명이인']
       };
     } else if((counts.attend||0)>0){
+      stage='import';
       cfg={
         badge:'투표 집계',
         title:'2. 참석 투표 집계 중',
@@ -7418,6 +7429,7 @@ function renderAutoFlowDashboard(){
         checks:['참석 확정', '게스트 수', '확인 필요']
       };
     } else if(_rsvpId){
+      stage='wait';
       cfg={
         badge:'공지 완료',
         title:'2. 회원 응답 대기',
@@ -7446,6 +7458,9 @@ function renderAutoFlowDashboard(){
       <div class="auto-flow-checks">
         ${(cfg.checks||[]).map(t=>`<span class="auto-flow-check">${esc(t)}</span>`).join('')}
       </div>`;
+    _autoFlowSetSection('sec-rsvp',stage==='rsvpCreate'||stage==='wait'||stage==='import');
+    _autoFlowSetSection('sec-players',stage==='teamAssign');
+    _autoFlowSetSection('sec-settings',stage==='teamAssign'||stage==='generate');
   }finally{
     _autoFlowRendering=false;
   }
@@ -8315,13 +8330,14 @@ function switchMobileTab(tab){
   if(isMobile()){
     const targetMap = {
       players: 'sec-players',
-      team:    'sec-team-anchor',
+      team:    'sec-settings',
       bracket: 'sec-settings',
       result:  'resultArea',
     };
     const targetId = targetMap[tab];
     const el = document.getElementById(targetId);
     if(el){
+      if(el.tagName==='DETAILS')el.open=true;
       const offset = 8; // 약간의 여백
       const top = el.getBoundingClientRect().top + window.scrollY - offset;
       window.scrollTo({top, behavior:'smooth'});
