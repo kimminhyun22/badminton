@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.178  (2026-06)
+     APP VERSION: 1.10.179  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.178">
+<meta name="app-version" content="1.10.179">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1261,6 +1261,13 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .auto-flow-metric{border:1px solid #dbeafe;background:rgba(255,255,255,.86);border-radius:12px;padding:10px 8px;text-align:center;}
 .auto-flow-metric b{display:block;font-size:1.2rem;line-height:1.05;color:#111827;font-weight:1000;}
 .auto-flow-metric span{display:block;margin-top:4px;font-size:.64rem;color:var(--dim);font-weight:900;white-space:nowrap;}
+.auto-flow-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0;}
+.auto-flow-panel{border:1px solid #dbeafe;background:rgba(255,255,255,.9);border-radius:14px;padding:11px 10px;min-width:0;}
+.auto-flow-panel.warn{border-color:#fde68a;background:#fffbeb;}
+.auto-flow-panel.live{border-color:#fecaca;background:#fff1f2;}
+.auto-flow-panel-title{font-size:.65rem;font-weight:1000;color:#64748b;letter-spacing:.02em;margin-bottom:5px;}
+.auto-flow-panel-value{font-size:1.18rem;font-weight:1000;color:#111827;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.auto-flow-panel-note{font-size:.68rem;font-weight:800;color:#64748b;line-height:1.35;margin-top:5px;min-height:1.35em;}
 .auto-flow-action{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;margin-top:10px;}
 .auto-flow-next{font-size:.78rem;color:var(--dim);font-weight:800;line-height:1.5;}
 .auto-flow-btn{border:0;border-radius:14px;background:linear-gradient(135deg,#2563eb,#16a34a);color:#fff;
@@ -1291,6 +1298,11 @@ details.card:not([open]) .card-head{border-bottom:none;}
   .auto-flow-metric{padding:12px 8px;}
   .auto-flow-metric b{font-size:1.55rem;}
   .auto-flow-metric span{font-size:.72rem;}
+  .auto-flow-board{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+  .auto-flow-panel{padding:12px 10px;}
+  .auto-flow-panel-title{font-size:.72rem;}
+  .auto-flow-panel-value{font-size:1.38rem;}
+  .auto-flow-panel-note{font-size:.76rem;}
   .auto-flow-action{grid-template-columns:1fr;}
   .auto-flow-btn{width:100%;font-size:1rem;min-height:54px;}
   .auto-flow-next{font-size:.86rem;}
@@ -1963,7 +1975,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.178';
+const APP_VERSION = '1.10.179';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7334,6 +7346,13 @@ function _autoFlowMetric(label,value){
 function _autoFlowAction(label,fnName){
   return label&&fnName?`<button class="auto-flow-btn" onclick="${fnName}()">${esc(label)}</button>`:'';
 }
+function _autoFlowPanel(title,value,note,cls=''){
+  return `<div class="auto-flow-panel ${esc(cls)}">
+    <div class="auto-flow-panel-title">${esc(title)}</div>
+    <div class="auto-flow-panel-value">${esc(String(value))}</div>
+    <div class="auto-flow-panel-note">${esc(note||'')}</div>
+  </div>`;
+}
 function _autoFlowSetSection(id,open){
   const el=document.getElementById(id);
   if(!el||el.tagName!=='DETAILS')return;
@@ -7356,6 +7375,29 @@ function renderAutoFlowDashboard(){
     const matches=currentMatches.length;
     const done=matches?currentMatches.filter((_,i)=>_isMatchDone(i)).length:0;
     const live=!!_liveOn;
+    const blue=teamAssignment?.blue||[];
+    const white=teamAssignment?.white||[];
+    const genderCount=arr=>({m:arr.filter(p=>p.gender==='M'||p.gender==='남').length,f:arr.filter(p=>p.gender==='F'||p.gender==='여').length});
+    const bg=genderCount(blue), wg=genderCount(white);
+    let currentRound='-';
+    if(matches){
+      const rounds=[...new Set(currentMatches.map(m=>m.round))].sort((a,b)=>a-b);
+      const nextRound=rounds.find(r=>currentMatches.filter(m=>m.round===r).some(m=>!_isMatchDone(currentMatches.indexOf(m))));
+      currentRound=nextRound?`R${nextRound}`:'완료';
+    }
+    const rsvpNote=[
+      `게스트 ${counts.guest||0}`,
+      `미응답 ${counts.noResponse||0}`,
+      counts.issues?`확인 ${counts.issues}`:''
+    ].filter(Boolean).join(' · ');
+    const teamValue=teamReady?`${blue.length}:${white.length}`:(players?`${players}명 대기`:'미배정');
+    const teamNote=teamReady
+      ? `${teamNames.blue} 남${bg.m}여${bg.f} · ${teamNames.white} 남${wg.m}여${wg.f}`
+      : (players?'청/홍팀 배정 필요':'참석자 필요');
+    const matchValue=matches?`${done}/${matches}`:'대진 전';
+    const matchNote=matches?`${currentRound} · 남은 ${Math.max(0,matches-done)}경기`:(teamReady?'대진 생성 필요':'팀세팅 후 생성');
+    const liveValue=live?'중계 중':(matches?'중계 전':'대기');
+    const liveNote=live?'회원 링크 활성':'대진 생성 후 시작';
     let stage='rsvpCreate';
     let cfg={
       badge:'준비',
@@ -7438,11 +7480,11 @@ function renderAutoFlowDashboard(){
     titleEl.textContent=cfg.title;
     subEl.textContent=cfg.sub;
     body.innerHTML=`
-      <div class="auto-flow-metrics">
-        ${_autoFlowMetric('참석 확정',counts.attend||0)}
-        ${_autoFlowMetric('참가자',players)}
-        ${_autoFlowMetric('대진',matches)}
-        ${_autoFlowMetric('완료',matches?`${done}/${matches}`:'0')}
+      <div class="auto-flow-board">
+        ${_autoFlowPanel('참석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':'')}
+        ${_autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn')}
+        ${_autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'')}
+        ${_autoFlowPanel('중계',liveValue,liveNote,live?'live':'')}
       </div>
       <div class="auto-flow-action">
         <div class="auto-flow-next">${esc(cfg.next)}</div>
