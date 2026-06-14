@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.170  (2026-06)
+     APP VERSION: 1.10.171  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.170">
+<meta name="app-version" content="1.10.171">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2502,7 +2502,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.170';
+const APP_VERSION = '1.10.171';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -11923,6 +11923,19 @@ window.addEventListener('DOMContentLoaded', () => {
       </svg>
     </span>
     <span class="bnav-label">현황</span>
+  </button>
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.93&team-stable=1'">
+    <span class="bnav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <path d="M5 7h6"></path>
+        <path d="M13 7h6"></path>
+        <path d="M5 17h6"></path>
+        <path d="M13 17h6"></path>
+        <path d="M8 7v10"></path>
+        <path d="M16 7v10"></path>
+      </svg>
+    </span>
+    <span class="bnav-label">팀전</span>
   </button>
   <button class="bnav-btn" id="bnav-queue" onclick="switchMobileTab('queue')">
     <span class="bnav-icon" aria-hidden="true">
