@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.166  (2026-06)
+     APP VERSION: 1.10.167  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.166">
+<meta name="app-version" content="1.10.167">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2496,7 +2496,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.166';
+const APP_VERSION = '1.10.167';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2997,6 +2997,15 @@ function _dailyReservationPairConflict(team1Ids,team2Ids){
     return !sameSide;
   });
 }
+function _dailyTeamGenderShape(team){
+  const f=team.filter(p=>p&&p.gender==='F').length;
+  if(f===0)return '남복';
+  if(f===2)return '여복';
+  return '혼복';
+}
+function _dailySameOpponentShape(team1,team2){
+  return _dailyTeamGenderShape(team1)===_dailyTeamGenderShape(team2);
+}
 function _dailyReservationMatchFromTeams(r,t1,t2){
   const team1Level=effLevel(t1[0])+effLevel(t1[1]);
   const team2Level=effLevel(t2[0])+effLevel(t2[1]);
@@ -3035,6 +3044,7 @@ function _dailyReservationToQueueItem(r,excludeIds){
   let best=null,bestScore=Infinity,bestStrict=false;
   for(let i=0;i<candidates.length-1;i++)for(let j=i+1;j<candidates.length;j++){
     const team2=[candidates[i],candidates[j]];
+    if(!_dailySameOpponentShape(team1,team2))continue;
     if(!_dailyValidTeamPairing(team1,team2))continue;
     const m=_dailyReservationMatchFromTeams(r,team1,team2);
     const strict=m.type!=='예외';
@@ -3060,7 +3070,17 @@ function _dailyReservationStatus(r){
   if(reservedQueued.length)return {cls:'queued',text:`다른 신청대기 포함: ${reservedQueued.map(_dailyNameText).join(', ')}`,ready:false};
   const blocked=ids.filter(p=>!DAILY_STATUS[p.status]?.eligible||p.currentMatchId);
   if(blocked.length)return {cls:'',text:`시작 상태 아님: ${blocked.map(_dailyNameText).join(', ')}`,ready:false};
-  if(r.mode==='pair'&&_dailyEligible().filter(p=>!ids.some(x=>x.id===p.id)).length<2)return {cls:'',text:'상대 후보 2명 대기 필요',ready:false};
+  if(r.mode==='pair'){
+    const pool=_dailyEligible().filter(p=>!ids.some(x=>x.id===p.id));
+    let sameShapeReady=false;
+    for(let i=0;i<pool.length-1&&!sameShapeReady;i++)for(let j=i+1;j<pool.length;j++){
+      if(_dailySameOpponentShape(ids,[pool[i],pool[j]])&&_dailyValidTeamPairing(ids,[pool[i],pool[j]])){
+        sameShapeReady=true;
+        break;
+      }
+    }
+    if(!sameShapeReady)return {cls:'',text:`${_dailyTeamGenderShape(ids)} 상대 후보 대기 필요`,ready:false};
+  }
   const used=new Set();
   _dailyQueue.forEach(q=>{
     if(q.reservationId===r.id)return;
