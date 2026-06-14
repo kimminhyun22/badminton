@@ -4666,7 +4666,6 @@ function dailyRenderAdminAlerts(){
   const firstQueue=_dailyQueue[0];
   const firstReady=firstQueue&&_dailyQueueItemValid(firstQueue,null);
   const checkinPending=_dailyCheckinPendingRequests().length;
-  const readyReservations=_dailyReservationReadyCount();
   const cap=_dailyQueueCapacity();
   const invited=_dailyPlayers.filter(p=>p.status==='invited').length;
   const alerts=[];
@@ -4699,14 +4698,6 @@ function dailyRenderAdminAlerts(){
       title:`확인 필요한 회원 요청 ${checkinPending}건`,
       desc:'상태 변경 또는 게임 신청을 확인하세요.',
       actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailyCheckinDetails','dailyCheckinCard')">요청 확인</button>`
-    });
-  }
-  if(readyReservations){
-    alerts.push({
-      cls:'primary',
-      title:`게임신청 자동 반영 대기 ${readyReservations}건`,
-      desc:'코트 흐름에 맞춰 대기표에 자동으로 들어갑니다.',
-      actions:''
     });
   }
   if(_dailyCheckinId&&cap.short){
@@ -4769,7 +4760,7 @@ function dailyRenderOpsStats(){
     {label:'확인',value:checkValue,hint:checkHint,cls:checkinPending||!_dailyCheckinId?'warn':'primary'}
   ];
   if(planned||invited)cards.push({label:'투표/도착전',value:planned+invited,hint:`참석 ${planned} · 미응답 ${invited}`,cls:'warn'});
-  if(_dailyReservations.length)cards.push({label:'게임신청',value:_dailyReservations.length,hint:_dailyReservationReadyCount()?`${_dailyReservationReadyCount()}건 반영 가능`:'요청 대기',cls:'primary'});
+  if(_dailyReservations.length)cards.push({label:'게임신청',value:_dailyReservations.length,hint:_dailyReservationReadyCount()?`${_dailyReservationReadyCount()}건 자동 반영 중`:'자동 대기',cls:'primary'});
   el.innerHTML=cards.map(x=>`<div class="daily-op ${x.cls||''}"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></div>`).join('');
   dailyRenderStatusBar();
   dailyRenderAdminAlerts();
@@ -4805,7 +4796,6 @@ function dailyCountActionItems(){
   const firstReady=firstQueue&&_dailyQueueItemValid(firstQueue,null);
   if(free&&firstReady)n++;
   n+=_dailyCheckinPendingRequests().length?1:0;
-  if(_dailyReservationReadyCount())n++;
   if(_dailyQueueCapacity().short)n++;
   if(_dailyVoteClosed()&&_dailyPlayers.filter(p=>p.status==='invited').length)n++;
   return n;
@@ -5245,25 +5235,6 @@ function dailyRenderCheckinRequests(){
   }
   box.className='daily-checkin-panel';
   box.innerHTML=linkHtml+pending.map(req=>{
-    if(req.type==='reservation'){
-      const names=_dailyReservationNames(_dailyReservationRequestIds(req));
-      const mode=req.mode==='match'?'4명 경기 신청':'같은 편 신청';
-      const label=req.mode==='match'
-        ? `${(names.slice(0,2).join('·')||'A팀')} vs ${(names.slice(2,4).join('·')||'B팀')}`
-        : `${(names.slice(0,2).join('·')||'선수 확인')} 같은 편`;
-      return `<div class="daily-checkin-req pending">
-        <div class="daily-checkin-req-head">
-          <div>
-            <div class="daily-checkin-req-title">${esc(req.playerName||'회원')} · ${esc(mode)}</div>
-            <div class="daily-checkin-req-meta">${esc(label)}${req.note?` · ${esc(req.note)}`:''}</div>
-          </div>
-          <div class="daily-checkin-req-actions">
-            <button class="daily-mini-btn" onclick="dailyApproveCheckinRequest('${req.key}')">신청 반영</button>
-            <button class="daily-mini-btn danger" onclick="dailyIgnoreCheckinRequest('${req.key}')">무시</button>
-          </div>
-        </div>
-      </div>`;
-    }
     const p=_dailyPlayer(req.playerId);
     const reason=_dailyCheckinBlockReason(req,p);
     const name=req.playerName||p?.name||'알 수 없음';
