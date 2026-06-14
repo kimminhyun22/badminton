@@ -373,6 +373,9 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .game-request summary::-webkit-details-marker{display:none}
 .request-body{padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.request-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.request-field label{font-size:12px;font-weight:900;color:var(--mut);padding-left:2px}
+.request-field.full{grid-column:1/-1}
 .request-body select,.request-body input{
   height:42px;
   border:1px solid var(--line);
@@ -384,6 +387,23 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .request-body input{grid-column:1/-1}
 .request-body button{grid-column:1/-1;background:var(--blue);color:#fff}
+.request-status{
+  margin:0 12px 12px;
+  padding:10px 11px;
+  border-radius:14px;
+  border:1px solid #bfdbfe;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:13px;
+  font-weight:900;
+  line-height:1.45;
+}
+.request-status.done{
+  border-color:#bbf7d0;
+  background:#f0fdf4;
+  color:#166534;
+}
+.request-status small{display:block;margin-top:3px;color:inherit;opacity:.72;font-size:12px;font-weight:800}
 button{
   appearance:none;
   border:1px solid var(--line);
@@ -476,7 +496,7 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],eventTimer=null;
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['planned','toggle','rest'];
 const SUB_STATUS_KEYS=[];
@@ -778,14 +798,41 @@ function requestPlayerOptions(selfId,selected){
     return `<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)} · ${esc(compactLabel(p.status))}${reserveHint}</option>`;
   }).join('');
 }
+function playerReservationRequests(playerId){
+  return reservationRequests
+    .filter(r=>r.playerId===playerId||(r.team1||[]).includes(playerId)||(r.team2||[]).includes(playerId))
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+}
+function reservationRequestLabel(req){
+  const names=id=>{
+    const p=(session?.players||[]).find(x=>x.id===id);
+    return p?.name||'선수';
+  };
+  const a=(req.team1||[]).map(names).join(' · ');
+  const b=(req.team2||[]).map(names).join(' · ');
+  return req.mode==='match'?`${a} vs ${b}`:`${a} 같은 편`;
+}
 function gameRequestBox(p,disabled){
   if(p.voteLocked||p.status==='invited'||getSelectedStatus(p)==='done')return '';
+  const reqs=playerReservationRequests(p.id);
+  const pending=reqs.find(r=>!r.appliedAt);
+  const recentApplied=reqs.find(r=>r.appliedAt&&Date.now()-(r.appliedAt||0)<5*60*1000);
+  if(pending){
+    return `<details class="game-request" open>
+      <summary>파트너/게임 신청</summary>
+      <div class="request-status">신청 접수됨 · 자동 반영 대기
+        <small>${esc(reservationRequestLabel(pending))}</small>
+      </div>
+    </details>`;
+  }
+  const recentHtml=recentApplied?`<div class="request-status done">최근 신청이 관리자 화면에 전달됐습니다.<small>${esc(reservationRequestLabel(recentApplied))}</small></div>`:'';
   return `<details class="game-request">
     <summary>파트너/게임 신청</summary>
+    ${recentHtml}
     <div class="request-body">
-      <select id="reqPartner_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select>
-      <select id="reqOpp1_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select>
-      <select id="reqOpp2_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select>
+      <div class="request-field full"><label>같은 편으로 뛸 선수</label><select id="reqPartner_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
+      <div class="request-field"><label>상대 1명 선택</label><select id="reqOpp1_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
+      <div class="request-field"><label>상대 1명 더 선택</label><select id="reqOpp2_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
       <input id="reqNote_${esc(p.id)}" placeholder="메모 선택: 예) 혼복 연습, 오늘 한 번만">
       <button ${disabled} onclick="sendGameRequest('${esc(p.id)}')">게임 신청 보내기</button>
     </div>
@@ -854,7 +901,9 @@ async function sendGameRequest(playerId){
   sendingKey=playerId+'_reservation';
   render();
   try{
-    await db.ref(checkinPath()+'/requests').push(req);
+    const ref=db.ref(checkinPath()+'/requests').push();
+    await ref.set(req);
+    reservationRequests.push({key:ref.key,...req});
     toast(mode==='match'?'4명 경기 신청을 보냈어요.':'같은 편 신청을 보냈어요.');
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
@@ -895,8 +944,12 @@ function boot(){
   });
   db.ref(checkinPath()+'/requests').on('value',snap=>{
     const raw=snap.val()||{};
-    statusRequests=Object.keys(raw).map(key=>({key,...raw[key]}))
+    const rows=Object.keys(raw).map(key=>({key,...raw[key]}));
+    statusRequests=rows
       .filter(r=>!r.ignoredAt&&r.type!=='reservation'&&r.status)
+      .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    reservationRequests=rows
+      .filter(r=>!r.ignoredAt&&r.type==='reservation')
       .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
     render();
   });

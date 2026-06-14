@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.165  (2026-06)
+     APP VERSION: 1.10.166  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.165">
+<meta name="app-version" content="1.10.166">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2496,7 +2496,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.165';
+const APP_VERSION = '1.10.166';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3056,8 +3056,8 @@ function _dailyReservationStatus(r){
   if(qIdx>=0)return {cls:'queued',text:`대기표 반영됨 #${qIdx+1}`,ready:false};
   const ids=_dailyReservationIds(r).map(id=>_dailyPlayer(id)).filter(Boolean);
   if(ids.length<(r.mode==='match'?4:2))return {cls:'',text:'선수 선택 필요',ready:false};
-  const queued=ids.filter(p=>_dailyIsQueued(p.id));
-  if(queued.length)return {cls:'queued',text:`이미 대기표 포함: ${queued.map(_dailyNameText).join(', ')}`,ready:false};
+  const reservedQueued=ids.filter(p=>_dailyIsLockedQueued(p.id));
+  if(reservedQueued.length)return {cls:'queued',text:`다른 신청대기 포함: ${reservedQueued.map(_dailyNameText).join(', ')}`,ready:false};
   const blocked=ids.filter(p=>!DAILY_STATUS[p.status]?.eligible||p.currentMatchId);
   if(blocked.length)return {cls:'',text:`시작 상태 아님: ${blocked.map(_dailyNameText).join(', ')}`,ready:false};
   if(r.mode==='pair'&&_dailyEligible().filter(p=>!ids.some(x=>x.id===p.id)).length<2)return {cls:'',text:'상대 후보 2명 대기 필요',ready:false};
@@ -3718,6 +3718,7 @@ function dailySetStatus(id,status){
     dailyRender();return;
   }
   _dailyApplyPlayerStatus(p,status);
+  _dailyPromoteReadyReservations(true);
   dailySave();dailyRender();
   dailyMaybeAutoAssign();
 }
