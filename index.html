@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.162  (2026-06)
+     APP VERSION: 1.10.163  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.162">
+<meta name="app-version" content="1.10.163">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2496,7 +2496,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.162';
+const APP_VERSION = '1.10.163';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3073,11 +3073,25 @@ function _dailyReservationStatus(r){
 function _dailyReservationReadyCount(){
   return _dailyReservations.filter(r=>_dailyReservationStatus(r).ready).length;
 }
-function dailyPromoteReadyReservations(){
+function _dailyPromoteReadyReservations(silent){
   let changed=false;
   for(const r of _dailyReservations){
-    if(_dailyQueue.some(q=>q.reservationId===r.id))continue;
-    const locked=_dailyQueue.slice(0,_dailyQueueLockCount());
+    const forceMember=r.source==='member-request';
+    const existingIdx=_dailyQueue.findIndex(q=>q.reservationId===r.id);
+    if(existingIdx>=0){
+      if(forceMember){
+        const item=_dailyQueue.splice(existingIdx,1)[0];
+        let insertAt=0;
+        while(insertAt<_dailyQueue.length&&_dailyQueue[insertAt].reservationId)insertAt++;
+        _dailyQueue.splice(insertAt,0,item);
+        _dailyQueue=_dailyQueue.slice(0,_dailyQueueCapacity().target);
+        changed=true;
+      }
+      continue;
+    }
+    const locked=forceMember
+      ? _dailyQueue.slice(0,_dailyQueueLockCount()).filter(q=>q.reservationId)
+      : _dailyQueue.slice(0,_dailyQueueLockCount());
     const lockedIds=new Set();
     locked.forEach(q=>_dailyQueueIds(q).forEach(pid=>lockedIds.add(pid)));
     const q=_dailyBuildReservationQueueItem(lockedIds,r.id);
@@ -3089,12 +3103,15 @@ function dailyPromoteReadyReservations(){
     changed=true;
   }
   if(!changed){
-    alert('지금 바로 반영 가능한 게임신청이 없습니다. 신청 선수들이 모두 시작 상태인지 확인해 주세요.');
+    if(!silent)alert('지금 바로 반영 가능한 게임신청이 없습니다. 신청 선수들이 모두 시작 상태인지 확인해 주세요.');
     return;
   }
   _dailyRefreshNextFromQueue();
   dailySave();
   dailyRender();
+}
+function dailyPromoteReadyReservations(){
+  _dailyPromoteReadyReservations(false);
 }
 function dailyForceRebuildQueue(){
   if(!confirm('임박 대기표를 현재 대기자 기준으로 다시 짤까요?\n준비 알림을 보낸 대기표도 바뀔 수 있습니다.'))return;
@@ -5010,12 +5027,24 @@ function _dailyReservationRequestError(req){
   if(_dailyReservationPairConflict(team1,team2))return '기존 게임신청과 충돌합니다.';
   return '';
 }
+function _dailyReleaseTemporaryQueueForReservationIds(ids){
+  let changed=false;
+  ids.filter(Boolean).forEach(id=>{
+    const loc=_dailyQueuedPlayerLocation(id);
+    if(!loc||loc.q.reservationId)return;
+    if(_dailyTryReplaceQueuedPlayer(id))changed=true;
+    else if(_dailyRemoveQueuedPlayer(id))changed=true;
+  });
+  if(changed)_dailyRefreshNextFromQueue();
+  return changed;
+}
 function _dailyRegisterReservationRequest(req){
   if(req.key&&_dailyReservations.some(r=>r.requestKey===req.key))return true;
   const error=_dailyReservationRequestError(req);
   if(error)return false;
   const team1=(req.team1||[]).filter(Boolean);
   const team2=(req.mode==='match'?(req.team2||[]):[]).filter(Boolean);
+  _dailyReleaseTemporaryQueueForReservationIds([...team1,...team2]);
   _dailyReservations.push({
     id:'dres_'+_dailyNow().toString(36)+'_'+Math.random().toString(36).slice(2,5),
     mode:req.mode==='match'?'match':'pair',
@@ -5087,6 +5116,7 @@ function dailyProcessCheckinRequests(){
   }
   if(changed){
     dailyEnsureQueue();
+    _dailyPromoteReadyReservations(true);
     dailySave();
     dailyRender();
     dailyMaybeAutoAssign();
@@ -5138,6 +5168,7 @@ function dailyApproveReservationRequest(key){
   const ref=_dailyCheckinRequestRef(key);
   if(ref)ref.update({appliedAt:_dailyNow(),appliedBy:'admin-reservation'}).catch(()=>{});
   dailyEnsureQueue();
+  _dailyPromoteReadyReservations(true);
   dailySave();
   dailyRender();
 }

@@ -426,7 +426,7 @@ function statusInfo(key){
   return (session?.statuses||[]).find(x=>x.key===key)||{key,label:statusLabel(key),desc:''};
 }
 function compactLabel(key){
-  const map={planned:'참석',wait:'시작',lesson:'휴식',rest:'휴식',last:'종료',leaving:'종료',done:'종료'};
+  const map={planned:'참석',wait:'시작',playing:'경기중',lesson:'휴식',rest:'휴식',last:'종료',leaving:'종료',done:'종료'};
   return map[key]||statusLabel(key);
 }
 function normalizeText(s){
@@ -684,7 +684,10 @@ function statusSection(p,title,keys,disabled){
 }
 function requestPlayerOptions(selfId,selected){
   const players=(session?.players||[]).filter(p=>p.id!==selfId&&!p.voteLocked&&p.status!=='invited'&&p.status!=='done');
-  return '<option value="">선택 안 함</option>'+players.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)} · ${esc(compactLabel(p.status))}</option>`).join('');
+  return '<option value="">선택 안 함</option>'+players.map(p=>{
+    const reserveHint=p.locked||p.status==='playing'?' · 예약':'';
+    return `<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)} · ${esc(compactLabel(p.status))}${reserveHint}</option>`;
+  }).join('');
 }
 function gameRequestBox(p,disabled){
   if(p.voteLocked||p.status==='invited'||getSelectedStatus(p)==='done')return '';
