@@ -171,6 +171,37 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   align-items:center;
   margin-bottom:12px;
 }
+.member-fold{
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fff;
+  overflow:hidden;
+}
+.member-fold summary{
+  cursor:pointer;
+  list-style:none;
+  padding:13px 14px;
+  font-size:15px;
+  font-weight:900;
+  color:#344055;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.member-fold summary::-webkit-details-marker{display:none}
+.member-fold summary:after{
+  content:'보기';
+  flex-shrink:0;
+  font-size:12px;
+  color:#4f78c9;
+  background:#eaf1fe;
+  border-radius:999px;
+  padding:5px 9px;
+}
+.member-fold[open] summary{border-bottom:1px solid var(--line)}
+.member-fold[open] summary:after{content:'접기'}
+.member-fold #players{padding:0 10px 10px}
 .search{
   flex:1;
   height:46px;
@@ -356,7 +387,10 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
       <input id="search" class="search" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ" autocomplete="off">
       <span class="pill" id="countPill">0명</span>
     </div>
-    <div id="players" class="empty">명단을 불러오는 중입니다.</div>
+    <details class="member-fold" id="playerListFold">
+      <summary>선수명단 / 내 이름 찾기</summary>
+      <div id="players" class="empty">명단을 불러오는 중입니다.</div>
+    </details>
   </section>
 </main>
 <div id="toast" class="toast"></div>
@@ -423,6 +457,8 @@ function showEndedLink(){
   session=null;
   renderEvent();
   renderVoteSummary();
+  const fold=document.getElementById('playerListFold');
+  if(fold)fold.open=true;
   document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';
   document.getElementById('players').className='empty';
   document.getElementById('players').textContent='이 링크는 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 확인해 주세요.';
@@ -558,6 +594,8 @@ function render(){
   const box=document.getElementById('players');
   const count=document.getElementById('countPill');
   if(!session){
+    const fold=document.getElementById('playerListFold');
+    if(fold)fold.open=true;
     sub.textContent='출석 링크를 확인하고 있습니다.';
     box.className='empty';box.textContent='명단을 불러오는 중입니다.';count.textContent='0명';
     renderLastSent();
@@ -750,6 +788,8 @@ function boot(){
     session=snap.val();
     if(!session){
       renderEvent();
+      const fold=document.getElementById('playerListFold');
+      if(fold)fold.open=true;
       document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';
       document.getElementById('players').className='empty';
       document.getElementById('players').textContent='관리자가 링크를 종료했거나 아직 명단을 공유하지 않았습니다.';
@@ -770,6 +810,8 @@ function boot(){
   });
   document.getElementById('search').addEventListener('input',e=>{
     query=e.target.value.trim();
+    const fold=document.getElementById('playerListFold');
+    if(fold&&query)fold.open=true;
     render();
   });
   if(!eventTimer){
