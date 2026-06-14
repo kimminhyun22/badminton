@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.159  (2026-06)
+     APP VERSION: 1.10.160  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.159">
+<meta name="app-version" content="1.10.160">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2411,9 +2411,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="dir-sort-btn"        id="disb-gender" onclick="setDailyImportSort('gender')">성별순</button>
       </div>
       <div id="dailyImportMemberList" style="max-height:330px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;"></div>
-      <div style="display:flex;gap:8px;margin-top:11px;">
+      <div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" onclick="toggleDailySelectAll()" style="flex-shrink:0;">전체 선택/해제</button>
-        <button class="btn btn-gen" style="flex:1;padding:10px;" onclick="importDailySelected()">✅ 민턴LIVE에 추가</button>
+        <button class="btn btn-gen" style="flex:1;padding:10px;min-width:130px;" onclick="importDailySelected('invited')">✅ 선택 추가</button>
+        <button class="btn btn-go" style="flex:1;padding:10px;min-width:130px;" onclick="importDailySelected('wait')">▶ 선택 바로 시작</button>
       </div>
     </div>
   </div>
@@ -2524,7 +2525,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.159';
+const APP_VERSION = '1.10.160';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2760,7 +2761,7 @@ const DAILY_KEY='kokmatch_daily_v1';
 const DAILY_CHECKIN_KEY='kokmatch_daily_checkin_id';
 const DAILY_CHECKIN_CREATED_KEY='kokmatch_daily_checkin_created_at';
 const DAILY_MATCH_MINUTES=15;
-const DAILY_CHECKIN_TTL_MS=24*60*60*1000;
+const DAILY_CHECKIN_TTL_MS=48*60*60*1000;
 const DAILY_STATUS={
   invited:{label:'미응답',eligible:false},
   planned:{label:'참석',eligible:false},
@@ -4919,8 +4920,17 @@ function _dailyCheckinGenId(){
   let s='D';for(let i=0;i<7;i++)s+=c[Math.floor(Math.random()*c.length)];
   return s;
 }
+function _dailyFirstMatchStartedAt(){
+  const starts=_dailyMatches.map(m=>m.startedAt||0).filter(Boolean);
+  return starts.length?Math.min(...starts):0;
+}
+function _dailyCheckinExpiresAt(){
+  const startedAt=_dailyFirstMatchStartedAt();
+  return startedAt?startedAt+DAILY_CHECKIN_TTL_MS:0;
+}
 function _dailyCheckinExpired(){
-  return !!(_dailyCheckinId&&_dailyCheckinCreatedAt&&(_dailyNow()-_dailyCheckinCreatedAt)>=DAILY_CHECKIN_TTL_MS);
+  const expiresAt=_dailyCheckinExpiresAt();
+  return !!(_dailyCheckinId&&expiresAt&&_dailyNow()>=expiresAt);
 }
 function _dailyExpireCheckinLink(silent){
   if(!_dailyCheckinId)return false;
@@ -4932,7 +4942,7 @@ function _dailyExpireCheckinLink(silent){
   _dailyCheckinListening=false;
   localStorage.removeItem(DAILY_CHECKIN_KEY);
   localStorage.removeItem(DAILY_CHECKIN_CREATED_KEY);
-  if(!silent)alert('민턴LIVE 링크가 24시간이 지나 자동 종료되었습니다. 새 링크를 만들어 공유해 주세요.');
+  if(!silent)alert('민턴LIVE 링크가 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 만들어 공유해 주세요.');
   return true;
 }
 function _dailyCheckinUrl(){
@@ -4949,7 +4959,8 @@ function _dailyCheckinPayload(){
     title:'콕매치 민턴LIVE 출석',
     updatedAt:_dailyNow(),
     createdAt:_dailyCheckinCreatedAt||_dailyNow(),
-    expiresAt:(_dailyCheckinCreatedAt||_dailyNow())+DAILY_CHECKIN_TTL_MS,
+    matchStartedAt:_dailyFirstMatchStartedAt(),
+    expiresAt:_dailyCheckinExpiresAt(),
     version:APP_VERSION,
     voteDeadlineAt:_dailyVoteDeadlineAt,
     voteDeadlineTs:_dailyVoteDeadlineTs(),
@@ -5012,7 +5023,7 @@ async function dailyPublishCheckinSession(silent){
   }
   const id=dailyEnsureCheckinId();
   const path=_dailyCheckinPath();
-  await _fbDb.ref(path).update({kind:'dailyCheckin',createdAt:_dailyCheckinCreatedAt,expiresAt:_dailyCheckinCreatedAt+DAILY_CHECKIN_TTL_MS,updatedAt:_dailyNow()});
+  await _fbDb.ref(path).update({kind:'dailyCheckin',createdAt:_dailyCheckinCreatedAt,matchStartedAt:_dailyFirstMatchStartedAt(),expiresAt:_dailyCheckinExpiresAt(),updatedAt:_dailyNow()});
   await _fbDb.ref(path+'/session').set(_dailyCheckinPayload());
   dailyStartCheckinListener();
   dailyRenderCheckinRequests();
@@ -5978,8 +5989,10 @@ function toggleDailySelectAll(){
   const all=chks.length&&chks.every(c=>c.checked);
   chks.forEach(c=>c.checked=!all);
 }
-function importDailySelected(){
+function importDailySelected(status){
   if(!_dailyCanChangeRoster())return;
+  status=_dailyNormalizeStatus(status||'invited');
+  if(!['invited','wait'].includes(status))status='invited';
   const club=(rosters.clubs||[])[_dailyImportClubIdx];
   if(!club)return;
   const sel=[...document.querySelectorAll('.daily-import-chk:not(:disabled)')]
@@ -5990,7 +6003,7 @@ function importDailySelected(){
   let added=0,skipped=0;
   sel.forEach(m=>{
     if(!_dailyPlayers.some(p=>p.name===m.name)){
-      _dailyPlayers.push(_dailyNormalize({...m,status:'invited'}));
+      _dailyPlayers.push(_dailyNormalize({...m,status}));
       added++;
     }else skipped++;
   });
@@ -5999,7 +6012,8 @@ function importDailySelected(){
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
-  alert(added?`${added}명을 민턴LIVE 출석링크 대상자로 추가했습니다.${skipped?` (중복 ${skipped}명 제외)`:''}`:'새로 추가된 선수가 없습니다.');
+  const label=status==='wait'?'바로 시작 상태로 추가':'민턴LIVE 출석링크 대상자로 추가';
+  alert(added?`${added}명을 ${label}했습니다.${skipped?` (중복 ${skipped}명 제외)`:''}`:'새로 추가된 선수가 없습니다.');
 }
 
 /* ═══ TEAM NAME CHANGE ═══ */

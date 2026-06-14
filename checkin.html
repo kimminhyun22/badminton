@@ -425,7 +425,7 @@ function showEndedLink(){
   renderVoteSummary();
   document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';
   document.getElementById('players').className='empty';
-  document.getElementById('players').textContent='이 링크는 24시간이 지나 자동 종료되었습니다. 새 링크를 확인해 주세요.';
+  document.getElementById('players').textContent='이 링크는 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 확인해 주세요.';
 }
 function checkinPath(){
   return 'live/checkin_'+checkinId;
@@ -686,6 +686,9 @@ async function sendStatus(playerId,status){
     await db.ref(checkinPath()+'/requests').push(req);
     setLastSent(req);
     toast(`${p.name} · ${compactLabel(status)} 전송 완료`);
+    if(p.locked&&['rest','done'].includes(status)){
+      setTimeout(()=>location.reload(),900);
+    }
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
   }finally{
