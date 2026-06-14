@@ -198,7 +198,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .badge.selected{background:#eaf1fe;color:#315fb2}
 .buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.main-actions{margin-top:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.main-actions{margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
 .status-section{
   margin-top:9px;
   border:1px solid var(--line);
@@ -292,8 +292,8 @@ button.active{
 }
 button.active small{color:rgba(255,255,255,.86)}
 button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);border-color:#187347;color:#fff}
-.main-actions .status-btn{min-height:58px;font-size:17px;}
-.main-actions .status-btn span{font-size:17px;}
+.main-actions .status-btn{min-height:54px;font-size:16px;}
+.main-actions .status-btn span{font-size:16px;}
 .empty{
   padding:28px 14px;
   text-align:center;
@@ -354,8 +354,8 @@ const FB_CONFIG={
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[];
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
-const MAIN_STATUS_KEYS=['planned','toggle'];
-const SUB_STATUS_KEYS=['rest'];
+const MAIN_STATUS_KEYS=['planned','toggle','rest'];
+const SUB_STATUS_KEYS=[];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
 function toast(msg){
