@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.93  (2026-06)
+     APP VERSION: 1.10.172  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.93">
+<meta name="app-version" content="1.10.172">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1216,6 +1216,40 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   padding:2px 5px;transition:transform .2s;flex-shrink:0;line-height:1;}
 .collapse-btn.collapsed{transform:rotate(-90deg);}
 
+/* ── 팀전 참석 링크 ── */
+.rsvp-grid{display:grid;grid-template-columns:minmax(140px,.9fr) minmax(180px,1fr) minmax(112px,.5fr) auto;gap:7px;align-items:center;margin-bottom:9px;}
+.rsvp-panel{display:flex;flex-direction:column;gap:8px;}
+.rsvp-link{font-size:.72rem;color:var(--dim);line-height:1.55;word-break:break-all;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:9px 10px;}
+.rsvp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;}
+.rsvp-stat{border:1px solid var(--bdr);border-radius:10px;background:#fff;padding:9px;text-align:center;}
+.rsvp-stat.warn{background:#fffbeb;border-color:#fde68a;}
+.rsvp-stat b{display:block;font-size:1.08rem;color:var(--txt);line-height:1.1;}
+.rsvp-stat span{display:block;font-size:.62rem;font-weight:900;color:var(--dim);margin-top:3px;}
+.rsvp-list{display:flex;flex-direction:column;gap:6px;}
+.rsvp-section-title{font-size:.68rem;font-weight:900;color:var(--dim);letter-spacing:.02em;margin-top:2px;}
+.rsvp-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;border:1px solid var(--bdr);border-radius:10px;background:#fff;padding:9px 10px;}
+.rsvp-row.warn{background:#fff7ed;border-color:#fed7aa;}
+.rsvp-row.guest{background:#f8fbff;border-color:#bfdbfe;}
+.rsvp-name{font-size:.84rem;font-weight:900;color:var(--txt);line-height:1.35;}
+.rsvp-meta{font-size:.66rem;color:var(--dim);line-height:1.45;margin-top:2px;}
+.rsvp-badge{display:inline-flex;font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;border:1px solid var(--bdr);background:var(--sur2);color:var(--dim);white-space:nowrap;}
+.rsvp-badge.attend{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
+.rsvp-badge.decline{background:#f1f5f9;border-color:#dbe3ec;color:#64748b;}
+.rsvp-badge.maybe{background:#fffbeb;border-color:#fde68a;color:#92400e;}
+.rsvp-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.rsvp-action-btn{border:1px solid var(--bdr);border-radius:8px;background:#fff;color:var(--dim);font-family:'Noto Sans KR',sans-serif;font-size:.72rem;font-weight:900;padding:7px 9px;cursor:pointer;white-space:nowrap;}
+.rsvp-action-btn:hover{background:var(--bl-soft);color:var(--bl-deep);border-color:var(--bl-softbdr);}
+.rsvp-action-btn.primary{background:var(--bl);border-color:var(--bl);color:#fff;box-shadow:0 6px 16px rgba(91,141,239,.18);}
+.rsvp-action-btn.danger:hover{background:#fee2e2;color:#b91c1c;border-color:#fecaca;}
+.rsvp-empty{font-size:.78rem;color:var(--dim);text-align:center;padding:22px;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff;}
+
+@media(max-width:720px){
+  .rsvp-grid{grid-template-columns:1fr;}
+  .rsvp-grid .btn{width:100%;justify-content:center;}
+  .rsvp-actions{justify-content:stretch;}
+  .rsvp-action-btn{flex:1;min-height:42px;font-size:.78rem;border-radius:10px;}
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1295,6 +1329,26 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 
     <!-- ── LEFT ── -->
     <div>
+      <!-- 팀전 참석 링크 -->
+      <details class="card" id="sec-rsvp" open>
+        <summary class="card-head">
+          <span class="card-title">📣 팀전 참석 링크 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
+        </summary>
+        <div class="card-body">
+          <div class="rsvp-grid">
+            <select class="inp" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
+            <input class="inp" id="rsvpTitle" placeholder="예: 6월 월례 팀전" oninput="rsvpSaveLocal()">
+            <input class="inp" id="rsvpGuestLimit" type="number" min="0" inputmode="numeric" placeholder="게스트 제한" oninput="rsvpSaveLocal()">
+            <button class="btn btn-gen" onclick="rsvpShareLink()">공지 복사</button>
+          </div>
+          <div class="hint" style="margin-bottom:8px;">
+            클럽 명부를 선택해 참석 링크를 보내고, 참석 확정자만 참가자로 가져온 뒤 청/홍 팀세팅을 진행하세요.
+            대진표나 실시간 중계가 준비되면 같은 링크에서 이어서 볼 수 있습니다.
+          </div>
+          <div id="rsvpBox" class="rsvp-empty">아직 참석 링크가 만들어지지 않았습니다.</div>
+        </div>
+      </details>
+
       <!-- 참가자 입력 -->
       <div class="card" id="sec-players">
         <div class="card-head"><span class="card-title">📋 참가자 입력</span></div>
@@ -1854,7 +1908,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.93';
+const APP_VERSION = '1.10.172';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2604,6 +2658,7 @@ function generate(){
       _resetScoreboard();
       renderResults(matches,participants,settings);
       show('resultArea');
+      rsvpPushEventState();
       // 생성 후 결과 영역으로 부드럽게 이동 (특히 모바일)
       setTimeout(()=>{
         const ra=document.getElementById('qualDash')||document.getElementById('resultArea');
@@ -4095,6 +4150,7 @@ async function startLiveBroadcast(){
   const url=base+'view.html?id='+_liveId;
   try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
   _updateLiveUI();
+  await rsvpPushEventState();
   // 공유 또는 복사
   const text='🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+url;
   try{
@@ -4186,6 +4242,7 @@ async function _cleanupOldLive(){
 async function pushLiveState(){
   if(!_liveOn || !_liveId || !_fbDb) return;
   try{ await _fbDb.ref('live/'+_liveId).update(_buildLiveState()); }catch(e){ /* 조용히 무시 */ }
+  rsvpPushEventState();
 }
 
 function _showCopyFallback(label,text){
@@ -4205,6 +4262,7 @@ async function stopLiveBroadcast(){
   _unbindLiveAdminListener();
   _liveAttendance={};_liveParty={};
   _liveOn=false; _liveId=null; _updateLiveUI();
+  rsvpPushEventState();
   _renderLiveOpsSummary();
   alert('실시간 중계를 종료했어요.');
 }
@@ -6716,6 +6774,7 @@ function addDirectPlayer(){
   nameEl.focus();
   renderDirectPlayerList();
   syncDirectToPaste();
+  rsvpSyncRosterChange();
 }
 
 // ── 직접입력 선수 편집 ──
@@ -6776,6 +6835,7 @@ function saveEditDirectPlayer(){
   renderDirectPlayerList();
   syncDirectToPaste();
   saveState();
+  rsvpSyncRosterChange();
 }
 
 function removeDirectPlayer(idx){
@@ -6783,6 +6843,7 @@ function removeDirectPlayer(idx){
   _directPlayers.splice(idx,1);
   renderDirectPlayerList();
   syncDirectToPaste();
+  rsvpSyncRosterChange();
 }
 
 function renderDirectPlayerList(){
@@ -6884,6 +6945,437 @@ function removePartner(name){
 function syncDirectToPaste(){ /* 미사용 */ }
 
 
+/* ═══ TEAM RSVP LINK ═══ */
+const RSVP_KEY='kokmatch_team_rsvp_id';
+const RSVP_TITLE_KEY='kokmatch_team_rsvp_title';
+const RSVP_CLUB_KEY='kokmatch_team_rsvp_club_id';
+const RSVP_GUEST_LIMIT_KEY='kokmatch_team_rsvp_guest_limit';
+const RSVP_DIRECT_VALUE='__direct__';
+let _rsvpId=null;
+let _rsvpListening=false;
+let _rsvpResponses={};
+let _rsvpSyncTimer=null;
+
+function _rsvpDefaultTitle(){
+  const d=new Date();
+  return `${d.getMonth()+1}월 팀전`;
+}
+function _rsvpTitle(){
+  const el=document.getElementById('rsvpTitle');
+  return (el&&el.value.trim())||localStorage.getItem(RSVP_TITLE_KEY)||_rsvpDefaultTitle();
+}
+function _rsvpGuestLimit(){
+  const el=document.getElementById('rsvpGuestLimit');
+  const raw=el?el.value.trim():(localStorage.getItem(RSVP_GUEST_LIMIT_KEY)||'');
+  const n=parseInt(raw,10);
+  return Number.isFinite(n)&&n>0?n:null;
+}
+function _rsvpGenId(){
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s='T';
+  for(let i=0;i<7;i++)s+=c[Math.floor(Math.random()*c.length)];
+  return s;
+}
+function _rsvpPath(){
+  return _rsvpId?'live/rsvp_'+_rsvpId:'';
+}
+function _rsvpUrl(){
+  if(!_rsvpId)return '';
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  return base+'rsvp.html?id='+_rsvpId;
+}
+function _liveUrl(){
+  if(!_liveId)return '';
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  return base+'view.html?id='+_liveId;
+}
+function _rsvpEventPayload(){
+  const roundCount=currentMatches.length?Math.max(...currentMatches.map(m=>m.round||0)):0;
+  const liveActive=!!(_liveOn&&_liveId);
+  return {
+    phase:liveActive?'live':(currentMatches.length?'bracket':'rsvp'),
+    bracketReady:!!currentMatches.length,
+    matchCount:currentMatches.length||0,
+    roundCount,
+    liveId:liveActive?_liveId:null,
+    liveUrl:liveActive?_liveUrl():null,
+    eventUpdatedAt:Date.now()
+  };
+}
+async function rsvpPushEventState(){
+  if(!_rsvpId||!_fbDb)return null;
+  try{
+    const payload=_rsvpEventPayload();
+    await _fbDb.ref(_rsvpPath()).update({kind:'tournamentRsvp',updatedAt:Date.now()});
+    await _fbDb.ref(_rsvpPath()+'/session').update(payload);
+    return payload;
+  }catch(e){return null;}
+}
+function _rsvpHash(str){
+  let h=2166136261;
+  for(let i=0;i<str.length;i++){
+    h^=str.charCodeAt(i);
+    h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);
+  }
+  return (h>>>0).toString(36);
+}
+function _rsvpMemberId(m){
+  return 'm_'+_rsvpHash(`${m.club||''}|${m.name||''}`);
+}
+function _rsvpNameKey(name){
+  return String(name||'').replace(/\s+/g,'').toLowerCase();
+}
+function _rsvpClubs(){
+  return (rosters.clubs||[]).filter(c=>(c.members||[]).length);
+}
+function _rsvpSelectedSource(){
+  const clubs=_rsvpClubs();
+  const saved=localStorage.getItem(RSVP_CLUB_KEY)||'';
+  if(saved===RSVP_DIRECT_VALUE&&_directPlayers.length)return RSVP_DIRECT_VALUE;
+  if(clubs.some(c=>c.id===saved))return saved;
+  if(clubs.length===1)return clubs[0].id;
+  if(!clubs.length&&_directPlayers.length)return RSVP_DIRECT_VALUE;
+  return '';
+}
+function _rsvpSelectedLabel(){
+  const src=_rsvpSelectedSource();
+  if(src===RSVP_DIRECT_VALUE)return '현재 참가자 입력';
+  const club=_rsvpClubs().find(c=>c.id===src);
+  return club?club.name:'클럽 미선택';
+}
+function _rsvpNeedsClubSelection(){
+  return !_rsvpSelectedSource()&&_rsvpClubs().length>1;
+}
+function rsvpRenderClubSelect(){
+  const sel=document.getElementById('rsvpClubSelect');
+  if(!sel)return;
+  const clubs=_rsvpClubs();
+  const src=_rsvpSelectedSource();
+  const opts=[];
+  opts.push(`<option value="">${clubs.length?'발송할 클럽 명부 선택':'등록된 클럽 명부 없음'}</option>`);
+  clubs.forEach(c=>opts.push(`<option value="${esc(c.id)}">${esc(c.name)} 명부 (${(c.members||[]).length}명)</option>`));
+  if(_directPlayers.length)opts.push(`<option value="${RSVP_DIRECT_VALUE}">현재 참가자 입력 (${_directPlayers.length}명)</option>`);
+  sel.innerHTML=opts.join('');
+  sel.value=src;
+}
+function rsvpSetClub(value){
+  if(value)localStorage.setItem(RSVP_CLUB_KEY,value);
+  else localStorage.removeItem(RSVP_CLUB_KEY);
+  rsvpRender();
+  if(value)rsvpPushSession();
+}
+function _rsvpRosterMembers(){
+  const src=_rsvpSelectedSource();
+  const map=new Map();
+  const selectedClubs=src&&src!==RSVP_DIRECT_VALUE
+    ? _rsvpClubs().filter(c=>c.id===src)
+    : [];
+  selectedClubs.forEach(club=>{
+    (club.members||[]).forEach(m=>{
+      if(!m||!m.name)return;
+      const base={name:m.name,grade:m.grade||'C',gender:m.gender||'남',ageGroup:m.ageGroup||'40대',club:club.name||''};
+      base.id=_rsvpMemberId(base);
+      if(!map.has(base.id))map.set(base.id,base);
+    });
+  });
+  if(src===RSVP_DIRECT_VALUE){
+    (_directPlayers||[]).forEach(p=>{
+      if(!p||!p.name)return;
+      const gender=p.gender||'남';
+      const grade=p.grade||levelToGrade(p.level||4,gender)||'C';
+      const base={name:p.name,grade,gender,ageGroup:p.ageGroup||'40대',club:p.club||'',isGuest:!!p.isGuest};
+      base.id=_rsvpMemberId(base);
+      if(!map.has(base.id))map.set(base.id,base);
+    });
+  }
+  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')||String(a.club||'').localeCompare(String(b.club||''),'ko'));
+}
+function _rsvpSessionPayload(){
+  const src=_rsvpSelectedSource();
+  const club=_rsvpClubs().find(c=>c.id===src);
+  const gamesEl=document.getElementById('gamesPerPlayer');
+  return {
+    kind:'tournamentRsvp',
+    mode:'team',
+    title:_rsvpTitle(),
+    clubId:src===RSVP_DIRECT_VALUE?'':(club?.id||''),
+    clubName:src===RSVP_DIRECT_VALUE?'현재 참가자 입력':(club?.name||''),
+    source:src===RSVP_DIRECT_VALUE?'directPlayers':'clubRoster',
+    updatedAt:Date.now(),
+    version:APP_VERSION,
+    guestLimit:_rsvpGuestLimit(),
+    gamesPerPlayer:parseInt(gamesEl?.value||'4',10)||4,
+    members:_rsvpRosterMembers(),
+    ..._rsvpEventPayload()
+  };
+}
+function rsvpSaveLocal(){
+  localStorage.setItem(RSVP_TITLE_KEY,_rsvpTitle());
+  const limit=_rsvpGuestLimit();
+  if(limit)localStorage.setItem(RSVP_GUEST_LIMIT_KEY,String(limit));
+  else localStorage.removeItem(RSVP_GUEST_LIMIT_KEY);
+  if(_rsvpId)rsvpPushSession();
+}
+function rsvpEnsureId(){
+  if(!_rsvpId){
+    _rsvpId=localStorage.getItem(RSVP_KEY)||_rsvpGenId();
+    localStorage.setItem(RSVP_KEY,_rsvpId);
+  }
+  return _rsvpId;
+}
+function rsvpPushSession(){
+  if(!_rsvpId||!_fbDb)return;
+  if(_rsvpNeedsClubSelection()||!_rsvpRosterMembers().length)return;
+  const path=_rsvpPath();
+  _fbDb.ref(path).update({kind:'tournamentRsvp',updatedAt:Date.now()}).catch(()=>{});
+  _fbDb.ref(path+'/session').set(_rsvpSessionPayload()).catch(()=>{});
+}
+function rsvpSyncRosterChange(){
+  rsvpRender();
+  if(!_rsvpId||!_fbDb)return;
+  if(_rsvpNeedsClubSelection()||!_rsvpRosterMembers().length)return;
+  clearTimeout(_rsvpSyncTimer);
+  _rsvpSyncTimer=setTimeout(()=>rsvpPushSession(),250);
+}
+async function rsvpPublishSession(silent){
+  if(_rsvpNeedsClubSelection()){
+    if(!silent)alert('먼저 공지를 보낼 클럽 명부를 선택해 주세요.');
+    return null;
+  }
+  const members=_rsvpRosterMembers();
+  if(!members.length){
+    if(!silent)alert('선택한 클럽 명부에 회원이 없습니다. 명부를 확인해 주세요.');
+    return null;
+  }
+  if(!_fbInit()){
+    if(!silent)alert('참석 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
+    return null;
+  }
+  rsvpEnsureId();
+  const path=_rsvpPath();
+  await _fbDb.ref(path).update({kind:'tournamentRsvp',updatedAt:Date.now()});
+  await _fbDb.ref(path+'/session').set(_rsvpSessionPayload());
+  rsvpStartListener();
+  rsvpRender();
+  return _rsvpId;
+}
+async function rsvpShareLink(){
+  const id=await rsvpPublishSession(false);
+  if(!id)return;
+  const url=_rsvpUrl();
+  const title=_rsvpTitle();
+  const target=_rsvpSelectedLabel();
+  const guestLimit=_rsvpGuestLimit();
+  const guestLine=guestLimit?`\n게스트는 ${guestLimit}명까지 신청 가능합니다.`:'';
+  const text=`🏸 ${target} · ${title} 참석 확인\n\n본인 이름을 누르고 참석 여부를 표시해 주세요.${guestLine}\n대진표와 실시간 현황도 같은 링크에서 이어서 확인할 수 있습니다.\n\n${url}`;
+  try{
+    if(navigator.share){
+      await navigator.share({title:`${title} 참석 확인`,text});
+      return;
+    }
+  }catch(e){}
+  try{
+    await navigator.clipboard.writeText(text);
+    alert('공지 문구를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.\n\n'+url);
+  }catch(e){
+    prompt('아래 문구를 복사해서 공유하세요.',text);
+  }
+}
+function rsvpLoad(){
+  const titleEl=document.getElementById('rsvpTitle');
+  if(titleEl&&!titleEl.value)titleEl.value=localStorage.getItem(RSVP_TITLE_KEY)||_rsvpDefaultTitle();
+  const limitEl=document.getElementById('rsvpGuestLimit');
+  if(limitEl&&!limitEl.value)limitEl.value=localStorage.getItem(RSVP_GUEST_LIMIT_KEY)||'';
+  rsvpRenderClubSelect();
+  _rsvpId=localStorage.getItem(RSVP_KEY)||null;
+  if(_rsvpId&&_fbInit()){
+    if(!_rsvpNeedsClubSelection()&&_rsvpRosterMembers().length)rsvpPushSession();
+    rsvpStartListener();
+  }
+}
+function rsvpStartListener(){
+  if(!_rsvpId||!_fbDb||_rsvpListening)return;
+  _rsvpListening=true;
+  _fbDb.ref(_rsvpPath()+'/responses').on('value',snap=>{
+    _rsvpResponses=snap.val()||{};
+    rsvpRender();
+  });
+}
+function _rsvpResponseList(){
+  return Object.keys(_rsvpResponses||{}).map(id=>({id,..._rsvpResponses[id]}));
+}
+function _rsvpStats(){
+  const members=_rsvpRosterMembers();
+  const memberIds=new Set(members.map(m=>m.id));
+  const responses=_rsvpResponseList().filter(r=>memberIds.has(r.memberId||r.id));
+  const counts={attend:0,decline:0,maybe:0,guest:0,issues:0};
+  responses.forEach(r=>{
+    if(r.status==='attend')counts.attend++;
+    else if(r.status==='decline')counts.decline++;
+    else counts.maybe++;
+    if(r.guest&&r.guest.name)counts.guest++;
+    if(r.status==='attend'&&r.guest&&r.guest.name&&(!r.guest.gender||!r.guest.grade))counts.issues++;
+  });
+  counts.noResponse=Math.max(0,members.length-responses.length);
+  counts.total=members.length;
+  return {members,responses,counts};
+}
+function _rsvpStatusLabel(status){
+  return status==='attend'?'참석':status==='decline'?'불참':'미정';
+}
+function rsvpRender(){
+  const box=document.getElementById('rsvpBox');
+  const summary=document.getElementById('rsvpSummary');
+  if(!box)return;
+  rsvpRenderClubSelect();
+  const {members,responses,counts}=_rsvpStats();
+  const guestLimitForSummary=_rsvpGuestLimit();
+  const guestSummaryText=guestLimitForSummary?`${counts.guest}/${guestLimitForSummary}`:String(counts.guest);
+  if(summary)summary.textContent=_rsvpId?`(${_rsvpSelectedLabel()} · ${counts.attend}명 참석 · 게스트 ${guestSummaryText}명)`:'';
+  if(_rsvpNeedsClubSelection()){
+    box.className='rsvp-empty';
+    box.textContent='여러 클럽 명부가 있습니다. 먼저 공지를 보낼 클럽 명부를 선택하세요.';
+    return;
+  }
+  if(!_rsvpId){
+    box.className='rsvp-empty';
+    box.textContent=members.length?`${_rsvpSelectedLabel()} 대상으로 참석 링크를 만들 준비가 됐습니다. 공지 복사를 누르세요.`:'선택한 클럽 명부에 회원이 없습니다.';
+    return;
+  }
+  const url=_rsvpUrl();
+  const guestLimit=_rsvpGuestLimit();
+  const guestText=guestLimit?`${counts.guest}/${guestLimit}`:String(counts.guest);
+  const latest=[...responses].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,8);
+  const guestRows=responses.filter(r=>r.status==='attend'&&r.guest&&r.guest.name).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const issueRows=responses.filter(r=>r.status==='attend'&&r.guest&&r.guest.name&&(!r.guest.gender||!r.guest.grade));
+  box.className='rsvp-panel';
+  box.innerHTML=`
+    <div class="rsvp-link">대상: <strong>${esc(_rsvpSelectedLabel())}</strong><br>공유 링크<br><strong>${esc(url)}</strong><br>회원 응답은 자동 집계됩니다. 참석자 가져오기를 누르면 참가자 입력으로 반영됩니다.</div>
+    <div class="rsvp-stats">
+      <div class="rsvp-stat"><b>${counts.attend}</b><span>참석 확정</span></div>
+      <div class="rsvp-stat ${guestLimit&&counts.guest>=guestLimit?'warn':''}"><b>${esc(guestText)}</b><span>게스트</span></div>
+      <div class="rsvp-stat ${counts.noResponse?'warn':''}"><b>${counts.noResponse}</b><span>미응답</span></div>
+      <div class="rsvp-stat ${counts.issues?'warn':''}"><b>${counts.issues}</b><span>확인 필요</span></div>
+    </div>
+    <div class="rsvp-actions">
+      <button class="rsvp-action-btn primary" onclick="rsvpImportAttendees()">참석자 가져오기</button>
+      <button class="rsvp-action-btn" onclick="rsvpShareLink()">공지 다시 복사</button>
+      <button class="rsvp-action-btn danger" onclick="rsvpStopLink()">링크 종료</button>
+    </div>
+    ${guestRows.length?`<div class="rsvp-list"><div class="rsvp-section-title">게스트 신청 ${esc(guestText)}명 · 신청자 확인</div>${guestRows.map(r=>_rsvpGuestRowHtml(r)).join('')}</div>`:''}
+    ${issueRows.length?`<div class="rsvp-list">${issueRows.map(r=>_rsvpRowHtml(r,true)).join('')}</div>`:''}
+    <div class="rsvp-list">${latest.length?latest.map(r=>_rsvpRowHtml(r,false)).join(''):'<div class="rsvp-empty">아직 응답이 없습니다.</div>'}</div>`;
+}
+function _rsvpGuestRowHtml(r){
+  const g=r.guest||{};
+  const updated=r.updatedAt?new Date(r.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
+  return `<div class="rsvp-row guest">
+    <div>
+      <div class="rsvp-name">${esc(g.name||'게스트 이름 없음')} <span class="rsvp-meta">(${esc(g.gender||'성별?')} · ${esc(g.grade||'급수?')}급)</span></div>
+      <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')}${r.club?` · ${esc(r.club)}`:''}${updated?` · ${esc(updated)}`:''}</div>
+    </div>
+    <span class="rsvp-badge attend">게스트</span>
+  </div>`;
+}
+function _rsvpRowHtml(r,warn){
+  const guest=r.guest&&r.guest.name?` · 게스트 ${r.guest.name}(${r.guest.gender||'성별?'}/${r.guest.grade||'급수?'})`:'';
+  const updated=r.updatedAt?new Date(r.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
+  return `<div class="rsvp-row ${warn?'warn':''}">
+    <div>
+      <div class="rsvp-name">${esc(r.memberName||r.name||'이름 없음')}${guest?esc(guest):''}</div>
+      <div class="rsvp-meta">${esc(r.club||'')} ${updated?`· ${esc(updated)}`:''}${r.note?` · ${esc(r.note)}`:''}</div>
+    </div>
+    <span class="rsvp-badge ${esc(r.status||'maybe')}">${esc(_rsvpStatusLabel(r.status))}</span>
+  </div>`;
+}
+function _rsvpBracketHasStarted(){
+  if(!currentMatches.length)return false;
+  if(_liveOn)return true;
+  return currentMatches.some((_,i)=>_isMatchDone(i));
+}
+function _rsvpClearUnstartedBracket(){
+  if(!currentMatches.length)return;
+  _captureUndoSnapshot('참석자 가져오기 전');
+  teamAssignment=null;
+  _teamModeOverride=null;
+  _teamWanted=false;
+  captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  currentMatches=[];
+  currentParticipants=[];
+  currentSettings={};
+  Object.keys(winOverride).forEach(k=>delete winOverride[k]);
+  _resetScoreboard();
+  const result=document.getElementById('resultArea');
+  if(result)result.classList.add('hidden');
+  const teamWrap=document.getElementById('teamListWrap');
+  if(teamWrap)teamWrap.classList.remove('show');
+  updateTeamModeBadge();
+  hideErr();
+  rsvpPushEventState();
+}
+function rsvpImportAttendees(){
+  const {responses,counts}= _rsvpStats();
+  const attendees=responses.filter(r=>r.status==='attend');
+  if(!attendees.length){alert('참석 확정자가 아직 없습니다.');return;}
+  if(currentMatches.length){
+    if(_rsvpBracketHasStarted()){
+      alert('이미 진행되었거나 결과가 입력된 기존 대진표가 있습니다.\n기록 보호를 위해 자동 초기화하지 않습니다.\n필요하면 전체 초기화 후 다시 가져와 주세요.');
+      return;
+    }
+    if(!confirm('기존 대진표가 아직 남아 있습니다.\n미진행 대진표를 초기화하고 참석자를 가져올까요?'))return;
+    _rsvpClearUnstartedBracket();
+  }
+  if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 참석 확정자 ${counts.attend}명으로 교체할까요?`))return;
+  const next=[];
+  const seen=new Set();
+  const add=p=>{
+    const name=(p.name||'').trim();
+    if(!name||seen.has(name))return;
+    seen.add(name);
+    const gender=p.gender||'남';
+    const grade=p.grade||levelToGrade(p.level||4,gender)||'C';
+    next.push({
+      name,
+      grade,
+      gender,
+      level:gradeToLevel(grade,gender)||4,
+      ageGroup:p.ageGroup||'40대',
+      club:p.club||'',
+      isGuest:!!p.isGuest
+    });
+  };
+  attendees.forEach(r=>{
+    add({name:r.memberName||r.name,grade:r.grade,gender:r.gender,ageGroup:r.ageGroup,club:r.club});
+    if(r.guest&&r.guest.name)add({name:r.guest.name,grade:r.guest.grade||'C',gender:r.guest.gender||'남',ageGroup:r.guest.ageGroup||r.ageGroup||'40대',isGuest:true});
+  });
+  _directPlayers=next;
+  teamAssignment=null;
+  _teamWanted=true;
+  _teamModeOverride=null;
+  captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  renderDirectPlayerList();
+  syncDirectToPaste();
+  updateTeamModeBadge();
+  switchNav('main');
+  scheduleSave();
+  const teamBtn=document.getElementById('teamAssignBtn');
+  if(teamBtn){
+    setTimeout(()=>teamBtn.scrollIntoView({behavior:'smooth',block:'center'}),30);
+  }
+  alert(`참석 확정자 ${counts.attend}명과 게스트 ${counts.guest}명을 참가자로 가져왔습니다.\n이제 청/홍팀 자동 배정을 진행하세요.`);
+}
+async function rsvpStopLink(){
+  if(!_rsvpId)return;
+  if(!confirm('참석 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 참석부를 볼 수 없습니다.'))return;
+  const path=_rsvpPath();
+  if(_fbDb)await _fbDb.ref(path).remove().catch(()=>{});
+  localStorage.removeItem(RSVP_KEY);
+  _rsvpId=null;
+  _rsvpResponses={};
+  _rsvpListening=false;
+  rsvpRender();
+}
+
 /* ═══ ROSTER MANAGEMENT ═══ */
 const ROSTER_KEY='badminton_rosters_v1';
 let rosters={clubs:[]};
@@ -6928,6 +7420,7 @@ function loadRosters(){
 }
 function saveRosters(){
   try{localStorage.setItem(ROSTER_KEY,JSON.stringify({...rosters,_lvVersion:LV_VERSION}));}catch(e){}
+  rsvpSyncRosterChange();
 }
 
 function addClub(){
@@ -7220,6 +7713,7 @@ function importSelected(){
   closeImportModal();
   switchNav('main');
   renderDirectPlayerList();   // ← UI 목록 갱신 (핵심)
+  rsvpSyncRosterChange();
   const st=document.getElementById('parseStatus');
   if(st){st.style.color='var(--green)';
   st.textContent='✓ '+added+'명 등록됨'+(skipped?' (중복 '+skipped+'명 제외)':'');}
@@ -7655,6 +8149,8 @@ window.addEventListener('DOMContentLoaded', () => {
   checkSavedState();
   loadRosters();
   renderClubList();
+  rsvpLoad();
+  rsvpRender();
   updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
   // 버전 표시 반영
   const vEl=document.getElementById('appVersion');
