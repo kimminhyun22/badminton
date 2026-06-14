@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.157  (2026-06)
+     APP VERSION: 1.10.158  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.157">
+<meta name="app-version" content="1.10.158">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2524,7 +2524,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.157';
+const APP_VERSION = '1.10.158';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4231,6 +4231,58 @@ function _dailyQueueSelect(q,side,pos,currentId){
     ${players.map(p=>`<option value="${p.id}">${p.isGuest?'[G] ':''}${esc(p.name)} · ${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')} · ${p.games||0}G</option>`).join('')}
   </select>`;
 }
+function _dailyQueuedPlayerLocation(playerId){
+  for(let idx=0;idx<_dailyQueue.length;idx++){
+    const q=_dailyQueue[idx];
+    const t1=q.team1||[],t2=q.team2||[];
+    const p1=t1.indexOf(playerId),p2=t2.indexOf(playerId);
+    if(p1>=0)return {idx,q,side:'team1',pos:p1};
+    if(p2>=0)return {idx,q,side:'team2',pos:p2};
+  }
+  return null;
+}
+function _dailyQueueReplacementCandidates(q,currentId){
+  const blocked=new Set();
+  _dailyQueue.forEach(other=>{
+    if(other.id===q.id)return;
+    _dailyQueueIds(other).forEach(id=>blocked.add(id));
+  });
+  const current=_dailyPlayer(currentId);
+  const requiredTeam=(_dailyTeamMode&&current)?_dailyTeamSide(current):'';
+  const currentQueueIds=new Set(_dailyQueueIds(q));
+  return _dailyEligible()
+    .filter(p=>p.id!==currentId&&!blocked.has(p.id)&&!currentQueueIds.has(p.id))
+    .filter(p=>p.status==='wait'&&!p.currentMatchId)
+    .filter(p=>!requiredTeam||p.team===requiredTeam)
+    .sort((a,b)=>{
+      if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
+      if((a.waitFrom||0)!==(b.waitFrom||0))return (a.waitFrom||0)-(b.waitFrom||0);
+      return a.name.localeCompare(b.name,'ko');
+    });
+}
+function _dailyFindQueueReplacement(playerId){
+  const loc=_dailyQueuedPlayerLocation(playerId);
+  if(!loc)return null;
+  const before={team1:[...(loc.q.team1||[])],team2:[...(loc.q.team2||[])]};
+  for(const candidate of _dailyQueueReplacementCandidates(loc.q,playerId)){
+    loc.q[loc.side][loc.pos]=candidate.id;
+    const ok=new Set(_dailyQueueIds(loc.q)).size===4&&_dailyQueueItemValid(loc.q,null);
+    loc.q.team1=[...before.team1];
+    loc.q.team2=[...before.team2];
+    if(ok)return {loc,candidate};
+  }
+  loc.q.team1=[...before.team1];
+  loc.q.team2=[...before.team2];
+  return null;
+}
+function _dailyTryReplaceQueuedPlayer(playerId){
+  const found=_dailyFindQueueReplacement(playerId);
+  if(!found)return false;
+  if(found.loc.q.reservationId)return false;
+  found.loc.q[found.loc.side][found.loc.pos]=found.candidate.id;
+  _dailyRecalcQueueItem(found.loc.q);
+  return true;
+}
 function dailyEditQueuePlayer(queueId,side,pos,newId){
   if(!newId){dailyRender();return;}
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
@@ -4539,7 +4591,10 @@ function _dailyPublicEvent(){
       court:m.court,seq:m.seq,type:m.type,teamMode:!!m.teamMode,
       labelA:_dailyMatchSideLabel(m,'t1'),labelB:_dailyMatchSideLabel(m,'t2'),
       t1:teams.t1.map(p=>p.name),t2:teams.t2.map(p=>p.name),
-      remain:_dailyRemainingMinutes(m)
+      remain:_dailyRemainingMinutes(m),
+      startedAt:m.startedAt||0,
+      endAt:_dailyMatchEndAt(m),
+      timerState:_dailyTimerState(m)
     };
   });
   const next=_dailyQueue.slice(0,_dailyCourtCount()).map((q,idx)=>{
@@ -4948,8 +5003,16 @@ function _dailyCheckinBlockReason(req,p){
   if(!p)return '민턴LIVE 명단에 없는 선수';
   if(!_dailyCheckinAllowedStatus(req.status))return '알 수 없는 상태 요청';
   if(p.status==='playing'||p.currentMatchId)return '경기중이라 경기 완료/취소 후 반영 가능';
-  if(_dailyNormalizeStatus(req.status)==='done')return '';
-  if(_dailyIsLockedQueued(p.id))return '임박/신청 대기표에 포함되어 관리자 확인 필요';
+  const nextStatus=_dailyNormalizeStatus(req.status);
+  if(nextStatus==='done')return '';
+  if(_dailyIsLockedQueued(p.id)){
+    if(nextStatus==='rest'){
+      const loc=_dailyQueuedPlayerLocation(p.id);
+      if(loc?.q?.reservationId)return '게임신청 대기표에 포함되어 관리자 확인 필요';
+      return _dailyFindQueueReplacement(p.id)?'':'임박 대기표 교체 후보가 없어 관리자 확인 필요';
+    }
+    return '임박/신청 대기표에 포함되어 관리자 확인 필요';
+  }
   return '';
 }
 function _dailyCheckinRequestRef(key){
@@ -5050,6 +5113,10 @@ function dailyProcessCheckinRequests(){
       const p=_dailyPlayer(req.playerId);
       const reason=_dailyCheckinBlockReason(req,p);
       if(reason)return;
+      const nextStatus=_dailyNormalizeStatus(req.status);
+      if(nextStatus==='rest'&&_dailyIsLockedQueued(p.id)&&_dailyTryReplaceQueuedPlayer(p.id)){
+        changed=true;
+      }
       if(p.status!==req.status){
         _dailyApplyPlayerStatus(p,req.status);
         changed=true;

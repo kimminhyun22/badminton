@@ -53,6 +53,26 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .last-sent b{color:#0f5132}
 .last-sent.hidden{display:none}
+.vote-summary{
+  margin:12px 0 0;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.vote-chip{
+  padding:9px 8px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:rgba(255,255,255,.82);
+  text-align:center;
+}
+.vote-chip b{display:block;font-size:18px;line-height:1;color:#315fb2}
+.vote-chip span{display:block;margin-top:4px;font-size:11px;font-weight:900;color:var(--mut)}
+.vote-chip.ready{border-color:#bbf7d0;background:#f0fdf4}
+.vote-chip.ready b{color:#16834f}
+.vote-chip.warn{border-color:#fed7aa;background:#fff7ed}
+.vote-chip.warn b{color:#b45309}
+.vote-summary.hidden{display:none}
 .panel{
   margin-top:16px;
   padding:14px;
@@ -317,7 +337,7 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
 }
 .toast.show{transform:translateY(0)}
 @media (min-width:620px){.buttons:not(.main-actions){grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:520px){.request-body,.compact-actions{grid-template-columns:1fr}}
+@media(max-width:520px){.request-body,.compact-actions{grid-template-columns:1fr}.vote-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -327,6 +347,7 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
     <h1>민턴LIVE 상태를 알려주세요</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice"><strong>참석</strong>은 갈 때, <strong>시작</strong>은 현장에서 바로 운동 가능할 때 누르세요. 켜진 버튼이 현재 상태입니다.</div>
+    <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
   <section class="panel event-panel hidden" id="eventPanel"></section>
@@ -352,7 +373,7 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[];
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],eventTimer=null;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['planned','toggle','rest'];
 const SUB_STATUS_KEYS=[];
@@ -439,9 +460,47 @@ function renderLastSent(){
   el.className='last-sent';
   el.innerHTML=`최근 전송: <b>${esc(last.playerName)} · ${esc(compactLabel(last.status))}</b> (${esc(when)})`;
 }
-function remainText(v){
-  const n=Number(v);
+function voteSummary(){
+  const players=session?.players||[];
+  if(!players.length)return null;
+  const count=status=>players.filter(p=>p.status===status).length;
+  const attending=players.filter(p=>['planned','wait','playing','rest'].includes(p.status)).length;
+  return {
+    attending,
+    wait:count('wait'),
+    playing:count('playing'),
+    rest:count('rest'),
+    invited:count('invited')
+  };
+}
+function renderVoteSummary(){
+  const el=document.getElementById('voteSummary');
+  if(!el)return;
+  const s=voteSummary();
+  if(!s){
+    el.className='vote-summary hidden';
+    el.innerHTML='';
+    return;
+  }
+  el.className='vote-summary';
+  el.innerHTML=[
+    `<div class="vote-chip ready"><b>${s.attending}</b><span>참석</span></div>`,
+    `<div class="vote-chip ready"><b>${s.wait}</b><span>시작</span></div>`,
+    `<div class="vote-chip"><b>${s.playing}</b><span>경기중</span></div>`,
+    `<div class="vote-chip warn"><b>${s.rest+s.invited}</b><span>휴식/미응답</span></div>`
+  ].join('');
+}
+function remainMinutes(row){
+  if(row&&row.endAt){
+    return Math.max(0,Math.ceil((Number(row.endAt)-Date.now())/60000));
+  }
+  const n=Number(row?.remain);
   if(!Number.isFinite(n))return '진행중';
+  return n;
+}
+function remainText(row){
+  const n=remainMinutes(row);
+  if(typeof n==='string')return n;
   return n<=0?'종료임박':`약 ${n}분 남음`;
 }
 function teamNames(row){
@@ -463,10 +522,11 @@ function renderEvent(){
   const updated=ev.updatedAt?new Date(ev.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>`;
   const active=(ev.active||[]).slice(0,4).map(m=>{
-    const state=Number(m.remain)<=0?'due':Number(m.remain)<=5?'soon':'';
+    const remain=remainMinutes(m);
+    const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
     return `<div class="event-row ${state}">
     <div><strong>${m.court}코트 진행중</strong><small>${esc(teamNames(m))}</small></div>
-    <em>${esc(remainText(m.remain))}</em>
+    <em>${esc(remainText(m))}</em>
   </div>`;
   }).join('');
   const next=(ev.next||[]).slice(0,4).map(m=>`<div class="event-row next ${esc(m.cueState||'')}">
@@ -491,10 +551,12 @@ function render(){
     box.className='empty';box.textContent='명단을 불러오는 중입니다.';count.textContent='0명';
     renderLastSent();
     renderEvent();
+    renderVoteSummary();
     return;
   }
   renderLastSent();
   renderEvent();
+  renderVoteSummary();
   const last=getLastSent();
   const players=(session.players||[])
     .filter(p=>playerMatchesQuery(p,query))
@@ -690,6 +752,9 @@ function boot(){
     query=e.target.value.trim();
     render();
   });
+  if(!eventTimer){
+    eventTimer=setInterval(()=>renderEvent(),15000);
+  }
 }
 boot();
 </script>
