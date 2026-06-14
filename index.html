@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.155  (2026-06)
+     APP VERSION: 1.10.156  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.155">
+<meta name="app-version" content="1.10.156">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -943,8 +943,9 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-stat b{display:block;font-size:1.08rem;color:var(--txt);line-height:1.1;}
 .daily-stat span{display:block;font-size:.62rem;color:var(--dim);margin-top:2px;font-weight:700;}
 .daily-player-list{display:flex;flex-direction:column;gap:6px;}
-.daily-player{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;background:#fff;border:1px solid var(--bdr);border-radius:11px;padding:10px 11px;}
+.daily-player{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;background:#fff;border:1px solid var(--bdr);border-radius:11px;padding:10px 11px;}
 .daily-player-main{min-width:0;}
+.daily-player-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;}
 .daily-player-name{font-size:.92rem;font-weight:900;color:var(--txt);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
 .daily-player-meta{font-size:.68rem;color:var(--dim);margin-top:3px;line-height:1.45;}
 .daily-status{font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;border:1px solid var(--bdr);}
@@ -956,7 +957,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-status.done{background:#f1f5f9;border-color:#dbe3ec;color:#64748b;}
 .daily-player-actions{display:flex;align-items:center;gap:5px;}
 .daily-player-actions select{min-width:82px;}
-.daily-remove-btn{margin-left:4px;}
+.daily-remove-btn{flex:0 0 auto;background:#fff1f2!important;border-color:#fecdd3!important;color:#be123c!important;padding:6px 9px;font-size:.68rem;}
+.daily-remove-btn:hover{background:#ffe4e6!important;border-color:#fda4af!important;color:#9f1239!important;}
 .daily-mini-btn{border:1px solid var(--bdr);border-radius:8px;background:#fff;color:var(--dim);font-family:'Noto Sans KR',sans-serif;font-size:.72rem;font-weight:800;padding:7px 9px;cursor:pointer;white-space:nowrap;}
 .daily-mini-btn.primary-action{background:var(--bl);border-color:var(--bl);color:#fff;box-shadow:0 6px 16px rgba(91,141,239,.18);}
 .daily-mini-btn:hover{background:var(--bl-soft);color:var(--bl-deep);border-color:var(--bl-softbdr);}
@@ -1212,7 +1214,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
   .daily-statusbar{flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px;}.daily-sb-state{text-align:center;}
   .daily-note{font-size:.68rem;line-height:1.5;padding:8px 10px;}
   .daily-form-grid{grid-template-columns:1fr 1fr;}.daily-form-grid .dir-input{grid-column:1/-1;}
-  .daily-player{grid-template-columns:1fr;}.daily-player-actions{justify-content:space-between;flex-wrap:wrap;}
+  .daily-player{grid-template-columns:1fr;}.daily-player-actions{justify-content:stretch;flex-wrap:wrap;}.daily-player-actions select{width:100%;flex:1 1 100%;}
   .daily-res-grid{grid-template-columns:1fr 1fr;}.daily-res-grid .daily-vs{display:none;}.daily-res-body{grid-template-columns:1fr;}.daily-res-vs{display:none;}
   .daily-result-score,.daily-team-roster-grid{grid-template-columns:1fr;}
   .daily-rec-body,.daily-match-body,.daily-court-teams{grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);}
@@ -2456,7 +2458,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <h2>👥 게스트 · 게임 신청</h2>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">G</span><p class="step-text">정식 회원이 아닌 손님은 <strong>G 버튼</strong>으로 게스트 표시할 수 있습니다. 이름 앞에 G 배지가 붙습니다.</p></div>
-      <div class="step-item"><span class="step-num ico">신청</span><p class="step-text">회원은 출석 링크에서 파트너 또는 4명 경기를 신청할 수 있습니다. 신청 선수가 모두 시작 상태이면 대기표에 우선 반영됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">신청</span><p class="step-text">회원은 출석 링크에서 파트너 또는 4명 경기를 신청할 수 있습니다. 신청은 자동 등록되고, 선수가 모두 시작 상태이면 대기표에 우선 반영됩니다.</p></div>
       <div class="step-item"><span class="step-num ico">마감</span><p class="step-text"><strong>마감 예약</strong>에 시각을 입력하면 해당 시각부터 자동으로 마감 모드가 켜져 새 경기 생성을 멈춥니다. 마감 5분 전부터는 완료 후 자동 승계도 멈춰 실수로 새 경기가 시작되는 일을 줄입니다.</p></div>
     </div>
   </div>
@@ -2493,7 +2495,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong> 메뉴에서 <strong>클럽 명부 가져오기</strong>로 회원을 선택해 불러옵니다. 게스트는 <strong>G</strong> 버튼을 켜고 추가합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">휴식·종료 상태를 바꿔 현재 운동 가능한 사람만 남깁니다. 추천 후보는 <strong>시작</strong> 선수입니다.</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text">회원이 출석 링크에서 파트너 또는 4명 경기를 신청하면, 관리자가 확인 후 대기표에 반영합니다. 이미 확정된 임박대기는 유지하고 새 대기표를 채울 때 우선 반영됩니다.</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text">회원이 출석 링크에서 파트너 또는 4명 경기를 신청하면 자동 등록됩니다. 이미 확정된 임박대기는 유지하고, 새 대기표를 채울 때 우선 반영됩니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>임박대기</strong>는 코트 수만큼만 만들고, 나머지는 <strong>대기선수</strong>로 둡니다. 코트 수만큼 한 바퀴가 돌면 곧 시작할 1순위와 준비 알림을 보낸 대기표를 지키고, 나머지 대기표는 오래 기다린 사람 중심으로 다시 섞습니다.</p></div>
       <div class="step-item"><span class="step-num">5</span><p class="step-text">임박대기에는 다음 코트의 <strong>바로 시작/종료임박/예상 종료</strong> 상태와 <strong>준비 알림</strong>, <strong>경기 시작</strong> 버튼이 표시됩니다. 준비 알림은 카톡에 보낼 문구를 공유하거나 복사하는 기능입니다.</p></div>
       <div class="step-item"><span class="step-num">6</span><p class="step-text">경기가 끝나면 코트 카드에서 <strong>경기 종료</strong>를 누릅니다. 방금 끝난 선수들은 대기자로 돌아가고 다음 대기표가 보충됩니다. 자동 시작을 꺼둔 기본 운영에서는 빈 코트 카드에서 관리자가 1순위 임박대기를 직접 시작합니다. 남은 시간이 5분 이하이면 빨간색 종료임박으로 표시됩니다.</p></div>
@@ -2521,7 +2523,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.155';
+const APP_VERSION = '1.10.156';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2975,6 +2977,11 @@ function _dailyPairButton(p){
 }
 function _dailyReservationIds(r){
   return [...(r.team1||[]),...(r.team2||[])].filter(Boolean);
+}
+function _dailyReservationPlayerConflict(ids,exceptId){
+  const target=new Set(ids.filter(Boolean));
+  if(!target.size)return null;
+  return _dailyReservations.find(r=>r.id!==exceptId&&_dailyReservationIds(r).some(id=>target.has(id)))||null;
 }
 function _dailyReservationNames(ids){
   return ids.map(id=>_dailyPlayer(id)).filter(Boolean).map(_dailyNameText);
@@ -3798,6 +3805,10 @@ function dailyAddReservation(){
   }
   if(mode==='match'&&(team2.length!==2||new Set(ids).size!==4)){
     alert('4명 경기 신청은 A팀 2명, B팀 2명을 모두 다르게 선택해야 합니다.');
+    return;
+  }
+  if(_dailyReservationPlayerConflict(ids)){
+    alert('이미 게임신청이 있는 선수가 포함되어 있습니다. 먼저 신청을 정리해 주세요.');
     return;
   }
   if(_dailyReservationPairConflict(team1,team2)){
@@ -4681,9 +4692,9 @@ function dailyRenderAdminAlerts(){
   if(readyReservations){
     alerts.push({
       cls:'primary',
-      title:`게임신청 반영 가능 ${readyReservations}건`,
-      desc:'신청 선수가 모두 대기 가능합니다.',
-      actions:`<button class="daily-mini-btn" onclick="dailyPromoteReadyReservations()">게임신청 반영</button>`
+      title:`게임신청 자동 반영 대기 ${readyReservations}건`,
+      desc:'코트 흐름에 맞춰 대기표에 자동으로 들어갑니다.',
+      actions:''
     });
   }
   if(_dailyCheckinId&&cap.short&&!_dailyClosing){
@@ -4949,6 +4960,39 @@ function _dailyCheckinPendingRequests(){
     return _dailyCheckinBlockReason(req,p);
   });
 }
+function _dailyReservationRequestError(req){
+  const team1=(req.team1||[]).filter(Boolean);
+  const team2=(req.mode==='match'?(req.team2||[]):[]).filter(Boolean);
+  const ids=[...team1,...team2];
+  if(req.mode==='match'){
+    if(team1.length!==2||team2.length!==2||new Set(ids).size!==4)return '4명 경기 신청 정보가 부족하거나 중복되어 있습니다.';
+  }else if(team1.length!==2||new Set(team1).size!==2){
+    return '같은 편 신청에는 서로 다른 2명이 필요합니다.';
+  }
+  if(ids.some(id=>!_dailyPlayer(id)))return '신청 선수 중 현재 명단에 없는 선수가 있습니다.';
+  const registered=req.key?_dailyReservations.find(r=>r.requestKey===req.key):null;
+  if(_dailyReservationPlayerConflict(ids,registered?.id))return '이미 다른 게임신청에 포함된 선수가 있습니다.';
+  if(_dailyReservationPairConflict(team1,team2))return '기존 게임신청과 충돌합니다.';
+  return '';
+}
+function _dailyRegisterReservationRequest(req){
+  if(req.key&&_dailyReservations.some(r=>r.requestKey===req.key))return true;
+  const error=_dailyReservationRequestError(req);
+  if(error)return false;
+  const team1=(req.team1||[]).filter(Boolean);
+  const team2=(req.mode==='match'?(req.team2||[]):[]).filter(Boolean);
+  _dailyReservations.push({
+    id:'dres_'+_dailyNow().toString(36)+'_'+Math.random().toString(36).slice(2,5),
+    mode:req.mode==='match'?'match':'pair',
+    team1,
+    team2,
+    note:req.note||`회원 신청: ${req.playerName||'이름 없음'}`,
+    createdAt:req.createdAt||_dailyNow(),
+    source:'member-request',
+    requestKey:req.key||''
+  });
+  return true;
+}
 function dailyProcessCheckinRequests(){
   if(_dailyCheckinApplying)return;
   _dailyCheckinApplying=true;
@@ -4957,8 +5001,15 @@ function dailyProcessCheckinRequests(){
   try{
     const latestByPlayer=new Map();
     const superseded=[];
+    const autoApplied=[];
     _dailyCheckinRequests.forEach(req=>{
-      if(req.type==='reservation')return;
+      if(req.type==='reservation'){
+        if(_dailyRegisterReservationRequest(req)){
+          autoApplied.push(req);
+          changed=true;
+        }
+        return;
+      }
       if(!req.playerId){superseded.push(req);return;}
       const cur=latestByPlayer.get(req.playerId);
       if(!cur||(req.createdAt||0)>=(cur.createdAt||0)){
@@ -4972,8 +5023,12 @@ function dailyProcessCheckinRequests(){
       const ref=_dailyCheckinRequestRef(req.key);
       if(ref)ref.update({appliedAt:now,appliedBy:'admin-superseded'}).catch(()=>{});
     });
-    if(superseded.length){
-      const keys=new Set(superseded.map(req=>req.key));
+    autoApplied.forEach(req=>{
+      const ref=_dailyCheckinRequestRef(req.key);
+      if(ref)ref.update({appliedAt:now,appliedBy:'member-auto-reservation'}).catch(()=>{});
+    });
+    if(superseded.length||autoApplied.length){
+      const keys=new Set([...superseded,...autoApplied].map(req=>req.key));
       _dailyCheckinRequests=_dailyCheckinRequests.filter(req=>!keys.has(req.key));
     }
     latestByPlayer.forEach(req=>{
@@ -5034,36 +5089,12 @@ function _dailyReservationRequestIds(req){
 function dailyApproveReservationRequest(key){
   const req=_dailyCheckinRequests.find(r=>r.key===key);
   if(!req)return;
-  const team1=(req.team1||[]).filter(Boolean);
-  const team2=(req.mode==='match'?(req.team2||[]):[]).filter(Boolean);
-  const ids=_dailyReservationRequestIds(req);
-  if(req.mode==='match'){
-    if(team1.length!==2||team2.length!==2||new Set(ids).size!==4){
-      alert('4명 경기 신청 정보가 부족하거나 중복되어 있습니다.');
-      return;
-    }
-  }else if(team1.length!==2||new Set(team1).size!==2){
-    alert('같은 편 신청에는 서로 다른 2명이 필요합니다.');
+  const error=_dailyReservationRequestError(req);
+  if(error){
+    alert(error);
     return;
   }
-  const missing=ids.filter(id=>!_dailyPlayer(id));
-  if(missing.length){
-    alert('신청 선수 중 현재 명단에 없는 선수가 있습니다.');
-    return;
-  }
-  if(_dailyReservationPairConflict(team1,team2)){
-    alert('기존 게임신청과 충돌합니다. 먼저 신청을 정리해 주세요.');
-    return;
-  }
-  _dailyReservations.push({
-    id:'dres_'+_dailyNow().toString(36)+'_'+Math.random().toString(36).slice(2,5),
-    mode:req.mode==='match'?'match':'pair',
-    team1,
-    team2,
-    note:req.note||`회원 신청: ${req.playerName||'이름 없음'}`,
-    createdAt:_dailyNow(),
-    source:'member-request'
-  });
+  _dailyRegisterReservationRequest(req);
   const ref=_dailyCheckinRequestRef(key);
   if(ref)ref.update({appliedAt:_dailyNow(),appliedBy:'admin-reservation'}).catch(()=>{});
   dailyEnsureQueue();
@@ -5103,7 +5134,7 @@ function dailyRenderCheckinRequests(){
   const url=_dailyCheckinUrl();
   const pending=_dailyCheckinPendingRequests();
   const voteLine=_dailyVoteDeadlineAt?`<br>참석투표: <strong>${esc(_dailyVoteDeadlineLabel())}</strong>`:'';
-  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong>${voteLine}<br>상태는 자동 반영, 게임 신청은 확인 후 대기표에 반영됩니다.</div>`;
+  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong>${voteLine}<br>상태와 게임신청은 자동 반영됩니다. 충돌 요청만 관리자 확인이 필요합니다.</div>`;
   if(!pending.length){
     box.className='daily-checkin-panel';
     box.innerHTML=linkHtml+`<div class="daily-checkin-req applied">
@@ -5189,12 +5220,14 @@ function dailyRender(){
       const sorted=[..._dailyPlayers].sort((a,b)=>(order[_dailyNormalizeStatus(a.status)]??9)-(order[_dailyNormalizeStatus(b.status)]??9)||(a.games-b.games)||((a.waitFrom||0)-(b.waitFrom||0)));
       list.innerHTML=sorted.map(p=>`<div class="daily-player ${_dailyPairSelectId===p.id?'daily-pair-selecting':''}">
         <div class="daily-player-main">
-          <div class="daily-player-name">${_dailyNameHtml(p)} ${_dailyStatusBadge(p.status)} ${_dailyQueueLabelForPlayer(p.id)}</div>
+          <div class="daily-player-top">
+            <div class="daily-player-name">${_dailyNameHtml(p)} ${_dailyStatusBadge(p.status)} ${_dailyQueueLabelForPlayer(p.id)}</div>
+            ${_dailyIsLockedQueued(p.id)?'':`<button class="daily-mini-btn danger daily-remove-btn" onclick="dailyRemovePlayer('${p.id}')">삭제</button>`}
+          </div>
           <div class="daily-player-meta">${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')}급 · ${esc(p.ageGroup||'40대')} · 오늘 ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분</div>
         </div>
         <div class="daily-player-actions">
           ${_dailyStatusSelect(p)}
-          ${_dailyIsLockedQueued(p.id)?'':`<button class="daily-mini-btn danger daily-remove-btn" onclick="dailyRemovePlayer('${p.id}')">삭제</button>`}
         </div>
       </div>`).join('');
     }
