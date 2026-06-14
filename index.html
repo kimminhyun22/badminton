@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.156  (2026-06)
+     APP VERSION: 1.10.157  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.156">
+<meta name="app-version" content="1.10.157">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2033,6 +2033,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
       <div class="card">
         <div class="card-head"><span class="card-title">선수 추가</span></div>
         <div class="card-body">
+          <button class="btn-dir-add" onclick="dailyImportRoster()" style="margin-bottom:8px;">클럽 명부에서 불러오기</button>
           <div class="daily-form-grid">
             <input class="dir-input" id="dailyName" type="text" placeholder="이름"
               onkeydown="if(event.key==='Enter')dailyAddPlayer()">
@@ -2523,7 +2524,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.156';
+const APP_VERSION = '1.10.157';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3716,7 +3717,7 @@ function dailyImportRoster(){
   loadRosters();
   const clubs=(rosters.clubs||[]).filter(c=>(c.members||[]).length);
   if(!clubs.length){alert('명부에 등록된 회원이 없습니다.');return;}
-  _dailyImportClubIdx=0;
+  _dailyImportClubIdx=Math.max(0,(rosters.clubs||[]).findIndex(c=>(c.members||[]).length));
   _dailyImportSort='reg';
   renderDailyImportTabs();
   renderDailyImportMembers();
@@ -4594,7 +4595,8 @@ function dailyCompleteMatch(id,winnerSide){
   [...t1,...t2].forEach(p=>{
     p.games=(p.games||0)+1;
     p.lastPlayedSeq=m.seq;
-    const nextStatus=_dailyNormalizeStatus(p.afterMatchStatus||'wait');
+    const deferredStatus=p.afterMatchStatus?'':_dailyConsumeDeferredStatusRequest(p.id);
+    const nextStatus=_dailyNormalizeStatus(p.afterMatchStatus||deferredStatus||'wait');
     p.status=nextStatus;
     p.afterMatchStatus=null;
     p.currentMatchId=null;
@@ -4663,7 +4665,7 @@ function dailyRenderAdminAlerts(){
       cls:'primary',
       title:'클럽 명부를 먼저 불러오세요',
       desc:'명부가 있어야 출석 링크와 자동 대진을 시작할 수 있습니다.',
-      actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailySetupDetails','dailySetupDetails')">명부 불러오기</button>`
+      actions:`<button class="daily-mini-btn" onclick="dailyImportRoster()">명부 불러오기</button>`
     });
   }else if(!_dailyCheckinId){
     alerts.push({
@@ -4959,6 +4961,19 @@ function _dailyCheckinPendingRequests(){
     const p=_dailyPlayer(req.playerId);
     return _dailyCheckinBlockReason(req,p);
   });
+}
+function _dailyLatestPendingStatusRequest(playerId){
+  return _dailyCheckinRequests
+    .filter(req=>req.playerId===playerId&&req.status&&!req.ignoredAt&&req.type!=='reservation'&&_dailyCheckinAllowedStatus(req.status))
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0]||null;
+}
+function _dailyConsumeDeferredStatusRequest(playerId){
+  const req=_dailyLatestPendingStatusRequest(playerId);
+  if(!req)return '';
+  const ref=_dailyCheckinRequestRef(req.key);
+  if(ref)ref.update({appliedAt:_dailyNow(),appliedBy:'after-match-auto'}).catch(()=>{});
+  _dailyCheckinRequests=_dailyCheckinRequests.filter(r=>r.key!==req.key);
+  return _dailyNormalizeStatus(req.status);
 }
 function _dailyReservationRequestError(req){
   const team1=(req.team1||[]).filter(Boolean);
