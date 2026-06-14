@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.173  (2026-06)
+     APP VERSION: 1.10.174  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.173">
+<meta name="app-version" content="1.10.174">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1908,7 +1908,7 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.173';
+const APP_VERSION = '1.10.174';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6966,6 +6966,7 @@ let _rsvpCreatedAt=null;
 let _rsvpListening=false;
 let _rsvpResponses={};
 let _rsvpSyncTimer=null;
+let _rsvpRosterRefreshLock=false;
 
 function _rsvpDefaultTitle(){
   const d=new Date();
@@ -7038,7 +7039,19 @@ function _rsvpMemberId(m){
 function _rsvpNameKey(name){
   return String(name||'').replace(/\s+/g,'').toLowerCase();
 }
+function _rsvpRefreshRostersFromStorage(){
+  if(_rsvpRosterRefreshLock)return;
+  if(typeof loadRosters!=='function')return;
+  try{
+    _rsvpRosterRefreshLock=true;
+    loadRosters();
+  }catch(e){
+  }finally{
+    _rsvpRosterRefreshLock=false;
+  }
+}
 function _rsvpClubs(){
+  _rsvpRefreshRostersFromStorage();
   return (rosters.clubs||[]).filter(c=>(c.members||[]).length);
 }
 function _rsvpSelectedSource(){
@@ -7065,7 +7078,7 @@ function rsvpRenderClubSelect(){
   const clubs=_rsvpClubs();
   const src=_rsvpSelectedSource();
   const opts=[];
-  opts.push(`<option value="">${clubs.length?'발송할 클럽 명부 선택':'등록된 클럽 명부 없음'}</option>`);
+  opts.push(`<option value="">${clubs.length?'발송할 클럽 명부 선택':'현재 주소에 저장된 클럽 명부 없음'}</option>`);
   clubs.forEach(c=>opts.push(`<option value="${esc(c.id)}">${esc(c.name)} 명부 (${(c.members||[]).length}명)</option>`));
   if(_directPlayers.length)opts.push(`<option value="${RSVP_DIRECT_VALUE}">현재 참가자 입력 (${_directPlayers.length}명)</option>`);
   sel.innerHTML=opts.join('');
@@ -7279,7 +7292,9 @@ function rsvpRender(){
   }
   if(!_rsvpId){
     box.className='rsvp-empty';
-    box.textContent=members.length?`${_rsvpSelectedLabel()} 대상으로 참석 링크를 만들 준비가 됐습니다. 공지 복사를 누르세요.`:'선택한 클럽 명부에 회원이 없습니다.';
+    box.textContent=members.length
+      ?`${_rsvpSelectedLabel()} 대상으로 참석 링크를 만들 준비가 됐습니다. 공지 복사를 누르세요.`
+      :'현재 접속 주소에 저장된 클럽 명부가 없습니다. 명부 탭에서 불러오거나, 명부를 만든 것과 같은 주소의 팀전 페이지에서 열어주세요.';
     return;
   }
   const url=_rsvpUrl();
