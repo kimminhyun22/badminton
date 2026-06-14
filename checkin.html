@@ -825,7 +825,7 @@ function gameRequestBox(p,disabled){
       </div>
     </details>`;
   }
-  const recentHtml=recentApplied?`<div class="request-status done">최근 신청이 관리자 화면에 전달됐습니다.<small>${esc(reservationRequestLabel(recentApplied))}</small></div>`:'';
+  const recentHtml=recentApplied?`<div class="request-status done">최근 신청이 자동 접수됐습니다.<small>${esc(reservationRequestLabel(recentApplied))}</small></div>`:'';
   return `<details class="game-request">
     <summary>파트너/게임 신청</summary>
     ${recentHtml}

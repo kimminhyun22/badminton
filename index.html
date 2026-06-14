@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.167  (2026-06)
+     APP VERSION: 1.10.168  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.167">
+<meta name="app-version" content="1.10.168">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2496,7 +2496,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.167';
+const APP_VERSION = '1.10.168';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5012,7 +5012,7 @@ function _dailyCheckinRequestRef(key){
 }
 function _dailyCheckinPendingRequests(){
   return _dailyCheckinRequests.filter(req=>{
-    if(req.type==='reservation')return true;
+    if(req.type==='reservation')return false;
     const p=_dailyPlayer(req.playerId);
     return _dailyCheckinBlockReason(req,p);
   });
@@ -5084,11 +5084,14 @@ function dailyProcessCheckinRequests(){
     const latestByPlayer=new Map();
     const superseded=[];
     const autoApplied=[];
+    const autoRejected=[];
     _dailyCheckinRequests.forEach(req=>{
       if(req.type==='reservation'){
         if(_dailyRegisterReservationRequest(req)){
           autoApplied.push(req);
           changed=true;
+        }else{
+          autoRejected.push(req);
         }
         return;
       }
@@ -5109,8 +5112,13 @@ function dailyProcessCheckinRequests(){
       const ref=_dailyCheckinRequestRef(req.key);
       if(ref)ref.update({appliedAt:now,appliedBy:'member-auto-reservation'}).catch(()=>{});
     });
-    if(superseded.length||autoApplied.length){
-      const keys=new Set([...superseded,...autoApplied].map(req=>req.key));
+    autoRejected.forEach(req=>{
+      const ref=_dailyCheckinRequestRef(req.key);
+      const reason=_dailyReservationRequestError(req)||'자동 등록 조건 불충족';
+      if(ref)ref.update({ignoredAt:now,ignoredBy:'member-auto-reservation',reason}).catch(()=>{});
+    });
+    if(superseded.length||autoApplied.length||autoRejected.length){
+      const keys=new Set([...superseded,...autoApplied,...autoRejected].map(req=>req.key));
       _dailyCheckinRequests=_dailyCheckinRequests.filter(req=>!keys.has(req.key));
     }
     latestByPlayer.forEach(req=>{
@@ -5225,7 +5233,7 @@ function dailyRenderCheckinRequests(){
   const url=_dailyCheckinUrl();
   const pending=_dailyCheckinPendingRequests();
   const voteLine=_dailyVoteDeadlineAt?`<br>참석투표: <strong>${esc(_dailyVoteDeadlineLabel())}</strong>`:'';
-  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong>${voteLine}<br>상태와 게임신청은 자동 반영됩니다. 충돌 요청만 관리자 확인이 필요합니다.</div>`;
+  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong>${voteLine}<br>게임신청은 자동 접수됩니다. 경기중 상태 변경처럼 안전 확인이 필요한 요청만 표시됩니다.</div>`;
   if(!pending.length){
     box.className='daily-checkin-panel';
     box.innerHTML=linkHtml+`<div class="daily-checkin-req applied">
