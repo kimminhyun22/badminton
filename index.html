@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.168  (2026-06)
+     APP VERSION: 1.10.169  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.168">
+<meta name="app-version" content="1.10.169">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2496,7 +2496,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.168';
+const APP_VERSION = '1.10.169';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2956,6 +2956,40 @@ function _dailyReservationPlayerConflict(ids,exceptId){
   const target=new Set(ids.filter(Boolean));
   if(!target.size)return null;
   return _dailyReservations.find(r=>r.id!==exceptId&&_dailyReservationIds(r).some(id=>target.has(id)))||null;
+}
+function _dailyReservationRequestRefByKey(key){
+  return key&&_fbDb&&_dailyCheckinId?_fbDb.ref(_dailyCheckinPath()+'/requests/'+key):null;
+}
+function _dailyMarkReservationCancelled(r,reason,actor){
+  if(!r)return;
+  const ref=_dailyReservationRequestRefByKey(r.requestKey);
+  if(ref){
+    ref.update({
+      ignoredAt:_dailyNow(),
+      ignoredBy:actor||'member-auto-cancel',
+      reason:reason||'상태 변경으로 신청이 자동 취소되었습니다.'
+    }).catch(()=>{});
+  }
+  if(r.requestKey)_dailyCheckinRequests=_dailyCheckinRequests.filter(req=>req.key!==r.requestKey);
+}
+function _dailyCancelReservationById(id,reason,actor){
+  const r=_dailyReservations.find(x=>x.id===id);
+  if(r)_dailyMarkReservationCancelled(r,reason,actor);
+  _dailyReservations=_dailyReservations.filter(x=>x.id!==id);
+}
+function _dailyCancelReservationsForPlayer(playerId,reason,actor){
+  const removed=_dailyReservations.filter(r=>_dailyReservationIds(r).includes(playerId));
+  if(!removed.length)return false;
+  removed.forEach(r=>_dailyMarkReservationCancelled(r,reason,actor));
+  const ids=new Set(removed.map(r=>r.id));
+  _dailyReservations=_dailyReservations.filter(r=>!ids.has(r.id));
+  _dailyQueue.forEach(q=>{
+    if(q.reservationId&&ids.has(q.reservationId)){
+      q.reservationId=null;
+      q.reservationLabel=null;
+    }
+  });
+  return true;
 }
 function _dailyReservationNames(ids){
   return ids.map(id=>_dailyPlayer(id)).filter(Boolean).map(_dailyNameText);
@@ -3729,15 +3763,19 @@ function _dailyApplyPlayerStatus(p,status){
 function dailySetStatus(id,status){
   const p=_dailyPlayer(id);
   if(!p)return;
-  if(_dailyIsLockedQueued(id)){
-    alert('게임신청 대기 선수는 신청 의도 보호를 위해 목록에서 바로 수정하지 않습니다. 필요하면 신청을 삭제하거나 대기표에서 조정하세요.');
-    dailyRender();return;
-  }
   if(p.status==='playing'){
     alert('경기중 선수는 진행중 경기 카드에서 완료 또는 취소해 주세요.');
     dailyRender();return;
   }
-  _dailyApplyPlayerStatus(p,status);
+  const nextStatus=_dailyNormalizeStatus(status);
+  const nextLabel=_dailyCheckinStatusLabel(nextStatus);
+  if(!DAILY_STATUS[nextStatus]?.eligible){
+    _dailyCancelReservationsForPlayer(id,`${p.name}님이 ${nextLabel} 상태로 바뀌어 게임신청이 자동 취소됐습니다.`,'admin-status-change');
+    if(_dailyIsQueued(id)){
+      if(!_dailyTryReplaceQueuedPlayer(id,`${p.name}님이 ${nextLabel} 상태로 바뀌어 신청 대기표가 자동 조정됐습니다.`))_dailyRemoveQueuedPlayer(id,`${p.name}님이 ${nextLabel} 상태로 바뀌어 신청 대기표가 자동 취소됐습니다.`);
+    }
+  }
+  _dailyApplyPlayerStatus(p,nextStatus);
   _dailyPromoteReadyReservations(true);
   dailySave();dailyRender();
   dailyMaybeAutoAssign();
@@ -3924,8 +3962,8 @@ function dailyRemovePlayer(id){
     partner.partnerName=null;
     partner.partnerId=null;
   }
+  _dailyCancelReservationsForPlayer(id,`${p.name} 선수가 명단에서 제외되어 게임신청이 자동 취소됐습니다.`,'admin-remove-player');
   _dailyPlayers=_dailyPlayers.filter(x=>x.id!==id);
-  _dailyReservations=_dailyReservations.filter(r=>!_dailyReservationIds(r).includes(id));
   _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).includes(id));
   if(_dailyPairSelectId===id)_dailyPairSelectId=null;
   _dailyNext=null;
@@ -4008,8 +4046,8 @@ function dailyFilterAttendees(){
   const declined=removable.length-invited;
   if(!confirm(`참석자만 남기고 미응답 ${invited}명${declined?`, 불참 ${declined}명`:''}을 제외할까요?\n\n이미 경기한 선수 기록은 삭제하지 않습니다.`))return;
   const removeIds=new Set(removable.map(p=>p.id));
+  removable.forEach(p=>_dailyCancelReservationsForPlayer(p.id,`${p.name} 선수가 참석자 정리에서 제외되어 게임신청이 자동 취소됐습니다.`,'admin-filter-attendees'));
   _dailyPlayers=_dailyPlayers.filter(p=>!removeIds.has(p.id));
-  _dailyReservations=_dailyReservations.filter(r=>!_dailyReservationIds(r).some(id=>removeIds.has(id)));
   _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).some(id=>removeIds.has(id)));
   if(_dailyPairSelectId&&removeIds.has(_dailyPairSelectId))_dailyPairSelectId=null;
   _dailyNext=null;
@@ -4227,11 +4265,11 @@ function _dailyFindQueueReplacement(playerId){
   loc.q.team2=[...before.team2];
   return null;
 }
-function _dailyTryReplaceQueuedPlayer(playerId){
+function _dailyTryReplaceQueuedPlayer(playerId,reason){
   const found=_dailyFindQueueReplacement(playerId);
   if(!found)return false;
   if(found.loc.q.reservationId){
-    _dailyReservations=_dailyReservations.filter(r=>r.id!==found.loc.q.reservationId);
+    _dailyCancelReservationById(found.loc.q.reservationId,reason||'신청 선수 상태 변경으로 대기표가 자동 조정됐습니다.','member-auto-cancel');
     found.loc.q.reservationId=null;
     found.loc.q.reservationLabel=null;
   }
@@ -4239,11 +4277,11 @@ function _dailyTryReplaceQueuedPlayer(playerId){
   _dailyRecalcQueueItem(found.loc.q);
   return true;
 }
-function _dailyRemoveQueuedPlayer(playerId){
+function _dailyRemoveQueuedPlayer(playerId,reason){
   let changed=false;
   _dailyQueue=_dailyQueue.filter(q=>{
     if(!_dailyQueueIds(q).includes(playerId))return true;
-    if(q.reservationId)_dailyReservations=_dailyReservations.filter(r=>r.id!==q.reservationId);
+    if(q.reservationId)_dailyCancelReservationById(q.reservationId,reason||'신청 선수 상태 변경으로 대기표가 자동 취소됐습니다.','member-auto-cancel');
     changed=true;
     return false;
   });
@@ -5116,8 +5154,13 @@ function dailyProcessCheckinRequests(){
       const reason=_dailyCheckinBlockReason(req,p);
       if(reason)return;
       const nextStatus=_dailyNormalizeStatus(req.status);
+      const nextLabel=_dailyCheckinStatusLabel(nextStatus);
+      if(!DAILY_STATUS[nextStatus]?.eligible){
+        if(_dailyCancelReservationsForPlayer(p.id,`${p.name}님이 ${nextLabel} 상태로 바꿔 게임신청이 자동 취소됐습니다.`,'member-status-change'))changed=true;
+      }
       if(_dailyIsQueued(p.id)&&!DAILY_STATUS[nextStatus]?.eligible){
-        if(!_dailyTryReplaceQueuedPlayer(p.id))_dailyRemoveQueuedPlayer(p.id);
+        const msg=`${p.name}님이 ${nextLabel} 상태로 바꿔 대기표가 자동 조정됐습니다.`;
+        if(!_dailyTryReplaceQueuedPlayer(p.id,msg))_dailyRemoveQueuedPlayer(p.id,msg);
         changed=true;
       }
       if(p.status!==req.status){

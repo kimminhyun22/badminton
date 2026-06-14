@@ -403,6 +403,11 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:#f0fdf4;
   color:#166534;
 }
+.request-status.cancelled{
+  border-color:#fed7aa;
+  background:#fff7ed;
+  color:#9a3412;
+}
 .request-status small{display:block;margin-top:3px;color:inherit;opacity:.72;font-size:12px;font-weight:800}
 button{
   appearance:none;
@@ -815,7 +820,8 @@ function reservationRequestLabel(req){
 function gameRequestBox(p,disabled){
   if(p.voteLocked||p.status==='invited'||getSelectedStatus(p)==='done')return '';
   const reqs=playerReservationRequests(p.id);
-  const pending=reqs.find(r=>!r.appliedAt);
+  const pending=reqs.find(r=>!r.appliedAt&&!r.ignoredAt);
+  const recentCancelled=reqs.find(r=>r.ignoredAt&&Date.now()-(r.ignoredAt||0)<10*60*1000);
   const recentApplied=reqs.find(r=>r.appliedAt&&Date.now()-(r.appliedAt||0)<5*60*1000);
   if(pending){
     return `<details class="game-request" open>
@@ -825,10 +831,11 @@ function gameRequestBox(p,disabled){
       </div>
     </details>`;
   }
+  const cancelledHtml=recentCancelled?`<div class="request-status cancelled">최근 신청이 자동 취소됐습니다.<small>${esc(recentCancelled.reason||reservationRequestLabel(recentCancelled))}</small></div>`:'';
   const recentHtml=recentApplied?`<div class="request-status done">최근 신청이 자동 접수됐습니다.<small>${esc(reservationRequestLabel(recentApplied))}</small></div>`:'';
   return `<details class="game-request">
     <summary>파트너/게임 신청</summary>
-    ${recentHtml}
+    ${cancelledHtml||recentHtml}
     <div class="request-body">
       <div class="request-field full"><label>같은 편으로 뛸 선수</label><select id="reqPartner_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
       <div class="request-field"><label>상대 1명 선택</label><select id="reqOpp1_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
@@ -949,7 +956,7 @@ function boot(){
       .filter(r=>!r.ignoredAt&&r.type!=='reservation'&&r.status)
       .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
     reservationRequests=rows
-      .filter(r=>!r.ignoredAt&&r.type==='reservation')
+      .filter(r=>r.type==='reservation'&&(!r.ignoredAt||Date.now()-(r.ignoredAt||0)<10*60*1000))
       .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
     render();
   });
