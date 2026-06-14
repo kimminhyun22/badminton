@@ -102,6 +102,12 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   margin:0 5px 6px 0;
 }
 .event-chip.gold{background:#fff5df;color:#9a610b}
+.event-section-title{
+  margin:10px 0 6px;
+  font-size:12px;
+  font-weight:900;
+  color:#6b7280;
+}
 .event-list{display:flex;flex-direction:column;gap:7px;margin-top:8px}
 .event-row{
   display:flex;
@@ -113,8 +119,22 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   border-radius:16px;
   background:#fff;
 }
+.event-row.next{
+  border-color:#bfdbfe;
+  background:linear-gradient(135deg,#f8fbff 0%,#fff 100%);
+}
+.event-row.next:first-child{
+  border-color:#5b8def;
+  box-shadow:0 8px 20px rgba(91,141,239,.14);
+}
+.event-row.soon,.event-row.due{
+  border-color:#fecaca;
+  background:#fff7f7;
+}
 .event-row strong{display:block;font-size:14px}
 .event-row small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+.event-row .event-cue{color:#315fb2;font-weight:900}
+.event-row.due .event-cue,.event-row.soon .event-cue{color:#b91c1c}
 .event-row em{
   flex-shrink:0;
   font-style:normal;
@@ -442,18 +462,25 @@ function renderEvent(){
   el.className='panel event-panel';
   const updated=ev.updatedAt?new Date(ev.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>`;
-  const active=(ev.active||[]).slice(0,4).map(m=>`<div class="event-row">
+  const active=(ev.active||[]).slice(0,4).map(m=>{
+    const state=Number(m.remain)<=0?'due':Number(m.remain)<=5?'soon':'';
+    return `<div class="event-row ${state}">
     <div><strong>${m.court}코트 진행중</strong><small>${esc(teamNames(m))}</small></div>
     <em>${esc(remainText(m.remain))}</em>
-  </div>`).join('');
-  const next=(ev.next||[]).slice(0,4).map(m=>`<div class="event-row">
-    <div><strong>다음 준비 ${m.idx}</strong><small>${esc(teamNames(m))}</small></div>
-    <em>대기</em>
+  </div>`;
+  }).join('');
+  const next=(ev.next||[]).slice(0,4).map(m=>`<div class="event-row next ${esc(m.cueState||'')}">
+    <div>
+      <strong>${m.idx===1?'다음 투입 1순위':`대기 ${m.idx}순위`}</strong>
+      <small>${esc(teamNames(m))}</small>
+      <small class="event-cue">${esc(m.cue||'코트 배정 대기')} · ${esc(m.cueDetail||'이름을 먼저 확인해주세요')}</small>
+    </div>
+    <em>${m.idx===1?'준비':'대기'}</em>
   </div>`).join('');
   el.innerHTML=`<div class="event-title"><b>민턴LIVE 현황</b><span>${esc(updated)} 업데이트</span></div>
     <div>${summary}</div>
-    ${active?`<div class="event-list">${active}</div>`:''}
-    ${next?`<div class="event-list">${next}</div>`:''}`;
+    ${next?`<div class="event-section-title">다음 투입 선수</div><div class="event-list">${next}</div>`:''}
+    ${active?`<div class="event-section-title">진행중 코트</div><div class="event-list">${active}</div>`:''}`;
 }
 function render(){
   const sub=document.getElementById('sessionSub');
@@ -566,6 +593,7 @@ async function sendStatus(playerId,status){
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
   if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
+  if(status==='done'&&!confirm(`${p.name}님, 오늘 운동을 종료할까요?\n종료하면 이후 대진 후보에서 빠집니다.`))return;
   const last=getLastSent();
   if(last&&last.playerId===p.id&&last.status===status&&Date.now()-(last.savedAt||0)<10000){
     return toast('방금 같은 상태를 전송했어요.');
