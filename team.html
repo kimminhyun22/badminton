@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.179  (2026-06)
+     APP VERSION: 1.10.180  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.179">
+<meta name="app-version" content="1.10.180">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1222,6 +1222,9 @@ details.card:not([open]) .card-head{border-bottom:none;}
 
 /* ── 팀전 참석 링크 ── */
 .rsvp-grid{display:grid;grid-template-columns:minmax(150px,.9fr) minmax(190px,1fr) auto;gap:7px;align-items:center;margin-bottom:9px;}
+#rsvpClubSelect{min-height:48px;border:2px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;
+  font-size:.94rem;font-weight:1000;border-radius:12px;box-shadow:0 8px 18px rgba(37,99,235,.08);}
+#rsvpClubSelect:focus{outline:none;border-color:#5b8def;box-shadow:0 0 0 4px rgba(91,141,239,.16);}
 .rsvp-panel{display:flex;flex-direction:column;gap:8px;}
 .rsvp-link{font-size:.82rem;color:var(--dim);line-height:1.55;word-break:break-all;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:10px 11px;}
 .rsvp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;}
@@ -1281,6 +1284,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 @media(max-width:720px){
   .rsvp-grid{grid-template-columns:1fr;}
   .rsvp-grid .btn{width:100%;justify-content:center;}
+  #rsvpClubSelect{min-height:56px;font-size:1.05rem;border-radius:14px;}
   .rsvp-actions{justify-content:stretch;}
   .rsvp-action-btn{flex:1;min-height:42px;font-size:.78rem;border-radius:10px;}
   .rsvp-stat{padding:11px 7px;}
@@ -1590,22 +1594,22 @@ details.card:not([open]) .card-head{border-bottom:none;}
     <div id="resultArea" class="hidden anim">
 
       <!-- 결과 요약 -->
-      <div class="card">
-        <div class="card-head"><span class="card-title">품질 점검</span></div>
+      <details class="card" id="sec-quality" open>
+        <summary class="card-head"><span class="card-title">품질 점검</span></summary>
         <div class="card-body">
           <div class="sum-grid" id="sumGrid"></div>
           <div class="time-compare" id="timeCompare"></div>
           <div class="stat-row low-priority" id="statRow"></div>
           <div class="qual-dash" id="qualDash"></div>
         </div>
-      </div>
+      </details>
 
       <!-- 스코어보드 -->
       <div class="hidden" id="scoreboardSec">
-        <div class="card">
-          <div class="card-head">
+        <details class="card" id="sec-scoreboard" open>
+          <summary class="card-head">
             <span class="card-title">승패 집계</span>
-          </div>
+          </summary>
           <div class="card-body">
             <div id="winnerBanner"></div>
             <div class="scoreboard">
@@ -1633,7 +1637,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
               </div>
             </div>
           </div>
-        </div>
+        </details>
       </div>
 
       <!-- 실시간 중계 버튼 (팀전/개인전 모두 표시) -->
@@ -1975,7 +1979,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.179';
+const APP_VERSION = '1.10.180';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7358,6 +7362,10 @@ function _autoFlowSetSection(id,open){
   if(!el||el.tagName!=='DETAILS')return;
   el.open=!!open;
 }
+function _autoFlowSetResultSections(stage){
+  _autoFlowSetSection('sec-quality',stage==='broadcast');
+  _autoFlowSetSection('sec-scoreboard',stage==='live');
+}
 function renderAutoFlowDashboard(){
   if(_autoFlowRendering)return;
   const titleEl=document.getElementById('autoFlowTitle');
@@ -7496,6 +7504,7 @@ function renderAutoFlowDashboard(){
     _autoFlowSetSection('sec-rsvp',stage==='rsvpCreate'||stage==='wait'||stage==='import');
     _autoFlowSetSection('sec-players',stage==='teamAssign');
     _autoFlowSetSection('sec-settings',stage==='teamAssign'||stage==='generate');
+    _autoFlowSetResultSections(stage);
   }finally{
     _autoFlowRendering=false;
   }
