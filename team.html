@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.180  (2026-06)
+     APP VERSION: 1.10.181  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.180">
+<meta name="app-version" content="1.10.181">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1249,6 +1249,17 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-action-btn.primary{background:var(--bl);border-color:var(--bl);color:#fff;box-shadow:0 6px 16px rgba(91,141,239,.18);}
 .rsvp-action-btn.danger:hover{background:#fee2e2;color:#b91c1c;border-color:#fecaca;}
 .rsvp-empty{font-size:.86rem;color:var(--dim);text-align:center;padding:22px;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff;}
+.rsvp-saved{display:flex;flex-direction:column;gap:7px;margin-bottom:9px;}
+.rsvp-saved-title{font-size:.7rem;font-weight:1000;color:#64748b;letter-spacing:.02em;}
+.rsvp-saved-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;
+  border:1px solid #dbeafe;background:#f8fbff;border-radius:12px;padding:9px 10px;}
+.rsvp-saved-main{min-width:0;}
+.rsvp-saved-name{font-size:.86rem;font-weight:1000;color:#172033;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rsvp-saved-meta{font-size:.68rem;font-weight:800;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rsvp-saved-btn{border:1px solid #bfdbfe;background:#fff;color:#1d4ed8;border-radius:9px;padding:7px 9px;
+  font-family:'Noto Sans KR',sans-serif;font-size:.72rem;font-weight:1000;cursor:pointer;white-space:nowrap;}
+.rsvp-saved-btn.active{background:#2563eb;border-color:#2563eb;color:#fff;}
+.rsvp-saved-btn.danger{color:#b91c1c;border-color:#fecaca;}
 
 /* ── 팀전 오토 운영 단계판 ── */
 .auto-flow-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 52%,#f0fdf4 100%);
@@ -1297,6 +1308,11 @@ details.card:not([open]) .card-head{border-bottom:none;}
   .rsvp-link{font-size:.9rem;}
   .rsvp-name{font-size:.98rem;}
   .rsvp-meta{font-size:.78rem;}
+  .rsvp-saved-row{grid-template-columns:minmax(0,1fr) auto;gap:7px;}
+  .rsvp-saved-row .rsvp-saved-btn.danger{grid-column:2;}
+  .rsvp-saved-name{font-size:.98rem;}
+  .rsvp-saved-meta{font-size:.76rem;}
+  .rsvp-saved-btn{min-height:42px;font-size:.8rem;}
   .auto-flow-badge{font-size:.76rem;padding:7px 10px;}
   .auto-flow-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
   .auto-flow-metric{padding:12px 8px;}
@@ -1417,6 +1433,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
             <button class="btn btn-gen" onclick="rsvpShareLink()">공지 복사</button>
           </div>
           <div class="hint" style="margin-bottom:8px;">링크 하나로 참석, 대진표, 실시간 중계까지 이어집니다.</div>
+          <div id="rsvpSavedBox"></div>
           <div id="rsvpBox" class="rsvp-empty">아직 참석 링크가 만들어지지 않았습니다.</div>
         </div>
       </details>
@@ -1979,7 +1996,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.180';
+const APP_VERSION = '1.10.181';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7039,6 +7056,7 @@ const RSVP_DIRECT_VALUE='__direct__';
 let _rsvpId=null;
 let _rsvpCreatedAt=null;
 let _rsvpListening=false;
+let _rsvpListenPath='';
 let _rsvpResponses={};
 let _rsvpSyncTimer=null;
 let _rsvpRosterRefreshLock=false;
@@ -7227,20 +7245,78 @@ function rsvpEnsureId(){
   }
   return _rsvpId;
 }
+function _rsvpHistoryList(){
+  try{
+    const list=JSON.parse(localStorage.getItem(RSVP_HISTORY_KEY)||'[]')||[];
+    return list.filter(x=>x&&x.id);
+  }catch(e){return [];}
+}
 function _rsvpRememberHistory(){
   if(!_rsvpId)return;
-  let list=[];
-  try{list=JSON.parse(localStorage.getItem(RSVP_HISTORY_KEY)||'[]')||[];}catch(e){list=[];}
+  let list=_rsvpHistoryList();
+  const src=_rsvpSelectedSource();
   const item={
     id:_rsvpId,
     title:_rsvpTitle(),
     clubName:_rsvpSelectedLabel(),
+    clubId:src===RSVP_DIRECT_VALUE?'':src,
+    source:src===RSVP_DIRECT_VALUE?'directPlayers':'clubRoster',
     createdAt:_rsvpCreatedAt||Date.now(),
     updatedAt:Date.now(),
     url:_rsvpUrl()
   };
   list=[item,...list.filter(x=>x&&x.id!==_rsvpId)].slice(0,20);
   try{localStorage.setItem(RSVP_HISTORY_KEY,JSON.stringify(list));}catch(e){}
+}
+function _rsvpSavedDate(ts){
+  if(!ts)return '';
+  try{
+    return new Date(ts).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});
+  }catch(e){return '';}
+}
+function rsvpRenderSavedBox(){
+  const box=document.getElementById('rsvpSavedBox');
+  if(!box)return;
+  const list=_rsvpHistoryList().slice(0,6);
+  if(!list.length){box.innerHTML='';return;}
+  box.className='rsvp-saved';
+  box.innerHTML=`<div class="rsvp-saved-title">저장된 팀전 투표</div>`+list.map(item=>{
+    const active=item.id===_rsvpId;
+    const meta=[item.clubName||'클럽 미확인', _rsvpSavedDate(item.createdAt), active?'현재 선택':''].filter(Boolean).join(' · ');
+    return `<div class="rsvp-saved-row">
+      <div class="rsvp-saved-main">
+        <div class="rsvp-saved-name">${esc(item.title||'팀전 투표')}</div>
+        <div class="rsvp-saved-meta">${esc(meta)}</div>
+      </div>
+      <button class="rsvp-saved-btn ${active?'active':''}" onclick="rsvpLoadSaved('${esc(item.id)}')">${active?'선택됨':'불러오기'}</button>
+      <button class="rsvp-saved-btn danger" onclick="rsvpRemoveSaved('${esc(item.id)}')">삭제</button>
+    </div>`;
+  }).join('');
+}
+function rsvpLoadSaved(id){
+  const item=_rsvpHistoryList().find(x=>x&&x.id===id);
+  if(!item){alert('저장된 투표를 찾을 수 없습니다.');return;}
+  _rsvpId=item.id;
+  _rsvpCreatedAt=item.createdAt||Date.now();
+  localStorage.setItem(RSVP_KEY,_rsvpId);
+  localStorage.setItem(RSVP_CREATED_KEY,String(_rsvpCreatedAt));
+  localStorage.setItem(RSVP_TITLE_KEY,item.title||_rsvpDefaultTitle());
+  if(item.source==='directPlayers')localStorage.setItem(RSVP_CLUB_KEY,RSVP_DIRECT_VALUE);
+  else if(item.clubId)localStorage.setItem(RSVP_CLUB_KEY,item.clubId);
+  const titleEl=document.getElementById('rsvpTitle');
+  if(titleEl)titleEl.value=item.title||_rsvpDefaultTitle();
+  _rsvpResponses={};
+  if(_fbInit())rsvpStartListener(true);
+  rsvpRenderClubSelect();
+  rsvpRender();
+  rsvpPushSession();
+}
+function rsvpRemoveSaved(id){
+  const item=_rsvpHistoryList().find(x=>x&&x.id===id);
+  if(!confirm(`${item?.title||'이 팀전 투표'}를 저장 목록에서 삭제할까요?\n공유된 링크 자체는 삭제되지 않습니다.`))return;
+  const list=_rsvpHistoryList().filter(x=>x&&x.id!==id);
+  try{localStorage.setItem(RSVP_HISTORY_KEY,JSON.stringify(list));}catch(e){}
+  rsvpRenderSavedBox();
 }
 function rsvpPushSession(){
   if(!_rsvpId||!_fbDb)return;
@@ -7315,9 +7391,15 @@ function rsvpLoad(){
   }
 }
 function rsvpStartListener(){
-  if(!_rsvpId||!_fbDb||_rsvpListening)return;
+  if(!_rsvpId||!_fbDb)return;
+  const path=_rsvpPath()+'/responses';
+  if(_rsvpListening&&_rsvpListenPath===path)return;
+  if(_rsvpListening&&_rsvpListenPath){
+    try{_fbDb.ref(_rsvpListenPath).off();}catch(e){}
+  }
   _rsvpListening=true;
-  _fbDb.ref(_rsvpPath()+'/responses').on('value',snap=>{
+  _rsvpListenPath=path;
+  _fbDb.ref(path).on('value',snap=>{
     _rsvpResponses=snap.val()||{};
     rsvpRender();
   });
@@ -7514,6 +7596,7 @@ function rsvpRender(){
   const summary=document.getElementById('rsvpSummary');
   if(!box)return;
   rsvpRenderClubSelect();
+  rsvpRenderSavedBox();
   const {members,responses,counts}=_rsvpStats();
   const guestLimitForSummary=_rsvpGuestLimit();
   const guestSummaryText=guestLimitForSummary?`${counts.guest}/${guestLimitForSummary}`:String(counts.guest);
