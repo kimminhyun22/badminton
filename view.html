@@ -818,6 +818,10 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
   --red:#e78a8a;
   --red-deep:#b85b60;
   --red-soft:#fff6f6;
+  --green:#8dcfa8;
+  --green-deep:#3d8a58;
+  --green-soft:#f4fbf6;
+  --green-bdr:#cfeeda;
   --amber:#b9832f;
 }
 body{
@@ -902,8 +906,8 @@ body{
   box-shadow:0 6px 14px rgba(45,55,75,.10)!important;
 }
 .team-member-att.on{
-  background:#75b58a!important;
-  border-color:#75b58a!important;
+  background:var(--green)!important;
+  border-color:var(--green)!important;
 }
 .team-member-party.on{
   background:#d8a85f!important;
@@ -913,6 +917,69 @@ body{
   .score-num{font-size:3rem!important;}
   .live-player{font-size:1.12rem!important;}
   .live-court{font-size:1.08rem!important;}
+}
+
+/* ── v1.10.186: 파스텔 블루/레드/그린 역할 분리 ── */
+.score-lead.tie,.team-att-summary{
+  background:var(--green-soft)!important;
+  border-color:var(--green-bdr)!important;
+  color:var(--green-deep)!important;
+}
+.score-lead.tie b{color:var(--green-deep)!important;}
+.score-hero .section-kicker span:before,
+.live-dot-mini{
+  background:var(--green)!important;
+}
+.score-progress span{
+  background:linear-gradient(90deg,var(--bl),var(--green))!important;
+}
+.rank-row.top,.info-details[open]>summary:after{
+  background:var(--green-soft)!important;
+  color:var(--green-deep)!important;
+  border-color:var(--green-bdr)!important;
+}
+.team-member-att.on,.roster-cap-badge.sub{
+  background:var(--green)!important;
+  border-color:var(--green)!important;
+  color:#fff!important;
+}
+.team-member-g.male,.roster-m{
+  color:#557ecf!important;
+  background:var(--bl-soft)!important;
+  border-color:var(--bl-softbdr)!important;
+}
+.team-member-g.female,.roster-f{
+  color:#b85b60!important;
+  background:var(--red-soft)!important;
+  border-color:#f4d0d0!important;
+}
+.live-match.is-current{
+  border-color:var(--green-bdr)!important;
+  box-shadow:0 0 0 3px rgba(141,207,168,.10),0 7px 18px rgba(45,55,75,.04)!important;
+}
+.current-panel{
+  border-color:var(--green-bdr)!important;
+}
+.live-court,.next-court{
+  background:var(--bl-soft)!important;
+  border-color:var(--bl-softbdr)!important;
+  color:var(--bl-deep)!important;
+}
+.next-panel{
+  border-color:var(--green-bdr)!important;
+}
+.next-title,.next-wait-note{
+  color:var(--green-deep)!important;
+}
+.next-panel .live-match,
+.next-panel .live-match.is-imminent{
+  border-color:var(--green-bdr)!important;
+  background:#fff!important;
+}
+.next-panel .live-court,.next-panel .live-type{
+  background:var(--green-soft)!important;
+  border-color:var(--green-bdr)!important;
+  color:var(--green-deep)!important;
 }
 </style>
 </head>

@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.185  (2026-06)
+     APP VERSION: 1.10.186  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.185">
+<meta name="app-version" content="1.10.186">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1531,7 +1531,11 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   --ink:#2f3745;
   --ink2:#3f4857;
   --soft-blue:#7fa8ee;
+  --soft-red:#f0a0a4;
+  --soft-green:#8dcfa8;
   --soft-blue-bg:#f5f8ff;
+  --soft-red-bg:#fff6f6;
+  --soft-green-bg:#f4fbf6;
 }
 .h-left h1,.auto-flow-title,.auto-flow-metric b,.auto-flow-panel-value,
 .rsvp-stat b,.tlb-name,.sum-box-v,.sb-score-v,.tm-name,.current-round{
@@ -1568,6 +1572,51 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 .tlb-blue{background:#98b9f2;}
 .tlb-white{background:#f2a8ab;}
 .team-name-input{text-shadow:none;}
+.auto-flow-badge{
+  background:var(--soft-green-bg)!important;
+  color:#3d8a58!important;
+  border-color:#cfeeda!important;
+}
+.auto-flow-badge.live{
+  background:var(--soft-red-bg)!important;
+  color:#b85b60!important;
+  border-color:#f4d0d0!important;
+}
+.auto-flow-panel.warn{
+  background:#fff!important;
+  border-color:#f2d5a3!important;
+}
+.auto-flow-panel.live{
+  background:#fff!important;
+  border-color:#cfeeda!important;
+}
+.auto-flow-panel.live .auto-flow-panel-title,
+.auto-flow-panel.live .auto-flow-panel-note{
+  color:#3d8a58!important;
+}
+.rsvp-badge.attend{
+  background:var(--soft-green-bg)!important;
+  border-color:#cfeeda!important;
+  color:#3d8a58!important;
+}
+.rsvp-action-btn.primary{
+  background:var(--soft-green)!important;
+}
+.btn-print,.save-status.saved,.st-ok,.dir-count-bar{
+  color:#3d8a58!important;
+}
+.btn-print{
+  background:var(--soft-green)!important;
+}
+.tmb-on,.btn-ta.done,.pseg-btn.active{
+  background:var(--soft-blue-bg)!important;
+  color:#557ecf!important;
+  border-color:#dce9fb!important;
+}
+.rsvp-saved-btn.danger,.st-bad{
+  color:#b85b60!important;
+  border-color:#f4d0d0!important;
+}
 @media(max-width:768px){
   .auto-flow-title{font-size:1.26rem;}
   .rsvp-stat b{font-size:1.44rem;}
@@ -2241,7 +2290,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.185';
+const APP_VERSION = '1.10.186';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
