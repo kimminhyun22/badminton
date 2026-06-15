@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.188  (2026-06)
+     APP VERSION: 1.10.189  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.188">
+<meta name="app-version" content="1.10.189">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1572,7 +1572,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 }
 .auto-flow-card{
   background:rgba(255,255,255,.97);
-  padding:18px!important;
+  padding:16px!important;
   border-width:1.5px!important;
   box-shadow:0 8px 24px rgba(91,141,239,.055),inset 0 1px 0 rgba(255,255,255,.92);
 }
@@ -1583,7 +1583,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 }
 .auto-flow-title{font-weight:850;}
 .auto-flow-metric b,.auto-flow-panel-value,.rsvp-stat b{font-weight:850;}
-.auto-flow-panel{padding:14px 13px!important;}
+.auto-flow-panel{padding:12px 11px!important;}
 .auto-flow-panel-value{
   white-space:normal!important;
   overflow:visible!important;
@@ -1652,30 +1652,41 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 }
 @media(max-width:768px){
   .auto-flow-card{
-    padding:18px 14px!important;
-    border-radius:22px!important;
+    padding:14px 12px!important;
+    border-radius:20px!important;
   }
   .auto-flow-head{
     align-items:flex-start;
-    gap:10px;
+    gap:8px;
+    margin-bottom:8px!important;
   }
-  .auto-flow-title{font-size:1.26rem;}
-  .auto-flow-sub{font-size:.86rem;line-height:1.55;}
+  .auto-flow-head>div:first-child{min-width:0;}
+  .auto-flow-kicker{font-size:.6rem!important;margin-bottom:2px!important;}
+  .auto-flow-title{font-size:1.06rem;line-height:1.25;}
+  .auto-flow-sub{font-size:.74rem;line-height:1.38;margin-top:2px!important;}
   .auto-flow-badge{
     flex-shrink:0;
     min-width:auto;
-    padding:7px 11px;
+    padding:6px 9px;
+    font-size:.68rem!important;
   }
   .auto-flow-board{
-    grid-template-columns:1fr!important;
-    gap:10px!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    margin:8px 0!important;
   }
   .auto-flow-panel{
-    padding:14px 13px!important;
-    border-radius:17px!important;
+    padding:8px 9px!important;
+    border-radius:14px!important;
   }
-  .auto-flow-panel-value{font-size:1.24rem!important;}
-  .auto-flow-panel-note{font-size:.78rem!important;min-height:0!important;}
+  .auto-flow-panel-title{font-size:.64rem!important;margin-bottom:3px!important;}
+  .auto-flow-panel-value{font-size:.98rem!important;line-height:1.12!important;}
+  .auto-flow-panel-note{font-size:.62rem!important;line-height:1.2!important;min-height:0!important;margin-top:2px!important;}
+  .auto-flow-action{gap:7px!important;margin-top:8px!important;}
+  .auto-flow-next{font-size:.74rem!important;line-height:1.35!important;}
+  .auto-flow-btn{min-height:46px!important;font-size:.9rem!important;border-radius:14px!important;padding:10px 14px!important;}
+  .auto-flow-checks{display:none!important;}
+  .auto-flow-check{font-size:.64rem!important;padding:5px 8px!important;}
   .rsvp-stat b{font-size:1.44rem;}
   .btn-gen{font-size:.96rem;}
 }
@@ -2347,7 +2358,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.188';
+const APP_VERSION = '1.10.189';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7877,93 +7888,93 @@ function renderAutoFlowDashboard(){
       currentRound=nextRound?`R${nextRound}`:'완료';
     }
     const rsvpNote=[
-      `게스트 ${counts.guest||0}`,
+      `G ${counts.guest||0}`,
       `미응답 ${counts.noResponse||0}`,
       counts.issues?`확인 ${counts.issues}`:''
     ].filter(Boolean).join(' · ');
-    const teamValue=teamReady?`${blue.length}:${white.length}`:(players?`${players}명 대기`:'미배정');
+    const teamValue=teamReady?`${blue.length}:${white.length}`:(players?`${players}명`:'대기');
     const teamNote=teamReady
-      ? `${teamNames.blue} 남${bg.m}여${bg.f} · ${teamNames.white} 남${wg.m}여${wg.f}`
+      ? `청 남${bg.m}여${bg.f} · 홍 남${wg.m}여${wg.f}`
       : (players?'청/홍팀 배정 필요':'참석자 필요');
-    const matchValue=matches?`${done}/${matches}`:'대진 전';
-    const matchNote=matches?`${currentRound} · 남은 ${Math.max(0,matches-done)}경기`:(teamReady?'대진 생성 필요':'팀세팅 후 생성');
-    const liveValue=live?'중계 중':(matches?'중계 전':'대기');
-    const liveNote=live?'회원 링크 활성':'대진 생성 후 시작';
+    const matchValue=matches?`${done}/${matches}`:'전';
+    const matchNote=matches?`${currentRound} · ${Math.max(0,matches-done)} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
+    const liveValue=live?'ON':(matches?'전':'대기');
+    const liveNote=live?'링크 활성':'시작 전';
     let stage='rsvpCreate';
     let cfg={
       badge:'준비',
-      title:'1. 참석 링크 만들기',
-      sub:'클럽 명부로 링크를 만들면 회원 신청이 자동 집계됩니다.',
-      next:'클럽 명부와 공지 제목을 확인한 뒤 링크를 공유하세요.',
+      title:'참석 링크',
+      sub:'명부 선택 후 공지 공유',
+      next:'명부와 제목 확인',
       actionLabel:'공지 복사',
       actionFn:'rsvpShareLink',
-      checks:['클럽 명부', '공지 제목']
+      checks:['명부', '제목']
     };
     if(live){
       stage='live';
       cfg={
         badge:'운영 중',
-        title:'6. 실시간 중계 운영 중',
-        sub:'회원은 같은 링크에서 대진표와 출석, 뒤풀이를 확인합니다.',
-        next:'승패 입력과 출석/뒤풀이만 확인하세요.',
-        actionLabel:'중계 링크 공유',
+        title:'실시간 운영',
+        sub:'대진·출석·뒤풀이 확인',
+        next:'승패와 출석 확인',
+        actionLabel:'링크 공유',
         actionFn:'onLiveBtnClick',
-        checks:['현재 라운드', '승패 입력', '출석/뒤풀이']
+        checks:['라운드', '승패', '출석']
       };
     } else if(matches){
       stage='broadcast';
       cfg={
         badge:'중계 전',
-        title:'5. 대진표 준비 완료',
-        sub:'품질점수와 청/홍 배치만 확인하세요.',
-        next:'문제가 없으면 중계를 시작합니다.',
-        actionLabel:'실시간 중계 시작',
+        title:'대진 완료',
+        sub:'품질·팀 배치 확인',
+        next:'확인 후 중계 시작',
+        actionLabel:'중계 시작',
         actionFn:'startLiveBroadcast',
-        checks:['품질점수', '청/홍 혼입 없음', '대진 수']
+        checks:['품질', '팀혼입', '경기수']
       };
     } else if(teamReady){
       stage='generate';
       cfg={
         badge:'팀 완료',
-        title:'4. 청/홍팀 세팅 완료',
-        sub:'팀 명단과 단장/부단장을 확인하세요.',
-        next:'대진 생성 후 품질점검을 먼저 확인하세요.',
+        title:'팀 세팅 완료',
+        sub:'명단·단장 확인',
+        next:'대진 생성 후 품질 확인',
         actionLabel:'대진 생성',
         actionFn:'generate',
-        checks:['팀 인원', '실력 균형', '단장/부단장']
+        checks:['인원', '실력', '단장']
       };
     } else if(players>=4){
       stage='teamAssign';
       cfg={
         badge:'팀 배정',
-        title:'3. 참석자 명단 준비',
-        sub:'참석자와 게스트가 명단에 들어왔습니다.',
-        next:'청/홍팀 자동 배정을 진행하세요.',
-        actionLabel:'청/홍팀 자동 배정',
+        title:'참석자 준비',
+        sub:'참석자·게스트 반영',
+        next:'청/홍팀 배정',
+        actionLabel:'팀 배정',
         actionFn:'doTeamAssign',
-        checks:['참가자 수', '게스트', '동명이인']
+        checks:['인원', '게스트', '동명이인']
       };
     } else if((counts.attend||0)>0){
       stage='import';
       cfg={
         badge:'투표 집계',
-        title:'2. 참석 투표 집계 중',
-        sub:'참석자와 게스트 신청이 모였습니다.',
-        next:'참석자 가져오기로 팀전 참가자 명단을 만듭니다.',
-        actionLabel:'참석자 가져오기',
+        title:'투표 집계',
+        sub:'참석 신청 확인',
+        next:'참석자 가져오기',
+        actionLabel:'가져오기',
         actionFn:'rsvpImportAttendees',
-        checks:['참석 확정', '게스트 수', '확인 필요']
+        checks:['참석', '게스트', '확인']
       };
     } else if(_rsvpId){
       stage='wait';
       cfg={
         badge:'공지 완료',
-        title:'2. 회원 응답 대기',
-        sub:'회원이 참석 여부와 게스트를 신청합니다.',
-        next:'응답이 모이면 참석자 가져오기를 진행합니다.',
+        title:'응답 대기',
+        sub:'참석·게스트 신청 중',
+        next:'응답 후 가져오기',
         actionLabel:'공지 다시 복사',
         actionFn:'rsvpShareLink',
-        checks:['응답 수', '미응답', '게스트']
+        checks:['응답', '미응답', '게스트']
       };
     }
     badgeEl.textContent=cfg.badge;
