@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.187  (2026-06)
+     APP VERSION: 1.10.188  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.187">
+<meta name="app-version" content="1.10.188">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1572,14 +1572,26 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 }
 .auto-flow-card{
   background:rgba(255,255,255,.97);
+  padding:18px!important;
+  border-width:1.5px!important;
   box-shadow:0 8px 24px rgba(91,141,239,.055),inset 0 1px 0 rgba(255,255,255,.92);
 }
+.auto-flow-head{gap:14px;}
 .auto-flow-metric,.auto-flow-panel,.rsvp-stat,.rsvp-row,.rsvp-saved-row{
   background:#fff;
   box-shadow:none;
 }
 .auto-flow-title{font-weight:850;}
 .auto-flow-metric b,.auto-flow-panel-value,.rsvp-stat b{font-weight:850;}
+.auto-flow-panel{padding:14px 13px!important;}
+.auto-flow-panel-value{
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  line-height:1.18!important;
+  word-break:keep-all;
+}
+.auto-flow-panel-note{word-break:keep-all;}
 .tlb-blue{background:#98b9f2;}
 .tlb-white{background:#f2a8ab;}
 .team-name-input{text-shadow:none;}
@@ -1639,7 +1651,31 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   border-color:#f4d0d0!important;
 }
 @media(max-width:768px){
+  .auto-flow-card{
+    padding:18px 14px!important;
+    border-radius:22px!important;
+  }
+  .auto-flow-head{
+    align-items:flex-start;
+    gap:10px;
+  }
   .auto-flow-title{font-size:1.26rem;}
+  .auto-flow-sub{font-size:.86rem;line-height:1.55;}
+  .auto-flow-badge{
+    flex-shrink:0;
+    min-width:auto;
+    padding:7px 11px;
+  }
+  .auto-flow-board{
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+  }
+  .auto-flow-panel{
+    padding:14px 13px!important;
+    border-radius:17px!important;
+  }
+  .auto-flow-panel-value{font-size:1.24rem!important;}
+  .auto-flow-panel-note{font-size:.78rem!important;min-height:0!important;}
   .rsvp-stat b{font-size:1.44rem;}
   .btn-gen{font-size:.96rem;}
 }
@@ -2311,7 +2347,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.187';
+const APP_VERSION = '1.10.188';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
