@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.181  (2026-06)
+     APP VERSION: 1.10.182  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.181">
+<meta name="app-version" content="1.10.182">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1251,7 +1251,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-empty{font-size:.86rem;color:var(--dim);text-align:center;padding:22px;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff;}
 .rsvp-saved{display:flex;flex-direction:column;gap:7px;margin-bottom:9px;}
 .rsvp-saved-title{font-size:.7rem;font-weight:1000;color:#64748b;letter-spacing:.02em;}
-.rsvp-saved-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;
+.rsvp-saved-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:6px;align-items:center;
   border:1px solid #dbeafe;background:#f8fbff;border-radius:12px;padding:9px 10px;}
 .rsvp-saved-main{min-width:0;}
 .rsvp-saved-name{font-size:.86rem;font-weight:1000;color:#172033;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1308,8 +1308,9 @@ details.card:not([open]) .card-head{border-bottom:none;}
   .rsvp-link{font-size:.9rem;}
   .rsvp-name{font-size:.98rem;}
   .rsvp-meta{font-size:.78rem;}
-  .rsvp-saved-row{grid-template-columns:minmax(0,1fr) auto;gap:7px;}
-  .rsvp-saved-row .rsvp-saved-btn.danger{grid-column:2;}
+  .rsvp-saved-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+  .rsvp-saved-main{grid-column:1/-1;}
+  .rsvp-saved-row .rsvp-saved-btn.danger{grid-column:auto;}
   .rsvp-saved-name{font-size:.98rem;}
   .rsvp-saved-meta{font-size:.76rem;}
   .rsvp-saved-btn{min-height:42px;font-size:.8rem;}
@@ -1429,7 +1430,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
         <div class="card-body">
           <div class="rsvp-grid">
             <select class="inp" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
-            <input class="inp" id="rsvpTitle" placeholder="예: 6월 월례 팀전" oninput="rsvpSaveLocal()">
+            <input class="inp" id="rsvpTitle" placeholder="예: 새천년 팀전 06.15" oninput="rsvpSaveLocal()">
             <button class="btn btn-gen" onclick="rsvpShareLink()">공지 복사</button>
           </div>
           <div class="hint" style="margin-bottom:8px;">링크 하나로 참석, 대진표, 실시간 중계까지 이어집니다.</div>
@@ -1996,7 +1997,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.181';
+const APP_VERSION = '1.10.182';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7049,6 +7050,7 @@ function syncDirectToPaste(){ /* 미사용 */ }
 /* ═══ TEAM RSVP LINK ═══ */
 const RSVP_KEY='kokmatch_team_rsvp_id';
 const RSVP_TITLE_KEY='kokmatch_team_rsvp_title';
+const RSVP_TITLE_AUTO_KEY='kokmatch_team_rsvp_title_auto';
 const RSVP_CLUB_KEY='kokmatch_team_rsvp_club_id';
 const RSVP_CREATED_KEY='kokmatch_team_rsvp_created_at';
 const RSVP_HISTORY_KEY='kokmatch_team_rsvp_history';
@@ -7062,9 +7064,34 @@ let _rsvpSyncTimer=null;
 let _rsvpRosterRefreshLock=false;
 let _autoFlowRendering=false;
 
-function _rsvpDefaultTitle(){
-  const d=new Date();
-  return `${d.getMonth()+1}월 팀전`;
+function _rsvpShortDate(ts){
+  const d=ts?new Date(ts):new Date();
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const dd=String(d.getDate()).padStart(2,'0');
+  return `${mm}.${dd}`;
+}
+function _rsvpCleanLabel(label){
+  const s=String(label||'').trim();
+  if(!s||s==='클럽 미선택')return '팀전';
+  return s.replace(/\s*명부$/,'').trim()||'팀전';
+}
+function _rsvpDefaultTitle(ts){
+  const base=_rsvpCleanLabel(_rsvpSelectedLabel());
+  return `${base} 팀전 ${_rsvpShortDate(ts||_rsvpCreatedAt||Date.now())}`;
+}
+function _rsvpApplyAutoTitle(force){
+  const el=document.getElementById('rsvpTitle');
+  const current=(el&&el.value.trim())||localStorage.getItem(RSVP_TITLE_KEY)||'';
+  const prevAuto=localStorage.getItem(RSVP_TITLE_AUTO_KEY)||'';
+  const legacy=/^\d{1,2}월\s*팀전$/.test(current)||current==='팀전';
+  if(force||!current||current===prevAuto||legacy){
+    const title=_rsvpDefaultTitle(_rsvpCreatedAt||Date.now());
+    if(el)el.value=title;
+    localStorage.setItem(RSVP_TITLE_KEY,title);
+    localStorage.setItem(RSVP_TITLE_AUTO_KEY,title);
+    return title;
+  }
+  return current;
 }
 function _rsvpTitle(){
   const el=document.getElementById('rsvpTitle');
@@ -7084,8 +7111,12 @@ function _rsvpPath(){
 }
 function _rsvpUrl(){
   if(!_rsvpId)return '';
+  return _rsvpUrlFor(_rsvpId);
+}
+function _rsvpUrlFor(id){
+  if(!id)return '';
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
-  return base+'rsvp.html?id='+_rsvpId;
+  return base+'rsvp.html?id='+id;
 }
 function _liveUrl(){
   if(!_liveId)return '';
@@ -7178,6 +7209,7 @@ function rsvpRenderClubSelect(){
 function rsvpSetClub(value){
   if(value)localStorage.setItem(RSVP_CLUB_KEY,value);
   else localStorage.removeItem(RSVP_CLUB_KEY);
+  _rsvpApplyAutoTitle(false);
   rsvpRender();
   if(value)rsvpPushSession();
 }
@@ -7243,6 +7275,7 @@ function rsvpEnsureId(){
     _rsvpCreatedAt=Number.isFinite(saved)&&saved>0?saved:Date.now();
     localStorage.setItem(RSVP_CREATED_KEY,String(_rsvpCreatedAt));
   }
+  _rsvpApplyAutoTitle(false);
   return _rsvpId;
 }
 function _rsvpHistoryList(){
@@ -7263,7 +7296,8 @@ function _rsvpRememberHistory(){
     source:src===RSVP_DIRECT_VALUE?'directPlayers':'clubRoster',
     createdAt:_rsvpCreatedAt||Date.now(),
     updatedAt:Date.now(),
-    url:_rsvpUrl()
+    url:_rsvpUrl(),
+    defaultTitle:_rsvpDefaultTitle(_rsvpCreatedAt||Date.now())
   };
   list=[item,...list.filter(x=>x&&x.id!==_rsvpId)].slice(0,20);
   try{localStorage.setItem(RSVP_HISTORY_KEY,JSON.stringify(list));}catch(e){}
@@ -7282,16 +7316,30 @@ function rsvpRenderSavedBox(){
   box.className='rsvp-saved';
   box.innerHTML=`<div class="rsvp-saved-title">저장된 팀전 투표</div>`+list.map(item=>{
     const active=item.id===_rsvpId;
-    const meta=[item.clubName||'클럽 미확인', _rsvpSavedDate(item.createdAt), active?'현재 선택':''].filter(Boolean).join(' · ');
+    const meta=[item.clubName||'클럽 미확인', _rsvpSavedDate(item.createdAt), item.id?`ID ${String(item.id).slice(-4)}`:'', active?'현재 선택':''].filter(Boolean).join(' · ');
     return `<div class="rsvp-saved-row">
       <div class="rsvp-saved-main">
         <div class="rsvp-saved-name">${esc(item.title||'팀전 투표')}</div>
         <div class="rsvp-saved-meta">${esc(meta)}</div>
       </div>
       <button class="rsvp-saved-btn ${active?'active':''}" onclick="rsvpLoadSaved('${esc(item.id)}')">${active?'선택됨':'불러오기'}</button>
+      <button class="rsvp-saved-btn" onclick="rsvpCopySavedLink('${esc(item.id)}')">링크</button>
       <button class="rsvp-saved-btn danger" onclick="rsvpRemoveSaved('${esc(item.id)}')">삭제</button>
     </div>`;
   }).join('');
+}
+async function rsvpCopySavedLink(id){
+  const item=_rsvpHistoryList().find(x=>x&&x.id===id);
+  const url=(item&&item.url)||_rsvpUrlFor(id);
+  if(!url){alert('복사할 링크를 찾을 수 없습니다.');return;}
+  const title=item?.title||'팀전 투표';
+  const text=`🏸 ${title} 참석 확인\n\n${url}`;
+  try{
+    await navigator.clipboard.writeText(text);
+    alert('저장된 팀전 링크를 복사했습니다.');
+  }catch(e){
+    prompt('아래 링크를 복사하세요.',text);
+  }
 }
 function rsvpLoadSaved(id){
   const item=_rsvpHistoryList().find(x=>x&&x.id===id);
@@ -7301,6 +7349,7 @@ function rsvpLoadSaved(id){
   localStorage.setItem(RSVP_KEY,_rsvpId);
   localStorage.setItem(RSVP_CREATED_KEY,String(_rsvpCreatedAt));
   localStorage.setItem(RSVP_TITLE_KEY,item.title||_rsvpDefaultTitle());
+  if(item.defaultTitle)localStorage.setItem(RSVP_TITLE_AUTO_KEY,item.defaultTitle);
   if(item.source==='directPlayers')localStorage.setItem(RSVP_CLUB_KEY,RSVP_DIRECT_VALUE);
   else if(item.clubId)localStorage.setItem(RSVP_CLUB_KEY,item.clubId);
   const titleEl=document.getElementById('rsvpTitle');
@@ -7385,6 +7434,7 @@ function rsvpLoad(){
   _rsvpId=localStorage.getItem(RSVP_KEY)||null;
   const savedCreated=parseInt(localStorage.getItem(RSVP_CREATED_KEY)||'0',10);
   _rsvpCreatedAt=Number.isFinite(savedCreated)&&savedCreated>0?savedCreated:null;
+  _rsvpApplyAutoTitle(false);
   if(_rsvpId&&_fbInit()){
     if(!_rsvpNeedsClubSelection()&&_rsvpRosterMembers().length)rsvpPushSession();
     rsvpStartListener();
