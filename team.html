@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.193  (2026-06)
+     APP VERSION: 1.10.194  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.193">
+<meta name="app-version" content="1.10.194">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1972,6 +1972,56 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   }
 }
 
+/* ── v1.10.194: 참석 링크 영역 정렬/간소화 ── */
+#sec-rsvp .card-body{
+  padding-left:16px!important;
+  padding-right:16px!important;
+}
+#sec-rsvp .hint{
+  display:none!important;
+}
+.rsvp-grid{
+  grid-template-columns:1fr!important;
+  gap:8px!important;
+}
+#rsvpClubSelect,
+#rsvpTitle{
+  text-align:center!important;
+  text-align-last:center!important;
+  padding-left:16px!important;
+  padding-right:16px!important;
+}
+#rsvpClubSelect{
+  font-weight:900!important;
+  color:#4f6f9f!important;
+  background:#f8fbff!important;
+}
+#rsvpTitle{
+  font-weight:850!important;
+  color:#2f3745!important;
+}
+.rsvp-grid .btn-gen{
+  max-width:100%!important;
+}
+.rsvp-link{
+  display:none!important;
+}
+.rsvp-panel{
+  gap:9px!important;
+}
+.rsvp-stats{
+  margin-top:0!important;
+}
+.rsvp-saved-title{
+  padding-left:2px;
+}
+
+@media(min-width:769px){
+  .rsvp-grid{
+    grid-template-columns:minmax(180px,.9fr) minmax(220px,1fr) auto!important;
+  }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -2639,7 +2689,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.193';
+const APP_VERSION = '1.10.194';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};

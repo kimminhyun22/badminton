@@ -968,6 +968,135 @@ body{
 .next-panel{
   border-color:var(--green-bdr)!important;
 }
+
+/* ── v1.10.194: 라이브 현황 저채도 보정 ── */
+:root{
+  --bl:#8fb1ed;
+  --bl-deep:#4f73b8;
+  --bl-soft:#f7faff;
+  --bl-softbdr:#e1ebfb;
+  --red:#e9a0a2;
+  --red-deep:#a85f63;
+  --red-soft:#fff8f8;
+  --green:#9bd7b2;
+  --green-deep:#3f7c58;
+  --green-soft:#f6fcf8;
+  --green-bdr:#d8f0e1;
+  --amber:#c99a58;
+}
+.head{
+  box-shadow:0 1px 10px rgba(45,55,75,.035)!important;
+}
+.head h1{
+  color:#2f3745!important;
+}
+.live-label{
+  color:#a85f63!important;
+}
+.live-dot{
+  background:#e9a0a2!important;
+  box-shadow:0 0 0 5px rgba(233,160,162,.16)!important;
+}
+.live-pill{
+  background:#fff8f8!important;
+  border-color:#f2d8d9!important;
+  color:#a85f63!important;
+}
+.live-dot-mini{
+  background:#9bd7b2!important;
+  box-shadow:0 0 0 4px rgba(155,215,178,.18)!important;
+}
+.score-team.blue .score-num{
+  color:#5878bd!important;
+}
+.score-team.red .score-num{
+  color:#ad686b!important;
+}
+.score-progress span{
+  background:linear-gradient(90deg,#8fb1ed,#9bd7b2)!important;
+}
+.live-side.blue,
+.team-roster-side.blue,
+.m-team.t1side{
+  background:#f7faff!important;
+  border-color:#e1ebfb!important;
+}
+.live-side.red,
+.team-roster-side.red,
+.m-team.t2side{
+  background:#fff8f8!important;
+  border-color:#f2d8d9!important;
+}
+.live-side.blue .live-team-label,
+.team-roster-side.blue .team-roster-title{
+  color:#4f73b8!important;
+}
+.live-side.red .live-team-label,
+.team-roster-side.red .team-roster-title{
+  color:#a85f63!important;
+}
+.live-team-label{
+  background:rgba(255,255,255,.78)!important;
+  border-color:#edf1f7!important;
+}
+.team-member-att,
+.team-member-party{
+  background:#fff!important;
+  color:#566174!important;
+  border-color:#dfe5ee!important;
+}
+.team-member-att.on{
+  background:#f6fcf8!important;
+  color:#3f7c58!important;
+  border-color:#bfe6cd!important;
+}
+.team-member-party.on{
+  background:#fffaf2!important;
+  color:#9a6a24!important;
+  border-color:#ead2a8!important;
+}
+.team-member-g.male,
+.roster-m{
+  color:#4f73b8!important;
+  background:#f7faff!important;
+  border-color:#d9e7fb!important;
+}
+.team-member-g.female,
+.roster-f{
+  color:#a85f63!important;
+  background:#fff8f8!important;
+  border-color:#f2d8d9!important;
+}
+.current-badge,
+.round.cur .round-badge,
+.now{
+  background:#e9a0a2!important;
+  border-color:#e9a0a2!important;
+  color:#fff!important;
+}
+.imminent-banner{
+  background:#fffaf2!important;
+  border-color:#ead2a8!important;
+  color:#9a6a24!important;
+}
+.win-chip,
+.team-member-badge{
+  background:#c99a58!important;
+}
+.score-lead.red{
+  background:#fff8f8!important;
+  border-color:#f2d8d9!important;
+}
+.score-lead.red b{
+  color:#a85f63!important;
+}
+.score-lead.blue{
+  background:#f7faff!important;
+  border-color:#e1ebfb!important;
+}
+.score-lead.blue b{
+  color:#4f73b8!important;
+}
 .next-title,.next-wait-note{
   color:var(--green-deep)!important;
 }
