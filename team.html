@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.184  (2026-06)
+     APP VERSION: 1.10.185  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.184">
+<meta name="app-version" content="1.10.185">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1526,6 +1526,54 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   .tlb-body{padding:6px;}
 }
 
+/* ── v1.10.185: 힘을 뺀 미니멀 톤 ── */
+:root{
+  --ink:#2f3745;
+  --ink2:#3f4857;
+  --soft-blue:#7fa8ee;
+  --soft-blue-bg:#f5f8ff;
+}
+.h-left h1,.auto-flow-title,.auto-flow-metric b,.auto-flow-panel-value,
+.rsvp-stat b,.tlb-name,.sum-box-v,.sb-score-v,.tm-name,.current-round{
+  color:var(--ink)!important;
+}
+.card-title,.auto-flow-panel-title,.auto-flow-metric span,.rsvp-saved-title{
+  color:#7a8494!important;
+}
+.btn,.btn-gen,.auto-flow-btn,.rsvp-action-btn,.rsvp-saved-btn,.btn-ta{
+  font-weight:800;
+}
+.btn-gen,.auto-flow-btn,.rsvp-action-btn.primary,.rsvp-saved-btn.active,.btn-ta.done,.pseg-btn.active{
+  background:var(--soft-blue)!important;
+  color:#fff!important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.72) inset,0 6px 16px rgba(91,141,239,.12)!important;
+}
+.btn-gen::before,.auto-flow-btn::before,.rsvp-action-btn.primary::before,.rsvp-saved-btn.active::before,.btn-ta.done::before{
+  width:7px;height:7px;background:#f1fff7;
+  box-shadow:0 0 0 3px rgba(220,252,231,.12),0 0 8px rgba(34,197,94,.28);
+}
+.btn-gen:hover,.auto-flow-btn:hover,.rsvp-action-btn.primary:hover,.rsvp-saved-btn.active:hover{
+  box-shadow:0 0 0 1px rgba(255,255,255,.78) inset,0 9px 20px rgba(91,141,239,.15)!important;
+}
+.auto-flow-card{
+  background:rgba(255,255,255,.97);
+  box-shadow:0 8px 24px rgba(91,141,239,.055),inset 0 1px 0 rgba(255,255,255,.92);
+}
+.auto-flow-metric,.auto-flow-panel,.rsvp-stat,.rsvp-row,.rsvp-saved-row{
+  background:#fff;
+  box-shadow:none;
+}
+.auto-flow-title{font-weight:850;}
+.auto-flow-metric b,.auto-flow-panel-value,.rsvp-stat b{font-weight:850;}
+.tlb-blue{background:#98b9f2;}
+.tlb-white{background:#f2a8ab;}
+.team-name-input{text-shadow:none;}
+@media(max-width:768px){
+  .auto-flow-title{font-size:1.26rem;}
+  .rsvp-stat b{font-size:1.44rem;}
+  .btn-gen{font-size:.96rem;}
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -2193,7 +2241,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.184';
+const APP_VERSION = '1.10.185';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
