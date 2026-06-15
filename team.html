@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.194  (2026-06)
+     APP VERSION: 1.10.195  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.194">
+<meta name="app-version" content="1.10.195">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1623,6 +1623,38 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 .tlb-player{
   box-shadow:0 1px 0 rgba(255,255,255,.84) inset;
 }
+.sb-head{
+  gap:10px;
+}
+.sb-head.blue{
+  background:#dce9ff!important;
+  border-bottom:1px solid #c8dbfb!important;
+}
+.sb-head.white{
+  background:#ffe6e6!important;
+  border-bottom:1px solid #f3c8c8!important;
+}
+.sb-team-name{
+  min-width:0;
+  max-width:70%;
+  background:rgba(255,255,255,.66)!important;
+  border:1px solid rgba(255,255,255,.78)!important;
+  border-radius:999px!important;
+  color:#334155!important;
+  padding:5px 11px!important;
+  font-weight:900!important;
+  text-shadow:none!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 2px 8px rgba(45,55,75,.04)!important;
+}
+.sb-head.blue .sb-team-name{color:#4f73b8!important;}
+.sb-head.white .sb-team-name{color:#a85f63!important;}
+.sb-score-v{
+  color:#2f3745!important;
+  text-shadow:none!important;
+}
+.sb-score-l{
+  color:#6f7a8a!important;
+}
 .move-btn{
   border-width:1.5px!important;
   border-color:#cfe0fb!important;
@@ -2689,7 +2721,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.194';
+const APP_VERSION = '1.10.195';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};

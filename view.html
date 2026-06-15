@@ -1110,6 +1110,37 @@ body{
   border-color:var(--green-bdr)!important;
   color:var(--green-deep)!important;
 }
+/* ── v1.10.195: 팀 라벨 대비 보강 ── */
+.m-team-label,
+.live-team-label,
+.team-roster-title{
+  text-shadow:none!important;
+}
+.m-team.t1side .m-team-label,
+.live-side.blue .live-team-label,
+.team-roster-side.blue .team-roster-title{
+  color:#4f73b8!important;
+  background:rgba(255,255,255,.72)!important;
+  border:1px solid #dbe7fb!important;
+  border-radius:999px!important;
+  display:inline-flex!important;
+  max-width:100%;
+  padding:4px 9px!important;
+}
+.m-team.t2side .m-team-label,
+.live-side.red .live-team-label,
+.team-roster-side.red .team-roster-title{
+  color:#a85f63!important;
+  background:rgba(255,255,255,.72)!important;
+  border:1px solid #f2d8d9!important;
+  border-radius:999px!important;
+  display:inline-flex!important;
+  max-width:100%;
+  padding:4px 9px!important;
+}
+.team-roster-title small{
+  color:#6f7a8a!important;
+}
 </style>
 </head>
 <body>
