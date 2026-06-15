@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.182  (2026-06)
+     APP VERSION: 1.10.183  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.182">
+<meta name="app-version" content="1.10.183">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1330,6 +1330,200 @@ details.card:not([open]) .card-head{border-bottom:none;}
   .auto-flow-check{font-size:.72rem;padding:7px 10px;}
 }
 
+/* ── 민턴LIVE 톤 통일: 파스텔·미니멀 관리자 화면 ── */
+body{
+  background:
+    radial-gradient(circle at 12% 0%,rgba(186,211,255,.42),transparent 30%),
+    radial-gradient(circle at 88% 6%,rgba(187,247,208,.34),transparent 30%),
+    linear-gradient(180deg,#f8fbff 0%,#f7f8fb 44%,#f5f7fb 100%);
+}
+header,.nav-bar{
+  background:rgba(255,255,255,.82);
+  border-color:rgba(211,226,252,.72);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+.h-left h1{letter-spacing:-.03em;font-weight:900;color:#172033;}
+.h-left p{color:#8b95a5;font-weight:700;}
+.hb{
+  border-color:#dbeafe;background:rgba(248,251,255,.78);color:#94a3b8;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
+}
+.hb.on{
+  color:#2563eb;background:linear-gradient(180deg,#f8fbff,#eaf3ff);
+  border-color:#bfdbfe;box-shadow:0 0 0 1px rgba(191,219,254,.45),0 7px 18px rgba(91,141,239,.11);
+}
+.nav-tab{
+  margin:6px 4px;border-radius:999px;border-bottom:none;color:#8a93a3;
+}
+.nav-tab.active{
+  color:#2563eb;background:#eef6ff;border-bottom:none;
+  box-shadow:inset 0 0 0 1px #dbeafe,0 6px 16px rgba(91,141,239,.11);
+}
+.nav-sync-btn,.import-label,.header-help-btn,.btn-restore{
+  border-radius:999px;border-color:#dbeafe;background:rgba(255,255,255,.86);
+  color:#64748b;box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+}
+.nav-sync-btn:hover,.import-label:hover,.header-help-btn:hover,.btn-restore:hover{
+  transform:translateY(-1px);
+  background:#eff6ff;color:#2563eb;border-color:#bfdbfe;
+  box-shadow:0 8px 20px rgba(91,141,239,.13);
+}
+.card{
+  border-radius:20px;border:1px solid rgba(219,226,236,.9);
+  background:rgba(255,255,255,.88);
+  box-shadow:0 14px 34px rgba(45,55,75,.065),inset 0 1px 0 rgba(255,255,255,.9);
+}
+.card-head{
+  background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(248,251,255,.86));
+  border-color:#eef2f7;padding:13px 16px;
+}
+.card-title{
+  color:#64748b;font-size:.78rem;font-weight:1000;letter-spacing:.08em;
+}
+.card-body{padding:16px;}
+summary.card-head::after{
+  content:'접기';font-size:.64rem;font-weight:1000;color:#94a3b8;
+  padding:4px 8px;border:1px solid #e2e8f0;border-radius:999px;background:#fff;
+}
+details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb;background:#eff6ff;border-color:#bfdbfe;}
+
+.btn,.btn-ta,.sync-btn,.rsvp-action-btn,.rsvp-saved-btn,.pseg-btn,.lv-sel-btn,.gender-sel-btn,.age-sel-btn{
+  border-radius:14px;
+}
+.btn-gen,.auto-flow-btn,.rsvp-action-btn.primary,.rsvp-saved-btn.active,.btn-ta.done,.pseg-btn.active{
+  position:relative;
+  background:linear-gradient(135deg,#6ea2ff 0%,#73d7b4 100%)!important;
+  border-color:transparent!important;color:#fff!important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.74) inset,0 12px 28px rgba(91,141,239,.22),0 0 22px rgba(115,215,180,.18)!important;
+}
+.btn-gen::before,.auto-flow-btn::before,.rsvp-action-btn.primary::before,.rsvp-saved-btn.active::before,.btn-ta.done::before{
+  content:'';width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;
+  background:#dcfce7;box-shadow:0 0 0 3px rgba(220,252,231,.28),0 0 14px rgba(34,197,94,.72);
+  vertical-align:middle;
+}
+.btn-gen:hover,.auto-flow-btn:hover,.rsvp-action-btn.primary:hover,.rsvp-saved-btn.active:hover{
+  transform:translateY(-1px);
+  box-shadow:0 0 0 1px rgba(255,255,255,.82) inset,0 16px 34px rgba(91,141,239,.25),0 0 30px rgba(115,215,180,.22)!important;
+}
+.btn-ghost,.rsvp-action-btn,.rsvp-saved-btn{
+  background:rgba(255,255,255,.9);border-color:#e2e8f0;color:#64748b;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+}
+.btn-ghost:hover,.rsvp-action-btn:hover,.rsvp-saved-btn:hover{
+  background:#f8fbff;border-color:#bfdbfe;color:#2563eb;
+}
+
+.auto-flow-card{
+  border:1px solid rgba(191,219,254,.95);
+  background:
+    radial-gradient(circle at 12% 8%,rgba(191,219,254,.52),transparent 34%),
+    radial-gradient(circle at 88% 12%,rgba(187,247,208,.42),transparent 34%),
+    linear-gradient(135deg,rgba(255,255,255,.96),rgba(248,251,255,.9));
+  box-shadow:0 18px 46px rgba(91,141,239,.14),inset 0 1px 0 rgba(255,255,255,.92);
+}
+.auto-flow-kicker{color:#5b8def;letter-spacing:.14em;}
+.auto-flow-title{font-size:1.22rem;letter-spacing:-.04em;color:#172033;}
+.auto-flow-sub{color:#6b7280;}
+.auto-flow-badge{
+  background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;
+  box-shadow:0 0 18px rgba(34,197,94,.14);
+}
+.auto-flow-badge.live{
+  background:#fff1f2;color:#be123c;border:1px solid #fecdd3;
+  box-shadow:0 0 18px rgba(244,63,94,.13);
+}
+.auto-flow-metric,.auto-flow-panel{
+  border-color:#e0edff;background:rgba(255,255,255,.82);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.88);
+}
+.auto-flow-metric b,.auto-flow-panel-value{color:#172033;letter-spacing:-.04em;}
+.auto-flow-panel.warn{background:#fffbeb;border-color:#fde68a;}
+.auto-flow-panel.live{background:#fff1f2;border-color:#fecdd3;}
+.auto-flow-check{
+  background:rgba(255,255,255,.82);border-color:#dbeafe;color:#64748b;
+}
+
+#rsvpClubSelect,.inp,select,input:not([type=checkbox]):not([type=radio]),textarea{
+  border-radius:15px;border-color:#dbeafe;background:rgba(255,255,255,.92);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+}
+#rsvpClubSelect{
+  background:linear-gradient(180deg,#f8fbff,#eef6ff);
+  color:#2563eb;border-color:#bfdbfe;
+}
+.rsvp-link{
+  border-color:#dbeafe;background:linear-gradient(180deg,#f8fbff,#fff);
+  color:#64748b;border-radius:16px;
+}
+.rsvp-stat,.rsvp-row,.rsvp-saved-row{
+  border-color:#e0edff;background:rgba(255,255,255,.9);border-radius:16px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.88);
+}
+.rsvp-stat b{font-size:1.28rem;letter-spacing:-.04em;color:#172033;}
+.rsvp-badge.attend{background:#ecfdf3;border-color:#bbf7d0;color:#15803d;}
+.rsvp-badge.maybe{background:#fff7ed;border-color:#fed7aa;color:#c2410c;}
+.rsvp-empty{
+  border-color:#dbeafe;background:linear-gradient(180deg,#fff,#f8fbff);border-radius:18px;
+}
+.rsvp-saved-title{color:#2563eb;}
+.rsvp-saved-btn.danger{
+  background:#fff;color:#e11d48;border-color:#fecdd3;
+}
+
+.team-list-box{
+  border-radius:18px;border-color:#e2e8f0;background:rgba(255,255,255,.9);
+  box-shadow:0 8px 20px rgba(45,55,75,.055);
+}
+.tlb-head{border-bottom:1px solid rgba(255,255,255,.5);}
+.tlb-blue{background:linear-gradient(135deg,#7aa7ff,#a7c7ff);}
+.tlb-white{background:linear-gradient(135deg,#ff8b91,#ffb4b8);}
+.team-name-input{font-weight:1000;text-shadow:0 1px 8px rgba(0,0,0,.12);}
+.tlb-body{background:#f8fbff;padding:7px;}
+.tlb-player{
+  border-radius:12px;padding:7px 6px;background:rgba(255,255,255,.62);
+}
+.tlb-player+.tlb-player{margin-top:4px;}
+.tlb-player:hover{background:#fff;box-shadow:0 5px 14px rgba(45,55,75,.055);}
+.tlb-captain{background:#fffbeb!important;}
+.tlb-sub{background:#f0fdf4!important;}
+.tlb-name{font-weight:900;color:#172033;}
+.tlb-meta{font-weight:800;color:#7b8494;}
+.move-btn{
+  border-radius:10px;border-color:#dbeafe;background:#fff;color:#5b8def;
+}
+
+.match-card,.sb-card,.sum-box,.qual-dash,.feat-card,.club-card{
+  border-radius:16px;border-color:#e2e8f0;background:rgba(255,255,255,.9);
+  box-shadow:0 8px 22px rgba(45,55,75,.05);
+}
+.match-card.win-s1,.match-card.win-s2{
+  box-shadow:0 0 0 2px rgba(115,215,180,.55),0 0 26px rgba(115,215,180,.22);
+}
+
+@media(max-width:768px){
+  header{background:rgba(255,255,255,.9);}
+  .wrap{padding:12px 12px 8px;}
+  .card{border-radius:20px;margin-bottom:12px;}
+  .card-head{padding:13px 14px;}
+  .card-title{font-size:.9rem;letter-spacing:.04em;}
+  .btn-gen{min-height:56px;border-radius:18px;font-size:1rem;}
+  .auto-flow-card{border-radius:24px;}
+  .auto-flow-title{font-size:1.32rem;}
+  .auto-flow-sub{font-size:.9rem;line-height:1.5;}
+  .auto-flow-metric,.auto-flow-panel{border-radius:18px;}
+  .rsvp-grid{gap:9px;}
+  #rsvpClubSelect,.rsvp-grid .inp{min-height:56px;font-size:1rem;border-radius:18px;}
+  .rsvp-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .rsvp-stat{border-radius:18px;padding:13px 8px;}
+  .rsvp-stat b{font-size:1.55rem;}
+  .rsvp-action-btn,.rsvp-saved-btn{border-radius:14px;}
+  .team-list-wrap.show{gap:8px;}
+  .team-list-box{border-radius:18px;}
+  .tlb-head{padding:10px 8px;}
+  .tlb-body{padding:6px;}
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1997,7 +2191,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.182';
+const APP_VERSION = '1.10.183';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7077,7 +7271,8 @@ function _rsvpCleanLabel(label){
 }
 function _rsvpDefaultTitle(ts){
   const base=_rsvpCleanLabel(_rsvpSelectedLabel());
-  return `${base} 팀전 ${_rsvpShortDate(ts||_rsvpCreatedAt||Date.now())}`;
+  const day=_rsvpShortDate(ts||_rsvpCreatedAt||Date.now());
+  return base==='팀전'?`팀전 ${day}`:`${base} 팀전 ${day}`;
 }
 function _rsvpApplyAutoTitle(force){
   const el=document.getElementById('rsvpTitle');
