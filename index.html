@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.197  (2026-06)
+     APP VERSION: 1.10.198  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.197">
+<meta name="app-version" content="1.10.198">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -933,12 +933,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-reset-top:hover{background:#fee2e2;}
 .daily-layout{display:flex;flex-direction:column;gap:16px;align-items:stretch;}
 .daily-side,.daily-main{min-width:0;width:100%;}
-.daily-side{order:1;}
-.daily-main{order:2;display:flex;flex-direction:column;gap:12px;}
-#dailyCheckinDetails{order:1;}
-.daily-dashboard-card{order:2;}
-.daily-active-card{order:3;}
-.daily-urgent-card{order:4;}
+.daily-side{order:2;}
+.daily-main{order:1;display:flex;flex-direction:column;gap:12px;}
+.daily-dashboard-card{order:1;}
+.daily-active-card{order:2;}
+.daily-urgent-card{order:3;}
+#dailyCheckinDetails{order:4;}
 #dailyUnscheduledDetails{order:5;}
 #dailyResultDetails{order:6;}
 #dailyPlayersManage{order:7;}
@@ -1067,13 +1067,13 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-op b{display:block;font-size:1.28rem;color:var(--txt);line-height:1.05;}
 .daily-op span{display:block;font-size:.66rem;color:var(--dim);font-weight:900;margin-top:4px;}
 .daily-op small{display:block;font-size:.62rem;color:var(--dim2);line-height:1.4;margin-top:4px;}
-.daily-admin-alerts{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.daily-admin-alerts{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
 .daily-admin-alert{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border:1px solid var(--bdr);border-radius:12px;background:#fff;padding:10px 11px;}
 .daily-admin-alert.primary{background:linear-gradient(135deg,#eef5ff 0%,#fff 100%);border-color:var(--bl-softbdr);}
 .daily-admin-alert.ok{background:#f7fff9;border-color:#bbf7d0;}
 .daily-admin-alert.warn{background:#fffbeb;border-color:#fde68a;}
 .daily-admin-alert.danger{background:#fef2f2;border-color:#fecaca;}
-.daily-admin-alert-title{font-size:.8rem;font-weight:900;color:var(--txt);line-height:1.4;}
+.daily-admin-alert-title{font-size:.88rem;font-weight:900;color:var(--txt);line-height:1.35;}
 .daily-admin-alert-desc{font-size:.66rem;color:var(--dim);line-height:1.5;margin-top:2px;}
 .daily-admin-alert-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}
 .daily-main>.card{margin-bottom:0;}
@@ -1094,10 +1094,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ── 지금 할 일 / 자동시작 상단 토글 ── */
 .daily-todo-head{font-size:.76rem;font-weight:900;color:var(--dim);letter-spacing:.5px;margin:4px 0 8px;}
 .daily-auto-row-top{margin-top:0;margin-bottom:12px;border-color:var(--bl-softbdr);background:linear-gradient(135deg,#f8fbff 0%,#fff 100%);}
-.daily-ops-stats-fold{margin-top:12px;margin-bottom:0;}
+.daily-ops-stats-fold{margin-top:10px;margin-bottom:0;}
+.daily-ops-stats-fold summary{font-size:.78rem!important;padding:10px 12px!important;}
 .btn-danger-ghost{color:#b91c1c!important;border-color:#fecaca!important;}
 .btn-danger-ghost:hover{background:#fee2e2!important;}
 .daily-primary-card{border-color:var(--bl-softbdr);box-shadow:0 10px 24px rgba(91,141,239,.08);}
+.daily-dashboard-card .card-body{padding:13px 14px;}
 .daily-dashboard-tools{margin:12px 0 0;}
 .daily-dashboard-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;}
 .daily-queue-list{display:flex;flex-direction:column;gap:9px;}
@@ -1216,7 +1218,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .rsvp-badge.attend{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
 .rsvp-badge.decline{background:#f1f5f9;border-color:#dbe3ec;color:#64748b;}
 .rsvp-badge.maybe{background:#fffbeb;border-color:#fde68a;color:#92400e;}
-@media(max-width:900px){.daily-layout{display:flex;flex-direction:column;}.daily-main{order:2;width:100%;}.daily-side{order:1;width:100%;}.daily-hero{flex-direction:row;align-items:flex-start;}.daily-hero-actions{justify-content:flex-end;}.daily-stats,.daily-ops-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:900px){.daily-layout{display:flex;flex-direction:column;}.daily-main{order:1;width:100%;}.daily-side{order:2;width:100%;}.daily-hero{flex-direction:row;align-items:flex-start;}.daily-hero-actions{justify-content:flex-end;}.daily-stats,.daily-ops-grid{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:640px){
   .daily-hero{padding:13px 14px;border-radius:16px;}.daily-hero h2{font-size:1.12rem;}.daily-hero p{font-size:.74rem;}
   .daily-hero-actions{display:flex;width:auto;}.daily-reset-top{padding:7px 9px;font-size:.65rem;}
@@ -2015,7 +2017,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
 	  <div class="daily-layout">
 	    <div class="daily-side">
-	      <details class="daily-section-fold daily-setup-fold" id="dailySetupDetails" open>
+	      <details class="daily-section-fold daily-setup-fold" id="dailySetupDetails">
 	        <summary>명부 불러오기 · 코트 설정</summary>
 	        <div class="daily-section-fold-body">
 	        <div class="daily-detail-stack">
@@ -2076,7 +2078,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
             <input type="checkbox" id="dailyAutoAssignTop" onchange="dailyToggleAutoAssign(this.checked)">
             <span>
               <span class="daily-auto-title">자동 시작</span>
-              <span class="daily-auto-desc">빈 코트가 생기면 1순위 대기를 바로 시작합니다.</span>
+              <span class="daily-auto-desc">빈 코트가 생기면 다음 대진을 자동 투입합니다.</span>
             </span>
           </label>
           <div class="daily-todo-head">지금 할 일</div>
@@ -2502,7 +2504,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.197';
+const APP_VERSION = '1.10.198';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -12074,7 +12076,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.197</span>
+  <span class="app-version" id="appVersion">v1.10.198</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
