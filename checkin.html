@@ -532,7 +532,7 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
     <div class="eyebrow">KOKMATCH CHECK-IN</div>
     <h1>민턴LIVE 상태를 알려주세요</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
-    <div class="notice"><strong>참석</strong> 후 현장에 도착하면 <strong>시작</strong>을 누르세요. 명단 변경은 같은 링크에 자동 반영됩니다.</div>
+    <div class="notice">현장에 도착하면 <strong>시작</strong>을 눌러주세요.</div>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -703,7 +703,7 @@ function renderVoteSummary(){
     `<div class="vote-chip total"><b>${s.attending}명</b><span>참석 신청</span></div>`,
     `<div class="vote-chip ready"><b>${s.wait}</b><span>시작</span></div>`,
     `<div class="vote-chip"><b>${s.playing}</b><span>경기중</span></div>`,
-    `<div class="vote-chip warn"><b>${s.rest+s.invited}</b><span>휴식/미정</span></div>`
+    `<div class="vote-chip warn"><b>${s.rest}</b><span>휴식</span></div>`
   ].join('');
 }
 function remainMinutes(row){
