@@ -217,6 +217,35 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   align-self:center;
   white-space:nowrap;
 }
+.event-complete-action{
+  margin-top:9px;
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+}
+.event-complete-btn,.event-undo-btn{
+  width:100%;
+  border:1.5px solid #bfdbfe;
+  border-radius:14px;
+  padding:12px 13px;
+  background:#eef5ff;
+  color:#315fb2;
+  font-size:15px;
+  font-weight:1000;
+  font-family:inherit;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(91,141,239,.12);
+}
+.event-complete-btn.due,.event-complete-btn.soon{
+  border-color:#fecaca;
+  background:#fff1f2;
+  color:#b91c1c;
+}
+.event-undo-btn{
+  border-color:#fed7aa;
+  background:#fff7ed;
+  color:#9a610b;
+}
 .event-row.soon em,.event-row.due em{
   color:#fff;
   background:#dc2626;
@@ -502,6 +531,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null;
+const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['planned','toggle','rest'];
 const SUB_STATUS_KEYS=[];
@@ -565,6 +595,18 @@ function lastKey(){
 }
 function getLastSent(){
   try{return JSON.parse(localStorage.getItem(lastKey())||'null');}catch(e){return null;}
+}
+function getLastComplete(){
+  try{
+    const v=JSON.parse(localStorage.getItem(LAST_COMPLETE_KEY)||'null');
+    return v&&Date.now()-(v.savedAt||0)<45000?v:null;
+  }catch(e){return null;}
+}
+function setLastComplete(v){
+  try{localStorage.setItem(LAST_COMPLETE_KEY,JSON.stringify({...v,savedAt:Date.now()}));}catch(e){}
+}
+function clearLastComplete(){
+  try{localStorage.removeItem(LAST_COMPLETE_KEY);}catch(e){}
 }
 function setLastSent(req){
   try{localStorage.setItem(lastKey(),JSON.stringify({...req,savedAt:Date.now()}));}catch(e){}
@@ -687,20 +729,42 @@ function renderEvent(){
     <em>${esc(remainText(m))}</em>
   </div>`;
   }).join('');
-  const next=(ev.next||[]).slice(0,4).map(m=>`<div class="event-row next ${esc(m.cueState||'')}">
+  const last=getLastSent();
+  const lastComplete=getLastComplete();
+  const next=(ev.next||[]).slice(0,4).map(m=>{
+    const selectedId=last&&last.playerId;
+    const canComplete=selectedId&&m.targetMatchId&&m.queueId&&(m.playerIds||[]).includes(selectedId);
+    const completeLabel=m.targetCourt?`${m.targetCourt}코트 종료 후 입장`:'코트 종료 후 입장';
+    const action=canComplete?`<div class="event-complete-action">
+      <button class="event-complete-btn ${esc(m.cueState||'')}" onclick="sendCourtComplete('${esc(m.queueId)}','${esc(m.targetMatchId)}','${esc(String(m.targetCourt||''))}')">${esc(completeLabel)}</button>
+    </div>`:'';
+    return `<div class="event-row next ${esc(m.cueState||'')}">
     <div class="event-row-main">
       ${courtBadge(m.cue||'대기')}
       <div>
-        <div class="event-match-title">${m.idx===1?'다음 투입 1순위':`대기 ${m.idx}순위`}</div>
+        <div class="event-match-title">${m.idx===1?'다음 대진 1순위':`다음 대진 ${m.idx}순위`}</div>
         <div class="event-teams">${teamLines(m)}</div>
-        <small class="event-cue">${esc(m.cue||'코트 배정 대기')} · ${esc(m.cueDetail||'이름을 먼저 확인해주세요')}</small>
+        <small class="event-cue">${esc(m.cue||'예상 코트 대기')} · ${esc(m.cueDetail||'종료 순서에 따라 바뀔 수 있습니다')}</small>
+        ${action}
       </div>
     </div>
     <em>${m.idx===1?'준비':'대기'}</em>
-  </div>`).join('');
+  </div>`;
+  }).join('');
+  const undo=lastComplete?`<div class="event-row">
+    <div class="event-row-main">
+      <div class="event-court-badge"><b>↩</b><span>복구</span></div>
+      <div>
+        <div class="event-match-title">방금 코트 종료를 요청했어요</div>
+        <small class="event-cue">잘못 눌렀다면 바로 되돌릴 수 있습니다.</small>
+        <div class="event-complete-action"><button class="event-undo-btn" onclick="sendCourtCompleteUndo('${esc(lastComplete.token)}')">되돌리기 요청</button></div>
+      </div>
+    </div>
+    <em>45초</em>
+  </div>`:'';
   el.innerHTML=`<div class="event-title"><b>민턴LIVE 현황</b><span>${esc(updated)} 업데이트</span></div>
     <div>${summary}</div>
-    ${next?`<div class="event-section-title">다음 투입 선수</div><div class="event-list">${next}</div>`:''}
+    ${next||undo?`<div class="event-section-title">다음 대진</div><div class="event-list">${undo}${next}</div>`:''}
     ${active?`<div class="event-section-title">진행중 코트</div><div class="event-list">${active}</div>`:''}`;
 }
 function render(){
@@ -878,6 +942,54 @@ async function sendStatus(playerId,status){
   }finally{
     sendingKey='';
     render();
+  }
+}
+async function sendCourtComplete(queueId,matchId,court){
+  if(!db||!checkinId||!session||sendingKey)return;
+  if(sessionExpired())return showEndedLink();
+  const last=getLastSent();
+  if(!last||!last.playerId)return toast('먼저 본인 이름에서 시작 버튼을 눌러 주세요.');
+  const courtText=court?`${court}코트`:'해당 코트';
+  if(!confirm(`${courtText} 경기가 끝났나요?\n확인하면 이 다음 대진이 코트에 들어갑니다.`))return;
+  const token='ct_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+  const req={
+    type:'court-complete',
+    queueId,
+    matchId,
+    court,
+    token,
+    playerId:last.playerId,
+    playerName:last.playerName,
+    createdAt:Date.now(),
+    source:'member-court-complete'
+  };
+  sendingKey='court_complete_'+matchId;
+  renderEvent();
+  try{
+    await db.ref(checkinPath()+'/requests').push(req);
+    setLastComplete({token,matchId,queueId,court});
+    toast(`${courtText} 종료 요청 완료`);
+  }catch(e){
+    toast('종료 요청 전송에 실패했습니다.');
+  }finally{
+    sendingKey='';
+    renderEvent();
+  }
+}
+async function sendCourtCompleteUndo(token){
+  if(!db||!checkinId||!session||sendingKey)return;
+  if(!token)return;
+  const req={type:'court-complete-undo',token,createdAt:Date.now(),source:'member-court-complete-undo'};
+  sendingKey='court_undo';
+  try{
+    await db.ref(checkinPath()+'/requests').push(req);
+    clearLastComplete();
+    toast('되돌리기 요청을 보냈어요.');
+  }catch(e){
+    toast('되돌리기 요청에 실패했습니다.');
+  }finally{
+    sendingKey='';
+    renderEvent();
   }
 }
 async function sendGameRequest(playerId){

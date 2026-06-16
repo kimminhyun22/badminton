@@ -2216,8 +2216,8 @@ function buildNextPanel(nextMatches,d){
   const limit=Math.max(1,parseInt(d.courts||3,10)||3);
   const visible=nextMatches.slice(0,limit);
   const imminent=visible.some(_isImminentMatch);
-  let html='<section class="next-panel '+(imminent?'next-imminent':'')+'"><div class="next-title">'+(imminent?'대진 임박':'다음 대기 경기')+'</div>'
-    +'<div class="next-wait-note">본인 경기 코트 번호 확인</div>'
+  let html='<section class="next-panel '+(imminent?'next-imminent':'')+'"><div class="next-title">'+(imminent?'다음 대진 준비':'다음 대진')+'</div>'
+    +'<div class="next-wait-note">예상 코트 번호 확인 · 종료 순서에 따라 바뀔 수 있음</div>'
     +'<div class="next-list">';
   visible.forEach(m=>{
     html+=buildLiveMatchCard(m,d,{next:true});
