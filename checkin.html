@@ -56,7 +56,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 .vote-summary{
   margin:12px 0 0;
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:1.35fr repeat(3,minmax(0,.88fr));
   gap:7px;
 }
 .vote-chip{
@@ -68,6 +68,14 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .vote-chip b{display:block;font-size:18px;line-height:1;color:#315fb2}
 .vote-chip span{display:block;margin-top:4px;font-size:11px;font-weight:900;color:var(--mut)}
+.vote-chip.total{
+  text-align:left;
+  padding:11px 12px;
+  background:linear-gradient(135deg,#eef5ff 0%,#fff 100%);
+  border-color:#bfdbfe;
+}
+.vote-chip.total b{font-size:24px;color:#315fb2}
+.vote-chip.total span{font-size:12px;color:#4f78c9}
 .vote-chip.ready{border-color:#bbf7d0;background:#f0fdf4}
 .vote-chip.ready b{color:#16834f}
 .vote-chip.warn{border-color:#fed7aa;background:#fff7ed}
@@ -515,7 +523,7 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
 }
 .toast.show{transform:translateY(0)}
 @media (min-width:620px){.buttons:not(.main-actions){grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:520px){.request-body,.compact-actions{grid-template-columns:1fr}.vote-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.request-body,.compact-actions{grid-template-columns:1fr}.vote-summary{grid-template-columns:1.15fr repeat(3,minmax(0,.8fr));gap:5px}.vote-chip{padding:8px 5px}.vote-chip.total{padding:9px 10px}.vote-chip.total b{font-size:22px}.vote-chip b{font-size:16px}.vote-chip span{font-size:10px}}
 </style>
 </head>
 <body>
@@ -524,7 +532,7 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
     <div class="eyebrow">KOKMATCH CHECK-IN</div>
     <h1>민턴LIVE 상태를 알려주세요</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
-    <div class="notice"><strong>참석</strong>은 갈 때, <strong>시작</strong>은 현장에서 바로 운동 가능할 때 누르세요. 켜진 버튼이 현재 상태입니다.</div>
+    <div class="notice"><strong>참석</strong> 후 현장에 도착하면 <strong>시작</strong>을 누르세요. 명단 변경은 같은 링크에 자동 반영됩니다.</div>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -692,10 +700,10 @@ function renderVoteSummary(){
   }
   el.className='vote-summary';
   el.innerHTML=[
-    `<div class="vote-chip ready"><b>${s.attending}</b><span>참석</span></div>`,
+    `<div class="vote-chip total"><b>${s.attending}명</b><span>참석 신청</span></div>`,
     `<div class="vote-chip ready"><b>${s.wait}</b><span>시작</span></div>`,
     `<div class="vote-chip"><b>${s.playing}</b><span>경기중</span></div>`,
-    `<div class="vote-chip warn"><b>${s.rest+s.invited}</b><span>휴식/미응답</span></div>`
+    `<div class="vote-chip warn"><b>${s.rest+s.invited}</b><span>휴식/미정</span></div>`
   ].join('');
 }
 function remainMinutes(row){
