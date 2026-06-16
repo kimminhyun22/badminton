@@ -187,11 +187,21 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .event-teamline{
   min-width:0;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:center;
+  gap:8px;
   font-size:18px;
   font-weight:900;
   color:#111827;
   line-height:1.28;
   letter-spacing:-.02em;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.event-team-player{
+  min-width:0;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
@@ -313,19 +323,20 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 .my-card{
   border:1.5px solid #c8dbfb;
   border-radius:24px;
-  background:linear-gradient(180deg,#fff 0%,#f7faff 100%);
-  box-shadow:0 14px 34px rgba(35,55,90,.1);
-  padding:15px;
+  background:linear-gradient(180deg,#fff 0%,#f8fbff 100%);
+  box-shadow:0 14px 34px rgba(35,55,90,.085);
+  padding:17px;
 }
-.my-card-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.my-card-head{display:flex;align-items:center;gap:13px;margin-bottom:13px}
 .my-avatar{
-  width:54px;height:54px;border-radius:18px;
+  width:58px;height:58px;border-radius:20px;
   display:flex;align-items:center;justify-content:center;
   background:#eaf1fe;color:#315fb2;border:1px solid #bfdbfe;
-  font-size:22px;font-weight:1000;flex-shrink:0;
+  font-size:23px;font-weight:1000;flex-shrink:0;
 }
-.my-card-name{font-size:22px;font-weight:1000;letter-spacing:-.04em;line-height:1.2;color:#18202d}
-.my-card-state{font-size:13px;font-weight:900;color:#16834f;margin-top:3px}
+.my-card-name{font-size:24px;font-weight:1000;letter-spacing:-.055em;line-height:1.16;color:#18202d}
+.my-card-state{font-size:13px;font-weight:1000;color:#16834f;margin-top:5px}
+.my-action-panel{border:1px solid #e3eaf5;border-radius:22px;background:#fff;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8);}
 .my-card .game-request{margin-top:10px}
 .pick-guide{
   border:1px dashed #c8dbfb;border-radius:20px;padding:14px;
@@ -380,6 +391,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 .badge.selected{background:#eaf1fe;color:#315fb2}
 .buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .main-actions{margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.my-action-panel .main-actions{margin-top:0;gap:8px}
 .status-section{
   margin-top:9px;
   border:1px solid var(--line);
@@ -498,8 +510,29 @@ button.active{
 }
 button.active small{color:rgba(255,255,255,.86)}
 button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);border-color:#187347;color:#fff}
+.status-icon{display:block;font-size:16px;line-height:1;margin-bottom:3px;opacity:.88}
 .main-actions .status-btn{min-height:54px;font-size:16px;}
 .main-actions .status-btn span{font-size:16px;}
+.my-action-panel .status-btn{
+  min-height:74px;
+  border-radius:20px;
+  border:1.5px solid #d8e2ef;
+  background:#fff;
+  color:#344055;
+  box-shadow:0 8px 18px rgba(35,55,90,.045);
+}
+.my-action-panel .status-btn.active{
+  background:linear-gradient(135deg,#35c978,#159456);
+  color:#fff;
+  border-color:#159456;
+  box-shadow:0 10px 24px rgba(21,148,86,.25);
+}
+.my-action-panel .status-btn.sent:not(.applied){
+  background:linear-gradient(135deg,#5b8def,#4778d8);
+  border-color:#4778d8;
+  color:#fff;
+}
+.my-action-panel .status-btn span:last-child{font-size:17px;font-weight:1000;letter-spacing:-.02em}
 .empty{
   padding:28px 14px;
   text-align:center;
@@ -524,6 +557,379 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
 .toast.show{transform:translateY(0)}
 @media (min-width:620px){.buttons:not(.main-actions){grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:520px){.request-body,.compact-actions{grid-template-columns:1fr}.vote-summary{grid-template-columns:1.15fr repeat(3,minmax(0,.8fr));gap:5px}.vote-chip{padding:8px 5px}.vote-chip.total{padding:9px 10px}.vote-chip.total b{font-size:22px}.vote-chip b{font-size:16px}.vote-chip span{font-size:10px}}
+
+/* ── 민턴LIVE calm design layer: 가안 톤 적용 ── */
+:root{
+  --bg:#f7f9fd;--card:#fff;--line:#e4ebf5;--txt:#263041;--mut:#7a8494;
+  --blue:#7fa8ee;--blue2:#f3f7ff;--green:#91d1aa;--red:#e99da1;--amber:#c99a58;
+  --blue-deep:#436eb8;--green-deep:#3f7c58;--red-deep:#a85f63;--amber-soft:#fff9ef;
+  --shadow:0 14px 34px rgba(35,55,90,.075);
+}
+body{
+  background:linear-gradient(180deg,#fff 0%,#f1f6ff 260px,#f7f9fd 100%);
+  color:var(--txt);
+}
+.wrap{max-width:430px;padding:18px 14px 38px;}
+.hero,
+.panel,
+.my-card,
+.member-fold,
+.player,
+.event-row{
+  border-color:var(--line);
+  border-radius:24px;
+  background:rgba(255,255,255,.93);
+  box-shadow:var(--shadow);
+}
+.hero{
+  background:rgba(255,255,255,.92);
+  padding:18px 16px;
+}
+.eyebrow{
+  color:var(--blue-deep);
+  letter-spacing:.14em;
+}
+h1{color:var(--txt);letter-spacing:-.055em;}
+.sub,
+.notice,
+.event-title span,
+.event-chip,
+.event-section-title,
+.meta,
+.member-fold summary,
+.event-row small{color:var(--mut);}
+.notice{
+  border-color:var(--line);
+  background:#fbfdff;
+  border-radius:18px;
+}
+.last-sent{
+  border-color:#cfeeda;
+  background:#f4fbf7;
+  color:var(--green-deep);
+  box-shadow:none;
+}
+.vote-chip{
+  border-color:var(--line);
+  border-radius:18px;
+  background:#fbfdff;
+}
+.vote-chip.total{
+  border-color:#c8dbfb;
+  background:var(--blue2);
+}
+.vote-chip b,
+.vote-chip.total b,
+.event-court-badge,
+.event-row .event-cue{color:var(--blue-deep);}
+.vote-chip.total span{color:var(--blue-deep);}
+.vote-chip.ready{
+  border-color:#cfeeda;
+  background:#f4fbf7;
+}
+.vote-chip.ready b{color:var(--green-deep);}
+.vote-chip.warn{
+  border-color:#ead2a8;
+  background:var(--amber-soft);
+}
+.vote-chip.warn b{color:#8c672b;}
+.panel{background:rgba(255,255,255,.92);}
+.event-team{
+  border-color:#c8dbfb;
+  background:var(--blue2);
+}
+.event-team.red{
+  border-color:#f1cdcf;
+  background:#fff7f7;
+}
+.event-team b{color:var(--blue-deep);}
+.event-team.red b{color:var(--red-deep);}
+.event-row{
+  box-shadow:none;
+  border-radius:20px;
+}
+.event-row.next{
+  border-color:#d9e6fb;
+  background:linear-gradient(180deg,#fff,#f7faff);
+}
+.event-row.next:first-child{
+  border-color:#c8dbfb;
+  box-shadow:0 0 0 3px rgba(127,168,238,.10);
+}
+.event-row.soon,
+.event-row.due{
+  border-color:#f0d7aa;
+  background:var(--amber-soft);
+}
+.event-court-badge{
+  background:var(--blue2);
+  border:1px solid #c8dbfb;
+}
+.event-row.next .event-court-badge{background:var(--blue2);color:var(--blue-deep);}
+.event-row.soon .event-court-badge,
+.event-row.due .event-court-badge{
+  background:#fff7f7;
+  border-color:#f1cdcf;
+  color:var(--red-deep);
+}
+.event-teamline,
+.event-match-title{color:var(--txt);}
+.event-teamline.b{color:#4b5565;}
+.event-row em{
+  background:var(--blue2);
+  color:var(--blue-deep);
+}
+.event-row.soon em,
+.event-row.due em{
+  background:#fff7f7;
+  border:1px solid #f1cdcf;
+  color:var(--red-deep);
+  animation:none;
+}
+.event-complete-btn,
+.event-undo-btn,
+.status-btn,
+.btn{
+  border-radius:18px;
+  box-shadow:none;
+}
+.event-complete-btn{
+  border-color:#c8dbfb;
+  background:var(--blue2);
+  color:var(--blue-deep);
+}
+.event-complete-btn.due,
+.event-complete-btn.soon{
+  border-color:#f1cdcf;
+  background:#fff7f7;
+  color:var(--red-deep);
+}
+.event-undo-btn{
+  border-color:#ead2a8;
+  background:var(--amber-soft);
+  color:#8c672b;
+}
+.my-card{
+  border-color:#c8dbfb;
+  background:linear-gradient(180deg,#fff 0%,#f7faff 100%);
+  padding:18px 16px;
+}
+.my-avatar{
+  background:var(--blue2);
+  color:var(--blue-deep);
+  border-color:#c8dbfb;
+}
+.my-card-name{color:var(--txt);}
+.my-card-state{color:var(--green-deep);}
+.my-action-panel{
+  border-color:var(--line);
+  background:#fff;
+  border-radius:22px;
+}
+.status-btn{
+  border:1.5px solid var(--line);
+  background:#fff;
+  color:var(--mut);
+}
+.status-btn.active,
+.status-btn.applied{
+  border-color:var(--green);
+  background:#f4fbf7;
+  color:var(--green-deep);
+  box-shadow:0 0 0 4px rgba(145,209,170,.14);
+}
+.status-btn.sent:not(.applied){
+  border-color:#c8dbfb;
+  background:var(--blue2);
+  color:var(--blue-deep);
+}
+.status-section{
+  border-color:var(--line);
+  border-radius:18px;
+  background:#fbfdff;
+}
+.status-section.active{
+  border-color:#c8dbfb;
+  background:var(--blue2);
+  box-shadow:0 0 0 3px rgba(127,168,238,.10);
+}
+.member-fold summary:after{
+  background:var(--blue2);
+  color:var(--blue-deep);
+}
+.search{
+  border-color:var(--line);
+  border-radius:18px;
+  background:#fff;
+  color:var(--txt);
+}
+.pill{
+  background:var(--blue2);
+  color:var(--blue-deep);
+}
+.player{
+  border-radius:20px;
+  box-shadow:none;
+}
+.player.locked{
+  border-color:#ead2a8;
+  background:var(--amber-soft);
+}
+.player.recent{
+  border-color:#c8dbfb;
+  box-shadow:0 0 0 4px rgba(127,168,238,.12);
+}
+.badge.selected,
+.request-status.done{
+  background:var(--blue2);
+  color:var(--blue-deep);
+}
+.request-status.cancelled{
+  background:#fff7f7;
+  color:var(--red-deep);
+}
+.toast{
+  background:#263041;
+  box-shadow:0 16px 44px rgba(35,48,65,.22);
+}
+
+/* 민턴LIVE 회원페이지: 내 상태 우선 + 다음 대진 압축형 */
+.my-card-wrap{
+  margin:12px 0 14px;
+}
+.event-panel{
+  margin-top:14px;
+}
+.event-title{
+  margin-bottom:8px;
+}
+.event-title b{
+  color:var(--txt);
+  letter-spacing:-.04em;
+}
+.event-row.next{
+  border-color:#cfeeda;
+  background:linear-gradient(180deg,#fff 0%,#f7fcf9 100%);
+  border-radius:20px;
+  padding:11px 12px;
+}
+.event-row.next:first-child{
+  border-color:var(--green);
+  box-shadow:0 0 0 3px rgba(145,209,170,.13);
+}
+.event-row.next.soon,
+.event-row.next.due{
+  border-color:#f1cdcf;
+  background:#fff7f7;
+}
+.event-row.next .event-row-main{
+  grid-template-columns:auto minmax(0,1fr);
+  gap:10px;
+}
+.event-rank-badge{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--green);
+  border-radius:999px;
+  background:#f4fbf7;
+  color:var(--green-deep);
+  font-size:.92rem;
+  font-weight:1000;
+  line-height:1;
+}
+.event-row.next.soon .event-rank-badge,
+.event-row.next.due .event-rank-badge{
+  border-color:#f1cdcf;
+  background:#fff1f1;
+  color:var(--red-deep);
+}
+.next-teams{
+  display:block;
+}
+.event-next-line{
+  min-width:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  white-space:nowrap;
+  color:var(--txt);
+  font-size:.93rem;
+  font-weight:1000;
+  line-height:1.25;
+  letter-spacing:-.055em;
+}
+.event-next-pair{
+  min-width:0;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:center;
+  gap:8px;
+}
+.event-next-pair.a .event-next-player{text-align:right;}
+.event-next-pair.b .event-next-player{text-align:left;}
+.event-next-player{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.event-dot{
+  display:none;
+}
+.event-next-line em{
+  margin:0;
+  color:var(--mut);
+  font-style:normal;
+  font-size:.64rem;
+  font-weight:1000;
+  text-transform:lowercase;
+  text-align:center;
+}
+.event-row.next .event-complete-action{
+  margin-top:8px;
+}
+.event-row.next .event-complete-btn{
+  min-height:38px;
+  border-color:#cfeeda;
+  background:#f4fbf7;
+  color:var(--green-deep);
+}
+.event-row.next.soon .event-complete-btn,
+.event-row.next.due .event-complete-btn{
+  border-color:#f1cdcf;
+  background:#fff7f7;
+  color:var(--red-deep);
+}
+.event-section-title{
+  color:#8792a2;
+  letter-spacing:-.02em;
+}
+.event-row:not(.next){
+  border-color:#d9e6fb;
+  background:#fbfdff;
+}
+.event-row.soon:not(.next),
+.event-row.due:not(.next){
+  border-color:#ead2a8;
+  background:var(--amber-soft);
+}
+@media(max-width:370px){
+  .event-next-line{
+    grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr);
+    gap:6px;
+    font-size:.88rem;
+  }
+  .event-next-line em{
+    margin:0;
+    line-height:.9;
+  }
+  .event-next-player{
+    min-width:0;
+  }
+}
 </style>
 </head>
 <body>
@@ -536,9 +942,9 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
+  <div id="myCard" class="my-card-wrap hidden"></div>
   <section class="panel event-panel hidden" id="eventPanel"></section>
   <section class="panel">
-    <div id="myCard" class="my-card-wrap hidden"></div>
     <div class="toolbar">
       <input id="search" class="search" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ" autocomplete="off">
       <span class="pill" id="countPill">0명</span>
@@ -720,14 +1126,26 @@ function remainText(row){
   return n<=0?'종료임박':`약 ${n}분 남음`;
 }
 function teamNames(row){
-  const a=(row.t1||[]).join(' · ');
-  const b=(row.t2||[]).join(' · ');
+  const a=(row.t1||[]).join(' ');
+  const b=(row.t2||[]).join(' ');
   return `${a} vs ${b}`;
 }
 function teamLines(row){
-  const a=(row.t1||[]).join(' · ')||'A팀';
-  const b=(row.t2||[]).join(' · ')||'B팀';
-  return `<div class="event-teamline">${esc(a)}</div><div class="event-teamline b">${esc(b)}</div>`;
+  const pair=(names,cls='',fallback='A팀')=>{
+    const list=(names||[]).length?names:[fallback,''];
+    return `<div class="event-teamline ${cls}">${list.slice(0,2).map(n=>`<span class="event-team-player">${esc(n)}</span>`).join('')}</div>`;
+  };
+  return `${pair(row.t1,'','A팀')}${pair(row.t2,'b','B팀')}`;
+}
+function nextTeamLine(row){
+  const a=row.t1||[];
+  const b=row.t2||[];
+  const player=n=>`<span class="event-next-player">${esc(n)}</span>`;
+  return `<div class="event-next-line">
+    <span class="event-next-pair a">${a.slice(0,2).map(player).join('')}</span>
+    <em>vs</em>
+    <span class="event-next-pair b">${b.slice(0,2).map(player).join('')}</span>
+  </div>`;
 }
 function courtBadge(label){
   const text=String(label||'대기');
@@ -767,21 +1185,18 @@ function renderEvent(){
   const next=(ev.next||[]).slice(0,4).map(m=>{
     const selectedId=last&&last.playerId;
     const canComplete=selectedId&&m.targetMatchId&&m.queueId&&(m.playerIds||[]).includes(selectedId);
-    const completeLabel=m.targetCourt?`${m.targetCourt}코트 종료 후 입장`:'코트 종료 후 입장';
+    const completeLabel='종료 후 입장';
     const action=canComplete?`<div class="event-complete-action">
       <button class="event-complete-btn ${esc(m.cueState||'')}" onclick="sendCourtComplete('${esc(m.queueId)}','${esc(m.targetMatchId)}','${esc(String(m.targetCourt||''))}')">${esc(completeLabel)}</button>
     </div>`:'';
     return `<div class="event-row next ${esc(m.cueState||'')}">
     <div class="event-row-main">
-      ${courtBadge(m.cue||'대기')}
+      <div class="event-rank-badge">${esc(String(m.idx||''))}</div>
       <div>
-        <div class="event-match-title">${m.idx===1?'다음 대진 1순위':`다음 대진 ${m.idx}순위`}</div>
-        <div class="event-teams">${teamLines(m)}</div>
-        <small class="event-cue">${esc(m.cue||'예상 코트 대기')} · ${esc(m.cueDetail||'종료 순서에 따라 바뀔 수 있습니다')}</small>
+        <div class="event-teams next-teams">${nextTeamLine(m)}</div>
         ${action}
       </div>
     </div>
-    <em>${m.idx===1?'준비':'대기'}</em>
   </div>`;
   }).join('');
   const undo=lastComplete?`<div class="event-row">
@@ -859,7 +1274,8 @@ function statusButtons(p,keys,disabled){
     const sent=last&&last.playerId===p.id&&last.status===spec.key;
     const active=selected===spec.key;
     const cls=['status-btn',active?'active':'',applied?'applied':'',sent&&!applied?'sent':''].filter(Boolean).join(' ');
-    return `<button class="${cls}" ${disabled} onclick="sendStatus('${esc(p.id)}','${esc(spec.action)}')"><span>${esc(spec.label)}</span></button>`;
+    const icon=spec.key==='planned'?'✓':(spec.key==='wait'?(selected==='wait'?'⏹':'▶'):(spec.key==='rest'?'☕':'•'));
+    return `<button class="${cls}" ${disabled} onclick="sendStatus('${esc(p.id)}','${esc(spec.action)}')"><span class="status-icon">${esc(icon)}</span><span>${esc(spec.label)}</span></button>`;
   }).join('');
 }
 function statusSection(p,title,keys,disabled){
@@ -916,6 +1332,9 @@ function renderMyCard(last,players){
   if(fold&&!query)fold.open=false;
   const initial=String(selected.name||'?').trim().slice(0,1)||'?';
   const selectedState=compactLabel(getSelectedStatus(selected));
+  const disabledAttr=sendingKey||selected.voteLocked?'disabled':'';
+  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,disabledAttr);
+  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
   el.innerHTML=`<section class="my-card">
     <div class="my-card-head">
       <div class="my-avatar">${esc(initial)}</div>
@@ -924,7 +1343,11 @@ function renderMyCard(last,players){
         <div class="my-card-state">내 상태 · ${esc(selectedState)}${selected.locked?' · 경기중 예약 반영':''}</div>
       </div>
     </div>
-    ${playerCardHtml(selected,sendingKey||selected.voteLocked?'disabled':'',{forceHighlight:true})}
+    <div class="my-action-panel">
+      <div class="buttons main-actions">${mainButtons}</div>
+      ${subSection}
+      ${gameRequestBox(selected,disabledAttr)}
+    </div>
   </section>`;
 }
 function requestPlayerOptions(selfId,selected){

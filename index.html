@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.200  (2026-06)
+     APP VERSION: 1.10.226  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.200">
+<meta name="app-version" content="1.10.226">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -995,7 +995,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-match-top{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--sur2);border-bottom:1px solid var(--bdr);padding:8px 11px;}
 .daily-match-title{font-size:.76rem;font-weight:900;color:var(--txt);}
 .daily-match-body{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;}
-.daily-court-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:9px;}
+.daily-court-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
 .daily-court-card{border:1.5px solid var(--bdr);border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 10px 22px rgba(15,23,42,.045);}
 .daily-court-card.busy{border-color:var(--bl-softbdr);background:linear-gradient(180deg,#fbfdff 0%,#fff 100%);}
 .daily-court-card.soon{border-color:#f3b4b4;background:#fff9f9;box-shadow:0 10px 24px rgba(239,68,68,.1);}
@@ -1020,8 +1020,9 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-court-empty{font-size:.75rem;color:var(--dim);line-height:1.55;background:#fff;border:1px solid var(--bdr);border-radius:11px;padding:11px;}
 .daily-empty{font-size:.78rem;color:var(--dim);text-align:center;padding:24px;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff;}
 .daily-note{font-size:.72rem;color:var(--dim);line-height:1.65;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;}
-.daily-auto-row{display:flex;align-items:flex-start;gap:8px;padding:10px 11px;border:1px solid var(--bdr);border-radius:10px;background:#fff;margin-top:9px;cursor:pointer;}
+.daily-auto-row{display:flex;align-items:flex-start;gap:8px;padding:10px 11px;border:1px solid var(--bdr);border-radius:10px;background:#fff;margin-top:9px;}
 .daily-auto-row input{margin-top:2px;accent-color:var(--bl);flex-shrink:0;}
+.daily-auto-led{width:10px;height:10px;border-radius:50%;background:#bbf7d0;box-shadow:0 0 0 5px rgba(187,247,208,.22);margin-top:5px;flex-shrink:0;}
 .daily-auto-title{display:block;font-size:.78rem;font-weight:900;color:var(--txt);line-height:1.35;}
 .daily-auto-desc{display:block;font-size:.68rem;color:var(--dim);line-height:1.5;margin-top:2px;}
 .daily-criteria{display:flex;flex-direction:column;gap:7px;}
@@ -1061,14 +1062,14 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-section-fold[open] summary:after{content:'접기';}
 .daily-section-fold-body{padding:12px;}
 .daily-ops-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
-.daily-op{border:1.5px solid var(--bdr);border-radius:15px;background:#fff;padding:12px 11px;min-height:76px;box-shadow:0 8px 18px rgba(15,23,42,.035);}
+.daily-op{border:1.5px solid #e3eaf5;border-radius:18px;background:#fff;padding:13px 12px;min-height:82px;box-shadow:0 8px 18px rgba(15,23,42,.028);}
 .daily-op.primary{background:linear-gradient(135deg,#f6f9ff 0%,#fff 100%);border-color:var(--bl-softbdr);}
 .daily-op.warn{background:#fffaf0;border-color:#f3d99b;}
-.daily-op b{display:block;font-size:1.42rem;color:#263141;line-height:1.04;letter-spacing:-.03em;}
-.daily-op span{display:block;font-size:.68rem;color:#6d7787;font-weight:1000;margin-top:5px;letter-spacing:-.01em;}
+.daily-op b{display:block;font-size:1.48rem;color:#242d3a;line-height:1.04;letter-spacing:-.04em;}
+.daily-op span{display:block;font-size:.68rem;color:#6d7787;font-weight:1000;margin-top:6px;letter-spacing:-.01em;}
 .daily-op small{display:block;font-size:.62rem;color:#8a94a3;line-height:1.35;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.daily-admin-alerts{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
-.daily-admin-alert{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border:1px solid var(--bdr);border-radius:12px;background:#fff;padding:10px 11px;}
+.daily-admin-alerts{display:flex;flex-direction:column;gap:8px;margin-top:11px;}
+.daily-admin-alert{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border:1.5px solid #e3eaf5;border-radius:17px;background:#fff;padding:12px 13px;}
 .daily-admin-alert.primary{background:linear-gradient(135deg,#eef5ff 0%,#fff 100%);border-color:var(--bl-softbdr);}
 .daily-admin-alert.ok{background:#f7fff9;border-color:#bbf7d0;}
 .daily-admin-alert.warn{background:#fffbeb;border-color:#fde68a;}
@@ -1092,20 +1093,47 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-sb-state.ok{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534;}
 .daily-sb-state.need{background:#dc2626;border:1px solid #b91c1c;color:#fff;animation:nowPulse 1.6s ease-in-out infinite;}
 /* ── 지금 할 일 / 자동시작 상단 토글 ── */
-.daily-todo-head{font-size:.76rem;font-weight:900;color:var(--dim);letter-spacing:.5px;margin:4px 0 8px;}
-.daily-auto-row-top{margin-top:0;margin-bottom:12px;border-color:var(--bl-softbdr);background:linear-gradient(135deg,#f8fbff 0%,#fff 100%);}
+.daily-todo-head{font-size:.72rem;font-weight:1000;color:var(--dim);letter-spacing:.7px;margin:12px 0 8px;text-transform:uppercase;}
+.daily-auto-row-top{margin-top:11px;margin-bottom:0;border-color:var(--bl-softbdr);background:linear-gradient(135deg,#f8fbff 0%,#fff 100%);}
 .daily-ops-stats-fold{margin-top:10px;margin-bottom:0;}
 .daily-ops-stats-fold summary{font-size:.78rem!important;padding:10px 12px!important;}
 .btn-danger-ghost{color:#b91c1c!important;border-color:#fecaca!important;}
 .btn-danger-ghost:hover{background:#fee2e2!important;}
 .daily-primary-card{border-color:var(--bl-softbdr);box-shadow:0 10px 24px rgba(91,141,239,.08);}
-.daily-dashboard-card .card-body{padding:13px 14px;}
+.daily-dashboard-card .card-head{display:none;}
+.daily-dashboard-card .card-body{padding:16px;}
+.daily-dashboard-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px;}
+.daily-dashboard-kicker{font-size:.64rem;font-weight:1000;letter-spacing:1.8px;text-transform:uppercase;color:var(--bl);line-height:1.2;margin-bottom:6px;}
+.daily-dashboard-title{font-size:1.38rem;font-weight:1000;color:#263141;letter-spacing:-.055em;line-height:1.18;margin:0;}
+.daily-dashboard-sub{font-size:.74rem;color:#7b8493;line-height:1.55;margin-top:6px;font-weight:800;letter-spacing:-.02em;}
+.daily-state-pill{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;border:1px solid #bbf7d0;background:#f0fdf4;color:#16834f;border-radius:999px;padding:7px 10px;font-size:.68rem;font-weight:1000;box-shadow:0 7px 18px rgba(34,197,94,.08);}
+.daily-state-pill.need{border-color:#fde68a;background:#fffbeb;color:#9a6a00;}
+.daily-state-pill .daily-dot{width:7px;height:7px;border-radius:999px;background:#9df4bd;box-shadow:0 0 14px rgba(34,197,94,.55);}
+.daily-state-pill.need .daily-dot{background:#facc15;box-shadow:0 0 14px rgba(250,204,21,.55);}
 .daily-dashboard-tools{margin:12px 0 0;}
 .daily-dashboard-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;}
 .daily-queue-list{display:flex;flex-direction:column;gap:9px;}
-.daily-urgent-list{display:flex;flex-direction:column;gap:10px;}
-.daily-urgent-list .daily-queue-item{border-color:#93c5fd;box-shadow:0 10px 24px rgba(91,141,239,.14);}
-.daily-urgent-list .daily-queue-title{font-size:.9rem;}
+.daily-urgent-list{display:flex;flex-direction:column;gap:8px;}
+.daily-urgent-list .daily-queue-item{border-color:#93c5fd;border-radius:16px;box-shadow:0 8px 20px rgba(91,141,239,.12);}
+.daily-urgent-list .daily-queue-head{padding:7px 8px 6px;align-items:center;background:#f8fbff;}
+.daily-urgent-list .daily-queue-head-main{gap:0;min-width:0;}
+.daily-urgent-list .daily-drag-handle{display:none;}
+.daily-urgent-list .daily-queue-title{font-size:.74rem;line-height:1.15;letter-spacing:-.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.daily-urgent-list .daily-start-cue{display:none;}
+.daily-urgent-list .daily-queue-badge{font-size:.56rem;padding:2px 6px;margin-left:4px;}
+.daily-urgent-list .daily-queue-actions{display:flex;width:auto;min-width:42px;flex-direction:column;gap:0;align-items:stretch;justify-content:center;}
+.daily-urgent-list .daily-queue-actions:empty{display:none;}
+.daily-urgent-list .daily-queue-actions .daily-mini-btn{width:100%;min-height:28px;border-radius:9px;padding:5px 6px;font-size:.62rem;line-height:1.1;text-align:center;}
+.daily-urgent-list .daily-queue-actions .primary-action{min-height:30px;font-size:.62rem;box-shadow:none;}
+.daily-urgent-list .daily-queue-actions.single{min-width:42px;}
+.daily-urgent-list .daily-queue-board{grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);}
+.daily-urgent-list .daily-queue-board-side{padding:6px;gap:4px;}
+.daily-urgent-list .daily-queue-board-label{display:none;}
+.daily-urgent-list .daily-queue-vs{padding:0 2px;font-size:.54rem;}
+.daily-urgent-list .daily-queue-player{padding:7px 6px;border-radius:10px;}
+.daily-urgent-list .daily-queue-player b{font-size:.86rem;line-height:1.08;}
+.daily-urgent-list .daily-queue-player small{display:none;}
+.daily-urgent-list .daily-queue-editor,.daily-urgent-list .daily-reasons{display:none;}
 .daily-queue-guide{font-size:.72rem;color:var(--dim);line-height:1.6;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-bottom:10px;}
 .daily-queue-item{border:1px solid var(--bdr);border-radius:13px;background:#fff;overflow:hidden;}
 .daily-queue-item.locked{border-color:#bfdbfe;box-shadow:0 6px 18px rgba(91,141,239,.09);}
@@ -1138,6 +1166,16 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-queue-swap-row{display:grid;grid-template-columns:minmax(74px,.72fr) minmax(120px,1fr);gap:6px;align-items:center;}
 .daily-queue-swap-row span{min-width:0;font-size:.72rem;font-weight:900;color:var(--txt);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .daily-queue-select{width:100%;background:#fff;border:1px solid var(--bdr);border-radius:8px;padding:7px 8px;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:.76rem;font-weight:800;}
+.daily-queue-board{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;background:#fff;}
+.daily-queue-board-side{display:grid;grid-template-columns:1fr;gap:7px;padding:9px;background:#f6f9ff;}
+.daily-queue-board-side.b{background:#fff7f7;}
+.daily-queue-board-label{font-size:.62rem;color:var(--dim);font-weight:1000;letter-spacing:.7px;margin-bottom:1px;}
+.daily-queue-player{appearance:none;width:100%;min-width:0;text-align:left;border:1.5px solid #d9e6fb;border-radius:13px;background:rgba(255,255,255,.92);color:var(--txt);padding:9px 9px;font-family:'Noto Sans KR',sans-serif;font-weight:1000;line-height:1.2;box-shadow:0 5px 14px rgba(35,55,90,.045);cursor:pointer;}
+.daily-queue-player:active{transform:scale(.985);background:#edf5ff;border-color:var(--bl-softbdr);}
+.daily-queue-player[disabled]{cursor:default;opacity:.8;}
+.daily-queue-player b{display:block;font-size:.94rem;letter-spacing:-.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.daily-queue-player small{display:block;font-size:.58rem;color:#788493;font-weight:900;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.daily-queue-vs{display:flex;align-items:center;justify-content:center;background:#fff;color:#8b95a5;font-size:.66rem;font-weight:1000;padding:0 7px;border-left:1px solid var(--bdr);border-right:1px solid var(--bdr);}
 .daily-unscheduled-list{display:flex;flex-direction:column;gap:6px;}
 .daily-unscheduled-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:1px solid var(--bdr);border-radius:10px;padding:9px 11px;}
 .daily-unscheduled-name{font-size:.82rem;font-weight:900;color:var(--txt);}
@@ -1230,8 +1268,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
   .daily-form-grid{grid-template-columns:1fr 1fr;}.daily-form-grid .dir-input{grid-column:1/-1;}
   .daily-player{grid-template-columns:1fr;}.daily-player-actions{justify-content:stretch;flex-wrap:wrap;}.daily-player-actions select{width:100%;flex:1 1 100%;}
   .daily-res-grid{grid-template-columns:1fr 1fr;}.daily-res-grid .daily-vs{display:none;}.daily-res-body{grid-template-columns:1fr;}.daily-res-vs{display:none;}
+  .daily-urgent-list{display:flex;flex-direction:column;gap:7px;}
   .daily-result-score,.daily-team-roster-grid{grid-template-columns:1fr;}
   .daily-rec-body,.daily-match-body,.daily-court-teams{grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);}
+  .daily-queue-board{grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);}
+  .daily-queue-board-side{padding:8px;gap:6px;}.daily-queue-vs{padding:0 4px;font-size:.58rem;}
+  .daily-queue-player{padding:9px 8px;border-radius:12px;}.daily-queue-player b{font-size:.9rem;}.daily-queue-player small{font-size:.56rem;}
   .daily-queue-edit{grid-template-columns:1fr;}
   .daily-vs,.daily-court-vs,.daily-result-vs{padding:5px;font-size:.62rem;}
   .daily-team{padding:10px 9px;}.daily-team-label,.daily-court-team-label{font-size:.58rem;margin-bottom:3px;}
@@ -1243,6 +1285,16 @@ body.monthly-team-mode .team-partner-help{display:block;}
   .daily-queue-title{font-size:.86rem;line-height:1.32;}.daily-urgent-list .daily-queue-title{font-size:.94rem;}
   .daily-queue-badge,.daily-start-cue{font-size:.64rem;padding:3px 7px;}
   .daily-queue-actions,.daily-court-actions,.daily-win-actions,.daily-win-actions.three{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+  .daily-urgent-list .daily-queue-head{flex-direction:row;padding:6px 7px;gap:5px;}
+  .daily-urgent-list .daily-queue-actions{display:flex;width:auto;min-width:42px;gap:0;}
+  .daily-urgent-list .daily-queue-actions .daily-mini-btn{min-height:28px;font-size:.58rem;padding:4px 5px;}
+  .daily-urgent-list .daily-queue-actions .primary-action{grid-column:auto;min-height:30px;font-size:.6rem;}
+  .daily-urgent-list .daily-queue-title{font-size:.72rem;}
+  .daily-urgent-list .daily-start-cue{font-size:.52rem;}
+  .daily-urgent-list .daily-queue-board{grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);}
+  .daily-urgent-list .daily-queue-board-side{padding:6px;gap:4px;}
+  .daily-urgent-list .daily-queue-player{padding:7px 6px;border-radius:10px;}
+  .daily-urgent-list .daily-queue-player b{font-size:.78rem;}
   .daily-court-actions.single{grid-template-columns:1fr;}
   .daily-queue-actions .daily-mini-btn,.daily-court-actions .daily-mini-btn,.daily-win-actions .daily-mini-btn{width:100%;min-height:42px;font-size:.78rem;border-radius:10px;white-space:normal;line-height:1.25;text-align:center;}
   .daily-queue-actions .primary-action,.daily-court-actions .primary-action{grid-column:1/-1;min-height:46px;font-size:.84rem;}
@@ -1255,6 +1307,31 @@ body.monthly-team-mode .team-partner-help{display:block;}
 @media(max-width:400px){
   .nav-tab{font-size:.72rem;padding:12px 8px;}
   .win-btn{padding:7px 9px;font-size:.72rem;}
+}
+
+@media(max-width:520px){
+  .daily-active-card .card-head{padding:16px 18px;}
+  .daily-active-card .card-title{font-size:1.12rem;}
+  .daily-card-sub{font-size:.72rem;}
+  .daily-active-card .card-body{padding:12px;}
+  .daily-court-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .daily-court-card{border-radius:22px;}
+  .daily-court-head{padding:17px 18px 6px;align-items:flex-start;}
+  .daily-court-title{font-size:1.18rem;}
+  .daily-court-card .daily-timer{font-size:.96rem;}
+  .daily-court-body{padding:7px 18px 18px;gap:15px;}
+  .daily-court-stack .daily-court-team-name{font-size:.98rem;line-height:1.36;}
+  .daily-court-actions{grid-template-columns:1fr 1fr;gap:9px;}
+  .daily-court-actions .daily-mini-btn{min-height:50px;border-radius:17px;font-size:.86rem;}
+}
+
+@media(max-width:370px){
+  .daily-next-card{gap:9px;padding:10px;}
+  .daily-next-rank{min-width:36px;height:36px;font-size:.82rem;}
+  .daily-next-line{grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);gap:5px;font-size:.9rem;white-space:normal;}
+  .daily-next-pair{flex-wrap:wrap;row-gap:1px;}
+  .daily-next-line>em{width:auto;margin:0;font-size:.6rem;line-height:1;align-self:center;}
+  .daily-next-player{flex:0 1 auto;max-width:100%;}
 }
 
 /* ════════════════════════════════
@@ -1597,6 +1674,458 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .collapse-btn{background:transparent;border:none;color:var(--dim);font-size:1rem;cursor:pointer;
   padding:2px 5px;transition:transform .2s;flex-shrink:0;line-height:1;}
 .collapse-btn.collapsed{transform:rotate(-90deg);}
+
+/* ── 민턴LIVE calm design layer: UX 가안의 색감/여백 적용 ── */
+.daily-layout{
+  --ml-bg:#f7f9fd;
+  --ml-card:rgba(255,255,255,.94);
+  --ml-ink:#263041;
+  --ml-mut:#7a8494;
+  --ml-line:#e4ebf5;
+  --ml-blue:#7fa8ee;
+  --ml-blue-deep:#436eb8;
+  --ml-blue-soft:#f3f7ff;
+  --ml-red:#e99da1;
+  --ml-red-deep:#a85f63;
+  --ml-red-soft:#fff7f7;
+  --ml-green:#91d1aa;
+  --ml-green-deep:#3f7c58;
+  --ml-green-soft:#f4fbf7;
+  --ml-amber:#c99a58;
+  --ml-amber-soft:#fff9ef;
+  color:var(--ml-ink);
+}
+.daily-page .wrap{background:linear-gradient(180deg,#fff 0%,#f1f6ff 260px,#f7f9fd 100%);}
+.daily-hero,
+.daily-layout .card,
+.daily-section-fold{
+  border-color:var(--ml-line);
+  border-radius:24px;
+  background:var(--ml-card);
+  box-shadow:0 14px 34px rgba(35,55,90,.075);
+}
+.daily-hero{
+  background:rgba(255,255,255,.88);
+  padding:16px;
+  margin-bottom:13px;
+}
+.daily-hero h2,
+.daily-dashboard-title,
+.daily-court-title,
+.daily-queue-player b{color:var(--ml-ink);}
+.daily-hero p,
+.daily-dashboard-sub,
+.daily-auto-desc,
+.daily-empty,
+.daily-note{color:var(--ml-mut);}
+.daily-statusbar{
+  border-color:var(--ml-line);
+  border-radius:20px;
+  background:#fff;
+  box-shadow:0 10px 28px rgba(35,55,90,.055);
+}
+.daily-dashboard-card .card-body{padding:16px;}
+.daily-dashboard-kicker{
+  color:var(--ml-blue-deep);
+  letter-spacing:.14em;
+}
+.daily-state-pill{
+  border-color:var(--ml-green);
+  background:var(--ml-green-soft);
+  color:var(--ml-green-deep);
+  box-shadow:none;
+}
+.daily-state-pill .daily-dot{
+  background:var(--ml-green);
+  box-shadow:0 0 0 5px rgba(145,209,170,.18);
+}
+.daily-state-pill.need{
+  border-color:#ead2a8;
+  background:var(--ml-amber-soft);
+  color:#8c672b;
+}
+.daily-ops-grid{gap:8px;}
+.daily-ops-card,
+.daily-stat{
+  border-color:var(--ml-line);
+  border-radius:18px;
+  background:#fbfdff;
+}
+.daily-ops-card b,
+.daily-stat b{color:var(--ml-ink);}
+.daily-ops-card span,
+.daily-stat span{color:var(--ml-mut);}
+.daily-auto-row,
+.daily-admin-alert,
+.daily-checkin-req,
+.daily-player,
+.daily-request-card{
+  border-color:var(--ml-line);
+  border-radius:18px;
+  background:#fff;
+}
+.daily-auto-row-top{
+  border-color:#c8dbfb;
+  background:var(--ml-blue-soft);
+}
+.daily-mini-btn{
+  border:1.5px solid var(--ml-line);
+  border-radius:14px;
+  background:#fff;
+  color:var(--ml-ink);
+  box-shadow:none;
+}
+.daily-mini-btn:hover{
+  background:var(--ml-blue-soft);
+  border-color:#c8dbfb;
+  color:var(--ml-blue-deep);
+}
+.daily-mini-btn.primary-action,
+.daily-mini-btn.win-blue{
+  background:var(--ml-blue-soft);
+  border-color:#c8dbfb;
+  color:var(--ml-blue-deep);
+  box-shadow:0 6px 18px rgba(35,55,90,.06);
+}
+.daily-mini-btn.danger,
+.daily-mini-btn.win-red{
+  background:var(--ml-red-soft);
+  border-color:#f1cdcf;
+  color:var(--ml-red-deep);
+}
+.daily-active-card .card-head,
+.daily-urgent-card .card-head,
+.daily-layout details>.card-head,
+.daily-section-fold>summary{
+  border-bottom-color:var(--ml-line);
+  background:rgba(255,255,255,.78);
+}
+.daily-active-card .card-head{
+  align-items:center;
+  padding:17px 22px;
+}
+.daily-active-card .card-title{
+  color:var(--ml-ink);
+  font-size:1.22rem;
+  font-weight:1000;
+  letter-spacing:-.055em;
+  text-transform:none;
+}
+.daily-card-sub{
+  color:var(--ml-mut);
+  font-size:.78rem;
+  font-weight:1000;
+  letter-spacing:-.02em;
+  white-space:nowrap;
+}
+.daily-active-card .card-body{padding:14px;}
+.daily-active-list{gap:0;}
+.daily-court-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.daily-court-card{
+  border:1.5px solid var(--ml-line);
+  border-radius:23px;
+  background:#fff;
+  box-shadow:none;
+  overflow:hidden;
+}
+.daily-court-card.busy{
+  border-color:#d9e6fb;
+  background:#fff;
+}
+.daily-court-card.soon,
+.daily-court-card.due{
+  border-color:#f0d7aa;
+  background:var(--ml-amber-soft);
+  box-shadow:0 0 0 3px rgba(201,154,88,.08);
+}
+.daily-court-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:8px;
+  background:#fff;
+  border-bottom:0;
+  padding:18px 20px 6px;
+}
+.daily-court-title{
+  color:var(--ml-blue-deep);
+  font-size:1.22rem;
+  font-weight:1000;
+  line-height:1.1;
+  letter-spacing:-.06em;
+}
+.daily-court-card.soon .daily-court-title,
+.daily-court-card.due .daily-court-title{color:var(--ml-blue-deep);}
+.daily-court-card .daily-timer{
+  border:0;
+  background:transparent;
+  padding:0;
+  color:var(--ml-mut);
+  font-size:1rem;
+  font-weight:1000;
+  white-space:nowrap;
+  min-width:auto;
+}
+.daily-court-card .daily-timer.soon,
+.daily-court-card .daily-timer.due{
+  background:transparent;
+  color:var(--ml-red-deep);
+  animation:none;
+}
+.daily-court-state.busy{
+  background:var(--ml-blue-soft);
+  border-color:#c8dbfb;
+  color:var(--ml-blue-deep);
+}
+.daily-court-state.soon,
+.daily-court-state.due{
+  background:var(--ml-red-soft);
+  border-color:#f1cdcf;
+  color:var(--ml-red-deep);
+}
+.daily-court-teams{
+  border-color:var(--ml-line);
+  border-radius:18px;
+}
+.daily-court-body{
+  padding:7px 16px 18px;
+  gap:14px;
+}
+.daily-court-stack{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr);
+  align-items:center;
+  gap:5px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  overflow:visible;
+}
+.daily-court-team{background:var(--ml-blue-soft);}
+.daily-court-team.b{background:var(--ml-red-soft);}
+.daily-court-vs,
+.daily-queue-vs{
+  background:#fff;
+  color:var(--ml-mut);
+}
+.daily-court-stack .daily-court-vs{
+  background:transparent;
+  border:0;
+  padding:0;
+  color:var(--ml-mut);
+  font-size:.72rem;
+  font-weight:1000;
+  text-transform:lowercase;
+  align-self:center;
+  justify-self:center;
+}
+.daily-court-stack .daily-court-team-name{
+  display:grid;
+  gap:2px;
+  color:var(--ml-ink);
+  font-size:.94rem;
+  font-weight:1000;
+  line-height:1.24;
+  letter-spacing:-.065em;
+  min-width:0;
+  overflow:visible;
+  white-space:normal;
+  word-break:keep-all;
+}
+.daily-court-stack .daily-court-team-name:first-child{text-align:right;}
+.daily-court-stack .daily-court-team-name.b{text-align:left;}
+.daily-court-stack .daily-court-team-name.b{color:var(--ml-ink);}
+.daily-pair-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.daily-pair-dot{display:none;}
+.daily-court-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.daily-court-actions .daily-mini-btn{
+  min-height:52px;
+  border-radius:18px;
+  font-size:.9rem;
+  font-weight:1000;
+}
+.daily-court-actions .daily-mini-btn.danger{
+  background:var(--ml-red-soft);
+  border-color:#f1cdcf;
+  color:var(--ml-red-deep);
+}
+.daily-court-actions .daily-mini-btn:not(.danger){
+  background:#fff;
+  border-color:#dbe7fb;
+  color:var(--ml-ink);
+}
+.daily-urgent-list{gap:8px;}
+.daily-urgent-list .daily-queue-item{
+  border-color:#d9e6fb;
+  border-radius:18px;
+  box-shadow:0 10px 24px rgba(35,55,90,.065);
+}
+.daily-urgent-list .daily-next-card{
+  display:block;
+  position:relative;
+  overflow:hidden;
+  padding:12px;
+  background:#fff;
+}
+.daily-next-rank{
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+  min-width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--ml-green);
+  border-radius:999px;
+  background:var(--ml-green-soft);
+  color:var(--ml-green-deep);
+  font-size:.92rem;
+  font-weight:1000;
+}
+.daily-next-match{
+  min-width:0;
+  display:block;
+}
+.daily-next-line{
+  min-width:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);
+  align-items:center;
+  gap:7px;
+  color:var(--ml-ink);
+  font-size:.94rem;
+  font-weight:1000;
+  line-height:1.25;
+  letter-spacing:-.055em;
+  white-space:nowrap;
+}
+.daily-next-pair{
+  min-width:0;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:center;
+  gap:8px;
+}
+.daily-next-pair.a{padding-left:24px;}
+.daily-next-pair.a .daily-next-player{text-align:right;}
+.daily-next-pair.b .daily-next-player{text-align:left;}
+.daily-next-line .daily-next-dot{
+  display:none;
+}
+.daily-next-line>em{
+  flex:0 0 auto;
+  color:var(--ml-mut);
+  font-size:.66rem;
+  font-style:normal;
+  font-weight:1000;
+  margin:0;
+  text-transform:lowercase;
+  text-align:center;
+  justify-self:center;
+}
+.daily-next-player{
+  appearance:none;
+  min-width:0;
+  border:0;
+  background:transparent;
+  color:var(--ml-ink);
+  padding:3px 0;
+  text-align:left;
+  font:inherit;
+  font-weight:1000;
+  letter-spacing:-.055em;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.daily-next-player:active{
+  color:var(--ml-blue-deep);
+}
+.daily-next-player[disabled]{
+  opacity:.78;
+  cursor:default;
+}
+.daily-urgent-list .daily-queue-head{
+  background:#fff;
+  border-bottom-color:var(--ml-line);
+}
+.daily-urgent-list .daily-queue-title{
+  color:var(--ml-blue-deep);
+  font-weight:1000;
+}
+.daily-urgent-list .daily-queue-board-side{
+  background:var(--ml-blue-soft);
+  padding:8px;
+  gap:5px;
+}
+.daily-urgent-list .daily-queue-board-side.b{background:var(--ml-red-soft);}
+.daily-urgent-list .daily-queue-player{
+  border-color:rgba(255,255,255,.85);
+  background:rgba(255,255,255,.96);
+  box-shadow:none;
+  padding:9px 7px;
+  border-radius:12px;
+}
+.daily-urgent-list .daily-queue-player b{
+  color:var(--ml-ink);
+  font-size:.92rem;
+  letter-spacing:-.055em;
+}
+.daily-urgent-list .daily-queue-vs{
+  width:20px;
+  padding:0;
+  font-size:.58rem;
+  color:var(--ml-mut);
+}
+.daily-queue-player:active{
+  background:#fff;
+  border-color:#c8dbfb;
+}
+.daily-queue-item,
+.daily-queue-editor,
+.daily-queue-edit,
+.daily-queue-board{
+  border-color:var(--ml-line);
+  background:#fff;
+}
+.daily-queue-board-side{background:var(--ml-blue-soft);}
+.daily-queue-board-side.b{background:var(--ml-red-soft);}
+.daily-queue-badge.locked{
+  background:var(--ml-blue-soft);
+  border-color:#c8dbfb;
+  color:var(--ml-blue-deep);
+}
+.daily-queue-badge.flex,
+.daily-status.done{
+  background:#f6f8fb;
+  border-color:var(--ml-line);
+  color:var(--ml-mut);
+}
+.daily-status.wait{
+  background:var(--ml-green-soft);
+  border-color:#cfeeda;
+  color:var(--ml-green-deep);
+}
+.daily-status.playing,
+.daily-status.planned{
+  background:var(--ml-blue-soft);
+  border-color:#c8dbfb;
+  color:var(--ml-blue-deep);
+}
+.daily-status.rest{
+  background:var(--ml-amber-soft);
+  border-color:#ead2a8;
+  color:#8c672b;
+}
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -2058,7 +2587,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
               </div>
             </div>
           </div>
-	          <div class="daily-note">현장 코트 수에 맞추면 다음 대진 수가 자동으로 맞춰집니다.</div>
+	          <div class="daily-note">다음 대진은 기본적으로 코트 수보다 1개 적게 준비해 다양성을 유지합니다.</div>
 	        </div>
 	      </div>
 
@@ -2074,21 +2603,29 @@ body.monthly-team-mode .team-partner-help{display:block;}
           <button class="btn btn-ghost btn-sm" onclick="dailyRender()">새로고침</button>
         </div>
         <div class="card-body">
-          <label class="daily-auto-row daily-auto-row-top" id="dailyAutoRowTop">
-            <input type="checkbox" id="dailyAutoAssignTop" onchange="dailyToggleAutoAssign(this.checked)">
-            <span>
-              <span class="daily-auto-title">자동 시작</span>
-              <span class="daily-auto-desc">빈 코트가 생기면 다음 대진을 자동 투입합니다.</span>
-            </span>
-          </label>
-          <div class="daily-todo-head">지금 할 일</div>
-          <div class="daily-admin-alerts" id="dailyAdminAlerts"></div>
+          <div class="daily-dashboard-hero">
+            <div>
+              <div class="daily-dashboard-kicker">Dashboard</div>
+              <h3 class="daily-dashboard-title">민턴LIVE 운영 상황</h3>
+              <div class="daily-dashboard-sub">관리자는 이 화면만 보고 예외가 있을 때만 펼쳐서 조치합니다.</div>
+            </div>
+            <div class="daily-state-pill" id="dailyFlowState"><span class="daily-dot"></span> 정상 운영</div>
+          </div>
           <details class="daily-section-fold daily-ops-stats-fold" id="dailyOpsStatsFold" open>
             <summary>현장 현황</summary>
             <div class="daily-section-fold-body">
               <div class="daily-ops-grid" id="dailyOpsStats"></div>
             </div>
           </details>
+          <div class="daily-todo-head">지금 할 일</div>
+          <div class="daily-admin-alerts" id="dailyAdminAlerts"></div>
+          <div class="daily-auto-row daily-auto-row-top" id="dailyAutoRowTop">
+            <span class="daily-auto-led"></span>
+            <span>
+              <span class="daily-auto-title">자연 자동 시작</span>
+              <span class="daily-auto-desc" id="dailyAutoFlowHint">시작 인원이 모이면 빈 코트에 자동 투입합니다.</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -2117,7 +2654,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
       <div class="card daily-primary-card daily-active-card">
         <div class="card-head" id="dailyActiveCard">
-          <span class="card-title">진행 코트 <span id="dailyMatchSummary"></span></span>
+          <span class="card-title">진행 중 <span id="dailyMatchSummary"></span></span>
+          <span class="daily-card-sub">운영 중에도 코트 수 조정 가능</span>
         </div>
         <div class="card-body">
           <div class="daily-active-list" id="dailyMatchList"></div>
@@ -2422,7 +2960,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong>에서 클럽 명부를 가져오거나 출석 링크를 공유합니다. 회원이 직접 참석·시작·휴식·종료 상태를 남기게 하는 흐름이 기본입니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">관리자는 운영 상황판에서 시작 인원, 다음 대진, 대기선수를 보고 예외만 처리합니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text">코트가 끝나면 다음 대진 선수가 종료를 확인하고 바로 입장합니다. 실수는 되돌릴 수 있습니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text">후반 정리 시간이 가까워지면 자동 시작을 끄고 진행중 경기만 마무리합니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text">후반 정리 시간이 가까워지면 진행중 경기와 다음 대진만 마무리하고 자연스럽게 자율게임으로 전환합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2440,7 +2978,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">G</span><p class="step-text">정식 회원이 아닌 손님은 <strong>G 버튼</strong>으로 게스트 표시할 수 있습니다. 이름 앞에 G 배지가 붙습니다.</p></div>
       <div class="step-item"><span class="step-num ico">신청</span><p class="step-text">회원은 출석 링크에서 파트너 또는 4명 경기를 신청할 수 있습니다. 신청은 자동 등록되고, 선수가 모두 시작 상태이면 대기표에 우선 반영됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">종료</span><p class="step-text">운영을 정리할 때는 자동 시작을 끄고, 진행중 경기와 이미 준비된 다음 대진만 마무리하면 됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">종료</span><p class="step-text">운영을 정리할 때는 진행중 경기와 이미 준비된 다음 대진만 마무리하면 됩니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2477,11 +3015,11 @@ body.monthly-team-mode .team-partner-help{display:block;}
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong> 메뉴에서 <strong>클럽 명부 가져오기</strong>로 회원을 선택해 불러옵니다. 게스트는 <strong>G</strong> 버튼을 켜고 추가합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">휴식·종료 상태를 바꿔 현재 운동 가능한 사람만 남깁니다. 추천 후보는 <strong>시작</strong> 선수입니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text">회원이 출석 링크에서 파트너 또는 4명 경기를 신청하면 자동 등록됩니다. 신청 선수가 다음 대진에 있으면 임시 대진에서 빼고 신청을 우선 반영합니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>다음 대진</strong>은 코트 수만큼만 만들고, 나머지는 <strong>대기선수</strong>로 둡니다. 한 바퀴가 돌면 1순위는 지키고 나머지는 오래 기다린 사람 중심으로 다시 섞습니다.</p></div>
-      <div class="step-item"><span class="step-num">5</span><p class="step-text">다음 대진에는 예상 코트와 준비 상태가 표시됩니다. 실제 코트는 종료 순서에 따라 바뀔 수 있습니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>다음 대진</strong>은 기본적으로 코트 수보다 1개 적게 만들고, 나머지는 <strong>대기선수</strong>로 둡니다. 종료임박 코트가 많을 때만 1개 더 보충합니다.</p></div>
+      <div class="step-item"><span class="step-num">5</span><p class="step-text">다음 대진은 이름 중심으로 표시됩니다. 관리자는 이름을 눌러 필요한 선수만 빠르게 교체합니다.</p></div>
       <div class="step-item"><span class="step-num">6</span><p class="step-text">앞 경기가 끝나면 다음 대진 선수가 직접 <strong>코트 종료 후 입장</strong>을 누릅니다. 방금 끝난 선수들은 대기자로 돌아가고 다음 대진이 보충됩니다.</p></div>
-      <div class="step-item"><span class="step-num">7</span><p class="step-text">운영을 끝낼 시간이 가까워지면 <strong>조건 충족 시 자동 시작</strong>을 끄고 진행중 경기만 마무리합니다. 예: 19:00 시작, 21:00부터 자율게임 전환.</p></div>
-      <div class="step-item"><span class="step-num">8</span><p class="step-text"><strong>조건 충족 시 자동 시작</strong>을 켜면 빈 코트와 대기 경기표 조건이 맞을 때 자동으로 진행중 경기를 만듭니다. 실전에서는 기본 OFF로 두고 관리자가 확인한 뒤 수동 시작하는 운영을 권장합니다.</p></div>
+      <div class="step-item"><span class="step-num">7</span><p class="step-text">8~11명이 시작을 누른 초반에는 몸풀기 흐름을 잠시 기다리고, 12명 이상이면 바로 자동 운영으로 넘어갑니다.</p></div>
+      <div class="step-item"><span class="step-num">8</span><p class="step-text">이미 들어간 게임은 중단하지 않습니다. 자동대진은 코트에 없는 대기선수만 대상으로 만들고, 끝난 선수는 다시 대기자로 돌아옵니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -2504,7 +3042,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.200';
+const APP_VERSION = '1.10.226';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2740,6 +3278,9 @@ const DAILY_KEY='kokmatch_daily_v1';
 const DAILY_CHECKIN_KEY='kokmatch_daily_checkin_id';
 const DAILY_CHECKIN_CREATED_KEY='kokmatch_daily_checkin_created_at';
 const DAILY_MATCH_MINUTES=15;
+const DAILY_AUTO_MIN_START=8;
+const DAILY_AUTO_FULL_START=12;
+const DAILY_AUTO_GRACE_MS=3*60*1000;
 const DAILY_CHECKIN_TTL_MS=48*60*60*1000;
 const DAILY_STATUS={
   invited:{label:'미응답',eligible:false},
@@ -3175,7 +3716,7 @@ function dailyPromoteReadyReservations(){
   _dailyPromoteReadyReservations(false);
 }
 function dailyForceRebuildQueue(){
-  if(!confirm('다음 대진을 현재 대기자 기준으로 다시 짤까요?\n준비 알림을 보낸 대진도 바뀔 수 있습니다.'))return;
+  if(!confirm('다음 대진을 현재 대기자 기준으로 다시 짤까요?\n이미 준비된 대진도 함께 바뀔 수 있습니다.'))return;
   _dailyEmergencyEditQueueId=null;
   _dailyQueue=[];
   dailyEnsureQueue();
@@ -3318,13 +3859,12 @@ function _dailyTimerState(m){
 function _dailyTimerText(m){
   if(m.completedAt)return '완료';
   const remain=_dailyRemainingMinutes(m);
-  if(remain<=0)return `종료임박 · 다음 대기자 준비`;
-  if(remain<=5)return `종료임박 · 남은 ${remain}분`;
-  return `예상 종료 ${_dailyClock(_dailyMatchEndAt(m))} · 남은 ${remain}분`;
+  if(remain<=0)return '종료임박';
+  if(remain<=5)return `${remain}분 남음`;
+  return `${remain}분`;
 }
 function _dailyCompleteButtonText(m){
-  const state=_dailyTimerState(m);
-  return state==='normal'?'조기 종료':'경기 종료';
+  return '종료';
 }
 function _dailyQueueStartInfo(idx){
   const active=_dailyActiveMatches()
@@ -3349,6 +3889,7 @@ function _dailyQueueStartCueHtml(idx){
   return `<span class="daily-start-cue ${info.state}" data-daily-queue-cue="${idx}">${esc(info.text)} · ${esc(info.detail)}</span>`;
 }
 function dailyRefreshTimers(){
+  const beforeTarget=_dailyQueueCapacity().target;
   document.querySelectorAll('[data-daily-timer]').forEach(el=>{
     const m=_dailyMatches.find(x=>x.id===el.dataset.dailyTimer);
     if(!m)return;
@@ -3380,16 +3921,120 @@ function dailyRefreshTimers(){
     el.textContent=`${info.text} · ${info.detail}`;
     el.className=`daily-start-cue ${info.state}`;
   });
+  if(_dailyQueueCapacity().target!==beforeTarget){
+    dailyEnsureQueue();
+    dailySave();
+    dailyRender();
+    return;
+  }
+  const flow=_dailyNaturalAutoInfo();
+  if(flow.auto&&!_dailyAutoBusy){
+    dailyMaybeAutoAssign();
+  }else if(flow.phase==='grace'){
+    dailyRenderOpsStats();
+  }
 }
 function _dailyActiveMatches(){return _dailyMatches.filter(m=>!m.completedAt&&!m.cancelledAt);}
-function _dailyAvailableCourt(){
-  const courts=Math.max(1,parseInt(document.getElementById('dailyCourts')?.value)||3);
+function _dailyCourtCount(){
+  return Math.max(1,parseInt(document.getElementById('dailyCourts')?.value)||3);
+}
+function _dailyStartedPoolPlayers(){
+  let list=_dailyPlayers.filter(p=>{
+    const st=_dailyNormalizeStatus(p.status);
+    return st==='wait'||st==='playing';
+  });
+  if(_dailyTeamMode)list=list.filter(p=>!!_dailyTeamSide(p));
+  return list;
+}
+function _dailyStartedPoolCount(){
+  return _dailyStartedPoolPlayers().length;
+}
+function _dailyAutoLastStartAt(players){
+  return players.reduce((max,p)=>Math.max(max,p.lastStatusAt||p.waitFrom||p.joinedAt||0),0);
+}
+function _dailyAutoGraceLeftMs(players){
+  const last=_dailyAutoLastStartAt(players);
+  if(!last)return DAILY_AUTO_GRACE_MS;
+  return Math.max(0,DAILY_AUTO_GRACE_MS-(_dailyNow()-last));
+}
+function _dailyAutoGraceLabel(ms){
+  const minutes=Math.max(1,Math.ceil(ms/60000));
+  return `약 ${minutes}분`;
+}
+function _dailyNaturalAutoInfo(){
+  const courts=_dailyCourtCount();
+  const started=_dailyStartedPoolPlayers();
+  const pool=started.length;
+  const eligible=_dailyEligible().length;
+  const active=_dailyActiveMatches().length;
+  let auto=false,operatingCourts=0,phase='waiting',label='입장 대기',hint='회원이 시작을 누르면 자동 준비',graceLeftMs=0;
+  if(_dailyTeamLocked){
+    auto=true;
+    operatingCourts=courts;
+    phase='team';
+    label='팀전 진행';
+    hint=`${courts}코트 기준으로 진행`;
+  }else if(_dailyAutoAssign){
+    auto=true;
+    operatingCourts=Math.max(1,Math.min(courts,Math.floor(Math.max(pool,eligible)/4)||1));
+    phase='manual';
+    label='자동 운영';
+    hint=`${operatingCourts}코트 자동 투입`;
+  }else if(active>0){
+    auto=true;
+    operatingCourts=Math.max(1,Math.min(courts,Math.floor(Math.max(pool,eligible,active*4)/4)||1));
+    phase='active';
+    label='자동 운영';
+    hint=`진행 중 · ${operatingCourts}코트 흐름 유지`;
+  }else if(pool>=DAILY_AUTO_FULL_START){
+    auto=true;
+    operatingCourts=Math.max(1,Math.min(courts,Math.floor(pool/4)));
+    phase='run';
+    label='자동 운영';
+    hint=phase==='run'
+      ? `${operatingCourts}코트 자동 흐름`
+      : `${pool}명 시작 · ${operatingCourts}코트부터`;
+  }else if(pool>=DAILY_AUTO_MIN_START){
+    graceLeftMs=_dailyAutoGraceLeftMs(started);
+    if(graceLeftMs<=0){
+      auto=true;
+      operatingCourts=Math.max(1,Math.min(courts,Math.floor(pool/4)));
+      phase='delayed';
+      label='자연 시작';
+      hint=`몸풀기 흐름 후 ${operatingCourts}코트 시작`;
+    }else{
+      phase='grace';
+      label='몸풀기 대기';
+      hint=`${pool}명 시작 · ${_dailyAutoGraceLabel(graceLeftMs)} 뒤 자연 시작`;
+    }
+  }else if(pool>=4){
+    phase='warmup';
+    label='몸풀기';
+    hint=`${pool}명 시작 · ${Math.max(0,DAILY_AUTO_MIN_START-pool)}명 더 필요`;
+  }
+  return {courts,pool,eligible,active,auto,operatingCourts,phase,label,hint,min:DAILY_AUTO_MIN_START,fullStart:DAILY_AUTO_FULL_START,graceLeftMs};
+}
+function _dailyAutoFlowEnabled(){
+  return _dailyNaturalAutoInfo().auto;
+}
+function _dailyAutoCourtLimit(){
+  const info=_dailyNaturalAutoInfo();
+  return info.auto?info.operatingCourts:0;
+}
+function _dailyAvailableCourt(limit){
+  const courts=_dailyCourtCount();
+  const cap=limit==null?courts:Math.max(0,Math.min(courts,parseInt(limit)||0));
+  if(!cap)return null;
+  if(_dailyActiveMatches().length>=cap)return null;
   const used=new Set(_dailyActiveMatches().map(m=>m.court));
   for(let c=1;c<=courts;c++) if(!used.has(c)) return c;
   return null;
 }
-function _dailyCourtAvailable(court){
-  if(!court)return false;
+function _dailyCourtAvailable(court,limit){
+  court=parseInt(court);
+  if(!court||court<1||court>_dailyCourtCount())return false;
+  const cap=limit==null?_dailyCourtCount():Math.max(0,Math.min(_dailyCourtCount(),parseInt(limit)||0));
+  if(!cap||_dailyActiveMatches().length>=cap)return false;
   return !_dailyActiveMatches().some(m=>m.court===court);
 }
 function _dailyEligible(){
@@ -3397,25 +4042,43 @@ function _dailyEligible(){
   if(_dailyTeamMode)list=list.filter(p=>!!_dailyTeamSide(p));
   return list;
 }
-function _dailyCourtCount(){
-  return Math.max(1,parseInt(document.getElementById('dailyCourts')?.value)||3);
+function _dailyQueueBaseTarget(){
+  const info=_dailyNaturalAutoInfo();
+  if(!info.auto)return 0;
+  return Math.max(1,info.operatingCourts-1);
+}
+function _dailyQueueBoostNeeded(){
+  if(!_dailyNaturalAutoInfo().auto)return false;
+  const urgent=_dailyActiveMatches().filter(m=>{
+    const state=_dailyTimerState(m);
+    return state==='soon'||state==='due';
+  }).length;
+  return urgent>=2;
 }
 function _dailyQueueTarget(){
-  return _dailyCourtCount();
+  const info=_dailyNaturalAutoInfo();
+  if(!info.auto)return 0;
+  const base=_dailyQueueBaseTarget();
+  return Math.min(info.operatingCourts,base+(_dailyQueueBoostNeeded()?1:0));
 }
 function _dailyQueueCapacity(){
   const maxGames=Math.floor(_dailyEligible().length/4);
   const target=Math.min(_dailyQueueTarget(),maxGames);
-  return {target,maxGames,goal:_dailyQueueTarget(),short:maxGames<_dailyQueueTarget()};
+  const goal=_dailyQueueTarget();
+  const baseGoal=_dailyQueueBaseTarget();
+  return {target,maxGames,goal,baseGoal,boosted:goal>baseGoal,short:maxGames<goal};
 }
 function _dailyQueueLockCount(){
-  return _dailyCourtCount();
+  return _dailyQueueCapacity().target;
 }
 function _dailyQueueIds(q){
   return [...(q.team1||[]),...(q.team2||[])].filter(Boolean);
 }
 function _dailyQueuePlayers(q){
   return _dailyQueueIds(q).map(_dailyPlayer).filter(Boolean);
+}
+function _dailyCompactPairNames(players){
+  return players.map(p=>`<span class="daily-pair-name">${_dailyNameHtml(p)}</span>`).join('');
 }
 function _dailyQueueMatch(q){
   const t1=(q.team1||[]).map(_dailyPlayer),t2=(q.team2||[]).map(_dailyPlayer);
@@ -3680,7 +4343,7 @@ function dailyLoad(){
     _dailyReservations=(s.reservations||[]).filter(r=>r&&r.id);
     _dailySeq=s.seq||((_dailyMatches.reduce((m,x)=>Math.max(m,x.seq||0),0))+1);
     _dailyWaveStarts=s.waveStarts||0;
-    _dailyAutoAssign=!!s.autoAssign;
+    _dailyAutoAssign=false;
     _dailyTeamMode=false;
     _dailyTeamLocked=false;
     if(s.teamNames){
@@ -4078,9 +4741,10 @@ function dailyRenderClosingSchedule(){
 function dailyRunAutoAssign(){
   const made=dailyMaybeAutoAssign(true);
   if(!made){
-    const free=_dailyAvailableCourt();
+    const free=_dailyAvailableCourt(_dailyAutoCourtLimit()||_dailyCourtCount());
     const eligible=_dailyEligible().length;
-    alert(!free?'빈 코트가 없습니다.':`대기선수가 ${eligible}명입니다. 4명 이상일 때 자동 시작할 수 있습니다.`);
+    const info=_dailyNaturalAutoInfo();
+    alert(!free?'빈 코트가 없습니다.':`시작 인원 ${info.pool}명입니다. ${info.hint}. 현재 대기선수는 ${eligible}명입니다.`);
   }
 }
 function dailyMaybeAutoRecommend(){
@@ -4088,19 +4752,21 @@ function dailyMaybeAutoRecommend(){
   return dailyEnsureQueue();
 }
 function dailyMaybeAutoAssign(force){
-  if((!_dailyAutoAssign&&!force)||_dailyAutoBusy){
+  const flow=_dailyNaturalAutoInfo();
+  const allow=force||flow.auto;
+  if((!allow)||_dailyAutoBusy){
     if(!_dailyAutoBusy)dailyEnsureQueue();
     return 0;
   }
   _dailyAutoBusy=true;
   let made=0;
   try{
-    const limit=_dailyCourtCount();
-    while(_dailyAvailableCourt()&&made<limit){
+    const limit=force?_dailyCourtCount():_dailyAutoCourtLimit();
+    while(_dailyAvailableCourt(limit)&&made<Math.max(1,limit)){
       dailyEnsureQueue();
       const q=_dailyQueue[0];
       if(!q)break;
-      if(!dailyStartQueueItem(q.id,{silent:true,auto:true}))break;
+      if(!dailyStartQueueItem(q.id,{silent:true,auto:true,courtLimit:limit}))break;
       made++;
     }
   }finally{
@@ -4302,9 +4968,15 @@ function dailyEditQueuePlayer(queueId,side,pos,newId){
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0)return;
   const q=_dailyQueue[idx];
-  if(q.reservationId){
+  const urgent=idx<_dailyQueueLockCount();
+  if(q.reservationId&&!urgent){
     alert('회원 게임신청은 선수 직접 수정이 잠겨 있습니다. 신청 삭제 후 다시 등록해 주세요.');
     dailyRender();return;
+  }
+  if(q.reservationId&&urgent){
+    _dailyCancelReservationById(q.reservationId,'다음 대진 선수교체로 신청 대진이 자동 조정됐습니다.','admin-queue-replace');
+    q.reservationId=null;
+    q.reservationLabel=null;
   }
   const before={team1:[...q.team1],team2:[...q.team2]};
   q[side][pos]=newId;
@@ -4316,6 +4988,32 @@ function dailyEditQueuePlayer(queueId,side,pos,newId){
   }
   _dailyRecalcQueueItem(q);
   dailySave();dailyRender();
+}
+function dailyPickQueueReplacement(queueId,side,pos){
+  const idx=_dailyQueue.findIndex(q=>q.id===queueId);
+  if(idx<0)return;
+  const q=_dailyQueue[idx];
+  const urgent=idx<_dailyQueueLockCount();
+  if(q.reservationId&&!urgent){
+    alert('회원이 신청한 게임은 선수 교체가 잠겨 있습니다. 신청 삭제 후 다시 등록해 주세요.');
+    return;
+  }
+  const currentId=q[side]?.[pos];
+  const candidates=_dailyQueueReplacementCandidates(q,currentId).slice(0,12);
+  if(!candidates.length){
+    alert('교체 가능한 순수 대기선수가 없습니다.');
+    return;
+  }
+  const current=_dailyPlayer(currentId);
+  const list=candidates.map((p,i)=>`${i+1}. ${p.name}${p.isGuest?'(G)':''} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G`).join('\n');
+  const raw=prompt(`${current?.name||'선수'} 대신 넣을 대기선수를 번호로 선택하세요.\n\n${list}`,'1');
+  if(raw==null)return;
+  const pick=parseInt(String(raw).trim(),10);
+  if(!pick||pick<1||pick>candidates.length){
+    alert('번호를 다시 확인해 주세요.');
+    return;
+  }
+  dailyEditQueuePlayer(queueId,side,pos,candidates[pick-1].id);
 }
 function dailyRegenerateQueueItem(queueId){
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
@@ -4335,48 +5033,14 @@ function dailyRegenerateQueueItem(queueId){
   if(_dailyEmergencyEditQueueId===queueId)_dailyEmergencyEditQueueId=null;
   dailySave();dailyRender();
 }
-async function dailyNotifyQueue(queueId){
-  const q=_dailyQueue.find(x=>x.id===queueId);
-  const m=q?_dailyQueueMatch(q):null;
-  if(!q||!m){alert('알림을 보낼 대기 경기를 찾지 못했습니다.');return;}
-  const idx=_dailyQueue.findIndex(x=>x.id===queueId);
-  const startInfo=_dailyQueueStartInfo(Math.max(0,idx));
-  const n=_dailyMatchNames(m);
-  const msg=[
-    '[콕매치] 다음 경기 준비 알림',
-    `${n.a.join(' / ')}  vs  ${n.b.join(' / ')}`,
-    `종목: ${m.type} · 25점 예상 ${DAILY_MATCH_MINUTES}분`,
-    `상태: ${startInfo.text} · ${startInfo.detail}`,
-    '코트가 비면 바로 시작합니다. 준비해주세요.'
-  ].join('\n');
-  const markNotified=()=>{
-    q.notifiedAt=_dailyNow();
-    dailySave();
-    dailyRender();
-  };
-  try{
-    if(navigator.share){
-      await navigator.share({text:msg});
-      markNotified();
-      return;
-    }
-  }catch(e){}
-  try{
-    await navigator.clipboard.writeText(msg);
-    markNotified();
-    alert('준비 알림 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.');
-  }catch(e){
-    prompt('아래 문구를 복사해서 카톡방에 보내주세요.',msg);
-    markNotified();
-  }
-}
 function dailyStartQueueItem(queueId,options){
   options=options||{};
   dailyEnsureQueue();
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0){if(!options.silent)alert('시작할 대기 경기가 없습니다.');return false;}
   const requestedCourt=parseInt(options.court);
-  const court=(requestedCourt&&_dailyCourtAvailable(requestedCourt))?requestedCourt:_dailyAvailableCourt();
+  const courtLimit=options.auto?(options.courtLimit!=null?options.courtLimit:_dailyAutoCourtLimit()):null;
+  const court=(requestedCourt&&_dailyCourtAvailable(requestedCourt,courtLimit))?requestedCourt:_dailyAvailableCourt(courtLimit);
   if(!court){if(!options.silent)alert('빈 코트가 없습니다.');dailyRender();return false;}
   const q=_dailyQueue[idx],m=_dailyQueueMatch(q);
   if(!m||!_dailyQueueItemValid(q,null)){
@@ -4424,7 +5088,7 @@ function dailyStartQueueItem(queueId,options){
       _dailyWaveStarts++;
       if(_dailyWaveStarts>=_dailyCourtCount()){
         _dailyWaveStarts=0;
-        // 한 웨이브가 돌면 곧 시작할 1순위와 준비 알림을 보낸 대기표는 지키고, 나머지 미래 대기표는 다시 섞습니다.
+        // 한 웨이브가 돌면 곧 시작할 1순위는 지키고, 나머지 미래 대기표는 다시 섞습니다.
         dailyRebuildQueue({preserveCount:1,preserveNotified:true});
       }else{
         dailyEnsureQueue();
@@ -4451,7 +5115,47 @@ function _dailyRenderQueueItem(q,idx,mode){
   const next={match:m,score:q.score,strict:q.strict,label:`${idx+1}순위 대기`,queueIndex:idx};
   const canStart=!!_dailyAvailableCourt();
   const badgeText=reserved?'게임신청':(urgent?'다음 대진':'대기');
-  const swapRow=(side,pos,p)=>`<div class="daily-queue-swap-row"><span>${_dailyNameHtml(p)} 교체</span>${_dailyQueueSelect(q,side,pos,p.id)}</div>`;
+  const compactTitle=`${orderLabel} · ${m.reservationLabel?'신청경기 · ':''}${esc(m.type)}${m.isFlexible?' · 예외':''} · 팀 실력차 ${esc(String(m.levelDiff))}`;
+  const playerBtn=(side,pos,p)=>{
+    const locked=reserved&&!urgent;
+    const disabled=locked?'disabled':'';
+    const title=locked?'회원 신청 경기는 신청 삭제 후 변경':'이름을 눌러 대기선수로 교체';
+    return `<button class="daily-queue-player" type="button" ${disabled} title="${esc(title)}" onclick="dailyPickQueueReplacement('${q.id}','${side}',${pos})">
+      <b>${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}</b>
+      ${urgent?'':`<small>${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')} · ${p.games||0}G</small>`}
+    </button>`;
+  };
+  const nextPlayerBtn=(side,pos,p)=>{
+    const locked=reserved&&!urgent;
+    const disabled=locked?'disabled':'';
+    const title=locked?'회원 신청 경기는 신청 삭제 후 변경':'이름을 눌러 대기선수로 교체';
+    return `<button class="daily-next-player" type="button" ${disabled} title="${esc(title)}" onclick="dailyPickQueueReplacement('${q.id}','${side}',${pos})">${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}</button>`;
+  };
+  const boardHtml=`<div class="daily-queue-board">
+      <div class="daily-queue-board-side">
+        ${urgent?'':`<div class="daily-queue-board-label">${esc(labelA)}</div>`}
+        ${playerBtn('team1',0,m.team1A)}
+        ${playerBtn('team1',1,m.team1B)}
+      </div>
+      <div class="daily-queue-vs">VS</div>
+      <div class="daily-queue-board-side b">
+        ${urgent?'':`<div class="daily-queue-board-label">${esc(labelB)}</div>`}
+        ${playerBtn('team2',0,m.team2C)}
+        ${playerBtn('team2',1,m.team2D)}
+      </div>
+    </div>`;
+  if(urgent){
+    return `<div class="daily-queue-item daily-next-card ${reserved?'locked':'flex'}" data-daily-queue-id="${q.id}" data-daily-queue-idx="${idx}" draggable="true" ondragstart="dailyQueueDragStart(event,'${q.id}')" ondragover="dailyQueueDragOver(event,'${q.id}')" ondrop="dailyQueueDrop(event,'${q.id}')" ondragend="dailyQueueDragEnd()" aria-label="다음 대진 ${idx+1}">
+      <div class="daily-next-rank">${idx+1}</div>
+      <div class="daily-next-match">
+        <div class="daily-next-line">
+          <span class="daily-next-pair a">${nextPlayerBtn('team1',0,m.team1A)}${nextPlayerBtn('team1',1,m.team1B)}</span>
+          <em>vs</em>
+          <span class="daily-next-pair b">${nextPlayerBtn('team2',0,m.team2C)}${nextPlayerBtn('team2',1,m.team2D)}</span>
+        </div>
+      </div>
+    </div>`;
+  }
   const editHtml=reserved
     ? `<details class="daily-queue-editor">
         <summary>신청 관리</summary>
@@ -4460,12 +5164,7 @@ function _dailyRenderQueueItem(q,idx,mode){
         </div>
       </details>`
     : `<details class="daily-queue-editor">
-        <summary>선수교체</summary>
-        <div class="daily-queue-edit">
-          <div class="daily-queue-side"><label>${esc(labelA)}</label>${swapRow('team1',0,m.team1A)}${swapRow('team1',1,m.team1B)}</div>
-          <div class="daily-vs">VS</div>
-          <div class="daily-queue-side"><label>${esc(labelB)}</label>${swapRow('team2',0,m.team2C)}${swapRow('team2',1,m.team2D)}</div>
-        </div>
+        <summary>대진 관리</summary>
         <div class="daily-queue-editor-actions">
           <button class="daily-mini-btn" onclick="dailyRegenerateQueueItem('${q.id}')">대진 재배정</button>
           <button class="daily-mini-btn danger" onclick="dailyDeleteQueueItem('${q.id}')">삭제</button>
@@ -4474,32 +5173,24 @@ function _dailyRenderQueueItem(q,idx,mode){
   return `<div class="daily-queue-item ${reserved?'locked':'flex'}" data-daily-queue-id="${q.id}" data-daily-queue-idx="${idx}" draggable="true" ondragstart="dailyQueueDragStart(event,'${q.id}')" ondragover="dailyQueueDragOver(event,'${q.id}')" ondrop="dailyQueueDrop(event,'${q.id}')" ondragend="dailyQueueDragEnd()">
     <div class="daily-queue-head">
       <div class="daily-queue-head-main">
-        <button class="daily-drag-handle" type="button" title="끌어서 대기 순서 변경" onpointerdown="dailyQueuePointerDown(event,'${q.id}')">☰</button>
+        ${urgent?'':`<button class="daily-drag-handle" type="button" title="끌어서 대기 순서 변경" onpointerdown="dailyQueuePointerDown(event,'${q.id}')">☰</button>`}
         <div>
-          <div class="daily-queue-title">${orderLabel} · ${m.reservationLabel?'신청경기 · ':''}${esc(m.type)}${m.isFlexible?' · 예외':''} · 팀 실력차 ${esc(String(m.levelDiff))}</div>
-          <span class="daily-queue-badge ${reserved?'locked':'flex'}">${badgeText}</span>
-          ${urgent?_dailyQueueStartCueHtml(idx):''}
+          <div class="daily-queue-title">${compactTitle}${urgent&&reserved?`<span class="daily-queue-badge locked">신청</span>`:''}</div>
+          ${urgent?'':`<span class="daily-queue-badge ${reserved?'locked':'flex'}">${badgeText}</span>`}
         </div>
       </div>
-      <div class="daily-queue-actions">
-        ${urgent?`<button class="daily-mini-btn" title="카톡에 보낼 준비 알림 문구를 공유하거나 복사합니다." onclick="dailyNotifyQueue('${q.id}')">알림</button>`:''}
-        ${canStart?`<button class="daily-mini-btn primary-action" onclick="dailyStartQueueItem('${q.id}')">${teamMode?'빈 코트 배정':'경기 시작'}</button>`:`<span class="daily-queue-badge flex">코트 대기중</span>`}
-      </div>
+      ${canStart?`<div class="daily-queue-actions single"><button class="daily-mini-btn primary-action" onclick="dailyStartQueueItem('${q.id}')">${teamMode?'배정':'시작'}</button></div>`:''}
     </div>
-    <div class="daily-rec-body">
-      <div class="daily-team"><div class="daily-team-label">${esc(labelA)}</div><div class="daily-team-name">${teamA.map(_dailyNameHtml).join('<br>')}</div></div>
-      <div class="daily-vs">VS</div>
-      <div class="daily-team b"><div class="daily-team-label">${esc(labelB)}</div><div class="daily-team-name">${teamB.map(_dailyNameHtml).join('<br>')}</div></div>
-    </div>
-    ${editHtml}
-    <div class="daily-reasons">${_dailyReasons(next).slice(0,3).map(r=>`<div class="daily-reason">${esc(r)}</div>`).join('')}</div>
+    ${boardHtml}
+    ${urgent?'':editHtml}
+    ${urgent?'':`<div class="daily-reasons">${_dailyReasons(next).slice(0,3).map(r=>`<div class="daily-reason">${esc(r)}</div>`).join('')}</div>`}
   </div>`;
 }
 function dailyRenderQueue(){
   const urgentBox=document.getElementById('dailyUrgentBox');
   dailyEnsureQueue();
-  const courts=_dailyCourtCount();
-  const urgent=_dailyQueue.slice(0,courts);
+  const lockCount=_dailyQueueLockCount();
+  const urgent=_dailyQueue.slice(0,lockCount);
   if(urgentBox){
     if(!urgent.length){
       urgentBox.className='daily-empty';
@@ -4604,7 +5295,8 @@ function _dailyPublicEvent(){
       timerState:_dailyTimerState(m)
     };
   });
-  const next=_dailyQueue.slice(0,_dailyCourtCount()).map((q,idx)=>{
+  const cap=_dailyQueueCapacity();
+  const next=_dailyQueue.slice(0,cap.target).map((q,idx)=>{
     const m=_dailyQueueMatch(q);
     if(!m)return null;
     const info=_dailyQueueStartInfo(idx);
@@ -4632,6 +5324,9 @@ function _dailyPublicEvent(){
     teamWhite:teamNames.white,
     completed:st.completed.length,
     activeCount:st.active.length,
+    courts:_dailyCourtCount(),
+    nextTarget:cap.target,
+    nextGoal:cap.goal,
     active,
     next,
     updatedAt:_dailyNow()
@@ -4715,10 +5410,10 @@ function dailyCompleteMatch(id,winnerSide,options){
   t1.forEach(a=>t2.forEach(b=>{_dailyInc(a.opponentCount,b.name);_dailyInc(b.opponentCount,a.name);}));
   m.completedAt=_dailyNow();
   dailyEnsureQueue();
-  const autoStartOk=_dailyAutoAssign||_dailyTeamLocked;
+  const autoStartOk=_dailyAutoFlowEnabled();
   const nextQueue=autoStartOk?_dailyQueue[0]:null;
   if(nextQueue&&_dailyQueueItemValid(nextQueue,null)){
-    dailyStartQueueItem(nextQueue.id,{silent:true,court:freedCourt});
+    dailyStartQueueItem(nextQueue.id,{silent:true,court:freedCourt,auto:true,courtLimit:_dailyAutoCourtLimit()});
   }else{
     dailyEnsureQueue();
   }
@@ -4760,6 +5455,7 @@ function dailyRenderAdminAlerts(){
   const checkinPending=_dailyCheckinPendingRequests().length;
   const cap=_dailyQueueCapacity();
   const invited=_dailyPlayers.filter(p=>p.status==='invited').length;
+  const flow=_dailyNaturalAutoInfo();
   const alerts=[];
   if(_dailyLastCompleteUndo&&_dailyNow()<=_dailyLastCompleteUndo.expiresAt){
     alerts.push({
@@ -4784,12 +5480,21 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn" onclick="dailyShareCheckinLink()">링크 공유</button>`
     });
   }
-  if(free&&firstReady){
+  if(free&&firstReady&&!flow.auto){
     alerts.push({
       cls:'warn',
       title:`빈 코트 ${free}개 · 다음 대진 입장 가능`,
       desc:'다음 대진이 비어 있는 코트로 들어갈 수 있습니다.',
       actions:`<button class="daily-mini-btn" onclick="dailyRunAutoAssign()">가능한 코트 시작</button>`
+    });
+  }else if(_dailyCheckinId&&!flow.auto){
+    alerts.push({
+      cls:'primary',
+      title:`${flow.label} · 시작 ${flow.pool}명`,
+      desc:flow.phase==='grace'
+        ? '몸풀기 흐름을 끊지 않고 잠시 뒤 자연스럽게 자동 대진으로 넘어갑니다.'
+        : `${DAILY_AUTO_MIN_START}명부터 준비, ${DAILY_AUTO_FULL_START}명부터 즉시 자동 시작됩니다.`,
+      actions:''
     });
   }
   if(checkinPending){
@@ -4800,7 +5505,7 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailyCheckinDetails','dailyCheckinCard')">요청 확인</button>`
     });
   }
-  if(_dailyCheckinId&&cap.short){
+  if(_dailyCheckinId&&cap.short&&flow.auto){
     alerts.push({
       cls:'danger',
       title:'대기 인원 부족',
@@ -4849,11 +5554,20 @@ function dailyRenderOpsStats(){
   const live=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited').length;
   const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited'&&p.isGuest).length;
   const cap=_dailyQueueCapacity();
+  const flow=_dailyNaturalAutoInfo();
+  const courtHint=active>courts?`진행 ${active}경기 · 종료 후 ${courts}코트`:flow.auto?`${flow.operatingCourts}코트 자동 운영`:active?`${active}경기 진행 중`:'시작 전';
+  const nextHint=cap.short
+    ? `부족 · 목표 ${cap.goal}경기`
+    : cap.boosted
+      ? `종료임박 보충 · 기본 ${cap.baseGoal}개`
+      : flow.auto
+        ? `대기풀 유지 · 기본 ${cap.baseGoal}개`
+        : flow.hint;
   const cards=[
-    {label:'라이브 인원',value:live,hint:guestLive?`게스트 ${guestLive}명 포함`:'시작/휴식/진행 기준',cls:'primary'},
-    {label:'진행 코트',value:`${active}/${courts}`,hint:free?`빈 코트 ${free}개`:'모두 진행중',cls:free?'warn':'primary'},
-    {label:'다음 대진',value:`${locked}/${courts}`,hint:cap.short?`부족 · ${cap.target}/${cap.goal}경기 유지`:'코트 수만큼 준비',cls:(locked<courts)||cap.short?'warn':'primary'},
-    {label:'대기선수',value:unscheduled,hint:`대기풀 ${ready}명`,cls:unscheduled?'primary':'warn'}
+    {label:'운영 코트',value:flow.auto?`${flow.operatingCourts}/${courts}`:courts,hint:courtHint,cls:'primary'},
+    {label:'시작 인원',value:flow.pool,hint:guestLive?`게스트 ${guestLive}명 포함`:flow.hint,cls:flow.auto?'primary':'warn'},
+    {label:'대기선수',value:ready,hint:unscheduled?`미편성 ${unscheduled}명`:'모두 편성됨',cls:ready?'primary':'warn'},
+    {label:'다음 대진',value:flow.auto?`${locked}/${cap.goal}`:'대기',hint:nextHint,cls:(flow.auto&&((locked<cap.target)||cap.short))?'warn':'primary'}
   ];
   el.innerHTML=cards.map(x=>`<div class="daily-op ${x.cls||''}"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></div>`).join('');
   dailyRenderStatusBar();
@@ -4866,14 +5580,24 @@ function dailyRenderStatusBar(){
   const active=_dailyActiveMatches().length;
   const free=Math.max(0,courts-active);
   const todo=dailyCountActionItems();
-  const autoOn=_dailyAutoAssign;
+  const flowInfo=_dailyNaturalAutoInfo();
   const stage=dailyCurrentStage();
   const stageLabel={notice:'공지/투표',checkin:'출석/대기',auto:'자동대진',finish:'자동종료'}[stage]||'운영';
   const chips=[];
+  const flow=document.getElementById('dailyFlowState');
+  if(flow){
+    flow.classList.toggle('need',!!todo);
+    flow.innerHTML=`<span class="daily-dot"></span> ${todo?`확인 ${todo}건`:flowInfo.label}`;
+  }
+  const autoHint=document.getElementById('dailyAutoFlowHint');
+  if(autoHint){
+    autoHint.textContent=flowInfo.hint;
+  }
   document.querySelectorAll('[data-daily-stage]').forEach(node=>node.classList.toggle('active',node.dataset.dailyStage===stage));
   chips.push(`<span class="daily-sb-chip live">${stageLabel}</span>`);
-  chips.push(`<span class="daily-sb-chip ${autoOn?'on':'off'}">자동 시작 ${autoOn?'켜짐':'꺼짐'}</span>`);
-  chips.push(`<span class="daily-sb-chip">${courts}코트${free?` · 빈 ${free}`:''}</span>`);
+  chips.push(`<span class="daily-sb-chip ${flowInfo.auto?'on':flowInfo.phase==='warmup'?'warn':'off'}">${flowInfo.label}</span>`);
+  chips.push(`<span class="daily-sb-chip">시작 ${flowInfo.pool}명</span>`);
+  chips.push(`<span class="daily-sb-chip">${flowInfo.auto?`${flowInfo.operatingCourts}/${courts}`:courts}코트${free?` · 빈 ${free}`:''}</span>`);
   const stateChip=todo
     ? `<span class="daily-sb-state need">처리 필요 ${todo}건</span>`
     : `<span class="daily-sb-state ok">특이사항 없음</span>`;
@@ -4888,7 +5612,7 @@ function dailyCountActionItems(){
   const free=Math.max(0,courts-_dailyActiveMatches().length);
   const firstQueue=_dailyQueue[0];
   const firstReady=firstQueue&&_dailyQueueItemValid(firstQueue,null);
-  if(free&&firstReady)n++;
+  if(free&&firstReady&&!_dailyAutoFlowEnabled())n++;
   n+=_dailyCheckinPendingRequests().length?1:0;
   if(_dailyQueueCapacity().short)n++;
   if(_dailyVoteClosed()&&_dailyPlayers.filter(p=>p.status==='invited').length)n++;
@@ -5873,7 +6597,7 @@ function dailyRenderMatches(){
   const active=_dailyActiveMatches().filter(m=>!m.cancelledAt).sort((a,b)=>a.court-b.court);
   const recent=_dailyMatches.filter(m=>m.completedAt&&!m.cancelledAt).sort((a,b)=>b.seq-a.seq).slice(0,4);
   const summary=document.getElementById('dailyMatchSummary');
-  if(summary)summary.textContent=`(${active.length}경기 진행중)`;
+  if(summary)summary.textContent='';
   const renderRecentMatch=m=>{
     const t1=m.team1.map(_dailyPlayer).filter(Boolean),t2=m.team2.map(_dailyPlayer).filter(Boolean);
     const done=!!m.completedAt;
@@ -5913,30 +6637,27 @@ function dailyRenderMatches(){
     }
     const t1=m.team1.map(_dailyPlayer).filter(Boolean),t2=m.team2.map(_dailyPlayer).filter(Boolean);
     const state=_dailyTimerState(m);
-    const stateLabel=state==='due'?'종료임박':state==='soon'?'곧 종료':'진행중';
-    const labelA=_dailyMatchSideLabel(m,'t1');
-    const labelB=_dailyMatchSideLabel(m,'t2');
     return `<div class="daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
       <div class="daily-court-head">
-        <div>
-          <div class="daily-court-title">${m.court}코트 · 투입 ${m.seq}${m.reservationLabel?' · 신청경기':''}</div>
-          <span class="daily-timer ${state==='soon'?'soon':''} ${state==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>
-        </div>
-        <span class="daily-court-state ${state==='due'?'due':state==='soon'?'soon':'busy'}" data-daily-court-state="${m.id}">${stateLabel}</span>
+        <div class="daily-court-title">${m.court}코트</div>
+        <span class="daily-timer ${state==='soon'?'soon':''} ${state==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>
       </div>
       <div class="daily-court-body">
-        <div class="daily-court-teams">
-          <div class="daily-court-team"><div class="daily-court-team-label">${esc(labelA)}</div><div class="daily-court-team-name">${t1.map(_dailyNameHtml).join('<br>')}</div></div>
-          <div class="daily-court-vs">VS</div>
-          <div class="daily-court-team b"><div class="daily-court-team-label">${esc(labelB)}</div><div class="daily-court-team-name">${t2.map(_dailyNameHtml).join('<br>')}</div></div>
+        <div class="daily-court-teams daily-court-stack">
+          <div class="daily-court-team-name">${_dailyCompactPairNames(t1)}</div>
+          <div class="daily-court-vs">vs</div>
+          <div class="daily-court-team-name b">${_dailyCompactPairNames(t2)}</div>
         </div>
         <div class="daily-court-actions single">
-          <button class="daily-mini-btn primary-action" data-daily-complete="${m.id}" onclick="dailyCompleteMatch('${m.id}')">${esc(_dailyCompleteButtonText(m))}</button>
+          <button class="daily-mini-btn danger" data-daily-complete="${m.id}" onclick="dailyCompleteMatch('${m.id}')">종료</button>
         </div>
       </div>
     </div>`;
   };
-  const courtHtml=`<div class="daily-court-grid">${Array.from({length:_dailyCourtCount()},(_,i)=>renderCourt(i+1)).join('')}</div>`;
+  const courtCount=_dailyCourtCount();
+  const maxActiveCourt=active.reduce((max,m)=>Math.max(max,parseInt(m.court)||0),0);
+  const displayCourtCount=Math.max(courtCount,maxActiveCourt);
+  const courtHtml=`<div class="daily-court-grid">${Array.from({length:displayCourtCount},(_,i)=>renderCourt(i+1)).join('')}</div>`;
   const recentHtml=recent.length
     ? `<details class="daily-completed-fold"><summary>최근 완료 경기 ${recent.length}개</summary><div class="daily-completed-body">${recent.map(renderRecentMatch).join('')}</div></details>`
     : '';
@@ -11968,7 +12689,7 @@ window.addEventListener('DOMContentLoaded', () => {
   dailyResumeCheckin();
   dailyRender();
   dailyMaybeAutoRecommend();
-  if(!_dailyTimerId)_dailyTimerId=setInterval(dailyRefreshTimers,30000);
+  if(!_dailyTimerId)_dailyTimerId=setInterval(dailyRefreshTimers,10000);
   updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
   setOperationPreset(_operationPreset);
   // 버전 표시 반영
@@ -12075,7 +12796,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.200</span>
+  <span class="app-version" id="appVersion">v1.10.226</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
