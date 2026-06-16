@@ -976,6 +976,7 @@ const MAIN_STATUS_KEYS=['planned','toggle','rest'];
 const SUB_STATUS_KEYS=[];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
+function isSampleMode(){return new URLSearchParams(location.search).has('sample');}
 function toast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg;el.classList.add('show');
@@ -1474,6 +1475,30 @@ function gameRequestBox(p,disabled){
   </details>`;
 }
 async function sendStatus(playerId,status){
+  if(isSampleMode()){
+    if(!session||sendingKey)return;
+    if(sessionExpired())return showEndedLink();
+    const p=(session.players||[]).find(x=>x.id===playerId);
+    if(!p)return toast('선수를 찾지 못했습니다.');
+    if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
+    if(status==='done'&&!confirm(`${p.name}님, 오늘 운동을 종료할까요?\n종료하면 이후 대진 후보에서 빠집니다.`))return;
+    p.status=status;
+    p.statusLabel=compactLabel(status);
+    p.locked=false;
+    if(status==='wait')p.joinedAt=p.joinedAt||Date.now();
+    const req={
+      playerId:p.id,
+      playerName:p.name,
+      status,
+      statusLabel:compactLabel(status),
+      createdAt:Date.now(),
+      source:'sample-checkin'
+    };
+    setLastSent(req);
+    toast(`${p.name} · ${compactLabel(status)} 반영 완료`);
+    render();
+    return;
+  }
   if(!db||!checkinId||!session||sendingKey)return;
   if(sessionExpired())return showEndedLink();
   const p=(session.players||[]).find(x=>x.id===playerId);
