@@ -1026,6 +1026,81 @@ function showEndedLink(){
   document.getElementById('players').className='empty';
   document.getElementById('players').textContent='이 링크는 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 확인해 주세요.';
 }
+function sampleSession(){
+  const now=Date.now();
+  const names=['김병주','김민선','금민경','김종길','김미정','최경민','박대현','박지은','최애랑','조태환','이현','현지영','정인기','조병훈','백철민','김재관','이성원','송은정','장세훈','윤성호','안세원','김민정','이준원','이은하'];
+  const genders=['남','여','여','남','여','여','남','여','여','남','남','여','남','남','남','남','남','여','남','남','남','여','남','여'];
+  const grades=['B','A','A','B','B','C','A','C','A','C','C','B','A','C','B','C','A','B','A','B','B','A','B','A'];
+  const players=names.map((name,i)=>({
+    id:'s'+(i+1),
+    name,
+    gender:genders[i],
+    grade:grades[i],
+    status:i<12?'playing':(i<22?'wait':'planned'),
+    statusLabel:i<12?'경기중':(i<22?'시작':'참석'),
+    isGuest:i>=22,
+    games:i%5,
+    locked:i<12,
+    voteLocked:false
+  }));
+  const namesOf=ids=>ids.map(id=>players.find(p=>p.id===id)?.name||'');
+  const active=(court,ids,remain,type)=>({
+    court,seq:court,type,teamMode:false,
+    labelA:'A팀',labelB:'B팀',
+    t1:namesOf(ids.slice(0,2)),
+    t2:namesOf(ids.slice(2,4)),
+    remain,
+    startedAt:now-(15-remain)*60000,
+    endAt:now+remain*60000,
+    timerState:remain<=3?'soon':'normal'
+  });
+  const next=(idx,ids,type)=>({
+    idx,type,teamMode:false,queueId:'dq'+idx,targetMatchId:'',targetCourt:null,
+    labelA:'A팀',labelB:'B팀',
+    t1:namesOf(ids.slice(0,2)),
+    t2:namesOf(ids.slice(2,4)),
+    t1Ids:ids.slice(0,2),
+    t2Ids:ids.slice(2,4),
+    playerIds:ids,
+    cue:'',
+    cueDetail:'',
+    cueState:'ready'
+  });
+  return {
+    title:'콕매치 민턴LIVE 출석',
+    updatedAt:now,
+    createdAt:now-2*60*60*1000,
+    matchStartedAt:now-35*60*1000,
+    expiresAt:now+47*60*60*1000,
+    version:'sample',
+    players,
+    statuses:[
+      {key:'planned',label:'참석',desc:''},
+      {key:'wait',label:'시작',desc:''},
+      {key:'rest',label:'휴식',desc:''},
+      {key:'done',label:'종료',desc:''}
+    ],
+    event:{
+      mode:'daily',
+      teamMode:false,
+      completed:4,
+      activeCount:3,
+      courts:3,
+      nextTarget:2,
+      nextGoal:2,
+      updatedAt:now,
+      active:[
+        active(1,['s1','s2','s3','s4'],5,'혼복'),
+        active(2,['s5','s6','s7','s8'],8,'혼복'),
+        active(3,['s9','s10','s11','s12'],11,'남복')
+      ],
+      next:[
+        next(1,['s13','s14','s15','s16'],'남복'),
+        next(2,['s17','s18','s19','s20'],'혼복')
+      ]
+    }
+  };
+}
 function checkinPath(){
   return 'live/checkin_'+checkinId;
 }
@@ -1394,7 +1469,6 @@ function gameRequestBox(p,disabled){
       <div class="request-field full"><label>같은 편으로 뛸 선수</label><select id="reqPartner_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
       <div class="request-field"><label>상대 1명 선택</label><select id="reqOpp1_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
       <div class="request-field"><label>상대 1명 더 선택</label><select id="reqOpp2_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
-      <input id="reqNote_${esc(p.id)}" placeholder="메모 선택: 예) 혼복 연습, 오늘 한 번만">
       <button ${disabled} onclick="sendGameRequest('${esc(p.id)}')">게임 신청 보내기</button>
     </div>
   </details>`;
@@ -1503,7 +1577,6 @@ async function sendGameRequest(playerId){
     playerName:p.name,
     team1:[p.id,partnerId],
     team2:mode==='match'?[opp1,opp2]:[],
-    note:(document.getElementById('reqNote_'+playerId)?.value||'').trim(),
     createdAt:Date.now(),
     source:'member-game-request'
   };
@@ -1525,6 +1598,13 @@ function boot(){
   checkinId=qs('id');
   if(!checkinId){
     document.getElementById('players').textContent='출석 링크가 올바르지 않습니다.';
+    return;
+  }
+  if(new URLSearchParams(location.search).has('sample')){
+    session=sampleSession();
+    render();
+    if(eventTimer)clearInterval(eventTimer);
+    eventTimer=setInterval(renderEvent,10000);
     return;
   }
   try{
