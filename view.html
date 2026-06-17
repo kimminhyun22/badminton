@@ -1467,9 +1467,15 @@ body{
 .current-panel .live-side,
 .next-panel .live-side{
   background:transparent!important;
+  border:none!important;
   padding:0!important;
   border-radius:0!important;
   min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
 }
 .current-panel .live-team-label,
 .next-panel .live-team-label{
@@ -1483,10 +1489,12 @@ body{
   font-size:1.03rem!important;
   line-height:1.32!important;
   letter-spacing:-.05em!important;
+  text-align:center!important;
+  width:100%!important;
 }
 .current-panel .live-side.red .live-player,
 .next-panel .live-side.red .live-player{
-  text-align:right!important;
+  text-align:center!important;
 }
 .current-panel .live-vs,
 .next-panel .live-vs,
