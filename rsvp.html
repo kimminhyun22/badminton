@@ -57,22 +57,25 @@ h1{margin:8px 0 8px;font-size:27px;line-height:1.18;letter-spacing:-.5px}
 .member{padding:14px;border:1px solid var(--line);border-radius:21px;background:#fff;margin-top:10px}
 .member.recent{border-color:#bbf7d0;box-shadow:0 0 0 3px rgba(53,165,106,.12)}
 .member.attending{border-color:#86efac;background:linear-gradient(180deg,#fff,#fbfffd)}
-.member.maybe-state{border-color:#fde68a;background:linear-gradient(180deg,#fff,#fffbeb)}
+.member.ready-state{border-color:#bfdbfe;background:linear-gradient(180deg,#fff,#f8fbff)}
 .member.declined{opacity:.78}
 .mhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:11px}
 .name{font-size:18px;font-weight:900;line-height:1.35}
 .meta{color:var(--mut);font-size:13px;margin-top:3px;line-height:1.45}
 .badge{padding:7px 10px;border-radius:999px;background:#f2f5fa;color:#4b5668;font-weight:900;font-size:12px;white-space:nowrap}
 .badge.attend{background:#ecfdf3;color:#166534}
+.badge.ready{background:#eff6ff;color:#1d4ed8}
 .badge.decline{background:#f1f5f9;color:#64748b}
 .badge.maybe{background:#fffbeb;color:#92400e}
-.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 button{appearance:none;border:0;border-radius:15px;padding:12px 8px;font:inherit;font-weight:900;background:#f2f5fa;color:#273246;min-height:50px}
 button.attend{background:#eaf8f0;color:#187347}
+button.ready{background:#eef5ff;color:#1d4ed8}
 button.maybe{background:#fff5df;color:#9a610b}
 button.decline{background:#f1f5f9;color:#64748b}
 button.selected{transform:translateY(-1px);box-shadow:0 10px 24px rgba(24,32,45,.14),0 0 0 3px rgba(91,141,239,.16)}
 button.attend.selected{background:#16834f;color:#fff}
+button.ready.selected{background:#3b82f6;color:#fff}
 button.maybe.selected{background:#b7791f;color:#fff}
 button.decline.selected{background:#64748b;color:#fff}
 button:disabled{opacity:.55}
@@ -128,6 +131,7 @@ h1,.name,.summary-top,.event-title{color:var(--txt);letter-spacing:-.04em;}
   color:var(--blue-deep);
 }
 button.attend{background:#f3fbf6;color:#24784d;border-color:#ccebd8;}
+button.ready{background:#f3f7ff;color:#2767c8;border-color:#cfe0ff;}
 button.maybe{background:#fffaf2;color:#9a650c;border-color:#edd5aa;}
 button.decline{background:#f7f9fc;color:#5f6b7c;border-color:var(--line2);}
 button.selected{
@@ -135,6 +139,7 @@ button.selected{
   box-shadow:0 0 0 4px rgba(53,165,106,.10);
 }
 button.attend.selected,
+button.ready.selected,
 button.maybe.selected,
 button.decline.selected{
   background:linear-gradient(180deg,#35a56a,#2c8f5a);
@@ -143,6 +148,7 @@ button.decline.selected{
 }
 .badge{border:1px solid var(--line);background:#f8fafc;color:var(--mut);}
 .badge.attend,.my-state{background:#f3fbf6;color:#24784d;border-color:#ccebd8;}
+.badge.ready{background:#f3f7ff;color:#2767c8;border-color:#cfe0ff;}
 .badge.maybe{background:#fffaf2;color:#9a650c;border-color:#edd5aa;}
 .badge.decline{background:#f8fafc;color:#6f7a8a;border-color:var(--line);}
 .member.recent,.member.attending{border-color:#bfe8cf;box-shadow:0 0 0 3px rgba(53,165,106,.10);}
@@ -201,7 +207,7 @@ button.decline.selected{
   .hero{border-radius:24px;padding:20px 16px;}
   h1{font-size:25px;}
   .panel{border-radius:22px;}
-  .actions{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .actions{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 </style>
 </head>
@@ -212,7 +218,7 @@ button.decline.selected{
     <h1 id="title">월례대회 참석 확인</h1>
     <p class="sub" id="sessionSub">참석부를 불러오는 중입니다.</p>
     <div class="notice">이름을 찾고 참석 여부를 누르면 끝입니다. 게스트가 있으면 같은 카드에서 바로 신청할 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.234</span>
+    <span class="version-chip" id="appVersion">v1.10.235</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>참석</span></div>
@@ -249,7 +255,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false;
-const APP_VERSION='1.10.234';
+const APP_VERSION='1.10.235';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -309,7 +315,8 @@ function toast(msg){
 function lastKey(){return 'kokmatch_rsvp_last_'+rsvpId;}
 function getLast(){try{return JSON.parse(localStorage.getItem(lastKey())||'null');}catch(e){return null;}}
 function setLast(v){try{localStorage.setItem(lastKey(),JSON.stringify({...v,savedAt:Date.now()}));}catch(e){}}
-function statusLabel(s){return s==='attend'?'참석':s==='decline'?'불참':'미정';}
+function isAttendStatus(s){return s==='attend'||s==='ready';}
+function statusLabel(s){return s==='ready'?'시작':s==='attend'?'참석':'미응답';}
 function responseValues(){
   const members=session?.members||[];
   const ids=new Set(members.map(m=>m.id));
@@ -319,7 +326,8 @@ function counts(){
   const members=session?.members||[];
   const vals=responseValues();
   return {
-    attend:vals.filter(r=>r.status==='attend').length,
+    attend:vals.filter(r=>isAttendStatus(r.status)).length,
+    ready:vals.filter(r=>r.status==='ready').length,
     guest:vals.filter(r=>r.guest&&r.guest.name).length,
     pending:Math.max(0,members.length-vals.length)
   };
@@ -374,9 +382,8 @@ function renderSummaryPanel(){
     return;
   }
   const vals=responseValues().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-  const attend=vals.filter(r=>r.status==='attend');
-  const maybe=vals.filter(r=>r.status==='maybe');
-  const decline=vals.filter(r=>r.status==='decline');
+  const attend=vals.filter(r=>isAttendStatus(r.status));
+  const ready=vals.filter(r=>r.status==='ready');
   const guests=vals.filter(r=>r.guest&&r.guest.name);
   const limit=guestLimit();
   const last=getLast();
@@ -390,9 +397,8 @@ function renderSummaryPanel(){
     <div class="summary-top">내 신청 확인: ${myText}</div>
     <div class="summary-grid">
       <div class="summary-chip"><b>${attend.length}</b><span>참석 확정</span></div>
+      <div class="summary-chip"><b>${ready.length}</b><span>시작</span></div>
       <div class="summary-chip"><b>${guests.length}${limit?`/${limit}`:''}</b><span>게스트 신청</span></div>
-      <div class="summary-chip"><b>${maybe.length}</b><span>미정</span></div>
-      <div class="summary-chip"><b>${decline.length}</b><span>불참</span></div>
     </div>
     <div class="summary-section">
       <div class="summary-section-title">참석자</div>
@@ -459,12 +465,13 @@ function memberCard(m,recent){
   const r=memberResponse(m.id);
   const status=r?.status||'none';
   const guest=r?.guest||{};
-  const badge=status==='none'?'미응답':statusLabel(status);
+  const normalized=isAttendStatus(status)?status:'none';
+  const badge=normalized==='none'?'미응답':statusLabel(normalized);
   const guestOpen=guest.name?' open':'';
-  const selected=s=>status===s?' selected':'';
+  const selected=s=>normalized===s?' selected':'';
   const disabled=sendingKey?'disabled':'';
   const closed=guestLimitReached(m.id);
-  const memberState=status==='attend'?'attending':status==='maybe'?'maybe-state':status==='decline'?'declined':'';
+  const memberState=normalized==='ready'?'ready-state':normalized==='attend'?'attending':'';
   const guestSummary=guest.name?`게스트 ${esc(guest.name)} 신청됨`:(closed?'게스트 신청 마감':'게스트 신청/수정');
   return `<article class="member ${recent?'recent':''} ${memberState}">
     <div class="mhead">
@@ -472,12 +479,11 @@ function memberCard(m,recent){
         <div class="name">${esc(m.name)}</div>
         <div class="meta">${esc(m.club||'소속 없음')} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급${guest.name?` · 게스트 ${esc(guest.name)}`:''}</div>
       </div>
-      <span class="badge ${esc(status)}">${esc(badge)}</span>
+      <span class="badge ${esc(normalized)}">${esc(badge)}</span>
     </div>
     <div class="actions">
-      <button class="attend${selected('attend')}" ${disabled} onclick="sendStatus('${esc(m.id)}','attend')">${status==='attend'?'참석 완료':'참석'}</button>
-      <button class="maybe${selected('maybe')}" ${disabled} onclick="sendStatus('${esc(m.id)}','maybe')">${status==='maybe'?'미정 선택':'미정'}</button>
-      <button class="decline${selected('decline')}" ${disabled} onclick="sendStatus('${esc(m.id)}','decline')">${status==='decline'?'불참 선택':'불참'}</button>
+      <button class="attend${selected('attend')}" ${disabled} onclick="sendStatus('${esc(m.id)}','attend')">${normalized==='attend'?'참석 완료':'참석'}</button>
+      <button class="ready${selected('ready')}" ${disabled} onclick="sendStatus('${esc(m.id)}','ready')">${normalized==='ready'?'시작 완료':'시작'}</button>
     </div>
     <details class="guest"${guestOpen}>
       <summary>${guestSummary}</summary>

@@ -2422,14 +2422,14 @@ function closeTeamRoster(){
 async function toggleMemberAttendance(name, team){
   if(!name) return;
   if(!liveDb || !liveId){
-    alert('출석 확인을 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
+    alert('시작 확인을 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
     return;
   }
   const key=_attKey(name);
   const ref=liveDb.ref('live/'+liveId+'/attendance/'+key);
   try{
     if(_attOn(name)){
-      if(!confirm(name+'님의 출석 확인을 취소할까요?')) return;
+      if(!confirm(name+'님의 시작 확인을 취소할까요?')) return;
       await ref.remove();
     } else {
       await ref.set({
@@ -2439,7 +2439,7 @@ async function toggleMemberAttendance(name, team){
       });
     }
   }catch(e){
-    alert('출석 확인 저장 실패: '+e.message);
+    alert('시작 확인 저장 실패: '+e.message);
   }
 }
 
@@ -2494,7 +2494,7 @@ function buildTeamRosterCard(d){
         +'<span class="team-member-name">'+esc(p.n)+'</span>'
         +badge
         +'<div class="team-member-actions">'
-          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(on?'출석✓':'출석')+'</button>'
+          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(on?'시작✓':'시작')+'</button>'
           +'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'참석✓':'참석')+'</button>'
         +'</div>'
       +'</div>';
@@ -2505,19 +2505,19 @@ function buildTeamRosterCard(d){
   const partyCount=all.filter(p=>_partyOn(p.n)).length;
   const sortBtn=(key,label)=>'<button type="button" class="team-roster-sort '+(_teamRosterSort===key?'active':'')+'" onclick="setTeamRosterSort(\''+key+'\')">'+label+'</button>';
   return '<details class="info-details primary" id="teamRoster" '+(_teamRosterOpen?'open':'')+' ontoggle="setTeamRosterOpen(this.open)">'
-    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 출석 · 뒤풀이</summary>'
+    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 시작 · 뒤풀이</summary>'
     +'<div class="info-body">'
       +'<section class="team-roster-card">'
-        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>출석 '+attCount+'/'+all.length+' · 뒤풀이 '+partyCount+'명</span></div>'
-        +'<div class="team-att-summary">도착 <b>출석</b> · 뒤풀이 <b>참석</b></div>'
-        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('att','출석')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
+        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>시작 '+attCount+'/'+all.length+' · 뒤풀이 '+partyCount+'명</span></div>'
+        +'<div class="team-att-summary">현장 준비 <b>시작</b> · 뒤풀이 <b>참석</b></div>'
+        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('att','시작')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
         +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
           +(showTeam
             ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_attOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
               +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.filter(p=>_attOn(p.n)).length+'/'+red.length+'명</small></div>'+mk(red,'red')+'</div>'
             :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>'+attCount+'/'+solo.length+'명</small></div>'+mk(solo,'all')+'</div>')
         +'</div>'
-        +'<button type="button" class="team-roster-close" onclick="closeTeamRoster()">▲ 출석부 접기</button>'
+        +'<button type="button" class="team-roster-close" onclick="closeTeamRoster()">▲ 명단 접기</button>'
       +'</section>'
     +'</div>'
   +'</details>';
