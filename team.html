@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.243  (2026-06)
+     APP VERSION: 1.10.244  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.243">
+<meta name="app-version" content="1.10.244">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2113,7 +2113,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   }
 }
 
-/* ── v1.10.243: 민턴LIVE 톤앤매너 통합 ── */
+/* ── v1.10.244: 민턴LIVE 톤앤매너 통합 ── */
 :root{
   --bg:#f6f8fc!important;
   --sur:#ffffff!important;
@@ -2285,6 +2285,87 @@ header,.nav-bar{
 }
 .bnav-btn{color:var(--dim)!important;}
 .bnav-btn.active{color:var(--bl-deep)!important;}
+#tabBracket .match-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+}
+#tabBracket .match-card{
+  border-radius:22px!important;
+  border:1px solid var(--bl-softbdr)!important;
+  border-left:1px solid var(--bl-softbdr)!important;
+  overflow:hidden!important;
+}
+#tabBracket .match-top{
+  padding:12px 14px 7px!important;
+  background:#fff!important;
+  border-bottom:none!important;
+}
+#tabBracket .court-badge{
+  border:none!important;
+  background:transparent!important;
+  padding:0!important;
+  color:var(--bl-deep)!important;
+  font-size:1.2rem!important;
+  font-weight:1000!important;
+  letter-spacing:-.05em!important;
+}
+#tabBracket .mtb{
+  border:none!important;
+  background:transparent!important;
+  padding:0!important;
+  color:#9f6268!important;
+  font-size:.78rem!important;
+  font-weight:1000!important;
+}
+#tabBracket .match-body{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important;
+  align-items:center!important;
+  padding:8px 14px 12px!important;
+  gap:8px!important;
+}
+#tabBracket .tm-side{
+  display:block!important;
+  background:transparent!important;
+  padding:0!important;
+  min-width:0!important;
+}
+#tabBracket .tm-prefix{
+  display:none!important;
+}
+#tabBracket .tm-names{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:2px!important;
+}
+#tabBracket .tm-name{
+  display:block!important;
+  font-size:1rem!important;
+  font-weight:1000!important;
+  line-height:1.28!important;
+  letter-spacing:-.06em!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+#tabBracket .match-body .tm-side:last-child .tm-name{
+  text-align:right!important;
+}
+#tabBracket .tm-vs{
+  background:transparent!important;
+  padding:0 3px!important;
+  color:#8a94a5!important;
+  align-self:center!important;
+  justify-self:center!important;
+}
+#tabBracket .win-row{
+  background:#fff!important;
+  border-top:1px solid var(--bdr)!important;
+  padding:10px 12px!important;
+}
+@media(max-width:360px){
+  #tabBracket .match-grid{grid-template-columns:1fr!important;}
+}
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -2336,7 +2417,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.243&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.244&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2355,7 +2436,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.243&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.244&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2956,7 +3037,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.243';
+const APP_VERSION = '1.10.244';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5915,9 +5996,8 @@ function renderResults(matches,participants,settings){
       const sl2=isTeam?(t1b?`🔴${teamNames.white}`:`🔵${teamNames.blue}`):'B';
       return `<div class="match-card ${tc}${m.isFiller?' filler':''}" id="mc_${idx}">
         <div class="match-top">
-          <span class="match-num">#${m.matchNumber}</span>
+          <span class="court-badge">${m.court}코트</span>
           <span class="mtb ${tbc}">${ts}</span>
-          <span class="court-badge">코트 ${m.court}</span>
         </div>
         <div class="match-body">
           <div class="tm-side ${p1cls}">
@@ -10085,7 +10165,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.243</span>
+  <span class="app-version" id="appVersion">v1.10.244</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

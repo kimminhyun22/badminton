@@ -1158,6 +1158,22 @@ body{
   border:1px solid #cfe0fb;background:#f4f8ff;color:#4f73b8;border-radius:14px;
   padding:10px 14px;font-weight:900;font-size:.82rem;white-space:nowrap;
 }
+.viewer-picker{display:flex;flex-direction:column;gap:10px;}
+.viewer-picker-title{font-size:1.04rem;font-weight:1000;color:#222b3a;letter-spacing:-.04em;}
+.viewer-search-input{
+  width:100%;box-sizing:border-box;border:1px solid #d8e3f4;border-radius:16px;background:#f8fbff;
+  color:#222b3a;font-size:1rem;font-weight:900;padding:13px 14px;outline:none;
+}
+.viewer-search-input:focus{border-color:#b8cff7;box-shadow:0 0 0 4px rgba(91,141,239,.08);}
+.viewer-candidates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.viewer-name-card{
+  border:1px solid #dfe7f3;background:#fff;border-radius:16px;padding:11px 12px;text-align:left;
+  display:flex;flex-direction:column;gap:3px;min-height:58px;font-family:'Noto Sans KR',sans-serif;
+}
+.viewer-name-card b{font-size:.98rem;font-weight:1000;color:#222b3a;letter-spacing:-.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.viewer-name-card span{font-size:.72rem;font-weight:900;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.viewer-name-card:active{transform:scale(.985);}
+.viewer-empty-result{grid-column:1/-1;border:1px dashed #d8e3f4;border-radius:16px;padding:18px;text-align:center;font-size:.86rem;font-weight:900;color:#7a8798;}
 .viewer-status-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 10px;}
 .viewer-state-btn{
   position:relative;
@@ -1203,6 +1219,11 @@ body{
 .viewer-next-line{font-size:.95rem;font-weight:1000;color:#222b3a;line-height:1.42;word-break:keep-all;}
 .viewer-next-line b{display:inline-flex;margin:0 6px;color:#8a94a5;font-size:.78rem;}
 .viewer-next-type{margin-top:6px;font-size:.74rem;font-weight:900;color:#718096;}
+.viewer-match-versus{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px;margin-top:10px;}
+.viewer-pair{min-width:0;font-size:1.02rem;font-weight:1000;line-height:1.34;color:#222b3a;letter-spacing:-.05em;}
+.viewer-pair.right{text-align:right;}
+.viewer-pair span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.viewer-vs{font-size:.74rem;font-weight:1000;color:#8a94a5;}
 .viewer-record-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
 .viewer-record-chip{border:1px solid #e6edf7;border-radius:14px;background:#fff;padding:9px 7px;text-align:center;}
 .viewer-record-chip b{display:block;font-size:1.05rem;font-weight:1000;color:#222b3a;line-height:1;}
@@ -1213,8 +1234,9 @@ body{
 .viewer-schedule summary:after{content:"보기";color:#93a0b3;font-size:.7rem;}
 .viewer-schedule[open] summary:after{content:"접기";}
 .viewer-schedule-list{border-top:1px solid #edf2f7;padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
-.viewer-schedule-item{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;font-size:.78rem;font-weight:900;color:#39465a;}
-.viewer-schedule-item span{color:#557ecf;white-space:nowrap;}
+.viewer-schedule-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+.viewer-schedule-item{border:1px solid #edf2f7;border-radius:14px;padding:9px;background:#fff;font-size:.78rem;font-weight:900;color:#39465a;}
+.viewer-schedule-item>span{display:block;color:#557ecf;white-space:nowrap;margin-bottom:5px;}
 .result-entry{
   margin-top:10px;padding-top:10px;border-top:1px dashed #dfe7f3;
   display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -1408,6 +1430,77 @@ body{
   border-color:#f2d3d3!important;
   background:#fff8f8!important;
 }
+.current-grid,
+.next-list{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+}
+.current-panel .live-match,
+.next-panel .live-match{
+  margin:0!important;
+  min-width:0!important;
+  padding:13px 12px!important;
+  border-radius:22px!important;
+}
+.current-panel .live-match-top,
+.next-panel .live-match-top{
+  margin-bottom:10px!important;
+  align-items:center!important;
+}
+.current-panel .live-court,
+.next-panel .live-court{
+  font-size:1.08rem!important;
+  border:none!important;
+  background:transparent!important;
+  padding:0!important;
+  color:var(--bl-deep)!important;
+}
+.current-panel .live-type,
+.next-panel .live-type{
+  font-size:.82rem!important;
+  border:none!important;
+  background:transparent!important;
+  padding:0!important;
+  color:#9f6268!important;
+}
+.current-panel .live-side,
+.next-panel .live-side{
+  background:transparent!important;
+  padding:0!important;
+  border-radius:0!important;
+  min-width:0!important;
+}
+.current-panel .live-team-label,
+.next-panel .live-team-label{
+  display:none!important;
+}
+.current-panel .live-player,
+.next-panel .live-player{
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  font-size:1.03rem!important;
+  line-height:1.32!important;
+  letter-spacing:-.05em!important;
+}
+.current-panel .live-side.red .live-player,
+.next-panel .live-side.red .live-player{
+  text-align:right!important;
+}
+.current-panel .live-vs,
+.next-panel .live-vs,
+.viewer-vs{
+  align-self:center!important;
+  justify-self:center!important;
+  color:#8a94a5!important;
+}
+.viewer-schedule .viewer-match-versus{
+  gap:6px;
+}
+.viewer-schedule .viewer-pair{
+  font-size:.82rem;
+}
 @media(max-width:430px){
   .score-hero,.current-panel,.next-panel,.info-details,.team-roster-card,.live-match,.viewer-identity{
     border-radius:22px!important;
@@ -1418,6 +1511,14 @@ body{
   .viewer-next-line{font-size:.9rem;}
   .viewer-record-grid{gap:6px;}
   .viewer-record-chip{padding:8px 5px;}
+  .viewer-candidates{grid-template-columns:1fr;}
+  .viewer-schedule-list{grid-template-columns:1fr;}
+}
+@media(max-width:360px){
+  .current-grid,
+  .next-list{
+    grid-template-columns:1fr!important;
+  }
 }
 </style>
 </head>
@@ -1532,6 +1633,7 @@ let _teamRosterOpen=false;
 let _latestLiveData=null;
 let _liveTicker=null;
 let _viewerName='';
+let _viewerSearchTerm='';
 
 const content=document.getElementById('content');
 
@@ -2308,6 +2410,20 @@ function _viewerStorageKey(){
   return 'kokmatch_live_viewer_'+(liveId||'default');
 }
 
+function _koInitials(text){
+  const initials=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  return String(text||'').split('').map(ch=>{
+    const code=ch.charCodeAt(0)-0xac00;
+    if(code>=0 && code<=11171) return initials[Math.floor(code/588)]||ch;
+    return ch;
+  }).join('');
+}
+
+function _viewerSearchText(p,d){
+  const team=p.team==='blue'?liveTeamLabel(d,'blue'):p.team==='red'?liveTeamLabel(d,'red'):'참가자';
+  return [p.n,_koInitials(p.n),team,_viewerRoleText(p)].join(' ').toLowerCase();
+}
+
 function _allLiveMembers(d){
   const members=d&&d.members?d.members:{};
   const rows=[];
@@ -2334,6 +2450,7 @@ function _viewerRoleText(p){
 
 function setLiveViewerName(name){
   _viewerName=String(name||'').trim();
+  if(_viewerName) _viewerSearchTerm='';
   try{
     if(_viewerName) localStorage.setItem(_viewerStorageKey(),_viewerName);
     else localStorage.removeItem(_viewerStorageKey());
@@ -2344,6 +2461,19 @@ function setLiveViewerName(name){
 function selectLiveViewer(){
   const el=document.getElementById('liveViewerSelect');
   setLiveViewerName(el?el.value:'');
+}
+
+function setLiveViewerSearch(value){
+  _viewerSearchTerm=String(value||'');
+  if(window._lastLiveData) render(window._lastLiveData);
+  requestAnimationFrame(()=>{
+    const el=document.getElementById('liveViewerSearch');
+    if(el){
+      el.focus();
+      const len=el.value.length;
+      try{el.setSelectionRange(len,len);}catch(e){}
+    }
+  });
 }
 
 function _matchSideForName(m,name){
@@ -2357,6 +2487,20 @@ function _matchPlayersLine(m,side){
   const mine=side==='t2'?(m.t2||[]):(m.t1||[]);
   const opp=side==='t2'?(m.t1||[]):(m.t2||[]);
   return esc(mine.filter(Boolean).join(' / ')||'-')+' <b>vs</b> '+esc(opp.filter(Boolean).join(' / ')||'-');
+}
+
+function _viewerPairHtml(names,cls){
+  return '<div class="viewer-pair '+(cls||'')+'">'+(names||[]).slice(0,2).map(n=>'<span>'+esc(n||'-')+'</span>').join('')+'</div>';
+}
+
+function _viewerMatchBoardHtml(m,side){
+  const mine=side==='t2'?(m.t2||[]):(m.t1||[]);
+  const opp=side==='t2'?(m.t1||[]):(m.t2||[]);
+  return '<div class="viewer-match-versus">'
+    +_viewerPairHtml(mine,'mine')
+    +'<div class="viewer-vs">VS</div>'
+    +_viewerPairHtml(opp,'right')
+  +'</div>';
 }
 
 function _viewerMatches(d,name){
@@ -2403,7 +2547,7 @@ function _viewerNextHtml(d,current){
   const where='R'+esc(String(next.round||'-'))+' · '+esc(String(next.court||'-'))+'코트';
   return '<div class="viewer-next-card">'
     +'<div class="viewer-next-top"><span class="viewer-next-label">'+label+'</span><span class="viewer-next-where">'+where+'</span></div>'
-    +'<div class="viewer-next-line">'+_matchPlayersLine(next,next._side)+'</div>'
+    +_viewerMatchBoardHtml(next,next._side)
     +'<div class="viewer-next-type">'+esc(next.type||'경기')+(next.isFiller?' · 보완':'')+'</div>'
   +'</div>';
 }
@@ -2414,7 +2558,7 @@ function _viewerScheduleHtml(d,current){
   return '<details class="viewer-schedule">'
     +'<summary>전체 예정 경기 '+future.length+'개</summary>'
     +'<div class="viewer-schedule-list">'
-      +future.map(m=>'<div class="viewer-schedule-item"><span>R'+esc(String(m.round||'-'))+' · '+esc(String(m.court||'-'))+'코트</span><div>'+_matchPlayersLine(m,m._side)+'</div></div>').join('')
+      +future.map(m=>'<div class="viewer-schedule-item"><span>R'+esc(String(m.round||'-'))+' · '+esc(String(m.court||'-'))+'코트</span>'+_viewerMatchBoardHtml(m,m._side)+'</div>').join('')
     +'</div>'
   +'</details>';
 }
@@ -2452,14 +2596,24 @@ function buildViewerIdentity(d){
       +_viewerScheduleHtml(d,current)
     +'</section>';
   }
-  const opts=all.sort((a,b)=>String(a.n).localeCompare(String(b.n),'ko')).map(p=>{
+  const sorted=all.sort((a,b)=>String(a.n).localeCompare(String(b.n),'ko'));
+  const q=String(_viewerSearchTerm||'').trim().toLowerCase();
+  const filtered=(q?sorted.filter(p=>_viewerSearchText(p,d).includes(q)):sorted).slice(0,12);
+  const cards=filtered.map(p=>{
     const team=p.team==='blue'?liveTeamLabel(d,'blue'):p.team==='red'?liveTeamLabel(d,'red'):'참가자';
-    return '<option value="'+esc(p.n)+'">'+esc(p.n)+' · '+esc(team)+'</option>';
+    const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
+    return '<button type="button" class="viewer-name-card" onclick="setLiveViewerName('+nameArg+')">'
+      +'<b>'+esc(p.n)+'</b>'
+      +'<span>'+esc(team)+' · '+esc(_viewerRoleText(p))+'</span>'
+    +'</button>';
   }).join('');
   return '<section class="viewer-identity">'
-    +'<div class="viewer-identity-row">'
-      +'<select id="liveViewerSelect"><option value="">내 이름 선택</option>'+opts+'</select>'
-      +'<button type="button" onclick="selectLiveViewer()">확인</button>'
+    +'<div class="viewer-picker">'
+      +'<div class="viewer-picker-title">내 이름 찾기</div>'
+      +'<input id="liveViewerSearch" class="viewer-search-input" value="'+esc(_viewerSearchTerm||'')+'" oninput="setLiveViewerSearch(this.value)" placeholder="초성 또는 이름 검색">'
+      +'<div class="viewer-candidates">'
+        +(cards||'<div class="viewer-empty-result">검색 결과가 없습니다.</div>')
+      +'</div>'
     +'</div>'
   +'</section>';
 }
@@ -2563,6 +2717,7 @@ function buildResultInputControls(m,d,opts){
 
 window.setLiveViewerName=setLiveViewerName;
 window.selectLiveViewer=selectLiveViewer;
+window.setLiveViewerSearch=setLiveViewerSearch;
 window.submitLiveWin=submitLiveWin;
 
 function setTeamRosterSort(sort){
@@ -2715,8 +2870,8 @@ function buildLiveMatchCard(m,d,opts){
   return '<article class="live-match '+tc+(opts.current?' is-current':'')+(imminent?' is-imminent':'')+'">'
     +(imminent?'<div class="imminent-banner">대진 임박 · 다음 경기 준비해주세요</div>':'')
     +'<div class="live-match-top">'
-      +'<span class="live-type '+tc+'">'+typeLabel+'</span>'
       +'<span class="live-court">'+courtLabel+'</span>'
+      +'<span class="live-type '+tc+'">'+typeLabel+'</span>'
     +'</div>'
     +'<div class="live-versus">'
       +'<div class="live-side blue'+(t1win?' win':'')+'">'
@@ -2747,7 +2902,9 @@ function buildCurrentPanel(curRound, curMatches, d){
       +'<span class="current-badge">'+badge+'</span>'
     +'</div>';
   if((curMatches||[]).length){
+    html+='<div class="current-grid">';
     curMatches.sort((a,b)=>a.court-b.court).forEach(m=>{ html+=buildLiveMatchCard(m,d,{current:true}); });
+    html+='</div>';
   } else {
     html+='<div class="live-match is-current"><div class="live-match-top"><span class="live-type">대기 중</span></div>'
       +'<div class="progress">아직 표시할 경기가 없습니다.</div></div>';
@@ -2762,7 +2919,6 @@ function buildNextPanel(nextMatches,d){
   const visible=nextMatches.slice(0,limit);
   const imminent=visible.some(_isImminentMatch);
   let html='<section class="next-panel '+(imminent?'next-imminent':'')+'"><div class="next-title">'+(imminent?'다음 대진 준비':'다음 대진')+'</div>'
-    +'<div class="next-wait-note">예상 코트 번호 확인 · 종료 순서에 따라 바뀔 수 있음</div>'
     +'<div class="next-list">';
   visible.forEach(m=>{
     html+=buildLiveMatchCard(m,d,{next:true});
