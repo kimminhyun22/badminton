@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.245  (2026-06)
+     APP VERSION: 1.10.246  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.245">
+<meta name="app-version" content="1.10.246">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2218,7 +2218,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>월례 팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전 최신판 v1.10.245</small>
+          <small>팀전 최신판 v1.10.246</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -2244,7 +2244,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
             <select class="dir-input" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
             <input class="dir-input" id="rsvpTitle" type="text" placeholder="예: 토요일 운동" oninput="rsvpSaveLocal();rsvpRender();">
             <input class="dir-input" id="rsvpGuestLimit" type="number" min="0" inputmode="numeric" placeholder="게스트 제한" oninput="rsvpSaveLocal();rsvpRender();">
-            <button class="btn btn-ghost btn-sm" onclick="rsvpShareLink()">밴드 공지 복사</button>
+            <button class="btn btn-ghost btn-sm" onclick="rsvpShareLink()">링크 복사</button>
           </div>
           <div class="daily-note" style="margin-bottom:10px;">
             먼저 발송할 클럽 명부를 선택하세요. 밴드에는 링크만 올리고, 회원은 본인 카드에서 참석·불참·게스트를 직접 확정합니다.
@@ -3025,7 +3025,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.245';
+const APP_VERSION = '1.10.246';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6500,7 +6500,7 @@ function rsvpRender(){
   }
   if(!_rsvpId){
     box.className='daily-empty';
-    box.textContent=members.length?`${_rsvpSelectedLabel()} 대상으로 참석 링크를 만들 준비가 됐습니다. 밴드 공지 복사를 누르세요.`:'선택한 클럽 명부에 회원이 없습니다.';
+    box.textContent=members.length?`${_rsvpSelectedLabel()} 대상으로 참석 링크를 만들 준비가 됐습니다. 링크 복사를 누르세요.`:'선택한 클럽 명부에 회원이 없습니다.';
     return;
   }
   const url=_rsvpUrl();
@@ -6520,7 +6520,7 @@ function rsvpRender(){
     </div>
     <div class="daily-checkin-req-actions">
       <button class="daily-mini-btn" onclick="rsvpImportAttendees()">참석자 대진표로 가져오기</button>
-      <button class="daily-mini-btn" onclick="rsvpShareLink()">공지 다시 복사</button>
+      <button class="daily-mini-btn" onclick="rsvpShareLink()">링크 복사</button>
       <button class="daily-mini-btn danger" onclick="rsvpStopLink()">링크 종료</button>
     </div>
     ${guestRows.length?`<div class="rsvp-list"><div class="rsvp-section-title">게스트 신청 ${esc(guestText)}명 · 신청자 확인</div>${guestRows.map(r=>_rsvpGuestRowHtml(r)).join('')}</div>`:''}
@@ -12766,7 +12766,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.245&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.246&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -12834,7 +12834,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.245</span>
+  <span class="app-version" id="appVersion">v1.10.246</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
