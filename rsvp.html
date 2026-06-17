@@ -90,17 +90,19 @@ button.ready.selected{background:#3b82f6;color:#fff}
 button.maybe.selected{background:#b7791f;color:#fff}
 button.decline.selected{background:#64748b;color:#fff}
 button:disabled{opacity:.55}
-.guest{margin-top:10px;border:1px solid var(--line);border-radius:18px;background:#fbfcff;overflow:hidden}
-.guest summary{cursor:pointer;padding:11px 12px;font-size:14px;font-weight:900;color:#344055;list-style:none}
-.guest summary::-webkit-details-marker{display:none}
+.guest,.partner-request{margin-top:10px;border:1px solid var(--line);border-radius:18px;background:#fbfcff;overflow:hidden}
+.guest summary,.partner-request summary{cursor:pointer;padding:11px 12px;font-size:14px;font-weight:900;color:#344055;list-style:none}
+.guest summary::-webkit-details-marker,.partner-request summary::-webkit-details-marker{display:none}
 .guest-body{padding:0 12px 12px;display:grid;grid-template-columns:1fr 80px 80px;gap:8px}
-.guest input,.guest select{height:42px;border:1px solid var(--line);border-radius:13px;padding:0 10px;font:inherit;background:#fff;min-width:0}
+.partner-body{padding:0 12px 12px;display:grid;grid-template-columns:1fr auto;gap:8px}
+.guest input,.guest select,.partner-request select{height:42px;border:1px solid var(--line);border-radius:13px;padding:0 10px;font:inherit;background:#fff;min-width:0}
 .guest button{grid-column:1/-1;background:var(--blue);color:#fff}
-.guest button:disabled{background:#e2e8f0;color:#64748b}
+.partner-request button{background:var(--blue);color:#fff;min-width:92px}
+.guest button:disabled,.partner-request button:disabled{background:#e2e8f0;color:#64748b}
 .empty{padding:28px 14px;text-align:center;color:var(--mut);line-height:1.55}
 .toast{position:fixed;left:14px;right:14px;bottom:16px;max-width:700px;margin:0 auto;padding:14px 16px;border-radius:18px;background:#18202d;color:#fff;font-weight:900;text-align:center;box-shadow:0 16px 44px rgba(0,0,0,.26);transform:translateY(120%);transition:.22s ease;z-index:10}
 .toast.show{transform:translateY(0)}
-@media(max-width:520px){.stats{grid-template-columns:repeat(3,1fr)}.summary-grid{grid-template-columns:1fr 1fr}.guest-body{grid-template-columns:1fr 1fr}.guest input{grid-column:1/-1}.actions{gap:7px}button{font-size:14px}.name{font-size:17px}}
+@media(max-width:520px){.stats{grid-template-columns:repeat(3,1fr)}.summary-grid{grid-template-columns:1fr 1fr}.guest-body{grid-template-columns:1fr 1fr}.guest input{grid-column:1/-1}.partner-body{grid-template-columns:1fr}.actions{gap:7px}button{font-size:14px}.name{font-size:17px}}
 
 /* 민턴LIVE 톤앤매너 통합 */
 :root{
@@ -112,7 +114,7 @@ body{
   background:linear-gradient(180deg,#edf4ff 0%,#f8fafc 48%,#fff 100%);
   color:var(--txt);
 }
-.hero,.panel,.event-panel,.summary-panel,.member,.guest{
+.hero,.panel,.event-panel,.summary-panel,.member,.guest,.partner-request{
   border:1px solid var(--line);
   background:rgba(255,255,255,.92);
   box-shadow:var(--shadow);
@@ -219,7 +221,7 @@ button.decline.selected{
 .member-fold[open] summary{border-bottom:1px solid var(--line)}
 .member-fold[open] summary:after{content:'접기'}
 .member-fold #members{padding:0 10px 10px}
-.search,.guest input,.guest select{
+.search,.guest input,.guest select,.partner-request select{
   border:1px solid var(--line);
   background:#fff;
   color:var(--txt);
@@ -240,7 +242,7 @@ button.decline.selected{
     <h1 id="title">월례대회 참석 확인</h1>
     <p class="sub" id="sessionSub">참석부를 불러오는 중입니다.</p>
     <div class="notice">이름을 찾고 참석 여부를 누르면 끝입니다. 게스트가 있으면 같은 카드에서 바로 신청할 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.238</span>
+    <span class="version-chip" id="appVersion">v1.10.239</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>참석</span></div>
@@ -277,7 +279,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false;
-const APP_VERSION='1.10.238';
+const APP_VERSION='1.10.239';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -487,14 +489,17 @@ function memberCard(m,recent){
   const r=memberResponse(m.id);
   const status=r?.status||'none';
   const guest=r?.guest||{};
+  const partner=r?.partnerRequest||null;
   const normalized=isAttendStatus(status)?status:'none';
   const badge=normalized==='none'?'미응답':statusLabel(normalized);
   const guestOpen=guest.name?' open':'';
+  const partnerOpen=partner?.memberId?' open':'';
   const selected=s=>normalized===s?' selected':'';
   const disabled=sendingKey?'disabled':'';
   const closed=guestLimitReached(m.id);
   const memberState=normalized==='ready'?'ready-state':normalized==='attend'?'attending':'';
   const guestSummary=guest.name?`게스트 ${esc(guest.name)} 신청됨`:(closed?'게스트 신청 마감':'게스트 신청/수정');
+  const partnerSummary=partner?.memberName?`P 신청: ${esc(partner.memberName)}`:'P 파트너 신청';
   return `<article class="member ${recent?'recent':''} ${memberState}">
     <div class="mhead">
       <div>
@@ -516,6 +521,13 @@ function memberCard(m,recent){
         <button ${closed?'disabled':''} onclick="saveGuest('${esc(m.id)}')">${closed?'게스트 신청 마감':'게스트 저장하고 참석'}</button>
       </div>
     </details>
+    <details class="partner-request"${partnerOpen}>
+      <summary>${partnerSummary}</summary>
+      <div class="partner-body">
+        <select id="pReq_${esc(m.id)}">${partnerOptions(m.id,partner?.memberId||'')}</select>
+        <button onclick="savePartnerRequest('${esc(m.id)}')">${partner?.memberId?'수정':'저장'}</button>
+      </div>
+    </details>
   </article>`;
 }
 function responseFor(m,status,extra={}){
@@ -530,6 +542,7 @@ function responseFor(m,status,extra={}){
     ageGroup:m.ageGroup||'40대',
     status,
     guest:extra.guest!==undefined?extra.guest:(prev.guest||null),
+    partnerRequest:extra.partnerRequest!==undefined?extra.partnerRequest:(prev.partnerRequest||null),
     updatedAt:Date.now(),
     source:'member-rsvp'
   };
@@ -589,6 +602,52 @@ async function saveGuest(memberId){
     responses[memberId]=payload;
     setLast(payload);
     toast(`${m.name} · 게스트 포함 참석 저장 완료`);
+  }catch(e){
+    toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';render();
+  }
+}
+function partnerOptions(memberId,selectedId){
+  const members=session?.members||[];
+  const opts=['<option value="">선택 안 함</option>'];
+  members
+    .filter(m=>m.id!==memberId)
+    .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
+    .forEach(m=>{
+      opts.push(`<option value="${esc(m.id)}" ${m.id===selectedId?'selected':''}>${esc(m.name)} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급</option>`);
+    });
+  return opts.join('');
+}
+async function savePartnerRequest(memberId){
+  if((!db&&!isSampleMode())||!session||sendingKey)return;
+  const m=(session.members||[]).find(x=>x.id===memberId);
+  if(!m)return toast('회원 정보를 찾지 못했습니다.');
+  const partnerId=document.getElementById('pReq_'+memberId)?.value||'';
+  const partner=(session.members||[]).find(x=>x.id===partnerId);
+  const current=memberResponse(memberId);
+  const status=isAttendStatus(current?.status)?current.status:'attend';
+  const partnerRequest=partner?{
+    memberId:partner.id,
+    memberName:partner.name,
+    grade:partner.grade||'C',
+    gender:partner.gender||'남',
+    updatedAt:Date.now()
+  }:null;
+  sendingKey=memberId+'_partner';render();
+  const payload=responseFor(m,status,{partnerRequest});
+  if(isSampleMode()){
+    responses[memberId]=payload;
+    setLast(payload);
+    sendingKey='';
+    render();
+    return toast(partner?`${m.name} · ${partner.name} P 신청 저장됨`:`${m.name} · P 신청 해제됨`);
+  }
+  try{
+    await db.ref(path()+'/responses/'+memberId).set(payload);
+    responses[memberId]=payload;
+    setLast(payload);
+    toast(partner?`${m.name} · ${partner.name} P 신청 저장 완료`:`${m.name} · P 신청 해제 완료`);
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
   }finally{
