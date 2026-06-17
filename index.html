@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.253  (2026-06)
+     APP VERSION: 1.10.254  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.253">
+<meta name="app-version" content="1.10.254">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1860,6 +1860,25 @@ body.monthly-team-mode .team-partner-help{display:block;}
   line-height:1.1;
   letter-spacing:-.06em;
 }
+.daily-court-title-btn{
+  appearance:none;
+  -webkit-appearance:none;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  font-weight:inherit;
+  line-height:inherit;
+  letter-spacing:inherit;
+  padding:0;
+  margin:0;
+  text-align:left;
+  cursor:pointer;
+}
+.daily-court-title-btn:active{
+  opacity:.66;
+  transform:scale(.99);
+}
 .daily-court-card.soon .daily-court-title,
 .daily-court-card.due .daily-court-title{color:var(--ml-blue-deep);}
 .daily-court-card .daily-timer{
@@ -2239,7 +2258,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>월례 팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전 최신판 v1.10.253</small>
+          <small>팀전 최신판 v1.10.254</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -3037,7 +3056,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.253';
+const APP_VERSION = '1.10.254';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5137,6 +5156,28 @@ function dailyPickActiveReplacement(matchId,side,pos){
   dailyRender();
   dailyMaybeAutoAssign();
 }
+function dailyEditActiveCourt(matchId){
+  const m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
+  if(!m)return;
+  const current=parseInt(m.court,10)||1;
+  const raw=prompt(`현재 ${current}코트입니다.\n실제 진행 중인 코트 번호를 입력하세요.`, String(current));
+  if(raw==null)return;
+  const next=parseInt(String(raw).trim(),10);
+  if(!Number.isFinite(next)||next<1||next>12){
+    alert('코트 번호는 1~12 사이 숫자로 입력해 주세요.');
+    return;
+  }
+  if(next===current)return;
+  const other=_dailyActiveMatches().find(x=>x.id!==m.id&&!x.cancelledAt&&(parseInt(x.court,10)||0)===next);
+  if(other){
+    const ok=confirm(`${next}코트에는 이미 진행 중인 경기가 있습니다.\n두 경기의 코트 번호를 서로 바꿀까요?`);
+    if(!ok)return;
+    other.court=current;
+  }
+  m.court=next;
+  dailySave();
+  dailyRender();
+}
 function dailyRegenerateQueueItem(queueId){
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0)return;
@@ -6748,7 +6789,7 @@ function dailyRenderMatches(){
     const playerButton=(side,p,i)=>`<button class="daily-active-player" type="button" title="이름을 눌러 대기선수로 교체" onclick="dailyPickActiveReplacement('${m.id}','${side}',${i})">${_dailyNameHtml(p)}</button>`;
     return `<div class="daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
       <div class="daily-court-head">
-        <div class="daily-court-title">${m.court}코트</div>
+        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button></div>
         <span class="daily-timer ${state==='soon'?'soon':''} ${state==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>
       </div>
       <div class="daily-court-body">
@@ -12828,7 +12869,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.253&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.254&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -12896,7 +12937,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.253</span>
+  <span class="app-version" id="appVersion">v1.10.254</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
