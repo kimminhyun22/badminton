@@ -374,6 +374,20 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:#f8fbff;color:#4f78c9;font-size:14px;font-weight:900;line-height:1.5;
 }
 .other-roster-title{margin:12px 0 8px;color:#6f7a8a;font-size:12px;font-weight:1000;letter-spacing:.04em}
+.version-chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:10px;
+  padding:5px 9px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:rgba(255,255,255,.76);
+  color:#8a94a5;
+  font-size:11px;
+  font-weight:900;
+  line-height:1;
+}
 .search{
   flex:1;
   height:46px;
@@ -970,6 +984,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice"><strong>참석</strong> 후 현장에서는 <strong>시작</strong>만 누르세요.</div>
+    <span class="version-chip" id="appVersion">v1.10.234</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1001,6 +1016,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null;
+const APP_VERSION='1.10.234';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['planned','toggle','rest'];
@@ -1668,6 +1684,8 @@ async function sendGameRequest(playerId){
   }
 }
 function boot(){
+  const vEl=document.getElementById('appVersion');
+  if(vEl)vEl.textContent='v'+APP_VERSION;
   checkinId=qs('id');
   if(!checkinId){
     document.getElementById('players').textContent='출석 링크가 올바르지 않습니다.';

@@ -87,6 +87,122 @@ button:disabled{opacity:.55}
 .toast{position:fixed;left:14px;right:14px;bottom:16px;max-width:700px;margin:0 auto;padding:14px 16px;border-radius:18px;background:#18202d;color:#fff;font-weight:900;text-align:center;box-shadow:0 16px 44px rgba(0,0,0,.26);transform:translateY(120%);transition:.22s ease;z-index:10}
 .toast.show{transform:translateY(0)}
 @media(max-width:520px){.stats{grid-template-columns:repeat(3,1fr)}.summary-grid{grid-template-columns:1fr 1fr}.guest-body{grid-template-columns:1fr 1fr}.guest input{grid-column:1/-1}.actions{gap:7px}button{font-size:14px}.name{font-size:17px}}
+
+/* 민턴LIVE 톤앤매너 통합 */
+:root{
+  --bg:#f6f8fc;--card:#fff;--line:#e3e9f3;--line2:#d8e1ee;--txt:#18202d;--mut:#6f7a8a;
+  --blue:#5b8def;--blue-deep:#406fc7;--blue2:#eaf1fe;--green:#35a56a;--red:#e35b55;--amber:#f0a73a;
+  --shadow:0 10px 28px rgba(35,55,90,.08);
+}
+body{
+  background:linear-gradient(180deg,#edf4ff 0%,#f8fafc 48%,#fff 100%);
+  color:var(--txt);
+}
+.hero,.panel,.event-panel,.summary-panel,.member,.guest{
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.92);
+  box-shadow:var(--shadow);
+}
+.hero{
+  background:linear-gradient(135deg,#fff 0%,#f7fbff 100%);
+  border-color:#d7e4fb;
+}
+.eyebrow{color:var(--blue-deep);letter-spacing:.08em;}
+h1,.name,.summary-top,.event-title{color:var(--txt);letter-spacing:-.04em;}
+.sub,.notice,.meta,.summary-names,.summary-row span,.event-desc,.empty{color:var(--mut);}
+.notice,.summary-chip,.stat{
+  border:1px solid var(--line);
+  background:#fff;
+  box-shadow:none;
+}
+.pill,.event-btn,.summary-toggle,button{
+  border:1px solid var(--line2);
+  border-radius:16px;
+  box-shadow:none;
+  font-weight:900;
+  letter-spacing:-.02em;
+}
+.summary-toggle,.event-btn,.guest button{
+  background:linear-gradient(180deg,#f8fbff 0%,#edf4ff 100%);
+  border-color:#bfd4fb;
+  color:var(--blue-deep);
+}
+button.attend{background:#f3fbf6;color:#24784d;border-color:#ccebd8;}
+button.maybe{background:#fffaf2;color:#9a650c;border-color:#edd5aa;}
+button.decline{background:#f7f9fc;color:#5f6b7c;border-color:var(--line2);}
+button.selected{
+  transform:translateY(-1px);
+  box-shadow:0 0 0 4px rgba(53,165,106,.10);
+}
+button.attend.selected,
+button.maybe.selected,
+button.decline.selected{
+  background:linear-gradient(180deg,#35a56a,#2c8f5a);
+  border-color:#35a56a;
+  color:#fff;
+}
+.badge{border:1px solid var(--line);background:#f8fafc;color:var(--mut);}
+.badge.attend,.my-state{background:#f3fbf6;color:#24784d;border-color:#ccebd8;}
+.badge.maybe{background:#fffaf2;color:#9a650c;border-color:#edd5aa;}
+.badge.decline{background:#f8fafc;color:#6f7a8a;border-color:var(--line);}
+.member.recent,.member.attending{border-color:#bfe8cf;box-shadow:0 0 0 3px rgba(53,165,106,.10);}
+.version-chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:10px;
+  padding:5px 9px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:rgba(255,255,255,.76);
+  color:#8a94a5;
+  font-size:11px;
+  font-weight:900;
+  line-height:1;
+}
+.member-fold{
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fff;
+  overflow:hidden;
+}
+.member-fold summary{
+  cursor:pointer;
+  list-style:none;
+  padding:13px 14px;
+  font-size:15px;
+  font-weight:900;
+  color:#344055;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.member-fold summary::-webkit-details-marker{display:none}
+.member-fold summary:after{
+  content:'보기';
+  flex-shrink:0;
+  font-size:12px;
+  color:#4f78c9;
+  background:#eaf1fe;
+  border-radius:999px;
+  padding:5px 9px;
+}
+.member-fold[open] summary{border-bottom:1px solid var(--line)}
+.member-fold[open] summary:after{content:'접기'}
+.member-fold #members{padding:0 10px 10px}
+.search,.guest input,.guest select{
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--txt);
+}
+@media(max-width:520px){
+  .wrap{padding:14px 12px 30px;}
+  .hero{border-radius:24px;padding:20px 16px;}
+  h1{font-size:25px;}
+  .panel{border-radius:22px;}
+  .actions{grid-template-columns:repeat(3,minmax(0,1fr));}
+}
 </style>
 </head>
 <body>
@@ -96,6 +212,7 @@ button:disabled{opacity:.55}
     <h1 id="title">월례대회 참석 확인</h1>
     <p class="sub" id="sessionSub">참석부를 불러오는 중입니다.</p>
     <div class="notice">이름을 찾고 참석 여부를 누르면 끝입니다. 게스트가 있으면 같은 카드에서 바로 신청할 수 있어요.</div>
+    <span class="version-chip" id="appVersion">v1.10.234</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>참석</span></div>
@@ -111,7 +228,10 @@ button:disabled{opacity:.55}
       <input id="search" class="search" placeholder="이름 또는 초성 검색" autocomplete="off">
       <span class="pill" id="countPill">0명</span>
     </div>
-    <div id="members" class="empty">명단을 불러오는 중입니다.</div>
+    <details class="member-fold" id="rsvpMemberFold">
+      <summary>전체 명단 / 내 이름 찾기</summary>
+      <div id="members" class="empty">명단을 불러오는 중입니다.</div>
+    </details>
   </section>
 </main>
 <div id="toast" class="toast"></div>
@@ -129,6 +249,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false;
+const APP_VERSION='1.10.234';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -321,12 +442,17 @@ function render(){
   renderHeader();
   const box=document.getElementById('members');
   const pill=document.getElementById('countPill');
-  if(!session){box.className='empty';box.textContent='참석부를 불러오는 중입니다.';pill.textContent='0명';return;}
+  const fold=document.getElementById('rsvpMemberFold');
+  if(!session){
+    if(fold)fold.open=true;
+    box.className='empty';box.textContent='참석부를 불러오는 중입니다.';pill.textContent='0명';return;
+  }
   const list=filteredMembers();
+  const last=getLast();
+  if(fold)fold.open=query?true:!last;
   pill.textContent=`${list.length}명`;
   if(!list.length){box.className='empty';box.textContent='검색된 회원이 없습니다.';return;}
   box.className='';
-  const last=getLast();
   box.innerHTML=list.map(m=>memberCard(m,last&&last.memberId===m.id)).join('');
 }
 function memberCard(m,recent){
@@ -442,6 +568,8 @@ async function saveGuest(memberId){
   }
 }
 function boot(){
+  const vEl=document.getElementById('appVersion');
+  if(vEl)vEl.textContent='v'+APP_VERSION;
   rsvpId=qs('id');
   if(!rsvpId){document.getElementById('members').textContent='참석 링크가 올바르지 않습니다.';return;}
   if(isSampleMode()){

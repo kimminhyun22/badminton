@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.232  (2026-06)
+     APP VERSION: 1.10.234  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.232">
+<meta name="app-version" content="1.10.234">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1224,7 +1224,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .collapse-btn.collapsed{transform:rotate(-90deg);}
 
 /* ── 팀전 참석 링크 ── */
-.rsvp-grid{display:grid;grid-template-columns:minmax(150px,.9fr) minmax(190px,1fr) auto;gap:7px;align-items:center;margin-bottom:9px;}
+.rsvp-grid{display:grid;grid-template-columns:minmax(150px,.9fr) minmax(190px,1fr);gap:7px;align-items:center;margin-bottom:9px;}
 #rsvpClubSelect{min-height:46px;border:1.5px solid #c9daf6;background:#f8fbff;color:#456fb8;
   font-size:.9rem;font-weight:900;border-radius:12px;box-shadow:0 4px 12px rgba(91,141,239,.055);}
 #rsvpClubSelect:focus{outline:none;border-color:#5b8def;box-shadow:0 0 0 4px rgba(91,141,239,.16);}
@@ -2050,12 +2050,168 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 .rsvp-saved-title{
   padding-left:2px;
 }
+.settings-mini-summary{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  align-items:center;
+  justify-content:flex-end;
+  margin-left:auto;
+  max-width:100%;
+}
+.settings-mini-chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:26px;
+  padding:5px 8px;
+  border:1px solid #d8e5fb;
+  border-radius:999px;
+  background:#f8fbff;
+  color:#55708f;
+  font-size:.66rem;
+  font-weight:900;
+  line-height:1;
+  white-space:nowrap;
+  letter-spacing:-.02em;
+}
 
 @media(min-width:769px){
   .rsvp-grid{
-    grid-template-columns:minmax(180px,.9fr) minmax(220px,1fr) auto!important;
+    grid-template-columns:minmax(180px,.9fr) minmax(220px,1fr)!important;
   }
 }
+
+/* ── v1.10.234: 민턴LIVE 톤앤매너 통합 ── */
+:root{
+  --bg:#f6f8fc!important;
+  --sur:#ffffff!important;
+  --sur2:#f8fbff!important;
+  --bdr:#e3e9f3!important;
+  --bdr2:#d8e1ee!important;
+  --txt:#18202d!important;
+  --dim:#6f7a8a!important;
+  --dim2:#9aa5b5!important;
+  --bl:#5b8def!important;
+  --bl-deep:#406fc7!important;
+  --bl-soft:#eaf1fe!important;
+  --bl-softbdr:#c9daf8!important;
+  --green:#35a56a!important;
+  --red:#e35b55!important;
+  --acc:#f0a73a!important;
+  --shadow:0 10px 28px rgba(35,55,90,.08)!important;
+  --shadow-md:0 18px 45px rgba(35,55,90,.11)!important;
+}
+body{
+  background:linear-gradient(180deg,#edf4ff 0%,#f8fafc 48%,#fff 100%)!important;
+  color:var(--txt)!important;
+  font-weight:500;
+}
+header,.nav-bar{
+  background:rgba(255,255,255,.92)!important;
+  border-color:var(--bdr)!important;
+  box-shadow:0 1px 0 rgba(227,233,243,.7)!important;
+}
+.h-left h1{font-weight:900!important;letter-spacing:-.04em!important;color:var(--txt)!important;}
+.card,.auto-flow-card,.qual-dash,.team-list-box,.match-card,.sum-box,.scoreboard,.fast-play-card,.live-ops-card{
+  border:1px solid var(--bdr)!important;
+  border-radius:24px!important;
+  background:rgba(255,255,255,.9)!important;
+  box-shadow:var(--shadow)!important;
+}
+.card-head,summary.card-head{
+  min-height:56px;
+  padding:13px 18px!important;
+  background:rgba(255,255,255,.84)!important;
+  border-color:var(--bdr)!important;
+}
+.card-title,.auto-flow-kicker,.sum-box-l,.stat-pill,.qd-meta-sub{
+  color:var(--dim)!important;
+  letter-spacing:.02em!important;
+}
+.auto-flow-card{
+  background:linear-gradient(135deg,#fff 0%,#f7fbff 100%)!important;
+  border-color:#d7e4fb!important;
+}
+.auto-flow-title,.qd-score,.round-badge,.current-round{
+  color:var(--txt)!important;
+  letter-spacing:-.04em!important;
+}
+.auto-flow-sub,.auto-flow-next,.hint,.rsvp-empty,.qd-row-detail{
+  color:var(--dim)!important;
+  line-height:1.45!important;
+}
+.auto-flow-panel,.rsvp-stat,.rsvp-saved-item,.sum-box,.stat-pill,.op-chip{
+  border:1px solid var(--bdr)!important;
+  border-radius:18px!important;
+  background:#fff!important;
+  box-shadow:none!important;
+}
+.auto-flow-panel.warn,.rsvp-stat.warn{
+  border-color:#f6d9aa!important;
+  background:#fffaf2!important;
+}
+.auto-flow-panel.live{
+  border-color:#bfe8cf!important;
+  background:#f3fbf6!important;
+}
+.btn,.btn-gen,.auto-flow-btn,.btn-ta,.nav-sync-btn,.import-label,.rsvp-action-btn,.rsvp-saved-btn,.team-reset-top,.btn-restore,.stepper-btn,.pseg-btn{
+  border-radius:16px!important;
+  border:1px solid var(--bdr2)!important;
+  box-shadow:none!important;
+  font-weight:900!important;
+  letter-spacing:-.02em!important;
+}
+.btn-gen,.auto-flow-btn,.rsvp-action-btn.primary,.btn-ta.done,.pseg-btn.active{
+  background:linear-gradient(180deg,#f8fbff 0%,#edf4ff 100%)!important;
+  color:var(--bl-deep)!important;
+  border-color:#bfd4fb!important;
+}
+.btn-gen::before,.auto-flow-btn::before,.rsvp-action-btn.primary::before,.btn-ta.done::before,.pseg-btn.active::before{
+  background:#dffbea!important;
+  box-shadow:0 0 0 5px rgba(53,165,106,.08)!important;
+}
+.btn:hover,.btn-gen:hover,.auto-flow-btn:hover,.rsvp-action-btn:hover,.btn-ta:hover{
+  transform:translateY(-1px);
+  border-color:#b9cef6!important;
+  background:#f7fbff!important;
+}
+.team-reset-top,.rsvp-action-btn.danger{
+  color:#b55258!important;
+  background:#fff8f8!important;
+  border-color:#f1c8cc!important;
+}
+.tlb-blue,.tlb-white{
+  background:#fff!important;
+  border-bottom:1px solid var(--bdr)!important;
+}
+.tlb-blue .team-name-input,.tlb-white .team-name-input{
+  color:var(--txt)!important;
+  border-bottom-color:var(--bdr2)!important;
+}
+.tlb-head small{color:var(--dim)!important;}
+.tlb-body{background:#fbfdff!important;}
+.match-card.women{border-left-color:#eeb8c8!important;}
+.match-card.men{border-left-color:#b8cdf8!important;}
+.match-card.mixed{border-left-color:#cfc3ea!important;}
+.match-card.adjust{border-left-color:#f5d28d!important;}
+.win-btn{
+  border-radius:15px!important;
+  background:#fff!important;
+  border:1px solid var(--bdr2)!important;
+  color:var(--dim)!important;
+}
+.win-btn.active,.win-btn:hover{
+  background:#f3fbf6!important;
+  border-color:#bfe8cf!important;
+  color:#21754c!important;
+}
+.bottom-nav{
+  background:rgba(255,255,255,.94)!important;
+  border-color:var(--bdr)!important;
+}
+.bnav-btn{color:var(--dim)!important;}
+.bnav-btn.active{color:var(--bl-deep)!important;}
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -2107,7 +2263,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.232&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.234&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2126,7 +2282,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.232&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.234&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2159,7 +2315,6 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
           <div class="rsvp-grid">
             <select class="inp" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
             <input class="inp" id="rsvpTitle" placeholder="예: 새천년 팀전 06.15" oninput="rsvpSaveLocal()">
-            <button class="btn btn-gen" onclick="rsvpShareLink()">공지 복사</button>
           </div>
           <div class="hint" style="margin-bottom:8px;">링크 하나로 참석, 대진표, 실시간 중계까지 이어집니다.</div>
           <div id="rsvpSavedBox"></div>
@@ -2243,7 +2398,10 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 
       <!-- 대회 설정 -->
       <details class="card" id="sec-settings">
-        <summary class="card-head"><span class="card-title">진행 설정</span></summary>
+        <summary class="card-head">
+          <span class="card-title">진행 설정</span>
+          <span class="settings-mini-summary" id="settingsMiniSummary"></span>
+        </summary>
         <div class="card-body">
           <div class="setting-grid">
             <div class="si">
@@ -2725,7 +2883,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.232';
+const APP_VERSION = '1.10.234';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2745,6 +2903,7 @@ const _POINT_MINUTES={25:15, 21:12, 15:9};
 function setPointSystem(pt){
   _pointSystem=pt;
   document.querySelectorAll('.pseg-btn').forEach(b=>b.classList.toggle('active', +b.dataset.pt===pt));
+  updateSettingsMiniSummary();
   // 이미 대진표가 있으면 예상 시간만 즉시 갱신
   if(currentMatches.length) renderResults(currentMatches,currentParticipants,currentSettings);
 }
@@ -3072,6 +3231,7 @@ function doTeamAssign(){
   const rbtn=document.getElementById('teamReassignBtn');
   if(rbtn) rbtn.classList.remove('hidden');
   btn.innerHTML='🔀 청/홍팀 재배정 (클릭 시 새로 배정)';
+  updateSettingsMiniSummary();
 }
 
 function renderTeamList(){
@@ -3212,6 +3372,7 @@ function stepVal(id, delta){
   const max=parseInt(el.max)||99;
   const cur=parseInt(el.value)||0;
   el.value=Math.max(min, Math.min(max, cur+delta));
+  updateSettingsMiniSummary();
 }
 
 function toggleTeamMode(){
@@ -3226,6 +3387,24 @@ function toggleTeamMode(){
     _teamModeOverride=false;
   }
   updateTeamModeBadge();
+  updateSettingsMiniSummary();
+}
+
+function updateSettingsMiniSummary(){
+  const el=document.getElementById('settingsMiniSummary');
+  if(!el)return;
+  const courts=document.getElementById('courts')?.value||'4';
+  const games=document.getElementById('gamesPerPlayer')?.value||'4';
+  const mixed=document.getElementById('mixedDbl')?.value||'1';
+  const teamOn=!!(teamAssignment&&_teamModeOverride!==false);
+  const chips=[
+    `코트 ${courts}`,
+    `인당 ${games}`,
+    `혼복 ${mixed}`,
+    `${_pointSystem}점`,
+    teamOn?'팀전':'자유'
+  ];
+  el.innerHTML=chips.map(t=>`<span class="settings-mini-chip">${esc(t)}</span>`).join('');
 }
 
 function updateTeamModeBadge(){
@@ -3262,6 +3441,7 @@ function updateTeamModeBadge(){
     if(reBtn) reBtn.classList.add('hidden');
   }
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
+  updateSettingsMiniSummary();
 }
 
 /* ═══ BALANCE TEAMS ═══ */
@@ -3475,6 +3655,9 @@ function generate(){
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       _resetScoreboard();
       renderResults(matches,participants,settings);
+      const settingsCard=document.getElementById('sec-settings');
+      if(settingsCard)settingsCard.open=false;
+      updateSettingsMiniSummary();
       show('resultArea');
       rsvpPushEventState();
       // 생성 후 결과 영역으로 부드럽게 이동 (특히 모바일)
@@ -8466,7 +8649,6 @@ function rsvpRender(){
     </div>
     <div class="rsvp-actions">
       <button class="rsvp-action-btn primary" onclick="rsvpImportAttendees()">가져오기</button>
-      <button class="rsvp-action-btn" onclick="rsvpShareLink()">공지 복사</button>
       <button class="rsvp-action-btn danger" onclick="rsvpStopLink()">링크 종료</button>
     </div>
     ${guestRows.length?`<div class="rsvp-list"><div class="rsvp-section-title">게스트 신청 ${esc(guestText)}명 · 신청자 확인</div>${guestRows.map(r=>_rsvpGuestRowHtml(r)).join('')}</div>`:''}
@@ -9448,6 +9630,7 @@ window.addEventListener('DOMContentLoaded', () => {
     rsvpLoad();
     rsvpRender();
     updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
+    updateSettingsMiniSummary();
   }
   // 버전 표시 반영
   const vEl=document.getElementById('appVersion');
@@ -9541,7 +9724,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.232</span>
+  <span class="app-version" id="appVersion">v1.10.234</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
