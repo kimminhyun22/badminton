@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.237  (2026-06)
+     APP VERSION: 1.10.238  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.237">
+<meta name="app-version" content="1.10.238">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2085,7 +2085,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   }
 }
 
-/* ── v1.10.237: 민턴LIVE 톤앤매너 통합 ── */
+/* ── v1.10.238: 민턴LIVE 톤앤매너 통합 ── */
 :root{
   --bg:#f6f8fc!important;
   --sur:#ffffff!important;
@@ -2290,7 +2290,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.237&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.238&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2309,7 +2309,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.237&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.238&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2616,7 +2616,7 @@ header,.nav-bar{
     <div class="modal-body">
       <div class="cp-info-box" id="cpInfoBox"></div>
       <div class="cp-sec-title" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>현재 선수 — 제외할 선수 선택</span>
+        <span>현재 선수</span>
         <button id="cpSortBtn" onclick="cpToggleSort()" style="font-size:.62rem;padding:3px 10px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--dim);cursor:pointer;font-weight:600;white-space:nowrap;">↕ 입력순</button>
       </div>
       <div id="cpPlayerList"></div>
@@ -2865,7 +2865,7 @@ header,.nav-bar{
     <h2>🔄 경기 중 선수 변경 · 재배정</h2>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">경기가 진행되는 도중에도 대진을 유연하게 조정할 수 있습니다.</p>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">각 라운드 제목 옆 <strong>✏️ 선수 변경</strong> — 늦게 온 선수를 추가하거나 먼저 간 선수를 빼고, 그 라운드부터 다시 배정합니다. <strong>팀전은 새 선수 중간투입을 막고</strong> 기존 선수 제외만 허용합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">개인전은 라운드별 선수 변경이 가능하지만, <strong>팀전은 중간 변경 없이</strong> 전체 대진을 새로 만드는 방식이 안전합니다.</p></div>
       <div class="step-item"><span class="step-num ico">🎲</span><p class="step-text"><strong>🎲 재배정</strong> — 선수 변경 없이 그 라운드부터 대진만 다시 섞습니다. 결과가 마음에 안 들 때 사용하세요.</p></div>
       <div class="step-item"><span class="step-num ico">⏰</span><p class="step-text"><strong>중간 투입 선수</strong>는 남은 경기 비율만큼만 게임을 배정받습니다. (예: 절반 진행 후 투입 시 4게임 중 2게임) 참가자 현황에 <strong>「중간」</strong> 배지로 표시됩니다.</p></div>
       <div class="step-item"><span class="step-num ico">🔒</span><p class="step-text">중간 투입을 하면 그 이전 라운드는 <strong>🔒 변경 잠금</strong>되어 대진이 보존됩니다. 단, 승/패 입력은 계속 가능합니다.</p></div>
@@ -2910,7 +2910,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.237';
+const APP_VERSION = '1.10.238';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5898,10 +5898,11 @@ function renderResults(matches,participants,settings){
       </div>`;
     }).join('');
     const isLocked=_lockedBeforeRound!=null && r<_lockedBeforeRound;
-    const editLabel=settings.teamMode?'✏️ 선수 제외':'✏️ 선수 변경';
-    const editBtn=isLocked
+    const editBtn=settings.teamMode
+      ? ''
+      : isLocked
       ? `<button class="round-edit-btn locked" onclick="alertRoundLocked(${r})">🔒 변경 잠금</button>`
-      : `<button class="round-edit-btn" onclick="openRoundChange(${r})">${editLabel}</button>`;
+      : `<button class="round-edit-btn" onclick="openRoundChange(${r})">✏️ 선수 변경</button>`;
     const isCurrent = (+r===_currentPlayRound);
     const nowBadge = isCurrent ? `<span class="round-now-badge">● 진행중</span>` : '';
     return `<div class="round-block${isCurrent?' round-current':''}" id="roundBlock_${r}"><div class="round-header"><span class="round-badge">ROUND ${r}</span>${nowBadge}${editBtn}<div class="round-line"></div></div><div class="match-grid">${cards}</div></div>`;
@@ -7155,13 +7156,13 @@ function _cpRenderPlayerList(){
   document.getElementById('cpPlayerList').innerHTML=list.map(p=>{
     const gDone=currentMatches.filter((m,i)=>_isMatchDone(i)&&
       [m.team1A,m.team1B,m.team2C,m.team2D].some(x=>x.name===p.name)).length;
-    const excl=_cpExcluded.has(p.name);
     const teamBadge=isTeam?` · <span style="color:${p.team==='청팀'?'var(--bl)':'var(--dim)'}">${p.team||'미배정'}</span>`:'';
+    const excludeBtn=isTeam?'':`<button class="cp-excl-btn${_cpExcluded.has(p.name)?' excluded':''}" data-pname="${esc(p.name)}" onclick="cpToggleExclude(this.dataset.pname)">${_cpExcluded.has(p.name)?'✕ 제외중':'제외'}</button>`;
     return `<div class="cp-player-row">
       <div class="cp-player-name">${esc(p.name)}</div>
       <div class="cp-player-meta"><span>${p.grade||LV_LABEL[p.level]||'?'}</span><span>${p.gender==='M'?'남':'여'}</span><span>${p.ageGroup||'40대'}</span>${teamBadge}</div>
       ${gDone>0?`<span class="cp-done-badge">완료 ${gDone}G</span>`:''}
-      <button class="cp-excl-btn${excl?' excluded':''}" data-pname="${esc(p.name)}" onclick="cpToggleExclude(this.dataset.pname)">${excl?'✕ 제외중':'제외'}</button>
+      ${excludeBtn}
     </div>`;
   }).join('');
 }
@@ -9813,7 +9814,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.237</span>
+  <span class="app-version" id="appVersion">v1.10.238</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
