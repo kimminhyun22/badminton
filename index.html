@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.250  (2026-06)
+     APP VERSION: 1.10.251  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.250">
+<meta name="app-version" content="1.10.251">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2207,25 +2207,25 @@ body.monthly-team-mode .team-partner-help{display:block;}
     <div class="card-head"><span class="card-title">🧭 운영 방식 선택</span><span class="operation-current" id="operationModeSummary">현재: 민턴LIVE</span></div>
     <div class="card-body">
       <div class="operation-intro">
-        콕매치는 지금부터 민턴LIVE를 중심으로 운영합니다. 클럽 명부, 출석 링크, 상태 변경, 대기표, 코트 진행에 집중합니다.
+        콕매치는 지금부터 민턴LIVE를 중심으로 운영합니다. 클럽 명부, 시작 링크, 상태 변경, 대기표, 코트 진행에 집중합니다.
       </div>
       <div class="operation-grid">
         <button class="operation-option daily" data-operation-option="daily" onclick="selectOperationPreset('daily')">
           <b>민턴LIVE</b>
-          <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 참석·시작·휴식·종료 상태를 반영해 대기표를 계속 보충합니다.</span>
+          <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 시작·휴식·종료 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>월례 팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전 최신판 v1.10.250</small>
+          <small>팀전 최신판 v1.10.251</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
         추천: 평소 운동은 민턴LIVE, 월례 청/홍 팀전은 팀전 안정판으로 분리해서 운영하세요.
       </div>
       <div class="operation-flow" id="operationFlow">
-        <span>클럽 명부</span><span>출석 링크</span><span>상태 반영</span><span>대기표 보충</span><span>코트 진행</span>
+        <span>클럽 명부</span><span>시작 링크</span><span>상태 반영</span><span>대기표 보충</span><span>코트 진행</span>
       </div>
     </div>
   </div>
@@ -2615,21 +2615,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
 	      <details class="card" id="dailyCheckinDetails">
 	        <summary class="card-head" id="dailyCheckinCard">
-		          <span class="card-title">공지/투표 링크 <span id="dailyCheckinSummary"></span></span>
+		          <span class="card-title">민턴LIVE 링크 <span id="dailyCheckinSummary"></span></span>
 	        </summary>
 	        <div class="card-body">
 	          <div class="daily-dashboard-actions" style="margin-bottom:10px;">
 	            <button class="daily-mini-btn" onclick="dailyShareCheckinLink()">링크 공유</button>
 	            <button class="daily-mini-btn danger" onclick="dailyStopCheckinLink()">링크 종료</button>
-	          </div>
-	          <div class="si" style="margin-bottom:10px;">
-	            <label>참석투표 마감</label>
-            <div style="display:grid;grid-template-columns:1fr auto auto;gap:7px;align-items:center;">
-              <input type="time" id="dailyVoteDeadlineAt" class="dir-input" onchange="dailySetVoteDeadline(this.value)">
-              <button class="daily-mini-btn" onclick="dailyClearVoteDeadline()">해제</button>
-              <button class="daily-mini-btn" onclick="dailyFilterAttendees()">참석자만 남기기</button>
-            </div>
-            <p class="daily-auto-desc" id="dailyVoteDeadlineHint">마감 후 미응답 제외</p>
 	          </div>
 	          <div id="dailyCheckinBox" class="daily-empty">링크 없음</div>
 	        </div>
@@ -2901,7 +2892,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
     </div>
     <div class="modal-body">
       <p style="font-size:.76rem;color:var(--dim);line-height:1.6;margin-bottom:10px;">
-        링크를 보낼 회원을 선택하세요. 선택한 회원은 먼저 미응답으로 들어가고, 링크에서 참석 또는 시작을 눌러야 운영에 반영됩니다.
+        링크를 보낼 회원을 선택하세요. 회원은 체육관에서 준비되면 시작을 눌러 운영에 반영됩니다.
       </p>
       <div id="dailyImportClubTabs"></div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;">
@@ -2932,7 +2923,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
       <div class="feat-card"><h4>📊 명부 관리</h4><p>회원 명부 저장, JSON/CSV 내보내기·불러오기 지원</p></div>
       <div class="feat-card"><h4>⏱ 예상 시간</h4><p>25점·21점·15점 점수제별 예상 진행 시간 표시</p></div>
       <div class="feat-card"><h4>💾 자동저장</h4><p>대진표·점수 자동저장, 재실행 시 복원 가능</p></div>
-      <div class="feat-card"><h4>🗳️ 출석 링크</h4><p>회원이 직접 참석·시작·휴식·종료 상태를 입력</p></div>
+      <div class="feat-card"><h4>🗳️ 시작 링크</h4><p>회원이 직접 시작·휴식·종료 상태를 입력</p></div>
       <div class="feat-card"><h4>⚡ 코트 진행</h4><p>끝난 코트에 현재 경기 중 선수와 겹치지 않는 다음 경기 자동 배정</p></div>
       <div class="feat-card"><h4>📡 실시간 현황</h4><p>카톡 링크로 진행중 경기와 다음 대기 공유</p></div>
     </div>
@@ -2940,7 +2931,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
   <div class="manual-section">
     <h2>🚀 기본 사용 순서</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong>에서 클럽 명부를 가져오거나 출석 링크를 공유합니다. 회원이 직접 참석·시작·휴식·종료 상태를 남기게 하는 흐름이 기본입니다.</p></div>
+      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong>에서 클럽 명부를 가져오고 링크를 공유합니다. 회원이 직접 시작·휴식·종료 상태를 남기게 하는 흐름이 기본입니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">관리자는 운영 상황판에서 시작 인원, 다음 대진, 대기선수를 보고 예외만 처리합니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text">코트가 끝나면 다음 대진 선수가 종료를 확인하고 바로 입장합니다. 실수는 되돌릴 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text">후반 정리 시간이 가까워지면 진행중 경기와 다음 대진만 마무리하고 자연스럽게 자율게임으로 전환합니다.</p></div>
@@ -3025,7 +3016,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.250';
+const APP_VERSION = '1.10.251';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3267,7 +3258,7 @@ const DAILY_AUTO_GRACE_MS=3*60*1000;
 const DAILY_CHECKIN_TTL_MS=48*60*60*1000;
 const DAILY_STATUS={
   invited:{label:'미응답',eligible:false},
-  planned:{label:'참석',eligible:false},
+  planned:{label:'미시작',eligible:false},
   wait:{label:'시작',eligible:true},
   playing:{label:'경기중',eligible:false},
   rest:{label:'휴식',eligible:false},
@@ -4364,7 +4355,7 @@ function dailyApplyReviewSample(){
     level:grades[i]==='A'?5:grades[i]==='B'?4:3,
     ageGroup:'40대',
     isGuest:i>=22,
-    status:i<12?'playing':(i<22?'wait':'planned'),
+    status:i<12?'playing':(i<22?'wait':'invited'),
     joinedAt:now-60*60*1000+i*60000,
     waitFrom:now-30*60*1000+i*45000,
     lastStatusAt:now-20*60*1000+i*30000,
@@ -5560,14 +5551,6 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailySetupDetails','dailySetupDetails')">관리</button>`
     });
   }
-  if(_dailyVoteClosed()&&invited){
-    alerts.push({
-      cls:'warn',
-      title:`미응답 ${invited}명`,
-      desc:'투표 마감',
-      actions:`<button class="daily-mini-btn" onclick="dailyFilterAttendees()">참석자만 남기기</button>`
-    });
-  }
   if(!alerts.length){
     if(area)area.hidden=true;
     el.innerHTML='';
@@ -5627,7 +5610,7 @@ function dailyRenderStatusBar(){
   const todo=dailyCountActionItems();
   const flowInfo=_dailyNaturalAutoInfo();
   const stage=dailyCurrentStage();
-  const stageLabel={notice:'공지/투표',checkin:'출석/대기',auto:'자동대진',finish:'자동종료'}[stage]||'운영';
+  const stageLabel={notice:'링크 공유',checkin:'시작 대기',auto:'자동대진',finish:'자동종료'}[stage]||'운영';
   const chips=[];
   const flow=document.getElementById('dailyFlowState');
   if(flow){
@@ -5662,7 +5645,6 @@ function dailyCountActionItems(){
   if(free&&firstReady&&!_dailyAutoFlowEnabled())n++;
   n+=_dailyCheckinPendingRequests().length?1:0;
   if(_dailyQueueCapacity().short)n++;
-  if(_dailyVoteClosed()&&_dailyPlayers.filter(p=>p.status==='invited').length)n++;
   return n;
 }
 function dailyRenderUnscheduled(){
@@ -5691,7 +5673,7 @@ function _dailyCheckinStatusLabel(status){
   return (DAILY_STATUS[status]&&DAILY_STATUS[status].label)||status||'';
 }
 function _dailyCheckinAllowedStatus(status){
-  return ['planned','wait','rest','done'].includes(_dailyNormalizeStatus(status));
+  return ['wait','rest','done'].includes(_dailyNormalizeStatus(status));
 }
 function _dailyCheckinGenId(){
   const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -5732,17 +5714,16 @@ function _dailyCheckinPath(){
   return _dailyCheckinId?'live/checkin_'+_dailyCheckinId:'';
 }
 function _dailyCheckinPayload(){
-  const voteClosed=_dailyVoteClosed();
   return {
-    title:'콕매치 민턴LIVE 출석',
+    title:'콕매치 민턴LIVE 시작',
     updatedAt:_dailyNow(),
     createdAt:_dailyCheckinCreatedAt||_dailyNow(),
     matchStartedAt:_dailyFirstMatchStartedAt(),
     expiresAt:_dailyCheckinExpiresAt(),
     version:APP_VERSION,
-    voteDeadlineAt:_dailyVoteDeadlineAt,
-    voteDeadlineTs:_dailyVoteDeadlineTs(),
-    voteClosed,
+    voteDeadlineAt:'',
+    voteDeadlineTs:null,
+    voteClosed:false,
     event:_dailyPublicEvent(),
     players:_dailyPlayers
       .filter(p=>p.name)
@@ -5754,11 +5735,10 @@ function _dailyCheckinPayload(){
         statusLabel:_dailyCheckinStatusLabel(p.status),
         isGuest:!!p.isGuest,
         games:p.games||0,
-        voteLocked:voteClosed&&p.status==='invited',
+        voteLocked:false,
         locked:p.status==='playing'||!!p.currentMatchId
       })),
     statuses:[
-      {key:'planned',label:'참석',desc:''},
       {key:'wait',label:'시작',desc:''},
       {key:'rest',label:'휴식',desc:''},
       {key:'done',label:'종료',desc:''}
@@ -5808,11 +5788,11 @@ async function dailyPublishCheckinSession(silent){
   return id;
 }
 async function dailyShareCheckinLink(){
+  _dailyVoteDeadlineAt='';
   const id=await dailyPublishCheckinSession(false);
   if(!id)return;
   const url=_dailyCheckinUrl();
-  const deadline=_dailyVoteDeadlineAt?`\n참석투표 마감: ${_dailyVoteDeadlineAt}`:'';
-  const text=`🏸 민턴LIVE${deadline}\n참석, 시작, 휴식은 아래 링크에서 눌러주세요.\n\n`+url;
+  const text=`🏸 민턴LIVE\n체육관에 도착해 준비되면 시작을 눌러주세요.\n쉴 때는 휴식, 마치면 종료를 눌러주세요.\n\n`+url;
   try{
     if(navigator.share){
       await navigator.share({title:'콕매치 민턴LIVE 출석',text});
@@ -6115,13 +6095,12 @@ function dailyRenderCheckinRequests(){
   if(!box)return;
   if(!_dailyCheckinId){
     box.className='daily-empty';
-    box.textContent='아직 출석 링크가 만들어지지 않았습니다.';
+    box.textContent='아직 민턴LIVE 링크가 만들어지지 않았습니다.';
     return;
   }
   const url=_dailyCheckinUrl();
   const pending=_dailyCheckinPendingRequests();
-  const voteLine=_dailyVoteDeadlineAt?`<br>참석투표: <strong>${esc(_dailyVoteDeadlineLabel())}</strong>`:'';
-  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong>${voteLine}<br>추가 인원은 같은 링크에 자동 반영됩니다. 게임신청은 자동 접수됩니다.</div>`;
+  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong><br>시작·휴식·종료와 게임신청은 같은 링크에 자동 반영됩니다.</div>`;
   if(!pending.length){
     box.className='daily-checkin-panel';
     box.innerHTML=linkHtml+`<div class="daily-checkin-req applied">
@@ -6171,9 +6150,9 @@ function dailyRender(){
       counts[st]=(counts[st]||0)+1;
     });
     const active=_dailyActiveMatches().length;
+    const notStarted=(counts.invited||0)+(counts.planned||0);
     stats.innerHTML=[
-      ['미응답',counts.invited],
-      ['참석',counts.planned],
+      ['미시작',notStarted],
       ['대기',counts.wait],
       ['경기중',counts.playing],
       ['휴식',counts.rest],
@@ -12766,7 +12745,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.250&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.251&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -12834,7 +12813,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.250</span>
+  <span class="app-version" id="appVersion">v1.10.251</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

@@ -983,8 +983,8 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <div class="eyebrow">KOKMATCH CHECK-IN</div>
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
-    <div class="notice" id="quickNotice"><strong>참석</strong> 후 현장에서는 <strong>시작</strong>만 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.250</span>
+    <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
+    <span class="version-chip" id="appVersion">v1.10.251</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1016,10 +1016,10 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null;
-const APP_VERSION='1.10.250';
+const APP_VERSION='1.10.251';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
-const MAIN_STATUS_KEYS=['planned','toggle','rest'];
+const MAIN_STATUS_KEYS=['toggle','rest'];
 const SUB_STATUS_KEYS=[];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -1037,7 +1037,7 @@ function statusInfo(key){
   return (session?.statuses||[]).find(x=>x.key===key)||{key,label:statusLabel(key),desc:''};
 }
 function compactLabel(key){
-  const map={planned:'참석',wait:'시작',playing:'경기중',lesson:'휴식',rest:'휴식',last:'종료',leaving:'종료',done:'종료'};
+  const map={planned:'미시작',wait:'시작',playing:'경기중',lesson:'휴식',rest:'휴식',last:'종료',leaving:'종료',done:'종료'};
   return map[key]||statusLabel(key);
 }
 function normalizeText(s){
@@ -1058,8 +1058,7 @@ function playerMatchesQuery(p,q){
   return name.includes(needle)||cho.includes(needle);
 }
 function voteDeadlineText(){
-  if(!session?.voteDeadlineAt)return '';
-  return `${session.voteDeadlineAt} 참석투표 ${session.voteClosed?'마감':'마감 예정'}`;
+  return '';
 }
 function sessionExpired(){
   return !!(session?.expiresAt&&Date.now()>Number(session.expiresAt));
@@ -1084,8 +1083,8 @@ function sampleSession(){
     name,
     gender:genders[i],
     grade:grades[i],
-    status:i<12?'playing':(i<22?'wait':'planned'),
-    statusLabel:i<12?'경기중':(i<22?'시작':'참석'),
+    status:i<12?'playing':(i<22?'wait':'invited'),
+    statusLabel:i<12?'경기중':(i<22?'시작':'미응답'),
     isGuest:i>=22,
     games:i%5,
     locked:i<12,
@@ -1123,7 +1122,6 @@ function sampleSession(){
     version:'sample',
     players,
     statuses:[
-      {key:'planned',label:'참석',desc:''},
       {key:'wait',label:'시작',desc:''},
       {key:'rest',label:'휴식',desc:''},
       {key:'done',label:'종료',desc:''}
@@ -1213,9 +1211,9 @@ function voteSummary(){
   const players=session?.players||[];
   if(!players.length)return null;
   const count=status=>players.filter(p=>p.status===status).length;
-  const attending=players.filter(p=>['planned','wait','playing','rest'].includes(p.status)).length;
+  const started=players.filter(p=>['wait','playing'].includes(p.status)).length;
   return {
-    attending,
+    started,
     wait:count('wait'),
     playing:count('playing'),
     rest:count('rest'),
@@ -1233,8 +1231,8 @@ function renderVoteSummary(){
   }
   el.className='vote-summary';
   el.innerHTML=[
-    `<div class="vote-chip total"><b>${s.attending}명</b><span>참석</span></div>`,
-    `<div class="vote-chip ready"><b>${s.wait}</b><span>시작</span></div>`,
+    `<div class="vote-chip total"><b>${s.started}명</b><span>라이브</span></div>`,
+    `<div class="vote-chip ready"><b>${s.wait}</b><span>대기</span></div>`,
     `<div class="vote-chip"><b>${s.playing}</b><span>경기중</span></div>`,
     `<div class="vote-chip warn"><b>${s.rest}</b><span>휴식</span></div>`
   ].join('');
@@ -1382,15 +1380,15 @@ function render(){
   const updated=session.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const summary=voteSummary();
   sub.textContent=selectedPlayer
-    ? `${session.title||'민턴LIVE'} · 참석 ${summary?.attending||0}명${voteDeadlineText()?` · ${voteDeadlineText()}`:''}`
-    : `참석 ${summary?.attending||0}명 · 내 이름을 찾아주세요${voteDeadlineText()?` · ${voteDeadlineText()}`:''}`;
+    ? `${session.title||'민턴LIVE'} · 시작 ${summary?.started||0}명`
+    : `시작 ${summary?.started||0}명 · 내 이름을 찾아주세요`;
   count.textContent=`${query?matchedPlayers.length:allPlayers.length}명`;
   if(!players.length){
     box.className='empty';box.textContent=selectedId&&!query?'다른 선수 명단은 접어두었습니다. 필요하면 명단을 열어 확인하세요.':'검색된 선수가 없습니다.';
     return;
   }
   box.className='';
-  box.innerHTML=players.map(p=>playerCardHtml(p,sendingKey||p.voteLocked?'disabled':'')).join('');
+  box.innerHTML=players.map(p=>playerCardHtml(p,sendingKey?'disabled':'')).join('');
 }
 function statusButtonSpec(p,key){
   const selected=getSelectedStatus(p);
@@ -1429,22 +1427,21 @@ function statusSection(p,title,keys,disabled){
 }
 function playerCardHtml(p,disabled,opts={}){
   const locked=!!p.locked;
-  const voteLocked=!!p.voteLocked;
   const last=getLastSent();
   const recent=last&&last.playerId===p.id;
   const selected=getSelectedStatus(p);
   const requested=!!latestStatusRequest(p.id);
   const highlighted=opts.forceHighlight||recent||requested;
-  const disabledAttr=disabled||voteLocked?'disabled':'';
+  const disabledAttr=disabled?'disabled':'';
   const mainButtons=statusButtons(p,MAIN_STATUS_KEYS,disabledAttr);
   const subSection=statusSection(p,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
   return `<article class="player ${locked?'locked':''} ${highlighted?'recent':''}">
     <div class="phead">
       <div>
         <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}</div>
-        <div class="meta">현재 ${esc(compactLabel(selected))} · ${p.games||0}게임${locked?' · 경기중 예약 반영':''}${voteLocked?' · 투표 마감':''}</div>
+        <div class="meta">현재 ${esc(compactLabel(selected))} · ${p.games||0}게임${locked?' · 경기중 예약 반영':''}</div>
       </div>
-      <div class="badge ${highlighted?'selected':''}">${highlighted?'전송완료':(voteLocked?'마감':(locked?'경기중':compactLabel(selected)))}</div>
+      <div class="badge ${highlighted?'selected':''}">${highlighted?'전송완료':(locked?'경기중':compactLabel(selected))}</div>
     </div>
     <div class="buttons main-actions">${mainButtons}</div>
     ${subSection}
@@ -1469,7 +1466,7 @@ function renderMyCard(last,players){
   if(fold&&!query)fold.open=false;
   const initial=String(selected.name||'?').trim().slice(0,1)||'?';
   const selectedState=compactLabel(getSelectedStatus(selected));
-  const disabledAttr=sendingKey||selected.voteLocked?'disabled':'';
+  const disabledAttr=sendingKey?'disabled':'';
   const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,disabledAttr);
   const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
   const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
@@ -1477,7 +1474,6 @@ function renderMyCard(last,players){
     `<span class="my-status-chip ${stateChipClass}">${esc(selectedState)}</span>`,
     `<span class="my-status-chip">${selected.games||0}게임</span>`,
     selected.locked?'<span class="my-status-chip warn">경기중</span>':'',
-    selected.voteLocked?'<span class="my-status-chip warn">마감</span>':''
   ].filter(Boolean).join('');
   el.innerHTML=`<section class="my-card">
     <div class="my-card-head">
@@ -1495,7 +1491,7 @@ function renderMyCard(last,players){
   </section>`;
 }
 function requestPlayerOptions(selfId,selected){
-  const players=(session?.players||[]).filter(p=>p.id!==selfId&&!p.voteLocked&&p.status!=='invited'&&p.status!=='done');
+  const players=(session?.players||[]).filter(p=>p.id!==selfId&&p.status!=='invited'&&p.status!=='done');
   return '<option value="">선택 안 함</option>'+players.map(p=>{
     const reserveHint=p.locked||p.status==='playing'?' · 예약':'';
     return `<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)} · ${esc(compactLabel(p.status))}${reserveHint}</option>`;
@@ -1516,7 +1512,7 @@ function reservationRequestLabel(req){
   return req.mode==='match'?`${a} vs ${b}`:`${a} 같은 편`;
 }
 function gameRequestBox(p,disabled){
-  if(p.voteLocked||p.status==='invited'||getSelectedStatus(p)==='done')return '';
+  if(p.status==='invited'||getSelectedStatus(p)==='done')return '';
   const reqs=playerReservationRequests(p.id);
   const pending=reqs.find(r=>!r.appliedAt&&!r.ignoredAt);
   const recentCancelled=reqs.find(r=>r.ignoredAt&&Date.now()-(r.ignoredAt||0)<10*60*1000);
@@ -1548,7 +1544,6 @@ async function sendStatus(playerId,status){
     if(sessionExpired())return showEndedLink();
     const p=(session.players||[]).find(x=>x.id===playerId);
     if(!p)return toast('선수를 찾지 못했습니다.');
-    if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
     if(status==='done'&&!confirm(`${p.name}님, 오늘 운동을 종료할까요?\n종료하면 이후 대진 후보에서 빠집니다.`))return;
     p.status=status;
     p.statusLabel=compactLabel(status);
@@ -1571,7 +1566,6 @@ async function sendStatus(playerId,status){
   if(sessionExpired())return showEndedLink();
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
-  if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
   if(status==='done'&&!confirm(`${p.name}님, 오늘 운동을 종료할까요?\n종료하면 이후 대진 후보에서 빠집니다.`))return;
   const last=getLastSent();
   if(last&&last.playerId===p.id&&last.status===status&&Date.now()-(last.savedAt||0)<10000){
@@ -1654,7 +1648,6 @@ async function sendGameRequest(playerId){
   if(sessionExpired())return showEndedLink();
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
-  if(p.voteLocked)return toast('참석투표가 마감됐습니다. 관리자에게 말해주세요.');
   const partnerId=document.getElementById('reqPartner_'+playerId)?.value||'';
   const opp1=document.getElementById('reqOpp1_'+playerId)?.value||'';
   const opp2=document.getElementById('reqOpp2_'+playerId)?.value||'';
