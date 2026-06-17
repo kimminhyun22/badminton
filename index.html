@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.252  (2026-06)
+     APP VERSION: 1.10.253  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.252">
+<meta name="app-version" content="1.10.253">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1941,6 +1941,27 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-court-stack .daily-court-team-name:first-child{text-align:right;}
 .daily-court-stack .daily-court-team-name.b{text-align:left;}
 .daily-court-stack .daily-court-team-name.b{color:var(--ml-ink);}
+.daily-active-player{
+  appearance:none;
+  -webkit-appearance:none;
+  display:block;
+  width:100%;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  font-weight:inherit;
+  line-height:inherit;
+  letter-spacing:inherit;
+  text-align:inherit;
+  padding:0;
+  margin:0;
+  cursor:pointer;
+}
+.daily-active-player:active{
+  opacity:.66;
+  transform:scale(.99);
+}
 .daily-pair-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;}
 .daily-pair-dot{display:none;}
 .daily-court-actions{
@@ -2218,7 +2239,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>월례 팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전 최신판 v1.10.252</small>
+          <small>팀전 최신판 v1.10.253</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -3016,7 +3037,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.252';
+const APP_VERSION = '1.10.253';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4965,6 +4986,25 @@ function _dailyQueueReplacementCandidates(q,currentId){
       return a.name.localeCompare(b.name,'ko');
     });
 }
+function _dailyActiveReplacementCandidates(match,currentId){
+  const blocked=new Set();
+  _dailyActiveMatches().forEach(other=>{
+    if(other.id===match.id)return;
+    _dailyMatchPlayers(other).forEach(p=>blocked.add(p.id));
+  });
+  _dailyQueue.forEach(q=>_dailyQueueIds(q).forEach(id=>blocked.add(id)));
+  const current=_dailyPlayer(currentId);
+  const requiredTeam=(_dailyTeamMode&&current)?_dailyTeamSide(current):'';
+  return _dailyEligible()
+    .filter(p=>p.id!==currentId&&!blocked.has(p.id))
+    .filter(p=>p.status==='wait'&&!p.currentMatchId)
+    .filter(p=>!requiredTeam||p.team===requiredTeam)
+    .sort((a,b)=>{
+      if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
+      if((a.waitFrom||0)!==(b.waitFrom||0))return (a.waitFrom||0)-(b.waitFrom||0);
+      return a.name.localeCompare(b.name,'ko');
+    });
+}
 function _dailyFindQueueReplacement(playerId){
   const loc=_dailyQueuedPlayerLocation(playerId);
   if(!loc)return null;
@@ -5054,6 +5094,48 @@ function dailyPickQueueReplacement(queueId,side,pos){
     return;
   }
   dailyEditQueuePlayer(queueId,side,pos,candidates[pick-1].id);
+}
+function dailyPickActiveReplacement(matchId,side,pos){
+  const m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
+  if(!m)return;
+  const arr=side==='team2'?m.team2:m.team1;
+  if(!arr||!arr[pos])return;
+  const currentId=arr[pos];
+  const current=_dailyPlayer(currentId);
+  const candidates=_dailyActiveReplacementCandidates(m,currentId).slice(0,12);
+  if(!candidates.length){
+    alert('교체 가능한 순수 대기선수가 없습니다.');
+    return;
+  }
+  const list=candidates.map((p,i)=>`${i+1}. ${p.name}${p.isGuest?'(G)':''} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G`).join('\n');
+  const raw=prompt(`${current?.name||'선수'} 대신 들어갈 대기선수를 번호로 선택하세요.\n기존 선수는 휴식으로 전환됩니다.\n\n${list}`,'1');
+  if(raw==null)return;
+  const pick=parseInt(String(raw).trim(),10);
+  if(!pick||pick<1||pick>candidates.length){
+    alert('번호를 다시 확인해 주세요.');
+    return;
+  }
+  const candidate=candidates[pick-1];
+  if(_dailyMatchPlayers(m).some(p=>p.id===candidate.id)){
+    alert('이미 이 경기에 포함된 선수입니다.');
+    return;
+  }
+  arr[pos]=candidate.id;
+  if(current){
+    current.status='rest';
+    current.currentMatchId=null;
+    current.afterMatchStatus=null;
+    current.lastStatusAt=_dailyNow();
+  }
+  _dailyCancelReservationsForPlayer(candidate.id,'진행 중 경기 선수교체로 게임신청이 자동 취소됐습니다.','admin-active-replace');
+  candidate.status='playing';
+  candidate.currentMatchId=m.id;
+  candidate.lastStatusAt=_dailyNow();
+  _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).includes(candidate.id));
+  dailyEnsureQueue();
+  dailySave();
+  dailyRender();
+  dailyMaybeAutoAssign();
 }
 function dailyRegenerateQueueItem(queueId){
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
@@ -6663,6 +6745,7 @@ function dailyRenderMatches(){
     }
     const t1=m.team1.map(_dailyPlayer).filter(Boolean),t2=m.team2.map(_dailyPlayer).filter(Boolean);
     const state=_dailyTimerState(m);
+    const playerButton=(side,p,i)=>`<button class="daily-active-player" type="button" title="이름을 눌러 대기선수로 교체" onclick="dailyPickActiveReplacement('${m.id}','${side}',${i})">${_dailyNameHtml(p)}</button>`;
     return `<div class="daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
       <div class="daily-court-head">
         <div class="daily-court-title">${m.court}코트</div>
@@ -6670,9 +6753,9 @@ function dailyRenderMatches(){
       </div>
       <div class="daily-court-body">
         <div class="daily-court-teams daily-court-stack">
-          <div class="daily-court-team-name">${_dailyCompactPairNames(t1)}</div>
+          <div class="daily-court-team-name">${t1.map((p,i)=>playerButton('team1',p,i)).join('')}</div>
           <div class="daily-court-vs">vs</div>
-          <div class="daily-court-team-name b">${_dailyCompactPairNames(t2)}</div>
+          <div class="daily-court-team-name b">${t2.map((p,i)=>playerButton('team2',p,i)).join('')}</div>
         </div>
         <div class="daily-court-actions single">
           <button class="daily-mini-btn danger" data-daily-complete="${m.id}" onclick="dailyCompleteMatch('${m.id}')">종료</button>
@@ -12745,7 +12828,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.252&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.253&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -12813,7 +12896,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.252</span>
+  <span class="app-version" id="appVersion">v1.10.253</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
