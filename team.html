@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.236  (2026-06)
+     APP VERSION: 1.10.237  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.236">
+<meta name="app-version" content="1.10.237">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2085,7 +2085,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   }
 }
 
-/* ── v1.10.236: 민턴LIVE 톤앤매너 통합 ── */
+/* ── v1.10.237: 민턴LIVE 톤앤매너 통합 ── */
 :root{
   --bg:#f6f8fc!important;
   --sur:#ffffff!important;
@@ -2187,12 +2187,36 @@ header,.nav-bar{
 .tlb-blue,.tlb-white{
   background:#fff!important;
   border-bottom:1px solid var(--bdr)!important;
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  align-items:start!important;
+  gap:8px!important;
+  padding:16px 16px 13px!important;
 }
 .tlb-blue .team-name-input,.tlb-white .team-name-input{
+  width:min(100%,7.6em)!important;
+  min-width:5.4em!important;
+  max-width:100%!important;
   color:var(--txt)!important;
-  border-bottom-color:var(--bdr2)!important;
+  border:1px solid var(--bdr2)!important;
+  border-bottom:none!important;
+  border-radius:999px!important;
+  background:#f8fbff!important;
+  padding:7px 13px!important;
+  font-size:1rem!important;
+  font-weight:900!important;
+  letter-spacing:-.04em!important;
+  text-align:center!important;
+  box-shadow:none!important;
 }
-.tlb-head small{color:var(--dim)!important;}
+.tlb-blue .team-name-input{color:#2f62b5!important;background:#f5f8ff!important;border-color:#d6e4ff!important;}
+.tlb-white .team-name-input{color:#b05257!important;background:#fff8f8!important;border-color:#f3d7da!important;}
+.tlb-head small{
+  color:#707b8d!important;
+  font-size:.76rem!important;
+  font-weight:900!important;
+  line-height:1.35!important;
+}
 .tlb-body{background:#fbfdff!important;}
 .match-card.women{border-left-color:#eeb8c8!important;}
 .match-card.men{border-left-color:#b8cdf8!important;}
@@ -2266,7 +2290,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.236&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.237&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2285,7 +2309,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.236&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.237&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2886,7 +2910,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.236';
+const APP_VERSION = '1.10.237';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -9789,7 +9813,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.236</span>
+  <span class="app-version" id="appVersion">v1.10.237</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
