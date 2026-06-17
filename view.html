@@ -1158,6 +1158,63 @@ body{
   border:1px solid #cfe0fb;background:#f4f8ff;color:#4f73b8;border-radius:14px;
   padding:10px 14px;font-weight:900;font-size:.82rem;white-space:nowrap;
 }
+.viewer-status-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 10px;}
+.viewer-state-btn{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:44px;
+  border:1px solid #d8e3f4;
+  border-radius:15px;
+  background:#fff;
+  color:#657187;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:.82rem;
+  font-weight:900;
+}
+.viewer-state-btn:before{
+  content:"";
+  width:9px;
+  height:9px;
+  border-radius:999px;
+  background:#d7dee9;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.05);
+}
+.viewer-state-btn.on:before{
+  width:10px;
+  height:10px;
+  background:#dc2626;
+  box-shadow:0 0 0 5px rgba(220,38,38,.14),0 0 15px rgba(220,38,38,.72);
+}
+.viewer-state-btn.on{border-color:#cfe0fb;background:#f6f9ff;color:#4f73b8;}
+.viewer-state-btn.static{cursor:default;}
+.viewer-next-card,.viewer-record-card,.viewer-schedule{
+  border:1px solid #dfe7f3;
+  border-radius:17px;
+  background:#fbfdff;
+  padding:12px;
+  margin-top:9px;
+}
+.viewer-next-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.viewer-next-label{font-size:.72rem;font-weight:900;color:#7a8798;letter-spacing:.02em;}
+.viewer-next-where{font-size:.95rem;font-weight:1000;color:#315fb2;white-space:nowrap;}
+.viewer-next-line{font-size:.95rem;font-weight:1000;color:#222b3a;line-height:1.42;word-break:keep-all;}
+.viewer-next-line b{display:inline-flex;margin:0 6px;color:#8a94a5;font-size:.78rem;}
+.viewer-next-type{margin-top:6px;font-size:.74rem;font-weight:900;color:#718096;}
+.viewer-record-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+.viewer-record-chip{border:1px solid #e6edf7;border-radius:14px;background:#fff;padding:9px 7px;text-align:center;}
+.viewer-record-chip b{display:block;font-size:1.05rem;font-weight:1000;color:#222b3a;line-height:1;}
+.viewer-record-chip span{display:block;margin-top:4px;font-size:.68rem;font-weight:900;color:#7a8798;}
+.viewer-schedule{padding:0;overflow:hidden;}
+.viewer-schedule summary{cursor:pointer;list-style:none;padding:11px 12px;font-size:.82rem;font-weight:1000;color:#557ecf;display:flex;justify-content:space-between;gap:8px;}
+.viewer-schedule summary::-webkit-details-marker{display:none;}
+.viewer-schedule summary:after{content:"보기";color:#93a0b3;font-size:.7rem;}
+.viewer-schedule[open] summary:after{content:"접기";}
+.viewer-schedule-list{border-top:1px solid #edf2f7;padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+.viewer-schedule-item{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;font-size:.78rem;font-weight:900;color:#39465a;}
+.viewer-schedule-item span{color:#557ecf;white-space:nowrap;}
 .result-entry{
   margin-top:10px;padding-top:10px;border-top:1px dashed #dfe7f3;
   display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -1307,6 +1364,20 @@ body{
   border-color:#bfd4fb!important;
   color:var(--bl-deep)!important;
 }
+.viewer-state-btn{
+  border-color:var(--bdr2)!important;
+  background:#fff!important;
+  color:var(--dim)!important;
+}
+.viewer-state-btn.on{
+  background:linear-gradient(180deg,#f8fbff 0%,#edf4ff 100%)!important;
+  border-color:#bfd4fb!important;
+  color:var(--bl-deep)!important;
+}
+.viewer-next-card,.viewer-record-card,.viewer-schedule{
+  border-color:var(--bdr)!important;
+  background:#fff!important;
+}
 .team-member-att.on{
   background:var(--green-soft)!important;
   border-color:#bfe6cd!important;
@@ -1342,6 +1413,11 @@ body{
     border-radius:22px!important;
   }
   .live-player{font-size:1.08rem!important;}
+  .viewer-status-actions{gap:6px;}
+  .viewer-state-btn{font-size:.78rem;min-height:42px;padding:8px 6px;}
+  .viewer-next-line{font-size:.9rem;}
+  .viewer-record-grid{gap:6px;}
+  .viewer-record-chip{padding:8px 5px;}
 }
 </style>
 </head>
@@ -2270,6 +2346,91 @@ function selectLiveViewer(){
   setLiveViewerName(el?el.value:'');
 }
 
+function _matchSideForName(m,name){
+  if(!m||!name) return '';
+  if((m.t1||[]).includes(name)) return 't1';
+  if((m.t2||[]).includes(name)) return 't2';
+  return '';
+}
+
+function _matchPlayersLine(m,side){
+  const mine=side==='t2'?(m.t2||[]):(m.t1||[]);
+  const opp=side==='t2'?(m.t1||[]):(m.t2||[]);
+  return esc(mine.filter(Boolean).join(' / ')||'-')+' <b>vs</b> '+esc(opp.filter(Boolean).join(' / ')||'-');
+}
+
+function _viewerMatches(d,name){
+  return ((d&&d.matches)||[])
+    .map((m,i)=>Object.assign({},m,{_idx:i,_key:_matchKey(m),_side:_matchSideForName(m,name)}))
+    .filter(m=>m._side);
+}
+
+function _viewerNextMatch(d,name){
+  const matches=_viewerMatches(d,name).filter(m=>!m.win);
+  const cur=Number(d&&d.currentRound||0);
+  return matches.sort((a,b)=>{
+    const ac=a.round===cur?0:1, bc=b.round===cur?0:1;
+    if(ac!==bc) return ac-bc;
+    return (a.round-b.round)||(a.court-b.court);
+  })[0]||null;
+}
+
+function _viewerRecordHtml(d,name){
+  const matches=_viewerMatches(d,name);
+  const done=matches.filter(m=>m.win);
+  const wins=done.filter(m=>m.win===m._side).length;
+  const losses=done.length-wins;
+  const remain=matches.length-done.length;
+  return '<div class="viewer-record-card">'
+    +'<div class="viewer-record-grid">'
+      +'<div class="viewer-record-chip"><b>'+done.length+'/'+matches.length+'</b><span>출전</span></div>'
+      +'<div class="viewer-record-chip"><b>'+wins+'승 '+losses+'패</b><span>기록</span></div>'
+      +'<div class="viewer-record-chip"><b>'+remain+'</b><span>남은 경기</span></div>'
+    +'</div>'
+  +'</div>';
+}
+
+function _viewerNextHtml(d,current){
+  const next=_viewerNextMatch(d,current.n);
+  if(!next){
+    return '<div class="viewer-next-card">'
+      +'<div class="viewer-next-top"><span class="viewer-next-label">다음 경기</span><span class="viewer-next-where">완료</span></div>'
+      +'<div class="viewer-next-line">오늘 예정된 내 경기는 모두 확인됐어요.</div>'
+    +'</div>';
+  }
+  const cur=Number(d&&d.currentRound||0);
+  const label=next.round===cur?'지금 경기':'다음 경기';
+  const where='R'+esc(String(next.round||'-'))+' · '+esc(String(next.court||'-'))+'코트';
+  return '<div class="viewer-next-card">'
+    +'<div class="viewer-next-top"><span class="viewer-next-label">'+label+'</span><span class="viewer-next-where">'+where+'</span></div>'
+    +'<div class="viewer-next-line">'+_matchPlayersLine(next,next._side)+'</div>'
+    +'<div class="viewer-next-type">'+esc(next.type||'경기')+(next.isFiller?' · 보완':'')+'</div>'
+  +'</div>';
+}
+
+function _viewerScheduleHtml(d,current){
+  const future=_viewerMatches(d,current.n).filter(m=>!m.win).sort((a,b)=>(a.round-b.round)||(a.court-b.court));
+  if(future.length<=1) return '';
+  return '<details class="viewer-schedule">'
+    +'<summary>전체 예정 경기 '+future.length+'개</summary>'
+    +'<div class="viewer-schedule-list">'
+      +future.map(m=>'<div class="viewer-schedule-item"><span>R'+esc(String(m.round||'-'))+' · '+esc(String(m.court||'-'))+'코트</span><div>'+_matchPlayersLine(m,m._side)+'</div></div>').join('')
+    +'</div>'
+  +'</details>';
+}
+
+function _viewerStatusButtons(current){
+  const nameArg=JSON.stringify(current.n).replace(/"/g,'&quot;');
+  const teamKey=current.team||'';
+  const startOn=_attOn(current.n);
+  const partyOn=_partyOn(current.n);
+  return '<div class="viewer-status-actions">'
+    +'<button type="button" class="viewer-state-btn on static" aria-disabled="true">참석</button>'
+    +'<button type="button" class="viewer-state-btn '+(startOn?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(startOn?'시작✓':'시작')+'</button>'
+    +'<button type="button" class="viewer-state-btn '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒤풀이✓':'뒤풀이')+'</button>'
+  +'</div>';
+}
+
 function buildViewerIdentity(d){
   const all=_allLiveMembers(d);
   if(!all.length) return '';
@@ -2285,6 +2446,10 @@ function buildViewerIdentity(d){
         +'</div>'
         +'<button type="button" onclick="setLiveViewerName(\'\')">변경</button>'
       +'</div>'
+      +_viewerStatusButtons(current)
+      +_viewerNextHtml(d,current)
+      +_viewerRecordHtml(d,current.n)
+      +_viewerScheduleHtml(d,current)
     +'</section>';
   }
   const opts=all.sort((a,b)=>String(a.n).localeCompare(String(b.n),'ko')).map(p=>{
