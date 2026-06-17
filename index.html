@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.241  (2026-06)
+     APP VERSION: 1.10.242  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.241">
+<meta name="app-version" content="1.10.242">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2218,7 +2218,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>월례 팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전 최신판 v1.10.241</small>
+          <small>팀전 최신판 v1.10.242</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -3025,7 +3025,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.241';
+const APP_VERSION = '1.10.242';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5325,9 +5325,6 @@ function _dailyResultQualityChips(st){
   chips.push({label:`평균 실력차 ${st.avgLD.toFixed(1)}`,cls:st.avgLD<=1.5?'ok':st.avgLD<=2.5?'warn':'bad'});
   chips.push({label:st.sameFourRepeat?`같은 4명 반복 ${st.sameFourRepeat}`:'같은 4명 반복 없음',cls:st.sameFourRepeat?'warn':'ok'});
   chips.push({label:st.partnerRepeat?`파트너 2회+ ${st.partnerRepeat}쌍`:'파트너 반복 양호',cls:st.partnerRepeat?'warn':'ok'});
-  if(_dailyTeamMode||st.completed.some(m=>m.teamMode)){
-    chips.push({label:st.teamErrors?`팀 구성 오류 ${st.teamErrors}`:'청/홍 구성 정상',cls:st.teamErrors?'bad':'ok'});
-  }
   return chips;
 }
 function _dailyPublicEvent(){
@@ -6561,7 +6558,7 @@ function _rsvpClearUnstartedBracket(){
   if(!currentMatches.length)return;
   _captureUndoSnapshot('출석자 가져오기 전');
   teamAssignment=null;
-  _teamModeOverride=null;
+  _teamModeOverride=false;
   _teamWanted=false;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   currentMatches=[];
@@ -6615,15 +6612,15 @@ function rsvpImportAttendees(){
   });
   _directPlayers=next;
   teamAssignment=null;
-  _teamWanted=true;
-  _teamModeOverride=null;
+  _teamWanted=false;
+  _teamModeOverride=false;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
-  setOperationPreset('monthlyTeam');
+  setOperationPreset('daily');
   renderDirectPlayerList();
   syncDirectToPaste();
   updateTeamModeBadge();
   switchNav('main');
-  if(typeof syncBottomNav==='function')syncBottomNav('team');
+  if(typeof syncBottomNav==='function')syncBottomNav('daily');
   setTimeout(()=>{
     const el=document.getElementById('sec-settings');
     if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-10,behavior:'smooth'});
@@ -6895,19 +6892,11 @@ function _onPasteInput_UNUSED(){
 }
 
 function applyColumnTeamAssignment(valid){
-  const blue=valid.filter(p=>p.team==='청팀');
-  const white=valid.filter(p=>p.team==='홍팀');
-  // those without team go to smaller team
-  valid.filter(p=>p.team!=='청팀'&&p.team!=='홍팀').forEach(p=>{
-    if(blue.length<=white.length){p.team='청팀';blue.push(p);}
-    else{p.team='홍팀';white.push(p);}
-  });
-  teamAssignment={blue,white};
+  valid.forEach(p=>{p.team='';});
+  teamAssignment=null;
+  _teamWanted=false;
+  _teamModeOverride=false;
   updateTeamModeBadge();
-  renderTeamList();
-  const btn=document.getElementById('teamAssignBtn');
-  btn.classList.add('done');
-  btn.innerHTML='✅ 시트 팀 배정 적용됨 (재배정하려면 클릭)';
 }
 
 function parseParticipants(raw){
@@ -6954,6 +6943,9 @@ function parseParticipants(raw){
 
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
+  alert('청/홍 팀 나누기는 월례 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
+  location.href='team.html';
+  return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
   _teamWanted=true; // 팀전 의도 확정
@@ -7185,37 +7177,33 @@ function toggleTeamMode(){
 
 function updateTeamModeBadge(){
   const b=document.getElementById('teamModeBadge');
-  if(!b)return;
   const wrap=document.getElementById('teamListWrap');
   const reBtn=document.getElementById('teamReassignBtn');
   const assignBtn=document.getElementById('teamAssignBtn');
-  // 팀전을 원하는 상태인가 (켜짐)
-  const wantTeam = (_teamModeOverride!==false) && (_teamWanted===true || !!teamAssignment);
-  const isOn = teamAssignment && _teamModeOverride!==false;
-
-  if(wantTeam){
-    // 팀전 켜짐: 자동 배정 버튼 노출
-    if(assignBtn) assignBtn.classList.remove('hidden');
-    if(isOn){
-      b.className='tmb tmb-on';
-      b.textContent=`팀 모드: 켜짐 (${teamNames.blue} vs ${teamNames.white})`;
-      if(wrap&&teamAssignment) wrap.classList.add('show');
-      if(reBtn&&teamAssignment) reBtn.classList.remove('hidden');
-    } else {
-      // 켜고 싶지만 아직 배정 전
-      b.className='tmb tmb-on';
-      b.textContent='팀 모드: 켜짐 — 아래에서 팀을 배정하세요';
-      if(wrap) wrap.classList.remove('show');
-      if(reBtn) reBtn.classList.add('hidden');
-    }
-  } else {
-    // 팀전 꺼짐: 모든 팀 컨트롤 숨김
-    b.className='tmb tmb-off can-on';
-    b.textContent='팀 모드: 꺼짐 (개인전 · 자유 배정)';
-    if(assignBtn) assignBtn.classList.add('hidden');
-    if(wrap) wrap.classList.remove('show');
-    if(reBtn) reBtn.classList.add('hidden');
+  _teamWanted=false;
+  _teamModeOverride=false;
+  teamAssignment=null;
+  if(b){
+    b.className='tmb hidden';
+    b.textContent='팀 모드는 팀전 메뉴에서 사용합니다';
   }
+  if(assignBtn) assignBtn.classList.add('hidden');
+  if(wrap) wrap.classList.remove('show');
+  if(reBtn) reBtn.classList.add('hidden');
+}
+
+function _forcePersonalOnlyMode(){
+  _teamWanted=false;
+  _teamModeOverride=false;
+  teamAssignment=null;
+  if(currentSettings&&typeof currentSettings==='object'){
+    currentSettings.teamMode=false;
+    currentSettings.operationPreset='daily';
+  }
+  if(Array.isArray(currentMatches)){
+    currentMatches.forEach(m=>{ if(m)m.teamMode=false; });
+  }
+  updateTeamModeBadge();
 }
 
 /* ═══ BALANCE TEAMS ═══ */
@@ -7305,11 +7293,8 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
 /* ═══ GENERATE ═══ */
 function generate(){
   hideErr();hideWarn();
+  _forcePersonalOnlyMode();
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
-  if(teamAssignment&&_teamAssignmentHasSplitPartners()){
-    doTeamAssign();
-    if(_teamAssignmentHasSplitPartners())return;
-  }
   // 이미 대진표가 있으면 덮어쓰기 경고 (특히 점수 입력된 경우)
   if(currentMatches.length){
     const enteredScores=Object.keys(winOverride).filter(k=>winOverride[k]).length;
@@ -7329,17 +7314,7 @@ function generate(){
   }));
   if(!participants.length){showErr('유효한 참가자가 없습니다.');return;}
 
-  if(teamAssignment){
-    const bn=new Set(teamAssignment.blue.map(p=>p.name));
-    const wn=new Set(teamAssignment.white.map(p=>p.name));
-    participants.forEach(p=>{
-      if(bn.has(p.name))p.team='청팀';
-      else if(wn.has(p.name))p.team='홍팀';
-      else p.team='';
-    });
-  } else {
-    participants.forEach(p=>p.team='');
-  }
+  participants.forEach(p=>p.team='');
   participants.forEach(p=>{
     p.gamesPlayed=0;p.lastRoundPlayed=0;
     p.womenDoublesPlayed=0;p.menDoublesPlayed=0;p.mixedDoublesPlayed=0;p.adjustmentPlayed=0;
@@ -7361,15 +7336,10 @@ function generate(){
   const settings={
     courts,gamesPerPlayer:gpp,
     mixedDoublesPerPerson:xDbl,
-    teamMode: teamAssignment && _teamModeOverride!==false,
-    operationPreset: (teamAssignment && _teamModeOverride!==false)?'monthlyTeam':'daily'
+    teamMode:false,
+    operationPreset:'daily'
   };
   setOperationPreset(settings.operationPreset);
-  if(settings.teamMode){
-    const b=participants.filter(x=>x.team==='청팀'),w=participants.filter(x=>x.team==='홍팀');
-    if(b.length<2){showErr('팀 모드: 청팀 최소 2명 필요');return;}
-    if(w.length<2){showErr('팀 모드: 홍팀 최소 2명 필요');return;}
-  }
 
   _captureUndoSnapshot('대진표 생성 전');
   document.getElementById('loadingOverlay').classList.add('on');
@@ -10342,6 +10312,7 @@ function setSaveStatus(type,msg){
 
 function saveState(){
   if(!currentMatches.length)return;
+  _forcePersonalOnlyMode();
   const scores=currentMatches.map((m,i)=>{
     const s1=document.getElementById('s1_'+i);
     const s2=document.getElementById('s2_'+i);
@@ -10355,14 +10326,11 @@ function saveState(){
     mixedDbl:document.getElementById('mixedDbl').value,
     operationPreset: inferOperationPreset(),
     teamNames:{...teamNames},
-    teamModeOverride: _teamModeOverride,
+    teamModeOverride: false,
     captains: JSON.parse(JSON.stringify(captains)),
     partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
-    teamAssignment:teamAssignment?{
-      blue:teamAssignment.blue.map(p=>({name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null})),
-      white:teamAssignment.white.map(p=>({name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null}))
-    }:null,
+    teamAssignment:null,
     matches:currentMatches.map(m=>({
       matchNumber:m.matchNumber,round:m.round,court:m.court,
       type:m.type,isFiller:m.isFiller||false,levelDiff:m.levelDiff,
@@ -10383,7 +10351,7 @@ function saveState(){
       isNewJoiner:!!p.isNewJoiner,
       _njGames:p._njGames!=null?p._njGames:null
     })),
-    settings:currentSettings,scores,
+    settings:{...currentSettings,teamMode:false,operationPreset:'daily'},scores,
     winOverride:JSON.parse(JSON.stringify(winOverride)),
     lockedBeforeRound:_lockedBeforeRound,
     pointSystem:_pointSystem,
@@ -10483,22 +10451,10 @@ function restoreState(){
     // 파트너 배지 반영해서 선수 목록 재렌더링
     renderDirectPlayerList();
 
-    if(state.teamAssignment){
-      teamAssignment=state.teamAssignment;
-      _attachPartnerNames(teamAssignment.blue||[]);
-      _attachPartnerNames(teamAssignment.white||[]);
-      _teamWanted=true; // 팀전 상태 복원
-      const btn=document.getElementById('teamAssignBtn');
-      btn.classList.add('done','hidden');
-      btn.innerHTML='🔀 청/홍팀 재배정 (클릭 시 새로 배정)';
-      const rbtn=document.getElementById('teamReassignBtn');
-      if(rbtn) rbtn.classList.remove('hidden');
-      updateTeamModeBadge(); // 팀 모드 꺼짐이면 목록 자동 숨김
-      // 팀 모드 켜짐일 때만 팀 목록 표시
-      if(_teamModeOverride!==false){
-        renderTeamList();
-      }
-    } else {teamAssignment=null;updateTeamModeBadge();}
+    teamAssignment=null;
+    _teamWanted=false;
+    _teamModeOverride=false;
+    updateTeamModeBadge();
 
     currentParticipants=state.participants.map(p=>Object.assign({
       _valid:true,partnerCount:{},opponentCount:{},lastRoundPlayed:0,_levelRaw:'',_genderRaw:'',isGuest:!!p.isGuest,
@@ -10517,8 +10473,8 @@ function restoreState(){
         team2C:findP(m.team2C.name),team2D:findP(m.team2D.name)
       };
     });
-    currentSettings=state.settings;
-    setOperationPreset(state.operationPreset||currentSettings.operationPreset||(currentSettings.teamMode?'monthlyTeam':'daily'));
+    currentSettings={...(state.settings||{}),teamMode:false,operationPreset:'daily'};
+    setOperationPreset('daily');
     _fastPlayOn=!!(state.fastPlay&&state.fastPlay.on);
     _fastActive={...(state.fastPlay&&state.fastPlay.active||{})};
     _fastLastFinishedPlayers=[...((state.fastPlay&&state.fastPlay.lastFinished)||[])];
@@ -11486,11 +11442,12 @@ function resetAll(){
   if(currentMatches.length || _directPlayers.length) _captureUndoSnapshot('전체 초기화 전');
   const _ps=document.getElementById('parseStatus');if(_ps)_ps.textContent='';
   document.getElementById('teamListWrap').classList.remove('show');
-  document.getElementById('teamAssignBtn').classList.remove('done','hidden');
+  document.getElementById('teamAssignBtn').classList.remove('done');
+  document.getElementById('teamAssignBtn').classList.add('hidden');
   document.getElementById('teamAssignBtn').innerHTML='⚖️ 청/홍팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>';
   const rbtn=document.getElementById('teamReassignBtn');
   if(rbtn) rbtn.classList.add('hidden');
-  teamAssignment=null;_teamModeOverride=null;_teamWanted=false;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  teamAssignment=null;_teamModeOverride=false;_teamWanted=false;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   setOperationPreset('daily');
   _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
   currentMatches=[];currentParticipants=[];currentSettings={};
@@ -12809,7 +12766,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.241&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.242&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -12877,7 +12834,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.241</span>
+  <span class="app-version" id="appVersion">v1.10.242</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
