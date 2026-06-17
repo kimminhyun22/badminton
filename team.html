@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.230  (2026-06)
+     APP VERSION: 1.10.232  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.230">
+<meta name="app-version" content="1.10.232">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2107,7 +2107,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.230&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.232&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2126,7 +2126,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.230&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.232&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2266,7 +2266,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
               <label>혼복 인당 횟수</label>
               <div class="stepper">
                 <button class="stepper-btn" onclick="stepVal('mixedDbl',-1)">−</button>
-                <input type="number" id="mixedDbl" value="0" min="0" max="20" readonly>
+                <input type="number" id="mixedDbl" value="1" min="0" max="20" readonly>
                 <button class="stepper-btn" onclick="stepVal('mixedDbl',1)">+</button>
               </div>
               <div style="font-size:.65rem;color:var(--dim);text-align:center;margin-top:4px;">0 = 남복·여복 우선</div>
@@ -2725,7 +2725,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.230';
+const APP_VERSION = '1.10.232';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4776,7 +4776,7 @@ function updateScores(){
 /* 팀전 중간 현황 공유 (단톡방/밴드) */
 const LIVE_TTL_MS=48*60*60*1000;
 let _liveId=null, _liveOn=false, _liveMatchStartedAt=null;
-let _liveAttendance={}, _liveParty={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
+let _liveAttendance={}, _liveParty={}, _liveResultInputs={}, _liveResultConflicts={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
 
 /* 대회 고유 ID 생성 (6자리) */
 function _genLiveId(){
@@ -4852,6 +4852,8 @@ function _buildLiveState(){
     gamesPerPlayer: (currentSettings&&currentSettings.gamesPerPlayer)||4,
     matchStartedAt: _liveMatchStartedAt||null,
     expiresAt: _liveMatchStartedAt?(_liveMatchStartedAt+LIVE_TTL_MS):null,
+    resultInputs:_liveResultInputs||{},
+    resultConflicts:_liveResultConflicts||{},
     updatedAt: Date.now()
   };
 }
@@ -4904,6 +4906,7 @@ function _renderLiveOpsSummary(){
   const upcomingMissing=upcoming.filter(n=>!_liveHas(_liveAttendance,n));
   const partyNames=names.filter(n=>_liveHas(_liveParty,n));
   const dups=_duplicateNames(currentParticipants);
+  const conflictCount=Object.values(_liveResultConflicts||{}).reduce((sum,v)=>sum+Object.keys(v||{}).length,0);
   const targetMissing=upcomingMissing.length?upcomingMissing:missing;
   const targetLabel=upcomingMissing.length?'출전 미확인':'전체 미확인';
   el.classList.remove('hidden');
@@ -4923,8 +4926,38 @@ function _renderLiveOpsSummary(){
       <div class="live-ops-v">${partyNames.length}명</div>
       <div class="live-ops-names">${_liveNamesPreview(partyNames)}</div>
     </div>
+    ${conflictCount?`<div class="live-ops-card warn">
+      <div class="live-ops-l">승패 확인</div>
+      <div class="live-ops-v">${conflictCount}건</div>
+      <div class="live-ops-names">서로 다른 승패 입력이 있어 확인 필요</div>
+    </div>`:''}
     ${dups.length?`<div class="live-ops-dups">동명이인: ${_liveNamesPreview(dups,8)} · 출석/뒤풀이 체크가 합쳐질 수 있어 이름 뒤에 A/B 같은 구분자를 붙여주세요.</div>`:''}`;
 }
+
+function _syncLiveWinsFromData(data){
+  if(!currentMatches.length || !data || !Array.isArray(data.matches)) return;
+  const fbWinMap={}, fbWinAtMap={};
+  data.matches.forEach(fm=>{
+    const key=`${fm.round||0}_${fm.court||0}`;
+    fbWinMap[key]=fm.win||null;
+    fbWinAtMap[key]=fm.winAt||null;
+  });
+  let changed=false;
+  currentMatches.forEach((m,i)=>{
+    const key=`${m.round||0}_${m.court||0}`;
+    const next=fbWinMap[key]||null;
+    const cur=winOverride[i]||null;
+    if(next!==cur){
+      if(next) winOverride[i]=next;
+      else delete winOverride[i];
+      changed=true;
+    }
+    if(next && fbWinAtMap[key]) liveWinAt[i]=fbWinAtMap[key];
+    if(!next) delete liveWinAt[i];
+  });
+  if(changed) updateScores();
+}
+
 function _unbindLiveAdminListener(){
   if(_liveAdminRef&&_liveAdminHandler){
     try{_liveAdminRef.off('value',_liveAdminHandler);}catch(e){}
@@ -4941,6 +4974,9 @@ function _bindLiveAdminListener(){
     const data=(snap&&snap.exists&&snap.exists())?(snap.val()||{}):{};
     _liveAttendance=data.attendance||{};
     _liveParty=data.party||{};
+    _liveResultInputs=data.resultInputs||{};
+    _liveResultConflicts=data.resultConflicts||{};
+    _syncLiveWinsFromData(data);
     _renderLiveOpsSummary();
   };
   _liveAdminRef.on('value',_liveAdminHandler);
@@ -4961,9 +4997,11 @@ async function startLiveBroadcast(){
     const prev=await liveRef.once('value').catch(()=>null);
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
     _liveMatchStartedAt=prevData.matchStartedAt||Date.now();
-    const state=_buildLiveState();
     _liveAttendance=prevData.attendance||{};
     _liveParty=prevData.party||{};
+    _liveResultInputs=prevData.resultInputs||{};
+    _liveResultConflicts=prevData.resultConflicts||{};
+    const state=_buildLiveState();
     await liveRef.update(state);
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; _updateLiveUI(); _renderLiveOpsSummary(); return; }
   _bindLiveAdminListener();
@@ -5010,6 +5048,8 @@ async function _tryResumeLive(){
       _liveMatchStartedAt=startedAt;
       _liveAttendance=data.attendance||{};
       _liveParty=data.party||{};
+      _liveResultInputs=data.resultInputs||{};
+      _liveResultConflicts=data.resultConflicts||{};
       _bindLiveAdminListener();
       _renderLiveOpsSummary();
       _updateLiveUI();
@@ -5079,14 +5119,14 @@ function _showCopyFallback(label,text){
 async function stopLiveBroadcast(){
   if(!_liveId || !_fbDb){
     _unbindLiveAdminListener();
-    _liveAttendance={};_liveParty={};
+    _liveAttendance={};_liveParty={};_liveResultInputs={};_liveResultConflicts={};
     _liveOn=false; _liveMatchStartedAt=null; _updateLiveUI(); _renderLiveOpsSummary(); return;
   }
   if(!confirm('실시간 중계를 종료할까요?\n링크로 접속한 사람들이 더 이상 볼 수 없게 됩니다.')) return;
   try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
   localStorage.removeItem('badminton_liveId');
   _unbindLiveAdminListener();
-  _liveAttendance={};_liveParty={};
+  _liveAttendance={};_liveParty={};_liveResultInputs={};_liveResultConflicts={};
   _liveOn=false; _liveId=null; _liveMatchStartedAt=null; _updateLiveUI();
   rsvpPushEventState();
   _renderLiveOpsSummary();
@@ -6298,6 +6338,10 @@ function migrateStateIfNeeded(state){
 let saveTimer=null;
 
 function scheduleSave(){
+  if(isTeamSampleMode()){
+    setSaveStatus('','샘플 모드 · 저장 안 함');
+    return;
+  }
   clearTimeout(saveTimer);
   saveTimer=setTimeout(saveState,800);
   setSaveStatus('saving');
@@ -6392,6 +6436,7 @@ function _restoreJoinerGoals(participants,settings){
 }
 
 function checkSavedState(){
+  if(isTeamSampleMode())return;
   try{
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw)return;
@@ -6425,7 +6470,7 @@ function restoreState(){
 
     document.getElementById('courts').value=state.courts||4;
     document.getElementById('gamesPerPlayer').value=state.gamesPerPlayer||4;
-    document.getElementById('mixedDbl').value=state.mixedDbl||0;
+    document.getElementById('mixedDbl').value=state.mixedDbl??1;
     // 직접입력 목록 복원 (구버전 pasteText 호환 포함)
     if(state.directPlayers&&state.directPlayers.length){
       _directPlayers=state.directPlayers.slice();
@@ -7792,6 +7837,10 @@ let _rsvpResponses={};
 let _rsvpSyncTimer=null;
 let _rsvpRosterRefreshLock=false;
 let _autoFlowRendering=false;
+function isTeamSampleMode(){
+  const v=new URLSearchParams(location.search).get('sample');
+  return v==='1'||v==='team';
+}
 
 function _rsvpShortDate(ts){
   const d=ts?new Date(ts):new Date();
@@ -7907,6 +7956,7 @@ function _rsvpClubs(){
   return (rosters.clubs||[]).filter(c=>(c.members||[]).length);
 }
 function _rsvpSelectedSource(){
+  if(isTeamSampleMode())return RSVP_DIRECT_VALUE;
   const clubs=_rsvpClubs();
   const saved=localStorage.getItem(RSVP_CLUB_KEY)||'';
   if(saved===RSVP_DIRECT_VALUE&&_directPlayers.length)return RSVP_DIRECT_VALUE;
@@ -9320,14 +9370,85 @@ window.addEventListener('resize', () => {
   document.querySelectorAll('.mob-hide').forEach(el => el.classList.remove('mob-hide'));
 });
 
+function _teamSamplePlayers(){
+  const names=[
+    ['장세훈','A','남'],['백철민','B','남'],['이은하','A','여'],['최애랑','A','여'],
+    ['김재관','C','남'],['이현','C','남'],['정종필','C','남'],['조계홍','C','남'],
+    ['김민현','B','남'],['김종길','C','남'],['박대현','B','남'],['조병훈','C','남'],
+    ['금민경','A','여'],['김미정','A','여'],['김민선','A','여'],['안세원','B','남'],
+    ['이성원','B','남'],['송은정','B','여'],['정인기','B','남'],['현지영','B','여'],
+    ['김병주','C','남'],['최경민','C','남'],['윤성호','C','남'],['박지은','C','여'],
+    ['이준원','C','남'],['김지아','D','여'],['유재석','D','남'],['문선영','D','여'],
+    ['강태오','D','남'],['오하늘','D','여'],['임시게스트1','C','남'],['임시게스트2','C','여']
+  ];
+  return names.map(([name,grade,gender])=>({
+    name, grade, gender, level:gradeToLevel(grade,gender)||4,
+    ageGroup:'40대', isGuest:name.startsWith('임시게스트')
+  }));
+}
+function _teamSampleResponses(){
+  const out={};
+  _rsvpRosterMembers().forEach((m,i)=>{
+    const guest=i===2?{name:'현장게스트A',gender:'남',grade:'C',ageGroup:'40대'}
+      :i===15?{name:'현장게스트B',gender:'여',grade:'C',ageGroup:'40대'}:null;
+    out[m.id]={
+      memberId:m.id, memberName:m.name, name:m.name, club:m.club||'의기양양',
+      grade:m.grade||'C', gender:m.gender||'남', ageGroup:m.ageGroup||'40대',
+      status:'attend', guest, updatedAt:Date.now()-i*60000, source:'sample-rsvp'
+    };
+  });
+  return out;
+}
+function applyTeamSampleData(){
+  _fbDb=null;
+  _fbReady=false;
+  _rsvpId='TFAKE201';
+  _rsvpCreatedAt=Date.now()-3600000;
+  const titleEl=document.getElementById('rsvpTitle');
+  if(titleEl)titleEl.value='의기양양 팀전 06.15';
+  _directPlayers=_teamSamplePlayers();
+  _teamWanted=true;
+  _teamModeOverride=null;
+  captains={blue:{leader:'장세훈',sub:'김민현'},white:{leader:'금민경',sub:'이성원'}};
+  teamAssignment=null;
+  currentMatches=[];
+  currentParticipants=[];
+  currentSettings={};
+  Object.keys(winOverride).forEach(k=>delete winOverride[k]);
+  _resetScoreboard();
+  document.getElementById('courts').value=4;
+  document.getElementById('gamesPerPlayer').value=4;
+  document.getElementById('mixedDbl').value=1;
+  _rsvpResponses=_teamSampleResponses();
+  renderDirectPlayerList();
+  rsvpRenderClubSelect();
+  rsvpRender();
+  doTeamAssign();
+  generate();
+  setTimeout(()=>{
+    _rsvpResponses=_teamSampleResponses();
+    rsvpRender();
+    renderDirectPlayerList();
+    renderAutoFlowDashboard();
+    showTab('bracket');
+    const badge=document.getElementById('autoFlowBadge');
+    if(badge)badge.textContent='샘플';
+    setSaveStatus('','샘플 모드 · 저장 안 함');
+  },280);
+}
+
 // 페이지 로드
 window.addEventListener('DOMContentLoaded', () => {
-  checkSavedState();
+  if(!isTeamSampleMode())checkSavedState();
   loadRosters();
   renderClubList();
-  rsvpLoad();
-  rsvpRender();
-  updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
+  if(isTeamSampleMode()){
+    applyTeamSampleData();
+  } else {
+    rsvpLoad();
+    rsvpRender();
+    updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
+  }
   // 버전 표시 반영
   const vEl=document.getElementById('appVersion');
   if(vEl) vEl.textContent='v'+APP_VERSION;
@@ -9420,7 +9541,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.230</span>
+  <span class="app-version" id="appVersion">v1.10.232</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

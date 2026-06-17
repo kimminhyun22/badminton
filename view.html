@@ -1141,6 +1141,39 @@ body{
 .team-roster-title small{
   color:#6f7a8a!important;
 }
+.viewer-identity{
+  background:#fff;border:1px solid #dfe7f3;border-radius:20px;padding:12px 13px;
+  margin:0 0 12px;box-shadow:0 6px 18px rgba(31,41,55,.05);
+}
+.viewer-identity-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.viewer-identity-main{min-width:0;}
+.viewer-identity-k{font-size:.68rem;font-weight:900;color:#7a8798;letter-spacing:1px;text-transform:uppercase;}
+.viewer-identity-name{font-size:1.05rem;font-weight:900;color:#222b3a;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.viewer-identity-role{font-size:.76rem;font-weight:800;color:#718096;margin-top:2px;}
+.viewer-identity select{
+  width:100%;border:1px solid #d8e3f4;border-radius:14px;background:#f8fbff;
+  color:#222b3a;font-size:.92rem;font-weight:800;padding:11px 12px;
+}
+.viewer-identity button{
+  border:1px solid #cfe0fb;background:#f4f8ff;color:#4f73b8;border-radius:14px;
+  padding:10px 14px;font-weight:900;font-size:.82rem;white-space:nowrap;
+}
+.result-entry{
+  margin-top:10px;padding-top:10px;border-top:1px dashed #dfe7f3;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.result-entry-label{font-size:.78rem;font-weight:900;color:#7a8798;}
+.result-entry-actions{display:flex;gap:8px;flex:1;justify-content:flex-end;}
+.result-entry button{
+  border:1px solid #ccd9ea;background:#fff;border-radius:999px;padding:9px 12px;
+  font-size:.82rem;font-weight:900;min-width:70px;
+}
+.result-entry .blue-win{color:#4f73b8;border-color:#bdd4fb;background:#f2f7ff;}
+.result-entry .red-win{color:#a85f63;border-color:#efced0;background:#fff5f5;}
+.result-entry-done{
+  margin-top:10px;padding:9px 11px;border-radius:14px;background:#f8fafc;
+  color:#677386;font-size:.8rem;font-weight:900;text-align:center;
+}
 </style>
 </head>
 <body>
@@ -1253,6 +1286,7 @@ let _teamRosterSort=localStorage.getItem('kokmatch_live_roster_sort')||'name';
 let _teamRosterOpen=false;
 let _latestLiveData=null;
 let _liveTicker=null;
+let _viewerName='';
 
 const content=document.getElementById('content');
 
@@ -2021,6 +2055,182 @@ function _sortMembers(list){
   });
 }
 
+function _matchKey(m){
+  return (m&&m.round||0)+'_'+(m&&m.court||0);
+}
+
+function _viewerStorageKey(){
+  return 'kokmatch_live_viewer_'+(liveId||'default');
+}
+
+function _allLiveMembers(d){
+  const members=d&&d.members?d.members:{};
+  const rows=[];
+  _normalizeMembers(members.blue||[]).forEach(p=>rows.push({...p,team:'blue'}));
+  _normalizeMembers(members.red||[]).forEach(p=>rows.push({...p,team:'red'}));
+  _normalizeMembers(members.all||[]).forEach(p=>rows.push({...p,team:'all'}));
+  return rows;
+}
+
+function _viewerInfo(d){
+  if(!_viewerName){
+    try{_viewerName=localStorage.getItem(_viewerStorageKey())||'';}catch(e){}
+  }
+  if(!_viewerName) return null;
+  return _allLiveMembers(d).find(p=>p.n===_viewerName)||null;
+}
+
+function _viewerRoleText(p){
+  if(!p) return '';
+  if(p.isLeader) return '단장';
+  if(p.isSub) return '부단장';
+  return '선수';
+}
+
+function setLiveViewerName(name){
+  _viewerName=String(name||'').trim();
+  try{
+    if(_viewerName) localStorage.setItem(_viewerStorageKey(),_viewerName);
+    else localStorage.removeItem(_viewerStorageKey());
+  }catch(e){}
+  if(window._lastLiveData) render(window._lastLiveData);
+}
+
+function selectLiveViewer(){
+  const el=document.getElementById('liveViewerSelect');
+  setLiveViewerName(el?el.value:'');
+}
+
+function buildViewerIdentity(d){
+  const all=_allLiveMembers(d);
+  if(!all.length) return '';
+  const current=_viewerInfo(d);
+  if(current){
+    const team=current.team==='blue'?liveTeamLabel(d,'blue'):current.team==='red'?liveTeamLabel(d,'red'):'참가자';
+    return '<section class="viewer-identity">'
+      +'<div class="viewer-identity-row">'
+        +'<div class="viewer-identity-main">'
+          +'<div class="viewer-identity-k">MY PAGE</div>'
+          +'<div class="viewer-identity-name">'+esc(current.n)+'님</div>'
+          +'<div class="viewer-identity-role">'+esc(team)+' · '+esc(_viewerRoleText(current))+'</div>'
+        +'</div>'
+        +'<button type="button" onclick="setLiveViewerName(\'\')">변경</button>'
+      +'</div>'
+    +'</section>';
+  }
+  const opts=all.sort((a,b)=>String(a.n).localeCompare(String(b.n),'ko')).map(p=>{
+    const team=p.team==='blue'?liveTeamLabel(d,'blue'):p.team==='red'?liveTeamLabel(d,'red'):'참가자';
+    return '<option value="'+esc(p.n)+'">'+esc(p.n)+' · '+esc(team)+'</option>';
+  }).join('');
+  return '<section class="viewer-identity">'
+    +'<div class="viewer-identity-row">'
+      +'<select id="liveViewerSelect"><option value="">내 이름 선택</option>'+opts+'</select>'
+      +'<button type="button" onclick="selectLiveViewer()">확인</button>'
+    +'</div>'
+  +'</section>';
+}
+
+function _canSubmitResult(m,d){
+  const viewer=_viewerInfo(d);
+  if(!viewer || !m || m.win) return false;
+  const names=[...(m.t1||[]),...(m.t2||[])].filter(Boolean);
+  if(names.includes(viewer.n)) return true;
+  return !!(d&&d.isTeam&&(viewer.isLeader||viewer.isSub));
+}
+
+function _resultRoleForSubmit(d,m){
+  const viewer=_viewerInfo(d);
+  if(!viewer) return '';
+  const names=[...(m&&m.t1||[]),...(m&&m.t2||[])].filter(Boolean);
+  if(names.includes(viewer.n)) return 'player';
+  if(viewer.isLeader) return 'leader';
+  if(viewer.isSub) return 'sub';
+  return 'member';
+}
+
+async function submitLiveWin(matchIdx,side){
+  const d=window._lastLiveData;
+  const matches=d&&Array.isArray(d.matches)?d.matches:[];
+  const m=matches[matchIdx];
+  const viewer=_viewerInfo(d);
+  if(!m || !viewer){
+    alert('내 이름을 먼저 선택해주세요.');
+    return;
+  }
+  if(!_canSubmitResult(m,d)){
+    alert('이 경기의 선수 또는 단장/부단장만 승패를 입력할 수 있어요.');
+    return;
+  }
+  if(!liveDb || !liveId){
+    alert('승패 입력을 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+  const key=_matchKey(m);
+  const nameKey=_attKey(viewer.n);
+  const existing=m.win||null;
+  const role=_resultRoleForSubmit(d,m);
+  try{
+    if(existing && existing!==side){
+      await liveDb.ref('live/'+liveId+'/resultConflicts/'+key+'/'+nameKey).set({
+        matchKey:key, matchIdx:matchIdx, requested:side, existing:existing,
+        byName:viewer.n, byRole:role, ts:firebase.database.ServerValue.TIMESTAMP
+      });
+      alert('이미 다른 결과가 입력되어 관리자 확인으로 보냈어요.');
+      return;
+    }
+    const nextMatches=matches.map(x=>({...x}));
+    nextMatches[matchIdx].win=side;
+    nextMatches[matchIdx].winBy=viewer.n;
+    nextMatches[matchIdx].winByRole=role;
+    nextMatches[matchIdx].winAt=Date.now();
+    let blueWins=0, whiteWins=0;
+    nextMatches.forEach(x=>{
+      if(x.win==='t1') blueWins++;
+      else if(x.win==='t2') whiteWins++;
+    });
+    const rounds=[...new Set(nextMatches.map(x=>x.round).filter(Boolean))].sort((a,b)=>a-b);
+    const nextRound=rounds.find(r=>nextMatches.filter(x=>x.round===r).some(x=>!x.win))||0;
+    const updates={};
+    updates['matches/'+matchIdx+'/win']=side;
+    updates['matches/'+matchIdx+'/winBy']=viewer.n;
+    updates['matches/'+matchIdx+'/winByRole']=role;
+    updates['matches/'+matchIdx+'/winAt']=firebase.database.ServerValue.TIMESTAMP;
+    updates['resultInputs/'+key+'/'+nameKey]={
+      matchKey:key, matchIdx:matchIdx, side:side,
+      byName:viewer.n, byRole:role, ts:firebase.database.ServerValue.TIMESTAMP
+    };
+    updates.blueWins=blueWins;
+    updates.whiteWins=whiteWins;
+    updates.currentRound=nextRound;
+    updates.updatedAt=firebase.database.ServerValue.TIMESTAMP;
+    await liveDb.ref('live/'+liveId).update(updates);
+  }catch(e){
+    alert('승패 입력 실패: '+e.message);
+  }
+}
+
+function buildResultInputControls(m,d,opts){
+  if(!opts || !opts.current) return '';
+  if(m.win){
+    const winner=m.win==='t1'?liveTeamLabel(d,'blue'):liveTeamLabel(d,'red');
+    return '<div class="result-entry-done">승패 입력됨 · '+esc(winner)+'</div>';
+  }
+  if(!_canSubmitResult(m,d)) return '';
+  const idx=Number(m._idx);
+  if(!Number.isFinite(idx) || idx<0) return '';
+  return '<div class="result-entry">'
+    +'<span class="result-entry-label">승패 입력</span>'
+    +'<div class="result-entry-actions">'
+      +'<button type="button" class="blue-win" onclick="submitLiveWin('+idx+',\'t1\')">'+esc(liveTeamLabel(d,'blue'))+' 승</button>'
+      +'<button type="button" class="red-win" onclick="submitLiveWin('+idx+',\'t2\')">'+esc(liveTeamLabel(d,'red'))+' 승</button>'
+    +'</div>'
+  +'</div>';
+}
+
+window.setLiveViewerName=setLiveViewerName;
+window.selectLiveViewer=selectLiveViewer;
+window.submitLiveWin=submitLiveWin;
+
 function setTeamRosterSort(sort){
   _teamRosterSort=sort||'name';
   try{localStorage.setItem('kokmatch_live_roster_sort',_teamRosterSort);}catch(e){}
@@ -2189,6 +2399,7 @@ function buildLiveMatchCard(m,d,opts){
         +_playerLine(t2[1],d)
       +'</div>'
     +'</div>'
+    +buildResultInputControls(m,d,opts)
   +'</article>';
 }
 
@@ -2234,7 +2445,7 @@ function render(d){
   window._lastLiveData=d;
   window._liveAttendance=d.attendance||{};
   window._liveParty=d.party||{};
-  const matches=d.matches||[];
+  const matches=(d.matches||[]).map((m,i)=>Object.assign({},m,{_idx:i,_key:_matchKey(m)}));
   const byRound={};
   matches.forEach(m=>{ (byRound[m.round]=byRound[m.round]||[]).push(m); });
   const rounds=Object.keys(byRound).map(Number).sort((a,b)=>a-b);
@@ -2265,6 +2476,7 @@ function render(d){
     html+='<div class="progress" id="scoreBoard">📊 '+totalR+'라운드 중 '+doneR+'라운드 완료'
       +(d.pointSystem?' · '+esc(d.pointSystem)+'점 경기':'')+'</div>';
   }
+  html+=buildViewerIdentity(d);
 
   if(allDone){
     html+=buildFinale(matches,d);

@@ -336,6 +336,37 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .my-card-name{font-size:24px;font-weight:1000;letter-spacing:-.055em;line-height:1.16;color:#18202d}
 .my-card-state{font-size:13px;font-weight:1000;color:#16834f;margin-top:5px}
+.my-status-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:8px;
+}
+.my-status-chip{
+  display:inline-flex;
+  align-items:center;
+  min-height:28px;
+  padding:6px 9px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--mut);
+  font-size:12px;
+  font-weight:1000;
+  line-height:1;
+  white-space:nowrap;
+}
+.my-status-chip.on{
+  border-color:#cfeeda;
+  background:#f4fbf7;
+  color:#3f7c58;
+  box-shadow:0 0 0 4px rgba(145,209,170,.12);
+}
+.my-status-chip.warn{
+  border-color:#ead2a8;
+  background:#fff9ef;
+  color:#8c672b;
+}
 .my-action-panel{border:1px solid #e3eaf5;border-radius:22px;background:#fff;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8);}
 .my-card .game-request{margin-top:10px}
 .pick-guide{
@@ -936,9 +967,9 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 <main class="wrap">
   <section class="hero">
     <div class="eyebrow">KOKMATCH CHECK-IN</div>
-    <h1>민턴LIVE 상태를 알려주세요</h1>
+    <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
-    <div class="notice">현장에 도착하면 <strong>시작</strong>을 눌러주세요.</div>
+    <div class="notice" id="quickNotice"><strong>참석</strong> 후 현장에서는 <strong>시작</strong>만 누르세요.</div>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1182,7 +1213,7 @@ function renderVoteSummary(){
   }
   el.className='vote-summary';
   el.innerHTML=[
-    `<div class="vote-chip total"><b>${s.attending}명</b><span>참석 신청</span></div>`,
+    `<div class="vote-chip total"><b>${s.attending}명</b><span>참석</span></div>`,
     `<div class="vote-chip ready"><b>${s.wait}</b><span>시작</span></div>`,
     `<div class="vote-chip"><b>${s.playing}</b><span>경기중</span></div>`,
     `<div class="vote-chip warn"><b>${s.rest}</b><span>휴식</span></div>`
@@ -1292,6 +1323,8 @@ function renderEvent(){
     ${active?`<div class="event-section-title">진행중 코트</div><div class="event-list">${active}</div>`:''}`;
 }
 function render(){
+  const pageTitle=document.getElementById('pageTitle');
+  const quickNotice=document.getElementById('quickNotice');
   const sub=document.getElementById('sessionSub');
   const box=document.getElementById('players');
   const count=document.getElementById('countPill');
@@ -1303,6 +1336,8 @@ function render(){
       myCard.classList.add('hidden');
       myCard.innerHTML='';
     }
+    if(pageTitle)pageTitle.textContent='내 이름 찾기';
+    if(quickNotice)quickNotice.hidden=false;
     sub.textContent='출석 링크를 확인하고 있습니다.';
     box.className='empty';box.textContent='명단을 불러오는 중입니다.';count.textContent='0명';
     renderLastSent();
@@ -1317,12 +1352,18 @@ function render(){
   const allPlayers=session.players||[];
   renderMyCard(last,allPlayers);
   const selectedId=last&&last.playerId;
+  const selectedPlayer=selectedId?allPlayers.find(p=>p.id===selectedId):null;
+  if(pageTitle)pageTitle.textContent=selectedPlayer?`${selectedPlayer.name}님`:'내 이름 찾기';
+  if(quickNotice)quickNotice.hidden=!!selectedPlayer;
   const matchedPlayers=allPlayers.filter(p=>playerMatchesQuery(p,query));
   const players=matchedPlayers
     .filter(p=>query||!selectedId||p.id!==selectedId)
     .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ko'));
   const updated=session.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
-  sub.textContent=`${session.title||'콕매치 민턴LIVE'} · ${updated} 업데이트${voteDeadlineText()?` · ${voteDeadlineText()}`:''}`;
+  const summary=voteSummary();
+  sub.textContent=selectedPlayer
+    ? `${session.title||'민턴LIVE'} · 참석 ${summary?.attending||0}명${voteDeadlineText()?` · ${voteDeadlineText()}`:''}`
+    : `참석 ${summary?.attending||0}명 · 내 이름을 찾아주세요${voteDeadlineText()?` · ${voteDeadlineText()}`:''}`;
   count.textContent=`${query?matchedPlayers.length:allPlayers.length}명`;
   if(!players.length){
     box.className='empty';box.textContent=selectedId&&!query?'다른 선수 명단은 접어두었습니다. 필요하면 명단을 열어 확인하세요.':'검색된 선수가 없습니다.';
@@ -1398,8 +1439,8 @@ function renderMyCard(last,players){
   if(!selected){
     el.classList.remove('hidden');
     el.innerHTML=`<div class="pick-guide">
-      <b>먼저 내 이름을 찾아주세요</b>
-      <span>한 번 선택하면 다음부터 내 카드가 맨 위에 고정됩니다.</span>
+      <b>내 이름을 선택하세요</b>
+      <span>다음부터 맨 위에 고정됩니다.</span>
     </div>`;
     if(fold&&!query)fold.open=true;
     return;
@@ -1411,12 +1452,19 @@ function renderMyCard(last,players){
   const disabledAttr=sendingKey||selected.voteLocked?'disabled':'';
   const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,disabledAttr);
   const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
+  const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
+  const statusChips=[
+    `<span class="my-status-chip ${stateChipClass}">${esc(selectedState)}</span>`,
+    `<span class="my-status-chip">${selected.games||0}게임</span>`,
+    selected.locked?'<span class="my-status-chip warn">경기중</span>':'',
+    selected.voteLocked?'<span class="my-status-chip warn">마감</span>':''
+  ].filter(Boolean).join('');
   el.innerHTML=`<section class="my-card">
     <div class="my-card-head">
       <div class="my-avatar">${esc(initial)}</div>
       <div>
         <div class="my-card-name">${esc(selected.name)}${selected.isGuest?' <span class="meta">게스트</span>':''}</div>
-        <div class="my-card-state">내 상태 · ${esc(selectedState)}${selected.locked?' · 경기중 예약 반영':''}</div>
+        <div class="my-status-chips">${statusChips}</div>
       </div>
     </div>
     <div class="my-action-panel">
@@ -1455,7 +1503,7 @@ function gameRequestBox(p,disabled){
   const recentApplied=reqs.find(r=>r.appliedAt&&Date.now()-(r.appliedAt||0)<5*60*1000);
   if(pending){
     return `<details class="game-request" open>
-      <summary>파트너/게임 신청</summary>
+      <summary>게임 신청</summary>
       <div class="request-status">신청 접수됨 · 자동 반영 대기
         <small>${esc(reservationRequestLabel(pending))}</small>
       </div>
@@ -1464,7 +1512,7 @@ function gameRequestBox(p,disabled){
   const cancelledHtml=recentCancelled?`<div class="request-status cancelled">최근 신청이 자동 취소됐습니다.<small>${esc(recentCancelled.reason||reservationRequestLabel(recentCancelled))}</small></div>`:'';
   const recentHtml=recentApplied?`<div class="request-status done">최근 신청이 자동 접수됐습니다.<small>${esc(reservationRequestLabel(recentApplied))}</small></div>`:'';
   return `<details class="game-request">
-    <summary>파트너/게임 신청</summary>
+    <summary>게임 신청</summary>
     ${cancelledHtml||recentHtml}
     <div class="request-body">
       <div class="request-field full"><label>같은 편으로 뛸 선수</label><select id="reqPartner_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
