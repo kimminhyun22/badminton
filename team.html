@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.239  (2026-06)
+     APP VERSION: 1.10.240  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.239">
+<meta name="app-version" content="1.10.240">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1260,6 +1260,27 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-action-btn.ready{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
 .rsvp-action-btn.danger:hover{background:#fee2e2;color:#b91c1c;border-color:#fecaca;}
 .rsvp-empty{font-size:.86rem;color:var(--dim);text-align:center;padding:22px;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff;}
+.rsvp-admin-panel{border:1px solid #dbeafe;border-radius:16px;background:#fff;overflow:hidden;}
+.rsvp-admin-panel summary{cursor:pointer;list-style:none;padding:12px 13px;font-size:.82rem;font-weight:1000;color:#334155;display:flex;justify-content:space-between;gap:8px;}
+.rsvp-admin-panel summary::-webkit-details-marker{display:none;}
+.rsvp-admin-panel summary:after{content:'관리';font-size:.64rem;color:#406fc7;border:1px solid #c9daf8;border-radius:999px;padding:4px 8px;background:#f8fbff;}
+.rsvp-admin-panel[open] summary{border-bottom:1px solid #eef2f7;}
+.rsvp-admin-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px 12px;border-bottom:1px solid #eef2f7;background:#fbfdff;}
+.rsvp-admin-search{min-height:42px;border:1px solid #d8e5fb;border-radius:12px;padding:0 11px;font-family:'Noto Sans KR',sans-serif;font-weight:900;color:#172033;min-width:0;}
+.rsvp-admin-sort{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;}
+.rsvp-sort-btn{border:1px solid #d8e5fb;border-radius:999px;background:#fff;color:#64748b;padding:8px 10px;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:1000;cursor:pointer;}
+.rsvp-sort-btn.active{border-color:#bfd4fb;background:#edf4ff;color:#406fc7;}
+.rsvp-admin-list{display:flex;flex-direction:column;gap:7px;padding:10px 12px;max-height:430px;overflow:auto;}
+.rsvp-admin-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border:1px solid #e3e9f3;border-radius:14px;background:#fff;padding:10px;}
+.rsvp-admin-row.ready{border-color:#bfdbfe;background:#f8fbff;}
+.rsvp-admin-row.attend{border-color:#bfe8cf;background:#fbfffd;}
+.rsvp-admin-actions{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap;}
+.rsvp-admin-pair{grid-column:1/-1;border:1px solid #eef2f7;border-radius:12px;background:#fbfcff;overflow:hidden;}
+.rsvp-admin-pair summary{padding:8px 10px;font-size:.72rem;color:#55708f;}
+.rsvp-admin-pair summary:after{content:'P';font-size:.6rem;padding:3px 7px;}
+.rsvp-admin-pair-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;padding:0 10px 10px;}
+.rsvp-admin-pair select{height:40px;border:1px solid #d8e5fb;border-radius:11px;padding:0 9px;font-family:'Noto Sans KR',sans-serif;font-weight:800;min-width:0;background:#fff;}
+.rsvp-admin-empty{padding:14px;text-align:center;color:#7a8494;font-size:.78rem;font-weight:900;}
 .rsvp-saved{display:flex;flex-direction:column;gap:7px;margin-bottom:9px;}
 .rsvp-saved-title{font-size:.7rem;font-weight:1000;color:#64748b;letter-spacing:.02em;}
 .rsvp-saved-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:6px;align-items:center;
@@ -1323,6 +1344,13 @@ details.card:not([open]) .card-head{border-bottom:none;}
   .rsvp-saved-main{grid-column:1/-1;}
   .rsvp-saved-row .rsvp-saved-btn.danger{grid-column:auto;}
   .rsvp-saved-name{font-size:.9rem;}
+  .rsvp-admin-tools{grid-template-columns:1fr;}
+  .rsvp-admin-sort{justify-content:stretch;}
+  .rsvp-sort-btn{flex:1;}
+  .rsvp-admin-row{grid-template-columns:1fr;}
+  .rsvp-admin-actions{justify-content:stretch;}
+  .rsvp-admin-actions .rsvp-action-btn{flex:1;}
+  .rsvp-admin-pair-body{grid-template-columns:1fr;}
   .rsvp-saved-meta{font-size:.7rem;}
   .rsvp-saved-btn{min-height:38px;font-size:.72rem;}
   .auto-flow-badge{font-size:.76rem;padding:7px 10px;}
@@ -2085,7 +2113,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   }
 }
 
-/* ── v1.10.239: 민턴LIVE 톤앤매너 통합 ── */
+/* ── v1.10.240: 민턴LIVE 톤앤매너 통합 ── */
 :root{
   --bg:#f6f8fc!important;
   --sur:#ffffff!important;
@@ -2183,6 +2211,24 @@ header,.nav-bar{
   color:#b55258!important;
   background:#fff8f8!important;
   border-color:#f1c8cc!important;
+}
+
+/* 선택/실행 상태는 현장에서 한눈에 보이도록 붉은 점등으로 통일 */
+.btn-gen::before,
+.auto-flow-btn::before,
+.rsvp-action-btn.primary::before,
+.rsvp-saved-btn.active::before,
+.btn-ta.done::before,
+.pseg-btn.active::before{
+  content:''!important;
+  display:inline-block!important;
+  width:10px!important;
+  height:10px!important;
+  margin-right:8px!important;
+  border-radius:999px!important;
+  background:#dc2626!important;
+  box-shadow:0 0 0 5px rgba(220,38,38,.16),0 0 16px rgba(220,38,38,.75)!important;
+  vertical-align:middle!important;
 }
 .tlb-blue,.tlb-white{
   background:#fff!important;
@@ -2290,7 +2336,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.239&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.240&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2309,7 +2355,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.239&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.240&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2910,7 +2956,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.239';
+const APP_VERSION = '1.10.240';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8087,6 +8133,8 @@ let _rsvpListenPath='';
 let _rsvpResponses={};
 let _rsvpSyncTimer=null;
 let _rsvpRosterRefreshLock=false;
+let _rsvpAdminSort='status';
+let _rsvpAdminQuery='';
 let _autoFlowRendering=false;
 function isTeamSampleMode(){
   const v=new URLSearchParams(location.search).get('sample');
@@ -8518,6 +8566,94 @@ function _rsvpStats(){
 function _rsvpStatusLabel(status){
   return status==='ready'?'시작':status==='attend'?'참석':status==='decline'?'취소':'미응답';
 }
+function rsvpSetAdminSort(sort){
+  _rsvpAdminSort=sort||'status';
+  rsvpRender();
+}
+function rsvpSetAdminQuery(value){
+  _rsvpAdminQuery=String(value||'').trim();
+  rsvpRender();
+  setTimeout(()=>{
+    const input=document.querySelector('.rsvp-admin-search');
+    if(input){
+      input.focus();
+      const len=input.value.length;
+      try{input.setSelectionRange(len,len);}catch(e){}
+    }
+  },0);
+}
+function _rsvpInitials(text){
+  const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  return String(text||'').split('').map(ch=>{
+    const code=ch.charCodeAt(0)-44032;
+    if(code<0||code>11171)return ch;
+    return CHO[Math.floor(code/588)]||ch;
+  }).join('');
+}
+function _rsvpAdminPartnerOptions(memberId,selectedId){
+  const members=_rsvpRosterMembers();
+  return ['<option value="">P 없음</option>']
+    .concat(members
+      .filter(m=>m.id!==memberId)
+      .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
+      .map(m=>`<option value="${esc(m.id)}" ${m.id===selectedId?'selected':''}>${esc(m.name)} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급</option>`))
+    .join('');
+}
+function _rsvpAdminRosterHtml(members,responses){
+  const responseMap=new Map(responses.map(r=>[r.memberId||r.id,r]));
+  const q=String(_rsvpAdminQuery||'').trim().toLowerCase();
+  const filtered=members.filter(m=>{
+    if(!q)return true;
+    const hay=[m.name,m.club,m.grade,m.gender,_rsvpInitials(m.name)].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  const statusRank=s=>s==='none'||!s?0:s==='attend'?1:s==='ready'?2:3;
+  const levelOf=m=>gradeToLevel(m.grade||'C',m.gender||'남')||m.level||0;
+  filtered.sort((a,b)=>{
+    const ra=responseMap.get(a.id)||{};
+    const rb=responseMap.get(b.id)||{};
+    if(_rsvpAdminSort==='name')return a.name.localeCompare(b.name,'ko');
+    if(_rsvpAdminSort==='level')return levelOf(b)-levelOf(a)||a.name.localeCompare(b.name,'ko');
+    return statusRank(ra.status)-statusRank(rb.status)||a.name.localeCompare(b.name,'ko');
+  });
+  const sortBtn=(key,label)=>`<button class="rsvp-sort-btn ${_rsvpAdminSort===key?'active':''}" onclick="rsvpSetAdminSort('${key}')">${label}</button>`;
+  const rows=filtered.map(m=>{
+    const r=responseMap.get(m.id)||{};
+    const status=r.status||'none';
+    const partner=r.partnerRequest||{};
+    const partnerName=partner.memberName?` · P ${partner.memberName}`:'';
+    return `<div class="rsvp-admin-row ${esc(status)}">
+      <div>
+        <div class="rsvp-name">${esc(m.name)} <span class="rsvp-badge ${esc(status)}">${esc(_rsvpStatusLabel(status))}</span></div>
+        <div class="rsvp-meta">${esc(m.club||_rsvpSelectedLabel())} · ${esc(m.grade||'C')}급 · ${esc(m.gender||'남')}${esc(partnerName)}</div>
+      </div>
+      <div class="rsvp-admin-actions">
+        <button class="rsvp-action-btn ${status==='attend'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(m.id)}','attend')">참석</button>
+        <button class="rsvp-action-btn ready ${status==='ready'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(m.id)}','ready')">시작</button>
+        <button class="rsvp-action-btn danger" onclick="rsvpSetResponseStatus('${esc(m.id)}','none')">취소</button>
+      </div>
+      <details class="rsvp-admin-pair" ${partner.memberId?'open':''}>
+        <summary>파트너 ${partner.memberName?esc(partner.memberName):'지정'}</summary>
+        <div class="rsvp-admin-pair-body">
+          <select id="rsvpAdminP_${esc(m.id)}">${_rsvpAdminPartnerOptions(m.id,partner.memberId||'')}</select>
+          <button class="rsvp-action-btn primary" onclick="rsvpSetPartnerRequest('${esc(m.id)}')">P 저장</button>
+        </div>
+      </details>
+    </div>`;
+  }).join('');
+  return `<details class="rsvp-admin-panel" open>
+    <summary>관리자 상태 관리 · ${members.length}명</summary>
+    <div class="rsvp-admin-tools">
+      <input class="rsvp-admin-search" value="${esc(_rsvpAdminQuery)}" placeholder="이름/초성 검색" oninput="rsvpSetAdminQuery(this.value)">
+      <div class="rsvp-admin-sort">
+        ${sortBtn('status','상태순')}
+        ${sortBtn('name','이름순')}
+        ${sortBtn('level','급수순')}
+      </div>
+    </div>
+    <div class="rsvp-admin-list">${rows||'<div class="rsvp-admin-empty">검색된 회원이 없습니다.</div>'}</div>
+  </details>`;
+}
 function _autoFlowMetric(label,value){
   return `<div class="auto-flow-metric"><b>${esc(String(value))}</b><span>${esc(label)}</span></div>`;
 }
@@ -8734,6 +8870,7 @@ function rsvpRender(){
       <button class="rsvp-action-btn primary" onclick="rsvpImportAttendees()">가져오기</button>
       <button class="rsvp-action-btn danger" onclick="rsvpStopLink()">링크 종료</button>
     </div>
+    ${_rsvpAdminRosterHtml(members,responses)}
     ${guestRows.length?`<div class="rsvp-list"><div class="rsvp-section-title">게스트 신청 ${esc(guestText)}명 · 신청자 확인</div>${guestRows.map(r=>_rsvpGuestRowHtml(r)).join('')}</div>`:''}
     ${issueRows.length?`<div class="rsvp-list">${issueRows.map(r=>_rsvpRowHtml(r,true)).join('')}</div>`:''}
     <div class="rsvp-list">${latest.length?latest.map(r=>_rsvpRowHtml(r,false)).join(''):'<div class="rsvp-empty">아직 응답이 없습니다.</div>'}</div>`;
@@ -8798,6 +8935,77 @@ async function rsvpSetResponseStatus(memberId,status){
   _rsvpResponses[memberId]=payload;
   if(_fbDb){
     await _fbDb.ref(_rsvpPath()+'/responses/'+memberId).set(payload).catch(()=>{});
+  }
+  rsvpRender();
+}
+async function rsvpSetPartnerRequest(memberId){
+  if(!_rsvpId||!memberId)return;
+  const members=_rsvpRosterMembers();
+  const member=members.find(m=>m.id===memberId);
+  if(!member)return;
+  const select=document.getElementById('rsvpAdminP_'+memberId);
+  const partnerId=select?select.value:'';
+  const partner=members.find(m=>m.id===partnerId);
+  const prev=_rsvpResponses?.[memberId]||{};
+  const status=_rsvpIsAttending(prev.status)?prev.status:'attend';
+  const now=Date.now();
+  const payload={
+    ...prev,
+    memberId,
+    memberName:prev.memberName||member.name||prev.name||'',
+    name:prev.name||member.name||prev.memberName||'',
+    club:prev.club||member.club||'',
+    grade:prev.grade||member.grade||'C',
+    gender:prev.gender||member.gender||'남',
+    ageGroup:prev.ageGroup||member.ageGroup||'40대',
+    status,
+    partnerRequest:partner?{
+      memberId:partner.id,
+      memberName:partner.name,
+      grade:partner.grade||'C',
+      gender:partner.gender||'남',
+      updatedAt:now,
+      source:'admin-rsvp'
+    }:null,
+    updatedAt:now,
+    source:'admin-rsvp'
+  };
+  _rsvpResponses[memberId]=payload;
+  if(partner){
+    const pPrev=_rsvpResponses?.[partner.id]||{};
+    const partnerPayload={
+      ...pPrev,
+      memberId:partner.id,
+      memberName:pPrev.memberName||partner.name||pPrev.name||'',
+      name:pPrev.name||partner.name||pPrev.memberName||'',
+      club:pPrev.club||partner.club||'',
+      grade:pPrev.grade||partner.grade||'C',
+      gender:pPrev.gender||partner.gender||'남',
+      ageGroup:pPrev.ageGroup||partner.ageGroup||'40대',
+      status:_rsvpIsAttending(pPrev.status)?pPrev.status:'attend',
+      partnerRequest:{
+        memberId:member.id,
+        memberName:member.name,
+        grade:member.grade||'C',
+        gender:member.gender||'남',
+        updatedAt:now,
+        source:'admin-rsvp'
+      },
+      updatedAt:now,
+      source:'admin-rsvp'
+    };
+    _rsvpResponses[partner.id]=partnerPayload;
+  }else if(prev.partnerRequest&&prev.partnerRequest.memberId&&_rsvpResponses[prev.partnerRequest.memberId]?.partnerRequest?.memberId===memberId){
+    const pId=prev.partnerRequest.memberId;
+    _rsvpResponses[pId]={..._rsvpResponses[pId],partnerRequest:null,updatedAt:now,source:'admin-rsvp'};
+  }
+  if(_fbDb){
+    await _fbDb.ref(_rsvpPath()+'/responses/'+memberId).set(payload).catch(()=>{});
+    if(partner){
+      await _fbDb.ref(_rsvpPath()+'/responses/'+partner.id).set(_rsvpResponses[partner.id]).catch(()=>{});
+    }else if(prev.partnerRequest&&prev.partnerRequest.memberId&&_rsvpResponses[prev.partnerRequest.memberId]){
+      await _fbDb.ref(_rsvpPath()+'/responses/'+prev.partnerRequest.memberId).set(_rsvpResponses[prev.partnerRequest.memberId]).catch(()=>{});
+    }
   }
   rsvpRender();
 }
@@ -9874,7 +10082,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.239</span>
+  <span class="app-version" id="appVersion">v1.10.240</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
