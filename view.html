@@ -1627,6 +1627,8 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 
 const params=new URLSearchParams(location.search);
 const liveId=(params.get('id')||'').toUpperCase();
+const _viewerParamName=(params.get('viewer')||params.get('name')||'').trim();
+const _viewerParamMember=(params.get('member')||params.get('memberId')||'').trim();
 let liveDb=null;
 let _teamRosterSort=localStorage.getItem('kokmatch_live_roster_sort')||'name';
 let _teamRosterOpen=false;
@@ -2435,10 +2437,52 @@ function _allLiveMembers(d){
 
 function _viewerInfo(d){
   if(!_viewerName){
-    try{_viewerName=localStorage.getItem(_viewerStorageKey())||'';}catch(e){}
+    hydrateLiveViewerName(d);
   }
   if(!_viewerName) return null;
   return _allLiveMembers(d).find(p=>p.n===_viewerName)||null;
+}
+
+function _sameName(a,b){
+  return String(a||'').trim()===String(b||'').trim();
+}
+
+function _findViewerByName(d,name){
+  const target=String(name||'').trim();
+  if(!target)return null;
+  return _allLiveMembers(d).find(p=>_sameName(p.n,target))||null;
+}
+
+function _recentStoredViewerName(){
+  try{
+    const v=JSON.parse(localStorage.getItem('kokmatch_live_viewer_last')||'null');
+    if(v&&Date.now()-(v.savedAt||0)<1000*60*60*24*60)return String(v.name||'').trim();
+  }catch(e){}
+  return '';
+}
+
+function hydrateLiveViewerName(d){
+  const candidates=[
+    _viewerParamName,
+    (()=>{try{return localStorage.getItem(_viewerStorageKey())||'';}catch(e){return '';}})(),
+    _recentStoredViewerName()
+  ];
+  for(const name of candidates){
+    const hit=_findViewerByName(d,name);
+    if(hit){
+      _viewerName=hit.n;
+      try{localStorage.setItem(_viewerStorageKey(),_viewerName);}catch(e){}
+      return;
+    }
+  }
+  if(_viewerParamMember){
+    // Current live payloads are name-first, but keep member id fallback for future payloads.
+    const hit=_allLiveMembers(d).find(p=>String(p.id||p.memberId||'')===_viewerParamMember);
+    if(hit){
+      _viewerName=hit.n;
+      try{localStorage.setItem(_viewerStorageKey(),_viewerName);}catch(e){}
+    }
+  }
 }
 
 function _viewerRoleText(p){
@@ -2452,8 +2496,12 @@ function setLiveViewerName(name){
   _viewerName=String(name||'').trim();
   if(_viewerName) _viewerSearchTerm='';
   try{
-    if(_viewerName) localStorage.setItem(_viewerStorageKey(),_viewerName);
-    else localStorage.removeItem(_viewerStorageKey());
+    if(_viewerName){
+      localStorage.setItem(_viewerStorageKey(),_viewerName);
+      localStorage.setItem('kokmatch_live_viewer_last',JSON.stringify({name:_viewerName,liveId,source:'view',savedAt:Date.now()}));
+    }else{
+      localStorage.removeItem(_viewerStorageKey());
+    }
   }catch(e){}
   if(window._lastLiveData) render(window._lastLiveData);
 }

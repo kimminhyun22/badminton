@@ -251,7 +251,7 @@ button.decline.selected:before{
     <h1 id="title">월례대회 참석 확인</h1>
     <p class="sub" id="sessionSub">참석부를 불러오는 중입니다.</p>
     <div class="notice">이름을 찾고 참석 여부를 누르면 끝입니다. 게스트가 있으면 같은 카드에서 바로 신청할 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.244</span>
+    <span class="version-chip" id="appVersion">v1.10.245</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>참석</span></div>
@@ -288,7 +288,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false;
-const APP_VERSION='1.10.244';
+const APP_VERSION='1.10.245';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -347,7 +347,37 @@ function toast(msg){
 }
 function lastKey(){return 'kokmatch_rsvp_last_'+rsvpId;}
 function getLast(){try{return JSON.parse(localStorage.getItem(lastKey())||'null');}catch(e){return null;}}
-function setLast(v){try{localStorage.setItem(lastKey(),JSON.stringify({...v,savedAt:Date.now()}));}catch(e){}}
+function rememberLiveViewer(v){
+  if(!v||!v.memberName)return;
+  const payload={name:v.memberName,memberId:v.memberId||v.id||'',source:'rsvp',rsvpId,savedAt:Date.now()};
+  try{localStorage.setItem('kokmatch_live_viewer_last',JSON.stringify(payload));}catch(e){}
+  const liveIdFromSession=liveIdFromUrl(session&&session.liveUrl);
+  if(liveIdFromSession){
+    try{localStorage.setItem('kokmatch_live_viewer_'+liveIdFromSession,String(v.memberName||''));}catch(e){}
+  }
+}
+function setLast(v){
+  try{localStorage.setItem(lastKey(),JSON.stringify({...v,savedAt:Date.now()}));}catch(e){}
+  rememberLiveViewer(v);
+}
+function liveIdFromUrl(url){
+  if(!url)return '';
+  try{return (new URL(url,location.href).searchParams.get('id')||'').toUpperCase();}catch(e){return '';}
+}
+function liveUrlWithViewer(url){
+  if(!url)return '';
+  const last=getLast();
+  if(!last||!last.memberName)return url;
+  try{
+    const u=new URL(url,location.href);
+    u.searchParams.set('viewer',last.memberName);
+    if(last.memberId)u.searchParams.set('member',last.memberId);
+    return u.href;
+  }catch(e){
+    const sep=url.includes('?')?'&':'?';
+    return url+sep+'viewer='+encodeURIComponent(last.memberName)+(last.memberId?'&member='+encodeURIComponent(last.memberId):'');
+  }
+}
 function isAttendStatus(s){return s==='attend'||s==='ready';}
 function statusLabel(s){return s==='ready'?'시작':s==='attend'?'참석':'미응답';}
 function responseValues(){
@@ -448,10 +478,11 @@ function renderEventPanel(){
   if(!session){panel.className='event-panel hidden';panel.innerHTML='';return;}
   const liveUrl=session.liveUrl||'';
   if(session.phase==='live'&&liveUrl){
+    const linkedLiveUrl=liveUrlWithViewer(liveUrl);
     panel.className='event-panel live';
     panel.innerHTML=`<div class="event-title">🔴 실시간 중계가 시작됐어요</div>
       <div class="event-desc">이 링크 하나로 참석 확인부터 대진표와 실시간 현황까지 이어서 볼 수 있습니다.</div>
-      <div class="event-actions"><a class="event-btn" href="${esc(liveUrl)}">실시간 현황 보기</a></div>`;
+      <div class="event-actions"><a class="event-btn" href="${esc(linkedLiveUrl)}">실시간 현황 보기</a></div>`;
     return;
   }
   if(session.bracketReady){
