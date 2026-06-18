@@ -67,21 +67,13 @@ h1{margin:8px 0 8px;font-size:27px;line-height:1.18;letter-spacing:-.5px}
 .badge.ready{background:#eff6ff;color:#1d4ed8}
 .badge.decline{background:#f1f5f9;color:#64748b}
 .badge.maybe{background:#fffbeb;color:#92400e}
-.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.arrival-toggle{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.checkin-submit{grid-column:1/-1}
+.actions{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px}
+.checkin-submit{min-width:0}
+.plan-chip{min-width:72px;padding-left:10px;padding-right:10px}
+.party-toggle{min-width:0;background:#fffaf2;color:#9a650c;border-color:#edd5aa}
+.party-toggle.selected{background:linear-gradient(180deg,#f0a73a,#d68d22);border-color:#f0a73a;color:#fff}
 button{appearance:none;border:0;border-radius:15px;padding:12px 8px;font:inherit;font-weight:900;background:#f2f5fa;color:#273246;min-height:50px}
 button.attend,button.ready{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px}
-button.attend:before,button.ready:before{
-  content:'';
-  width:9px;height:9px;border-radius:50%;
-  background:#d7dee9;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.05);
-}
-button.attend.selected:before,button.ready.selected:before{
-  width:11px;height:11px;background:#fff;
-  box-shadow:0 0 0 3px rgba(255,255,255,.28),0 0 13px rgba(255,255,255,.95);
-}
 button.attend{background:#eaf8f0;color:#187347}
 button.ready{background:#eef5ff;color:#1d4ed8}
 button.maybe{background:#fff5df;color:#9a610b}
@@ -147,8 +139,6 @@ h1,.name,.summary-top,.event-title{color:var(--txt);letter-spacing:-.04em;}
 }
 button.attend{background:#f3fbf6;color:#24784d;border-color:#ccebd8;}
 button.ready{background:#f3f7ff;color:#2767c8;border-color:#cfe0ff;}
-button.attend:before{background:#35a56a;box-shadow:0 0 0 3px rgba(53,165,106,.13),0 0 9px rgba(53,165,106,.25);}
-button.ready:before{background:#5b8def;box-shadow:0 0 0 3px rgba(91,141,239,.13),0 0 9px rgba(91,141,239,.25);}
 button.maybe{background:#fffaf2;color:#9a650c;border-color:#edd5aa;}
 button.decline{background:#f7f9fc;color:#5f6b7c;border-color:var(--line2);}
 button.selected{
@@ -228,21 +218,20 @@ button.decline.selected{
   background:#fff;
   color:var(--txt);
 }
-button.attend.selected:before,
-button.ready.selected:before,
-button.maybe.selected:before,
-button.decline.selected:before{
-  width:11px!important;
-  height:11px!important;
-  background:#dc2626!important;
-  box-shadow:0 0 0 5px rgba(220,38,38,.16),0 0 16px rgba(220,38,38,.78)!important;
-}
+button.attend:before,
+button.ready:before,
+button.maybe:before,
+button.decline:before,
+.checkin-submit:before,
+.plan-chip:before,
+.party-toggle:before{display:none!important;content:none!important;}
 @media(max-width:520px){
   .wrap{padding:14px 12px 30px;}
   .hero{border-radius:24px;padding:20px 16px;}
   h1{font-size:25px;}
   .panel{border-radius:22px;}
-  .actions{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .actions{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);}
+  .plan-chip{min-width:66px;}
 }
 </style>
 </head>
@@ -252,12 +241,12 @@ button.decline.selected:before{
     <div class="eyebrow">KOKMATCH RSVP</div>
     <h1 id="title">팀전LIVE 출석</h1>
     <p class="sub" id="sessionSub">팀전LIVE 출석부를 불러오는 중입니다.</p>
-    <div class="notice">이름을 찾고 도착/예정을 고른 뒤 출석을 누르면 끝입니다. 게스트가 있으면 같은 카드에서 신청할 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.263</span>
+    <div class="notice">이름을 찾고 출석을 누르면 끝입니다. 늦게 오면 예정 딱지를 켜주세요.</div>
+    <span class="version-chip" id="appVersion">v1.10.264</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>출석</span></div>
-      <div class="stat"><b id="guestCount">0</b><span>게스트</span></div>
+      <div class="stat"><b id="guestCount">0</b><span>뒷풀이</span></div>
       <div class="stat"><b id="pendingCount">0</b><span>미응답</span></div>
     </div>
     <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">출석 집계 보기</button></div>
@@ -290,7 +279,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={};
-const APP_VERSION='1.10.263';
+const APP_VERSION='1.10.264';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -326,7 +315,8 @@ function sampleResponses(){
   sampleMembers().forEach((m,i)=>{
     const guest=i===2?{name:'현장게스트A',gender:'남',grade:'C',ageGroup:'40대'}
       :i===15?{name:'현장게스트B',gender:'여',grade:'C',ageGroup:'40대'}:null;
-    out[m.id]=responseFor(m,'attend',{guest});
+    const status=i%6===0?'attend':'ready';
+    out[m.id]=responseFor(m,status,{guest,party:i%7===0});
     out[m.id].updatedAt=Date.now()-i*60000;
     out[m.id].source='sample-rsvp';
   });
@@ -381,7 +371,7 @@ function liveUrlWithViewer(url){
   }
 }
 function isAttendStatus(s){return s==='attend'||s==='ready';}
-function statusLabel(s){return s==='ready'?'도착':s==='attend'?'예정':'미응답';}
+function statusLabel(s){return s==='ready'?'출석':s==='attend'?'예정':'미응답';}
 function arrivalChoice(memberId,currentStatus){
   if(arrivalChoices[memberId])return arrivalChoices[memberId];
   return isAttendStatus(currentStatus)?currentStatus:'ready';
@@ -407,6 +397,7 @@ function counts(){
     attend:vals.filter(r=>isAttendStatus(r.status)).length,
     ready:vals.filter(r=>r.status==='ready').length,
     guest:vals.filter(r=>r.guest&&r.guest.name).length,
+    party:vals.filter(r=>r.party).length,
     pending:Math.max(0,members.length-vals.length)
   };
 }
@@ -424,8 +415,7 @@ function guestLimitReached(memberId){
 function renderHeader(){
   const c=counts();
   document.getElementById('attendCount').textContent=c.attend;
-  const limit=guestLimit();
-  document.getElementById('guestCount').textContent=limit?`${c.guest}/${limit}`:c.guest;
+  document.getElementById('guestCount').textContent=c.party;
   document.getElementById('pendingCount').textContent=c.pending;
   const title=session?.title||'팀전LIVE 출석';
   document.getElementById('title').textContent=title;
@@ -440,7 +430,7 @@ function renderHeader(){
   if(!last){my.className='my-state hidden';my.textContent='';return;}
   const when=last.savedAt?new Date(last.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   my.className='my-state';
-  my.textContent=`내 최근 선택: ${last.memberName} · ${statusLabel(last.status)} (${when})`;
+  my.textContent=`내 최근 선택: ${last.memberName} · ${statusLabel(last.status)}${last.party?' · 뒷풀이':''} (${when})`;
 }
 function toggleSummary(){
   summaryOpen=!summaryOpen;
@@ -462,7 +452,9 @@ function renderSummaryPanel(){
   const vals=responseValues().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   const attend=vals.filter(r=>isAttendStatus(r.status));
   const ready=vals.filter(r=>r.status==='ready');
+  const planned=vals.filter(r=>r.status==='attend');
   const guests=vals.filter(r=>r.guest&&r.guest.name);
+  const parties=vals.filter(r=>r.party);
   const limit=guestLimit();
   const last=getLast();
   const myText=last?`${esc(last.memberName||'나')} · ${esc(statusLabel(last.status))}`:'아직 이 기기에서 신청한 기록이 없습니다.';
@@ -475,7 +467,8 @@ function renderSummaryPanel(){
     <div class="summary-top">내 신청 확인: ${myText}</div>
     <div class="summary-grid">
       <div class="summary-chip"><b>${attend.length}</b><span>출석</span></div>
-      <div class="summary-chip"><b>${ready.length}</b><span>도착</span></div>
+      <div class="summary-chip"><b>${planned.length}</b><span>예정</span></div>
+      <div class="summary-chip"><b>${parties.length}</b><span>뒷풀이</span></div>
       <div class="summary-chip"><b>${guests.length}${limit?`/${limit}`:''}</b><span>게스트 신청</span></div>
     </div>
     <div class="summary-section">
@@ -544,6 +537,7 @@ function memberCard(m,recent){
   const r=memberResponse(m.id);
   const status=r?.status||'none';
   const guest=r?.guest||{};
+  const partyOn=!!r?.party;
   const partner=r?.partnerRequest||null;
   const normalized=isAttendStatus(status)?status:'none';
   const badge=normalized==='none'?'미응답':statusLabel(normalized);
@@ -565,11 +559,9 @@ function memberCard(m,recent){
       <span class="badge ${esc(normalized)}">${esc(badge)}</span>
     </div>
     <div class="actions">
-      <div class="arrival-toggle">
-        <button class="ready${selected('ready')}" ${disabled} onclick="setArrivalChoice('${esc(m.id)}','ready')">도착</button>
-        <button class="attend${selected('attend')}" ${disabled} onclick="setArrivalChoice('${esc(m.id)}','attend')">예정</button>
-      </div>
-      <button class="checkin-submit ready${isAttendStatus(normalized)?' selected':''}" ${disabled} onclick="sendSelectedStatus('${esc(m.id)}')">${isAttendStatus(normalized)?'출석 완료':'출석'}</button>
+      <button class="checkin-submit ready${isAttendStatus(normalized)?' selected':''}" ${disabled} onclick="sendSelectedStatus('${esc(m.id)}')">${isAttendStatus(normalized)?'출석✓':'출석'}</button>
+      <button class="plan-chip attend${selected('attend')}" ${disabled} onclick="setArrivalChoice('${esc(m.id)}','${choice==='attend'?'ready':'attend'}')">예정</button>
+      <button class="party-toggle${partyOn?' selected':''}" ${disabled} onclick="toggleParty('${esc(m.id)}')">${partyOn?'뒷풀이✓':'뒷풀이'}</button>
     </div>
     <details class="guest"${guestOpen}>
       <summary>${guestSummary}</summary>
@@ -602,9 +594,37 @@ function responseFor(m,status,extra={}){
     status,
     guest:extra.guest!==undefined?extra.guest:(prev.guest||null),
     partnerRequest:extra.partnerRequest!==undefined?extra.partnerRequest:(prev.partnerRequest||null),
+    party:extra.party!==undefined?!!extra.party:!!prev.party,
     updatedAt:Date.now(),
     source:'member-rsvp'
   };
+}
+async function toggleParty(memberId){
+  if((!db&&!isSampleMode())||!session||sendingKey)return;
+  const m=(session.members||[]).find(x=>x.id===memberId);
+  if(!m)return toast('회원 정보를 찾지 못했습니다.');
+  const current=memberResponse(memberId);
+  const status=isAttendStatus(current?.status)?current.status:arrivalChoice(memberId,'none');
+  const nextParty=!current?.party;
+  sendingKey=memberId+'_party';render();
+  const payload=responseFor(m,status,{party:nextParty});
+  if(isSampleMode()){
+    responses[memberId]=payload;
+    setLast(payload);
+    sendingKey='';
+    render();
+    return toast(`${m.name} · 뒷풀이 ${nextParty?'참석':'취소'} 반영됨`);
+  }
+  try{
+    await db.ref(path()+'/responses/'+memberId).set(payload);
+    responses[memberId]=payload;
+    setLast(payload);
+    toast(`${m.name} · 뒷풀이 ${nextParty?'참석':'취소'} 저장 완료`);
+  }catch(e){
+    toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';render();
+  }
 }
 async function sendStatus(memberId,status){
   if((!db&&!isSampleMode())||!session||sendingKey)return;
