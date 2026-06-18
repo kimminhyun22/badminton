@@ -521,12 +521,21 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:#f0fdf4;
   color:#166534;
 }
+.request-status.consent{
+  border-color:#fed7aa;
+  background:#fff7ed;
+  color:#9a5b08;
+}
 .request-status.cancelled{
   border-color:#fed7aa;
   background:#fff7ed;
   color:#9a3412;
 }
 .request-status small{display:block;margin-top:3px;color:inherit;opacity:.72;font-size:12px;font-weight:800}
+.request-consent-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.request-consent-actions button{padding:10px 12px;border-radius:14px;border:1.5px solid var(--line);background:#fff;color:var(--txt);font-weight:1000}
+.request-consent-actions button.accept{border-color:#bdebd0;background:#eefbf4;color:#167244}
+.request-consent-actions button.decline{border-color:#f4c7ce;background:#fff5f6;color:#a33b47}
 button{
   appearance:none;
   border:1px solid var(--line);
@@ -984,7 +993,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.259</span>
+    <span class="version-chip" id="appVersion">v1.10.260</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1016,7 +1025,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null;
-const APP_VERSION='1.10.259';
+const APP_VERSION='1.10.260';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['wait','rest','done'];
@@ -1503,6 +1512,25 @@ function playerReservationRequests(playerId){
     .filter(r=>r.playerId===playerId||(r.team1||[]).includes(playerId)||(r.team2||[]).includes(playerId))
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
 }
+function reservationParticipantIds(req){
+  return [...(req.team1||[]),...(req.team2||[])].filter(Boolean);
+}
+function reservationConsentIds(req){
+  const ids=(req.consentRequired||reservationParticipantIds(req)).filter(Boolean);
+  return [...new Set(ids)];
+}
+function reservationConsentState(req,playerId){
+  if(!req.consentRequired)return 'accepted';
+  const val=req.consents&&req.consents[playerId];
+  if(typeof val==='string')return val;
+  if(val&&typeof val==='object')return val.status||'pending';
+  return req.playerId===playerId?'accepted':'pending';
+}
+function reservationConsentSummary(req){
+  const ids=reservationConsentIds(req);
+  const accepted=ids.filter(id=>reservationConsentState(req,id)==='accepted').length;
+  return {accepted,total:ids.length};
+}
 function reservationRequestLabel(req){
   const names=id=>{
     const p=(session?.players||[]).find(x=>x.id===id);
@@ -1519,15 +1547,30 @@ function gameRequestBox(p,disabled){
   const recentCancelled=reqs.find(r=>r.ignoredAt&&Date.now()-(r.ignoredAt||0)<10*60*1000);
   const recentApplied=reqs.find(r=>r.appliedAt&&Date.now()-(r.appliedAt||0)<5*60*1000);
   if(pending){
+    const consent=reservationConsentSummary(pending);
+    const consentText=pending.consentRequired?` · 동의 ${consent.accepted}/${consent.total}`:'';
+    const myConsent=reservationConsentState(pending,p.id);
+    if(pending.consentRequired&&myConsent!=='accepted'){
+      return `<details class="game-request" open>
+        <summary>게임 신청 동의</summary>
+        <div class="request-status consent">예약 동의 요청${consentText}
+          <small>${esc(reservationRequestLabel(pending))}</small>
+          <div class="request-consent-actions">
+            <button class="accept" ${disabled} onclick="sendReservationConsent('${esc(pending.key)}','${esc(p.id)}',true)">동의</button>
+            <button class="decline" ${disabled} onclick="sendReservationConsent('${esc(pending.key)}','${esc(p.id)}',false)">거절</button>
+          </div>
+        </div>
+      </details>`;
+    }
     return `<details class="game-request" open>
       <summary>게임 신청</summary>
-      <div class="request-status">신청 접수됨 · 자동 반영 대기
+      <div class="request-status">${pending.consentRequired?'동의 완료':'신청 접수됨'}${consentText} · 자동 반영 대기
         <small>${esc(reservationRequestLabel(pending))}</small>
       </div>
     </details>`;
   }
   const cancelledHtml=recentCancelled?`<div class="request-status cancelled">최근 신청이 자동 취소됐습니다.<small>${esc(recentCancelled.reason||reservationRequestLabel(recentCancelled))}</small></div>`:'';
-  const recentHtml=recentApplied?`<div class="request-status done">최근 신청이 자동 접수됐습니다.<small>${esc(reservationRequestLabel(recentApplied))}</small></div>`:'';
+  const recentHtml=recentApplied?`<div class="request-status done">예약 확정됨 · 모두 시작하면 우선 반영<small>${esc(reservationRequestLabel(recentApplied))}</small></div>`:'';
   return `<details class="game-request">
     <summary>게임 신청</summary>
     ${cancelledHtml||recentHtml}
@@ -1657,6 +1700,9 @@ async function sendGameRequest(playerId){
   if(new Set(ids).size!==ids.length)return toast('같은 선수가 중복 선택됐어요.');
   if((opp1&&!opp2)||(!opp1&&opp2))return toast('상대를 지정하려면 2명을 모두 선택해 주세요.');
   const mode=opp1&&opp2?'match':'pair';
+  const consentRequired=ids;
+  const consents={};
+  consentRequired.forEach(id=>{consents[id]=id===playerId?'accepted':'pending';});
   const req={
     type:'reservation',
     mode,
@@ -1664,6 +1710,8 @@ async function sendGameRequest(playerId){
     playerName:p.name,
     team1:[p.id,partnerId],
     team2:mode==='match'?[opp1,opp2]:[],
+    consentRequired,
+    consents,
     createdAt:Date.now(),
     source:'member-game-request'
   };
@@ -1673,9 +1721,37 @@ async function sendGameRequest(playerId){
     const ref=db.ref(checkinPath()+'/requests').push();
     await ref.set(req);
     reservationRequests.push({key:ref.key,...req});
-    toast(mode==='match'?'4명 경기 신청을 보냈어요.':'같은 편 신청을 보냈어요.');
+    toast(mode==='match'?'4명에게 동의 요청을 보냈어요.':'파트너 동의 요청을 보냈어요.');
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';
+    render();
+  }
+}
+async function sendReservationConsent(reqKey,playerId,accept){
+  if(!db||!checkinId||!session||sendingKey)return;
+  if(sessionExpired())return showEndedLink();
+  const req=reservationRequests.find(r=>r.key===reqKey);
+  const p=(session.players||[]).find(x=>x.id===playerId);
+  if(!req||!p)return toast('신청 정보를 찾지 못했습니다.');
+  sendingKey=playerId+'_consent';
+  render();
+  try{
+    const ref=db.ref(checkinPath()+'/requests/'+reqKey);
+    if(accept){
+      await ref.child('consents/'+playerId).set('accepted');
+      req.consents={...(req.consents||{}),[playerId]:'accepted'};
+      toast('동의 완료 · 모두 동의하면 예약됩니다.');
+    }else{
+      const reason=`${p.name}님이 게임신청을 거절했습니다.`;
+      await ref.update({ignoredAt:Date.now(),ignoredBy:'member-reservation-decline',reason});
+      req.ignoredAt=Date.now();
+      req.reason=reason;
+      toast('게임신청을 거절했습니다.');
+    }
+  }catch(e){
+    toast('처리에 실패했습니다. 잠시 후 다시 눌러주세요.');
   }finally{
     sendingKey='';
     render();
