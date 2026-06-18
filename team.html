@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.262  (2026-06)
+     APP VERSION: 1.10.263  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.262">
+<meta name="app-version" content="1.10.263">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1294,7 +1294,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-admin-empty{padding:14px;text-align:center;color:#7a8494;font-size:.78rem;font-weight:900;}
 .rsvp-saved{display:flex;flex-direction:column;gap:7px;margin-bottom:9px;}
 .rsvp-saved-title{font-size:.78rem;font-weight:1000;color:#334155;letter-spacing:-.02em;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.rsvp-saved-title:after{content:'보관함에서 열고 참가자를 가져오세요';font-size:.62rem;font-weight:850;color:#94a3b8;}
+.rsvp-saved-title:after{content:'지난 링크 다시 열기';font-size:.62rem;font-weight:850;color:#94a3b8;}
 .rsvp-saved-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:6px;align-items:center;
   border:1px solid #dbeafe;background:#fff;border-radius:14px;padding:8px 9px;}
 .rsvp-saved-main{min-width:0;}
@@ -1305,7 +1305,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-saved-btn.active{background:#2563eb;border-color:#2563eb;color:#fff;}
 .rsvp-saved-btn.danger{color:#b91c1c;border-color:#fecaca;}
 
-/* ── 팀전 오토 운영 단계판 ── */
+/* ── 팀전LIVE 상황판 ── */
 .auto-flow-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 52%,#f0fdf4 100%);
   box-shadow:0 14px 34px rgba(37,99,235,.1);}
 .auto-flow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
@@ -1335,6 +1335,11 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .auto-flow-checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .auto-flow-check{display:inline-flex;align-items:center;border:1px solid #dbeafe;background:#fff;border-radius:999px;
   padding:6px 9px;font-size:.67rem;font-weight:900;color:#475569;}
+.team-live-flow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.team-live-step{display:inline-flex;align-items:center;justify-content:center;border:1px solid #dbeafe;background:#fff;
+  border-radius:999px;padding:6px 9px;font-size:.67rem;font-weight:900;color:#64748b;white-space:nowrap;}
+.team-live-step.on{border-color:#bfdbfe;background:#eff6ff;color:#2563eb;}
+.team-live-step.done{border-color:#bbf7d0;background:#f0fdf4;color:#15803d;}
 
 @media(max-width:720px){
   .rsvp-grid{grid-template-columns:1fr;}
@@ -1810,6 +1815,8 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   .auto-flow-btn{min-height:46px!important;font-size:.9rem!important;border-radius:14px!important;padding:10px 14px!important;}
   .auto-flow-checks{display:none!important;}
   .auto-flow-check{font-size:.64rem!important;padding:5px 8px!important;}
+  .team-live-flow{gap:5px!important;margin-top:8px!important;}
+  .team-live-step{font-size:.62rem!important;padding:5px 7px!important;}
   .rsvp-stat b{font-size:1.44rem;}
   .btn-gen{font-size:.96rem;}
   .tlb-head{
@@ -2439,7 +2446,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.262&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.263&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2458,7 +2465,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.262&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.263&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2469,30 +2476,30 @@ header,.nav-bar{
 
     <!-- ── LEFT ── -->
     <div>
-      <!-- 팀전 오토 운영 단계판 -->
+      <!-- 팀전LIVE 상황판 -->
       <div class="card auto-flow-card" id="autoFlowCard">
         <div class="auto-flow-head">
           <div>
-            <div class="auto-flow-kicker">AUTO FLOW</div>
-            <div class="auto-flow-title" id="autoFlowTitle">팀전LIVE 준비</div>
-            <div class="auto-flow-sub" id="autoFlowSub">회원 출석을 기준으로 팀세팅, 대진, 실시간 중계까지 한 흐름으로 진행합니다.</div>
+            <div class="auto-flow-kicker">상황판</div>
+            <div class="auto-flow-title" id="autoFlowTitle">팀전LIVE 상황판</div>
+            <div class="auto-flow-sub" id="autoFlowSub">명부, 출석, 팀 배정, 대진, 중계 상태를 확인합니다.</div>
           </div>
           <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
         </div>
         <div id="autoFlowBody"></div>
       </div>
 
-      <!-- 팀전LIVE 출석 링크 / 보관함 -->
+      <!-- 명부와 출석 링크 -->
       <details class="card" id="sec-rsvp" open>
         <summary class="card-head">
-          <span class="card-title">📣 팀전LIVE 출석 링크 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
+          <span class="card-title">📣 명부와 출석 링크 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
         </summary>
         <div class="card-body">
           <div class="rsvp-grid">
             <select class="inp" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
             <input class="inp" id="rsvpTitle" placeholder="예: 새천년 팀전 06.15" oninput="rsvpSaveLocal()">
           </div>
-          <div class="hint" style="margin-bottom:8px;">새 팀전LIVE는 만들고, 지난 팀전LIVE는 보관함에서 열어 이어갑니다.</div>
+          <div class="hint" style="margin-bottom:8px;">명부를 선택해 출석 링크를 만들고 단톡방이나 밴드에 공유합니다.</div>
           <div id="rsvpSavedBox"></div>
           <div id="rsvpBox" class="rsvp-empty">아직 팀전LIVE 출석 링크가 만들어지지 않았습니다.</div>
         </div>
@@ -3059,7 +3066,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.262';
+const APP_VERSION = '1.10.263';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8495,7 +8502,7 @@ function rsvpRenderSavedBox(){
   const list=_rsvpHistoryList().slice(0,6);
   if(!list.length){box.innerHTML='';return;}
   box.className='rsvp-saved';
-  box.innerHTML=`<div class="rsvp-saved-title">팀전 보관함</div>`+list.map(item=>{
+  box.innerHTML=`<div class="rsvp-saved-title">최근 팀전LIVE 링크</div>`+list.map(item=>{
     const active=item.id===_rsvpId;
     const meta=[item.clubName||'클럽 미확인', _rsvpSavedDate(item.createdAt), item.id?`ID ${String(item.id).slice(-4)}`:'', active?'현재 열림':''].filter(Boolean).join(' · ');
     return `<div class="rsvp-saved-row">
@@ -8810,6 +8817,9 @@ function renderAutoFlowDashboard(){
     let stats={counts:{attend:0,guest:0,noResponse:0,issues:0,total:0},responses:[],members:[]};
     try{ stats=_rsvpStats(); }catch(e){}
     const counts=stats.counts||{};
+    const rosterTotal=(stats.members||[]).length || _rsvpRosterMembers().length || 0;
+    const hasRoster=!_rsvpNeedsClubSelection() && rosterTotal>0;
+    const rosterName=hasRoster?_rsvpSelectedLabel():'명부 필요';
     const players=_directPlayers.length;
     const teamReady=!!(teamAssignment&&_teamModeOverride!==false);
     const matches=currentMatches.length;
@@ -8826,9 +8836,9 @@ function renderAutoFlowDashboard(){
       currentRound=nextRound?`R${nextRound}`:'완료';
     }
     const rsvpNote=[
-      `G ${counts.guest||0}`,
-      `P ${counts.partner||0}`,
       `도착 ${counts.ready||0}`,
+      `G ${counts.guest||0}`,
+      counts.partner?`P ${counts.partner}`:'',
       `미응답 ${counts.noResponse||0}`,
       counts.issues?`확인 ${counts.issues}`:''
     ].filter(Boolean).join(' · ');
@@ -8840,104 +8850,63 @@ function renderAutoFlowDashboard(){
     const matchNote=matches?`${currentRound} · ${Math.max(0,matches-done)} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
     const liveValue=live?'ON':(matches?'전':'대기');
     const liveNote=live?'링크 활성':'중계 전';
-    let stage='rsvpCreate';
-    let cfg={
-      badge:'준비',
-      title:'팀전LIVE 링크 만들기',
-      sub:'명부 선택 후 링크 공유',
-      next:'명부와 이름 확인',
-      actionLabel:'새 투표 만들기',
-      actionFn:'rsvpCreateNew',
-      checks:['명부', '제목']
-    };
+    let stage='roster';
+    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부부터 확인하세요.'};
     if(live){
       stage='live';
-      cfg={
-        badge:'운영 중',
-        title:'실시간 운영',
-        sub:'대진·도착·뒤풀이 확인',
-        next:'승패와 도착 확인',
-        actionLabel:'링크 공유',
-        actionFn:'onLiveBtnClick',
-        checks:['라운드', '승패', '도착']
-      };
+      cfg={badge:'운영 중',title:'팀전LIVE 상황판',sub:'중계와 승패 입력을 확인하세요.'};
     } else if(matches){
       stage='broadcast';
-      cfg={
-        badge:'중계 전',
-        title:'대진 완료',
-        sub:'품질·팀 배치 확인',
-        next:'확인 후 중계 시작',
-        actionLabel:'중계 시작',
-        actionFn:'startLiveBroadcast',
-        checks:['품질', '팀혼입', '경기수']
-      };
+      cfg={badge:'중계 전',title:'팀전LIVE 상황판',sub:'품질 확인 후 중계를 시작하세요.'};
     } else if(teamReady){
       stage='generate';
-      cfg={
-        badge:'팀 완료',
-        title:'팀 세팅 완료',
-        sub:'명단·단장 확인',
-        next:'대진 생성 후 품질 확인',
-        actionLabel:'대진 생성',
-        actionFn:'generate',
-        checks:['인원', '실력', '단장']
-      };
+      cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'대진표 생성과 품질 점검 단계입니다.'};
     } else if(players>=4){
       stage='playerReview';
-      cfg={
-        badge:'확인',
-        title:'참가자 확인',
-        sub:'P 매칭·게스트·상태 보정',
-        next:'수정 확인 후 청/홍팀 배정',
-        actionLabel:'확인 후 팀 배정',
-        actionFn:'doTeamAssign',
-        checks:['P 매칭', '게스트', '상태']
-      };
+      cfg={badge:'확인',title:'팀전LIVE 상황판',sub:'참가자, P 매칭, 게스트를 확인하세요.'};
     } else if((counts.attend||0)>0){
       stage='import';
-      cfg={
-        badge:'투표 집계',
-        title:'투표 집계',
-        sub:'출석 신청 확인',
-        next:'출석자 가져오기',
-        actionLabel:'출석자 가져오기',
-        actionFn:'rsvpImportAttendees',
-        checks:['출석', '게스트', '확인']
-      };
+      cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'출석자를 참가자로 가져오세요.'};
     } else if(_rsvpId){
       stage='wait';
-      cfg={
-        badge:'링크 활성',
-        title:'응답 대기',
-        sub:'출석·게스트 신청 중',
-        next:'응답이 오면 출석자 가져오기',
-        actionLabel:'',
-        actionFn:'',
-        checks:['응답', '미응답', '게스트']
-      };
+      cfg={badge:'링크 활성',title:'팀전LIVE 상황판',sub:'회원 출석 응답을 기다리는 중입니다.'};
+    } else if(hasRoster){
+      stage='link';
+      cfg={badge:'링크 전',title:'팀전LIVE 상황판',sub:'출석 링크를 만들어 공유하세요.'};
     }
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
     titleEl.textContent=cfg.title;
     subEl.textContent=cfg.sub;
+    const stepState=(step)=>{
+      const order=['roster','link','wait','import','playerReview','generate','broadcast','live'];
+      const idx=order.indexOf(stage);
+      const steps=Array.isArray(step)?step:[step];
+      if(steps.includes(stage))return 'on';
+      const stepIdx=Math.max(...steps.map(s=>order.indexOf(s)).filter(n=>n>=0));
+      if(stepIdx>=0&&stepIdx<idx)return 'done';
+      return '';
+    };
     body.innerHTML=`
       <div class="auto-flow-board">
+        ${_autoFlowPanel('명부',rosterName,rosterTotal?`${rosterTotal}명`:'명부에서 불러오기',hasRoster?'':'warn')}
         ${_autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':'')}
         ${_autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn')}
         ${_autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'')}
         ${_autoFlowPanel('중계',liveValue,liveNote,live?'live':'')}
       </div>
-      <div class="auto-flow-action">
-        <div class="auto-flow-next">${esc(cfg.next)}</div>
-        ${_autoFlowAction(cfg.actionLabel,cfg.actionFn)}
-      </div>
-      <div class="auto-flow-checks">
-        ${(cfg.checks||[]).map(t=>`<span class="auto-flow-check">${esc(t)}</span>`).join('')}
+      <div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
+        <span class="team-live-step ${stepState('roster')}">명부</span>
+        <span class="team-live-step ${stepState('link')}">링크</span>
+        <span class="team-live-step ${stepState(['wait','import'])}">출석</span>
+        <span class="team-live-step ${stepState('playerReview')}">확인</span>
+        <span class="team-live-step ${stepState('generate')}">팀</span>
+        <span class="team-live-step ${stepState('broadcast')}">대진</span>
+        <span class="team-live-step ${stepState('live')}">중계</span>
       </div>`;
-    _autoFlowSetSection('sec-rsvp',stage==='rsvpCreate'||stage==='wait'||stage==='import');
-    _autoFlowSetSection('sec-players',stage==='playerReview');
-    _autoFlowSetSection('sec-settings',stage==='generate');
+    _autoFlowSetSection('sec-rsvp',stage!=='live');
+    _autoFlowSetSection('sec-players',stage!=='live');
+    _autoFlowSetSection('sec-settings',(players>=4||teamReady||matches)&&stage!=='live');
     _autoFlowSetResultSections(stage);
   }finally{
     _autoFlowRendering=false;
@@ -10219,7 +10188,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.262</span>
+  <span class="app-version" id="appVersion">v1.10.263</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
