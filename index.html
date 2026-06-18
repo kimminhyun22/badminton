@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.282  (2026-06)
+     APP VERSION: 1.10.283  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.282">
+<meta name="app-version" content="1.10.283">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2419,7 +2419,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.282</small>
+          <small>팀전LIVE 최신판 v1.10.283</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -3145,93 +3145,57 @@ body.monthly-team-mode .team-partner-help{display:block;}
 <div class="manual-wrap">
   <button class="manual-back-btn" onclick="switchNav('daily');window.scrollTo({top:0});">← 민턴LIVE로 돌아가기</button>
   <div class="manual-section">
-    <h2>📌 프로그램 개요</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">배드민턴 동호회·모임용 <strong style="color:var(--txt)">민턴LIVE 운영</strong> 도구입니다. 클럽 명부, 출석 링크, 상태 변경, 대기표, 코트 진행을 중심으로 평소 운동을 빠르게 운영합니다.</p>
+    <h2>📌 민턴LIVE 한눈에 보기</h2>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">평소 운동을 자동으로 굴리는 화면입니다. 회원은 <strong style="color:var(--txt)">시작·휴식·종료</strong>만 누르고, 관리자는 진행중 코트와 다음 대진만 확인하면 됩니다.</p>
     <div class="feat-grid">
-      <div class="feat-card"><h4>☀️ 민턴LIVE 중심</h4><p>클럽 명부를 가져오고 출석·상태를 반영해 대기표와 코트 진행을 운영</p></div>
-      <div class="feat-card"><h4>📊 명부 관리</h4><p>회원 명부 저장, JSON/CSV 내보내기·불러오기 지원</p></div>
-      <div class="feat-card"><h4>⏱ 예상 시간</h4><p>25점·21점·15점 점수제별 예상 진행 시간 표시</p></div>
-      <div class="feat-card"><h4>💾 자동저장</h4><p>대진표·점수 자동저장, 재실행 시 복원 가능</p></div>
-      <div class="feat-card"><h4>🗳️ 시작 링크</h4><p>회원이 직접 시작·휴식·종료 상태를 입력</p></div>
-      <div class="feat-card"><h4>⚡ 코트 진행</h4><p>끝난 코트에 현재 경기 중 선수와 겹치지 않는 다음 경기 자동 배정</p></div>
-      <div class="feat-card"><h4>📡 실시간 현황</h4><p>카톡 링크로 진행중 경기와 다음 대기 공유</p></div>
+      <div class="feat-card"><h4>1. 명부</h4><p>클럽 명부를 불러오면 회원용 링크를 바로 공유할 수 있습니다.</p></div>
+      <div class="feat-card"><h4>2. 상태</h4><p>회원은 시작·휴식·종료 중 하나만 선택합니다.</p></div>
+      <div class="feat-card"><h4>3. 자동대진</h4><p>시작 상태인 선수만 모아 균형과 다양성을 보고 대진을 만듭니다.</p></div>
+      <div class="feat-card"><h4>4. 진행</h4><p>경기가 끝나면 종료 버튼으로 처리하고 다음 대진을 자동 보충합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
-    <h2>🚀 기본 사용 순서</h2>
+    <h2>🚀 관리자 4단계</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong>에서 클럽 명부를 가져오고 링크를 공유합니다. 회원이 직접 시작·휴식·종료 상태를 남기게 하는 흐름이 기본입니다.</p></div>
-      <div class="step-item"><span class="step-num">2</span><p class="step-text">관리자는 운영 상황판에서 시작 인원, 다음 대진, 대기선수를 보고 예외만 처리합니다.</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text">코트가 끝나면 다음 대진 선수가 종료를 확인하고 바로 입장합니다. 실수는 되돌릴 수 있습니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text">후반 정리 시간이 가까워지면 진행중 경기와 다음 대진만 마무리하고 자연스럽게 자율게임으로 전환합니다.</p></div>
+      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>명부 불러오기</strong> — 오늘 올 회원을 가져오고 단톡방에 링크를 공유합니다.</p></div>
+      <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>코트 수 확인</strong> — 실제 사용할 코트 수만 맞춰둡니다. 운영 중에도 늘리거나 줄일 수 있습니다.</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>상황판 확인</strong> — 진행중, 다음 대진, 대기선수만 봅니다. 특이 상황이 있을 때만 수정합니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>종료 처리</strong> — 코트가 끝나면 종료만 누릅니다. 방금 뛴 선수는 휴식으로 돌아가고 다음 대진이 보충됩니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
-    <h2>🎯 똑똑한 대진 배정</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">콕매치는 단순 랜덤이 아니라 다음을 함께 고려해 대진을 짭니다.</p>
-    <div class="feat-grid">
-      <div class="feat-card"><h4>⚖️ 실력 균형</h4><p>양 팀 실력 합이 비슷하도록 배정. 남녀 실력차도 반영</p></div>
-      <div class="feat-card"><h4>🔁 재대결 다양성</h4><p>같은 4명이 다시 경기하거나 똑같은 팀 대결이 반복되지 않도록 분산</p></div>
-      <div class="feat-card"><h4>⏱ 대진 간격</h4><p>방금 뛴 사람의 연속 출전을 줄이고, 진행 중 선수 중복은 차단</p></div>
-      <div class="feat-card"><h4>🎽 참여 균형</h4><p>적게 친 사람과 오래 기다린 사람을 우선 반영</p></div>
-    </div>
-  </div>
-  <div class="manual-section">
-    <h2>👥 게스트 · 게임 신청</h2>
+    <h2>📱 회원에게 알려줄 말</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">G</span><p class="step-text">정식 회원이 아닌 손님은 <strong>G 버튼</strong>으로 게스트 표시할 수 있습니다. 이름 앞에 G 배지가 붙습니다.</p></div>
-      <div class="step-item"><span class="step-num ico">신청</span><p class="step-text">회원은 출석 링크에서 파트너 또는 4명 경기를 신청할 수 있습니다. 신청은 자동 등록되고, 선수가 모두 시작 상태이면 대기표에 우선 반영됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">종료</span><p class="step-text">운영을 정리할 때는 진행중 경기와 이미 준비된 다음 대진만 마무리하면 됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">시작</span><p class="step-text">바로 경기할 수 있으면 시작을 누릅니다. 자동대진 후보가 됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">휴식</span><p class="step-text">잠깐 쉬거나 레슨·정비 중이면 휴식을 누릅니다. 대진에서 빠집니다.</p></div>
+      <div class="step-item"><span class="step-num ico">종료</span><p class="step-text">오늘 운동을 마치면 종료를 누릅니다. 다시 뛰려면 시작을 누르면 됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">신청</span><p class="step-text">같이 치고 싶은 사람이 있으면 게임신청을 남깁니다. 모두 시작 상태가 되면 우선 반영됩니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
-    <h2>🔄 경기 중 상태 변경</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">민턴LIVE는 사람이 오가고 휴식이 섞이는 상황을 전제로 운영합니다.</p>
+    <h2>🧭 처음 쓰는 날 추천 운영</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">✏️</span><p class="step-text">출석 링크나 관리자 화면에서 상태를 바꿔 늦게 온 사람, 쉬는 사람, 먼저 가는 사람을 즉시 반영합니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🔄</span><p class="step-text">경기중 선수는 경기 종료 후 반영하고, 다음 대진은 임시 편성으로 보고 상태 변경·선수교체·대진변경을 바로 반영합니다.</p></div>
-      <div class="step-item"><span class="step-num ico">⏹</span><p class="step-text">운동을 멈출 선수는 종료를 누르면 즉시 자동 대진 후보에서 빠집니다.</p></div>
+      <div class="step-item"><span class="step-num">1</span><p class="step-text">처음 10분은 난타와 몸풀기 흐름을 그대로 둡니다. 이미 들어간 게임은 앱 때문에 중단하지 않습니다.</p></div>
+      <div class="step-item"><span class="step-num">2</span><p class="step-text">자율로 시작한 게임이 있으면 관리자가 <strong>게임 추가</strong>로 등록합니다. 그 선수들은 자동대진에서 제외됩니다.</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text">경기가 끝나면 해당 선수는 휴식으로 돌아갑니다. 계속 뛰고 싶은 사람만 다시 시작을 누릅니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text">사람이 늘면 코트 수를 올리고, 줄면 코트 수를 내립니다. 진행중 경기는 유지하고 다음 배정부터 반영됩니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
-    <h2>📊 대진 품질 점검 보는 법</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">결과 요약의 품질 대시보드는 실력 균형, 출전 공정성, 파트너 다양성, 재대결, 휴식 간격, 일정 효율성, 설정 준수를 신호등으로 보여줍니다.</p>
+    <h2>🎯 자동대진 기준</h2>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">단순 랜덤이 아니라 실력 균형, 오늘 경기 수, 대기시간, 최근 파트너와 상대 반복을 함께 봅니다.</p>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">✅</span><p class="step-text"><strong>양호</strong> — 문제 없음</p></div>
-      <div class="step-item"><span class="step-num ico">⚠️</span><p class="step-text"><strong>주의</strong> — 개선 여지 있으나 인원·조건상 일부 불가피할 수 있음</p></div>
-      <div class="step-item"><span class="step-num ico">❌</span><p class="step-text"><strong>개선 필요</strong> — 반복 경기, 연속 출전, 대기 인원 부족 등 실전 특이사항을 함께 확인하세요.</p></div>
-    </div>
-    <p style="font-size:.74rem;color:var(--dim);line-height:1.7;margin-top:8px;">※ 인원이 적으면 연속 출전·상대 반복이 수학적으로 불가피할 수 있습니다. 대시보드는 이런 불가피한 부분을 감안해 판정합니다.</p>
-  </div>
-  <div class="manual-section">
-    <h2>📡 실시간 중계</h2>
-    <div class="step-list">
-      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">출석 링크를 공유하면 회원은 같은 링크에서 본인 상태와 민턴LIVE 현황을 확인할 수 있습니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">경기 종료를 누르면 진행중 경기와 다음 준비 경기가 함께 갱신됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">🕓</span><p class="step-text">중계 데이터는 <strong>48시간 후 자동으로 정리</strong>됩니다. 별도로 종료하지 않아도 며칠 뒤 사라지니 신경 쓰지 않아도 됩니다. (즉시 끄려면 버튼을 다시 눌러 종료)</p></div>
+      <div class="step-item"><span class="step-num ico">균형</span><p class="step-text">양 팀 실력 합이 비슷하도록 맞춥니다.</p></div>
+      <div class="step-item"><span class="step-num ico">다양</span><p class="step-text">같은 파트너와 같은 상대 반복을 줄입니다.</p></div>
+      <div class="step-item"><span class="step-num ico">공정</span><p class="step-text">적게 뛴 사람과 오래 기다린 사람을 우선합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">안전</span><p class="step-text">진행중 선수, 휴식 선수, 종료 선수는 자동 후보에서 제외합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
-    <h2>☀️ 민턴LIVE</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">콕매치의 기본 운영 화면입니다. 전체 대진표를 한 번에 확정하기보다, 현장 상태를 보고 다음 경기들을 짧게 확정하며 계속 보충합니다.</p>
+    <h2>💬 단톡방 안내 문구</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>민턴LIVE</strong> 메뉴에서 <strong>클럽 명부 가져오기</strong>로 회원을 선택해 불러옵니다. 게스트는 <strong>G</strong> 버튼을 켜고 추가합니다.</p></div>
-      <div class="step-item"><span class="step-num">2</span><p class="step-text">휴식·종료 상태를 바꿔 현재 운동 가능한 사람만 남깁니다. 추천 후보는 <strong>시작</strong> 선수입니다.</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text">회원이 출석 링크에서 파트너 또는 4명 경기를 신청하면 자동 등록됩니다. 신청 선수가 다음 대진에 있으면 임시 대진에서 빼고 신청을 우선 반영합니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>다음 대진</strong>은 기본적으로 코트 수보다 1개 적게 만들고, 나머지는 <strong>대기선수</strong>로 둡니다. 종료임박 코트가 많을 때만 1개 더 보충합니다.</p></div>
-      <div class="step-item"><span class="step-num">5</span><p class="step-text">다음 대진은 이름 중심으로 표시됩니다. 관리자는 이름을 눌러 필요한 선수만 빠르게 교체합니다.</p></div>
-      <div class="step-item"><span class="step-num">6</span><p class="step-text">앞 경기가 끝나면 다음 대진 선수가 직접 <strong>코트 종료 후 입장</strong>을 누릅니다. 방금 끝난 선수들은 대기자로 돌아가고 다음 대진이 보충됩니다.</p></div>
-      <div class="step-item"><span class="step-num">7</span><p class="step-text">8~11명이 시작을 누른 초반에는 몸풀기 흐름을 잠시 기다리고, 12명 이상이면 바로 자동 운영으로 넘어갑니다.</p></div>
-      <div class="step-item"><span class="step-num">8</span><p class="step-text">이미 들어간 게임은 중단하지 않습니다. 자동대진은 코트에 없는 대기선수만 대상으로 만들고, 끝난 선수는 다시 대기자로 돌아옵니다.</p></div>
-    </div>
-  </div>
-  <div class="manual-section">
-    <h2>💾 자동저장 / 복원</h2>
-    <div class="step-list">
-      <div class="step-item"><span class="step-num">•</span><p class="step-text">대진표 생성 및 점수 입력 시 <strong>자동으로 브라우저에 저장</strong>됩니다.</p></div>
-      <div class="step-item"><span class="step-num">•</span><p class="step-text">상단의 <strong>💾 저장 / 📋 목록</strong>으로 여러 대진표를 이름 붙여 보관할 수 있습니다.</p></div>
-      <div class="step-item"><span class="step-num">•</span><p class="step-text">다른 기기와 공유하려면 <strong>⬆️ 내보내기</strong>로 파일을 저장한 뒤 상대가 불러오면 됩니다.</p></div>
-      <div class="step-item"><span class="step-num">•</span><p class="step-text">자동 복원은 <strong>같은 기기·같은 브라우저</strong>에서만 동작합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">복사</span><p class="step-text">오늘 운동은 콕매치 링크로 진행합니다. 바로 경기 가능하면 <strong>시작</strong>, 쉬면 <strong>휴식</strong>, 마치면 <strong>종료</strong>만 눌러주세요. 대진은 자동으로 뜹니다.</p></div>
+      <div class="step-item"><span class="step-num ico">안심</span><p class="step-text">잘못 눌러도 다시 누르면 바꿀 수 있습니다. 앱이 사람을 끌고 가는 게 아니라, 현장 흐름을 따라갑니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -3245,7 +3209,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.282';
+const APP_VERSION = '1.10.283';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -13304,7 +13268,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.282&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.283&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -13372,7 +13336,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.282</span>
+  <span class="app-version" id="appVersion">v1.10.283</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
