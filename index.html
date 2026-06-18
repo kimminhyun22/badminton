@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.254  (2026-06)
+     APP VERSION: 1.10.255  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.254">
+<meta name="app-version" content="1.10.255">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1821,6 +1821,20 @@ body.monthly-team-mode .team-partner-help{display:block;}
   letter-spacing:-.02em;
   white-space:nowrap;
 }
+.daily-head-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.daily-head-actions .daily-mini-btn{
+  min-height:34px;
+  padding:7px 11px;
+  border-color:#c8dbfb;
+  color:var(--ml-blue-deep);
+  background:var(--ml-blue-soft);
+}
 .daily-active-card .card-body{padding:14px;}
 .daily-active-list{gap:0;}
 .daily-court-grid{
@@ -2258,7 +2272,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>월례 팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전 최신판 v1.10.254</small>
+          <small>팀전 최신판 v1.10.255</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -2669,7 +2683,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
       <div class="card daily-primary-card daily-active-card">
         <div class="card-head" id="dailyActiveCard">
           <span class="card-title">진행 중 <span id="dailyMatchSummary"></span></span>
-          <span class="daily-card-sub">종료 버튼만 확인</span>
+          <div class="daily-head-actions">
+            <span class="daily-card-sub">자율게임 등록 · 이름/코트 수정</span>
+            <button class="daily-mini-btn" onclick="dailyCreateActiveMatch()">게임 추가</button>
+          </div>
         </div>
         <div class="card-body">
           <div class="daily-active-list" id="dailyMatchList"></div>
@@ -3056,7 +3073,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.254';
+const APP_VERSION = '1.10.255';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5177,6 +5194,109 @@ function dailyEditActiveCourt(matchId){
   m.court=next;
   dailySave();
   dailyRender();
+}
+function _dailyManualActiveCandidates(){
+  const activeIds=new Set();
+  _dailyActiveMatches().forEach(m=>_dailyMatchPlayers(m).forEach(p=>activeIds.add(p.id)));
+  const statusRank={wait:0,planned:1,invited:2,rest:3};
+  return _dailyPlayers
+    .filter(p=>p&&p.status!=='done'&&!p.currentMatchId&&!activeIds.has(p.id))
+    .sort((a,b)=>{
+      const ar=statusRank[_dailyNormalizeStatus(a.status)]??9;
+      const br=statusRank[_dailyNormalizeStatus(b.status)]??9;
+      if(ar!==br)return ar-br;
+      if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
+      return a.name.localeCompare(b.name,'ko');
+    });
+}
+function dailyCreateActiveMatch(){
+  const candidates=_dailyManualActiveCandidates();
+  if(candidates.length<4){
+    alert('자율게임을 등록하려면 진행 중이 아닌 선수가 4명 이상 필요합니다.');
+    return;
+  }
+  const usedCourts=new Set(_dailyActiveMatches().map(m=>parseInt(m.court,10)||0));
+  let defaultCourt=1;
+  while(usedCourts.has(defaultCourt)&&defaultCourt<12)defaultCourt++;
+  const courtRaw=prompt('현재 자율게임이 진행 중인 코트 번호를 입력하세요.',String(defaultCourt));
+  if(courtRaw==null)return;
+  const court=parseInt(String(courtRaw).trim(),10);
+  if(!Number.isFinite(court)||court<1||court>12){
+    alert('코트 번호는 1~12 사이 숫자로 입력해 주세요.');
+    return;
+  }
+  if(_dailyActiveMatches().some(m=>(parseInt(m.court,10)||0)===court)){
+    alert(`${court}코트에는 이미 진행 중인 경기가 있습니다. 다른 코트를 선택해 주세요.`);
+    return;
+  }
+  const list=candidates.map((p,i)=>{
+    const status=_dailyCheckinStatusLabel(p.status);
+    return `${i+1}. ${p.name}${p.isGuest?'(G)':''} · ${status} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G`;
+  }).join('\n');
+  const pickRaw=prompt(
+    `자율게임 4명을 번호로 입력하세요.\nA팀 2명 / B팀 2명 순서입니다. 예: 1,2,3,4\n\n${list}`,
+    '1,2,3,4'
+  );
+  if(pickRaw==null)return;
+  const picks=String(pickRaw).split(/[\s,./]+/).map(v=>parseInt(v,10)).filter(Number.isFinite);
+  if(picks.length!==4||new Set(picks).size!==4||picks.some(n=>n<1||n>candidates.length)){
+    alert('서로 다른 선수 번호 4개를 입력해 주세요.');
+    return;
+  }
+  const selected=picks.map(n=>candidates[n-1]);
+  const ids=selected.map(p=>p.id);
+  const idSet=new Set(ids);
+  const removedQueues=_dailyQueue.filter(q=>_dailyQueueIds(q).some(id=>idSet.has(id)));
+  removedQueues.forEach(q=>{
+    if(q.reservationId)_dailyCancelReservationById(q.reservationId,'자율게임 등록으로 게임신청이 자동 취소됐습니다.','admin-manual-active');
+  });
+  ids.forEach(pid=>_dailyCancelReservationsForPlayer(pid,'자율게임 등록으로 게임신청이 자동 취소됐습니다.','admin-manual-active'));
+  _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).some(id=>idSet.has(id)));
+  const q=_dailyRecalcQueueItem({
+    id:'manual_'+_dailyNow().toString(36),
+    team1:ids.slice(0,2),
+    team2:ids.slice(2,4),
+    teamMode:false,
+    reservationLabel:'자율게임',
+    createdAt:_dailyNow()
+  });
+  const seq=_dailySeq++;
+  const matchId='dm_'+_dailyNow().toString(36)+'_'+seq+'_'+Math.random().toString(36).slice(2,5);
+  const previousStatuses={};
+  ids.forEach(pid=>{
+    const p=_dailyPlayer(pid);
+    if(p)previousStatuses[pid]=p.status;
+  });
+  _dailyMatches.push({
+    id:matchId,
+    seq,
+    court,
+    startedAt:_dailyNow(),
+    type:q.type||'자율',
+    levelDiff:q.levelDiff||0,
+    expectedMinutes:DAILY_MATCH_MINUTES,
+    durationMin:DAILY_MATCH_MINUTES,
+    team1:ids.slice(0,2),
+    team2:ids.slice(2,4),
+    teamMode:false,
+    fourKey:_dailyFourKey(selected),
+    flexible:!!q.flexible,
+    reservationId:null,
+    reservationLabel:'자율게임',
+    previousStatuses,
+    manualStarted:true
+  });
+  selected.forEach(p=>{
+    p.status='playing';
+    p.currentMatchId=matchId;
+    p.afterMatchStatus=null;
+    p.lastStatusAt=_dailyNow();
+  });
+  _dailyMarkFourCacheDirty();
+  dailyEnsureQueue();
+  dailySave();
+  dailyRender();
+  dailyMaybeAutoAssign();
 }
 function dailyRegenerateQueueItem(queueId){
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
@@ -12869,7 +12989,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.254&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.255&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -12937,7 +13057,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.254</span>
+  <span class="app-version" id="appVersion">v1.10.255</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
