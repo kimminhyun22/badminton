@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.279  (2026-06)
+     APP VERSION: 1.10.282  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.279">
+<meta name="app-version" content="1.10.282">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1201,6 +1201,26 @@ details.card:not([open]) .card-head{border-bottom:none;}
   background:transparent;color:var(--dim);font-size:.78rem;cursor:pointer;
   font-family:'Noto Sans KR',sans-serif;transition:all .15s;margin-top:6px;}
 .club-add-btn:hover{border-color:var(--bll);color:var(--bll);}
+.roster-head-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end;}
+.roster-count-chip{font-size:.72rem;color:var(--dim);font-weight:800;padding:6px 10px;border:1px solid var(--bdr);border-radius:999px;background:#fff;}
+.roster-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start;margin-bottom:10px;}
+.roster-search{width:100%;height:40px;border:1.5px solid var(--bdr);border-radius:14px;background:#fff;color:var(--txt);
+  font-family:'Noto Sans KR',sans-serif;font-size:.82rem;font-weight:800;padding:0 13px;outline:none;}
+.roster-search:focus{border-color:var(--bll);box-shadow:0 0 0 3px rgba(96,165,250,.14);}
+.roster-tools{position:relative;}
+.roster-tools summary{list-style:none;height:40px;display:flex;align-items:center;justify-content:center;padding:0 12px;border:1.5px solid var(--bdr);
+  border-radius:14px;background:#fff;color:var(--dim);font-size:.76rem;font-weight:900;cursor:pointer;white-space:nowrap;}
+.roster-tools summary::-webkit-details-marker{display:none;}
+.roster-tools[open] summary{border-color:var(--bll);color:var(--bll);background:rgba(96,165,250,.08);}
+.roster-tools-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px;padding:9px;border:1px solid var(--bdr);
+  border-radius:14px;background:#f8fbff;}
+.roster-sort-bar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:8px;}
+.roster-sort-label{font-size:.64rem;color:var(--dim);font-weight:900;}
+.roster-use-btn{font-size:.66rem!important;padding:4px 8px!important;color:var(--bll)!important;border-color:rgba(96,165,250,.34)!important;flex-shrink:0;}
+@media(max-width:720px){
+  .roster-toolbar{grid-template-columns:1fr;}
+  .roster-tools-panel{grid-template-columns:1fr;}
+}
 .import-member-row{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;transition:background .15s;}
 .import-member-row:hover{background:var(--sur2);}
 .import-member-row input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:var(--bl);flex-shrink:0;}
@@ -2457,7 +2477,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.279&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.282&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2476,7 +2496,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.279&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.282&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2491,9 +2511,9 @@ header,.nav-bar{
       <div class="card auto-flow-card" id="autoFlowCard">
         <div class="auto-flow-head">
           <div>
-            <div class="auto-flow-kicker">상황판</div>
+            <div class="auto-flow-kicker">LIVE</div>
             <div class="auto-flow-title" id="autoFlowTitle">팀전LIVE 상황판</div>
-            <div class="auto-flow-sub" id="autoFlowSub">명부, 출석, 팀 배정, 대진, 중계 상태를 확인합니다.</div>
+            <div class="auto-flow-sub" id="autoFlowSub">팀전 준비</div>
           </div>
           <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
         </div>
@@ -2818,25 +2838,11 @@ header,.nav-bar{
 <div class="wrap">
   <div class="card">
     <div class="card-head">
-      <span class="card-title">🏛️ 클럽 회원 명부</span>
-      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
-        <span style="font-size:.68rem;color:var(--dim)"><span id="clubCount">0</span>/10</span>
-        <!-- JSON -->
-        <button class="btn btn-ghost btn-sm" onclick="exportRosters()"
-          style="font-size:.65rem;padding:4px 7px;">📤 JSON</button>
-        <label class="btn btn-ghost btn-sm"
-          style="font-size:.65rem;padding:4px 7px;cursor:pointer;margin:0;">
-          📥 JSON<input type="file" accept=".json" style="display:none;" onchange="importRosters(event)">
-        </label>
-        <!-- 구글 시트 XLSX -->
-        <button class="btn btn-ghost btn-sm" onclick="exportRostersXLSX()"
-          style="font-size:.65rem;padding:4px 7px;color:#34a853;border-color:rgba(52,168,83,.35);">📊 시트 내보내기</button>
-        <label class="btn btn-ghost btn-sm"
-          style="font-size:.65rem;padding:4px 7px;cursor:pointer;margin:0;color:#34a853;border-color:rgba(52,168,83,.35);">
-          📊 시트 불러오기<input type="file" accept=".csv,text/csv" style="display:none;" onchange="importRostersXLSX(event)">
-        </label>
+      <span class="card-title">🏛️ 명부</span>
+      <div class="roster-head-actions">
+        <span class="roster-count-chip"><span id="clubCount">0</span>/10</span>
         <button class="btn btn-gen btn-sm" id="btnAddClub" onclick="addClub()"
-          style="width:auto;padding:6px 12px;font-size:.76rem;">+ 클럽 추가</button>
+          style="width:auto;padding:6px 12px;font-size:.76rem;">+ 클럽</button>
       </div>
     </div>
     <div class="card-body" style="padding:12px;">
@@ -2844,12 +2850,29 @@ header,.nav-bar{
         등록된 클럽이 없습니다.<br>
         <span style="font-size:.72rem;color:var(--dim2);">상단 버튼으로 클럽을 추가해 보세요.</span>
       </div>
+      <div class="roster-toolbar">
+        <input class="roster-search" id="rosterSearchInput" placeholder="이름/초성 검색" oninput="setRosterQuery(this.value)">
+        <details class="roster-tools">
+          <summary>파일 관리</summary>
+          <div class="roster-tools-panel">
+            <button class="btn btn-ghost btn-sm" onclick="exportRosters()">백업 저장</button>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
+              백업 불러오기<input type="file" accept=".json" style="display:none;" onchange="importRosters(event)">
+            </label>
+            <button class="btn btn-ghost btn-sm" onclick="exportRostersXLSX()">시트 저장</button>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
+              시트 불러오기<input type="file" accept=".csv,text/csv" style="display:none;" onchange="importRostersXLSX(event)">
+            </label>
+          </div>
+        </details>
+      </div>
       <!-- 전체 클럽 정렬 바 -->
-      <div id="rosterSortBar" style="display:none;align-items:center;gap:5px;margin-bottom:8px;">
-        <span style="font-size:.62rem;color:#888;font-weight:600;">회원 정렬</span>
+      <div id="rosterSortBar" class="roster-sort-bar" style="display:none;">
+        <span class="roster-sort-label">정렬</span>
         <button class="dir-sort-btn active" id="rsb-reg"   onclick="setRosterSort('reg')"  >등록순</button>
         <button class="dir-sort-btn"        id="rsb-name"  onclick="setRosterSort('name')" >이름순</button>
         <button class="dir-sort-btn"        id="rsb-level" onclick="setRosterSort('level')">급수순</button>
+        <button class="dir-sort-btn"        id="rsb-gender" onclick="setRosterSort('gender')">성별순</button>
       </div>
       <div id="clubListEl"></div>
     </div>
@@ -3072,7 +3095,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.279';
+const APP_VERSION = '1.10.282';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8911,10 +8934,9 @@ function renderAutoFlowDashboard(){
     }
     const rsvpNote=[
       `늦음 ${counts.plan||0}`,
-      `뒷풀이 ${counts.party||0}`,
+      `뒤풀이 ${counts.party||0}`,
       `G ${counts.guest||0}`,
       counts.partner?`P ${counts.partner}`:'',
-      `미응답 ${counts.noResponse||0}`,
       counts.issues?`확인 ${counts.issues}`:''
     ].filter(Boolean).join(' · ');
     const teamValue=teamReady?`${blue.length}:${white.length}`:(players?`${players}명`:'대기');
@@ -8923,31 +8945,31 @@ function renderAutoFlowDashboard(){
       : (players?'참가자 확인 후 팀 배정':'출석자 필요');
     const matchValue=matches?`${done}/${matches}`:'전';
     const matchNote=matches?`${currentRound} · ${Math.max(0,matches-done)} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
-    const liveValue=live?'ON':(matches?'전':'대기');
-    const liveNote=live?'링크 활성':'중계 전';
+    const liveValue=live?'ON':(matches?'대기':'전');
+    const liveNote=live?'링크 활성':(matches?'시작 전':'대진 필요');
     let stage='roster';
-    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부를 불러오세요.'};
+    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부'};
     if(live){
       stage='live';
-      cfg={badge:'운영 중',title:'팀전LIVE 상황판',sub:'라운드 진행 중입니다.'};
+      cfg={badge:'운영 중',title:'팀전LIVE 상황판',sub:'중계 중'};
     } else if(matches){
       stage='broadcast';
-      cfg={badge:'중계 전',title:'팀전LIVE 상황판',sub:'품질 확인 후 중계를 시작하세요.'};
+      cfg={badge:'중계 전',title:'팀전LIVE 상황판',sub:'중계 시작'};
     } else if(teamReady){
       stage='generate';
-      cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'최적 대진을 생성하세요.'};
+      cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'대진 생성'};
     } else if(players>=4){
       stage='playerReview';
-      cfg={badge:'확인',title:'팀전LIVE 상황판',sub:'참가자와 P를 확인하세요.'};
+      cfg={badge:'확인',title:'팀전LIVE 상황판',sub:'팀 배정'};
     } else if((counts.attend||0)>0){
       stage='import';
-      cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'출석자를 반영하세요.'};
+      cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'불러오기'};
     } else if(_rsvpId){
       stage='wait';
-      cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'회원 응답을 기다립니다.'};
+      cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'응답 대기'};
     } else if(hasRoster){
       stage='link';
-      cfg={badge:'출석부',title:'팀전LIVE 상황판',sub:'명부 선택 시 단톡방 공유를 바로 시작합니다.'};
+      cfg={badge:'출석부',title:'팀전LIVE 상황판',sub:'공유'};
     }
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
@@ -8962,6 +8984,12 @@ function renderAutoFlowDashboard(){
       if(stepIdx>=0&&stepIdx<idx)return 'done';
       return '';
     };
+    const actionHtml={
+      import:_autoFlowAction('불러오기','rsvpImportAttendees','출석자 반영'),
+      playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
+      generate:_autoFlowAction('대진 생성','generateBracket','품질 자동 확인'),
+      broadcast:_autoFlowAction('중계 시작','onLiveBtnClick','회원 링크 연결')
+    }[stage]||'';
     body.innerHTML=`
       <div class="auto-flow-board">
         ${_autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':'')}
@@ -8976,10 +9004,11 @@ function renderAutoFlowDashboard(){
         <span class="team-live-step ${stepState('generate')}">팀배정</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
         <span class="team-live-step ${stepState('live')}">중계</span>
-      </div>`;
+      </div>
+      ${actionHtml}`;
     _autoFlowSetSection('sec-rsvp',['roster','link','wait','import'].includes(stage));
     _autoFlowSetSection('sec-players',stage==='playerReview');
-    _autoFlowSetSection('sec-settings',stage==='generate');
+    _autoFlowSetSection('sec-settings',false);
     _autoFlowSetResultSections(stage);
   }finally{
     _autoFlowRendering=false;
@@ -9318,15 +9347,27 @@ let _memberGrade='D';
 let _memberGender='남';
 let _memberAge='40대';
 let _importClubIdx=0;
-let _rosterSort='reg'; // 'reg' | 'name' | 'level'
+let _rosterSort='reg'; // 'reg' | 'name' | 'level' | 'gender'
+let _rosterQuery='';
 
 function setRosterSort(mode){
   _rosterSort=mode;
-  ['reg','name','level'].forEach(m=>{
+  ['reg','name','level','gender'].forEach(m=>{
     const btn=document.getElementById('rsb-'+m);
     if(btn) btn.classList.toggle('active', m===mode);
   });
   renderClubList();
+}
+function setRosterQuery(q){
+  _rosterQuery=String(q||'').trim();
+  renderClubList();
+}
+function _rosterInitials(text){
+  const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  return String(text||'').split('').map(ch=>{
+    const code=ch.charCodeAt(0)-0xAC00;
+    return code>=0&&code<=11171?CHO[Math.floor(code/588)]:ch;
+  }).join('');
 }
 
 function loadRosters(){
@@ -9391,16 +9432,29 @@ function renderClubList(){
   if(empty)empty.style.display='none';
   if(sortBar)sortBar.style.display='flex';
   const GC={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
-  el.innerHTML=rosters.clubs.map(club=>{
-    const collapsed=_collapsedClubs.has(club.id);
+  const q=_rosterQuery.toLowerCase();
+  const hasQuery=!!q;
+  const genderRank=g=>String(g||'').startsWith('남')?0:String(g||'').startsWith('여')?1:2;
+  const cards=rosters.clubs.map(club=>{
+    const collapsed=_collapsedClubs.has(club.id)&&!hasQuery;
 
     // 정렬 적용 — 원본 인덱스 보존
-    const indexed=club.members.map((m,mi)=>({...m,_origIdx:mi}));
+    let indexed=club.members.map((m,mi)=>({...m,_origIdx:mi}));
+    if(hasQuery){
+      indexed=indexed.filter(m=>{
+        const hay=[m.name,_rosterInitials(m.name),m.grade,m.gender,m.ageGroup].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+      if(!indexed.length)return '';
+    }
     if(_rosterSort==='name'){
       indexed.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     } else if(_rosterSort==='level'){
       indexed.sort((a,b)=>b.level-a.level || a.name.localeCompare(b.name,'ko'));
+    } else if(_rosterSort==='gender'){
+      indexed.sort((a,b)=>genderRank(a.gender)-genderRank(b.gender) || a.name.localeCompare(b.name,'ko'));
     }
+    const countText=hasQuery?`${indexed.length}/${club.members.length}명`:`${club.members.length}명`;
 
     const mrows=indexed.map((m)=>`<div class="club-member-row">
         <span class="cmr-name">${esc(m.name)}</span>
@@ -9415,10 +9469,9 @@ function renderClubList(){
           onchange="updateClubName('${club.id}',this.value)"
           onblur="updateClubName('${club.id}',this.value)"
           onclick="event.stopPropagation()">
-        <span style="font-size:.65rem;color:var(--dim);flex-shrink:0;">${club.members.length}명</span>
-        <button class="btn btn-ghost btn-sm"
-          style="font-size:.65rem;padding:4px 7px;color:var(--bll);border-color:rgba(96,165,250,.3);flex-shrink:0;"
-          onclick="event.stopPropagation();openImportFromClub('${club.id}')">📤 등록</button>
+        <span style="font-size:.65rem;color:var(--dim);flex-shrink:0;">${countText}</span>
+        <button class="btn btn-ghost btn-sm roster-use-btn"
+          onclick="event.stopPropagation();openImportFromClub('${club.id}')">대진에 넣기</button>
         <button class="btn btn-ghost btn-sm"
           style="font-size:.65rem;padding:4px 7px;flex-shrink:0;"
           onclick="event.stopPropagation();deleteClub('${club.id}')">🗑</button>
@@ -9428,7 +9481,8 @@ function renderClubList(){
         <button class="club-add-btn" onclick="openAddMemberModal('${club.id}')">+ 회원 추가</button>
       </div>
     </div>`;
-  }).join('');
+  }).filter(Boolean);
+  el.innerHTML=cards.length?cards.join(''):`<div class="dir-empty" style="padding:18px;font-size:.78rem;">검색 결과가 없습니다.</div>`;
 }
 
 function openAddMemberModal(clubId){
@@ -10260,7 +10314,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.279</span>
+  <span class="app-version" id="appVersion">v1.10.282</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
