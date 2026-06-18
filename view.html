@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta name="app-version" content="1.10.278">
+<meta name="app-version" content="1.10.279">
 <title>🏸 콕매치 실시간 현황</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -1600,11 +1600,11 @@ body{
   &nbsp;·&nbsp;
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener" style="color:var(--bl);text-decoration:none;">💬 카카오톡 문의</a>
   &nbsp;·&nbsp;
-  <span id="appVersion">v1.10.278</span>
+  <span id="appVersion">v1.10.279</span>
 </div>
 
 <script>
-const APP_VERSION='1.10.278';
+const APP_VERSION='1.10.279';
 const FB_CONFIG = {
   apiKey: "AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
   authDomain: "kokmatch-23b31.firebaseapp.com",
@@ -2687,7 +2687,7 @@ function _viewerStatusButtons(current){
   const partyOn=_partyOn(current.n);
   return '<div class="viewer-status-actions">'
     +'<button type="button" class="viewer-state-btn attend on static" aria-disabled="true">출석</button>'
-    +'<button type="button" class="viewer-state-btn ready '+(expectedOn?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(expectedOn?'예정✓':'예정')+'</button>'
+    +'<button type="button" class="viewer-state-btn ready '+(expectedOn?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(expectedOn?'늦음✓':'늦음')+'</button>'
     +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
   +'</div>';
 }
@@ -2856,7 +2856,7 @@ function closeTeamRoster(){
 async function toggleMemberAttendance(name, team){
   if(!name) return;
   if(!liveDb || !liveId){
-    alert('예정 표시를 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
+    alert('늦음 표시를 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
     return;
   }
   const key=_attKey(name);
@@ -2870,11 +2870,11 @@ async function toggleMemberAttendance(name, team){
         ts:firebase.database.ServerValue.TIMESTAMP
       });
     } else {
-      if(!confirm(name+'님을 출석 예정으로 표시할까요?')) return;
+      if(!confirm(name+'님을 늦음으로 표시할까요?')) return;
       await ref.remove();
     }
   }catch(e){
-    alert('예정 표시 저장 실패: '+e.message);
+    alert('늦음 표시 저장 실패: '+e.message);
   }
 }
 
@@ -2930,7 +2930,7 @@ function buildTeamRosterCard(d){
         +'<span class="team-member-name">'+esc(p.n)+'</span>'
         +badge
         +'<div class="team-member-actions">'
-          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(on?'예정✓':'예정')+'</button>'
+          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(on?'늦음✓':'늦음')+'</button>'
           +'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
         +'</div>'
       +'</div>';
@@ -2941,12 +2941,12 @@ function buildTeamRosterCard(d){
   const partyCount=all.filter(p=>_partyOn(p.n)).length;
   const sortBtn=(key,label)=>'<button type="button" class="team-roster-sort '+(_teamRosterSort===key?'active':'')+'" onclick="setTeamRosterSort(\''+key+'\')">'+label+'</button>';
   return '<details class="info-details primary" id="teamRoster" '+(_teamRosterOpen?'open':'')+' ontoggle="setTeamRosterOpen(this.open)">'
-    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 예정 · 뒷풀이</summary>'
+    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 늦음 · 뒷풀이</summary>'
     +'<div class="info-body">'
       +'<section class="team-roster-card">'
-        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>예정 '+attCount+'/'+all.length+' · 뒷풀이 '+partyCount+'명</span></div>'
-        +'<div class="team-att-summary"><b>예정</b> · <b>뒷풀이</b> 확인</div>'
-        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('att','예정')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
+        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>늦음 '+attCount+'/'+all.length+' · 뒷풀이 '+partyCount+'명</span></div>'
+        +'<div class="team-att-summary"><b>늦음</b> · <b>뒷풀이</b> 확인</div>'
+        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('att','늦음')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
         +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
           +(showTeam
             ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_expectedOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
@@ -2971,7 +2971,7 @@ function _playerLine(name,d){
   if(!n) return '<div class="live-player">-</div>';
   const flag=!!(d&&_expectedOn(n));
   return '<div class="live-player '+(flag?'not-ready':'')+'">'+esc(n)
-    +(flag?'<span class="ready-badge">예정</span>':'')
+    +(flag?'<span class="ready-badge">늦음</span>':'')
   +'</div>';
 }
 

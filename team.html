@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.278  (2026-06)
+     APP VERSION: 1.10.279  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.278">
+<meta name="app-version" content="1.10.279">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2457,7 +2457,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.278&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.279&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2476,7 +2476,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.278&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.279&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -3072,7 +3072,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.278';
+const APP_VERSION = '1.10.279';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8657,7 +8657,7 @@ async function rsvpCopyShareText(auto){
   const url=_rsvpUrl();
   const title=_rsvpTitle();
   const target=_rsvpSelectedLabel();
-  const text=`🏸 ${target} · ${title} 팀전LIVE\n\n본인 이름을 찾고 출석을 눌러 주세요.\n늦게 오면 출석 옆 예정 딱지를 켜면 됩니다.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
+  const text=`🏸 ${target} · ${title} 팀전LIVE\n\n본인 이름을 찾고 출석을 눌러 주세요.\n늦게 오면 출석 옆 늦음 딱지를 켜면 됩니다.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
   const publishPromise=rsvpPublishSession(true).catch(()=>null);
   if(navigator.share){
     try{
@@ -8748,7 +8748,7 @@ function _rsvpStats(){
   return {members,responses,counts};
 }
 function _rsvpStatusLabel(status){
-  return status==='ready'?'출석':status==='attend'?'예정':status==='decline'?'초기화':'미응답';
+  return status==='ready'?'출석':status==='attend'?'늦음':status==='decline'?'초기화':'미응답';
 }
 function rsvpSetAdminSort(sort){
   _rsvpAdminSort=sort||'status';
@@ -8813,7 +8813,7 @@ function _rsvpAdminRosterHtml(members,responses){
       </div>
       <div class="rsvp-admin-actions">
       <button class="rsvp-action-btn ready ${status==='ready'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(m.id)}','ready')">출석</button>
-      <button class="rsvp-action-btn ${status==='attend'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(m.id)}','attend')">예정</button>
+      <button class="rsvp-action-btn ${status==='attend'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(m.id)}','attend')">늦음</button>
         <button class="rsvp-action-btn danger" onclick="rsvpSetResponseStatus('${esc(m.id)}','none')">초기화</button>
       </div>
       <details class="rsvp-admin-pair" ${partner.memberId?'open':''}>
@@ -8910,7 +8910,7 @@ function renderAutoFlowDashboard(){
       currentRound=nextRound?`R${nextRound}`:'완료';
     }
     const rsvpNote=[
-      `예정 ${counts.plan||0}`,
+      `늦음 ${counts.plan||0}`,
       `뒷풀이 ${counts.party||0}`,
       `G ${counts.guest||0}`,
       counts.partner?`P ${counts.partner}`:'',
@@ -8994,7 +8994,7 @@ function rsvpRender(){
   const {members,responses,counts}=_rsvpStats();
   const guestLimitForSummary=_rsvpGuestLimit();
   const guestSummaryText=guestLimitForSummary?`${counts.guest}/${guestLimitForSummary}`:String(counts.guest);
-  if(summary)summary.textContent=_rsvpId?`(${counts.attend}명 출석 · 예정 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · G ${guestSummaryText}명)`:'';
+  if(summary)summary.textContent=_rsvpId?`(${counts.attend}명 출석 · 늦음 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · G ${guestSummaryText}명)`:'';
   if(_rsvpNeedsClubSelection()){
     box.className='rsvp-empty';
     box.textContent='단톡방에 보낼 명부를 선택하세요.';
@@ -9023,7 +9023,7 @@ function rsvpRender(){
       <div class="rsvp-current-top">
         <div>
           <div class="rsvp-current-k">출석부</div>
-          <div class="rsvp-current-meta">출석 ${counts.attend}명 · 예정 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${esc(guestText)}명</div>
+          <div class="rsvp-current-meta">출석 ${counts.attend}명 · 늦음 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${esc(guestText)}명</div>
         </div>
       </div>
       <div class="rsvp-current-actions">
@@ -9063,7 +9063,7 @@ function _rsvpRowHtml(r,warn){
     <div class="rsvp-actions">
       <span class="rsvp-badge ${esc(r.status||'none')}">${esc(_rsvpStatusLabel(r.status))}</span>
       <button class="rsvp-action-btn ready ${r.status==='ready'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(r.memberId||r.id)}','ready')">출석</button>
-      <button class="rsvp-action-btn ${r.status==='attend'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(r.memberId||r.id)}','attend')">예정</button>
+      <button class="rsvp-action-btn ${r.status==='attend'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(r.memberId||r.id)}','attend')">늦음</button>
       <button class="rsvp-action-btn danger" onclick="rsvpSetResponseStatus('${esc(r.memberId||r.id)}','none')">초기화</button>
     </div>
   </div>`;
@@ -9292,7 +9292,7 @@ function rsvpImportAttendees(){
   if(playersCard){
     setTimeout(()=>playersCard.scrollIntoView({behavior:'smooth',block:'start'}),30);
   }
-  alert(`출석자 ${counts.attend}명과 게스트 ${counts.guest}명을 참가자로 가져왔습니다.${_partners.length?`\nP 신청 ${_partners.length}쌍도 함께 반영했습니다.`:''}\n\nP 매칭, 게스트, 동명이인, 예정 표시를 확인한 뒤 청/홍팀 자동 배정을 진행하세요.`);
+  alert(`출석자 ${counts.attend}명과 게스트 ${counts.guest}명을 참가자로 가져왔습니다.${_partners.length?`\nP 신청 ${_partners.length}쌍도 함께 반영했습니다.`:''}\n\nP 매칭, 게스트, 동명이인, 늦음 표시를 확인한 뒤 청/홍팀 자동 배정을 진행하세요.`);
 }
 async function rsvpStopLink(){
   if(!_rsvpId)return;
@@ -10260,7 +10260,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.278</span>
+  <span class="app-version" id="appVersion">v1.10.279</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
