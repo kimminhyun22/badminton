@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.272  (2026-06)
+     APP VERSION: 1.10.273  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.272">
+<meta name="app-version" content="1.10.273">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2398,7 +2398,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.272</small>
+          <small>팀전LIVE 최신판 v1.10.273</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -3229,7 +3229,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.272';
+const APP_VERSION = '1.10.273';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -9492,22 +9492,9 @@ async function startLiveBroadcast(){
   try{
     await _fbDb.ref('live/'+_liveId).set(_buildLiveState());
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
-  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
-  const url=base+'view.html?id='+_liveId;
-  const rsvpPayload=await rsvpPushEventState();
-  const useRsvpLink=!!(_rsvpId&&rsvpPayload);
-  const shareUrl=useRsvpLink?_rsvpUrl():url;
+  await rsvpPushEventState();
   try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
   _updateLiveUI();
-  // 공유 또는 복사
-  const text=useRsvpLink
-    ?'🏸 콕매치 대진표/실시간 현황\n아까 참석 확인했던 링크에서 내 경기와 실시간 현황을 볼 수 있어요.\n\n'+shareUrl
-    :'🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+shareUrl;
-  try{
-    if(navigator.share){ await navigator.share({title:'콕매치 실시간 현황', text}); }
-    else if(navigator.clipboard){ await navigator.clipboard.writeText(text); alert((useRsvpLink?'통합 참석 링크':'실시간 링크')+'를 복사했어요!\n단톡방에 붙여넣기 하세요.\n\n'+shareUrl); }
-    else { _showCopyFallback('이 링크를 공유하세요:', shareUrl); }
-  }catch(e){ if(e.name!=='AbortError'){ _showCopyFallback('이 링크를 공유하세요:', shareUrl); } }
 }
 
 /* 앱 재시작 시 중계 자동 재연결 */
@@ -9611,22 +9598,10 @@ function _updateLiveUI(){
   else { btn.classList.remove('on'); btn.innerHTML='📡 실시간 중계'; }
 }
 
-/* 실시간 버튼 클릭: 켜져있으면 링크 재공유 메뉴, 꺼져있으면 시작 */
+/* 실시간 버튼 클릭: 켜져있으면 종료, 꺼져있으면 시작 */
 function onLiveBtnClick(){
   if(_liveOn){
-    const base=location.origin+location.pathname.replace(/[^/]*$/,'');
-    const url=base+'view.html?id='+_liveId;
-    const useRsvpLink=!!_rsvpId;
-    const shareUrl=useRsvpLink?_rsvpUrl():url;
-    const label=useRsvpLink?'통합 참석 링크':'실시간 링크';
-    if(confirm('실시간 중계 중입니다.\n\n'+label+': '+shareUrl+'\n\n[확인] 링크 다시 공유 / [취소] 중계 종료')){
-      const text=useRsvpLink
-        ?'🏸 콕매치 대진표/실시간 현황\n아까 참석 확인했던 링크에서 내 경기와 실시간 현황을 볼 수 있어요.\n\n'+shareUrl
-        :'🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+shareUrl;
-      navigator.clipboard?.writeText(text).then(()=>alert(label+' 복사됨!\n'+shareUrl)).catch(()=>_showCopyFallback('링크:',shareUrl));
-    } else {
-      stopLiveBroadcast();
-    }
+    stopLiveBroadcast();
   } else {
     startLiveBroadcast();
   }
@@ -13290,7 +13265,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.272&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.273&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -13358,7 +13333,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.272</span>
+  <span class="app-version" id="appVersion">v1.10.273</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

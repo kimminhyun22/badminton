@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.272  (2026-06)
+     APP VERSION: 1.10.273  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.272">
+<meta name="app-version" content="1.10.273">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1238,7 +1238,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-current-state{display:inline-flex;align-items:center;gap:5px;border:1px solid #bbf7d0;background:#f0fdf4;color:#15803d;border-radius:999px;padding:7px 10px;font-size:.68rem;font-weight:1000;white-space:nowrap;}
 .rsvp-current-state:before{content:'';width:8px;height:8px;border-radius:999px;background:#ef4444;box-shadow:0 0 0 7px rgba(239,68,68,.16);}
 .rsvp-current-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.rsvp-import-only .rsvp-current-actions{grid-template-columns:1fr;}
+.rsvp-import-only .rsvp-current-actions{grid-template-columns:1fr 1fr;}
 .rsvp-import-only .rsvp-action-btn{min-height:50px;border-radius:16px;font-size:.9rem;}
 .rsvp-create-box{border:1.5px dashed #cfe0fb;border-radius:18px;background:#fbfdff;padding:14px;display:flex;flex-direction:column;gap:10px;text-align:center;}
 .rsvp-create-title{font-size:.96rem;font-weight:1000;color:#172033;}
@@ -2457,7 +2457,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.272&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.273&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2476,7 +2476,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.272&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.273&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -3049,7 +3049,7 @@ header,.nav-bar{
   <div class="manual-section">
     <h2>📡 실시간 중계</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">결과 화면의 <strong>📡 실시간 중계</strong> 버튼을 누르면 관전용 링크가 만들어집니다. 단톡방에 링크를 공유하면 회원들이 휴대폰으로 대진표와 팀원을 바로 확인할 수 있어요.</p></div>
+      <div class="step-item"><span class="step-num ico">📡</span><p class="step-text">출석부 링크를 한 번 공유하면 참석 확인, 대진표, 실시간 현황이 같은 링크로 이어집니다. <strong>중계 시작</strong>은 새 링크를 만들지 않고 기존 링크를 라이브 화면으로 전환합니다.</p></div>
       <div class="step-item"><span class="step-num ico">🔴</span><p class="step-text">중계 중에는 <strong>승/패를 입력할 때마다 자동으로 갱신</strong>됩니다. 관전자 화면의 팀 점수, MVP, 개인 순위도 함께 업데이트됩니다.</p></div>
       <div class="step-item"><span class="step-num ico">🎉</span><p class="step-text">모든 경기가 끝나면 관전 화면에 <strong>경기 종료 축하 연출</strong>이 자동으로 표시됩니다. (팀전은 우승 팀, 개인전은 승률 1위)</p></div>
       <div class="step-item"><span class="step-num ico">🕓</span><p class="step-text">중계 데이터는 <strong>대진 시작 후 48시간 뒤 자동으로 정리</strong>됩니다. 팀전LIVE 출석 기록은 별도로 보존되며, 중계만 정리됩니다. (즉시 끄려면 버튼을 다시 눌러 종료)</p></div>
@@ -3075,7 +3075,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.272';
+const APP_VERSION = '1.10.273';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5386,18 +5386,9 @@ async function startLiveBroadcast(){
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; _updateLiveUI(); _renderLiveOpsSummary(); return; }
   _bindLiveAdminListener();
   _renderLiveOpsSummary();
-  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
-  const url=base+'view.html?id='+_liveId;
   try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
   _updateLiveUI();
   await rsvpPushEventState();
-  // 공유 또는 복사
-  const text='🏸 콕매치 실시간 현황\n경기 진행 상황을 실시간으로 볼 수 있어요!\n\n'+url;
-  try{
-    if(navigator.share){ await navigator.share({title:'콕매치 실시간 현황', text}); }
-    else if(navigator.clipboard){ await navigator.clipboard.writeText(url); alert('실시간 링크를 복사했어요!\n단톡방에 붙여넣기 하세요.\n\n'+url); }
-    else { _showCopyFallback('이 링크를 공유하세요:', url); }
-  }catch(e){ if(e.name!=='AbortError'){ _showCopyFallback('이 링크를 공유하세요:', url); } }
 }
 
 /* 앱 재시작 시 중계 자동 재연결 */
@@ -5522,16 +5513,10 @@ function _updateLiveUI(){
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
 }
 
-/* 실시간 버튼 클릭: 켜져있으면 링크 재공유 메뉴, 꺼져있으면 시작 */
+/* 실시간 버튼 클릭: 켜져있으면 종료, 꺼져있으면 시작 */
 function onLiveBtnClick(){
   if(_liveOn){
-    const base=location.origin+location.pathname.replace(/[^/]*$/,'');
-    const url=base+'view.html?id='+_liveId;
-    if(confirm('실시간 중계 중입니다.\n\n링크: '+url+'\n\n[확인] 링크 다시 공유 / [취소] 중계 종료')){
-      navigator.clipboard?.writeText(url).then(()=>alert('링크 복사됨!\n'+url)).catch(()=>_showCopyFallback('링크:',url));
-    } else {
-      stopLiveBroadcast();
-    }
+    stopLiveBroadcast();
   } else {
     startLiveBroadcast();
   }
@@ -9012,6 +8997,7 @@ function rsvpRender(){
         </div>
       </div>
       <div class="rsvp-current-actions">
+        <button class="rsvp-action-btn primary soft" onclick="rsvpShareLink()">공유하기</button>
         <button class="rsvp-action-btn primary soft" onclick="rsvpImportAttendees()">불러오기</button>
       </div>
     </div>
@@ -10244,7 +10230,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.272</span>
+  <span class="app-version" id="appVersion">v1.10.273</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
