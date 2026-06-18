@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.275  (2026-06)
+     APP VERSION: 1.10.276  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.275">
+<meta name="app-version" content="1.10.276">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2457,7 +2457,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.275&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.276&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2476,7 +2476,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.275&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.276&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -3075,7 +3075,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.275';
+const APP_VERSION = '1.10.276';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5212,6 +5212,8 @@ function _buildLiveState(){
     expiresAt: _liveMatchStartedAt?(_liveMatchStartedAt+LIVE_TTL_MS):null,
     resultInputs:_liveResultInputs||{},
     resultConflicts:_liveResultConflicts||{},
+    attendanceSeeded: !!_rsvpId,
+    attendanceMode: _rsvpId ? 'rsvp' : 'manual',
     updatedAt: Date.now()
   };
 }
@@ -5229,6 +5231,16 @@ function _rsvpReadyAttendanceMap(){
     out[_liveKey(name)]={name,team:'',ts:r.updatedAt||Date.now(),source:'rsvp-ready'};
   });
   return out;
+}
+function _rsvpPlannedAttendanceKeys(){
+  const keys=new Set();
+  if(!_rsvpId)return keys;
+  _rsvpResponseList().forEach(r=>{
+    if(r.status!=='attend')return;
+    const name=r.memberName||r.name||'';
+    if(name)keys.add(_liveKey(name));
+  });
+  return keys;
 }
 function _rsvpPartyMap(){
   const out={};
@@ -5377,7 +5389,9 @@ async function startLiveBroadcast(){
     const prev=await liveRef.once('value').catch(()=>null);
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
     _liveMatchStartedAt=prevData.matchStartedAt||Date.now();
-    _liveAttendance={..._rsvpReadyAttendanceMap(),...(prevData.attendance||{})};
+    const prevAttendance={...(prevData.attendance||{})};
+    _rsvpPlannedAttendanceKeys().forEach(k=>{ delete prevAttendance[k]; });
+    _liveAttendance={...prevAttendance,..._rsvpReadyAttendanceMap()};
     _liveParty={..._rsvpPartyMap(),...(prevData.party||{})};
     _liveResultInputs=prevData.resultInputs||{};
     _liveResultConflicts=prevData.resultConflicts||{};
@@ -10230,7 +10244,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.275</span>
+  <span class="app-version" id="appVersion">v1.10.276</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

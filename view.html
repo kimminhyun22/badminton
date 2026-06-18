@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta name="app-version" content="1.10.275">
+<meta name="app-version" content="1.10.276">
 <title>🏸 콕매치 실시간 현황</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -1175,7 +1175,7 @@ body{
 .viewer-name-card span{font-size:.72rem;font-weight:900;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .viewer-name-card:active{transform:scale(.985);}
 .viewer-empty-result{grid-column:1/-1;border:1px dashed #d8e3f4;border-radius:16px;padding:18px;text-align:center;font-size:.86rem;font-weight:900;color:#7a8798;}
-.viewer-status-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 10px;}
+.viewer-status-actions{display:grid;grid-template-columns:minmax(0,1.15fr) auto minmax(0,1fr);gap:8px;align-items:center;margin:12px 0 10px;}
 .viewer-state-btn{
   position:relative;
   display:inline-flex;
@@ -1195,6 +1195,14 @@ body{
 .viewer-state-btn.attend{background:#f3fbf6;color:#24784d;border-color:#ccebd8;}
 .viewer-state-btn.ready{background:#f3f7ff;color:#2767c8;border-color:#cfe0ff;}
 .viewer-state-btn.party{background:#fffaf2;color:#9a650c;border-color:#edd5aa;}
+.viewer-state-btn.ready{
+  min-width:58px;
+  min-height:38px;
+  padding:8px 10px;
+  border-radius:999px;
+  font-size:.78rem;
+  line-height:1;
+}
 .viewer-state-btn.on{transform:translateY(-1px);}
 .viewer-state-btn.attend.on{background:linear-gradient(180deg,#35a56a,#2c8f5a);border-color:#35a56a;color:#fff;box-shadow:0 0 0 4px rgba(53,165,106,.14),0 12px 28px rgba(53,165,106,.16);}
 .viewer-state-btn.ready.on{background:linear-gradient(180deg,#5b8def,#3f6fd0);border-color:#5b8def;color:#fff;box-shadow:0 0 0 4px rgba(91,141,239,.18),0 12px 28px rgba(91,141,239,.18);}
@@ -1396,6 +1404,12 @@ body{
   background:#f3f7ff!important;
   border-color:#cfe0ff!important;
   color:#2767c8!important;
+  min-width:58px!important;
+  min-height:38px!important;
+  padding:8px 10px!important;
+  border-radius:999px!important;
+  font-size:.78rem!important;
+  line-height:1!important;
 }
 .viewer-state-btn.party{
   background:#fffaf2!important;
@@ -1555,6 +1569,7 @@ body{
   .live-player{font-size:1.08rem!important;}
   .viewer-status-actions{gap:6px;}
   .viewer-state-btn{font-size:.78rem;min-height:42px;padding:8px 6px;}
+  .viewer-state-btn.ready{font-size:.76rem!important;min-height:38px!important;min-width:58px!important;padding:8px 10px!important;}
   .viewer-next-line{font-size:.9rem;}
   .viewer-record-grid{gap:6px;}
   .viewer-record-chip{padding:8px 5px;}
@@ -1585,11 +1600,11 @@ body{
   &nbsp;·&nbsp;
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener" style="color:var(--bl);text-decoration:none;">💬 카카오톡 문의</a>
   &nbsp;·&nbsp;
-  <span id="appVersion">v1.10.275</span>
+  <span id="appVersion">v1.10.276</span>
 </div>
 
 <script>
-const APP_VERSION='1.10.275';
+const APP_VERSION='1.10.276';
 const FB_CONFIG = {
   apiKey: "AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
   authDomain: "kokmatch-23b31.firebaseapp.com",
@@ -2417,7 +2432,11 @@ function _partyOn(name){
 }
 
 function _hasAttendanceData(){
-  return !!(window._liveAttendance && Object.keys(window._liveAttendance).length);
+  return !!(window._liveAttendanceSeeded || (window._liveAttendance && Object.keys(window._liveAttendance).length));
+}
+
+function _expectedOn(name){
+  return !!(_hasAttendanceData() && !_attOn(name));
 }
 
 function _normalizeMembers(list){
@@ -2431,7 +2450,7 @@ function _sortMembers(list){
   const genderRank=p=>p.g==='M'?0:p.g==='F'?1:2;
   return arr.sort((a,b)=>{
     if(sort==='att'){
-      const av=_attOn(a.n)?0:1, bv=_attOn(b.n)?0:1;
+      const av=_expectedOn(a.n)?0:1, bv=_expectedOn(b.n)?0:1;
       if(av!==bv) return av-bv;
     }
     if(sort==='role'){
@@ -2664,11 +2683,11 @@ function _viewerScheduleHtml(d,current){
 function _viewerStatusButtons(current){
   const nameArg=JSON.stringify(current.n).replace(/"/g,'&quot;');
   const teamKey=current.team||'';
-  const startOn=_attOn(current.n);
+  const expectedOn=_expectedOn(current.n);
   const partyOn=_partyOn(current.n);
   return '<div class="viewer-status-actions">'
     +'<button type="button" class="viewer-state-btn attend on static" aria-disabled="true">출석</button>'
-    +'<button type="button" class="viewer-state-btn ready '+(startOn?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(startOn?'예정✓':'예정')+'</button>'
+    +'<button type="button" class="viewer-state-btn ready '+(expectedOn?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(expectedOn?'예정✓':'예정')+'</button>'
     +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
   +'</div>';
 }
@@ -2837,24 +2856,25 @@ function closeTeamRoster(){
 async function toggleMemberAttendance(name, team){
   if(!name) return;
   if(!liveDb || !liveId){
-    alert('예정 확인을 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
+    alert('예정 표시를 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
     return;
   }
   const key=_attKey(name);
   const ref=liveDb.ref('live/'+liveId+'/attendance/'+key);
   try{
-    if(_attOn(name)){
-      if(!confirm(name+'님의 예정 확인을 취소할까요?')) return;
-      await ref.remove();
-    } else {
+    if(_expectedOn(name)){
       await ref.set({
         name:name,
         team:team||'',
+        source:'arrived',
         ts:firebase.database.ServerValue.TIMESTAMP
       });
+    } else {
+      if(!confirm(name+'님을 출석 예정으로 표시할까요?')) return;
+      await ref.remove();
     }
   }catch(e){
-    alert('예정 확인 저장 실패: '+e.message);
+    alert('예정 표시 저장 실패: '+e.message);
   }
 }
 
@@ -2894,12 +2914,13 @@ function buildTeamRosterCard(d){
   const party=d.party||{};
   window._liveAttendance=attendance;
   window._liveParty=party;
+  window._liveAttendanceSeeded=!!(d && (d.attendanceSeeded || d.attendanceMode==='rsvp'));
   const mk=(list,teamKey)=>{
     const arr=_sortMembers(list);
     if(!arr.length) return '<div class="faq-note">명단이 없습니다.</div>';
     return arr.map(p=>{
       const badge=p.isLeader?'<span class="team-member-badge" title="단장">단</span>':p.isSub?'<span class="team-member-badge" title="부단장">부</span>':'';
-      const on=_attOn(p.n);
+      const on=_expectedOn(p.n);
       const partyOn=_partyOn(p.n);
       const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
       const genderCls=p.g==='F'?'female':p.g==='M'?'male':'';
@@ -2916,7 +2937,7 @@ function buildTeamRosterCard(d){
     }).join('');
   };
   const all=showTeam?[...blue,...red]:solo;
-  const attCount=all.filter(p=>_attOn(p.n)).length;
+  const attCount=all.filter(p=>_expectedOn(p.n)).length;
   const partyCount=all.filter(p=>_partyOn(p.n)).length;
   const sortBtn=(key,label)=>'<button type="button" class="team-roster-sort '+(_teamRosterSort===key?'active':'')+'" onclick="setTeamRosterSort(\''+key+'\')">'+label+'</button>';
   return '<details class="info-details primary" id="teamRoster" '+(_teamRosterOpen?'open':'')+' ontoggle="setTeamRosterOpen(this.open)">'
@@ -2928,8 +2949,8 @@ function buildTeamRosterCard(d){
         +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('att','예정')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
         +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
           +(showTeam
-            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_attOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
-              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.filter(p=>_attOn(p.n)).length+'/'+red.length+'명</small></div>'+mk(red,'red')+'</div>'
+            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_expectedOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
+              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.filter(p=>_expectedOn(p.n)).length+'/'+red.length+'명</small></div>'+mk(red,'red')+'</div>'
             :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>'+attCount+'/'+solo.length+'명</small></div>'+mk(solo,'all')+'</div>')
         +'</div>'
         +'<button type="button" class="team-roster-close" onclick="closeTeamRoster()">▲ 명단 접기</button>'
@@ -2948,7 +2969,7 @@ function _isImminentMatch(m){
 function _playerLine(name,d){
   const n=String(name||'');
   if(!n) return '<div class="live-player">-</div>';
-  const flag=!!(d&&_hasAttendanceData()&&!_attOn(n));
+  const flag=!!(d&&_expectedOn(n));
   return '<div class="live-player '+(flag?'not-ready':'')+'">'+esc(n)
     +(flag?'<span class="ready-badge">예정</span>':'')
   +'</div>';
@@ -3028,6 +3049,7 @@ function render(d){
   window._lastLiveData=d;
   window._liveAttendance=d.attendance||{};
   window._liveParty=d.party||{};
+  window._liveAttendanceSeeded=!!(d && (d.attendanceSeeded || d.attendanceMode==='rsvp'));
   const matches=(d.matches||[]).map((m,i)=>Object.assign({},m,{_idx:i,_key:_matchKey(m)}));
   const byRound={};
   matches.forEach(m=>{ (byRound[m.round]=byRound[m.round]||[]).push(m); });

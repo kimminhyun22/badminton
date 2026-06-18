@@ -67,9 +67,16 @@ h1{margin:8px 0 8px;font-size:27px;line-height:1.18;letter-spacing:-.5px}
 .badge.ready{background:#eff6ff;color:#1d4ed8}
 .badge.decline{background:#f1f5f9;color:#64748b}
 .badge.maybe{background:#fffbeb;color:#92400e}
-.actions{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px}
+.actions{display:grid;grid-template-columns:minmax(0,1.15fr) auto minmax(0,1fr);gap:8px;align-items:center}
 .checkin-submit{min-width:0}
-.plan-chip{min-width:72px;padding-left:10px;padding-right:10px}
+.plan-chip{
+  min-width:58px;
+  min-height:38px;
+  padding:8px 10px;
+  border-radius:999px;
+  font-size:13px;
+  line-height:1;
+}
 .party-toggle{min-width:0;background:#fffaf2;color:#9a650c;border-color:#edd5aa}
 .party-toggle.selected{background:linear-gradient(180deg,#f0a73a,#d68d22);border-color:#f0a73a;color:#fff}
 button{appearance:none;border:0;border-radius:15px;padding:12px 8px;font:inherit;font-weight:900;background:#f2f5fa;color:#273246;min-height:50px}
@@ -231,7 +238,7 @@ button.decline:before,
   h1{font-size:25px;}
   .panel{border-radius:22px;}
   .actions{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);}
-  .plan-chip{min-width:66px;}
+  .plan-chip{min-width:58px;}
 }
 </style>
 </head>
@@ -242,7 +249,7 @@ button.decline:before,
     <h1 id="title">팀전LIVE 출석</h1>
     <p class="sub" id="sessionSub">팀전LIVE 출석부를 불러오는 중입니다.</p>
     <div class="notice">이름을 찾고 출석을 누르면 끝입니다. 늦게 오면 예정 딱지를 켜주세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.275</span>
+    <span class="version-chip" id="appVersion">v1.10.276</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>출석</span></div>
@@ -278,7 +285,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={};
-const APP_VERSION='1.10.275';
+const APP_VERSION='1.10.276';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -383,6 +390,14 @@ function setArrivalChoice(memberId,status){
 function sendSelectedStatus(memberId){
   const current=memberResponse(memberId);
   sendStatus(memberId,arrivalChoice(memberId,current?.status||'none'));
+}
+function toggleArrivalPlan(memberId){
+  const current=memberResponse(memberId);
+  const next=arrivalChoice(memberId,current?.status||'none')==='attend'?'ready':'attend';
+  setArrivalChoice(memberId,next);
+  if(isAttendStatus(current?.status)){
+    sendStatus(memberId,next);
+  }
 }
 function responseValues(){
   const members=session?.members||[];
@@ -558,7 +573,7 @@ function memberCard(m,recent){
     </div>
     <div class="actions">
       <button class="checkin-submit ready${isAttendStatus(normalized)?' selected':''}" ${disabled} onclick="sendSelectedStatus('${esc(m.id)}')">${isAttendStatus(normalized)?'출석✓':'출석'}</button>
-      <button class="plan-chip attend${selected('attend')}" ${disabled} onclick="setArrivalChoice('${esc(m.id)}','${choice==='attend'?'ready':'attend'}')">예정</button>
+      <button class="plan-chip attend${selected('attend')}" ${disabled} onclick="toggleArrivalPlan('${esc(m.id)}')">${choice==='attend'?'예정✓':'예정'}</button>
       <button class="party-toggle${partyOn?' selected':''}" ${disabled} onclick="toggleParty('${esc(m.id)}')">${partyOn?'뒷풀이✓':'뒷풀이'}</button>
     </div>
     <details class="guest"${guestOpen}>
