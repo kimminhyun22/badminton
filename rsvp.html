@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#5b8def">
-<title>콕매치 월례대회 참석 확인</title>
+<title>콕매치 팀전LIVE 출석</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -68,6 +68,8 @@ h1{margin:8px 0 8px;font-size:27px;line-height:1.18;letter-spacing:-.5px}
 .badge.decline{background:#f1f5f9;color:#64748b}
 .badge.maybe{background:#fffbeb;color:#92400e}
 .actions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.arrival-toggle{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.checkin-submit{grid-column:1/-1}
 button{appearance:none;border:0;border-radius:15px;padding:12px 8px;font:inherit;font-weight:900;background:#f2f5fa;color:#273246;min-height:50px}
 button.attend,button.ready{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px}
 button.attend:before,button.ready:before{
@@ -248,17 +250,17 @@ button.decline.selected:before{
 <main class="wrap">
   <section class="hero">
     <div class="eyebrow">KOKMATCH RSVP</div>
-    <h1 id="title">월례대회 참석 확인</h1>
-    <p class="sub" id="sessionSub">참석부를 불러오는 중입니다.</p>
-    <div class="notice">이름을 찾고 참석 여부를 누르면 끝입니다. 게스트가 있으면 같은 카드에서 바로 신청할 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.261</span>
+    <h1 id="title">팀전LIVE 출석</h1>
+    <p class="sub" id="sessionSub">팀전LIVE 출석부를 불러오는 중입니다.</p>
+    <div class="notice">이름을 찾고 도착/예정을 고른 뒤 출석을 누르면 끝입니다. 게스트가 있으면 같은 카드에서 신청할 수 있어요.</div>
+    <span class="version-chip" id="appVersion">v1.10.262</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
-      <div class="stat"><b id="attendCount">0</b><span>참석</span></div>
+      <div class="stat"><b id="attendCount">0</b><span>출석</span></div>
       <div class="stat"><b id="guestCount">0</b><span>게스트</span></div>
       <div class="stat"><b id="pendingCount">0</b><span>미응답</span></div>
     </div>
-    <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">참석 집계 보기</button></div>
+    <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">출석 집계 보기</button></div>
     <div class="summary-panel hidden" id="summaryPanel"></div>
     <div class="event-panel hidden" id="eventPanel"></div>
   </section>
@@ -287,8 +289,8 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false;
-const APP_VERSION='1.10.261';
+let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={};
+const APP_VERSION='1.10.262';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
@@ -379,7 +381,20 @@ function liveUrlWithViewer(url){
   }
 }
 function isAttendStatus(s){return s==='attend'||s==='ready';}
-function statusLabel(s){return s==='ready'?'시작':s==='attend'?'참석':'미응답';}
+function statusLabel(s){return s==='ready'?'도착':s==='attend'?'예정':'미응답';}
+function arrivalChoice(memberId,currentStatus){
+  if(arrivalChoices[memberId])return arrivalChoices[memberId];
+  return isAttendStatus(currentStatus)?currentStatus:'ready';
+}
+function setArrivalChoice(memberId,status){
+  if(status!=='ready'&&status!=='attend')return;
+  arrivalChoices[memberId]=status;
+  render();
+}
+function sendSelectedStatus(memberId){
+  const current=memberResponse(memberId);
+  sendStatus(memberId,arrivalChoice(memberId,current?.status||'none'));
+}
 function responseValues(){
   const members=session?.members||[];
   const ids=new Set(members.map(m=>m.id));
@@ -412,12 +427,12 @@ function renderHeader(){
   const limit=guestLimit();
   document.getElementById('guestCount').textContent=limit?`${c.guest}/${limit}`:c.guest;
   document.getElementById('pendingCount').textContent=c.pending;
-  const title=session?.title||'월례대회 참석 확인';
+  const title=session?.title||'팀전LIVE 출석';
   document.getElementById('title').textContent=title;
   const sub=document.getElementById('sessionSub');
   const updated=session?.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const club=session?.clubName?session.clubName+' · ':'';
-  sub.textContent=session?`${club}${updated} 업데이트 · 예상 ${session.gamesPerPlayer||4}게임 기준`:'참석부를 확인하고 있습니다.';
+  sub.textContent=session?`${club}${updated} 업데이트 · 예상 ${session.gamesPerPlayer||4}게임 기준`:'팀전LIVE 출석부를 확인하고 있습니다.';
   renderEventPanel();
   renderSummaryPanel();
   const last=getLast();
@@ -438,7 +453,7 @@ function renderSummaryPanel(){
   const panel=document.getElementById('summaryPanel');
   const btn=document.getElementById('summaryToggle');
   if(!panel||!btn)return;
-  btn.textContent=summaryOpen?'참석 집계 닫기':'참석 집계 보기';
+  btn.textContent=summaryOpen?'출석 집계 닫기':'출석 집계 보기';
   if(!summaryOpen||!session){
     panel.className='summary-panel hidden';
     panel.innerHTML='';
@@ -459,12 +474,12 @@ function renderSummaryPanel(){
   panel.innerHTML=`
     <div class="summary-top">내 신청 확인: ${myText}</div>
     <div class="summary-grid">
-      <div class="summary-chip"><b>${attend.length}</b><span>참석 확정</span></div>
-      <div class="summary-chip"><b>${ready.length}</b><span>시작</span></div>
+      <div class="summary-chip"><b>${attend.length}</b><span>출석</span></div>
+      <div class="summary-chip"><b>${ready.length}</b><span>도착</span></div>
       <div class="summary-chip"><b>${guests.length}${limit?`/${limit}`:''}</b><span>게스트 신청</span></div>
     </div>
     <div class="summary-section">
-      <div class="summary-section-title">참석자</div>
+      <div class="summary-section-title">출석자</div>
       <div class="summary-names">${summaryNames(attend)}</div>
     </div>
     <div class="summary-section">
@@ -481,7 +496,7 @@ function renderEventPanel(){
     const linkedLiveUrl=liveUrlWithViewer(liveUrl);
     panel.className='event-panel live';
     panel.innerHTML=`<div class="event-title">🔴 실시간 중계가 시작됐어요</div>
-      <div class="event-desc">이 링크 하나로 참석 확인부터 대진표와 실시간 현황까지 이어서 볼 수 있습니다.</div>
+      <div class="event-desc">이 링크 하나로 출석 확인부터 대진표와 실시간 현황까지 이어서 볼 수 있습니다.</div>
       <div class="event-actions"><a class="event-btn" href="${esc(linkedLiveUrl)}">실시간 현황 보기</a></div>`;
     return;
   }
@@ -515,7 +530,7 @@ function render(){
   const fold=document.getElementById('rsvpMemberFold');
   if(!session){
     if(fold)fold.open=true;
-    box.className='empty';box.textContent='참석부를 불러오는 중입니다.';pill.textContent='0명';return;
+    box.className='empty';box.textContent='팀전LIVE 출석부를 불러오는 중입니다.';pill.textContent='0명';return;
   }
   const list=filteredMembers();
   const last=getLast();
@@ -534,7 +549,8 @@ function memberCard(m,recent){
   const badge=normalized==='none'?'미응답':statusLabel(normalized);
   const guestOpen=guest.name?' open':'';
   const partnerOpen=partner?.memberId?' open':'';
-  const selected=s=>normalized===s?' selected':'';
+  const choice=arrivalChoice(m.id,normalized);
+  const selected=s=>choice===s?' selected':'';
   const disabled=sendingKey?'disabled':'';
   const closed=guestLimitReached(m.id);
   const memberState=normalized==='ready'?'ready-state':normalized==='attend'?'attending':'';
@@ -549,8 +565,11 @@ function memberCard(m,recent){
       <span class="badge ${esc(normalized)}">${esc(badge)}</span>
     </div>
     <div class="actions">
-      <button class="attend${selected('attend')}" ${disabled} onclick="sendStatus('${esc(m.id)}','attend')">${normalized==='attend'?'참석 완료':'참석'}</button>
-      <button class="ready${selected('ready')}" ${disabled} onclick="sendStatus('${esc(m.id)}','ready')">${normalized==='ready'?'시작 완료':'시작'}</button>
+      <div class="arrival-toggle">
+        <button class="ready${selected('ready')}" ${disabled} onclick="setArrivalChoice('${esc(m.id)}','ready')">도착</button>
+        <button class="attend${selected('attend')}" ${disabled} onclick="setArrivalChoice('${esc(m.id)}','attend')">예정</button>
+      </div>
+      <button class="checkin-submit ready${isAttendStatus(normalized)?' selected':''}" ${disabled} onclick="sendSelectedStatus('${esc(m.id)}')">${isAttendStatus(normalized)?'출석 완료':'출석'}</button>
     </div>
     <details class="guest"${guestOpen}>
       <summary>${guestSummary}</summary>
@@ -558,7 +577,7 @@ function memberCard(m,recent){
         <input id="gName_${esc(m.id)}" placeholder="게스트 이름" value="${esc(guest.name||'')}">
         <select id="gGender_${esc(m.id)}"><option value="남" ${guest.gender==='남'?'selected':''}>남</option><option value="여" ${guest.gender==='여'?'selected':''}>여</option></select>
         <select id="gGrade_${esc(m.id)}">${['E','D','C','B','A','S'].map(g=>`<option value="${g}" ${guest.grade===g?'selected':''}>${g}</option>`).join('')}</select>
-        <button ${closed?'disabled':''} onclick="saveGuest('${esc(m.id)}')">${closed?'게스트 신청 마감':'게스트 저장하고 참석'}</button>
+        <button ${closed?'disabled':''} onclick="saveGuest('${esc(m.id)}')">${closed?'게스트 신청 마감':'게스트 저장하고 출석'}</button>
       </div>
     </details>
     <details class="partner-request"${partnerOpen}>
@@ -629,19 +648,19 @@ async function saveGuest(memberId){
     ageGroup:m.ageGroup||'40대'
   };
   sendingKey=memberId+'_guest';render();
-  const payload=responseFor(m,'attend',{guest});
+  const payload=responseFor(m,arrivalChoice(m.id,memberResponse(m.id)?.status||'none'),{guest});
   if(isSampleMode()){
     responses[memberId]=payload;
     setLast(payload);
     sendingKey='';
     render();
-    return toast(`${m.name} · 게스트 포함 참석 반영됨`);
+    return toast(`${m.name} · 게스트 포함 출석 반영됨`);
   }
   try{
     await db.ref(path()+'/responses/'+memberId).set(payload);
     responses[memberId]=payload;
     setLast(payload);
-    toast(`${m.name} · 게스트 포함 참석 저장 완료`);
+    toast(`${m.name} · 게스트 포함 출석 저장 완료`);
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
   }finally{
@@ -698,7 +717,7 @@ function boot(){
   const vEl=document.getElementById('appVersion');
   if(vEl)vEl.textContent='v'+APP_VERSION;
   rsvpId=qs('id');
-  if(!rsvpId){document.getElementById('members').textContent='참석 링크가 올바르지 않습니다.';return;}
+  if(!rsvpId){document.getElementById('members').textContent='팀전LIVE 링크가 올바르지 않습니다.';return;}
   if(isSampleMode()){
     session=sampleSession();
     responses=sampleResponses();
@@ -720,10 +739,10 @@ function boot(){
       renderHeader();
       summaryOpen=false;
       renderSummaryPanel();
-      document.getElementById('sessionSub').textContent='종료된 참석 링크입니다.';
+      document.getElementById('sessionSub').textContent='종료된 팀전LIVE 링크입니다.';
       document.getElementById('countPill').textContent='0명';
       document.getElementById('members').className='empty';
-      document.getElementById('members').textContent='관리자가 링크를 종료했거나 아직 참석부를 공유하지 않았습니다.';
+      document.getElementById('members').textContent='관리자가 링크를 종료했거나 아직 팀전LIVE 출석부를 공유하지 않았습니다.';
       return;
     }
     session=data.session;
