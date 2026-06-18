@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.276  (2026-06)
+     APP VERSION: 1.10.278  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.276">
+<meta name="app-version" content="1.10.278">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2457,7 +2457,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.276&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.278&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2476,7 +2476,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.276&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.278&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2665,9 +2665,6 @@ header,.nav-bar{
           <div style="display:flex;gap:8px;align-items:stretch;">
             <button class="btn btn-gen" style="flex:1;" onclick="generate()">🎯 대진표 생성</button>
             <button id="undoBtnMain" class="btn btn-undo" style="padding:10px 12px;font-size:.82rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩</button>
-          </div>
-          <div class="btn-row">
-            <button class="btn btn-ghost btn-sm" onclick="resetAll()">✕ 전체 초기화</button>
           </div>
 
           <!-- 저장 관리 버튼 그룹 -->
@@ -3075,7 +3072,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.276';
+const APP_VERSION = '1.10.278';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8540,11 +8537,19 @@ async function rsvpCopySavedLink(id){
   if(!url){alert('복사할 링크를 찾을 수 없습니다.');return;}
   const title=item?.title||'팀전LIVE';
   const text=`🏸 ${title} 출석\n\n${url}`;
+  if(navigator.share){
+    try{
+      await navigator.share({title:`${title} 팀전LIVE`,text});
+      return;
+    }catch(e){
+      if(e&&e.name==='AbortError')return;
+    }
+  }
   try{
     await navigator.clipboard.writeText(text);
     alert('팀전LIVE 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.');
   }catch(e){
-    prompt('아래 링크를 복사하세요.',text);
+    alert('공유창을 열 수 없습니다. 링크 복사를 다시 시도해 주세요.');
   }
 }
 async function rsvpCreateNew(){
@@ -8636,40 +8641,51 @@ async function rsvpShareLink(){
   await rsvpCopyShareText(false);
 }
 async function rsvpCopyShareText(auto){
-  const id=await rsvpPublishSession(false);
-  if(!id)return false;
+  if(_rsvpNeedsClubSelection()){
+    alert('먼저 공지를 보낼 클럽 명부를 선택해 주세요.');
+    return false;
+  }
+  if(!_rsvpRosterMembers().length){
+    alert('선택한 클럽 명부에 회원이 없습니다. 명부를 확인해 주세요.');
+    return false;
+  }
+  if(!_fbInit()){
+    alert('팀전LIVE 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
+    return false;
+  }
+  rsvpEnsureId();
   const url=_rsvpUrl();
   const title=_rsvpTitle();
   const target=_rsvpSelectedLabel();
   const text=`🏸 ${target} · ${title} 팀전LIVE\n\n본인 이름을 찾고 출석을 눌러 주세요.\n늦게 오면 출석 옆 예정 딱지를 켜면 됩니다.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
-  if(!auto){
+  const publishPromise=rsvpPublishSession(true).catch(()=>null);
+  if(navigator.share){
     try{
-      if(navigator.share){
-        await navigator.share({title:`${title} 팀전LIVE`,text});
+      await navigator.share({title:`${title} 팀전LIVE`,text});
+      await publishPromise;
+      return true;
+    }catch(e){
+      if(e&&e.name==='AbortError'){
+        await publishPromise;
         return true;
       }
-    }catch(e){}
+    }
+  }
+  const published=await publishPromise;
+  if(!published){
+    alert('팀전LIVE 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+    return false;
   }
   try{
     await navigator.clipboard.writeText(text);
     alert(auto
-      ? '출석부 공유 문구를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.'
+      ? '공유창을 열 수 없어 문구를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.'
       : '팀전LIVE 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.\n\n'+url);
     return true;
   }catch(e){
-    if(auto){
-      prompt('아래 문구를 복사해서 공유하세요.',text);
-      return true;
-    }
-    try{
-      if(navigator.share){
-        await navigator.share({title:`${title} 팀전LIVE`,text});
-        return true;
-      }
-    }catch(err){}
-    prompt('아래 문구를 복사해서 공유하세요.',text);
-    return true;
-    }
+    alert('공유창을 열 수 없습니다. 네트워크와 브라우저 권한을 확인한 뒤 다시 시도해 주세요.');
+    return false;
+  }
 }
 function rsvpLoad(){
   const titleEl=document.getElementById('rsvpTitle');
@@ -8931,7 +8947,7 @@ function renderAutoFlowDashboard(){
       cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'회원 응답을 기다립니다.'};
     } else if(hasRoster){
       stage='link';
-      cfg={badge:'출석부',title:'팀전LIVE 상황판',sub:'명부 선택 시 공유 문구가 복사됩니다.'};
+      cfg={badge:'출석부',title:'팀전LIVE 상황판',sub:'명부 선택 시 단톡방 공유를 바로 시작합니다.'};
     }
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
@@ -10197,7 +10213,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <path d="M18 8l-3 6h6l-3-6z"></path>
       </svg>
     </span>
-    <span class="bnav-label">팀배정</span>
+    <span class="bnav-label">팀전LIVE</span>
   </button>
   <button class="bnav-btn" id="bnav-bracket" onclick="switchMobileTab('bracket')">
     <span class="bnav-icon" aria-hidden="true">
@@ -10244,7 +10260,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.276</span>
+  <span class="app-version" id="appVersion">v1.10.278</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
