@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.264  (2026-06)
+     APP VERSION: 1.10.265  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.264">
+<meta name="app-version" content="1.10.265">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1292,6 +1292,12 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-admin-pair-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;padding:0 10px 10px;}
 .rsvp-admin-pair select{height:40px;border:1px solid #d8e5fb;border-radius:11px;padding:0 9px;font-family:'Noto Sans KR',sans-serif;font-weight:800;min-width:0;background:#fff;}
 .rsvp-admin-empty{padding:14px;text-align:center;color:#7a8494;font-size:.78rem;font-weight:900;}
+.rsvp-archive{border:1px solid #e3edf9;background:#fbfdff;border-radius:15px;margin-bottom:10px;overflow:hidden;}
+.rsvp-archive summary{list-style:none;padding:10px 12px;font-size:.78rem;font-weight:1000;color:#64748b;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;}
+.rsvp-archive summary::-webkit-details-marker{display:none;}
+.rsvp-archive summary:after{content:'열기';font-size:.66rem;color:#94a3b8;border:1px solid #dbeafe;border-radius:999px;padding:4px 8px;background:#fff;}
+.rsvp-archive[open] summary:after{content:'접기';}
+.rsvp-archive-list{display:flex;flex-direction:column;gap:7px;padding:0 10px 10px;}
 .rsvp-saved{display:flex;flex-direction:column;gap:7px;margin-bottom:9px;}
 .rsvp-saved-title{font-size:.78rem;font-weight:1000;color:#334155;letter-spacing:-.02em;display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .rsvp-saved-title:after{content:'지난 링크 다시 열기';font-size:.62rem;font-weight:850;color:#94a3b8;}
@@ -2446,7 +2452,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.264&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.265&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2465,7 +2471,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.264&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.265&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2489,17 +2495,17 @@ header,.nav-bar{
         <div id="autoFlowBody"></div>
       </div>
 
-      <!-- 명부와 출석 링크 -->
+      <!-- 출석 링크 -->
       <details class="card" id="sec-rsvp" open>
         <summary class="card-head">
-          <span class="card-title">📣 명부와 출석 링크 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
+          <span class="card-title">출석 링크 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
         </summary>
         <div class="card-body">
           <div class="rsvp-grid">
             <select class="inp" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
             <input class="inp" id="rsvpTitle" placeholder="예: 새천년 팀전 06.15" oninput="rsvpSaveLocal()">
           </div>
-          <div class="hint" style="margin-bottom:8px;">명부를 선택해 출석 링크를 만들고 단톡방이나 밴드에 공유합니다.</div>
+          <div class="hint" style="margin-bottom:8px;">명부 선택 후 링크를 공유하고, 현장에서 출석자만 가져옵니다.</div>
           <div id="rsvpSavedBox"></div>
           <div id="rsvpBox" class="rsvp-empty">아직 팀전LIVE 출석 링크가 만들어지지 않았습니다.</div>
         </div>
@@ -3066,7 +3072,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.264';
+const APP_VERSION = '1.10.265';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8512,8 +8518,8 @@ function rsvpRenderSavedBox(){
   if(!box)return;
   const list=_rsvpHistoryList().slice(0,6);
   if(!list.length){box.innerHTML='';return;}
-  box.className='rsvp-saved';
-  box.innerHTML=`<div class="rsvp-saved-title">최근 팀전LIVE 링크</div>`+list.map(item=>{
+  box.className='rsvp-archive-wrap';
+  const rows=list.map(item=>{
     const active=item.id===_rsvpId;
     const meta=[item.clubName||'클럽 미확인', _rsvpSavedDate(item.createdAt), item.id?`ID ${String(item.id).slice(-4)}`:'', active?'현재 열림':''].filter(Boolean).join(' · ');
     return `<div class="rsvp-saved-row">
@@ -8526,6 +8532,10 @@ function rsvpRenderSavedBox(){
       <button class="rsvp-saved-btn danger" onclick="rsvpRemoveSaved('${esc(item.id)}')">삭제</button>
     </div>`;
   }).join('');
+  box.innerHTML=`<details class="rsvp-archive">
+    <summary>이전 팀전LIVE ${list.length}개</summary>
+    <div class="rsvp-archive-list">${rows}</div>
+  </details>`;
 }
 async function rsvpCopySavedLink(id){
   const item=_rsvpHistoryList().find(x=>x&&x.id===id);
@@ -8799,8 +8809,12 @@ function _rsvpAdminRosterHtml(members,responses){
 function _autoFlowMetric(label,value){
   return `<div class="auto-flow-metric"><b>${esc(String(value))}</b><span>${esc(label)}</span></div>`;
 }
-function _autoFlowAction(label,fnName){
-  return label&&fnName?`<button class="auto-flow-btn" onclick="${fnName}()">${esc(label)}</button>`:'';
+function _autoFlowAction(label,fnName,note=''){
+  if(!label||!fnName)return '';
+  return `<div class="auto-flow-action">
+    <div class="auto-flow-next">${esc(note||'다음 단계')}</div>
+    <button class="auto-flow-btn" onclick="${fnName}()">${esc(label)}</button>
+  </div>`;
 }
 function _autoFlowPanel(title,value,note,cls=''){
   return `<div class="auto-flow-panel ${esc(cls)}">
@@ -8813,6 +8827,21 @@ function _autoFlowSetSection(id,open){
   const el=document.getElementById(id);
   if(!el||el.tagName!=='DETAILS')return;
   el.open=!!open;
+}
+function teamLiveFocusRoster(){switchNav('roster');}
+function teamLiveOpenRsvp(){
+  const el=document.getElementById('sec-rsvp');
+  if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
+}
+function teamLiveOpenPlayers(){
+  const el=document.getElementById('sec-players');
+  if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
+}
+function teamLiveOpenScoreboard(){
+  const sec=document.getElementById('scoreboardSec');
+  if(sec)sec.classList.remove('hidden');
+  const el=document.getElementById('sec-scoreboard');
+  if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
 }
 function _autoFlowSetResultSections(stage){
   _autoFlowSetSection('sec-quality',stage==='broadcast');
@@ -8865,28 +8894,28 @@ function renderAutoFlowDashboard(){
     const liveValue=live?'ON':(matches?'전':'대기');
     const liveNote=live?'링크 활성':'중계 전';
     let stage='roster';
-    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부부터 확인하세요.'};
+    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부를 불러오세요.',action:'명부 열기',fn:'teamLiveFocusRoster',note:'1단계'};
     if(live){
       stage='live';
-      cfg={badge:'운영 중',title:'팀전LIVE 상황판',sub:'중계와 승패 입력을 확인하세요.'};
+      cfg={badge:'운영 중',title:'팀전LIVE 상황판',sub:'라운드 진행 중입니다.',action:'승패 집계 보기',fn:'teamLiveOpenScoreboard',note:'운영 중'};
     } else if(matches){
       stage='broadcast';
-      cfg={badge:'중계 전',title:'팀전LIVE 상황판',sub:'품질 확인 후 중계를 시작하세요.'};
+      cfg={badge:'중계 전',title:'팀전LIVE 상황판',sub:'품질 확인 후 시작하세요.',action:'중계 시작',fn:'onLiveBtnClick',note:'마지막 확인'};
     } else if(teamReady){
       stage='generate';
-      cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'대진표 생성과 품질 점검 단계입니다.'};
+      cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'최적 대진을 생성하세요.',action:'최적 대진 생성',fn:'generate',note:'대진 단계'};
     } else if(players>=4){
       stage='playerReview';
-      cfg={badge:'확인',title:'팀전LIVE 상황판',sub:'참가자, P 매칭, 게스트를 확인하세요.'};
+      cfg={badge:'확인',title:'팀전LIVE 상황판',sub:'참가자와 P를 확인하세요.',action:'팀 배정',fn:'doTeamAssign',note:'참가자 확정'};
     } else if((counts.attend||0)>0){
       stage='import';
-      cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'출석자를 참가자로 가져오세요.'};
+      cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'출석자를 반영하세요.',action:'출석자 가져오기',fn:'rsvpImportAttendees',note:'현장 반영'};
     } else if(_rsvpId){
       stage='wait';
-      cfg={badge:'링크 활성',title:'팀전LIVE 상황판',sub:'회원 출석 응답을 기다리는 중입니다.'};
+      cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'링크 공유 후 응답을 기다립니다.',action:'링크 복사',fn:'rsvpShareLink',note:'단톡방 공유'};
     } else if(hasRoster){
       stage='link';
-      cfg={badge:'링크 전',title:'팀전LIVE 상황판',sub:'출석 링크를 만들어 공유하세요.'};
+      cfg={badge:'링크 전',title:'팀전LIVE 상황판',sub:'출석 링크를 만드세요.',action:'출석 링크 만들기',fn:'rsvpCreateNew',note:'명부 확인됨'};
     }
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
@@ -8911,16 +8940,16 @@ function renderAutoFlowDashboard(){
       </div>
       <div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
         <span class="team-live-step ${stepState('roster')}">명부</span>
-        <span class="team-live-step ${stepState('link')}">링크</span>
-        <span class="team-live-step ${stepState(['wait','import'])}">출석</span>
-        <span class="team-live-step ${stepState('playerReview')}">확인</span>
-        <span class="team-live-step ${stepState('generate')}">팀</span>
+        <span class="team-live-step ${stepState(['link','wait','import'])}">출석</span>
+        <span class="team-live-step ${stepState('playerReview')}">참가자</span>
+        <span class="team-live-step ${stepState('generate')}">팀배정</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
         <span class="team-live-step ${stepState('live')}">중계</span>
-      </div>`;
-    _autoFlowSetSection('sec-rsvp',stage!=='live');
-    _autoFlowSetSection('sec-players',stage!=='live');
-    _autoFlowSetSection('sec-settings',(players>=4||teamReady||matches)&&stage!=='live');
+      </div>
+      ${_autoFlowAction(cfg.action,cfg.fn,cfg.note)}`;
+    _autoFlowSetSection('sec-rsvp',['roster','link','wait','import'].includes(stage));
+    _autoFlowSetSection('sec-players',stage==='playerReview');
+    _autoFlowSetSection('sec-settings',stage==='generate');
     _autoFlowSetResultSections(stage);
   }finally{
     _autoFlowRendering=false;
@@ -8946,9 +8975,9 @@ function rsvpRender(){
     box.className='rsvp-panel';
     box.innerHTML=members.length
       ?`<div class="rsvp-create-box">
-          <div class="rsvp-create-title">${esc(_rsvpSelectedLabel())} 팀전LIVE 링크를 만들 준비가 됐습니다.</div>
-          <div class="rsvp-create-sub">새 링크를 만들면 보관함에 저장되고, 공유 문구를 바로 복사할 수 있습니다.</div>
-          <button class="rsvp-action-btn primary" onclick="rsvpCreateNew()">새 링크 만들기</button>
+          <div class="rsvp-create-title">${esc(_rsvpSelectedLabel())} 출석 링크 준비됨</div>
+          <div class="rsvp-create-sub">링크를 만들면 공유 문구가 바로 복사됩니다.</div>
+          <button class="rsvp-action-btn primary" onclick="rsvpCreateNew()">출석 링크 만들기</button>
         </div>`
       :`<div class="rsvp-empty">현재 접속 주소에 저장된 클럽 명부가 없습니다. 명부 탭에서 불러오거나, 명부를 만든 것과 같은 주소의 팀전 페이지에서 열어주세요.</div>`;
     renderAutoFlowDashboard();
@@ -8974,8 +9003,8 @@ function rsvpRender(){
       <div class="rsvp-current-actions">
         <button class="rsvp-action-btn primary" onclick="rsvpImportAttendees()">출석자 가져오기</button>
         <button class="rsvp-action-btn" onclick="rsvpShareLink()">링크 복사</button>
-        <button class="rsvp-action-btn" onclick="rsvpCreateNew()">새 링크</button>
-        <button class="rsvp-action-btn danger" onclick="rsvpStopLink()">종료</button>
+        <button class="rsvp-action-btn" onclick="rsvpCreateNew()">새로 만들기</button>
+        <button class="rsvp-action-btn danger" onclick="rsvpStopLink()">링크 종료</button>
       </div>
       <details class="rsvp-url-details"><summary>공유 링크 보기</summary><div>${esc(url)}</div></details>
     </div>
@@ -10203,7 +10232,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.264</span>
+  <span class="app-version" id="appVersion">v1.10.265</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
