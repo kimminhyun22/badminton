@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.265  (2026-06)
+     APP VERSION: 1.10.266  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.265">
+<meta name="app-version" content="1.10.266">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1236,17 +1236,19 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-current-meta{font-size:.72rem;font-weight:850;color:#64748b;line-height:1.45;margin-top:4px;}
 .rsvp-current-state{display:inline-flex;align-items:center;gap:5px;border:1px solid #bbf7d0;background:#f0fdf4;color:#15803d;border-radius:999px;padding:7px 10px;font-size:.68rem;font-weight:1000;white-space:nowrap;}
 .rsvp-current-state:before{content:'';width:8px;height:8px;border-radius:999px;background:#ef4444;box-shadow:0 0 0 7px rgba(239,68,68,.16);}
-.rsvp-current-actions{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:7px;}
+.rsvp-current-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .rsvp-create-box{border:1.5px dashed #cfe0fb;border-radius:18px;background:#fbfdff;padding:14px;display:flex;flex-direction:column;gap:10px;text-align:center;}
 .rsvp-create-title{font-size:.96rem;font-weight:1000;color:#172033;}
 .rsvp-create-sub{font-size:.74rem;font-weight:850;color:#64748b;line-height:1.45;}
 .rsvp-link{font-size:.8rem;color:var(--dim);line-height:1.45;word-break:keep-all;background:#fff;border:1px solid #e0edff;border-radius:14px;padding:10px 12px;}
 .rsvp-link-main{font-size:.86rem;font-weight:900;color:#334155;}
 .rsvp-link-sub{margin-top:3px;color:#7a8494;font-weight:700;}
-.rsvp-url-details{margin-top:7px;border-top:1px solid #eef2f7;padding-top:6px;}
+.rsvp-url-details{margin-top:2px;border-top:1px solid #eef2f7;padding-top:6px;}
 .rsvp-url-details summary{cursor:pointer;color:#557ecf;font-size:.72rem;font-weight:900;list-style:none;}
 .rsvp-url-details summary::-webkit-details-marker{display:none;}
 .rsvp-url-details div{margin-top:5px;word-break:break-all;color:#64748b;font-size:.72rem;line-height:1.45;}
+.rsvp-manage-actions{display:grid!important;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px!important;}
+.rsvp-url-text{border:1px solid #eef2f7;border-radius:12px;background:#fff;padding:9px 10px;}
 .rsvp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;}
 .rsvp-stat{border:1px solid var(--bdr);border-radius:10px;background:#fff;padding:9px;text-align:center;}
 .rsvp-stat.warn{background:#fffbeb;border-color:#fde68a;}
@@ -1254,6 +1256,12 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-stat span{display:block;font-size:.62rem;font-weight:900;color:var(--dim);margin-top:3px;}
 .rsvp-list{display:flex;flex-direction:column;gap:6px;}
 .rsvp-section-title{font-size:.68rem;font-weight:900;color:var(--dim);letter-spacing:.02em;margin-top:2px;}
+.rsvp-response-details{border:1px solid #e7eef8;border-radius:14px;background:#fff;overflow:hidden;}
+.rsvp-response-details summary{list-style:none;cursor:pointer;padding:10px 12px;font-size:.78rem;font-weight:1000;color:#64748b;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.rsvp-response-details summary::-webkit-details-marker{display:none;}
+.rsvp-response-details summary:after{content:'열기';font-size:.64rem;color:#94a3b8;border:1px solid #e0e7f0;border-radius:999px;padding:4px 8px;background:#fff;}
+.rsvp-response-details[open] summary:after{content:'접기';}
+.rsvp-response-details .rsvp-list{padding:0 10px 10px;}
 .rsvp-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;border:1px solid var(--bdr);border-radius:10px;background:#fff;padding:9px 10px;}
 .rsvp-row.warn{background:#fff7ed;border-color:#fed7aa;}
 .rsvp-row.guest{background:#f8fbff;border-color:#bfdbfe;}
@@ -1268,6 +1276,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-action-btn{border:1px solid var(--bdr);border-radius:8px;background:#fff;color:var(--dim);font-family:'Noto Sans KR',sans-serif;font-size:.72rem;font-weight:900;padding:7px 9px;cursor:pointer;white-space:nowrap;}
 .rsvp-action-btn:hover{background:var(--bl-soft);color:var(--bl-deep);border-color:var(--bl-softbdr);}
 .rsvp-action-btn.primary{background:var(--bl);border-color:var(--bl);color:#fff;box-shadow:0 6px 16px rgba(91,141,239,.18);}
+.rsvp-action-btn.primary.soft{background:#f4f8ff;border-color:#bfd4fb;color:#406fc7;box-shadow:none;}
 .rsvp-action-btn.ready{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
 .rsvp-action-btn.danger:hover{background:#fee2e2;color:#b91c1c;border-color:#fecaca;}
 .rsvp-empty{font-size:.86rem;color:var(--dim);text-align:center;padding:22px;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff;}
@@ -2452,7 +2461,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.265&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.266&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2471,7 +2480,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.265&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.266&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2506,8 +2515,8 @@ header,.nav-bar{
             <input class="inp" id="rsvpTitle" placeholder="예: 새천년 팀전 06.15" oninput="rsvpSaveLocal()">
           </div>
           <div class="hint" style="margin-bottom:8px;">명부 선택 후 링크를 공유하고, 현장에서 출석자만 가져옵니다.</div>
-          <div id="rsvpSavedBox"></div>
           <div id="rsvpBox" class="rsvp-empty">아직 팀전LIVE 출석 링크가 만들어지지 않았습니다.</div>
+          <div id="rsvpSavedBox"></div>
         </div>
       </details>
 
@@ -3072,7 +3081,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.265';
+const APP_VERSION = '1.10.266';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8793,7 +8802,7 @@ function _rsvpAdminRosterHtml(members,responses){
       </details>
     </div>`;
   }).join('');
-  return `<details class="rsvp-admin-panel" open>
+  return `<details class="rsvp-admin-panel">
     <summary>관리자 상태 관리 · ${members.length}명</summary>
     <div class="rsvp-admin-tools">
       <input class="rsvp-admin-search" value="${esc(_rsvpAdminQuery)}" placeholder="이름/초성 검색" oninput="rsvpSetAdminQuery(this.value)">
@@ -8894,28 +8903,28 @@ function renderAutoFlowDashboard(){
     const liveValue=live?'ON':(matches?'전':'대기');
     const liveNote=live?'링크 활성':'중계 전';
     let stage='roster';
-    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부를 불러오세요.',action:'명부 열기',fn:'teamLiveFocusRoster',note:'1단계'};
+    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부를 불러오세요.'};
     if(live){
       stage='live';
-      cfg={badge:'운영 중',title:'팀전LIVE 상황판',sub:'라운드 진행 중입니다.',action:'승패 집계 보기',fn:'teamLiveOpenScoreboard',note:'운영 중'};
+      cfg={badge:'운영 중',title:'팀전LIVE 상황판',sub:'라운드 진행 중입니다.'};
     } else if(matches){
       stage='broadcast';
-      cfg={badge:'중계 전',title:'팀전LIVE 상황판',sub:'품질 확인 후 시작하세요.',action:'중계 시작',fn:'onLiveBtnClick',note:'마지막 확인'};
+      cfg={badge:'중계 전',title:'팀전LIVE 상황판',sub:'품질 확인 후 중계를 시작하세요.'};
     } else if(teamReady){
       stage='generate';
-      cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'최적 대진을 생성하세요.',action:'최적 대진 생성',fn:'generate',note:'대진 단계'};
+      cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'최적 대진을 생성하세요.'};
     } else if(players>=4){
       stage='playerReview';
-      cfg={badge:'확인',title:'팀전LIVE 상황판',sub:'참가자와 P를 확인하세요.',action:'팀 배정',fn:'doTeamAssign',note:'참가자 확정'};
+      cfg={badge:'확인',title:'팀전LIVE 상황판',sub:'참가자와 P를 확인하세요.'};
     } else if((counts.attend||0)>0){
       stage='import';
-      cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'출석자를 반영하세요.',action:'출석자 가져오기',fn:'rsvpImportAttendees',note:'현장 반영'};
+      cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'출석자를 반영하세요.'};
     } else if(_rsvpId){
       stage='wait';
-      cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'링크 공유 후 응답을 기다립니다.',action:'링크 복사',fn:'rsvpShareLink',note:'단톡방 공유'};
+      cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'링크 공유 후 응답을 기다립니다.'};
     } else if(hasRoster){
       stage='link';
-      cfg={badge:'링크 전',title:'팀전LIVE 상황판',sub:'출석 링크를 만드세요.',action:'출석 링크 만들기',fn:'rsvpCreateNew',note:'명부 확인됨'};
+      cfg={badge:'링크 전',title:'팀전LIVE 상황판',sub:'출석 링크를 만드세요.'};
     }
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
@@ -8932,7 +8941,6 @@ function renderAutoFlowDashboard(){
     };
     body.innerHTML=`
       <div class="auto-flow-board">
-        ${_autoFlowPanel('명부',rosterName,rosterTotal?`${rosterTotal}명`:'명부에서 불러오기',hasRoster?'':'warn')}
         ${_autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':'')}
         ${_autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn')}
         ${_autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'')}
@@ -8945,8 +8953,7 @@ function renderAutoFlowDashboard(){
         <span class="team-live-step ${stepState('generate')}">팀배정</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
         <span class="team-live-step ${stepState('live')}">중계</span>
-      </div>
-      ${_autoFlowAction(cfg.action,cfg.fn,cfg.note)}`;
+      </div>`;
     _autoFlowSetSection('sec-rsvp',['roster','link','wait','import'].includes(stage));
     _autoFlowSetSection('sec-players',stage==='playerReview');
     _autoFlowSetSection('sec-settings',stage==='generate');
@@ -8994,33 +9001,31 @@ function rsvpRender(){
     <div class="rsvp-current">
       <div class="rsvp-current-top">
         <div>
-          <div class="rsvp-current-k">현재 팀전LIVE</div>
+          <div class="rsvp-current-k">출석 링크</div>
           <div class="rsvp-current-title">${esc(_rsvpTitle())}</div>
           <div class="rsvp-current-meta">${esc(_rsvpSelectedLabel())} · 출석 ${counts.attend}명 · 예정 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${esc(guestText)}명</div>
         </div>
-        <span class="rsvp-current-state">링크 활성</span>
       </div>
       <div class="rsvp-current-actions">
-        <button class="rsvp-action-btn primary" onclick="rsvpImportAttendees()">출석자 가져오기</button>
-        <button class="rsvp-action-btn" onclick="rsvpShareLink()">링크 복사</button>
-        <button class="rsvp-action-btn" onclick="rsvpCreateNew()">새로 만들기</button>
-        <button class="rsvp-action-btn danger" onclick="rsvpStopLink()">링크 종료</button>
+        <button class="rsvp-action-btn primary" onclick="rsvpShareLink()">1 링크 복사</button>
+        <button class="rsvp-action-btn primary soft" onclick="rsvpImportAttendees()">2 출석자 가져오기</button>
       </div>
-      <details class="rsvp-url-details"><summary>공유 링크 보기</summary><div>${esc(url)}</div></details>
-    </div>
-    <div class="rsvp-stats">
-      <div class="rsvp-stat"><b>${counts.attend}</b><span>출석</span></div>
-      <div class="rsvp-stat"><b>${counts.plan||0}</b><span>예정</span></div>
-      <div class="rsvp-stat"><b>${counts.party||0}</b><span>뒷풀이</span></div>
-      <div class="rsvp-stat"><b>${counts.partner||0}</b><span>P 신청</span></div>
-      <div class="rsvp-stat ${guestLimit&&counts.guest>=guestLimit?'warn':''}"><b>${esc(guestText)}</b><span>게스트</span></div>
-      <div class="rsvp-stat ${counts.noResponse?'warn':''}"><b>${counts.noResponse}</b><span>미응답</span></div>
-      <div class="rsvp-stat ${counts.issues?'warn':''}"><b>${counts.issues}</b><span>확인 필요</span></div>
+      <details class="rsvp-url-details">
+        <summary>링크 관리</summary>
+        <div class="rsvp-manage-actions">
+          <button class="rsvp-action-btn" onclick="rsvpCreateNew()">새 링크</button>
+          <button class="rsvp-action-btn danger" onclick="rsvpStopLink()">링크 종료</button>
+        </div>
+        <div class="rsvp-url-text">${esc(url)}</div>
+      </details>
     </div>
     ${_rsvpAdminRosterHtml(members,responses)}
-    ${guestRows.length?`<div class="rsvp-list"><div class="rsvp-section-title">게스트 신청 ${esc(guestText)}명 · 신청자 확인</div>${guestRows.map(r=>_rsvpGuestRowHtml(r)).join('')}</div>`:''}
+    ${guestRows.length?`<details class="rsvp-response-details"><summary>게스트 신청 ${esc(guestText)}명</summary><div class="rsvp-list">${guestRows.map(r=>_rsvpGuestRowHtml(r)).join('')}</div></details>`:''}
     ${issueRows.length?`<div class="rsvp-list">${issueRows.map(r=>_rsvpRowHtml(r,true)).join('')}</div>`:''}
-    <div class="rsvp-list">${latest.length?latest.map(r=>_rsvpRowHtml(r,false)).join(''):'<div class="rsvp-empty">아직 응답이 없습니다.</div>'}</div>`;
+    <details class="rsvp-response-details">
+      <summary>최근 응답 ${responses.length}명</summary>
+      <div class="rsvp-list">${latest.length?latest.map(r=>_rsvpRowHtml(r,false)).join(''):'<div class="rsvp-empty">아직 응답이 없습니다.</div>'}</div>
+    </details>`;
   renderAutoFlowDashboard();
 }
 function _rsvpGuestRowHtml(r){
@@ -10232,7 +10237,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.265</span>
+  <span class="app-version" id="appVersion">v1.10.266</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
