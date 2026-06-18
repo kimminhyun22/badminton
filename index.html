@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.255  (2026-06)
+     APP VERSION: 1.10.256  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.255">
+<meta name="app-version" content="1.10.256">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1835,6 +1835,132 @@ body.monthly-team-mode .team-partner-help{display:block;}
   color:var(--ml-blue-deep);
   background:var(--ml-blue-soft);
 }
+.daily-manual-note{
+  border:1px solid var(--ml-line);
+  background:var(--ml-blue-soft);
+  color:var(--ml-ink-soft);
+  border-radius:16px;
+  padding:10px 12px;
+  font-size:.8rem;
+  font-weight:800;
+  line-height:1.45;
+  margin-bottom:12px;
+}
+.daily-manual-section-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  color:var(--ml-mut);
+  font-size:.78rem;
+  font-weight:1000;
+  margin:12px 0 8px;
+}
+.daily-manual-court-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+.daily-manual-court-btn,
+.daily-manual-player-btn{
+  border:1.5px solid var(--ml-line);
+  background:#fff;
+  color:var(--ml-ink);
+  border-radius:16px;
+  min-height:48px;
+  font-weight:1000;
+  letter-spacing:-.045em;
+  cursor:pointer;
+  transition:background .15s,border-color .15s,box-shadow .15s,transform .15s;
+  font-family:inherit;
+}
+.daily-manual-court-btn.on,
+.daily-manual-player-btn.on{
+  border-color:#b9cef7;
+  background:linear-gradient(180deg,#f8fbff,#edf4ff);
+  box-shadow:0 0 0 3px rgba(91,133,214,.12);
+  color:var(--ml-blue-deep);
+}
+.daily-manual-court-btn.busy{
+  color:var(--ml-mut);
+  background:#f7f8fb;
+  border-style:dashed;
+  opacity:.65;
+  cursor:not-allowed;
+}
+.daily-manual-player-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  max-height:42vh;
+  overflow:auto;
+  padding-right:2px;
+}
+.daily-manual-player-btn{
+  position:relative;
+  min-height:58px;
+  padding:9px 10px;
+  text-align:left;
+}
+.daily-manual-player-name{
+  display:block;
+  color:var(--ml-ink);
+  font-size:.96rem;
+  font-weight:1000;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.daily-manual-player-meta{
+  display:block;
+  margin-top:2px;
+  color:var(--ml-mut);
+  font-size:.72rem;
+  font-weight:900;
+}
+.daily-manual-pick{
+  position:absolute;
+  right:8px;
+  top:8px;
+  width:24px;
+  height:24px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#dfeaff;
+  color:var(--ml-blue-deep);
+  font-size:.78rem;
+  font-weight:1000;
+}
+.daily-manual-summary{
+  margin-top:12px;
+  border:1px solid #d9e6fb;
+  border-radius:18px;
+  padding:10px 12px;
+  background:#fff;
+  color:var(--ml-ink);
+  font-size:.86rem;
+  font-weight:1000;
+  line-height:1.45;
+}
+.daily-manual-footer{
+  display:flex;
+  gap:8px;
+  padding:12px 16px;
+  border-top:1px solid var(--ml-line);
+  position:sticky;
+  bottom:0;
+  background:#fff;
+}
+.daily-manual-footer .daily-mini-btn{
+  flex:1;
+  min-height:46px;
+}
+@media(max-width:420px){
+  .daily-manual-player-grid{grid-template-columns:1fr;}
+  .daily-manual-court-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+}
 .daily-active-card .card-body{padding:14px;}
 .daily-active-list{gap:0;}
 .daily-court-grid{
@@ -2272,7 +2398,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>월례 팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전 최신판 v1.10.255</small>
+          <small>팀전 최신판 v1.10.256</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -2684,7 +2810,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <div class="card-head" id="dailyActiveCard">
           <span class="card-title">진행 중 <span id="dailyMatchSummary"></span></span>
           <div class="daily-head-actions">
-            <span class="daily-card-sub">자율게임 등록 · 이름/코트 수정</span>
+            <span class="daily-card-sub">시작 선수만 등록 · 이름/코트 수정</span>
             <button class="daily-mini-btn" onclick="dailyCreateActiveMatch()">게임 추가</button>
           </div>
         </div>
@@ -2968,6 +3094,36 @@ body.monthly-team-mode .team-partner-help{display:block;}
   </div>
 </div>
 
+<!-- ── 민턴LIVE 자율게임 등록 모달 ── -->
+<div class="modal-overlay hidden" id="dailyManualActiveModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>게임 추가</span>
+      <button onclick="closeDailyManualActiveModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="daily-manual-note">
+        시작 버튼을 누른 선수만 선택할 수 있습니다. 1·2번은 한 팀, 3·4번은 상대 팀입니다.
+      </div>
+      <div class="daily-manual-section-title">
+        <span>코트 선택</span>
+        <span id="dailyManualCourtHint"></span>
+      </div>
+      <div class="daily-manual-court-grid" id="dailyManualCourtGrid"></div>
+      <div class="daily-manual-section-title">
+        <span>선수 선택</span>
+        <span id="dailyManualPickCount">0/4</span>
+      </div>
+      <div class="daily-manual-player-grid" id="dailyManualPlayerGrid"></div>
+      <div class="daily-manual-summary" id="dailyManualSummary">선수 4명을 순서대로 선택하세요.</div>
+    </div>
+    <div class="daily-manual-footer">
+      <button class="daily-mini-btn" onclick="closeDailyManualActiveModal()">취소</button>
+      <button class="daily-mini-btn primary-action" id="dailyManualConfirmBtn" onclick="dailyConfirmManualActiveMatch()">등록</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════ MANUAL PAGE ═══════════════ -->
 <div class="page" id="pageManual">
 <div class="manual-wrap">
@@ -3073,7 +3229,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.255';
+const APP_VERSION = '1.10.256';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3348,6 +3504,7 @@ let _dailyCheckinListening=false;
 let _dailyCheckinRequests=[];
 let _dailyCheckinApplying=false;
 let _dailyVoteDeadlineAt='';
+let _dailyManualActiveDraft={court:null,ids:[]};
 let _dailyEmergencyEditQueueId=null;
 let _dailyLastCompleteUndo=null;
 
@@ -5198,53 +5355,151 @@ function dailyEditActiveCourt(matchId){
 function _dailyManualActiveCandidates(){
   const activeIds=new Set();
   _dailyActiveMatches().forEach(m=>_dailyMatchPlayers(m).forEach(p=>activeIds.add(p.id)));
-  const statusRank={wait:0,planned:1,invited:2,rest:3};
   return _dailyPlayers
-    .filter(p=>p&&p.status!=='done'&&!p.currentMatchId&&!activeIds.has(p.id))
+    .filter(p=>p&&_dailyNormalizeStatus(p.status)==='wait'&&!p.currentMatchId&&!activeIds.has(p.id))
     .sort((a,b)=>{
-      const ar=statusRank[_dailyNormalizeStatus(a.status)]??9;
-      const br=statusRank[_dailyNormalizeStatus(b.status)]??9;
-      if(ar!==br)return ar-br;
       if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
+      if((a.waitFrom||0)!==(b.waitFrom||0))return (a.waitFrom||0)-(b.waitFrom||0);
       return a.name.localeCompare(b.name,'ko');
     });
+}
+function _dailyManualEscape(v){
+  return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function _dailyManualActiveUsedCourts(){
+  return new Set(_dailyActiveMatches().map(m=>parseInt(m.court,10)||0).filter(Boolean));
+}
+function _dailyManualActiveDefaultCourt(){
+  const used=_dailyManualActiveUsedCourts();
+  const base=Math.max(1,_dailyCourtCount());
+  for(let c=1;c<=Math.max(base,4);c++){
+    if(!used.has(c))return c;
+  }
+  for(let c=Math.max(base,4)+1;c<=12;c++){
+    if(!used.has(c))return c;
+  }
+  return 1;
+}
+function _dailyManualActiveCourtMax(){
+  const activeMax=Math.max(0,..._dailyActiveMatches().map(m=>parseInt(m.court,10)||0));
+  return Math.min(12,Math.max(4,_dailyCourtCount()+2,activeMax+1));
+}
+function _dailyManualActiveSelected(){
+  const candidates=new Map(_dailyManualActiveCandidates().map(p=>[p.id,p]));
+  return (_dailyManualActiveDraft.ids||[]).map(id=>candidates.get(id)).filter(Boolean);
 }
 function dailyCreateActiveMatch(){
   const candidates=_dailyManualActiveCandidates();
   if(candidates.length<4){
-    alert('자율게임을 등록하려면 진행 중이 아닌 선수가 4명 이상 필요합니다.');
+    alert('게임 추가는 시작 상태 선수가 4명 이상일 때 가능합니다.');
     return;
   }
-  const usedCourts=new Set(_dailyActiveMatches().map(m=>parseInt(m.court,10)||0));
-  let defaultCourt=1;
-  while(usedCourts.has(defaultCourt)&&defaultCourt<12)defaultCourt++;
-  const courtRaw=prompt('현재 자율게임이 진행 중인 코트 번호를 입력하세요.',String(defaultCourt));
-  if(courtRaw==null)return;
-  const court=parseInt(String(courtRaw).trim(),10);
+  _dailyManualActiveDraft={court:_dailyManualActiveDefaultCourt(),ids:[]};
+  dailyRenderManualActiveModal();
+  const modal=document.getElementById('dailyManualActiveModal');
+  if(modal)modal.classList.remove('hidden');
+}
+function closeDailyManualActiveModal(){
+  const modal=document.getElementById('dailyManualActiveModal');
+  if(modal)modal.classList.add('hidden');
+}
+function dailySetManualActiveCourt(court){
+  court=parseInt(court,10)||0;
+  if(court<1||court>12)return;
+  if(_dailyManualActiveUsedCourts().has(court)){
+    alert(`${court}코트는 이미 진행 중입니다.`);
+    return;
+  }
+  _dailyManualActiveDraft.court=court;
+  dailyRenderManualActiveModal();
+}
+function dailyToggleManualActivePlayer(id){
+  const candidates=new Map(_dailyManualActiveCandidates().map(p=>[p.id,p]));
+  if(!candidates.has(id)){
+    alert('현재 시작 상태인 선수만 선택할 수 있습니다.');
+    dailyRenderManualActiveModal();
+    return;
+  }
+  const ids=_dailyManualActiveDraft.ids||[];
+  const idx=ids.indexOf(id);
+  if(idx>=0){
+    ids.splice(idx,1);
+  }else{
+    if(ids.length>=4){
+      alert('선수는 4명까지 선택합니다.');
+      return;
+    }
+    ids.push(id);
+  }
+  _dailyManualActiveDraft.ids=ids;
+  dailyRenderManualActiveModal();
+}
+function dailyRenderManualActiveModal(){
+  const candidates=_dailyManualActiveCandidates();
+  const used=_dailyManualActiveUsedCourts();
+  const court=_dailyManualActiveDraft.court||_dailyManualActiveDefaultCourt();
+  if(used.has(court))_dailyManualActiveDraft.court=_dailyManualActiveDefaultCourt();
+  const selectedIds=_dailyManualActiveDraft.ids||[];
+  const courtGrid=document.getElementById('dailyManualCourtGrid');
+  if(courtGrid){
+    const max=_dailyManualActiveCourtMax();
+    courtGrid.innerHTML=Array.from({length:max},(_,i)=>{
+      const c=i+1;
+      const busy=used.has(c);
+      const on=!busy&&c===_dailyManualActiveDraft.court;
+      return `<button type="button" class="daily-manual-court-btn ${on?'on':''} ${busy?'busy':''}" ${busy?'disabled':''} onclick="dailySetManualActiveCourt(${c})">${c}코트</button>`;
+    }).join('');
+  }
+  const hint=document.getElementById('dailyManualCourtHint');
+  if(hint)hint.textContent=`선택 ${_dailyManualActiveDraft.court||'-'}코트`;
+  const count=document.getElementById('dailyManualPickCount');
+  if(count)count.textContent=`${selectedIds.length}/4`;
+  const grid=document.getElementById('dailyManualPlayerGrid');
+  if(grid){
+    grid.innerHTML=candidates.map(p=>{
+      const idx=selectedIds.indexOf(p.id);
+      const on=idx>=0;
+      const guest=p.isGuest?'G · ':'';
+      return `<button type="button" class="daily-manual-player-btn ${on?'on':''}" onclick="dailyToggleManualActivePlayer('${_dailyManualEscape(p.id)}')">
+        <span class="daily-manual-player-name">${_dailyManualEscape(p.name)}${p.isGuest?' (G)':''}</span>
+        <span class="daily-manual-player-meta">${guest}${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}게임</span>
+        ${on?`<span class="daily-manual-pick">${idx+1}</span>`:''}
+      </button>`;
+    }).join('') || '<div class="daily-empty">시작 상태 선수가 없습니다.</div>';
+  }
+  const selected=_dailyManualActiveSelected();
+  const summary=document.getElementById('dailyManualSummary');
+  if(summary){
+    const t1=selected.slice(0,2).map(p=>p.name).join(' / ') || '1·2번 선택';
+    const t2=selected.slice(2,4).map(p=>p.name).join(' / ') || '3·4번 선택';
+    summary.textContent=`${_dailyManualActiveDraft.court||'-'}코트 · ${t1} vs ${t2}`;
+  }
+  const btn=document.getElementById('dailyManualConfirmBtn');
+  if(btn){
+    btn.disabled=selectedIds.length!==4||!_dailyManualActiveDraft.court;
+    btn.style.opacity=btn.disabled?'.45':'1';
+  }
+}
+function dailyConfirmManualActiveMatch(){
+  const court=parseInt(_dailyManualActiveDraft.court,10)||0;
   if(!Number.isFinite(court)||court<1||court>12){
-    alert('코트 번호는 1~12 사이 숫자로 입력해 주세요.');
+    alert('코트 번호를 선택해 주세요.');
     return;
   }
-  if(_dailyActiveMatches().some(m=>(parseInt(m.court,10)||0)===court)){
-    alert(`${court}코트에는 이미 진행 중인 경기가 있습니다. 다른 코트를 선택해 주세요.`);
+  if(_dailyManualActiveUsedCourts().has(court)){
+    alert(`${court}코트에는 이미 진행 중인 경기가 있습니다.`);
+    dailyRenderManualActiveModal();
     return;
   }
-  const list=candidates.map((p,i)=>{
-    const status=_dailyCheckinStatusLabel(p.status);
-    return `${i+1}. ${p.name}${p.isGuest?'(G)':''} · ${status} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G`;
-  }).join('\n');
-  const pickRaw=prompt(
-    `자율게임 4명을 번호로 입력하세요.\nA팀 2명 / B팀 2명 순서입니다. 예: 1,2,3,4\n\n${list}`,
-    '1,2,3,4'
-  );
-  if(pickRaw==null)return;
-  const picks=String(pickRaw).split(/[\s,./]+/).map(v=>parseInt(v,10)).filter(Number.isFinite);
-  if(picks.length!==4||new Set(picks).size!==4||picks.some(n=>n<1||n>candidates.length)){
-    alert('서로 다른 선수 번호 4개를 입력해 주세요.');
+  const candidates=new Map(_dailyManualActiveCandidates().map(p=>[p.id,p]));
+  const ids=(_dailyManualActiveDraft.ids||[]).filter(id=>candidates.has(id));
+  if(ids.length!==4||new Set(ids).size!==4){
+    alert('시작 상태 선수 4명을 다시 선택해 주세요.');
+    _dailyManualActiveDraft.ids=ids;
+    dailyRenderManualActiveModal();
     return;
   }
-  const selected=picks.map(n=>candidates[n-1]);
-  const ids=selected.map(p=>p.id);
+  const selected=ids.map(id=>candidates.get(id));
   const idSet=new Set(ids);
   const removedQueues=_dailyQueue.filter(q=>_dailyQueueIds(q).some(id=>idSet.has(id)));
   removedQueues.forEach(q=>{
@@ -5293,6 +5548,7 @@ function dailyCreateActiveMatch(){
     p.lastStatusAt=_dailyNow();
   });
   _dailyMarkFourCacheDirty();
+  closeDailyManualActiveModal();
   dailyEnsureQueue();
   dailySave();
   dailyRender();
@@ -12989,7 +13245,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.255&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.256&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -13057,7 +13313,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.255</span>
+  <span class="app-version" id="appVersion">v1.10.256</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
