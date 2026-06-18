@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.266  (2026-06)
+     APP VERSION: 1.10.272  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.266">
+<meta name="app-version" content="1.10.272">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1225,6 +1225,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 
 /* ── 팀전 투표 / 보관함 ── */
 .rsvp-grid{display:grid;grid-template-columns:minmax(150px,.9fr) minmax(190px,1fr);gap:7px;align-items:center;margin-bottom:9px;}
+.rsvp-grid.rsvp-grid-single{grid-template-columns:1fr;}
 #rsvpClubSelect{min-height:46px;border:1.5px solid #c9daf6;background:#f8fbff;color:#456fb8;
   font-size:.9rem;font-weight:900;border-radius:12px;box-shadow:0 4px 12px rgba(91,141,239,.055);}
 #rsvpClubSelect:focus{outline:none;border-color:#5b8def;box-shadow:0 0 0 4px rgba(91,141,239,.16);}
@@ -1237,6 +1238,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-current-state{display:inline-flex;align-items:center;gap:5px;border:1px solid #bbf7d0;background:#f0fdf4;color:#15803d;border-radius:999px;padding:7px 10px;font-size:.68rem;font-weight:1000;white-space:nowrap;}
 .rsvp-current-state:before{content:'';width:8px;height:8px;border-radius:999px;background:#ef4444;box-shadow:0 0 0 7px rgba(239,68,68,.16);}
 .rsvp-current-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.rsvp-import-only .rsvp-current-actions{grid-template-columns:1fr;}
+.rsvp-import-only .rsvp-action-btn{min-height:50px;border-radius:16px;font-size:.9rem;}
 .rsvp-create-box{border:1.5px dashed #cfe0fb;border-radius:18px;background:#fbfdff;padding:14px;display:flex;flex-direction:column;gap:10px;text-align:center;}
 .rsvp-create-title{font-size:.96rem;font-weight:1000;color:#172033;}
 .rsvp-create-sub{font-size:.74rem;font-weight:850;color:#64748b;line-height:1.45;}
@@ -2088,8 +2091,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   grid-template-columns:1fr!important;
   gap:8px!important;
 }
-#rsvpClubSelect,
-#rsvpTitle{
+#rsvpClubSelect{
   text-align:center!important;
   text-align-last:center!important;
   padding-left:16px!important;
@@ -2099,10 +2101,6 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   font-weight:900!important;
   color:#4f6f9f!important;
   background:#f8fbff!important;
-}
-#rsvpTitle{
-  font-weight:850!important;
-  color:#2f3745!important;
 }
 .rsvp-grid .btn-gen{
   max-width:100%!important;
@@ -2146,7 +2144,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 }
 
 @media(min-width:769px){
-  .rsvp-grid{
+  .rsvp-grid:not(.rsvp-grid-single){
     grid-template-columns:minmax(180px,.9fr) minmax(220px,1fr)!important;
   }
 }
@@ -2251,22 +2249,20 @@ header,.nav-bar{
   border-color:#f1c8cc!important;
 }
 
-/* 선택/실행 상태는 현장에서 한눈에 보이도록 붉은 점등으로 통일 */
+/* 버튼 상태는 프레임/배경/텍스트로만 구분한다. 점등 장식은 모바일에서 산만해서 제거. */
 .btn-gen::before,
 .auto-flow-btn::before,
 .rsvp-action-btn.primary::before,
 .rsvp-saved-btn.active::before,
 .btn-ta.done::before,
-.pseg-btn.active::before{
-  content:''!important;
-  display:inline-block!important;
-  width:10px!important;
-  height:10px!important;
-  margin-right:8px!important;
-  border-radius:999px!important;
-  background:#dc2626!important;
-  box-shadow:0 0 0 5px rgba(220,38,38,.16),0 0 16px rgba(220,38,38,.75)!important;
-  vertical-align:middle!important;
+.pseg-btn.active::before,
+.rsvp-current-state::before{
+  content:none!important;
+  display:none!important;
+  width:0!important;
+  height:0!important;
+  margin:0!important;
+  box-shadow:none!important;
 }
 .tlb-blue,.tlb-white{
   background:#fff!important;
@@ -2461,7 +2457,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.266&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.272&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2480,7 +2476,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.266&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.272&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2504,18 +2500,17 @@ header,.nav-bar{
         <div id="autoFlowBody"></div>
       </div>
 
-      <!-- 출석 링크 -->
+      <!-- 출석부 -->
       <details class="card" id="sec-rsvp" open>
         <summary class="card-head">
-          <span class="card-title">출석 링크 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
+          <span class="card-title">출석부 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
         </summary>
         <div class="card-body">
-          <div class="rsvp-grid">
+          <div class="rsvp-grid rsvp-grid-single">
             <select class="inp" id="rsvpClubSelect" onchange="rsvpSetClub(this.value)"></select>
-            <input class="inp" id="rsvpTitle" placeholder="예: 새천년 팀전 06.15" oninput="rsvpSaveLocal()">
           </div>
-          <div class="hint" style="margin-bottom:8px;">명부 선택 후 링크를 공유하고, 현장에서 출석자만 가져옵니다.</div>
-          <div id="rsvpBox" class="rsvp-empty">아직 팀전LIVE 출석 링크가 만들어지지 않았습니다.</div>
+          <div class="hint" style="margin-bottom:8px;">명부를 선택하면 출석부 공유 문구가 자동으로 복사됩니다.</div>
+          <div id="rsvpBox" class="rsvp-empty">명부를 선택하면 출석부가 준비됩니다.</div>
           <div id="rsvpSavedBox"></div>
         </div>
       </details>
@@ -2636,11 +2631,10 @@ header,.nav-bar{
               </div>
             </div>
           </div>
-          <button class="tmb" id="teamModeBadge" onclick="toggleTeamMode()"
-            title="클릭하여 팀 모드 켜기/끄기">팀 모드: 꺼짐 (자유 배정)</button>
+          <div class="hidden" id="teamModeBadge" aria-hidden="true"></div>
 
-          <!-- 팀 배정 컨트롤: 팀 모드와 함께 한곳에 -->
-          <button class="btn-ta hidden" id="teamAssignBtn" onclick="doTeamAssign()">
+          <!-- 팀전LIVE는 항상 청/홍팀 기준으로 진행한다. -->
+          <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()">
             ⚖️ 청/홍팀 자동 배정
           </button>
           <div class="team-list-wrap" id="teamListWrap">
@@ -3081,7 +3075,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.266';
+const APP_VERSION = '1.10.272';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3494,9 +3488,8 @@ function renderTeamList(){
     sortWithCaptain(blue,'blue').map(p=>renderRow(p,'blue','white')).join('');
   document.getElementById('whiteList').innerHTML=
     sortWithCaptain(white,'white').map(p=>renderRow(p,'white','blue')).join('');
-  // 팀 모드가 꺼진 상태면 목록 표시 안 함
-  const _isTeamOn = teamAssignment && _teamModeOverride!==false;
-  document.getElementById('teamListWrap').classList.toggle('show', !!_isTeamOn);
+  // 팀 배정이 끝나면 청/홍 명단을 표시한다.
+  document.getElementById('teamListWrap').classList.toggle('show', !!teamAssignment);
 }
 
 function cycleRole(team, name){
@@ -3558,8 +3551,8 @@ function movePlayer(name,toTeam){
   renderTeamList();
 }
 
-let _teamModeOverride=null; // null=auto, true=강제켜짐, false=강제꺼짐
-let _teamWanted=false; // 사용자가 팀전을 원하는지 (자동배정 버튼 노출 제어)
+let _teamModeOverride=null; // 구버전 저장본 호환용. 팀전LIVE에서는 항상 팀전으로 처리한다.
+let _teamWanted=true; // 팀전LIVE 기본값: 청/홍팀 자동 배정
 // 단장/부단장 지정 { blue:{leader:'',sub:''}, white:{leader:'',sub:''} }
 let captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 
@@ -3574,16 +3567,9 @@ function stepVal(id, delta){
 }
 
 function toggleTeamMode(){
-  // 팀전 ON/OFF 토글 (배정 전에도 동작)
-  if(_teamModeOverride===false || (!teamAssignment && _teamWanted!==true)){
-    // 끄기 상태 → 켜기
-    _teamWanted=true;
-    _teamModeOverride=null;
-  } else {
-    // 켜기 상태 → 끄기
-    _teamWanted=false;
-    _teamModeOverride=false;
-  }
+  // 구버전 버튼 호환: 팀전LIVE에서는 끄기 없이 항상 팀전 상태를 유지한다.
+  _teamWanted=true;
+  _teamModeOverride=null;
   updateTeamModeBadge();
   updateSettingsMiniSummary();
 }
@@ -3594,47 +3580,34 @@ function updateSettingsMiniSummary(){
   const courts=document.getElementById('courts')?.value||'4';
   const games=document.getElementById('gamesPerPlayer')?.value||'4';
   const mixed=document.getElementById('mixedDbl')?.value||'1';
-  const teamOn=!!(teamAssignment&&_teamModeOverride!==false);
   const chips=[
     `코트 ${courts}`,
     `인당 ${games}`,
     `혼복 ${mixed}`,
     `${_pointSystem}점`,
-    teamOn?'팀전':'자유'
+    teamAssignment?'청/홍 배정':'팀전'
   ];
   el.innerHTML=chips.map(t=>`<span class="settings-mini-chip">${esc(t)}</span>`).join('');
 }
 
 function updateTeamModeBadge(){
   const b=document.getElementById('teamModeBadge');
-  if(!b)return;
   const wrap=document.getElementById('teamListWrap');
   const reBtn=document.getElementById('teamReassignBtn');
   const assignBtn=document.getElementById('teamAssignBtn');
-  // 팀전을 원하는 상태인가 (켜짐)
-  const wantTeam = (_teamModeOverride!==false) && (_teamWanted===true || !!teamAssignment);
-  const isOn = teamAssignment && _teamModeOverride!==false;
-
-  if(wantTeam){
-    // 팀전 켜짐: 자동 배정 버튼 노출
-    if(assignBtn) assignBtn.classList.remove('hidden');
-    if(isOn){
-      b.className='tmb tmb-on';
-      b.textContent=`팀 모드: 켜짐 (${teamNames.blue} vs ${teamNames.white})`;
-      if(wrap&&teamAssignment) wrap.classList.add('show');
-      if(reBtn&&teamAssignment) reBtn.classList.remove('hidden');
-    } else {
-      // 켜고 싶지만 아직 배정 전
-      b.className='tmb tmb-on';
-      b.textContent='팀 모드: 켜짐 — 아래에서 팀을 배정하세요';
-      if(wrap) wrap.classList.remove('show');
-      if(reBtn) reBtn.classList.add('hidden');
-    }
-  } else {
-    // 팀전 꺼짐: 모든 팀 컨트롤 숨김
-    b.className='tmb tmb-off can-on';
-    b.textContent='팀 모드: 꺼짐 (개인전 · 자유 배정)';
+  _teamWanted=true;
+  _teamModeOverride=null;
+  const isOn=!!teamAssignment;
+  if(b){
+    b.className='hidden';
+    b.textContent='팀전LIVE';
+  }
+  if(isOn){
     if(assignBtn) assignBtn.classList.add('hidden');
+    if(wrap) wrap.classList.add('show');
+    if(reBtn) reBtn.classList.remove('hidden');
+  } else {
+    if(assignBtn) assignBtn.classList.remove('hidden');
     if(wrap) wrap.classList.remove('show');
     if(reBtn) reBtn.classList.add('hidden');
   }
@@ -3730,10 +3703,6 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
 function generate(){
   hideErr();hideWarn();
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
-  if(teamAssignment&&_teamAssignmentHasSplitPartners()){
-    doTeamAssign();
-    if(_teamAssignmentHasSplitPartners())return;
-  }
   // 이미 대진표가 있으면 덮어쓰기 경고 (특히 점수 입력된 경우)
   if(currentMatches.length){
     const enteredScores=Object.keys(winOverride).filter(k=>winOverride[k]).length;
@@ -3741,6 +3710,14 @@ function generate(){
       ? `이미 대진표가 있고 ${enteredScores}경기의 승패가 입력되어 있습니다.\n\n새로 생성하면 현재 대진표와 입력된 결과가 모두 사라집니다.\n계속할까요?`
       : `이미 생성된 대진표가 있습니다.\n새로 생성하면 현재 대진표가 사라집니다.\n계속할까요?`;
     if(!confirm(msg)) return;
+  }
+  if(!teamAssignment){
+    doTeamAssign();
+    if(!teamAssignment)return;
+  }
+  if(teamAssignment&&_teamAssignmentHasSplitPartners()){
+    doTeamAssign();
+    if(_teamAssignmentHasSplitPartners())return;
   }
   let participants=_directPlayers.map(p=>({
     name:p.name,level:p.level,gender:p.gender==='남'?'M':'F',
@@ -3785,12 +3762,12 @@ function generate(){
   const settings={
     courts,gamesPerPlayer:gpp,
     mixedDoublesPerPerson:xDbl,
-    teamMode: teamAssignment && _teamModeOverride!==false
+    teamMode: !!teamAssignment
   };
   if(settings.teamMode){
     const b=participants.filter(x=>x.team==='청팀'),w=participants.filter(x=>x.team==='홍팀');
-    if(b.length<2){showErr('팀 모드: 청팀 최소 2명 필요');return;}
-    if(w.length<2){showErr('팀 모드: 홍팀 최소 2명 필요');return;}
+    if(b.length<2){showErr('청팀 최소 2명이 필요합니다.');return;}
+    if(w.length<2){showErr('홍팀 최소 2명이 필요합니다.');return;}
   }
 
   _captureUndoSnapshot('대진표 생성 전');
@@ -6900,7 +6877,7 @@ function restoreState(){
       const bi=document.getElementById('blueNameInput'); if(bi) bi.value=teamNames.blue;
       const wi=document.getElementById('whiteNameInput'); if(wi) wi.value=teamNames.white;
     }
-    _teamModeOverride = state.teamModeOverride ?? null;
+    _teamModeOverride = null;
     if(state.captains) captains=state.captains;
     else captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 
@@ -6920,11 +6897,8 @@ function restoreState(){
       btn.innerHTML='🔀 청/홍팀 재배정 (클릭 시 새로 배정)';
       const rbtn=document.getElementById('teamReassignBtn');
       if(rbtn) rbtn.classList.remove('hidden');
-      updateTeamModeBadge(); // 팀 모드 꺼짐이면 목록 자동 숨김
-      // 팀 모드 켜짐일 때만 팀 목록 표시
-      if(_teamModeOverride!==false){
-        renderTeamList();
-      }
+      updateTeamModeBadge();
+      renderTeamList();
     } else {teamAssignment=null;updateTeamModeBadge();}
 
     currentParticipants=state.participants.map(p=>Object.assign({
@@ -7696,8 +7670,8 @@ function executeChangeModal(){
   if(currentSettings.teamMode){
     const b=activeParticipants.filter(p=>p.team==='청팀');
     const w=activeParticipants.filter(p=>p.team==='홍팀');
-    if(b.length<2){alert('팀 모드: 청팀 최소 2명이 필요합니다.');return;}
-    if(w.length<2){alert('팀 모드: 홍팀 최소 2명이 필요합니다.');return;}
+    if(b.length<2){alert('청팀 최소 2명이 필요합니다.');return;}
+    if(w.length<2){alert('홍팀 최소 2명이 필요합니다.');return;}
   }
 
   // 4. 새 경기 수 계산 — 선수별 목표(_goal) 기준 잔여 합
@@ -7906,7 +7880,7 @@ function resetAll(){
   document.getElementById('teamAssignBtn').innerHTML='⚖️ 청/홍팀 자동 배정 <span style="font-size:.7rem;opacity:.6">(선택)</span>';
   const rbtn=document.getElementById('teamReassignBtn');
   if(rbtn) rbtn.classList.add('hidden');
-  teamAssignment=null;_teamModeOverride=null;_teamWanted=false;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  teamAssignment=null;_teamModeOverride=null;_teamWanted=true;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
   currentMatches=[];currentParticipants=[];currentSettings={};
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
@@ -8261,6 +8235,7 @@ const RSVP_CLUB_KEY='kokmatch_team_rsvp_club_id';
 const RSVP_CREATED_KEY='kokmatch_team_rsvp_created_at';
 const RSVP_HISTORY_KEY='kokmatch_team_rsvp_history';
 const RSVP_DIRECT_VALUE='__direct__';
+const TEAM_SAMPLE_CLUB_ID='sample_mir_club';
 let _rsvpId=null;
 let _rsvpCreatedAt=null;
 let _rsvpListening=false;
@@ -8386,16 +8361,24 @@ function _rsvpRefreshRostersFromStorage(){
   }
 }
 function _rsvpClubs(){
+  if(isTeamSampleMode()){
+    const sample=_teamSampleRoster();
+    const current=(rosters.clubs||[]).filter(c=>(c.members||[]).length&&c.id!==sample.id);
+    return [sample,...current];
+  }
   _rsvpRefreshRostersFromStorage();
   return (rosters.clubs||[]).filter(c=>(c.members||[]).length);
 }
 function _rsvpSelectedSource(){
-  if(isTeamSampleMode())return RSVP_DIRECT_VALUE;
   const clubs=_rsvpClubs();
   const saved=localStorage.getItem(RSVP_CLUB_KEY)||'';
+  if(isTeamSampleMode()){
+    if(clubs.some(c=>c.id===saved))return saved;
+    if(clubs.some(c=>c.id===TEAM_SAMPLE_CLUB_ID))return TEAM_SAMPLE_CLUB_ID;
+    return RSVP_DIRECT_VALUE;
+  }
   if(saved===RSVP_DIRECT_VALUE&&_directPlayers.length)return RSVP_DIRECT_VALUE;
   if(clubs.some(c=>c.id===saved))return saved;
-  if(clubs.length===1)return clubs[0].id;
   if(!clubs.length&&_directPlayers.length)return RSVP_DIRECT_VALUE;
   return '';
 }
@@ -8414,18 +8397,25 @@ function rsvpRenderClubSelect(){
   const clubs=_rsvpClubs();
   const src=_rsvpSelectedSource();
   const opts=[];
-  opts.push(`<option value="">${clubs.length?'발송할 클럽 명부 선택':'현재 주소에 저장된 클럽 명부 없음'}</option>`);
+  opts.push(`<option value="">${clubs.length?'단톡방에 보낼 명부 선택':'현재 주소에 저장된 클럽 명부 없음'}</option>`);
   clubs.forEach(c=>opts.push(`<option value="${esc(c.id)}">${esc(c.name)} 명부 (${(c.members||[]).length}명)</option>`));
   if(_directPlayers.length)opts.push(`<option value="${RSVP_DIRECT_VALUE}">현재 참가자 입력 (${_directPlayers.length}명)</option>`);
   sel.innerHTML=opts.join('');
   sel.value=src;
 }
-function rsvpSetClub(value){
+async function rsvpSetClub(value){
   if(value)localStorage.setItem(RSVP_CLUB_KEY,value);
   else localStorage.removeItem(RSVP_CLUB_KEY);
-  _rsvpApplyAutoTitle(false);
+  if(value&&(!_rsvpId||!localStorage.getItem(RSVP_TITLE_KEY))){
+    _rsvpApplyAutoTitle(true);
+  }else{
+    _rsvpApplyAutoTitle(false);
+  }
   rsvpRender();
-  if(value)rsvpPushSession();
+  if(value){
+    const copied=await rsvpCopyShareText(true);
+    if(!copied)rsvpPushSession();
+  }
 }
 function _rsvpRosterMembers(){
   const src=_rsvpSelectedSource();
@@ -8537,7 +8527,6 @@ function rsvpRenderSavedBox(){
         <div class="rsvp-saved-meta">${esc(meta)}</div>
       </div>
       <button class="rsvp-saved-btn ${active?'active':''}" onclick="rsvpLoadSaved('${esc(item.id)}')">${active?'열림':'열기'}</button>
-      <button class="rsvp-saved-btn" onclick="rsvpCopySavedLink('${esc(item.id)}')">링크 복사</button>
       <button class="rsvp-saved-btn danger" onclick="rsvpRemoveSaved('${esc(item.id)}')">삭제</button>
     </div>`;
   }).join('');
@@ -8645,24 +8634,43 @@ async function rsvpPublishSession(silent){
   return _rsvpId;
 }
 async function rsvpShareLink(){
+  await rsvpCopyShareText(false);
+}
+async function rsvpCopyShareText(auto){
   const id=await rsvpPublishSession(false);
-  if(!id)return;
+  if(!id)return false;
   const url=_rsvpUrl();
   const title=_rsvpTitle();
   const target=_rsvpSelectedLabel();
   const text=`🏸 ${target} · ${title} 팀전LIVE\n\n본인 이름을 찾고 출석을 눌러 주세요.\n늦게 오면 출석 옆 예정 딱지를 켜면 됩니다.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
-  try{
-    if(navigator.share){
-      await navigator.share({title:`${title} 팀전LIVE`,text});
-      return;
-    }
-  }catch(e){}
+  if(!auto){
+    try{
+      if(navigator.share){
+        await navigator.share({title:`${title} 팀전LIVE`,text});
+        return true;
+      }
+    }catch(e){}
+  }
   try{
     await navigator.clipboard.writeText(text);
-    alert('팀전LIVE 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.\n\n'+url);
+    alert(auto
+      ? '출석부 공유 문구를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.'
+      : '팀전LIVE 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.\n\n'+url);
+    return true;
   }catch(e){
+    if(auto){
+      prompt('아래 문구를 복사해서 공유하세요.',text);
+      return true;
+    }
+    try{
+      if(navigator.share){
+        await navigator.share({title:`${title} 팀전LIVE`,text});
+        return true;
+      }
+    }catch(err){}
     prompt('아래 문구를 복사해서 공유하세요.',text);
-  }
+    return true;
+    }
 }
 function rsvpLoad(){
   const titleEl=document.getElementById('rsvpTitle');
@@ -8872,7 +8880,7 @@ function renderAutoFlowDashboard(){
     const hasRoster=!_rsvpNeedsClubSelection() && rosterTotal>0;
     const rosterName=hasRoster?_rsvpSelectedLabel():'명부 필요';
     const players=_directPlayers.length;
-    const teamReady=!!(teamAssignment&&_teamModeOverride!==false);
+    const teamReady=!!teamAssignment;
     const matches=currentMatches.length;
     const done=matches?currentMatches.filter((_,i)=>_isMatchDone(i)).length:0;
     const live=!!_liveOn;
@@ -8921,10 +8929,10 @@ function renderAutoFlowDashboard(){
       cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'출석자를 반영하세요.'};
     } else if(_rsvpId){
       stage='wait';
-      cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'링크 공유 후 응답을 기다립니다.'};
+      cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'회원 응답을 기다립니다.'};
     } else if(hasRoster){
       stage='link';
-      cfg={badge:'링크 전',title:'팀전LIVE 상황판',sub:'출석 링크를 만드세요.'};
+      cfg={badge:'출석부',title:'팀전LIVE 상황판',sub:'명부 선택 시 공유 문구가 복사됩니다.'};
     }
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
@@ -8971,10 +8979,10 @@ function rsvpRender(){
   const {members,responses,counts}=_rsvpStats();
   const guestLimitForSummary=_rsvpGuestLimit();
   const guestSummaryText=guestLimitForSummary?`${counts.guest}/${guestLimitForSummary}`:String(counts.guest);
-  if(summary)summary.textContent=_rsvpId?`(${_rsvpSelectedLabel()} · ${counts.attend}명 출석 · 예정 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${guestSummaryText}명)`:'';
+  if(summary)summary.textContent=_rsvpId?`(${counts.attend}명 출석 · 예정 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · G ${guestSummaryText}명)`:'';
   if(_rsvpNeedsClubSelection()){
     box.className='rsvp-empty';
-    box.textContent='먼저 사용할 클럽 명부를 선택하세요.';
+    box.textContent='단톡방에 보낼 명부를 선택하세요.';
     renderAutoFlowDashboard();
     return;
   }
@@ -8982,15 +8990,13 @@ function rsvpRender(){
     box.className='rsvp-panel';
     box.innerHTML=members.length
       ?`<div class="rsvp-create-box">
-          <div class="rsvp-create-title">${esc(_rsvpSelectedLabel())} 출석 링크 준비됨</div>
-          <div class="rsvp-create-sub">링크를 만들면 공유 문구가 바로 복사됩니다.</div>
-          <button class="rsvp-action-btn primary" onclick="rsvpCreateNew()">출석 링크 만들기</button>
+          <div class="rsvp-create-title">출석부 준비 전</div>
+          <div class="rsvp-create-sub">명부를 선택하면 공유 문구가 자동으로 복사됩니다.</div>
         </div>`
       :`<div class="rsvp-empty">현재 접속 주소에 저장된 클럽 명부가 없습니다. 명부 탭에서 불러오거나, 명부를 만든 것과 같은 주소의 팀전 페이지에서 열어주세요.</div>`;
     renderAutoFlowDashboard();
     return;
   }
-  const url=_rsvpUrl();
   const guestLimit=_rsvpGuestLimit();
   const guestText=guestLimit?`${counts.guest}/${guestLimit}`:String(counts.guest);
   const latest=[...responses].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,8);
@@ -8998,26 +9004,16 @@ function rsvpRender(){
   const issueRows=responses.filter(r=>_rsvpIsAttending(r.status)&&r.guest&&r.guest.name&&(!r.guest.gender||!r.guest.grade));
   box.className='rsvp-panel';
   box.innerHTML=`
-    <div class="rsvp-current">
+    <div class="rsvp-current rsvp-import-only">
       <div class="rsvp-current-top">
         <div>
-          <div class="rsvp-current-k">출석 링크</div>
-          <div class="rsvp-current-title">${esc(_rsvpTitle())}</div>
-          <div class="rsvp-current-meta">${esc(_rsvpSelectedLabel())} · 출석 ${counts.attend}명 · 예정 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${esc(guestText)}명</div>
+          <div class="rsvp-current-k">출석부</div>
+          <div class="rsvp-current-meta">출석 ${counts.attend}명 · 예정 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${esc(guestText)}명</div>
         </div>
       </div>
       <div class="rsvp-current-actions">
-        <button class="rsvp-action-btn primary" onclick="rsvpShareLink()">1 링크 복사</button>
-        <button class="rsvp-action-btn primary soft" onclick="rsvpImportAttendees()">2 출석자 가져오기</button>
+        <button class="rsvp-action-btn primary soft" onclick="rsvpImportAttendees()">불러오기</button>
       </div>
-      <details class="rsvp-url-details">
-        <summary>링크 관리</summary>
-        <div class="rsvp-manage-actions">
-          <button class="rsvp-action-btn" onclick="rsvpCreateNew()">새 링크</button>
-          <button class="rsvp-action-btn danger" onclick="rsvpStopLink()">링크 종료</button>
-        </div>
-        <div class="rsvp-url-text">${esc(url)}</div>
-      </details>
     </div>
     ${_rsvpAdminRosterHtml(members,responses)}
     ${guestRows.length?`<details class="rsvp-response-details"><summary>게스트 신청 ${esc(guestText)}명</summary><div class="rsvp-list">${guestRows.map(r=>_rsvpGuestRowHtml(r)).join('')}</div></details>`:''}
@@ -9171,7 +9167,7 @@ function _rsvpClearUnstartedBracket(){
   _captureUndoSnapshot('출석자 가져오기 전');
   teamAssignment=null;
   _teamModeOverride=null;
-  _teamWanted=false;
+  _teamWanted=true;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   currentMatches=[];
   currentParticipants=[];
@@ -10067,19 +10063,26 @@ window.addEventListener('resize', () => {
 
 function _teamSamplePlayers(){
   const names=[
-    ['장세훈','A','남'],['백철민','B','남'],['이은하','A','여'],['최애랑','A','여'],
-    ['김재관','C','남'],['이현','C','남'],['정종필','C','남'],['조계홍','C','남'],
-    ['김민현','B','남'],['김종길','C','남'],['박대현','B','남'],['조병훈','C','남'],
-    ['금민경','A','여'],['김미정','A','여'],['김민선','A','여'],['안세원','B','남'],
-    ['이성원','B','남'],['송은정','B','여'],['정인기','B','남'],['현지영','B','여'],
-    ['김병주','C','남'],['최경민','C','남'],['윤성호','C','남'],['박지은','C','여'],
-    ['이준원','C','남'],['김지아','D','여'],['유재석','D','남'],['문선영','D','여'],
-    ['강태오','D','남'],['오하늘','D','여'],['임시게스트1','C','남'],['임시게스트2','C','여']
+    ['장세훈','A','남','40대'],['백철민','B','남','40대'],['이은하','A','여','40대'],['최애랑','A','여','40대'],
+    ['김재관','C','남','40대'],['이현','C','남','40대'],['정종필','C','남','50대'],['조계홍','C','남','40대'],
+    ['김민현','B','남','40대'],['김종길','C','남','50대'],['박대현','B','남','40대'],['조병훈','C','남','40대'],
+    ['금민경','A','여','40대'],['김미정','A','여','40대'],['김민선','A','여','40대'],['안세원','B','남','40대'],
+    ['이성원','B','남','40대'],['송은정','B','여','40대'],['정인기','B','남','40대'],['현지영','B','여','40대'],
+    ['김병주','C','남','40대'],['최경민','C','남','50대'],['윤성호','C','남','40대'],['박지은','C','여','40대'],
+    ['이준원','C','남','40대'],['김지아','D','여','30대'],['유재석','D','남','40대'],['문선영','D','여','40대'],
+    ['강태오','D','남','30대'],['오하늘','D','여','30대']
   ];
-  return names.map(([name,grade,gender])=>({
+  return names.map(([name,grade,gender,ageGroup])=>({
     name, grade, gender, level:gradeToLevel(grade,gender)||4,
-    ageGroup:'40대', isGuest:name.startsWith('임시게스트')
+    ageGroup:ageGroup||'40대', isGuest:false
   }));
+}
+function _teamSampleRoster(){
+  return {
+    id:TEAM_SAMPLE_CLUB_ID,
+    name:'미르클럽',
+    members:_teamSamplePlayers().map(({name,grade,gender,ageGroup})=>({name,grade,gender,ageGroup}))
+  };
 }
 function _teamSampleResponses(){
   const out={};
@@ -10097,10 +10100,13 @@ function _teamSampleResponses(){
 function applyTeamSampleData(){
   _fbDb=null;
   _fbReady=false;
+  const sampleRoster=_teamSampleRoster();
+  rosters={clubs:[sampleRoster],_lvVersion:LV_VERSION};
+  localStorage.setItem(RSVP_CLUB_KEY,TEAM_SAMPLE_CLUB_ID);
   _rsvpId='TFAKE201';
   _rsvpCreatedAt=Date.now()-3600000;
   const titleEl=document.getElementById('rsvpTitle');
-  if(titleEl)titleEl.value='의기양양 팀전 06.15';
+  if(titleEl)titleEl.value='미르클럽 팀전 06.18';
   _directPlayers=_teamSamplePlayers();
   _teamWanted=true;
   _teamModeOverride=null;
@@ -10116,6 +10122,7 @@ function applyTeamSampleData(){
   document.getElementById('mixedDbl').value=1;
   _rsvpResponses=_teamSampleResponses();
   renderDirectPlayerList();
+  renderClubList();
   rsvpRenderClubSelect();
   rsvpRender();
   doTeamAssign();
@@ -10142,7 +10149,7 @@ window.addEventListener('DOMContentLoaded', () => {
   } else {
     rsvpLoad();
     rsvpRender();
-    updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
+    updateTeamModeBadge(); // 팀전LIVE 기본 상태 반영
     updateSettingsMiniSummary();
   }
   // 버전 표시 반영
@@ -10237,7 +10244,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.266</span>
+  <span class="app-version" id="appVersion">v1.10.272</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
