@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.290  (2026-06)
+     APP VERSION: 1.10.291  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.290">
+<meta name="app-version" content="1.10.291">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -57,6 +57,15 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .hb.on{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
 .header-help-btn{font-size:.72rem;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--txt);cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .header-help-btn:hover{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
+
+/* ── LIVE MODE SWITCH ── */
+.live-mode-switch{display:flex;align-items:center;justify-content:center;gap:6px;margin:10px auto 0;padding:4px;
+  max-width:360px;border:1px solid var(--bdr);border-radius:999px;background:rgba(255,255,255,.9);
+  box-shadow:0 8px 20px rgba(35,55,90,.06);}
+.live-mode-pill{flex:1;border:0;background:transparent;color:var(--dim);border-radius:999px;padding:9px 12px;
+  font-family:'Noto Sans KR',sans-serif;font-size:.78rem;font-weight:900;cursor:pointer;white-space:nowrap;}
+.live-mode-pill.active{background:#eff6ff;color:#2563eb;box-shadow:inset 0 0 0 1px #bfdbfe;}
+.live-mode-pill.team.active{background:#f0fdf4;color:#166534;box-shadow:inset 0 0 0 1px #bbf7d0;}
 
 /* ── NAV ── */
 .nav-bar{background:#ffffff;border-bottom:1px solid var(--bdr);display:flex;align-items:center;}
@@ -931,8 +940,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-hero-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}
 .daily-reset-top{border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:999px;padding:8px 11px;font-size:.7rem;font-weight:900;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;}
 .daily-reset-top:hover{background:#fee2e2;}
-.daily-mode-switch{border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;border-radius:999px;padding:8px 11px;font-size:.7rem;font-weight:900;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;}
-.daily-mode-switch:hover{background:#dcfce7;border-color:#86efac;}
 .daily-layout{display:flex;flex-direction:column;gap:16px;align-items:stretch;}
 .daily-side,.daily-main{min-width:0;width:100%;}
 .daily-side{order:2;}
@@ -1264,8 +1271,9 @@ body.monthly-team-mode .team-partner-help{display:block;}
 @media(max-width:640px){
   .daily-dashboard-hero{gap:10px;}
   .daily-dashboard-head-actions{gap:7px;}
-  .daily-dashboard-head-actions .daily-reset-top,
-  .daily-dashboard-head-actions .daily-mode-switch{padding:7px 9px;font-size:.64rem;}
+  .daily-dashboard-head-actions .daily-reset-top{padding:7px 9px;font-size:.64rem;}
+  .live-mode-switch{margin:8px 12px 0;max-width:none;}
+  .live-mode-pill{font-size:.74rem;padding:9px 10px;}
   .daily-op{min-height:62px;padding:9px 8px;}.daily-op b{font-size:1.12rem;}
   .daily-admin-alert{flex-direction:column;}.daily-admin-alert-actions{width:100%;}.daily-admin-alert-actions .daily-mini-btn{flex:1;}
   .daily-note{font-size:.68rem;line-height:1.5;padding:8px 10px;}
@@ -2383,9 +2391,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
   <button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
 </header>
 
+<div class="live-mode-switch" aria-label="LIVE 전환">
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.291&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.291&from=daily'">팀전LIVE</button>
+</div>
+
 <div class="nav-bar">
-  <button class="nav-tab active" data-nav="daily" onclick="switchNav('daily')">☀️ 민턴LIVE</button>
-  <button class="nav-tab" onclick="location.href='team.html'">🔵 팀전LIVE</button>
   <button class="nav-tab" data-nav="roster" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" data-nav="manual" onclick="switchNav('manual')">📖 설명서</button>
   <div class="nav-save-area">
@@ -2420,10 +2431,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
           <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 시작·휴식·종료 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
-        <button class="operation-option team" onclick="location.href='team.html'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.291&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.290</small>
+          <small>팀전LIVE 최신판 v1.10.291</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -2800,7 +2811,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
             </div>
             <div class="daily-dashboard-head-actions">
               <div class="daily-state-pill" id="dailyFlowState"><span class="daily-dot"></span> 정상 운영</div>
-              <button class="daily-mode-switch" onclick="location.href='team.html?v=1.10.290&from=daily'">팀전LIVE</button>
               <button class="daily-reset-top" onclick="dailyReset()">전체 초기화</button>
             </div>
           </div>
@@ -3214,7 +3224,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.290';
+const APP_VERSION = '1.10.291';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7474,7 +7484,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html';
+  location.href='team.html?v=1.10.291&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -13338,7 +13348,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.290</span>
+  <span class="app-version" id="appVersion">v1.10.291</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
