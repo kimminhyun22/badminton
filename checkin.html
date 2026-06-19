@@ -81,6 +81,25 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 .vote-chip.warn{border-color:#fed7aa;background:#fff7ed}
 .vote-chip.warn b{color:#b45309}
 .vote-summary.hidden{display:none}
+.balance-policy{
+  margin:10px 0 0;
+  padding:11px 13px;
+  border:1px solid #bbf7d0;
+  border-radius:17px;
+  background:#f0fdf4;
+  color:#166534;
+  font-size:13px;
+  font-weight:900;
+  line-height:1.45;
+}
+.balance-policy small{
+  display:block;
+  margin-top:3px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:800;
+}
+.balance-policy.hidden{display:none}
 .panel{
   margin-top:16px;
   padding:14px;
@@ -329,6 +348,19 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   padding:17px;
 }
 .my-card-head{display:flex;align-items:center;gap:13px;margin-bottom:13px}
+.my-card-info{min-width:0;flex:1}
+.my-card-change{
+  flex-shrink:0;
+  min-height:42px;
+  padding:0 14px;
+  border:1.5px solid #d8e2ef;
+  border-radius:999px;
+  background:#fff;
+  color:#4f78c9;
+  font-size:13px;
+  font-weight:1000;
+  box-shadow:none;
+}
 .my-avatar{
   width:58px;height:58px;border-radius:20px;
   display:flex;align-items:center;justify-content:center;
@@ -370,6 +402,24 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .my-action-panel{border:1px solid #e3eaf5;border-radius:22px;background:#fff;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8);}
 .my-card .game-request{margin-top:10px}
+.next-queue-notice{
+  margin-top:10px;
+  padding:12px 13px;
+  border-radius:18px;
+  border:1.5px solid #c8dbfb;
+  background:linear-gradient(135deg,#f8fbff 0%,#fff 100%);
+  color:#315fb2;
+  font-size:14px;
+  font-weight:1000;
+  line-height:1.45;
+}
+.next-queue-notice small{
+  display:block;
+  margin-top:3px;
+  color:#6f7a8a;
+  font-size:12px;
+  font-weight:900;
+}
 .pick-guide{
   border:1px dashed #c8dbfb;border-radius:20px;padding:14px;
   background:#f8fbff;color:#4f78c9;font-size:14px;font-weight:900;line-height:1.5;
@@ -1090,8 +1140,9 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.294</span>
+    <span class="version-chip" id="appVersion">v1.10.298</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
+    <div class="balance-policy hidden" id="balancePolicy"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
   <div id="myCard" class="my-card-wrap hidden"></div>
@@ -1134,7 +1185,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='';
-const APP_VERSION='1.10.294';
+const APP_VERSION='1.10.298';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1258,6 +1309,12 @@ function sampleSession(){
       courts:3,
       nextTarget:2,
       nextGoal:2,
+      queuePolicy:{
+        auto:true,
+        official:2,
+        free:1,
+        label:'공식 2 · 자유 1 · 밸런스 보호 중'
+      },
       updatedAt:now,
       active:[
         active(1,['s1','s2','s3','s4'],5,'혼복'),
@@ -1362,6 +1419,21 @@ function renderVoteSummary(){
     `<div class="vote-chip warn"><b>${s.rest}</b><span>휴식</span></div>`
   ].join('');
 }
+function renderBalancePolicy(){
+  const el=document.getElementById('balancePolicy');
+  if(!el)return;
+  const event=session?.event||null;
+  const policy=event?.queuePolicy||null;
+  const hasVisibleQueue=!!((event?.next||[]).length||(event?.active||[]).length);
+  if(!policy||!hasVisibleQueue){
+    el.className='balance-policy hidden';
+    el.innerHTML='';
+    return;
+  }
+  const label=policy.label||`공식 ${policy.official||0} · 자유 ${policy.free||0} · 밸런스 보호 중`;
+  el.className='balance-policy';
+  el.innerHTML=`${esc(label)}<small>코트가 비어도 급수 차가 크면 바로 배정하지 않을 수 있어요.</small>`;
+}
 function remainMinutes(row){
   if(row&&row.endAt){
     return Math.max(0,Math.ceil((Number(row.endAt)-Date.now())/60000));
@@ -1408,6 +1480,30 @@ function activeMatchById(matchId){
 }
 function queueById(queueId){
   return (session?.event?.next||[]).find(q=>String(q.queueId||'')===String(queueId||''))||null;
+}
+function nextQueueForPlayer(playerId){
+  if(!playerId)return null;
+  return (session?.event?.next||[]).find(q=>(q.playerIds||[]).map(String).includes(String(playerId)))||null;
+}
+function nextQueueWaitText(q){
+  if(!q)return '';
+  if(q.cueState==='due')return '곧 입장';
+  const active=session?.event?.active||[];
+  const mins=active.map(remainMinutes).filter(n=>typeof n==='number'&&Number.isFinite(n)).sort((a,b)=>a-b);
+  if(mins.length){
+    const soon=mins[0];
+    return soon<=0?'곧 입장':`약 ${soon}분 후`;
+  }
+  return active.length?'진행 중 경기 종료 후':'대기 중';
+}
+function nextQueueNoticeHtml(playerId){
+  const q=nextQueueForPlayer(playerId);
+  if(!q)return '';
+  const order=q.idx?`${q.idx}순위 · `:'';
+  const wait=nextQueueWaitText(q);
+  return `<div class="next-queue-notice">다음 대진 ${order}${esc(wait)}
+    <small>대진이 바뀔 수 있으니 코트가 비기 전까지 기다려 주세요.</small>
+  </div>`;
 }
 function activeMatchLabel(m){
   if(!m)return '해당 경기';
@@ -1549,11 +1645,13 @@ function render(){
     renderLastSent();
     renderEvent();
     renderVoteSummary();
+    renderBalancePolicy();
     return;
   }
   renderLastSent();
   renderEvent();
   renderVoteSummary();
+  renderBalancePolicy();
   const last=getLastSent();
   const allPlayers=session.players||[];
   renderMyCard(last,allPlayers);
@@ -1618,7 +1716,41 @@ function confirmPlayerIdentity(p){
   const last=getLastSent();
   if(last&&last.playerId===p.id)return true;
   const saved=last&&last.playerName?`현재 이 휴대폰은 ${last.playerName}님으로 저장되어 있습니다.\n`:'';
-  return confirm(`${saved}${p.name}님 본인이 맞나요?\n다른 회원 이름을 누르면 대진이 꼬일 수 있습니다.`);
+  return confirm(`${saved}${p.name}님 본인이 맞나요?\n확인 후 이 이름으로 출석과 상태가 반영됩니다.\n다른 분 이름을 선택하면 현장 운영에 혼선이 생길 수 있어요.`);
+}
+function confirmStatusChange(p,status){
+  const current=getSelectedStatus(p);
+  if(current===status)return true;
+  const nextQ=nextQueueForPlayer(p.id);
+  const nextWarn=nextQ&&['rest','done'].includes(status)
+    ? `\n\n현재 다음 대진에 포함되어 있어요.\n이 버튼을 누르면 준비된 대진이 바뀔 수 있습니다.`
+    : '';
+  if(status==='wait'){
+    return confirm(`${p.name}님, 지금부터 대진 대기 상태로 전환할까요?\n운동 준비가 끝난 경우에만 시작을 눌러주세요.`);
+  }
+  if(status==='rest'){
+    const extra=p.locked?'\n현재 대기표나 경기에서 빠질 수 있습니다.':'\n휴식 중에는 새 대진에 배정되지 않습니다.';
+    return confirm(`${p.name}님, 잠시 휴식으로 전환할까요?${nextWarn}${extra}`);
+  }
+  if(status==='done'){
+    return confirm(`${p.name}님, 오늘 운동을 종료할까요?${nextWarn}\n종료하면 새 대진에 배정되지 않습니다. 필요하면 다시 시작할 수 있어요.`);
+  }
+  return true;
+}
+function changeSelectedPlayer(){
+  const last=getLastSent();
+  const name=last&&last.playerName?last.playerName:'현재 선택한 이름';
+  if(!confirm(`${name} 선택을 변경할까요?\n다른 분 이름을 대신 누르는 기능이 아니라, 본인 선택을 바로잡기 위한 기능입니다.`))return;
+  try{localStorage.removeItem(lastKey());}catch(e){}
+  try{localStorage.removeItem('kokmatch_live_viewer_last');}catch(e){}
+  query='';
+  const q=document.getElementById('q');
+  if(q)q.value='';
+  const fold=document.getElementById('playerListFold');
+  if(fold)fold.open=true;
+  toast('이름을 다시 선택해 주세요.');
+  render();
+  setTimeout(()=>q&&q.focus(),80);
 }
 function isRapidStatusChange(p,status){
   const last=getLastSent();
@@ -1670,9 +1802,10 @@ function renderMyCard(last,players){
   const initial=String(selected.name||'?').trim().slice(0,1)||'?';
   const selectedState=compactLabel(getSelectedStatus(selected));
   const disabledAttr=sendingKey?'disabled':'';
-  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,disabledAttr);
-  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
-  const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
+	  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,disabledAttr);
+	  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
+	  const nextNotice=nextQueueNoticeHtml(selected.id);
+	  const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
   const statusChips=[
     `<span class="my-status-chip ${stateChipClass}">${esc(selectedState)}</span>`,
     `<span class="my-status-chip">${selected.games||0}게임</span>`,
@@ -1681,16 +1814,18 @@ function renderMyCard(last,players){
   el.innerHTML=`<section class="my-card">
     <div class="my-card-head">
       <div class="my-avatar">${esc(initial)}</div>
-      <div>
+      <div class="my-card-info">
         <div class="my-card-name">${esc(selected.name)}${selected.isGuest?' <span class="meta">게스트</span>':''}</div>
         <div class="my-status-chips">${statusChips}</div>
       </div>
+      <button class="my-card-change" type="button" onclick="changeSelectedPlayer()">이름 변경</button>
     </div>
-    <div class="my-action-panel">
-      <div class="buttons main-actions">${mainButtons}</div>
-      ${subSection}
-      ${gameRequestBox(selected,disabledAttr)}
-    </div>
+	    <div class="my-action-panel">
+	      <div class="buttons main-actions">${mainButtons}</div>
+	      ${nextNotice}
+	      ${subSection}
+	      ${gameRequestBox(selected,disabledAttr)}
+	    </div>
   </section>`;
 }
 function requestPlayerOptions(selfId,selected){
@@ -1811,8 +1946,7 @@ async function sendStatus(playerId,status){
     if(!p)return toast('선수를 찾지 못했습니다.');
     if(!confirmPlayerIdentity(p))return;
     if(isRapidStatusChange(p,status))return toast('상태 변경은 잠시 후 다시 눌러주세요.');
-    if(status==='rest'&&p.locked&&!confirm(`${p.name}님, 대기표나 경기에서 빠지고 휴식으로 바꿀까요?`))return;
-    if(status==='done'&&!confirm(`${p.name}님, 오늘 운동을 종료할까요?\n종료하면 이후 대진 후보에서 빠집니다.`))return;
+    if(!confirmStatusChange(p,status))return;
     p.status=status;
     p.statusLabel=compactLabel(status);
     p.locked=false;
@@ -1836,8 +1970,7 @@ async function sendStatus(playerId,status){
   if(!p)return toast('선수를 찾지 못했습니다.');
   if(!confirmPlayerIdentity(p))return;
   if(isRapidStatusChange(p,status))return toast('상태 변경은 잠시 후 다시 눌러주세요.');
-  if(status==='rest'&&p.locked&&!confirm(`${p.name}님, 대기표나 경기에서 빠지고 휴식으로 바꿀까요?`))return;
-  if(status==='done'&&!confirm(`${p.name}님, 오늘 운동을 종료할까요?\n종료하면 이후 대진 후보에서 빠집니다.`))return;
+  if(!confirmStatusChange(p,status))return;
   const last=getLastSent();
   if(last&&last.playerId===p.id&&last.status===status&&Date.now()-(last.savedAt||0)<10000){
     return toast('방금 같은 상태를 전송했어요.');
@@ -1927,6 +2060,8 @@ async function sendGameRequest(playerId){
   if(sessionExpired())return showEndedLink();
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
+  const nextQ=nextQueueForPlayer(playerId);
+  if(nextQ&&!confirm(`${p.name}님은 현재 다음 대진에 포함되어 있어요.\n게임신청을 보내면 준비된 대진이 바뀔 수 있습니다.\n그래도 신청할까요?`))return;
   const partnerId=document.getElementById('reqPartner_'+playerId)?.value||'';
   const opp1=document.getElementById('reqOpp1_'+playerId)?.value||'';
   const opp2=document.getElementById('reqOpp2_'+playerId)?.value||'';

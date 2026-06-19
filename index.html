@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.294  (2026-06)
+     APP VERSION: 1.10.298  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.294">
+<meta name="app-version" content="1.10.298">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1107,6 +1107,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-sb-chip.on{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
 .daily-sb-chip.off{background:#f8fafc;border-color:#e2e8f0;color:#64748b;}
 .daily-sb-chip.warn{background:#fffbeb;border-color:#fde68a;color:#92400e;}
+.daily-sb-chip.balance{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
 .daily-sb-state{font-size:.8rem;font-weight:900;padding:6px 13px;border-radius:999px;white-space:nowrap;flex-shrink:0;}
 .daily-sb-state.ok{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534;}
 .daily-sb-state.need{background:#dc2626;border:1px solid #b91c1c;color:#fff;animation:nowPulse 1.6s ease-in-out infinite;}
@@ -2400,8 +2401,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.294&from=daily'">민턴LIVE</button>
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.294&from=daily'">팀전LIVE</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.298&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.298&from=daily'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -2439,10 +2440,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
           <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 시작·휴식·종료 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.294&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.298&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.294</small>
+          <small>팀전LIVE 최신판 v1.10.298</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -2795,6 +2796,16 @@ body.monthly-team-mode .team-partner-help{display:block;}
                 <input type="number" id="dailyCourts" value="3" min="1" max="12" readonly>
                 <button class="stepper-btn" onclick="dailyStepCourts(1)">+</button>
               </div>
+            </div>
+          </div>
+          <div class="setting-grid" style="grid-template-columns:1fr 1fr;margin-top:10px;">
+            <div class="si">
+              <label>시작 시간</label>
+              <input class="dir-input" id="dailyStartTime" type="time" value="19:00" onchange="dailyUpdateOperatingHours()">
+            </div>
+            <div class="si">
+              <label>종료 시간</label>
+              <input class="dir-input" id="dailyEndTime" type="time" value="22:00" onchange="dailyUpdateOperatingHours()">
             </div>
           </div>
 	        </div>
@@ -3232,7 +3243,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.294';
+const APP_VERSION = '1.10.298';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3472,6 +3483,9 @@ const DAILY_AUTO_MIN_START=8;
 const DAILY_AUTO_FULL_START=12;
 const DAILY_AUTO_GRACE_MS=3*60*1000;
 const DAILY_CHECKIN_TTL_MS=48*60*60*1000;
+const DAILY_REST_AUTO_DONE_MS=60*60*1000;
+const DAILY_CLOSING_SOON_MS=30*60*1000;
+const DAILY_CLOSING_STOP_MS=15*60*1000;
 const DAILY_STATUS={
   invited:{label:'미응답',eligible:false},
   planned:{label:'미응답',eligible:false},
@@ -3507,6 +3521,8 @@ let _dailyCheckinListening=false;
 let _dailyCheckinRequests=[];
 let _dailyCheckinApplying=false;
 let _dailyVoteDeadlineAt='';
+let _dailyStartTime='19:00';
+let _dailyEndTime='22:00';
 let _dailyManualActiveDraft={court:null,ids:[]};
 let _dailyEmergencyEditQueueId=null;
 let _dailyLastCompleteUndo=null;
@@ -3517,6 +3533,47 @@ function _dailyPlayer(id){return _dailyPlayers.find(p=>p.id===id)||null;}
 function _dailyGender(g){return (g==='여'||g==='F')?'F':'M';}
 function _dailyGenderLabel(g){return (g==='F'||g==='여')?'여':'남';}
 function _dailyLevel(p){return p.level || gradeToLevel(p.grade||'C',_dailyGenderLabel(p.gender)) || 4;}
+function _dailyNormalizeTimeValue(value,fallback){
+  const m=String(value||'').match(/^(\d{1,2}):(\d{2})$/);
+  if(!m)return fallback;
+  const h=Math.max(0,Math.min(23,parseInt(m[1],10)||0));
+  const min=Math.max(0,Math.min(59,parseInt(m[2],10)||0));
+  return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+}
+function _dailyTimeMinutes(value){
+  const t=_dailyNormalizeTimeValue(value,'19:00');
+  const [h,m]=t.split(':').map(Number);
+  return h*60+m;
+}
+function _dailyOperatingInfo(nowMs){
+  nowMs=nowMs||_dailyNow();
+  const startTime=_dailyNormalizeTimeValue(_dailyStartTime,'19:00');
+  const endTime=_dailyNormalizeTimeValue(_dailyEndTime,'22:00');
+  const startMin=_dailyTimeMinutes(startTime);
+  const endMin=_dailyTimeMinutes(endTime);
+  const base=new Date(nowMs);
+  base.setHours(0,0,0,0);
+  let startAt=base.getTime()+startMin*60000;
+  let endAt=base.getTime()+endMin*60000;
+  if(endAt<=startAt)endAt+=24*60*60*1000;
+  if(nowMs<startAt&&startAt-nowMs>12*60*60*1000){
+    const prevStart=startAt-24*60*60*1000;
+    const prevEnd=endAt-24*60*60*1000;
+    if(nowMs<=prevEnd){startAt=prevStart;endAt=prevEnd;}
+  }
+  const before=nowMs<startAt;
+  const ended=nowMs>=endAt;
+  const msToStart=startAt-nowMs;
+  const msToEnd=endAt-nowMs;
+  const closingStop=!ended&&msToEnd<=DAILY_CLOSING_STOP_MS;
+  const closingSoon=!ended&&msToEnd<=DAILY_CLOSING_SOON_MS;
+  let label='운영 중';
+  if(before)label=`${startTime} 시작`;
+  else if(ended)label='운영 종료';
+  else if(closingStop)label='마감 정리';
+  else if(closingSoon)label='마감 준비';
+  return {startTime,endTime,startAt,endAt,before,started:!before,ended,msToStart,msToEnd,closingSoon,closingStop,label};
+}
 function _dailyNormalize(raw){
   const g=_dailyGender(raw.gender||'남');
   const grade=raw.grade||levelToGrade(raw.level||4,g)||'C';
@@ -4091,6 +4148,12 @@ function _dailyQueueStartCueHtml(idx){
   return `<span class="daily-start-cue ${info.state}" data-daily-queue-cue="${idx}">${esc(info.text)} · ${esc(info.detail)}</span>`;
 }
 function dailyRefreshTimers(){
+  if(_dailyAutoEndIdleRestPlayers()){
+    dailyEnsureQueue();
+    dailySave();
+    dailyRender();
+    return;
+  }
   const beforeTarget=_dailyQueueCapacity().target;
   document.querySelectorAll('[data-daily-timer]').forEach(el=>{
     const m=_dailyMatches.find(x=>x.id===el.dataset.dailyTimer);
@@ -4146,6 +4209,31 @@ function dailyRefreshUndoCountdown(){
     dailyRenderAdminAlerts();
   }
 }
+function _dailyAutoEndIdleRestPlayers(){
+  const now=_dailyNow();
+  const op=_dailyOperatingInfo(now);
+  if(!op.started)return 0;
+  let changed=0;
+  _dailyPlayers.forEach(p=>{
+    if(_dailyNormalizeStatus(p.status)!=='rest')return;
+    if(p.currentMatchId||_dailyIsQueued(p.id))return;
+    const since=p.lastStatusAt||p.waitFrom||p.joinedAt||0;
+    if(!since||now-since<DAILY_REST_AUTO_DONE_MS)return;
+    _dailyCancelReservationsForPlayer(p.id,`${p.name} 선수가 60분 이상 휴식 상태라 게임신청이 자동 취소됐습니다.`,'auto-rest-done');
+    p.status='done';
+    p.afterMatchStatus=null;
+    p.waitFrom=now;
+    p.lastStatusAt=now;
+    changed++;
+  });
+  if(changed){
+    const doneIds=new Set(_dailyPlayers.filter(p=>p.status==='done').map(p=>p.id));
+    _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).some(id=>doneIds.has(id)));
+    _dailyRefreshNextFromQueue();
+    _dailyMarkFourCacheDirty();
+  }
+  return changed;
+}
 function _dailyActiveMatches(){return _dailyMatches.filter(m=>!m.completedAt&&!m.cancelledAt);}
 function _dailyCourtCount(){
   return Math.max(1,parseInt(document.getElementById('dailyCourts')?.value)||3);
@@ -4179,8 +4267,21 @@ function _dailyNaturalAutoInfo(){
   const pool=started.length;
   const eligible=_dailyEligible().length;
   const active=_dailyActiveMatches().length;
+  const operating=_dailyOperatingInfo();
   let auto=false,operatingCourts=0,phase='waiting',label='입장 대기',hint='시작 대기',graceLeftMs=0;
-  if(_dailyTeamLocked){
+  if(operating.ended&&!_dailyTeamLocked){
+    phase='closed';
+    label='운영 종료';
+    hint='새 대진 중단 · 진행 중 경기만 마무리';
+  }else if(operating.closingStop&&!_dailyTeamLocked){
+    phase='closing-stop';
+    label='마감 정리';
+    hint=`${operating.endTime} 종료 · 새 대진 중단`;
+  }else if(operating.before&&!_dailyTeamLocked){
+    phase='before';
+    label='운영 전';
+    hint=`${operating.startTime}부터 자동 대진`;
+  }else if(_dailyTeamLocked){
     auto=true;
     operatingCourts=courts;
     phase='team';
@@ -4224,7 +4325,13 @@ function _dailyNaturalAutoInfo(){
     label='몸풀기';
     hint=`${pool}명 시작 · ${Math.max(0,DAILY_AUTO_MIN_START-pool)}명 더 필요`;
   }
-  return {courts,pool,eligible,active,auto,operatingCourts,phase,label,hint,min:DAILY_AUTO_MIN_START,fullStart:DAILY_AUTO_FULL_START,graceLeftMs};
+  if(auto&&operating.closingSoon&&!_dailyTeamLocked){
+    phase='closing';
+    label='마감 준비';
+    operatingCourts=Math.max(1,Math.min(operatingCourts,active||1));
+    hint=`${operating.endTime} 종료 · 다음 대진 최소화`;
+  }
+  return {courts,pool,eligible,active,auto,operatingCourts,phase,label,hint,min:DAILY_AUTO_MIN_START,fullStart:DAILY_AUTO_FULL_START,graceLeftMs,operating};
 }
 function _dailyAutoFlowEnabled(){
   return _dailyNaturalAutoInfo().auto;
@@ -4257,10 +4364,12 @@ function _dailyEligible(){
 function _dailyQueueBaseTarget(){
   const info=_dailyNaturalAutoInfo();
   if(!info.auto)return 0;
+  if(info.operating?.closingSoon&&!_dailyTeamLocked)return Math.min(1,info.operatingCourts);
   return Math.max(1,info.operatingCourts-1);
 }
 function _dailyQueueBoostNeeded(){
   if(!_dailyNaturalAutoInfo().auto)return false;
+  if(_dailyOperatingInfo().closingSoon&&!_dailyTeamLocked)return false;
   const urgent=_dailyActiveMatches().filter(m=>{
     const state=_dailyTimerState(m);
     return state==='soon'||state==='due';
@@ -4279,6 +4388,13 @@ function _dailyQueueCapacity(){
   const goal=_dailyQueueTarget();
   const baseGoal=_dailyQueueBaseTarget();
   return {target,maxGames,goal,baseGoal,boosted:goal>baseGoal,short:maxGames<goal};
+}
+function _dailyBalancePolicyText(flowInfo){
+  const info=flowInfo||_dailyNaturalAutoInfo();
+  if(!info.auto)return '밸런스 보호 중';
+  const official=Math.max(0,_dailyQueueBaseTarget());
+  const free=Math.max(0,(info.operatingCourts||0)-official);
+  return `공식 ${official} · 자유 ${free} · 밸런스 보호 중`;
 }
 function _dailyQueueLockCount(){
   return _dailyQueueCapacity().target;
@@ -4481,6 +4597,8 @@ function dailySave(){
       closing:false,
       closingAt:'',
       voteDeadlineAt:_dailyVoteDeadlineAt,
+      operatingStart:_dailyStartTime,
+      operatingEnd:_dailyEndTime,
       players:_dailyPlayers,
       matches:_dailyMatches,
       queue:_dailyQueue,
@@ -4510,6 +4628,10 @@ function _dailySyncControls(courts){
   if(autoTopEl)autoTopEl.checked=_dailyAutoAssign;
   const voteEl=document.getElementById('dailyVoteDeadlineAt');
   if(voteEl)voteEl.value=_dailyVoteDeadlineAt||'';
+  const startEl=document.getElementById('dailyStartTime');
+  if(startEl)startEl.value=_dailyStartTime||'19:00';
+  const endEl=document.getElementById('dailyEndTime');
+  if(endEl)endEl.value=_dailyEndTime||'22:00';
 }
 function _dailyLoadAsNewDay(s){
   const now=_dailyNow();
@@ -4529,6 +4651,8 @@ function _dailyLoadAsNewDay(s){
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
   _dailyAutoAssign=false;_dailyTeamMode=false;_dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
+  _dailyStartTime=s.operatingStart||_dailyStartTime||'19:00';
+  _dailyEndTime=s.operatingEnd||_dailyEndTime||'22:00';
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _dailyPairSelectId=null;
   if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
@@ -4570,6 +4694,8 @@ function dailyLoad(){
     _dailyCleanCaptains();
     _dailyClearSimpleTeamState();
     _dailyVoteDeadlineAt=s.voteDeadlineAt||'';
+    _dailyStartTime=s.operatingStart||'19:00';
+    _dailyEndTime=s.operatingEnd||'22:00';
     _dailyCheckinId=s.checkinId||localStorage.getItem(DAILY_CHECKIN_KEY)||null;
     _dailyCheckinCreatedAt=s.checkinCreatedAt||parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||(_dailyCheckinId?(s.savedAt||_dailyNow()):0);
     if(_dailyCheckinId){
@@ -4637,6 +4763,8 @@ function dailyApplyReviewSample(){
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
+  _dailyStartTime='19:00';
+  _dailyEndTime='22:00';
   _dailyCheckinId='DFAKE201';
   _dailyCheckinCreatedAt=now;
   _dailyCheckinRequests=[];
@@ -4651,6 +4779,17 @@ function dailyStepCourts(delta){
   const el=document.getElementById('dailyCourts');
   if(!el)return;
   el.value=Math.max(1,Math.min(12,(parseInt(el.value)||3)+delta));
+  dailySave();
+  dailyRender();
+  dailyMaybeAutoAssign();
+}
+function dailyUpdateOperatingHours(){
+  const startEl=document.getElementById('dailyStartTime');
+  const endEl=document.getElementById('dailyEndTime');
+  _dailyStartTime=_dailyNormalizeTimeValue(startEl?.value,'19:00');
+  _dailyEndTime=_dailyNormalizeTimeValue(endEl?.value,'22:00');
+  _dailySyncControls(_dailyCourtCount());
+  dailyEnsureQueue();
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
@@ -5860,6 +5999,9 @@ function _dailyResultQualityChips(st){
 }
 function _dailyPublicEvent(){
   const st=_dailyResultStats();
+  const flowInfo=_dailyNaturalAutoInfo();
+  const official=Math.max(0,_dailyQueueBaseTarget());
+  const free=flowInfo.auto?Math.max(0,(flowInfo.operatingCourts||0)-official):0;
   const active=st.active.sort((a,b)=>a.court-b.court).map(m=>{
     const teams=_dailyMatchTeams(m);
     return {
@@ -5908,6 +6050,12 @@ function _dailyPublicEvent(){
     courts:_dailyCourtCount(),
     nextTarget:cap.target,
     nextGoal:cap.goal,
+    queuePolicy:{
+      auto:!!flowInfo.auto,
+      official,
+      free,
+      label:_dailyBalancePolicyText(flowInfo)
+    },
     active,
     next,
     updatedAt:_dailyNow()
@@ -6097,6 +6245,28 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailySetupDetails','dailySetupDetails')">관리</button>`
     });
   }
+  if(flow.phase==='before'){
+    alerts.push({
+      cls:'primary',
+      title:`${flow.operating.startTime} 시작 예정`,
+      desc:'시작 전에는 자동 대진을 만들지 않습니다.',
+      actions:''
+    });
+  }else if(flow.phase==='closing'){
+    alerts.push({
+      cls:'warn',
+      title:'마감 준비',
+      desc:'다음 대진을 최소화합니다.',
+      actions:''
+    });
+  }else if(flow.phase==='closing-stop'||flow.phase==='closed'){
+    alerts.push({
+      cls:'warn',
+      title:'새 대진 중단',
+      desc:'진행 중인 경기만 마무리합니다.',
+      actions:''
+    });
+  }
   if(!alerts.length){
     if(area)area.hidden=true;
     el.innerHTML='';
@@ -6130,6 +6300,7 @@ function dailyRenderOpsStats(){
   const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited'&&p.isGuest).length;
   const cap=_dailyQueueCapacity();
   const flow=_dailyNaturalAutoInfo();
+  const operating=flow.operating||_dailyOperatingInfo();
   const courtHint=active>courts?`종료 후 ${courts}코트`:flow.auto?`${flow.operatingCourts}코트 운영`:active?`${active}경기 중`:'시작 전';
   const nextHint=cap.short
     ? `목표 ${cap.goal}경기`
@@ -6143,7 +6314,8 @@ function dailyRenderOpsStats(){
     {label:'다음 대진',value:flow.auto?`${locked}/${cap.goal}`:'대기',hint:nextHint,cls:(flow.auto&&((locked<cap.target)||cap.short))?'warn':'primary'},
     {label:'대기선수',value:ready,hint:unscheduled?`미편성 ${unscheduled}`:'대기 없음',cls:ready?'primary':'warn'},
     {label:'라이브 인원',value:flow.pool,hint:guestLive?`게스트 ${guestLive}`:flow.label,cls:flow.auto?'primary':'warn'},
-    {label:'휴식',value:rest,hint:rest?'복귀 가능':'없음',cls:rest?'warn':'primary'}
+    {label:'휴식',value:rest,hint:rest?'60분 후 자동 종료':'없음',cls:rest?'warn':'primary'},
+    {label:'운영시간',value:`${operating.startTime}~${operating.endTime}`,hint:operating.label,cls:(operating.closingSoon||operating.ended)?'warn':'primary'}
   ];
   el.innerHTML=cards.map(x=>`<div class="daily-op ${x.cls||''}"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></div>`).join('');
   dailyRenderStatusBar();
@@ -6172,6 +6344,8 @@ function dailyRenderStatusBar(){
   if(!el)return;
   chips.push(`<span class="daily-sb-chip live">${stageLabel}</span>`);
   chips.push(`<span class="daily-sb-chip ${flowInfo.auto?'on':flowInfo.phase==='warmup'?'warn':'off'}">${flowInfo.label}</span>`);
+  chips.push(`<span class="daily-sb-chip balance">${_dailyBalancePolicyText(flowInfo)}</span>`);
+  chips.push(`<span class="daily-sb-chip ${flowInfo.operating?.closingSoon?'warn':''}">${flowInfo.operating?.startTime||_dailyStartTime}~${flowInfo.operating?.endTime||_dailyEndTime}</span>`);
   chips.push(`<span class="daily-sb-chip">시작 ${flowInfo.pool}명</span>`);
   chips.push(`<span class="daily-sb-chip">${flowInfo.auto?`${flowInfo.operatingCourts}/${courts}`:courts}코트${free?` · 빈 ${free}`:''}</span>`);
   const stateChip=todo
@@ -7506,7 +7680,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.294&from=daily';
+  location.href='team.html?v=1.10.298&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -13376,7 +13550,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.294</span>
+  <span class="app-version" id="appVersion">v1.10.298</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
