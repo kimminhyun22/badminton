@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta name="app-version" content="1.10.283">
+<meta name="app-version" content="1.10.287">
 <title>🏸 콕매치 실시간 현황</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -1248,6 +1248,7 @@ body{
 .result-entry button{
   border:1px solid #ccd9ea;background:#fff;border-radius:16px;padding:10px 8px;
   font-size:.84rem;font-weight:1000;min-width:0;width:100%;text-align:center;
+  white-space:nowrap;word-break:keep-all;line-height:1.1;
 }
 .result-entry .blue-win{color:#4f73b8;border-color:#bdd4fb;background:#f2f7ff;}
 .result-entry .red-win{color:#a85f63;border-color:#efced0;background:#fff5f5;}
@@ -1477,11 +1478,13 @@ body{
   color:var(--bl-deep)!important;
   border-color:var(--bl-softbdr)!important;
   background:#f7fbff!important;
+  white-space:nowrap!important;word-break:keep-all!important;line-height:1.1!important;
 }
 .result-entry .red-win{
   color:var(--red-deep)!important;
   border-color:#f2d3d3!important;
   background:#fff8f8!important;
+  white-space:nowrap!important;word-break:keep-all!important;line-height:1.1!important;
 }
 .current-grid,
 .next-list{
@@ -1600,11 +1603,11 @@ body{
   &nbsp;·&nbsp;
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener" style="color:var(--bl);text-decoration:none;">💬 카카오톡 문의</a>
   &nbsp;·&nbsp;
-  <span id="appVersion">v1.10.283</span>
+  <span id="appVersion">v1.10.287</span>
 </div>
 
 <script>
-const APP_VERSION='1.10.283';
+const APP_VERSION='1.10.287';
 const FB_CONFIG = {
   apiKey: "AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
   authDomain: "kokmatch-23b31.firebaseapp.com",
