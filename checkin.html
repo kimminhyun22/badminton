@@ -984,6 +984,102 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     min-width:0;
   }
 }
+.complete-picker-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:18px;
+  background:rgba(21,30,43,.42);
+  backdrop-filter:blur(8px);
+}
+.complete-picker-backdrop.hidden{display:none}
+.complete-picker{
+  width:min(540px,100%);
+  border:1px solid var(--line);
+  border-radius:28px;
+  background:#fff;
+  box-shadow:0 22px 70px rgba(24,39,64,.22);
+  padding:18px;
+}
+.complete-picker-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.complete-picker-head b{
+  display:block;
+  font-size:1.15rem;
+  color:var(--txt);
+  letter-spacing:-.04em;
+}
+.complete-picker-head span{
+  display:block;
+  margin-top:4px;
+  color:var(--mut);
+  font-size:.82rem;
+  font-weight:800;
+}
+.complete-picker-close{
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--mut);
+  border-radius:999px;
+  min-width:56px;
+  padding:9px 12px;
+  font-weight:1000;
+}
+.complete-picker-list{
+  display:grid;
+  gap:10px;
+}
+.complete-picker-card{
+  width:100%;
+  border:1.5px solid var(--line);
+  border-radius:20px;
+  background:#fbfdff;
+  padding:13px;
+  text-align:left;
+  color:var(--txt);
+  font-weight:1000;
+}
+.complete-picker-card.soon,
+.complete-picker-card.due{
+  border-color:#f1cdcf;
+  background:#fff7f7;
+}
+.complete-picker-card-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.complete-picker-court{
+  color:var(--blue-deep);
+  font-size:1.05rem;
+}
+.complete-picker-time{
+  color:var(--mut);
+  font-size:.82rem;
+}
+.complete-picker-teams{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;
+  gap:9px;
+  font-size:.95rem;
+  line-height:1.35;
+}
+.complete-picker-teams em{
+  color:var(--mut);
+  font-size:.76rem;
+  font-style:normal;
+}
 </style>
 </head>
 <body>
@@ -993,7 +1089,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.283</span>
+    <span class="version-chip" id="appVersion">v1.10.285</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1011,6 +1107,18 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   </section>
 </main>
 <div id="toast" class="toast"></div>
+<div id="completePicker" class="complete-picker-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="completePickerTitle">
+  <div class="complete-picker">
+    <div class="complete-picker-head">
+      <div>
+        <b id="completePickerTitle">끝난 경기 선택</b>
+        <span>실제로 비는 코트를 확인하고 들어가세요.</span>
+      </div>
+      <button type="button" class="complete-picker-close" onclick="closeCourtCompletePicker()">닫기</button>
+    </div>
+    <div id="completePickerList" class="complete-picker-list"></div>
+  </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -1024,8 +1132,8 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null;
-const APP_VERSION='1.10.283';
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='';
+const APP_VERSION='1.10.285';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['wait','rest','done'];
@@ -1101,10 +1209,14 @@ function sampleSession(){
   }));
   const namesOf=ids=>ids.map(id=>players.find(p=>p.id===id)?.name||'');
   const active=(court,ids,remain,type)=>({
+    id:'dm'+court,
     court,seq:court,type,teamMode:false,
     labelA:'A팀',labelB:'B팀',
     t1:namesOf(ids.slice(0,2)),
     t2:namesOf(ids.slice(2,4)),
+    t1Ids:ids.slice(0,2),
+    t2Ids:ids.slice(2,4),
+    playerIds:ids,
     remain,
     startedAt:now-(15-remain)*60000,
     endAt:now+remain*60000,
@@ -1287,6 +1399,66 @@ function courtBadge(label){
   if(m)return `<div class="event-court-badge"><b>${esc(m[1])}</b><span>코트</span></div>`;
   return `<div class="event-court-badge"><b>대기</b><span>순번</span></div>`;
 }
+function activeMatchById(matchId){
+  return (session?.event?.active||[]).find(m=>String(m.id||'')===String(matchId||''))||null;
+}
+function queueById(queueId){
+  return (session?.event?.next||[]).find(q=>String(q.queueId||'')===String(queueId||''))||null;
+}
+function activeMatchLabel(m){
+  if(!m)return '해당 경기';
+  const court=m.court?`${m.court}코트`:'진행 경기';
+  return `${court} · ${teamNames(m)}`;
+}
+function closeCourtCompletePicker(){
+  completePickerQueueId='';
+  const picker=document.getElementById('completePicker');
+  if(picker)picker.classList.add('hidden');
+}
+function openCourtCompletePicker(queueId){
+  const q=queueById(queueId);
+  const last=getLastSent();
+  if(!q||!last||(q.playerIds||[]).indexOf(last.playerId)<0){
+    toast('다음 대진 선수만 입장 처리할 수 있어요.');
+    return;
+  }
+  const active=session?.event?.active||[];
+  if(!active.length){
+    toast('현재 진행 중인 코트가 없습니다.');
+    return;
+  }
+  completePickerQueueId=queueId;
+  const picker=document.getElementById('completePicker');
+  const list=document.getElementById('completePickerList');
+  if(!picker||!list)return;
+  list.innerHTML=active.map(m=>{
+    const remain=remainMinutes(m);
+    const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
+    return `<button type="button" class="complete-picker-card ${state}" onclick="pickCourtComplete('${esc(m.id||'')}')">
+      <span class="complete-picker-card-top">
+        <span class="complete-picker-court">${esc(m.court?`${m.court}코트`:'진행 경기')}</span>
+        <span class="complete-picker-time">${esc(remainText(m))}</span>
+      </span>
+      <span class="complete-picker-teams">
+        <span>${esc((m.t1||[]).join(' · '))}</span>
+        <em>vs</em>
+        <span>${esc((m.t2||[]).join(' · '))}</span>
+      </span>
+    </button>`;
+  }).join('');
+  picker.classList.remove('hidden');
+}
+function pickCourtComplete(matchId){
+  const m=activeMatchById(matchId);
+  if(!m||!completePickerQueueId){
+    toast('경기 정보를 다시 확인해 주세요.');
+    closeCourtCompletePicker();
+    return;
+  }
+  const qid=completePickerQueueId;
+  closeCourtCompletePicker();
+  sendCourtComplete(qid,m.id,m.court,'queue');
+}
 function renderEvent(){
   const el=document.getElementById('eventPanel');
   if(!el)return;
@@ -1300,28 +1472,33 @@ function renderEvent(){
   el.className='panel event-panel';
   const updated=ev.updatedAt?new Date(ev.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>`;
+  const last=getLastSent();
+  const selectedId=last&&last.playerId;
+  const hasNext=(ev.next||[]).length>0;
   const active=(ev.active||[]).slice(0,4).map(m=>{
     const remain=remainMinutes(m);
     const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
+    const canSelfComplete=selectedId&&!hasNext&&(m.playerIds||[]).includes(selectedId);
+    const selfAction=canSelfComplete?`<div class="event-complete-action">
+      <button class="event-complete-btn" onclick="sendCourtComplete('','${esc(m.id||'')}','${esc(String(m.court||''))}','self')">내 경기 종료</button>
+    </div>`:'';
     return `<div class="event-row ${state}">
     <div class="event-row-main">
       ${courtBadge(`${m.court}코트`)}
       <div>
         <div class="event-match-title">진행중</div>
         <div class="event-teams">${teamLines(m)}</div>
+        ${selfAction}
       </div>
     </div>
     <em>${esc(remainText(m))}</em>
   </div>`;
   }).join('');
-  const last=getLastSent();
   const lastComplete=getLastComplete();
   const next=(ev.next||[]).slice(0,4).map(m=>{
-    const selectedId=last&&last.playerId;
-    const canComplete=selectedId&&m.targetMatchId&&m.queueId&&(m.playerIds||[]).includes(selectedId);
-    const completeLabel='종료 후 입장';
+    const canComplete=selectedId&&m.queueId&&(m.playerIds||[]).includes(selectedId)&&(ev.active||[]).length;
     const action=canComplete?`<div class="event-complete-action">
-      <button class="event-complete-btn ${esc(m.cueState||'')}" onclick="sendCourtComplete('${esc(m.queueId)}','${esc(m.targetMatchId)}','${esc(String(m.targetCourt||''))}')">${esc(completeLabel)}</button>
+      <button class="event-complete-btn ${esc(m.cueState||'')}" onclick="openCourtCompletePicker('${esc(m.queueId)}')">입장하기</button>
     </div>`:'';
     return `<div class="event-row next ${esc(m.cueState||'')}">
     <div class="event-row-main">
@@ -1665,17 +1842,25 @@ async function sendStatus(playerId,status){
     render();
   }
 }
-async function sendCourtComplete(queueId,matchId,court){
+async function sendCourtComplete(queueId,matchId,court,mode){
   if(!db||!checkinId||!session||sendingKey)return;
   if(sessionExpired())return showEndedLink();
   const last=getLastSent();
   if(!last||!last.playerId)return toast('먼저 본인 이름에서 시작 버튼을 눌러 주세요.');
-  const courtText=court?`${court}코트`:'해당 코트';
-  if(!confirm(`${courtText} 경기가 끝났나요?\n확인하면 이 다음 대진이 코트에 들어갑니다.`))return;
+  const activeMatch=activeMatchById(matchId);
+  if(!activeMatch)return toast('진행 중 경기를 다시 확인해 주세요.');
+  const q=queueId?queueById(queueId):null;
+  const isQueueMode=mode!=='self'&&!!queueId;
+  if(isQueueMode&&!q)return toast('다음 대진을 다시 확인해 주세요.');
+  const courtText=court?`${court}코트`:(activeMatch.court?`${activeMatch.court}코트`:'해당 코트');
+  const confirmText=isQueueMode
+    ? `${activeMatchLabel(activeMatch)}\n\n이 경기가 끝났나요?\n확인하면 내 다음 대진이 이 코트에 들어갑니다.`
+    : `${activeMatchLabel(activeMatch)}\n\n내 경기를 종료할까요?\n다음 대진이 없으면 선수들은 휴식으로 전환됩니다.`;
+  if(!confirm(confirmText))return;
   const token='ct_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
   const req={
     type:'court-complete',
-    queueId,
+    queueId:queueId||'',
     matchId,
     court,
     token,
@@ -1684,12 +1869,12 @@ async function sendCourtComplete(queueId,matchId,court){
     createdAt:Date.now(),
     source:'member-court-complete'
   };
-  sendingKey='court_complete_'+matchId;
+  sendingKey='court_complete_'+matchId+'_'+(queueId||'self');
   renderEvent();
   try{
     await db.ref(checkinPath()+'/requests').push(req);
-    setLastComplete({token,matchId,queueId,court});
-    toast(`${courtText} 종료 요청 완료`);
+    setLastComplete({token,matchId,queueId:queueId||'',court});
+    toast(isQueueMode?`${courtText} 입장 요청 완료`:`${courtText} 종료 요청 완료`);
   }catch(e){
     toast('종료 요청 전송에 실패했습니다.');
   }finally{
