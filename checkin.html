@@ -1090,7 +1090,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.293</span>
+    <span class="version-chip" id="appVersion">v1.10.294</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1134,12 +1134,13 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='';
-const APP_VERSION='1.10.293';
+const APP_VERSION='1.10.294';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['wait','rest','done'];
 const SUB_STATUS_KEYS=[];
+const STATUS_COOLDOWN_MS=3000;
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
 function isSampleMode(){return new URLSearchParams(location.search).has('sample');}
@@ -1575,7 +1576,7 @@ function render(){
     return;
   }
   box.className='';
-  box.innerHTML=players.map(p=>playerCardHtml(p,sendingKey?'disabled':'')).join('');
+  box.innerHTML=players.map(p=>playerCardHtml(p,sendingKey?'disabled':'',{readonly:!!selectedId&&p.id!==selectedId})).join('');
 }
 function statusButtonSpec(p,key){
   const selected=getSelectedStatus(p);
@@ -1613,6 +1614,16 @@ function statusSection(p,title,keys,disabled){
     <div class="compact-actions">${statusButtons(p,usable,disabled)}</div>
   </details>`;
 }
+function confirmPlayerIdentity(p){
+  const last=getLastSent();
+  if(last&&last.playerId===p.id)return true;
+  const saved=last&&last.playerName?`현재 이 휴대폰은 ${last.playerName}님으로 저장되어 있습니다.\n`:'';
+  return confirm(`${saved}${p.name}님 본인이 맞나요?\n다른 회원 이름을 누르면 대진이 꼬일 수 있습니다.`);
+}
+function isRapidStatusChange(p,status){
+  const last=getLastSent();
+  return !!(last&&last.playerId===p.id&&Date.now()-(last.savedAt||0)<STATUS_COOLDOWN_MS&&last.status!==status);
+}
 function playerCardHtml(p,disabled,opts={}){
   const locked=!!p.locked;
   const last=getLastSent();
@@ -1621,8 +1632,11 @@ function playerCardHtml(p,disabled,opts={}){
   const requested=!!latestStatusRequest(p.id);
   const highlighted=opts.forceHighlight||recent||requested;
   const disabledAttr=disabled?'disabled':'';
-  const mainButtons=statusButtons(p,MAIN_STATUS_KEYS,disabledAttr);
-  const subSection=statusSection(p,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
+  const readonly=!!opts.readonly;
+  const mainButtons=readonly?'':statusButtons(p,MAIN_STATUS_KEYS,disabledAttr);
+  const subSection=readonly?'':statusSection(p,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
+  const requestBox=readonly?'':gameRequestBox(p,disabledAttr);
+  const readonlyNote=readonly?'<div class="request-status">상태 변경은 상단 내 카드에서만 가능합니다.</div>':'';
   return `<article class="player ${locked?'locked':''} ${highlighted?'recent':''}">
     <div class="phead">
       <div>
@@ -1631,9 +1645,10 @@ function playerCardHtml(p,disabled,opts={}){
       </div>
       <div class="badge ${highlighted?'selected':''}">${highlighted?'전송완료':(locked?'경기중':compactLabel(selected))}</div>
     </div>
-    <div class="buttons main-actions">${mainButtons}</div>
+    ${mainButtons?`<div class="buttons main-actions">${mainButtons}</div>`:''}
     ${subSection}
-    ${gameRequestBox(p,disabledAttr)}
+    ${requestBox}
+    ${readonlyNote}
   </article>`;
 }
 function renderMyCard(last,players){
@@ -1743,6 +1758,7 @@ function gameRequestBox(p,disabled){
     const consent=reservationConsentSummary(pending);
     const consentText=pending.consentRequired?` · 동의 ${consent.accepted}/${consent.total}`:'';
     const myConsent=reservationConsentState(pending,p.id);
+    const cancelButton=`<button class="decline" ${disabled} onclick="sendReservationCancel('${esc(pending.key)}','${esc(p.id)}')">${pending.playerId===p.id?'신청 취소':'동의 취소'}</button>`;
     if(pending.consentRequired&&myConsent!=='accepted'){
       return `<details class="game-request" open>
         <summary>게임 신청 동의</summary>
@@ -1759,6 +1775,7 @@ function gameRequestBox(p,disabled){
       <summary>게임 신청</summary>
       <div class="request-status">${pending.consentRequired?'동의 완료':'신청 접수됨'}${consentText} · 자동 반영 대기
         <small>${esc(reservationRequestLabel(pending))}</small>
+        <div class="request-consent-actions">${cancelButton}</div>
       </div>
     </details>`;
   }
@@ -1792,6 +1809,9 @@ async function sendStatus(playerId,status){
     if(sessionExpired())return showEndedLink();
     const p=(session.players||[]).find(x=>x.id===playerId);
     if(!p)return toast('선수를 찾지 못했습니다.');
+    if(!confirmPlayerIdentity(p))return;
+    if(isRapidStatusChange(p,status))return toast('상태 변경은 잠시 후 다시 눌러주세요.');
+    if(status==='rest'&&p.locked&&!confirm(`${p.name}님, 대기표나 경기에서 빠지고 휴식으로 바꿀까요?`))return;
     if(status==='done'&&!confirm(`${p.name}님, 오늘 운동을 종료할까요?\n종료하면 이후 대진 후보에서 빠집니다.`))return;
     p.status=status;
     p.statusLabel=compactLabel(status);
@@ -1814,6 +1834,9 @@ async function sendStatus(playerId,status){
   if(sessionExpired())return showEndedLink();
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
+  if(!confirmPlayerIdentity(p))return;
+  if(isRapidStatusChange(p,status))return toast('상태 변경은 잠시 후 다시 눌러주세요.');
+  if(status==='rest'&&p.locked&&!confirm(`${p.name}님, 대기표나 경기에서 빠지고 휴식으로 바꿀까요?`))return;
   if(status==='done'&&!confirm(`${p.name}님, 오늘 운동을 종료할까요?\n종료하면 이후 대진 후보에서 빠집니다.`))return;
   const last=getLastSent();
   if(last&&last.playerId===p.id&&last.status===status&&Date.now()-(last.savedAt||0)<10000){
@@ -1964,6 +1987,45 @@ async function sendReservationConsent(reqKey,playerId,accept){
     }
   }catch(e){
     toast('처리에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';
+    render();
+  }
+}
+async function sendReservationCancel(reqKey,playerId){
+  if(isSampleMode()){
+    if(!session||sendingKey)return;
+    const req=reservationRequests.find(r=>r.key===reqKey);
+    const p=(session.players||[]).find(x=>x.id===playerId);
+    if(!req||!p)return toast('신청 정보를 찾지 못했습니다.');
+    if(!confirm('이 게임신청을 취소할까요?\n필요하면 다시 신청할 수 있습니다.'))return;
+    const reason=req.playerId===playerId
+      ? `${p.name}님이 게임신청을 취소했습니다.`
+      : `${p.name}님이 게임신청 동의를 취소했습니다.`;
+    req.ignoredAt=Date.now();
+    req.reason=reason;
+    toast('게임신청을 취소했습니다.');
+    render();
+    return;
+  }
+  if(!db||!checkinId||!session||sendingKey)return;
+  if(sessionExpired())return showEndedLink();
+  const req=reservationRequests.find(r=>r.key===reqKey);
+  const p=(session.players||[]).find(x=>x.id===playerId);
+  if(!req||!p)return toast('신청 정보를 찾지 못했습니다.');
+  if(!confirm('이 게임신청을 취소할까요?\n필요하면 다시 신청할 수 있습니다.'))return;
+  sendingKey=playerId+'_reservation_cancel';
+  render();
+  try{
+    const reason=req.playerId===playerId
+      ? `${p.name}님이 게임신청을 취소했습니다.`
+      : `${p.name}님이 게임신청 동의를 취소했습니다.`;
+    await db.ref(checkinPath()+'/requests/'+reqKey).update({ignoredAt:Date.now(),ignoredBy:'member-reservation-cancel',reason});
+    req.ignoredAt=Date.now();
+    req.reason=reason;
+    toast('게임신청을 취소했습니다.');
+  }catch(e){
+    toast('취소 처리에 실패했습니다.');
   }finally{
     sendingKey='';
     render();
