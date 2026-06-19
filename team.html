@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.288  (2026-06)
+     APP VERSION: 1.10.289  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.288">
+<meta name="app-version" content="1.10.289">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2477,7 +2477,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.288&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.289&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2496,7 +2496,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.288&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.289&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -3084,7 +3084,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.288';
+const APP_VERSION = '1.10.289';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8911,6 +8911,8 @@ function renderAutoFlowDashboard(){
     const matches=currentMatches.length;
     const done=matches?currentMatches.filter((_,i)=>_isMatchDone(i)).length:0;
     const live=!!_liveOn;
+    const blueWins=matches?currentMatches.reduce((n,_,i)=>n+(winOverride[i]==='blue'?1:0),0):0;
+    const whiteWins=matches?currentMatches.reduce((n,_,i)=>n+(winOverride[i]==='white'?1:0),0):0;
     const blue=teamAssignment?.blue||[];
     const white=teamAssignment?.white||[];
     const genderCount=arr=>({m:arr.filter(p=>p.gender==='M'||p.gender==='남').length,f:arr.filter(p=>p.gender==='F'||p.gender==='여').length});
@@ -8933,7 +8935,8 @@ function renderAutoFlowDashboard(){
       ? `청 남${bg.m}여${bg.f} · 홍 남${wg.m}여${wg.f}`
       : (players?'참가자 확인 후 팀 배정':'출석자 필요');
     const matchValue=matches?`${done}/${matches}`:'전';
-    const matchNote=matches?`${currentRound} · ${Math.max(0,matches-done)} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
+    const remaining=Math.max(0,matches-done);
+    const matchNote=matches?`${currentRound} · ${remaining} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
     const liveValue=live?'ON':(matches?'대기':'전');
     const liveNote=live?'링크 활성':(matches?'시작 전':'대진 필요');
     let stage='roster';
@@ -8979,12 +8982,22 @@ function renderAutoFlowDashboard(){
       generate:_autoFlowAction('대진 생성','generateBracket','품질 자동 확인'),
       broadcast:_autoFlowAction('중계 시작','onLiveBtnClick','회원 링크 연결')
     }[stage]||'';
+    const boardHtml=live
+      ? [
+          _autoFlowPanel('라운드',currentRound,`${done}/${matches} 입력`,remaining?'warn':'live'),
+          _autoFlowPanel('스코어',`${blueWins}:${whiteWins}`,'청:홍',''),
+          _autoFlowPanel('미입력',`${remaining}경기`,remaining?'승패 확인':'완료',remaining?'warn':'live'),
+          _autoFlowPanel('늦음',`${counts.plan||0}명`,(counts.plan||0)?'대체 확인':'없음',(counts.plan||0)?'warn':'')
+        ].join('')
+      : [
+          _autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':''),
+          _autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn'),
+          _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':''),
+          _autoFlowPanel('중계',liveValue,liveNote,live?'live':'')
+        ].join('');
     body.innerHTML=`
       <div class="auto-flow-board">
-        ${_autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':'')}
-        ${_autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn')}
-        ${_autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'')}
-        ${_autoFlowPanel('중계',liveValue,liveNote,live?'live':'')}
+        ${boardHtml}
       </div>
       <div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
         <span class="team-live-step ${stepState('roster')}">명부</span>
@@ -10031,7 +10044,7 @@ function checkEmptyCourts(matches,settings,participants){
 /* ════════════════════════════════
    모바일 탭 = 스크롤 이동 (화면 전환 X)
 ════════════════════════════════ */
-let _mobileTab = 'players';
+let _mobileTab = 'dashboard';
 
 function isMobile(){ return window.innerWidth <= 768; }
 
@@ -10051,14 +10064,23 @@ function switchMobileTab(tab){
 
   // 메인 페이지로 복귀 (명부에서 돌아올 때)
   switchNav('main');
+  if(tab === 'dashboard'){
+    const el=document.getElementById('autoFlowCard');
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+    else window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  if(tab === 'bracket' && typeof showTab==='function')showTab('bracket');
+  if(tab === 'result'){
+    teamLiveOpenScoreboard();
+    return;
+  }
 
   // 모바일: 해당 섹션 앵커로 스크롤
   if(isMobile()){
     const targetMap = {
       players: 'sec-players',
-      team:    'sec-settings',
-      bracket: 'sec-settings',
-      result:  'resultArea',
+      bracket: 'resultArea',
     };
     const targetId = targetMap[tab];
     const el = document.getElementById(targetId);
@@ -10081,10 +10103,10 @@ function syncBottomNav(page){
 function updateActiveBnavByScroll(){
   if(!isMobile()) return;
   const sections = [
-    {id:'resultArea',    tab:'result'},
-    {id:'sec-settings',  tab:'bracket'},
-    {id:'sec-team-anchor',tab:'team'},
+    {id:'scoreboardSec', tab:'result'},
+    {id:'resultArea',    tab:'bracket'},
     {id:'sec-players',   tab:'players'},
+    {id:'autoFlowCard',  tab:'dashboard'},
   ];
   const scrollY = window.scrollY + 120;
   for(const s of sections){
@@ -10217,7 +10239,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // mob-hide 잔여 제거
   document.querySelectorAll('.mob-hide').forEach(el => el.classList.remove('mob-hide'));
   // 하단 탭 초기 활성화
-  const btn = document.getElementById('bnav-players');
+  const btn = document.getElementById('bnav-dashboard');
   if(btn) btn.classList.add('active');
 });
 </script>
@@ -10236,7 +10258,18 @@ window.addEventListener('DOMContentLoaded', () => {
 </button>
 <!-- ═══ 모바일 하단 탭바 ═══ -->
 <nav class="bottom-nav" id="bottomNav">
-  <button class="bnav-btn active" id="bnav-players" onclick="switchMobileTab('players')">
+  <button class="bnav-btn active" id="bnav-dashboard" onclick="switchMobileTab('dashboard')">
+    <span class="bnav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <path d="M5 6h14"></path>
+        <path d="M7 10h10"></path>
+        <path d="M8 14h8"></path>
+        <path d="M10 18h4"></path>
+      </svg>
+    </span>
+    <span class="bnav-label">상황판</span>
+  </button>
+  <button class="bnav-btn" id="bnav-players" onclick="switchMobileTab('players')">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <circle cx="8" cy="8" r="3"></circle>
@@ -10246,17 +10279,6 @@ window.addEventListener('DOMContentLoaded', () => {
       </svg>
     </span>
     <span class="bnav-label">참가자</span>
-  </button>
-  <button class="bnav-btn" id="bnav-team" onclick="switchMobileTab('team')">
-    <span class="bnav-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24">
-        <path d="M12 5v15"></path>
-        <path d="M5 8h14"></path>
-        <path d="M6 8l-3 6h6l-3-6z"></path>
-        <path d="M18 8l-3 6h6l-3-6z"></path>
-      </svg>
-    </span>
-    <span class="bnav-label">팀전LIVE</span>
   </button>
   <button class="bnav-btn" id="bnav-bracket" onclick="switchMobileTab('bracket')">
     <span class="bnav-icon" aria-hidden="true">
@@ -10303,7 +10325,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.288</span>
+  <span class="app-version" id="appVersion">v1.10.289</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

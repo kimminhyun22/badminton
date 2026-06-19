@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.288  (2026-06)
+     APP VERSION: 1.10.289  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.288">
+<meta name="app-version" content="1.10.289">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2420,7 +2420,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.288</small>
+          <small>팀전LIVE 최신판 v1.10.289</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -2793,7 +2793,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
           <div class="daily-dashboard-hero">
             <div>
               <div class="daily-dashboard-kicker">LIVE</div>
-              <h3 class="daily-dashboard-title">오늘 현황</h3>
+              <h3 class="daily-dashboard-title">민턴LIVE 상황판</h3>
             </div>
             <div class="daily-dashboard-head-actions">
               <div class="daily-state-pill" id="dailyFlowState"><span class="daily-dot"></span> 정상 운영</div>
@@ -3210,7 +3210,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.288';
+const APP_VERSION = '1.10.289';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6094,7 +6094,7 @@ function dailyRenderOpsStats(){
   const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited'&&p.isGuest).length;
   const cap=_dailyQueueCapacity();
   const flow=_dailyNaturalAutoInfo();
-  const courtHint=active>courts?`진행 ${active}경기 · 종료 후 ${courts}코트`:flow.auto?`${flow.operatingCourts}코트 자동 운영`:active?`${active}경기 진행 중`:'시작 전';
+  const courtHint=active>courts?`종료 후 ${courts}코트`:flow.auto?`${flow.operatingCourts}코트 운영`:active?`${active}경기 중`:'시작 전';
   const nextHint=cap.short
     ? `목표 ${cap.goal}경기`
     : cap.boosted
@@ -6103,10 +6103,10 @@ function dailyRenderOpsStats(){
         ? `자동 편성`
         : flow.hint;
   const cards=[
-    {label:'코트',value:flow.auto?`${flow.operatingCourts}/${courts}`:courts,hint:courtHint,cls:'primary'},
-    {label:'라이브',value:flow.pool,hint:guestLive?`G ${guestLive}`:flow.label,cls:flow.auto?'primary':'warn'},
-    {label:'대기선수',value:ready,hint:unscheduled?`미편성 ${unscheduled}`:'대기 없음',cls:ready?'primary':'warn'},
+    {label:'진행',value:`${active}/${courts}`,hint:courtHint,cls:'primary'},
     {label:'다음 대진',value:flow.auto?`${locked}/${cap.goal}`:'대기',hint:nextHint,cls:(flow.auto&&((locked<cap.target)||cap.short))?'warn':'primary'},
+    {label:'대기선수',value:ready,hint:unscheduled?`미편성 ${unscheduled}`:'대기 없음',cls:ready?'primary':'warn'},
+    {label:'라이브 인원',value:flow.pool,hint:guestLive?`게스트 ${guestLive}`:flow.label,cls:flow.auto?'primary':'warn'},
     {label:'휴식',value:rest,hint:rest?'복귀 가능':'없음',cls:rest?'warn':'primary'}
   ];
   el.innerHTML=cards.map(x=>`<div class="daily-op ${x.cls||''}"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></div>`).join('');
@@ -13141,7 +13141,7 @@ function checkEmptyCourts(matches,settings,participants){
 /* ════════════════════════════════
    모바일 탭 = 스크롤 이동 (화면 전환 X)
 ════════════════════════════════ */
-let _mobileTab = 'players';
+let _mobileTab = 'daily';
 
 function isMobile(){ return window.innerWidth <= 768; }
 
@@ -13174,9 +13174,7 @@ function switchMobileTab(tab){
   if(isMobile()){
     const targetMap = {
       queue:   'dailyUrgentCard',
-      checkin: 'dailyCheckinCard',
       players: 'dailyPlayersManage',
-      ops:     'dailyOpsCard',
     };
     const targetId = targetMap[tab];
     const el = document.getElementById(targetId);
@@ -13203,7 +13201,6 @@ function updateActiveBnavByScroll(){
   }
   const sections = [
     {id:'dailyPlayersManage', tab:'players'},
-    {id:'dailyCheckinCard',   tab:'checkin'},
     {id:'dailyUrgentCard',    tab:'queue'},
     {id:'dailyOpsCard',       tab:'daily'},
   ];
@@ -13291,20 +13288,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <path d="M10 18h4"></path>
       </svg>
     </span>
-    <span class="bnav-label">현황</span>
-  </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.288&team=1'">
-    <span class="bnav-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24">
-        <path d="M5 7h6"></path>
-        <path d="M13 7h6"></path>
-        <path d="M5 17h6"></path>
-        <path d="M13 17h6"></path>
-        <path d="M8 7v10"></path>
-        <path d="M16 7v10"></path>
-      </svg>
-    </span>
-    <span class="bnav-label">팀전LIVE</span>
+    <span class="bnav-label">상황판</span>
   </button>
   <button class="bnav-btn" id="bnav-queue" onclick="switchMobileTab('queue')">
     <span class="bnav-icon" aria-hidden="true">
@@ -13316,18 +13300,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <path d="M12 12v5h3"></path>
       </svg>
     </span>
-    <span class="bnav-label">대기</span>
-  </button>
-  <button class="bnav-btn" id="bnav-checkin" onclick="switchMobileTab('checkin')">
-    <span class="bnav-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24">
-        <path d="M6 4h12v16H6z"></path>
-        <path d="M9 8h6"></path>
-        <path d="M9 12h6"></path>
-        <path d="M9 16h4"></path>
-      </svg>
-    </span>
-    <span class="bnav-label">출석</span>
+    <span class="bnav-label">대진</span>
   </button>
   <button class="bnav-btn" id="bnav-players" onclick="switchMobileTab('players')">
     <span class="bnav-icon" aria-hidden="true">
@@ -13361,7 +13334,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.288</span>
+  <span class="app-version" id="appVersion">v1.10.289</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
