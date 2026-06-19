@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.289  (2026-06)
+     APP VERSION: 1.10.290  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.289">
+<meta name="app-version" content="1.10.290">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1353,6 +1353,10 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .auto-flow-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;
   border-radius:999px;padding:6px 10px;background:#dbeafe;color:#1d4ed8;font-size:.72rem;font-weight:1000;white-space:nowrap;}
 .auto-flow-badge.live{background:#fee2e2;color:#b91c1c;}
+.auto-flow-actions{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex-shrink:0;}
+.team-mode-switch{border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;border-radius:999px;padding:7px 10px;
+  font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:1000;cursor:pointer;white-space:nowrap;}
+.team-mode-switch:hover{background:#dcfce7;border-color:#86efac;}
 .auto-flow-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0;}
 .auto-flow-metric{border:1px solid #dbeafe;background:rgba(255,255,255,.86);border-radius:12px;padding:10px 8px;text-align:center;}
 .auto-flow-metric b{display:block;font-size:1.2rem;line-height:1.05;color:#111827;font-weight:1000;}
@@ -2477,7 +2481,7 @@ header,.nav-bar{
 </header>
 
 <div class="nav-bar">
-  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.289&from=team'">☀️ 민턴LIVE로</button>
+  <button class="nav-sync-btn nav-live-btn" onclick="location.href='index.html?v=1.10.290&from=team'">☀️ 민턴LIVE로</button>
   <button class="nav-tab active" onclick="switchNav('main')">🏸 대진표</button>
   <button class="nav-tab" onclick="switchNav('roster')">🏛️ 명부</button>
   <button class="nav-tab" onclick="switchNav('manual')">📖 설명서</button>
@@ -2496,7 +2500,7 @@ header,.nav-bar{
   </div>
 </div>
 
-<a class="mobile-live-return" href="index.html?v=1.10.289&from=team">☀️ 민턴LIVE로 돌아가기</a>
+<a class="mobile-live-return" href="index.html?v=1.10.290&from=team">☀️ 민턴LIVE로 돌아가기</a>
 
 <!-- ═══════════════ MAIN PAGE ═══════════════ -->
 <div class="page active" id="pageMain">
@@ -2515,7 +2519,10 @@ header,.nav-bar{
             <div class="auto-flow-title" id="autoFlowTitle">팀전LIVE 상황판</div>
             <div class="auto-flow-sub" id="autoFlowSub">팀전 준비</div>
           </div>
-          <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
+          <div class="auto-flow-actions">
+            <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
+            <button class="team-mode-switch" onclick="location.href='index.html?v=1.10.290&from=team'">민턴LIVE</button>
+          </div>
         </div>
         <div id="autoFlowBody"></div>
       </div>
@@ -3084,7 +3091,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.289';
+const APP_VERSION = '1.10.290';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -10325,7 +10332,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.289</span>
+  <span class="app-version" id="appVersion">v1.10.290</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

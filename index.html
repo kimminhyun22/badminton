@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.289  (2026-06)
+     APP VERSION: 1.10.290  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.289">
+<meta name="app-version" content="1.10.290">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -931,6 +931,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-hero-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;}
 .daily-reset-top{border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:999px;padding:8px 11px;font-size:.7rem;font-weight:900;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;}
 .daily-reset-top:hover{background:#fee2e2;}
+.daily-mode-switch{border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;border-radius:999px;padding:8px 11px;font-size:.7rem;font-weight:900;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;}
+.daily-mode-switch:hover{background:#dcfce7;border-color:#86efac;}
 .daily-layout{display:flex;flex-direction:column;gap:16px;align-items:stretch;}
 .daily-side,.daily-main{min-width:0;width:100%;}
 .daily-side{order:2;}
@@ -1262,7 +1264,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 @media(max-width:640px){
   .daily-dashboard-hero{gap:10px;}
   .daily-dashboard-head-actions{gap:7px;}
-  .daily-dashboard-head-actions .daily-reset-top{padding:7px 9px;font-size:.64rem;}
+  .daily-dashboard-head-actions .daily-reset-top,
+  .daily-dashboard-head-actions .daily-mode-switch{padding:7px 9px;font-size:.64rem;}
   .daily-op{min-height:62px;padding:9px 8px;}.daily-op b{font-size:1.12rem;}
   .daily-admin-alert{flex-direction:column;}.daily-admin-alert-actions{width:100%;}.daily-admin-alert-actions .daily-mini-btn{flex:1;}
   .daily-note{font-size:.68rem;line-height:1.5;padding:8px 10px;}
@@ -2420,7 +2423,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.289</small>
+          <small>팀전LIVE 최신판 v1.10.290</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -2797,6 +2800,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
             </div>
             <div class="daily-dashboard-head-actions">
               <div class="daily-state-pill" id="dailyFlowState"><span class="daily-dot"></span> 정상 운영</div>
+              <button class="daily-mode-switch" onclick="location.href='team.html?v=1.10.290&from=daily'">팀전LIVE</button>
               <button class="daily-reset-top" onclick="dailyReset()">전체 초기화</button>
             </div>
           </div>
@@ -3210,7 +3214,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.289';
+const APP_VERSION = '1.10.290';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -13334,7 +13338,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.289</span>
+  <span class="app-version" id="appVersion">v1.10.290</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
