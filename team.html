@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.292  (2026-06)
+     APP VERSION: 1.10.293  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.292">
+<meta name="app-version" content="1.10.293">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2347,7 +2347,7 @@ header,.nav-bar{
 }
 .win-dot.blue{background:linear-gradient(180deg,#2f8bff 0%,#005ccc 100%);}
 .win-dot.red{background:linear-gradient(180deg,#ff4d54 0%,#c9141c 100%);}
-.win-label{display:inline-block;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.win-label{display:inline-block;flex:0 0 auto;white-space:nowrap;overflow:visible;text-overflow:clip;}
 .win-btn.active,.win-btn:hover{
   background:#f3fbf6!important;
   border-color:#bfe8cf!important;
@@ -2496,8 +2496,8 @@ header,.nav-bar{
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.292&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.292&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.293&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.293&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -3108,7 +3108,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.292';
+const APP_VERSION = '1.10.293';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6060,8 +6060,10 @@ function renderResults(matches,participants,settings){
       const sl2=isTeam?(t1b?teamNames.white:teamNames.blue):'B';
       const sd1=isTeam?(t1b?'blue':'red'):'blue';
       const sd2=isTeam?(t1b?'red':'blue'):'red';
-      const wl1=isTeam?`<span class="win-dot ${sd1}"></span><span class="win-label">${esc(sl1).replace(/\s+/g,'')} 승</span>`:`${sl1} 승`;
-      const wl2=isTeam?`<span class="win-dot ${sd2}"></span><span class="win-label">${esc(sl2).replace(/\s+/g,'')} 승</span>`:`${sl2} 승`;
+      const wl1Text=isTeam?(sd1==='blue'?'청팀 승':'홍팀 승'):`${sl1} 승`;
+      const wl2Text=isTeam?(sd2==='blue'?'청팀 승':'홍팀 승'):`${sl2} 승`;
+      const wl1=isTeam?`<span class="win-dot ${sd1}"></span><span class="win-label">${wl1Text}</span>`:wl1Text;
+      const wl2=isTeam?`<span class="win-dot ${sd2}"></span><span class="win-label">${wl2Text}</span>`:wl2Text;
       return `<div class="match-card ${tc}${m.isFiller?' filler':''}" id="mc_${idx}">
         <div class="match-top">
           <span class="court-badge">${m.court}코트</span>
@@ -10353,7 +10355,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.292</span>
+  <span class="app-version" id="appVersion">v1.10.293</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
