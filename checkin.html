@@ -155,6 +155,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   gap:10px;
   align-items:center;
 }
+.event-row-main.full{grid-template-columns:minmax(0,1fr)}
 .event-court-badge{
   min-width:62px;
   min-height:54px;
@@ -1089,7 +1090,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.285</span>
+    <span class="version-chip" id="appVersion">v1.10.286</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1133,8 +1134,9 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='';
-const APP_VERSION='1.10.285';
+const APP_VERSION='1.10.286';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
+const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['wait','rest','done'];
 const SUB_STATUS_KEYS=[];
@@ -1280,7 +1282,8 @@ function getLastSent(){
 function getLastComplete(){
   try{
     const v=JSON.parse(localStorage.getItem(LAST_COMPLETE_KEY)||'null');
-    return v&&Date.now()-(v.savedAt||0)<45000?v:null;
+    const remain=COMPLETE_UNDO_MS-(Date.now()-(v?.savedAt||0));
+    return v&&remain>0?{...v,remainingSec:Math.max(1,Math.ceil(remain/1000))}:null;
   }catch(e){return null;}
 }
 function setLastComplete(v){
@@ -1474,11 +1477,10 @@ function renderEvent(){
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>`;
   const last=getLastSent();
   const selectedId=last&&last.playerId;
-  const hasNext=(ev.next||[]).length>0;
   const active=(ev.active||[]).slice(0,4).map(m=>{
     const remain=remainMinutes(m);
     const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
-    const canSelfComplete=selectedId&&!hasNext&&(m.playerIds||[]).includes(selectedId);
+    const canSelfComplete=selectedId&&(m.playerIds||[]).includes(selectedId);
     const selfAction=canSelfComplete?`<div class="event-complete-action">
       <button class="event-complete-btn" onclick="sendCourtComplete('','${esc(m.id||'')}','${esc(String(m.court||''))}','self')">내 경기 종료</button>
     </div>`:'';
@@ -1511,15 +1513,14 @@ function renderEvent(){
   </div>`;
   }).join('');
   const undo=lastComplete?`<div class="event-row">
-    <div class="event-row-main">
-      <div class="event-court-badge"><b>↩</b><span>복구</span></div>
+    <div class="event-row-main full">
       <div>
-        <div class="event-match-title">방금 코트 종료를 요청했어요</div>
-        <small class="event-cue">잘못 눌렀다면 바로 되돌릴 수 있습니다.</small>
-        <div class="event-complete-action"><button class="event-undo-btn" onclick="sendCourtCompleteUndo('${esc(lastComplete.token)}')">되돌리기 요청</button></div>
+        <div class="event-match-title">방금 종료 처리됨</div>
+        <small class="event-cue">잘못 눌렀다면 바로 취소하세요.</small>
+        <div class="event-complete-action"><button class="event-undo-btn" onclick="sendCourtCompleteUndo('${esc(lastComplete.token)}')">종료 취소</button></div>
       </div>
     </div>
-    <em>45초</em>
+    <em>${esc(lastComplete.remainingSec)}초</em>
   </div>`:'';
   el.innerHTML=`<div class="event-title"><b>민턴LIVE 현황</b><span>${esc(updated)} 업데이트</span></div>
     <div>${summary}</div>
@@ -1890,9 +1891,9 @@ async function sendCourtCompleteUndo(token){
   try{
     await db.ref(checkinPath()+'/requests').push(req);
     clearLastComplete();
-    toast('되돌리기 요청을 보냈어요.');
+    toast('종료 취소 요청을 보냈어요.');
   }catch(e){
-    toast('되돌리기 요청에 실패했습니다.');
+    toast('종료 취소 요청에 실패했습니다.');
   }finally{
     sendingKey='';
     renderEvent();
@@ -1980,7 +1981,7 @@ function boot(){
     session=sampleSession();
     render();
     if(eventTimer)clearInterval(eventTimer);
-    eventTimer=setInterval(renderEvent,10000);
+    eventTimer=setInterval(renderEvent,1000);
     return;
   }
   try{
@@ -2025,7 +2026,7 @@ function boot(){
     render();
   });
   if(!eventTimer){
-    eventTimer=setInterval(()=>renderEvent(),5000);
+    eventTimer=setInterval(()=>renderEvent(),1000);
   }
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden)renderEvent();

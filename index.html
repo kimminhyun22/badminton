@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.285  (2026-06)
+     APP VERSION: 1.10.286  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.285">
+<meta name="app-version" content="1.10.286">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -972,6 +972,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-player-sort-label{font-size:.62rem;color:var(--dim);font-weight:900;letter-spacing:.6px;margin-right:2px;}
 .daily-player-sort .dir-sort-btn{padding:5px 10px;font-size:.66rem;}
 .daily-mini-btn{border:1px solid var(--bdr);border-radius:8px;background:#fff;color:var(--dim);font-family:'Noto Sans KR',sans-serif;font-size:.72rem;font-weight:800;padding:7px 9px;cursor:pointer;white-space:nowrap;}
+.daily-mini-chip{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--bl-softbdr);border-radius:999px;background:#fff;color:var(--bl-deep);font-size:.7rem;font-weight:900;padding:7px 10px;white-space:nowrap;}
 .daily-mini-btn.primary-action{background:var(--bl);border-color:var(--bl);color:#fff;box-shadow:0 6px 16px rgba(91,141,239,.18);}
 .daily-mini-btn:hover{background:var(--bl-soft);color:var(--bl-deep);border-color:var(--bl-softbdr);}
 .daily-mini-btn.danger:hover{background:#fee2e2;color:#b91c1c;border-color:#fecaca;}
@@ -2419,7 +2420,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
         <button class="operation-option team" onclick="location.href='team.html'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.285</small>
+          <small>팀전LIVE 최신판 v1.10.286</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -3209,7 +3210,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.285';
+const APP_VERSION = '1.10.286';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4091,9 +4092,10 @@ function dailyRefreshTimers(){
   document.querySelectorAll('[data-daily-court-card]').forEach(el=>{
     const m=_dailyMatches.find(x=>x.id===el.dataset.dailyCourtCard);
     if(!m)return;
-    const state=_dailyTimerState(m);
-    el.className=`daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}`;
-  });
+      const state=_dailyTimerState(m);
+      el.className=`daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}`;
+    });
+  dailyRefreshUndoCountdown();
   document.querySelectorAll('[data-daily-queue-cue]').forEach(el=>{
     const info=_dailyQueueStartInfo(parseInt(el.dataset.dailyQueueCue)||0);
     el.textContent=`${info.text} · ${info.detail}`;
@@ -4110,6 +4112,15 @@ function dailyRefreshTimers(){
     dailyMaybeAutoAssign();
   }else if(flow.phase==='grace'){
     dailyRenderOpsStats();
+  }
+}
+function dailyRefreshUndoCountdown(){
+  if(!_dailyLastCompleteUndo)return;
+  const remain=Math.max(0,Math.ceil((_dailyLastCompleteUndo.expiresAt-_dailyNow())/1000));
+  document.querySelectorAll('[data-daily-undo-sec]').forEach(el=>{el.textContent=`${remain}초`;});
+  if(remain<=0){
+    _dailyLastCompleteUndo=null;
+    dailyRenderAdminAlerts();
   }
 }
 function _dailyActiveMatches(){return _dailyMatches.filter(m=>!m.completedAt&&!m.cancelledAt);}
@@ -5995,11 +6006,12 @@ function dailyRenderAdminAlerts(){
   const flow=_dailyNaturalAutoInfo();
   const alerts=[];
   if(_dailyLastCompleteUndo&&_dailyNow()<=_dailyLastCompleteUndo.expiresAt){
+    const remain=Math.max(1,Math.ceil((_dailyLastCompleteUndo.expiresAt-_dailyNow())/1000));
     alerts.push({
       cls:'warn',
       title:'코트 종료 처리됨',
-      desc:'45초 안에 되돌리기',
-      actions:`<button class="daily-mini-btn danger" onclick="dailyUndoMemberComplete('${_dailyLastCompleteUndo.token}')">되돌리기</button>`
+      desc:'잘못 눌렀다면 바로 취소',
+      actions:`<button class="daily-mini-btn danger" onclick="dailyUndoMemberComplete('${_dailyLastCompleteUndo.token}')">종료 취소</button><span class="daily-mini-chip" data-daily-undo-sec>${remain}초</span>`
     });
   }
   if(!_dailyPlayers.length){
@@ -6449,7 +6461,6 @@ function _dailyCompleteRequestError(req){
     return '';
   }
   if(!matchPlayerIds.includes(req.playerId))return '경기 중 선수만 내 경기 종료를 처리할 수 있습니다.';
-  if(_dailyQueue.some(q=>_dailyQueueItemValid(q,null)))return '다음 대진이 있으면 다음 대진 선수가 입장 처리해야 합니다.';
   return '';
 }
 function dailyProcessCheckinRequests(){
@@ -13242,6 +13253,7 @@ window.addEventListener('DOMContentLoaded', () => {
   dailyRender();
   dailyMaybeAutoRecommend();
   if(!_dailyTimerId)_dailyTimerId=setInterval(dailyRefreshTimers,10000);
+  setInterval(dailyRefreshUndoCountdown,1000);
   updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
   setOperationPreset(_operationPreset);
   // 버전 표시 반영
@@ -13280,7 +13292,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </span>
     <span class="bnav-label">현황</span>
   </button>
-  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.285&team=1'">
+  <button class="bnav-btn" id="bnav-team" onclick="location.href='team.html?v=1.10.286&team=1'">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 7h6"></path>
@@ -13348,7 +13360,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.285</span>
+  <span class="app-version" id="appVersion">v1.10.286</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
