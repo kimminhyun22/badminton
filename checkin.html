@@ -902,6 +902,25 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   border-color:#c8dbfb;
   box-shadow:0 0 0 4px rgba(127,168,238,.12);
 }
+.player.selectable{
+  cursor:pointer;
+  border-color:#c8dbfb;
+  background:linear-gradient(180deg,#fff 0%,#f7fbff 100%);
+}
+.player.selectable:active{
+  transform:scale(.992);
+}
+.player.selectable .badge{
+  border-color:#c8dbfb;
+  background:var(--blue2);
+  color:var(--blue-deep);
+}
+.select-hint{
+  margin-top:10px;
+  color:var(--blue-deep);
+  font-size:.82rem;
+  font-weight:1000;
+}
 .badge.selected,
 .request-status.done{
   background:var(--blue2);
@@ -1181,13 +1200,12 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.300</span>
+    <span class="version-chip" id="appVersion">v1.10.301</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="balance-policy hidden" id="balancePolicy"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
   <div id="myCard" class="my-card-wrap hidden"></div>
-  <section class="panel event-panel hidden" id="eventPanel"></section>
   <section class="panel">
     <div class="toolbar">
       <input id="search" class="search" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ" autocomplete="off">
@@ -1198,6 +1216,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
       <div id="players" class="empty">명단을 불러오는 중입니다.</div>
     </details>
   </section>
+  <section class="panel event-panel hidden" id="eventPanel"></section>
 </main>
 <div id="toast" class="toast"></div>
 <div id="completePicker" class="complete-picker-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="completePickerTitle">
@@ -1226,7 +1245,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='';
-const APP_VERSION='1.10.300';
+const APP_VERSION='1.10.301';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1738,9 +1757,13 @@ function render(){
   const box=document.getElementById('players');
   const count=document.getElementById('countPill');
   const myCard=document.getElementById('myCard');
+  const rosterSummary=document.querySelector('#playerListFold summary');
+  const searchInput=document.getElementById('search');
   if(!session){
     const fold=document.getElementById('playerListFold');
     if(fold)fold.open=true;
+    if(rosterSummary)rosterSummary.textContent='내 이름 찾기';
+    if(searchInput)searchInput.placeholder='이름·초성 검색 예) 김민현, ㄱㅁㅎ';
     if(myCard){
       myCard.classList.add('hidden');
       myCard.innerHTML='';
@@ -1764,24 +1787,27 @@ function render(){
   renderMyCard(last,allPlayers);
   const selectedId=last&&last.playerId;
   const selectedPlayer=selectedId?allPlayers.find(p=>p.id===selectedId):null;
+  const hasSelected=!!selectedPlayer;
   if(pageTitle)pageTitle.textContent=selectedPlayer?`${selectedPlayer.name}님`:'내 이름 찾기';
-  if(quickNotice)quickNotice.hidden=!!selectedPlayer;
+  if(quickNotice)quickNotice.hidden=hasSelected;
+  if(rosterSummary)rosterSummary.textContent=hasSelected?'선수명단 / 이름 변경':'내 이름 찾기';
+  if(searchInput)searchInput.placeholder=hasSelected?'다른 선수 검색':'이름·초성 검색 예) 김민현, ㄱㅁㅎ';
   const matchedPlayers=allPlayers.filter(p=>playerMatchesQuery(p,query));
   const players=matchedPlayers
-    .filter(p=>query||!selectedId||p.id!==selectedId)
+    .filter(p=>query||!hasSelected||p.id!==selectedId)
     .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ko'));
   const updated=session.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const summary=voteSummary();
   sub.textContent=selectedPlayer
     ? `${session.title||'민턴LIVE'} · 시작 ${summary?.started||0}명`
-    : `시작 ${summary?.started||0}명 · 내 이름을 찾아주세요`;
+    : `이름을 검색하고 카드를 눌러주세요`;
   count.textContent=`${query?matchedPlayers.length:allPlayers.length}명`;
   if(!players.length){
-    box.className='empty';box.textContent=selectedId&&!query?'다른 선수 명단은 접어두었습니다. 필요하면 명단을 열어 확인하세요.':'검색된 선수가 없습니다.';
+    box.className='empty';box.textContent=hasSelected&&!query?'다른 선수 명단은 접어두었습니다. 필요하면 명단을 열어 확인하세요.':'검색된 선수가 없습니다.';
     return;
   }
   box.className='';
-  box.innerHTML=players.map(p=>playerCardHtml(p,sendingKey?'disabled':'',{readonly:!!selectedId&&p.id!==selectedId})).join('');
+  box.innerHTML=players.map(p=>playerCardHtml(p,sendingKey?'disabled':'',{readonly:hasSelected&&p.id!==selectedId,selectOnly:!hasSelected})).join('');
 }
 function statusButtonSpec(p,key){
   const selected=getSelectedStatus(p);
@@ -1851,13 +1877,33 @@ function changeSelectedPlayer(){
   try{localStorage.removeItem(lastKey());}catch(e){}
   try{localStorage.removeItem('kokmatch_live_viewer_last');}catch(e){}
   query='';
-  const q=document.getElementById('q');
+  const q=document.getElementById('search');
   if(q)q.value='';
   const fold=document.getElementById('playerListFold');
   if(fold)fold.open=true;
   toast('이름을 다시 선택해 주세요.');
   render();
   setTimeout(()=>q&&q.focus(),80);
+}
+function selectPlayerIdentity(playerId){
+  if(!session)return;
+  const p=(session.players||[]).find(x=>x.id===playerId);
+  if(!p)return toast('선수를 찾지 못했습니다.');
+  if(!confirmPlayerIdentity(p))return;
+  const req={
+    playerId:p.id,
+    playerName:p.name,
+    status:getSelectedStatus(p),
+    statusLabel:compactLabel(getSelectedStatus(p)),
+    savedAt:Date.now(),
+    source:'member-identity'
+  };
+  setLastSent(req);
+  query='';
+  const q=document.getElementById('search');
+  if(q)q.value='';
+  toast(`${p.name}님으로 선택했어요.`);
+  render();
 }
 function isRapidStatusChange(p,status){
   const last=getLastSent();
@@ -1872,18 +1918,24 @@ function playerCardHtml(p,disabled,opts={}){
   const highlighted=opts.forceHighlight||recent||requested;
   const disabledAttr=disabled?'disabled':'';
   const readonly=!!opts.readonly;
-  const mainButtons=readonly?'':statusButtons(p,MAIN_STATUS_KEYS,disabledAttr);
-  const subSection=readonly?'':statusSection(p,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
-  const requestBox=readonly?'':gameRequestBox(p,disabledAttr);
+  const selectOnly=!!opts.selectOnly;
+  const selectAttr=selectOnly
+    ? ` onclick="selectPlayerIdentity('${esc(p.id)}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectPlayerIdentity('${esc(p.id)}')}"`
+    : '';
+  const selectHint=selectOnly?'<div class="select-hint">카드를 눌러 내 이름으로 선택</div>':'';
+  const mainButtons=(readonly||selectOnly)?'':statusButtons(p,MAIN_STATUS_KEYS,disabledAttr);
+  const subSection=(readonly||selectOnly)?'':statusSection(p,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
+  const requestBox=(readonly||selectOnly)?'':gameRequestBox(p,disabledAttr);
   const readonlyNote=readonly?'<div class="request-status">상태 변경은 상단 내 카드에서만 가능합니다.</div>':'';
-  return `<article class="player ${locked?'locked':''} ${highlighted?'recent':''}">
+  return `<article class="player ${locked?'locked':''} ${highlighted?'recent':''} ${selectOnly?'selectable':''}"${selectAttr}>
     <div class="phead">
       <div>
         <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}</div>
         <div class="meta">현재 ${esc(compactLabel(selected))} · ${p.games||0}게임${locked?' · 경기중 예약 반영':''}</div>
       </div>
-      <div class="badge ${highlighted?'selected':''}">${highlighted?'전송완료':(locked?'경기중':compactLabel(selected))}</div>
+      <div class="badge ${highlighted?'selected':''}">${selectOnly?'선택':(highlighted?'전송완료':(locked?'경기중':compactLabel(selected)))}</div>
     </div>
+    ${selectHint}
     ${mainButtons?`<div class="buttons main-actions">${mainButtons}</div>`:''}
     ${subSection}
     ${requestBox}
@@ -1898,8 +1950,8 @@ function renderMyCard(last,players){
   if(!selected){
     el.classList.remove('hidden');
     el.innerHTML=`<div class="pick-guide">
-      <b>내 이름을 선택하세요</b>
-      <span>다음부터 맨 위에 고정됩니다.</span>
+      <b>먼저 내 이름을 찾으세요</b>
+      <span>검색 결과 카드를 누르면 내 페이지로 고정됩니다.</span>
     </div>`;
     if(fold&&!query)fold.open=true;
     return;
