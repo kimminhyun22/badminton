@@ -420,6 +420,24 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   font-size:12px;
   font-weight:900;
 }
+.rest-guide{
+  margin-top:10px;
+  padding:12px 13px;
+  border-radius:18px;
+  border:1.5px solid #d6eadf;
+  background:#f4fbf7;
+  color:#23754a;
+  font-size:14px;
+  font-weight:1000;
+  line-height:1.45;
+}
+.rest-guide small{
+  display:block;
+  margin-top:3px;
+  color:#6f7a8a;
+  font-size:12px;
+  font-weight:900;
+}
 .pick-guide{
   border:1px dashed #c8dbfb;border-radius:20px;padding:14px;
   background:#f8fbff;color:#4f78c9;font-size:14px;font-weight:900;line-height:1.5;
@@ -1002,6 +1020,29 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   background:#f4fbf7;
   color:var(--green-deep);
 }
+.event-row.expected{
+  border-style:dashed;
+  border-color:#d6eadf;
+  background:#fbfffd;
+  box-shadow:none;
+}
+.event-row.expected:first-child{
+  border-color:#d6eadf;
+  box-shadow:none;
+}
+.event-row.expected .event-rank-badge{
+  border-color:#d6eadf;
+  background:#f4fbf7;
+  color:#3f7c58;
+}
+.event-row.expected .event-cue{
+  display:block;
+  margin-top:4px;
+  color:#7a8798;
+  font-size:.74rem;
+  font-weight:900;
+  line-height:1.35;
+}
 .event-row.next.soon .event-complete-btn,
 .event-row.next.due .event-complete-btn{
   border-color:#f1cdcf;
@@ -1140,7 +1181,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.298</span>
+    <span class="version-chip" id="appVersion">v1.10.299</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="balance-policy hidden" id="balancePolicy"></div>
     <div class="last-sent hidden" id="lastSent"></div>
@@ -1185,7 +1226,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='';
-const APP_VERSION='1.10.298';
+const APP_VERSION='1.10.299';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1254,8 +1295,8 @@ function sampleSession(){
     name,
     gender:genders[i],
     grade:grades[i],
-    status:i<12?'playing':(i<22?'wait':'invited'),
-    statusLabel:i<12?'경기중':(i<22?'시작':'미응답'),
+    status:i<12?'playing':(i<24?'wait':'invited'),
+    statusLabel:i<12?'경기중':(i<24?'시작':'미응답'),
     isGuest:i>=22,
     games:i%5,
     locked:i<12,
@@ -1287,6 +1328,14 @@ function sampleSession(){
     cue:'',
     cueDetail:'',
     cueState:'ready'
+  });
+  const expected=(idx,ids,type)=>({
+    ...next(idx,ids,type),
+    queueId:'expect'+idx,
+    cue:'예상 대진',
+    cueDetail:'대기풀이 넉넉하면 이어질 수 있음',
+    cueState:'expected',
+    expected:true
   });
   return {
     title:'콕매치 민턴LIVE 출석',
@@ -1324,6 +1373,9 @@ function sampleSession(){
       next:[
         next(1,['s13','s14','s15','s16'],'남복'),
         next(2,['s17','s18','s19','s20'],'혼복')
+      ],
+      expected:[
+        expected(3,['s21','s22','s23','s24'],'혼복')
       ]
     }
   };
@@ -1609,6 +1661,15 @@ function renderEvent(){
     </div>
   </div>`;
   }).join('');
+  const expected=(ev.expected||[]).slice(0,2).map(m=>`<div class="event-row next expected">
+    <div class="event-row-main">
+      <div class="event-rank-badge">${esc(String(m.idx||''))}</div>
+      <div>
+        <div class="event-teams next-teams">${nextTeamLine(m)}</div>
+        <small class="event-cue">${esc(m.cueDetail||'대기풀이 넉넉하면 이어질 수 있어요.')}</small>
+      </div>
+    </div>
+  </div>`).join('');
   const undo=lastComplete?`<div class="event-row">
     <div class="event-row-main full">
       <div>
@@ -1622,6 +1683,7 @@ function renderEvent(){
   el.innerHTML=`<div class="event-title"><b>민턴LIVE 현황</b><span>${esc(updated)} 업데이트</span></div>
     <div>${summary}</div>
     ${next||undo?`<div class="event-section-title">다음 대진</div><div class="event-list">${undo}${next}</div>`:''}
+    ${expected?`<div class="event-section-title">예상 대진</div><div class="event-list">${expected}</div>`:''}
     ${active?`<div class="event-section-title">진행중 코트</div><div class="event-list">${active}</div>`:''}`;
 }
 function render(){
@@ -1805,6 +1867,9 @@ function renderMyCard(last,players){
 	  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,disabledAttr);
 	  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
 	  const nextNotice=nextQueueNoticeHtml(selected.id);
+	  const restGuide=getSelectedStatus(selected)==='rest'
+	    ? `<div class="rest-guide">휴식 중이에요<small>계속 운동하려면 시작을 눌러주세요.</small></div>`
+	    : '';
 	  const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
   const statusChips=[
     `<span class="my-status-chip ${stateChipClass}">${esc(selectedState)}</span>`,
@@ -1822,6 +1887,7 @@ function renderMyCard(last,players){
     </div>
 	    <div class="my-action-panel">
 	      <div class="buttons main-actions">${mainButtons}</div>
+	      ${restGuide}
 	      ${nextNotice}
 	      ${subSection}
 	      ${gameRequestBox(selected,disabledAttr)}
