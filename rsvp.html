@@ -220,6 +220,76 @@ button.decline.selected{
 .member-fold[open] summary{border-bottom:1px solid var(--line)}
 .member-fold[open] summary:after{content:'접기'}
 .member-fold #members{padding:0 10px 10px}
+.identity-panel{margin:0 0 12px}
+.identity-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 8px;
+  color:#6f7a8a;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.identity-change{
+  min-height:34px;
+  padding:7px 10px;
+  border-radius:999px;
+  background:#fff;
+  color:#4f78c9;
+  border:1px solid #d8e5fb;
+  font-size:12px;
+  box-shadow:none;
+}
+.identity-prompt{
+  padding:16px 14px;
+  border:1px dashed #bfdbfe;
+  border-radius:18px;
+  background:#f8fbff;
+  color:#4f78c9;
+  font-size:14px;
+  font-weight:900;
+  text-align:center;
+}
+.identity-panel .member{
+  margin-top:8px;
+  border-color:#bfdbfe;
+  box-shadow:0 0 0 3px rgba(91,141,239,.10);
+}
+.select-card{
+  cursor:pointer;
+  transition:transform .15s ease, border-color .15s ease, background .15s ease;
+}
+.select-card:focus{
+  outline:3px solid rgba(91,141,239,.25);
+  outline-offset:2px;
+}
+.select-card:hover{
+  transform:translateY(-1px);
+  border-color:#bfdbfe;
+  background:#f8fbff;
+}
+.select-badge{
+  flex-shrink:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid #bfdbfe;
+  background:#eff6ff;
+  color:#356ec4;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.select-card.recent .select-badge{
+  border-color:#bbf7d0;
+  background:#f0fdf4;
+  color:#166534;
+}
 .search,.guest input,.guest select,.partner-request select{
   border:1px solid var(--line);
   background:#fff;
@@ -248,8 +318,8 @@ button.decline:before,
     <div class="eyebrow">KOKMATCH RSVP</div>
     <h1 id="title">팀전LIVE 출석</h1>
     <p class="sub" id="sessionSub">팀전LIVE 출석부를 불러오는 중입니다.</p>
-    <div class="notice">이름을 찾고 출석을 누르면 끝입니다. 늦게 오면 늦음 딱지를 켜주세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.301</span>
+    <div class="notice">먼저 내 이름을 선택하세요. 출석·늦음·뒷풀이는 내 카드에서만 누를 수 있습니다.</div>
+    <span class="version-chip" id="appVersion">v1.10.302</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>출석</span></div>
@@ -260,12 +330,13 @@ button.decline:before,
     <div class="event-panel hidden" id="eventPanel"></div>
   </section>
   <section class="panel">
+    <div id="identityPanel" class="identity-panel"></div>
     <div class="toolbar">
       <input id="search" class="search" placeholder="이름 또는 초성 검색" autocomplete="off">
       <span class="pill" id="countPill">0명</span>
     </div>
     <details class="member-fold" id="rsvpMemberFold">
-      <summary>전체 명단 / 내 이름 찾기</summary>
+      <summary>내 이름 찾기</summary>
       <div id="members" class="empty">명단을 불러오는 중입니다.</div>
     </details>
   </section>
@@ -285,7 +356,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={};
-const APP_VERSION='1.10.301';
+const APP_VERSION='1.10.302';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -403,6 +474,41 @@ function setLast(v){
   try{localStorage.setItem(lastKey(),JSON.stringify({...v,savedAt:Date.now()}));}catch(e){}
   rememberLiveViewer(v);
 }
+function clearLast(){
+  try{localStorage.removeItem(lastKey());}catch(e){}
+}
+function selectedMemberFromLast(){
+  const last=getLast();
+  if(!last||!session)return null;
+  const members=session.members||[];
+  return members.find(m=>m.id===last.memberId)||members.find(m=>m.name===last.memberName)||null;
+}
+function clearRsvpIdentity(){
+  clearLast();
+  query='';
+  const search=document.getElementById('search');
+  if(search)search.value='';
+  render();
+  setTimeout(()=>search&&search.focus(),60);
+}
+function selectRsvpIdentity(memberId){
+  const m=(session?.members||[]).find(x=>x.id===memberId);
+  if(!m)return toast('회원 정보를 찾지 못했습니다.');
+  const ok=confirm(`${m.name}님 본인이 맞나요?\n\n이 휴대폰에서 내 페이지로 고정됩니다. 다른 사람 이름으로 누르면 출석 확인이 잘못될 수 있어요.`);
+  if(!ok)return;
+  const current=memberResponse(memberId)||{};
+  const status=isAttendStatus(current.status)?current.status:'none';
+  setLast(responseFor(m,status,{
+    guest:current.guest||null,
+    partnerRequest:current.partnerRequest||null,
+    party:!!current.party
+  }));
+  query='';
+  const search=document.getElementById('search');
+  if(search)search.value='';
+  render();
+  toast(`${m.name}님으로 고정했어요.`);
+}
 function liveIdFromUrl(url){
   if(!url)return '';
   try{return (new URL(url,location.href).searchParams.get('id')||'').toUpperCase();}catch(e){return '';}
@@ -484,11 +590,14 @@ function renderHeader(){
   renderEventPanel();
   renderSummaryPanel();
   const last=getLast();
+  const selected=selectedMemberFromLast();
   const my=document.getElementById('myState');
-  if(!last){my.className='my-state hidden';my.textContent='';return;}
-  const when=last.savedAt?new Date(last.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
+  if(last&&!selected)clearLast();
+  if(!last||!selected){my.className='my-state hidden';my.textContent='';return;}
+  const current=memberResponse(selected.id)||last;
+  const when=(current.updatedAt||last.savedAt)?new Date(current.updatedAt||last.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   my.className='my-state';
-  my.textContent=`내 최근 선택: ${last.memberName} · ${statusLabel(last.status)}${last.party?' · 뒷풀이':''} (${when})`;
+  my.textContent=`내 페이지: ${selected.name} · ${statusLabel(current.status||last.status)}${current.party?' · 뒷풀이':''} (${when})`;
 }
 function toggleSummary(){
   summaryOpen=!summaryOpen;
@@ -576,20 +685,56 @@ function filteredMembers(){
 }
 function render(){
   renderHeader();
+  const selected=selectedMemberFromLast();
+  renderIdentityPanel(selected);
   const box=document.getElementById('members');
   const pill=document.getElementById('countPill');
   const fold=document.getElementById('rsvpMemberFold');
   if(!session){
+    renderIdentityPanel(null);
     if(fold)fold.open=true;
     box.className='empty';box.textContent='팀전LIVE 출석부를 불러오는 중입니다.';pill.textContent='0명';return;
   }
   const list=filteredMembers();
-  const last=getLast();
-  if(fold)fold.open=query?true:!last;
+  if(fold){
+    const summary=fold.querySelector('summary');
+    if(summary)summary.textContent=selected?'선수명단 / 이름 변경':'내 이름 찾기';
+    fold.open=query?true:!selected;
+  }
   pill.textContent=`${list.length}명`;
   if(!list.length){box.className='empty';box.textContent='검색된 회원이 없습니다.';return;}
   box.className='';
-  box.innerHTML=list.map(m=>memberCard(m,last&&last.memberId===m.id)).join('');
+  box.innerHTML=list.map(m=>memberSelectCard(m,selected&&selected.id===m.id)).join('');
+}
+function renderIdentityPanel(selected){
+  const panel=document.getElementById('identityPanel');
+  if(!panel)return;
+  if(!session){
+    panel.innerHTML='';
+    return;
+  }
+  if(!selected){
+    panel.innerHTML='<div class="identity-prompt">내 이름을 먼저 선택해주세요. 선택 후 이 화면 맨 위에 내 카드가 고정됩니다.</div>';
+    return;
+  }
+  panel.innerHTML=`<div class="identity-title"><span>MY PAGE</span><button type="button" class="identity-change" onclick="clearRsvpIdentity()">이름 변경</button></div>${memberCard(selected,true)}`;
+}
+function memberSelectCard(m,recent){
+  const r=memberResponse(m.id);
+  const normalized=isAttendStatus(r?.status)?r.status:'none';
+  const badge=normalized==='none'?'':statusLabel(normalized);
+  const partyOn=!!r?.party;
+  const meta=[m.club||'소속 없음',m.gender||'',`${m.grade||'C'}급`,badge,partyOn?'뒷풀이':''].filter(Boolean).join(' · ');
+  const id=esc(m.id);
+  return `<article class="member select-card ${recent?'recent':''}" role="button" tabindex="0" onclick="selectRsvpIdentity('${id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectRsvpIdentity('${id}')}">
+    <div class="mhead">
+      <div>
+        <div class="name">${esc(m.name)}</div>
+        <div class="meta">${esc(meta)}</div>
+      </div>
+      <span class="select-badge">${recent?'선택됨':'선택'}</span>
+    </div>
+  </article>`;
 }
 function memberCard(m,recent){
   const r=memberResponse(m.id);
