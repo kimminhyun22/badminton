@@ -1181,7 +1181,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.299</span>
+    <span class="version-chip" id="appVersion">v1.10.300</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="balance-policy hidden" id="balancePolicy"></div>
     <div class="last-sent hidden" id="lastSent"></div>
@@ -1226,7 +1226,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='';
-const APP_VERSION='1.10.299';
+const APP_VERSION='1.10.300';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1234,6 +1234,51 @@ const MAIN_STATUS_KEYS=['wait','rest','done'];
 const SUB_STATUS_KEYS=[];
 const STATUS_COOLDOWN_MS=3000;
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function escapeInAppBrowser(){
+  const ua=navigator.userAgent||'';
+  const isInApp=/KAKAO|kakaotalk|Line\/|NAVER|NBandApp|Instagram|FBAN|FBAV|Snapchat/i.test(ua);
+  if(!isInApp||sessionStorage.getItem('kokmatch_external_done'))return;
+  sessionStorage.setItem('kokmatch_external_done','1');
+  const url=location.href;
+  const isIOS=/iPhone|iPad|iPod/i.test(ua);
+  const isAndroid=/Android/i.test(ua);
+  const isKakao=/KAKAO|kakaotalk/i.test(ua);
+  function donePage(manual){
+    document.open();
+    document.write(`<!doctype html><html lang="ko"><head>
+      <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>브라우저에서 열기</title>
+      <style>
+        *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:30px;background:#f4f7fb;color:#182233;
+        font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;display:flex;align-items:center;justify-content:center;text-align:center}
+        .box{width:min(420px,100%);padding:30px 22px;background:#fff;border:1px solid #dbe7f7;border-radius:26px;box-shadow:0 16px 40px rgba(37,55,90,.12)}
+        .ico{font-size:2.5rem}.ttl{margin-top:12px;font-size:1.3rem;font-weight:900;letter-spacing:-.04em}
+        .msg{margin:12px 0 20px;color:#64748b;font-size:.96rem;line-height:1.65}
+        .btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;border-radius:18px;border:1px solid #bfdbfe;
+        background:#eff6ff;color:#2563eb;font-weight:900;font-size:1rem;text-decoration:none}
+        .btn.copy{margin-top:10px;background:#fff;color:#475569;border-color:#e2e8f0}
+        .hint{margin-top:14px;color:#94a3b8;font-size:.78rem;line-height:1.6}
+      </style></head><body><div class="box">
+        <div class="ico">${manual?'🏸':'✅'}</div>
+        <div class="ttl">${manual?'브라우저에서 열어주세요':'브라우저에서 열고 있어요'}</div>
+        <div class="msg">${manual?'카톡·밴드 안에서는 뒤로가기로 이탈하기 쉬워요.<br>Safari 또는 Chrome에서 열면 더 안정적입니다.':'새 브라우저가 열리면 이 창은 닫아도 됩니다.'}</div>
+        ${manual?`<a class="btn" href="${url}" target="_blank" rel="noopener">브라우저에서 열기</a>
+        <button class="btn copy" onclick="navigator.clipboard&&navigator.clipboard.writeText('${url.replace(/'/g,"\\'")}').then(()=>alert('링크를 복사했어요. Safari/Chrome 주소창에 붙여넣어 주세요.'))">링크 복사</button>
+        <div class="hint">버튼이 안 열리면 우측 상단 메뉴에서<br>‘브라우저로 열기’를 선택하세요.</div>`:''}
+      </div></body></html>`);
+    document.close();
+  }
+  if(isIOS&&isKakao){
+    location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);
+    setTimeout(()=>donePage(false),300);
+  }else if(isAndroid){
+    location.href='intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;action=android.intent.action.VIEW;end';
+    setTimeout(()=>donePage(false),450);
+  }else{
+    donePage(true);
+  }
+}
+escapeInAppBrowser();
 function qs(k){return new URLSearchParams(location.search).get(k)||'';}
 function isSampleMode(){return new URLSearchParams(location.search).has('sample');}
 function toast(msg){
