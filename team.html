@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.304  (2026-06)
+     APP VERSION: 1.10.305  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.304">
+<meta name="app-version" content="1.10.305">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -130,6 +130,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
   background:transparent;border:none;border-bottom:1.5px dashed rgba(255,255,255,.45);
   color:#fff;width:72px;outline:none;padding:0 2px;}
 .team-name-input::placeholder{color:rgba(255,255,255,.45);}
+.team-name-input[readonly],.sb-team-name[readonly]{cursor:default;caret-color:transparent;}
+.team-name-input[readonly]:focus,.sb-team-name[readonly]:focus{outline:none;box-shadow:none;}
 .tlb-head small{font-family:'Noto Sans KR',sans-serif;font-size:.62rem;font-weight:400;color:rgba(255,255,255,.75);}
 /* 선수 목록 */
 .tlb-body{background:var(--sur2);padding:3px 5px;}
@@ -2496,8 +2498,8 @@ header,.nav-bar{
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.304&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.304&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.305&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.305&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -2685,7 +2687,7 @@ header,.nav-bar{
             <div class="team-list-box">
               <div class="tlb-head tlb-blue">
                 <input class="team-name-input" id="blueNameInput" value="청 팀"
-                  placeholder="팀명" oninput="onTeamNameChange()" maxlength="8">
+                  placeholder="청 팀" maxlength="8" readonly aria-label="청 팀 고정">
                 <small id="blueInfo"></small>
               </div>
               <div class="tlb-body" id="blueList"></div>
@@ -2694,7 +2696,7 @@ header,.nav-bar{
             <div class="team-list-box">
               <div class="tlb-head tlb-white">
                 <input class="team-name-input" id="whiteNameInput" value="홍 팀"
-                  placeholder="팀명" oninput="onTeamNameChange()" maxlength="8">
+                  placeholder="홍 팀" maxlength="8" readonly aria-label="홍 팀 고정">
                 <small id="whiteInfo"></small>
               </div>
               <div class="tlb-body" id="whiteList"></div>
@@ -2752,7 +2754,7 @@ header,.nav-bar{
             <div class="scoreboard">
               <div class="sb-card">
                 <div class="sb-head blue">
-                  <input class="sb-team-name" id="sbBlueName" value="청 팀" maxlength="8" oninput="onSbNameChange('blue')">
+                  <input class="sb-team-name" id="sbBlueName" value="청 팀" maxlength="8" readonly aria-label="청 팀 고정">
                   <div><div class="sb-score-v" id="blueWins">0</div><div class="sb-score-l">승</div></div>
                 </div>
                 <div class="sb-stats">
@@ -2763,7 +2765,7 @@ header,.nav-bar{
               </div>
               <div class="sb-card">
                 <div class="sb-head white">
-                  <input class="sb-team-name" id="sbWhiteName" value="홍 팀" maxlength="8" oninput="onSbNameChange('white')">
+                  <input class="sb-team-name" id="sbWhiteName" value="홍 팀" maxlength="8" readonly aria-label="홍 팀 고정">
                   <div><div class="sb-score-v" id="whiteWins">0</div><div class="sb-score-l">승</div></div>
                 </div>
                 <div class="sb-stats">
@@ -3108,7 +3110,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.304';
+const APP_VERSION = '1.10.305';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3268,25 +3270,20 @@ function openManual(){
 }
 
 /* ═══ TEAM NAME CHANGE ═══ */
+function syncFixedTeamNames(){
+  teamNames.blue='청 팀';
+  teamNames.white='홍 팀';
+  const bi=document.getElementById('blueNameInput'); if(bi) bi.value=teamNames.blue;
+  const wi=document.getElementById('whiteNameInput'); if(wi) wi.value=teamNames.white;
+  const sb=document.getElementById('sbBlueName'); if(sb) sb.value=teamNames.blue;
+  const sw=document.getElementById('sbWhiteName'); if(sw) sw.value=teamNames.white;
+}
 function onTeamNameChange(){
-  teamNames.blue = document.getElementById('blueNameInput').value.trim()||'청 팀';
-  teamNames.white= document.getElementById('whiteNameInput').value.trim()||'홍 팀';
-  // sync scoreboard
-  document.getElementById('sbBlueName').value = teamNames.blue;
-  document.getElementById('sbWhiteName').value= teamNames.white;
-  // re-render score result labels if matches exist
+  syncFixedTeamNames();
   if(currentMatches.length) refreshScoreLabels();
 }
 function onSbNameChange(side){
-  if(side==='blue'){
-    const v=document.getElementById('sbBlueName');
-    teamNames.blue=(v?v.value.trim():'')||'청 팀';
-    const bi=document.getElementById('blueNameInput'); if(bi) bi.value=teamNames.blue;
-  } else {
-    const v=document.getElementById('sbWhiteName');
-    teamNames.white=(v?v.value.trim():'')||'홍 팀';
-    const wi=document.getElementById('whiteNameInput'); if(wi) wi.value=teamNames.white;
-  }
+  syncFixedTeamNames();
   if(currentMatches.length) refreshScoreLabels();
 }
 function refreshScoreLabels(){
@@ -5117,7 +5114,7 @@ function updateScores(){
       resEl.className='score-result sr-b';
       if(isTeam){
         const t1b=m.team1A.team==='청팀';
-        resEl.textContent=t1b?`${teamNames.blue} 승`:`${teamNames.white} 승`;
+        resEl.textContent='';
         if(t1b){bW++;wL++;}else{wW++;bL++;}
       }else{ resEl.textContent='A팀 승'; }
       t1Players.forEach(p=>{ if(personalWins[p.name]!==undefined) personalWins[p.name]++; });
@@ -5127,7 +5124,7 @@ function updateScores(){
       resEl.className='score-result sr-w';
       if(isTeam){
         const t1b=m.team1A.team==='청팀';
-        resEl.textContent=t1b?`${teamNames.white} 승`:`${teamNames.blue} 승`;
+        resEl.textContent='';
         if(t1b){wW++;bL++;}else{bW++;wL++;}
       }else{ resEl.textContent='B팀 승'; }
       t2Players.forEach(p=>{ if(personalWins[p.name]!==undefined) personalWins[p.name]++; });
@@ -6060,8 +6057,8 @@ function renderResults(matches,participants,settings){
       const sl2=isTeam?(t1b?teamNames.white:teamNames.blue):'B';
       const sd1=isTeam?(t1b?'blue':'red'):'blue';
       const sd2=isTeam?(t1b?'red':'blue'):'red';
-      const wl1Text=isTeam?(sd1==='blue'?'청팀 승':'홍팀 승'):`${sl1} 승`;
-      const wl2Text=isTeam?(sd2==='blue'?'청팀 승':'홍팀 승'):`${sl2} 승`;
+      const wl1Text=isTeam?(sd1==='blue'?'청 승':'홍 승'):`${sl1} 승`;
+      const wl2Text=isTeam?(sd2==='blue'?'청 승':'홍 승'):`${sl2} 승`;
       const wl1=isTeam?`<span class="win-dot ${sd1}"></span><span class="win-label">${wl1Text}</span>`:wl1Text;
       const wl2=isTeam?`<span class="win-dot ${sd2}"></span><span class="win-label">${wl2Text}</span>`:wl2Text;
       return `<div class="match-card ${tc}${m.isFiller?' filler':''}" id="mc_${idx}">
@@ -6912,9 +6909,8 @@ function restoreState(){
     if(state.teamNames){
       teamNames={...state.teamNames};
       if(teamNames.white==='백 팀'||teamNames.white==='백팀') teamNames.white='홍 팀';
-      const bi=document.getElementById('blueNameInput'); if(bi) bi.value=teamNames.blue;
-      const wi=document.getElementById('whiteNameInput'); if(wi) wi.value=teamNames.white;
     }
+    syncFixedTeamNames();
     _teamModeOverride = null;
     if(state.captains) captains=state.captains;
     else captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
@@ -10397,7 +10393,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.304</span>
+  <span class="app-version" id="appVersion">v1.10.305</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
