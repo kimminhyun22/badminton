@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.305  (2026-06)
+     APP VERSION: 1.10.306  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.305">
+<meta name="app-version" content="1.10.306">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1544,6 +1544,25 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 .auto-flow-panel.warn .auto-flow-panel-title,.auto-flow-panel.warn .auto-flow-panel-note{color:#a16207;}
 .auto-flow-panel.live{background:#fff;border-color:#fecdd3;}
 .auto-flow-panel.live .auto-flow-panel-title,.auto-flow-panel.live .auto-flow-panel-note{color:#be123c;}
+.auto-flow-panel.is-link{
+  position:relative;
+  padding-right:40px;
+  cursor:pointer;
+}
+.auto-flow-panel.is-link:active{transform:translateY(1px);}
+.auto-flow-panel-go{
+  position:absolute;
+  top:9px;
+  right:9px;
+  padding:2px 7px;
+  border:1px solid #e2e8f0;
+  border-radius:999px;
+  background:#fbfdff;
+  color:#64748b;
+  font-size:.54rem;
+  font-weight:1000;
+  line-height:1.2;
+}
 .auto-flow-check{
   background:rgba(255,255,255,.82);border-color:#dbeafe;color:#64748b;
 }
@@ -2498,8 +2517,8 @@ header,.nav-bar{
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.305&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.305&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.306&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.306&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -3110,7 +3129,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.305';
+const APP_VERSION = '1.10.306';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8907,8 +8926,14 @@ function _autoFlowAction(label,fnName,note=''){
     <button class="auto-flow-btn" onclick="${fnName}()">${esc(label)}</button>
   </div>`;
 }
-function _autoFlowPanel(title,value,note,cls=''){
-  return `<div class="auto-flow-panel ${esc(cls)}">
+function _autoFlowPanel(title,value,note,cls='',target=''){
+  const safeTarget=target?esc(target):'';
+  const interactive=!!safeTarget;
+  const attrs=interactive
+    ? ` role="button" tabindex="0" onclick="teamLiveOpenPanel('${safeTarget}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();teamLiveOpenPanel('${safeTarget}');}" aria-label="${esc(title)} 보기"`
+    : '';
+  return `<div class="auto-flow-panel ${esc(cls)}${interactive?' is-link':''}"${attrs}>
+    ${interactive?'<div class="auto-flow-panel-go">보기</div>':''}
     <div class="auto-flow-panel-title">${esc(title)}</div>
     <div class="auto-flow-panel-value">${esc(String(value))}</div>
     <div class="auto-flow-panel-note">${esc(note||'')}</div>
@@ -8933,6 +8958,34 @@ function teamLiveOpenScoreboard(){
   if(sec)sec.classList.remove('hidden');
   const el=document.getElementById('sec-scoreboard');
   if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
+}
+function teamLiveOpenPanel(target){
+  const map={
+    rsvp:{tab:'dashboard',id:'sec-rsvp',open:'sec-rsvp'},
+    players:{tab:'players',id:'sec-players',open:'sec-players'},
+    team:{tab:'players',id:'sec-players',open:'sec-players'},
+    settings:{tab:'bracket',id:'sec-settings',open:'sec-settings'},
+    bracket:{tab:'bracket',id:'resultArea'},
+    scoreboard:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'},
+    live:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'}
+  };
+  const cfg=map[target]||map.rsvp;
+  if(typeof switchMobileTab==='function')switchMobileTab(cfg.tab||'dashboard');
+  else switchNav('main');
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('bnav-'+(cfg.tab||'dashboard'));
+  if(btn)btn.classList.add('active');
+  if(cfg.open){
+    const fold=document.getElementById(cfg.open);
+    if(fold&&fold.tagName==='DETAILS')fold.open=true;
+  }
+  const el=document.getElementById(cfg.id);
+  if(el){
+    if(el.classList&&el.classList.contains('hidden'))el.classList.remove('hidden');
+    if(el.tagName==='DETAILS')el.open=true;
+    const top=el.getBoundingClientRect().top+window.scrollY-8;
+    window.scrollTo({top,behavior:'smooth'});
+  }
 }
 function _autoFlowSetResultSections(stage){
   _autoFlowSetSection('sec-quality',stage==='broadcast');
@@ -9031,16 +9084,16 @@ function renderAutoFlowDashboard(){
     }[stage]||'';
     const boardHtml=live
       ? [
-          _autoFlowPanel('라운드',currentRound,`${done}/${matches} 입력`,remaining?'warn':'live'),
-          _autoFlowPanel('스코어',`${blueWins}:${whiteWins}`,'청:홍',''),
-          _autoFlowPanel('미입력',`${remaining}경기`,remaining?'승패 확인':'완료',remaining?'warn':'live'),
-          _autoFlowPanel('늦음',`${counts.plan||0}명`,(counts.plan||0)?'대체 확인':'없음',(counts.plan||0)?'warn':'')
+          _autoFlowPanel('라운드',currentRound,`${done}/${matches} 입력`,remaining?'warn':'live','bracket'),
+          _autoFlowPanel('스코어',`${blueWins}:${whiteWins}`,'청:홍','','scoreboard'),
+          _autoFlowPanel('미입력',`${remaining}경기`,remaining?'승패 확인':'완료',remaining?'warn':'live','scoreboard'),
+          _autoFlowPanel('늦음',`${counts.plan||0}명`,(counts.plan||0)?'대체 확인':'없음',(counts.plan||0)?'warn':'','players')
         ].join('')
       : [
-          _autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':''),
-          _autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn'),
-          _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':''),
-          _autoFlowPanel('중계',liveValue,liveNote,live?'live':'')
+          _autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':'','rsvp'),
+          _autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn','players'),
+          _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings'),
+          _autoFlowPanel('중계',liveValue,liveNote,live?'live':'',matches?'scoreboard':'bracket')
         ].join('');
     body.innerHTML=`
       <div class="auto-flow-board">
@@ -10393,7 +10446,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.305</span>
+  <span class="app-version" id="appVersion">v1.10.306</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
