@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.303  (2026-06)
+     APP VERSION: 1.10.304  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.303">
+<meta name="app-version" content="1.10.304">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2496,8 +2496,8 @@ header,.nav-bar{
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.303&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.303&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.304&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.304&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -3108,7 +3108,7 @@ header,.nav-bar{
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.303';
+const APP_VERSION = '1.10.304';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8763,12 +8763,33 @@ function _rsvpResponseList(){
 function _rsvpIsAttending(status){
   return status==='attend'||status==='ready';
 }
+function _rsvpResponseGuests(r){
+  const list=[];
+  const seen=new Set();
+  const add=g=>{
+    if(!g||!String(g.name||'').trim())return;
+    const item={
+      name:String(g.name).trim(),
+      gender:g.gender||'남',
+      grade:g.grade||'C',
+      ageGroup:g.ageGroup||r?.ageGroup||'40대'
+    };
+    const key=[item.name,item.gender,item.grade,item.ageGroup].join('|');
+    if(seen.has(key))return;
+    seen.add(key);
+    list.push(item);
+  };
+  if(Array.isArray(r?.guests))r.guests.forEach(add);
+  add(r?.guest);
+  return list;
+}
 function _rsvpStats(){
   const members=_rsvpRosterMembers();
   const memberIds=new Set(members.map(m=>m.id));
   const responses=_rsvpResponseList().filter(r=>memberIds.has(r.memberId||r.id));
   const counts={attend:0,ready:0,plan:0,decline:0,maybe:0,guest:0,party:0,issues:0,partner:0};
   responses.forEach(r=>{
+    const guestList=_rsvpResponseGuests(r);
     if(r.status==='ready'){
       counts.attend++;
       counts.ready++;
@@ -8780,10 +8801,10 @@ function _rsvpStats(){
     }else{
       counts.maybe++;
     }
-    if(r.guest&&r.guest.name)counts.guest++;
+    counts.guest+=guestList.length;
     if(r.party)counts.party++;
     if(r.partnerRequest&&r.partnerRequest.memberId)counts.partner++;
-    if(_rsvpIsAttending(r.status)&&r.guest&&r.guest.name&&(!r.guest.gender||!r.guest.grade))counts.issues++;
+    if(_rsvpIsAttending(r.status)&&guestList.some(g=>!g.gender||!g.grade))counts.issues++;
   });
   counts.noResponse=Math.max(0,members.length-responses.length);
   counts.total=members.length;
@@ -9076,8 +9097,11 @@ function rsvpRender(){
   const guestLimit=_rsvpGuestLimit();
   const guestText=guestLimit?`${counts.guest}/${guestLimit}`:String(counts.guest);
   const latest=[...responses].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,8);
-  const guestRows=responses.filter(r=>_rsvpIsAttending(r.status)&&r.guest&&r.guest.name).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-  const issueRows=responses.filter(r=>_rsvpIsAttending(r.status)&&r.guest&&r.guest.name&&(!r.guest.gender||!r.guest.grade));
+  const guestRows=responses
+    .flatMap(r=>_rsvpResponseGuests(r).map(g=>({response:r,guest:g})))
+    .filter(item=>_rsvpIsAttending(item.response.status))
+    .sort((a,b)=>(b.response.updatedAt||0)-(a.response.updatedAt||0));
+  const issueRows=responses.filter(r=>_rsvpIsAttending(r.status)&&_rsvpResponseGuests(r).some(g=>!g.gender||!g.grade));
   box.className='rsvp-panel';
   box.innerHTML=`
     <div class="rsvp-current rsvp-import-only">
@@ -9093,7 +9117,7 @@ function rsvpRender(){
       </div>
     </div>
     ${_rsvpAdminRosterHtml(members,responses)}
-    ${guestRows.length?`<details class="rsvp-response-details"><summary>게스트 신청 ${esc(guestText)}명</summary><div class="rsvp-list">${guestRows.map(r=>_rsvpGuestRowHtml(r)).join('')}</div></details>`:''}
+    ${guestRows.length?`<details class="rsvp-response-details"><summary>게스트 신청 ${esc(guestText)}명</summary><div class="rsvp-list">${guestRows.map(item=>_rsvpGuestRowHtml(item)).join('')}</div></details>`:''}
     ${issueRows.length?`<div class="rsvp-list">${issueRows.map(r=>_rsvpRowHtml(r,true)).join('')}</div>`:''}
     <details class="rsvp-response-details">
       <summary>최근 응답 ${responses.length}명</summary>
@@ -9101,8 +9125,9 @@ function rsvpRender(){
     </details>`;
   renderAutoFlowDashboard();
 }
-function _rsvpGuestRowHtml(r){
-  const g=r.guest||{};
+function _rsvpGuestRowHtml(item){
+  const r=item.response||item;
+  const g=item.guest||r.guest||{};
   const updated=r.updatedAt?new Date(r.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="rsvp-row guest">
     <div>
@@ -9113,7 +9138,8 @@ function _rsvpGuestRowHtml(r){
   </div>`;
 }
 function _rsvpRowHtml(r,warn){
-  const guest=r.guest&&r.guest.name?` · 게스트 ${r.guest.name}(${r.guest.gender||'성별?'}/${r.guest.grade||'급수?'})`:'';
+  const guestList=_rsvpResponseGuests(r);
+  const guest=guestList.length?` · 게스트 ${guestList.map(g=>`${g.name}(${g.gender||'성별?'}/${g.grade||'급수?'})`).join(', ')}`:'';
   const partner=r.partnerRequest&&r.partnerRequest.memberName?` · P ${r.partnerRequest.memberName}`:'';
   const updated=r.updatedAt?new Date(r.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="rsvp-row ${warn?'warn':''}">
@@ -9311,7 +9337,16 @@ function rsvpImportAttendees(){
     const memberName=add({name:r.memberName||r.name,grade:r.grade,gender:r.gender,ageGroup:r.ageGroup,club:r.club},'member');
     const memberId=r.memberId||r.id;
     if(memberName&&memberId)finalNameByMemberId.set(memberId,memberName);
-    if(r.guest&&r.guest.name)add({name:r.guest.name,grade:r.guest.grade||'C',gender:r.guest.gender||'남',ageGroup:r.guest.ageGroup||r.ageGroup||'40대',club:r.club,isGuest:true},`guest:${_rsvpNameKey(r.memberName||r.name||'')}`);
+    _rsvpResponseGuests(r).forEach((g,idx)=>{
+      add({
+        name:g.name,
+        grade:g.grade||'C',
+        gender:g.gender||'남',
+        ageGroup:g.ageGroup||r.ageGroup||'40대',
+        club:r.club,
+        isGuest:true
+      },`guest:${_rsvpNameKey(r.memberName||r.name||'')}:${idx}`);
+    });
   });
   const rsvpPairs=[];
   const pairKeys=new Set();
@@ -10198,12 +10233,19 @@ function _teamSampleRoster(){
 function _teamSampleResponses(){
   const out={};
   _rsvpRosterMembers().forEach((m,i)=>{
-    const guest=i===2?{name:'현장게스트A',gender:'남',grade:'C',ageGroup:'40대'}
-      :i===15?{name:'현장게스트B',gender:'여',grade:'C',ageGroup:'40대'}:null;
+    const guests=i===2?[
+      {name:'현장게스트A',gender:'남',grade:'C',ageGroup:'40대'},
+      {name:'현장게스트A2',gender:'여',grade:'D',ageGroup:'40대'}
+    ]:i===15?[{name:'현장게스트B',gender:'여',grade:'C',ageGroup:'40대'}]:[];
     out[m.id]={
       memberId:m.id, memberName:m.name, name:m.name, club:m.club||'의기양양',
       grade:m.grade||'C', gender:m.gender||'남', ageGroup:m.ageGroup||'40대',
-      status:i%6===0?'attend':'ready', guest, party:i%7===0, updatedAt:Date.now()-i*60000, source:'sample-rsvp'
+      status:i%6===0?'attend':'ready',
+      guest:guests[0]||null,
+      guests,
+      party:i%7===0,
+      updatedAt:Date.now()-i*60000,
+      source:'sample-rsvp'
     };
   });
   return out;
@@ -10355,7 +10397,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.303</span>
+  <span class="app-version" id="appVersion">v1.10.304</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

@@ -100,6 +100,9 @@ button:disabled{opacity:.55}
 .guest button{grid-column:1/-1;background:var(--blue);color:#fff}
 .partner-request button{background:var(--blue);color:#fff;min-width:92px}
 .guest button:disabled,.partner-request button:disabled{background:#e2e8f0;color:#64748b}
+.guest-list{grid-column:1/-1;display:grid;gap:7px}
+.guest-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #dbe6f5;border-radius:12px;background:#fff;font-size:13px;font-weight:900;color:#334155}
+.guest-remove{min-height:34px;padding:6px 10px;border-radius:10px;background:#fff5f5;color:#b91c1c;border:1px solid #fecaca;font-size:12px}
 .empty{padding:28px 14px;text-align:center;color:var(--mut);line-height:1.55}
 .toast{position:fixed;left:14px;right:14px;bottom:16px;max-width:700px;margin:0 auto;padding:14px 16px;border-radius:18px;background:#18202d;color:#fff;font-weight:900;text-align:center;box-shadow:0 16px 44px rgba(0,0,0,.26);transform:translateY(120%);transition:.22s ease;z-index:10}
 .toast.show{transform:translateY(0)}
@@ -320,7 +323,7 @@ button.decline:before,
     <h1 id="title">팀전LIVE 출석</h1>
     <p class="sub" id="sessionSub">팀전LIVE 출석부를 불러오는 중입니다.</p>
     <div class="notice">이름을 선택한 뒤 출석을 눌러주세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.303</span>
+    <span class="version-chip" id="appVersion">v1.10.304</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>출석</span></div>
@@ -359,7 +362,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={},identityLookupOpen=false;
-const APP_VERSION='1.10.303';
+const APP_VERSION='1.10.304';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -438,10 +441,12 @@ function sampleSession(){
 function sampleResponses(){
   const out={};
   sampleMembers().forEach((m,i)=>{
-    const guest=i===2?{name:'현장게스트A',gender:'남',grade:'C',ageGroup:'40대'}
-      :i===15?{name:'현장게스트B',gender:'여',grade:'C',ageGroup:'40대'}:null;
+    const guests=i===2?[
+      {name:'현장게스트A',gender:'남',grade:'C',ageGroup:'40대'},
+      {name:'현장게스트A2',gender:'여',grade:'D',ageGroup:'40대'}
+    ]:i===15?[{name:'현장게스트B',gender:'여',grade:'C',ageGroup:'40대'}]:[];
     const status=i%6===0?'attend':'ready';
-    out[m.id]=responseFor(m,status,{guest,party:i%7===0});
+    out[m.id]=responseFor(m,status,{guests,party:i%7===0});
     out[m.id].updatedAt=Date.now()-i*60000;
     out[m.id].source='sample-rsvp';
   });
@@ -507,7 +512,7 @@ function selectRsvpIdentity(memberId){
   const current=memberResponse(memberId)||{};
   const status=isAttendStatus(current.status)?current.status:'none';
   setLast(responseFor(m,status,{
-    guest:current.guest||null,
+    guests:guestListFor(current),
     partnerRequest:current.partnerRequest||null,
     party:!!current.party
   }));
@@ -564,13 +569,40 @@ function responseValues(){
   const ids=new Set(members.map(m=>m.id));
   return Object.values(responses||{}).filter(r=>ids.has(r.memberId||r.id));
 }
+function normalizeGuest(g,fallbackAgeGroup='40대'){
+  if(!g||!String(g.name||'').trim())return null;
+  return {
+    name:String(g.name).trim(),
+    gender:g.gender||'남',
+    grade:g.grade||'C',
+    ageGroup:g.ageGroup||fallbackAgeGroup||'40대'
+  };
+}
+function guestListFor(r){
+  const list=[];
+  const seen=new Set();
+  const add=g=>{
+    const item=normalizeGuest(g,r?.ageGroup||'40대');
+    if(!item)return;
+    const key=[item.name,item.gender,item.grade,item.ageGroup].join('|');
+    if(seen.has(key))return;
+    seen.add(key);
+    list.push(item);
+  };
+  if(Array.isArray(r?.guests))r.guests.forEach(add);
+  add(r?.guest);
+  return list;
+}
+function guestTotal(vals){
+  return vals.reduce((n,r)=>n+guestListFor(r).length,0);
+}
 function counts(){
   const members=session?.members||[];
   const vals=responseValues();
   return {
     attend:vals.filter(r=>isAttendStatus(r.status)).length,
     ready:vals.filter(r=>r.status==='ready').length,
-    guest:vals.filter(r=>r.guest&&r.guest.name).length,
+    guest:guestTotal(vals),
     party:vals.filter(r=>r.party).length,
     pending:Math.max(0,members.length-vals.length)
   };
@@ -582,8 +614,6 @@ function guestLimit(){
 function guestLimitReached(memberId){
   const limit=guestLimit();
   if(!limit)return false;
-  const own=memberResponse(memberId);
-  if(own&&own.guest&&own.guest.name)return false;
   return counts().guest>=limit;
 }
 function renderHeader(){
@@ -625,13 +655,14 @@ function renderSummaryPanel(){
   const attend=vals.filter(r=>isAttendStatus(r.status));
   const ready=vals.filter(r=>r.status==='ready');
   const planned=vals.filter(r=>r.status==='attend');
-  const guests=vals.filter(r=>r.guest&&r.guest.name);
+  const guestEntries=vals.flatMap(r=>guestListFor(r).map(g=>({response:r,guest:g})));
   const parties=vals.filter(r=>r.party);
   const limit=guestLimit();
   const last=getLast();
   const myText=last?`${esc(last.memberName||'나')} · ${esc(statusLabel(last.status))}`:'아직 이 기기에서 신청한 기록이 없습니다.';
-  const guestRows=guests.length?guests.map(r=>{
-    const g=r.guest||{};
+  const guestRows=guestEntries.length?guestEntries.map(item=>{
+    const r=item.response;
+    const g=item.guest||{};
     return `<div class="summary-row"><b>${esc(g.name||'게스트')}</b><span>${esc(g.gender||'?')} · ${esc(g.grade||'?')}급<br>신청자 ${esc(r.memberName||r.name||'확인 필요')}</span></div>`;
   }).join(''):'<div class="summary-empty">신청된 게스트가 없습니다.</div>';
   panel.className='summary-panel';
@@ -641,7 +672,7 @@ function renderSummaryPanel(){
       <div class="summary-chip"><b>${attend.length}</b><span>출석</span></div>
       <div class="summary-chip"><b>${planned.length}</b><span>늦음</span></div>
       <div class="summary-chip"><b>${parties.length}</b><span>뒷풀이</span></div>
-      <div class="summary-chip"><b>${guests.length}${limit?`/${limit}`:''}</b><span>게스트 신청</span></div>
+      <div class="summary-chip"><b>${guestEntries.length}${limit?`/${limit}`:''}</b><span>게스트 신청</span></div>
     </div>
     <div class="summary-section">
       <div class="summary-section-title">출석자</div>
@@ -749,25 +780,30 @@ function memberSelectCard(m,recent){
 function memberCard(m,recent){
   const r=memberResponse(m.id);
   const status=r?.status||'none';
-  const guest=r?.guest||{};
+  const guests=guestListFor(r);
   const partyOn=!!r?.party;
   const partner=r?.partnerRequest||null;
   const normalized=isAttendStatus(status)?status:'none';
   const badge=normalized==='none'?'':statusLabel(normalized);
-  const guestOpen=guest.name?' open':'';
+  const guestOpen=guests.length?' open':'';
   const partnerOpen=partner?.memberId?' open':'';
   const choice=arrivalChoice(m.id,normalized);
   const selected=s=>choice===s?' selected':'';
   const disabled=sendingKey?'disabled':'';
   const closed=guestLimitReached(m.id);
   const memberState=normalized==='ready'?'ready-state':normalized==='attend'?'attending':'';
-  const guestSummary=guest.name?`게스트 ${esc(guest.name)} 신청됨`:(closed?'게스트 신청 마감':'게스트 신청/수정');
+  const guestSummary=guests.length?`게스트 ${guests.length}명 신청됨`:(closed?'게스트 신청 마감':'게스트 신청/수정');
+  const guestListHtml=guests.length?`<div class="guest-list">${guests.map((g,i)=>`
+    <div class="guest-item">
+      <span>${esc(g.name)} · ${esc(g.gender)} · ${esc(g.grade)}급</span>
+      <button type="button" class="guest-remove" onclick="event.stopPropagation();removeGuest('${esc(m.id)}',${i})">삭제</button>
+    </div>`).join('')}</div>`:'';
   const partnerSummary=partner?.memberName?`P 신청: ${esc(partner.memberName)}`:'P 파트너 신청';
   return `<article class="member ${recent?'recent':''} ${memberState}">
     <div class="mhead">
       <div>
         <div class="name">${esc(m.name)}</div>
-        <div class="meta">${esc(m.club||'소속 없음')} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급${guest.name?` · 게스트 ${esc(guest.name)}`:''}</div>
+        <div class="meta">${esc(m.club||'소속 없음')} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급${guests.length?` · 게스트 ${guests.length}명`:''}</div>
       </div>
       ${badge?`<span class="badge ${esc(normalized)}">${esc(badge)}</span>`:''}
     </div>
@@ -779,10 +815,11 @@ function memberCard(m,recent){
     <details class="guest"${guestOpen}>
       <summary>${guestSummary}</summary>
       <div class="guest-body">
-        <input id="gName_${esc(m.id)}" placeholder="게스트 이름" value="${esc(guest.name||'')}">
-        <select id="gGender_${esc(m.id)}"><option value="남" ${guest.gender==='남'?'selected':''}>남</option><option value="여" ${guest.gender==='여'?'selected':''}>여</option></select>
-        <select id="gGrade_${esc(m.id)}">${['E','D','C','B','A','S'].map(g=>`<option value="${g}" ${guest.grade===g?'selected':''}>${g}</option>`).join('')}</select>
-        <button ${closed?'disabled':''} onclick="saveGuest('${esc(m.id)}')">${closed?'게스트 신청 마감':'게스트 저장하고 출석'}</button>
+        ${guestListHtml}
+        <input id="gName_${esc(m.id)}" placeholder="게스트 이름" value="">
+        <select id="gGender_${esc(m.id)}"><option value="남">남</option><option value="여">여</option></select>
+        <select id="gGrade_${esc(m.id)}">${['E','D','C','B','A','S'].map(g=>`<option value="${g}" ${g==='C'?'selected':''}>${g}</option>`).join('')}</select>
+        <button ${closed?'disabled':''} onclick="saveGuest('${esc(m.id)}')">${closed?'게스트 신청 마감':'게스트 추가하고 출석'}</button>
       </div>
     </details>
     <details class="partner-request"${partnerOpen}>
@@ -796,6 +833,18 @@ function memberCard(m,recent){
 }
 function responseFor(m,status,extra={}){
   const prev=memberResponse(m.id)||{};
+  const prevGuests=guestListFor(prev);
+  let guests;
+  if(extra.guests!==undefined){
+    guests=(Array.isArray(extra.guests)?extra.guests:[])
+      .map(g=>normalizeGuest(g,m.ageGroup||'40대'))
+      .filter(Boolean);
+  }else if(extra.guest!==undefined){
+    const one=normalizeGuest(extra.guest,m.ageGroup||'40대');
+    guests=one?[one]:[];
+  }else{
+    guests=prevGuests;
+  }
   return {
     memberId:m.id,
     memberName:m.name,
@@ -805,7 +854,8 @@ function responseFor(m,status,extra={}){
     gender:m.gender||'남',
     ageGroup:m.ageGroup||'40대',
     status,
-    guest:extra.guest!==undefined?extra.guest:(prev.guest||null),
+    guest:guests[0]||null,
+    guests,
     partnerRequest:extra.partnerRequest!==undefined?extra.partnerRequest:(prev.partnerRequest||null),
     party:extra.party!==undefined?!!extra.party:!!prev.party,
     updatedAt:Date.now(),
@@ -874,28 +924,62 @@ async function saveGuest(memberId){
   const name=document.getElementById('gName_'+memberId)?.value.trim();
   if(!name)return toast('게스트 이름을 입력해 주세요.');
   if(guestLimitReached(memberId))return toast(`게스트 신청 인원이 ${guestLimit()}명으로 마감됐습니다.`);
-  const guest={
+  const current=memberResponse(memberId);
+  const guests=guestListFor(current);
+  const guest=normalizeGuest({
     name,
     gender:document.getElementById('gGender_'+memberId)?.value||'남',
     grade:document.getElementById('gGrade_'+memberId)?.value||'C',
     ageGroup:m.ageGroup||'40대'
-  };
+  },m.ageGroup||'40대');
+  if(!guest)return toast('게스트 정보를 확인해 주세요.');
+  const keyOf=g=>[g.name,g.gender,g.grade,g.ageGroup].join('|');
+  if(guests.some(g=>keyOf(g)===keyOf(guest)))return toast('이미 추가된 게스트입니다.');
+  const nextGuests=[...guests,guest];
   sendingKey=memberId+'_guest';render();
-  const payload=responseFor(m,arrivalChoice(m.id,memberResponse(m.id)?.status||'none'),{guest});
+  const payload=responseFor(m,arrivalChoice(m.id,current?.status||'none'),{guests:nextGuests});
   if(isSampleMode()){
     responses[memberId]=payload;
     setLast(payload);
     sendingKey='';
     render();
-    return toast(`${m.name} · 게스트 포함 출석 반영됨`);
+    return toast(`${m.name} · 게스트 ${nextGuests.length}명 저장됨`);
   }
   try{
     await db.ref(path()+'/responses/'+memberId).set(payload);
     responses[memberId]=payload;
     setLast(payload);
-    toast(`${m.name} · 게스트 포함 출석 저장 완료`);
+    toast(`${m.name} · 게스트 ${nextGuests.length}명 저장 완료`);
   }catch(e){
     toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+  }finally{
+    sendingKey='';render();
+  }
+}
+async function removeGuest(memberId,index){
+  if((!db&&!isSampleMode())||!session||sendingKey)return;
+  const m=(session.members||[]).find(x=>x.id===memberId);
+  if(!m)return toast('회원 정보를 찾지 못했습니다.');
+  const current=memberResponse(memberId);
+  const guests=guestListFor(current);
+  if(index<0||index>=guests.length)return toast('삭제할 게스트를 찾지 못했습니다.');
+  guests.splice(index,1);
+  sendingKey=memberId+'_guest_remove';render();
+  const payload=responseFor(m,arrivalChoice(m.id,current?.status||'none'),{guests});
+  if(isSampleMode()){
+    responses[memberId]=payload;
+    setLast(payload);
+    sendingKey='';
+    render();
+    return toast('게스트를 삭제했어요.');
+  }
+  try{
+    await db.ref(path()+'/responses/'+memberId).set(payload);
+    responses[memberId]=payload;
+    setLast(payload);
+    toast('게스트를 삭제했어요.');
+  }catch(e){
+    toast('삭제에 실패했습니다. 잠시 후 다시 눌러주세요.');
   }finally{
     sendingKey='';render();
   }
