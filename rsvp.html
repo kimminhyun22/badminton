@@ -220,6 +220,7 @@ button.decline.selected{
 .member-fold[open] summary{border-bottom:1px solid var(--line)}
 .member-fold[open] summary:after{content:'접기'}
 .member-fold #members{padding:0 10px 10px}
+.lookup-area.hidden{display:none}
 .identity-panel{margin:0 0 12px}
 .identity-title{
   display:flex;
@@ -318,8 +319,8 @@ button.decline:before,
     <div class="eyebrow">KOKMATCH RSVP</div>
     <h1 id="title">팀전LIVE 출석</h1>
     <p class="sub" id="sessionSub">팀전LIVE 출석부를 불러오는 중입니다.</p>
-    <div class="notice">먼저 내 이름을 선택하세요. 출석·늦음·뒷풀이는 내 카드에서만 누를 수 있습니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.302</span>
+    <div class="notice">이름을 선택한 뒤 출석을 눌러주세요.</div>
+    <span class="version-chip" id="appVersion">v1.10.303</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>출석</span></div>
@@ -331,14 +332,16 @@ button.decline:before,
   </section>
   <section class="panel">
     <div id="identityPanel" class="identity-panel"></div>
-    <div class="toolbar">
-      <input id="search" class="search" placeholder="이름 또는 초성 검색" autocomplete="off">
-      <span class="pill" id="countPill">0명</span>
+    <div id="rsvpLookupArea" class="lookup-area">
+      <div class="toolbar">
+        <input id="search" class="search" placeholder="이름 또는 초성 검색" autocomplete="off">
+        <span class="pill" id="countPill">0명</span>
+      </div>
+      <details class="member-fold" id="rsvpMemberFold">
+        <summary>내 이름 찾기</summary>
+        <div id="members" class="empty">명단을 불러오는 중입니다.</div>
+      </details>
     </div>
-    <details class="member-fold" id="rsvpMemberFold">
-      <summary>내 이름 찾기</summary>
-      <div id="members" class="empty">명단을 불러오는 중입니다.</div>
-    </details>
   </section>
 </main>
 <div id="toast" class="toast"></div>
@@ -355,8 +358,8 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={};
-const APP_VERSION='1.10.302';
+let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={},identityLookupOpen=false;
+const APP_VERSION='1.10.303';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -445,7 +448,11 @@ function sampleResponses(){
   return out;
 }
 function bindSearch(){
-  document.getElementById('search').addEventListener('input',e=>{query=e.target.value.trim();render();});
+  document.getElementById('search').addEventListener('input',e=>{
+    query=e.target.value.trim();
+    if(query)identityLookupOpen=true;
+    render();
+  });
 }
 function initials(s){
   return String(s||'').split('').map(ch=>{
@@ -486,6 +493,7 @@ function selectedMemberFromLast(){
 function clearRsvpIdentity(){
   clearLast();
   query='';
+  identityLookupOpen=true;
   const search=document.getElementById('search');
   if(search)search.value='';
   render();
@@ -504,6 +512,7 @@ function selectRsvpIdentity(memberId){
     party:!!current.party
   }));
   query='';
+  identityLookupOpen=false;
   const search=document.getElementById('search');
   if(search)search.value='';
   render();
@@ -592,12 +601,8 @@ function renderHeader(){
   const last=getLast();
   const selected=selectedMemberFromLast();
   const my=document.getElementById('myState');
+  if(my){my.className='my-state hidden';my.textContent='';}
   if(last&&!selected)clearLast();
-  if(!last||!selected){my.className='my-state hidden';my.textContent='';return;}
-  const current=memberResponse(selected.id)||last;
-  const when=(current.updatedAt||last.savedAt)?new Date(current.updatedAt||last.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
-  my.className='my-state';
-  my.textContent=`내 페이지: ${selected.name} · ${statusLabel(current.status||last.status)}${current.party?' · 뒷풀이':''} (${when})`;
 }
 function toggleSummary(){
   summaryOpen=!summaryOpen;
@@ -690,16 +695,21 @@ function render(){
   const box=document.getElementById('members');
   const pill=document.getElementById('countPill');
   const fold=document.getElementById('rsvpMemberFold');
+  const lookupArea=document.getElementById('rsvpLookupArea');
   if(!session){
     renderIdentityPanel(null);
+    identityLookupOpen=false;
+    if(lookupArea)lookupArea.classList.remove('hidden');
     if(fold)fold.open=true;
     box.className='empty';box.textContent='팀전LIVE 출석부를 불러오는 중입니다.';pill.textContent='0명';return;
   }
   const list=filteredMembers();
+  const showLookup=!selected||identityLookupOpen||!!query;
+  if(lookupArea)lookupArea.classList.toggle('hidden',!showLookup);
   if(fold){
     const summary=fold.querySelector('summary');
-    if(summary)summary.textContent=selected?'선수명단 / 이름 변경':'내 이름 찾기';
-    fold.open=query?true:!selected;
+    if(summary)summary.textContent=selected?'내 이름 다시 찾기':'내 이름 찾기';
+    fold.open=query?true:!selected||identityLookupOpen;
   }
   pill.textContent=`${list.length}명`;
   if(!list.length){box.className='empty';box.textContent='검색된 회원이 없습니다.';return;}
@@ -714,7 +724,7 @@ function renderIdentityPanel(selected){
     return;
   }
   if(!selected){
-    panel.innerHTML='<div class="identity-prompt">내 이름을 먼저 선택해주세요. 선택 후 이 화면 맨 위에 내 카드가 고정됩니다.</div>';
+    panel.innerHTML='<div class="identity-prompt">검색 결과 카드를 누르면 내 페이지로 고정됩니다.</div>';
     return;
   }
   panel.innerHTML=`<div class="identity-title"><span>MY PAGE</span><button type="button" class="identity-change" onclick="clearRsvpIdentity()">이름 변경</button></div>${memberCard(selected,true)}`;

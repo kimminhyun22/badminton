@@ -307,6 +307,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   align-items:center;
   margin-bottom:12px;
 }
+.panel.hidden{display:none}
 .member-fold{
   border:1px solid var(--line);
   border-radius:18px;
@@ -1200,13 +1201,13 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.302</span>
+    <span class="version-chip" id="appVersion">v1.10.303</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="balance-policy hidden" id="balancePolicy"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
   <div id="myCard" class="my-card-wrap hidden"></div>
-  <section class="panel">
+  <section class="panel" id="lookupPanel">
     <div class="toolbar">
       <input id="search" class="search" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ" autocomplete="off">
       <span class="pill" id="countPill">0명</span>
@@ -1244,8 +1245,8 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='';
-const APP_VERSION='1.10.302';
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
+const APP_VERSION='1.10.303';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1759,9 +1760,12 @@ function render(){
   const myCard=document.getElementById('myCard');
   const rosterSummary=document.querySelector('#playerListFold summary');
   const searchInput=document.getElementById('search');
+  const lookupPanel=document.getElementById('lookupPanel');
   if(!session){
     const fold=document.getElementById('playerListFold');
     if(fold)fold.open=true;
+    identityLookupOpen=false;
+    if(lookupPanel)lookupPanel.classList.remove('hidden');
     if(rosterSummary)rosterSummary.textContent='내 이름 찾기';
     if(searchInput)searchInput.placeholder='이름·초성 검색 예) 김민현, ㄱㅁㅎ';
     if(myCard){
@@ -1788,10 +1792,12 @@ function render(){
   const selectedId=last&&last.playerId;
   const selectedPlayer=selectedId?allPlayers.find(p=>p.id===selectedId):null;
   const hasSelected=!!selectedPlayer;
-  if(pageTitle)pageTitle.textContent=selectedPlayer?`${selectedPlayer.name}님`:'내 이름 찾기';
+  const showLookup=!hasSelected||identityLookupOpen||!!query;
+  if(lookupPanel)lookupPanel.classList.toggle('hidden',!showLookup);
+  if(pageTitle)pageTitle.textContent=selectedPlayer?(session.title||'민턴LIVE'):'내 이름 찾기';
   if(quickNotice)quickNotice.hidden=hasSelected;
-  if(rosterSummary)rosterSummary.textContent=hasSelected?'선수명단 / 이름 변경':'내 이름 찾기';
-  if(searchInput)searchInput.placeholder=hasSelected?'다른 선수 검색':'이름·초성 검색 예) 김민현, ㄱㅁㅎ';
+  if(rosterSummary)rosterSummary.textContent=hasSelected?'내 이름 다시 찾기':'내 이름 찾기';
+  if(searchInput)searchInput.placeholder=hasSelected?'다른 이름 검색':'이름·초성 검색 예) 김민현, ㄱㅁㅎ';
   const matchedPlayers=allPlayers.filter(p=>playerMatchesQuery(p,query));
   const players=matchedPlayers
     .filter(p=>query||!hasSelected||p.id!==selectedId)
@@ -1877,6 +1883,7 @@ function changeSelectedPlayer(){
   try{localStorage.removeItem(lastKey());}catch(e){}
   try{localStorage.removeItem('kokmatch_live_viewer_last');}catch(e){}
   query='';
+  identityLookupOpen=true;
   const q=document.getElementById('search');
   if(q)q.value='';
   const fold=document.getElementById('playerListFold');
@@ -1900,6 +1907,7 @@ function selectPlayerIdentity(playerId){
   };
   setLastSent(req);
   query='';
+  identityLookupOpen=false;
   const q=document.getElementById('search');
   if(q)q.value='';
   toast(`${p.name}님으로 선택했어요.`);
@@ -1948,11 +1956,8 @@ function renderMyCard(last,players){
   const fold=document.getElementById('playerListFold');
   const selected=last&&last.playerId?players.find(p=>p.id===last.playerId):null;
   if(!selected){
-    el.classList.remove('hidden');
-    el.innerHTML=`<div class="pick-guide">
-      <b>먼저 내 이름을 찾으세요</b>
-      <span>검색 결과 카드를 누르면 내 페이지로 고정됩니다.</span>
-    </div>`;
+    el.classList.add('hidden');
+    el.innerHTML='';
     if(fold&&!query)fold.open=true;
     return;
   }
@@ -2381,6 +2386,7 @@ function boot(){
   });
   document.getElementById('search').addEventListener('input',e=>{
     query=e.target.value.trim();
+    if(query)identityLookupOpen=true;
     const fold=document.getElementById('playerListFold');
     if(fold&&query)fold.open=true;
     render();
