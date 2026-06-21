@@ -1221,7 +1221,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.310</span>
+    <span class="version-chip" id="appVersion">v1.10.311</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="balance-policy hidden" id="balancePolicy"></div>
     <div class="last-sent hidden" id="lastSent"></div>
@@ -1266,7 +1266,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
-const APP_VERSION='1.10.310';
+const APP_VERSION='1.10.311';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1569,6 +1569,7 @@ function renderBalancePolicy(){
   }
   const label=policy.label||`공식 ${policy.official||0} · 자유 ${policy.free||0} · 밸런스 보호 중`;
   const ready=Number(policy.ready??0);
+  const deferred=Number(policy.deferred||0);
   const queued=Number(policy.queued??((event?.next||[]).length));
   const title=queued
     ? `다음 ${queued}경기 준비 · 대기풀 ${ready}명`
@@ -1577,7 +1578,9 @@ function renderBalancePolicy(){
       : label;
   const detail=policy.detail||(queued
     ? '남은 대기풀은 급수·파트너 밸런스가 맞는 순서로 이어서 배정돼요.'
-    : '코트가 비어도 급수 차가 크면 바로 배정하지 않을 수 있어요.');
+    : deferred
+      ? `한타임 뒤 ${deferred}명은 잠시 후 다시 후보가 돼요.`
+      : '코트가 비어도 급수 차가 크면 바로 배정하지 않을 수 있어요.');
   el.className='balance-policy';
   el.innerHTML=`<b>${esc(title)}</b><small>${esc(detail)}</small><small class="balance-rule">운영 기준: ${esc(label)}</small>`;
 }
