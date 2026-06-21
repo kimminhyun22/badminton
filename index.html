@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.307  (2026-06)
+     APP VERSION: 1.10.309  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.307">
+<meta name="app-version" content="1.10.309">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2430,8 +2430,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.307&from=daily'">민턴LIVE</button>
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.307&from=daily'">팀전LIVE</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.309&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.309&from=daily'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -2469,10 +2469,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
           <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 시작·휴식·종료 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.307&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.309&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.307</small>
+          <small>팀전LIVE 최신판 v1.10.309</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -3272,7 +3272,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.307';
+const APP_VERSION = '1.10.309';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3626,6 +3626,8 @@ function _dailyNormalize(raw){
     partnerId:null,
     currentMatchId:raw.currentMatchId||null,
     afterMatchStatus:raw.afterMatchStatus||null,
+    deferUntil:Number(raw.deferUntil||0),
+    deferReason:raw.deferReason||'',
     team:raw.team||'',
     isGuest:!!raw.isGuest
   };
@@ -4386,7 +4388,8 @@ function _dailyCourtAvailable(court,limit){
   return !_dailyActiveMatches().some(m=>m.court===court);
 }
 function _dailyEligible(){
-  let list=_dailyPlayers.filter(p=>DAILY_STATUS[p.status]?.eligible&&!p.currentMatchId);
+  const now=_dailyNow();
+  let list=_dailyPlayers.filter(p=>DAILY_STATUS[p.status]?.eligible&&!p.currentMatchId&&!(p.deferUntil&&p.deferUntil>now));
   if(_dailyTeamMode)list=list.filter(p=>!!_dailyTeamSide(p));
   return list;
 }
@@ -4922,10 +4925,31 @@ function _dailyApplyPlayerStatus(p,status){
   status=_dailyNormalizeStatus(status);
   p.status=status;
   p.afterMatchStatus=null;
+  p.deferUntil=0;
+  p.deferReason='';
   p.lastStatusAt=_dailyNow();
   if(status==='wait') p.waitFrom=_dailyNow();
   if(status==='done'||status==='rest'||status==='planned'||status==='invited') p.currentMatchId=null;
   _dailyNext=null;
+}
+const DAILY_QUEUE_DEFER_MS=15*60*1000;
+function _dailyApplyQueueDefer(playerId,source){
+  const p=_dailyPlayer(playerId);
+  if(!p)return false;
+  const now=_dailyNow();
+  p.deferUntil=now+DAILY_QUEUE_DEFER_MS;
+  p.deferReason=source||'member';
+  p.lastStatusAt=now;
+  let removed=false;
+  _dailyQueue=_dailyQueue.filter(q=>{
+    const hit=_dailyQueueIds(q).includes(playerId);
+    if(hit)removed=true;
+    return !hit;
+  });
+  if(removed)_dailyMarkFourCacheDirty();
+  _dailyNext=null;
+  dailyEnsureQueue();
+  return true;
 }
 function dailySetStatus(id,status){
   const p=_dailyPlayer(id);
@@ -6142,6 +6166,14 @@ function _dailyPublicEvent(){
   const expected=_dailyProjectedQueue(_dailyExpectedQueueTarget(cap))
     .map((q,idx)=>queuePayload(q,cap.target+idx,true))
     .filter(Boolean);
+  const readyCount=_dailyEligible().length;
+  const queuedCount=next.length;
+  const expectedCount=expected.length;
+  const policyDetail=queuedCount
+    ? `다음 ${queuedCount}경기 준비됨 · 남은 대기풀은 밸런스 맞는 조합부터 순차 배정`
+    : readyCount>=4
+      ? `대기풀 ${readyCount}명 · 급수 차가 큰 조합은 잠시 보류 중`
+      : `대기풀 ${readyCount}명 · 4명 이상 모이면 배정`;
   return {
     mode:_dailyTeamMode?'team':'daily',
     teamMode:_dailyTeamMode,
@@ -6156,7 +6188,12 @@ function _dailyPublicEvent(){
       auto:!!flowInfo.auto,
       official,
       free,
-      label:_dailyBalancePolicyText(flowInfo)
+      ready:readyCount,
+      queued:queuedCount,
+      expected:expectedCount,
+      short:!!cap.short,
+      label:_dailyBalancePolicyText(flowInfo),
+      detail:policyDetail
     },
     active,
     next,
@@ -6230,9 +6267,11 @@ function dailyCompleteMatch(id,winnerSide,options){
     p.games=(p.games||0)+1;
     p.lastPlayedSeq=m.seq;
     const deferredStatus=p.afterMatchStatus?'':_dailyConsumeDeferredStatusRequest(p.id);
-    const nextStatus=_dailyNormalizeStatus(p.afterMatchStatus||deferredStatus||'rest');
+    const nextStatus=_dailyNormalizeStatus(p.afterMatchStatus||deferredStatus||'wait');
     p.status=nextStatus;
     p.afterMatchStatus=null;
+    p.deferUntil=0;
+    p.deferReason='';
     p.currentMatchId=null;
     if(nextStatus==='wait')p.waitFrom=_dailyNow();
     p.lastStatusAt=_dailyNow();
@@ -6263,6 +6302,8 @@ function dailyCancelMatch(id){
     if(!p)return;
     p.status=_dailyNormalizeStatus((m.previousStatuses&&m.previousStatuses[pid])||'wait');
     p.afterMatchStatus=null;
+    p.deferUntil=0;
+    p.deferReason='';
     p.currentMatchId=null;
     if(p.status==='wait')p.waitFrom=_dailyNow();
     p.lastStatusAt=_dailyNow();
@@ -6837,6 +6878,18 @@ function dailyProcessCheckinRequests(){
         }
         return;
       }
+      if(req.type==='queue-defer'){
+        const q=_dailyQueue.find(item=>item.id===req.queueId);
+        const p=_dailyPlayer(req.playerId);
+        if(!p||!q||!_dailyQueueIds(q).includes(req.playerId)){
+          autoRejected.push({...req,_completeRejectReason:'미룰 수 있는 다음 대진을 찾지 못했습니다.'});
+        }else{
+          _dailyApplyQueueDefer(req.playerId,'member-queue-defer');
+          autoApplied.push(req);
+          changed=true;
+        }
+        return;
+      }
       if(req.type==='reservation'){
         if(_dailyReservationConsentPending(req)){
           return;
@@ -6864,13 +6917,13 @@ function dailyProcessCheckinRequests(){
     });
     autoApplied.forEach(req=>{
       const ref=_dailyCheckinRequestRef(req.key);
-      const appliedBy=req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':'member-auto-reservation';
+      const appliedBy=req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':req.type==='queue-defer'?'member-queue-defer':'member-auto-reservation';
       if(ref)ref.update({appliedAt:now,appliedBy}).catch(()=>{});
     });
     autoRejected.forEach(req=>{
       const ref=_dailyCheckinRequestRef(req.key);
       const reason=req._completeRejectReason||_dailyReservationRequestError(req)||'자동 등록 조건 불충족';
-      const ignoredBy=req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':'member-auto-reservation';
+      const ignoredBy=req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':req.type==='queue-defer'?'member-queue-defer':'member-auto-reservation';
       if(ref)ref.update({ignoredAt:now,ignoredBy,reason}).catch(()=>{});
     });
     if(superseded.length||autoApplied.length||autoRejected.length){
@@ -7866,7 +7919,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.307&from=daily';
+  location.href='team.html?v=1.10.309&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -13735,7 +13788,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.307</span>
+  <span class="app-version" id="appVersion">v1.10.309</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
