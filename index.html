@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.311  (2026-06)
+     APP VERSION: 1.10.312  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.311">
+<meta name="app-version" content="1.10.312">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2432,8 +2432,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.311&from=daily'">민턴LIVE</button>
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.311&from=daily'">팀전LIVE</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.312&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.312&from=daily'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -2471,10 +2471,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
           <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 시작·휴식·종료 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.311&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.312&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.311</small>
+          <small>팀전LIVE 최신판 v1.10.312</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -3274,7 +3274,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.311';
+const APP_VERSION = '1.10.312';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4390,13 +4390,12 @@ function _dailyCourtAvailable(court,limit){
   return !_dailyActiveMatches().some(m=>m.court===court);
 }
 function _dailyEligible(){
-  const now=_dailyNow();
-  let list=_dailyPlayers.filter(p=>DAILY_STATUS[p.status]?.eligible&&!p.currentMatchId&&!(p.deferUntil&&p.deferUntil>now));
+  let list=_dailyPlayers.filter(p=>DAILY_STATUS[p.status]?.eligible&&!p.currentMatchId);
   if(_dailyTeamMode)list=list.filter(p=>!!_dailyTeamSide(p));
   return list;
 }
 function _dailyIsDeferred(p){
-  return !!(p&&p.deferUntil&&p.deferUntil>_dailyNow());
+  return false;
 }
 function _dailyStartedWaitingPlayers(){
   let list=_dailyPlayers.filter(p=>DAILY_STATUS[p.status]?.eligible&&!p.currentMatchId);
@@ -4404,12 +4403,10 @@ function _dailyStartedWaitingPlayers(){
   return list;
 }
 function _dailyDeferredWaitingPlayers(){
-  return _dailyStartedWaitingPlayers().filter(p=>_dailyIsDeferred(p));
+  return [];
 }
 function _dailyDeferLabel(p){
-  if(!_dailyIsDeferred(p))return '';
-  const min=Math.max(1,Math.ceil((p.deferUntil-_dailyNow())/60000));
-  return `한타임 뒤 ${min}분`;
+  return '';
 }
 function _dailyQueueBaseTarget(){
   const info=_dailyNaturalAutoInfo();
@@ -4973,24 +4970,23 @@ function _dailyApplyPlayerStatus(p,status){
   if(status==='done'||status==='rest'||status==='planned'||status==='invited') p.currentMatchId=null;
   _dailyNext=null;
 }
-const DAILY_QUEUE_DEFER_MS=15*60*1000;
-function _dailyApplyQueueDefer(playerId,source){
-  const p=_dailyPlayer(playerId);
-  if(!p)return false;
-  const now=_dailyNow();
-  p.deferUntil=now+DAILY_QUEUE_DEFER_MS;
-  p.deferReason=source||'member';
-  p.lastStatusAt=now;
-  let removed=false;
-  _dailyQueue=_dailyQueue.filter(q=>{
-    const hit=_dailyQueueIds(q).includes(playerId);
-    if(hit)removed=true;
-    return !hit;
-  });
-  if(removed)_dailyMarkFourCacheDirty();
-  _dailyNext=null;
+function _dailyApplyQueueYield(playerId,queueId,source){
   dailyEnsureQueue();
-  return true;
+  let idx=_dailyQueue.findIndex(q=>String(q.id||'')===String(queueId||'')&&_dailyQueueIds(q).includes(playerId));
+  if(idx<0)idx=_dailyQueue.findIndex(q=>_dailyQueueIds(q).includes(playerId));
+  if(idx<0)return {ok:false,reason:'양보할 다음 대진을 찾지 못했습니다.'};
+  if(idx>=_dailyQueue.length-1)return {ok:false,reason:'뒤에 먼저 보낼 다음 대진이 없습니다.'};
+  const item=_dailyQueue.splice(idx,1)[0];
+  item.yieldedAt=_dailyNow();
+  item.yieldedBy=playerId;
+  item.yieldedSource=source||'member';
+  item.yieldedCount=Number(item.yieldedCount||0)+1;
+  _dailyQueue.splice(idx+1,0,item);
+  _dailyNext=null;
+  return {ok:true};
+}
+function _dailyApplyQueueDefer(playerId,source,queueId){
+  return _dailyApplyQueueYield(playerId,queueId,source).ok;
 }
 function dailySetStatus(id,status){
   const p=_dailyPlayer(id);
@@ -6210,17 +6206,13 @@ function _dailyPublicEvent(){
     .filter(Boolean);
   const readyCount=_dailyEligible().length;
   const visibleReadyCount=_dailyStartedWaitingPlayers().length;
-  const deferredCount=_dailyDeferredWaitingPlayers().length;
   const queuedCount=next.length;
   const expectedCount=expected.length;
-  const deferSuffix=deferredCount?` · 한타임 뒤 ${deferredCount}명`:'';
   const policyDetail=queuedCount
-    ? deferredCount
-      ? `다음 ${queuedCount}경기 준비됨 · 한타임 뒤 ${deferredCount}명은 잠시 후 다시 후보가 돼요`
-      : `다음 ${queuedCount}경기 준비됨 · 힘들면 한 타임 뒤로 미룰 수 있어요`
+    ? `다음 ${queuedCount}경기 준비됨 · 필요하면 이번 차례만 양보할 수 있어요`
     : readyCount>=4
-      ? `대기풀 ${visibleReadyCount}명${deferSuffix} · 대진 후보 ${readyCount}명`
-      : `대기풀 ${visibleReadyCount}명${deferSuffix} · 후보 ${readyCount}명`;
+      ? `대기풀 ${visibleReadyCount}명 · 대진 후보 ${readyCount}명`
+      : `대기풀 ${visibleReadyCount}명 · 후보 ${readyCount}명`;
   return {
     mode:_dailyTeamMode?'team':'daily',
     teamMode:_dailyTeamMode,
@@ -6544,7 +6536,7 @@ function dailyRenderOpsStats(){
         ? `자동 편성`
         : flow.hint;
   const waitHint=deferred
-    ? `한타임 뒤 ${deferred}`
+    ? `양보 ${deferred}`
     : unscheduled
       ? `미편성 ${unscheduled}`
       : candidates
@@ -6946,13 +6938,14 @@ function dailyProcessCheckinRequests(){
         }
         return;
       }
-      if(req.type==='queue-defer'){
-        const q=_dailyQueue.find(item=>item.id===req.queueId);
+      if(req.type==='queue-yield'||req.type==='queue-defer'){
         const p=_dailyPlayer(req.playerId);
-        if(!p||!q||!_dailyQueueIds(q).includes(req.playerId)){
-          autoRejected.push({...req,_completeRejectReason:'미룰 수 있는 다음 대진을 찾지 못했습니다.'});
+        const result=p
+          ? _dailyApplyQueueYield(req.playerId,req.queueId,req.type==='queue-yield'?'member-queue-yield':'member-queue-defer')
+          : {ok:false,reason:'선수를 찾지 못했습니다.'};
+        if(!result.ok){
+          autoRejected.push({...req,_completeRejectReason:result.reason||'양보할 다음 대진을 찾지 못했습니다.'});
         }else{
-          _dailyApplyQueueDefer(req.playerId,'member-queue-defer');
           autoApplied.push(req);
           changed=true;
         }
@@ -6985,13 +6978,15 @@ function dailyProcessCheckinRequests(){
     });
     autoApplied.forEach(req=>{
       const ref=_dailyCheckinRequestRef(req.key);
-      const appliedBy=req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':req.type==='queue-defer'?'member-queue-defer':'member-auto-reservation';
+      const isQueueYield=req.type==='queue-yield'||req.type==='queue-defer';
+      const appliedBy=req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':'member-auto-reservation';
       if(ref)ref.update({appliedAt:now,appliedBy}).catch(()=>{});
     });
     autoRejected.forEach(req=>{
       const ref=_dailyCheckinRequestRef(req.key);
       const reason=req._completeRejectReason||_dailyReservationRequestError(req)||'자동 등록 조건 불충족';
-      const ignoredBy=req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':req.type==='queue-defer'?'member-queue-defer':'member-auto-reservation';
+      const isQueueYield=req.type==='queue-yield'||req.type==='queue-defer';
+      const ignoredBy=req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':'member-auto-reservation';
       if(ref)ref.update({ignoredAt:now,ignoredBy,reason}).catch(()=>{});
     });
     if(superseded.length||autoApplied.length||autoRejected.length){
@@ -7987,7 +7982,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.311&from=daily';
+  location.href='team.html?v=1.10.312&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -13856,7 +13851,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.311</span>
+  <span class="app-version" id="appVersion">v1.10.312</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
