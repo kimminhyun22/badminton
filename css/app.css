@@ -2008,6 +2008,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
   flex:1;
   min-height:46px;
 }
+#dailyTransitionFinishBtn{display:none;}
 @media(max-width:420px){
   .daily-manual-player-grid{grid-template-columns:1fr;}
   .daily-manual-court-grid{grid-template-columns:repeat(3,minmax(0,1fr));}

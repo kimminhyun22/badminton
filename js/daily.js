@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.331';
+const APP_VERSION = '1.10.332';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -264,6 +264,7 @@ let _dailyQueue=[];
 let _dailyReservations=[];
 let _dailySeq=1;
 let _dailyAutoAssign=false;
+let _dailyOperationStarted=false;
 let _dailyTeamMode=false;
 let _dailyTeamLocked=false;
 let _dailyAutoBusy=false;
@@ -283,7 +284,7 @@ let _dailyStartTime='19:00';
 let _dailyEndTime='22:00';
 let _dailyCourtOrder=[];
 let _dailyGymName='';
-let _dailyManualActiveDraft={court:null,ids:[]};
+let _dailyManualActiveDraft={mode:'manual',court:null,ids:[],registeredCount:0};
 let _dailyEmergencyEditQueueId=null;
 let _dailyLastCompleteUndo=null;
 
@@ -1188,6 +1189,12 @@ function _dailyNaturalAutoInfo(){
     phase='team';
     label='팀전 진행';
     hint=`${courts}코트 기준으로 진행`;
+  }else if(!_dailyOperationStarted&&!_dailyAutoAssign){
+    phase='free';
+    label='자율 운영';
+    hint=pool>=4
+      ? `${pool}명 시작 · 민턴LIVE 전환 전`
+      : '명부·링크 준비 후 전환';
   }else if(_dailyAutoAssign){
     auto=true;
     operatingCourts=courts;
@@ -1200,6 +1207,18 @@ function _dailyNaturalAutoInfo(){
     phase='active';
     label='자동 운영';
     hint=`진행 중 · ${courts}코트 기준 유지`;
+  }else if(_dailyOperationStarted){
+    if(pool>=4){
+      auto=true;
+      operatingCourts=courts;
+      phase='manual';
+      label='자동 운영';
+      hint=`${courts}코트 기준 자동 운영`;
+    }else{
+      phase='started';
+      label='운영 중';
+      hint=`시작 ${pool}명 · 4명부터 편성`;
+    }
   }else if(pool>=DAILY_AUTO_FULL_START){
     auto=true;
     operatingCourts=courts;
@@ -1604,6 +1623,7 @@ function dailySave(){
       savedAt:_dailyNow(),
       courts:document.getElementById('dailyCourts')?.value||3,
       autoAssign:_dailyAutoAssign,
+      operationStarted:_dailyOperationStarted,
       teamMode:false,
       teamLocked:false,
       teamNames:{...teamNames},
@@ -1790,7 +1810,7 @@ function _dailyLoadAsNewDay(s){
     afterMatchStatus:null
   }));
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
-  _dailyAutoAssign=false;_dailyTeamMode=false;_dailyTeamLocked=false;
+  _dailyAutoAssign=false;_dailyOperationStarted=false;_dailyTeamMode=false;_dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
   _dailyStartTime=s.operatingStart||_dailyStartTime||'19:00';
   _dailyEndTime=s.operatingEnd||_dailyEndTime||'22:00';
@@ -1826,6 +1846,7 @@ function dailyLoad(){
     _dailySeq=s.seq||((_dailyMatches.reduce((m,x)=>Math.max(m,x.seq||0),0))+1);
     _dailyWaveStarts=s.waveStarts||0;
     _dailyAutoAssign=false;
+    _dailyOperationStarted=s.operationStarted!=null?!!s.operationStarted:!!((_dailyMatches||[]).length||(_dailyQueue||[]).length);
     _dailyTeamMode=false;
     _dailyTeamLocked=false;
     if(s.teamNames){
@@ -1905,6 +1926,7 @@ function dailyApplyReviewSample(){
   _dailySeq=7;
   _dailyWaveStarts=3;
   _dailyAutoAssign=false;
+  _dailyOperationStarted=true;
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -2269,6 +2291,7 @@ function dailyReset(){
   _dailyPlayers=[];_dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
   _dailyPairSelectId=null;
   _dailyAutoAssign=false;
+  _dailyOperationStarted=false;
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -2292,6 +2315,7 @@ function dailyReset(){
 }
 function dailyToggleAutoAssign(on){
   _dailyAutoAssign=!!on;
+  if(_dailyAutoAssign)_dailyOperationStarted=true;
   dailySave();
   _dailySyncControls(_dailyCourtCount());
   dailyRender();
@@ -2374,6 +2398,7 @@ function dailyMaybeAutoRecommend(){
   return dailyEnsureQueue();
 }
 function dailyMaybeAutoAssign(force){
+  if(force)_dailyOperationStarted=true;
   const flow=_dailyNaturalAutoInfo();
   const allow=force||flow.auto;
   if((!allow)||_dailyAutoBusy){
@@ -2836,12 +2861,27 @@ function dailyEditActiveCourt(matchId){
   dailySave();
   dailyRender();
 }
-function _dailyManualActiveCandidates(){
+function _dailyManualActiveMode(){
+  return _dailyManualActiveDraft&&_dailyManualActiveDraft.mode==='transition'?'transition':'manual';
+}
+function _dailyManualActiveCandidates(mode){
+  mode=mode||_dailyManualActiveMode();
   const activeIds=new Set();
   _dailyActiveMatches().forEach(m=>_dailyMatchPlayers(m).forEach(p=>activeIds.add(p.id)));
   return _dailyPlayers
-    .filter(p=>p&&_dailyNormalizeStatus(p.status)==='wait'&&!p.currentMatchId&&!activeIds.has(p.id))
+    .filter(p=>{
+      if(!p||p.currentMatchId||activeIds.has(p.id))return false;
+      const st=_dailyNormalizeStatus(p.status);
+      if(mode==='transition')return !['playing','done'].includes(st);
+      return st==='wait';
+    })
     .sort((a,b)=>{
+      if(mode==='transition'){
+        const rank={wait:0,invited:1,planned:1,rest:2};
+        const ar=rank[_dailyNormalizeStatus(a.status)]??9;
+        const br=rank[_dailyNormalizeStatus(b.status)]??9;
+        if(ar!==br)return ar-br;
+      }
       if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
       if((a.waitFrom||0)!==(b.waitFrom||0))return (a.waitFrom||0)-(b.waitFrom||0);
       return a.name.localeCompare(b.name,'ko');
@@ -2856,29 +2896,55 @@ function _dailyManualActiveUsedCourts(){
 function _dailyManualActiveDefaultCourt(){
   const used=_dailyManualActiveUsedCourts();
   const base=Math.max(1,_dailyCourtCount());
-  for(let c=1;c<=Math.max(base,4);c++){
+  for(let c=1;c<=base;c++){
     if(!used.has(c))return c;
   }
-  for(let c=Math.max(base,4)+1;c<=12;c++){
-    if(!used.has(c))return c;
-  }
-  return 1;
+  return 0;
 }
 function _dailyManualActiveCourtMax(){
-  const activeMax=Math.max(0,..._dailyActiveMatches().map(m=>parseInt(m.court,10)||0));
-  return Math.min(12,Math.max(4,_dailyCourtCount()+2,activeMax+1));
+  return Math.max(1,_dailyCourtCount());
 }
 function _dailyManualActiveSelected(){
   const candidates=new Map(_dailyManualActiveCandidates().map(p=>[p.id,p]));
   return (_dailyManualActiveDraft.ids||[]).map(id=>candidates.get(id)).filter(Boolean);
 }
 function dailyCreateActiveMatch(){
-  const candidates=_dailyManualActiveCandidates();
+  const candidates=_dailyManualActiveCandidates('manual');
   if(candidates.length<4){
     alert('게임 추가는 시작 상태 선수가 4명 이상일 때 가능합니다.');
     return;
   }
-  _dailyManualActiveDraft={court:_dailyManualActiveDefaultCourt(),ids:[]};
+  const court=_dailyManualActiveDefaultCourt();
+  if(!court){
+    alert('설정된 코트가 모두 진행 중입니다.');
+    return;
+  }
+  _dailyManualActiveDraft={mode:'manual',court,ids:[],registeredCount:0};
+  dailyRenderManualActiveModal();
+  const modal=document.getElementById('dailyManualActiveModal');
+  if(modal)modal.classList.remove('hidden');
+}
+function dailyBeginLiveTransition(){
+  if(!_dailyPlayers.length){
+    alert('먼저 민턴LIVE 명단을 추가하거나 명부를 불러오세요.');
+    dailyOpenFold('dailySetupDetails','dailySetupDetails');
+    return;
+  }
+  const candidates=_dailyManualActiveCandidates('transition');
+  const court=_dailyManualActiveDefaultCourt();
+  if(!court){
+    if(confirm('설정된 코트를 모두 등록했습니다. 이제 민턴LIVE 운영을 시작할까요?')){
+      dailyFinishLiveTransition();
+    }
+    return;
+  }
+  if(candidates.length<4){
+    if(confirm('현재 등록할 진행 중 게임이 없다면 바로 운영을 시작할까요?')){
+      dailyFinishLiveTransition();
+    }
+    return;
+  }
+  _dailyManualActiveDraft={mode:'transition',court,ids:[],registeredCount:0};
   dailyRenderManualActiveModal();
   const modal=document.getElementById('dailyManualActiveModal');
   if(modal)modal.classList.remove('hidden');
@@ -2887,9 +2953,27 @@ function closeDailyManualActiveModal(){
   const modal=document.getElementById('dailyManualActiveModal');
   if(modal)modal.classList.add('hidden');
 }
+function dailyFinishLiveTransition(){
+  if(!_dailyPlayers.length){
+    alert('먼저 민턴LIVE 명단을 추가하거나 명부를 불러오세요.');
+    return;
+  }
+  const active=_dailyActiveMatches().length;
+  const pool=_dailyStartedPoolPlayers().length;
+  if(!active&&pool<4){
+    const ok=confirm(`시작 상태 선수가 ${pool}명입니다.\n4명 미만이면 아직 대진이 만들어지지 않습니다. 그래도 민턴LIVE 운영을 시작할까요?`);
+    if(!ok)return;
+  }
+  _dailyOperationStarted=true;
+  closeDailyManualActiveModal();
+  dailyEnsureQueue();
+  dailySave();
+  dailyRender();
+  dailyMaybeAutoAssign();
+}
 function dailySetManualActiveCourt(court){
   court=parseInt(court,10)||0;
-  if(court<1||court>12)return;
+  if(court<1||court>_dailyCourtCount())return;
   if(_dailyManualActiveUsedCourts().has(court)){
     alert(`${court}코트는 이미 진행 중입니다.`);
     return;
@@ -2900,7 +2984,7 @@ function dailySetManualActiveCourt(court){
 function dailyToggleManualActivePlayer(id){
   const candidates=new Map(_dailyManualActiveCandidates().map(p=>[p.id,p]));
   if(!candidates.has(id)){
-    alert('현재 시작 상태인 선수만 선택할 수 있습니다.');
+    alert(_dailyManualActiveMode()==='transition'?'현재 등록 가능한 선수만 선택할 수 있습니다.':'현재 시작 상태인 선수만 선택할 수 있습니다.');
     dailyRenderManualActiveModal();
     return;
   }
@@ -2919,11 +3003,21 @@ function dailyToggleManualActivePlayer(id){
   dailyRenderManualActiveModal();
 }
 function dailyRenderManualActiveModal(){
-  const candidates=_dailyManualActiveCandidates();
+  const mode=_dailyManualActiveMode();
+  const transition=mode==='transition';
+  const candidates=_dailyManualActiveCandidates(mode);
   const used=_dailyManualActiveUsedCourts();
   const court=_dailyManualActiveDraft.court||_dailyManualActiveDefaultCourt();
   if(used.has(court))_dailyManualActiveDraft.court=_dailyManualActiveDefaultCourt();
   const selectedIds=_dailyManualActiveDraft.ids||[];
+  const title=document.getElementById('dailyManualModalTitle');
+  if(title)title.textContent=transition?'민턴LIVE 전환':'게임 추가';
+  const note=document.getElementById('dailyManualNote');
+  if(note){
+    note.textContent=transition
+      ? '현재 진행 중인 코트를 하나씩 등록하세요. 시작 시각은 묻지 않습니다. 다 등록했으면 운영 시작을 누르면 됩니다.'
+      : '시작 버튼을 누른 선수만 선택할 수 있습니다. 1·2번은 한 팀, 3·4번은 상대 팀입니다.';
+  }
   const courtGrid=document.getElementById('dailyManualCourtGrid');
   if(courtGrid){
     const max=_dailyManualActiveCourtMax();
@@ -2935,7 +3029,9 @@ function dailyRenderManualActiveModal(){
     }).join('');
   }
   const hint=document.getElementById('dailyManualCourtHint');
-  if(hint)hint.textContent=`선택 ${_dailyManualActiveDraft.court||'-'}코트`;
+  if(hint)hint.textContent=transition
+    ? `등록 ${_dailyManualActiveDraft.registeredCount||0}게임 · 선택 ${_dailyManualActiveDraft.court||'-'}코트`
+    : `선택 ${_dailyManualActiveDraft.court||'-'}코트`;
   const count=document.getElementById('dailyManualPickCount');
   if(count)count.textContent=`${selectedIds.length}/4`;
   const grid=document.getElementById('dailyManualPlayerGrid');
@@ -2944,12 +3040,13 @@ function dailyRenderManualActiveModal(){
       const idx=selectedIds.indexOf(p.id);
       const on=idx>=0;
       const guest=p.isGuest?'G · ':'';
+      const status=transition?`${_dailyCheckinStatusLabel(p.status)} · `:'';
       return `<button type="button" class="daily-manual-player-btn ${on?'on':''}" onclick="dailyToggleManualActivePlayer('${_dailyManualEscape(p.id)}')">
         <span class="daily-manual-player-name">${_dailyManualEscape(p.name)}${p.isGuest?' (G)':''}</span>
-        <span class="daily-manual-player-meta">${guest}${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}게임</span>
+        <span class="daily-manual-player-meta">${guest}${status}${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}게임</span>
         ${on?`<span class="daily-manual-pick">${idx+1}</span>`:''}
       </button>`;
-    }).join('') || '<div class="daily-empty">시작 상태 선수가 없습니다.</div>';
+    }).join('') || `<div class="daily-empty">${transition?'등록 가능한 선수가 없습니다.':'시작 상태 선수가 없습니다.'}</div>`;
   }
   const selected=_dailyManualActiveSelected();
   const summary=document.getElementById('dailyManualSummary');
@@ -2960,13 +3057,21 @@ function dailyRenderManualActiveModal(){
   }
   const btn=document.getElementById('dailyManualConfirmBtn');
   if(btn){
+    btn.textContent=transition?'이 코트 등록':'등록';
     btn.disabled=selectedIds.length!==4||!_dailyManualActiveDraft.court;
     btn.style.opacity=btn.disabled?'.45':'1';
   }
+  const finishBtn=document.getElementById('dailyTransitionFinishBtn');
+  if(finishBtn){
+    finishBtn.style.display=transition?'block':'none';
+    finishBtn.textContent=(_dailyManualActiveDraft.registeredCount||0)?'등록 마치고 운영 시작':'게임 없이 운영 시작';
+  }
 }
 function dailyConfirmManualActiveMatch(){
+  const mode=_dailyManualActiveMode();
+  const transition=mode==='transition';
   const court=parseInt(_dailyManualActiveDraft.court,10)||0;
-  if(!Number.isFinite(court)||court<1||court>12){
+  if(!Number.isFinite(court)||court<1||court>_dailyCourtCount()){
     alert('코트 번호를 선택해 주세요.');
     return;
   }
@@ -2975,28 +3080,30 @@ function dailyConfirmManualActiveMatch(){
     dailyRenderManualActiveModal();
     return;
   }
-  const candidates=new Map(_dailyManualActiveCandidates().map(p=>[p.id,p]));
+  const candidates=new Map(_dailyManualActiveCandidates(mode).map(p=>[p.id,p]));
   const ids=(_dailyManualActiveDraft.ids||[]).filter(id=>candidates.has(id));
   if(ids.length!==4||new Set(ids).size!==4){
-    alert('시작 상태 선수 4명을 다시 선택해 주세요.');
+    alert(transition?'현재 코트에서 뛰는 선수 4명을 다시 선택해 주세요.':'시작 상태 선수 4명을 다시 선택해 주세요.');
     _dailyManualActiveDraft.ids=ids;
     dailyRenderManualActiveModal();
     return;
   }
   const selected=ids.map(id=>candidates.get(id));
+  const reservationLabel=transition?'전환 등록':'자율게임';
+  const cancelLabel=transition?'민턴LIVE 전환 등록':'자율게임 등록';
   const idSet=new Set(ids);
   const removedQueues=_dailyQueue.filter(q=>_dailyQueueIds(q).some(id=>idSet.has(id)));
   removedQueues.forEach(q=>{
-    if(q.reservationId)_dailyCancelReservationById(q.reservationId,'자율게임 등록으로 게임신청이 자동 취소됐습니다.','admin-manual-active');
+    if(q.reservationId)_dailyCancelReservationById(q.reservationId,`${cancelLabel}으로 게임신청이 자동 취소됐습니다.`,'admin-manual-active');
   });
-  ids.forEach(pid=>_dailyCancelReservationsForPlayer(pid,'자율게임 등록으로 게임신청이 자동 취소됐습니다.','admin-manual-active'));
+  ids.forEach(pid=>_dailyCancelReservationsForPlayer(pid,`${cancelLabel}으로 게임신청이 자동 취소됐습니다.`,'admin-manual-active'));
   _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).some(id=>idSet.has(id)));
   const q=_dailyRecalcQueueItem({
     id:'manual_'+_dailyNow().toString(36),
     team1:ids.slice(0,2),
     team2:ids.slice(2,4),
     teamMode:false,
-    reservationLabel:'자율게임',
+    reservationLabel,
     createdAt:_dailyNow()
   });
   const seq=_dailySeq++;
@@ -3021,9 +3128,10 @@ function dailyConfirmManualActiveMatch(){
     fourKey:_dailyFourKey(selected),
     flexible:!!q.flexible,
     reservationId:null,
-    reservationLabel:'자율게임',
+    reservationLabel,
     previousStatuses,
-    manualStarted:true
+    manualStarted:true,
+    transitionStarted:transition
   });
   selected.forEach(p=>{
     p.status='playing';
@@ -3032,6 +3140,16 @@ function dailyConfirmManualActiveMatch(){
     p.lastStatusAt=_dailyNow();
   });
   _dailyMarkFourCacheDirty();
+  if(transition){
+    const registered=(_dailyManualActiveDraft.registeredCount||0)+1;
+    _dailyManualActiveDraft={mode:'transition',court:_dailyManualActiveDefaultCourt(),ids:[],registeredCount:registered};
+    dailyEnsureQueue();
+    dailySave();
+    dailyRender();
+    dailyRenderManualActiveModal();
+    return;
+  }
+  _dailyOperationStarted=true;
   closeDailyManualActiveModal();
   dailyEnsureQueue();
   dailySave();
@@ -3077,6 +3195,7 @@ function dailyStartQueueItem(queueId,options){
   }
   if(q.restPass)delete q.restPass;
   _dailyQueue.splice(idx,1);
+  _dailyOperationStarted=true;
   const ids=[m.team1A.id,m.team1B.id,m.team2C.id,m.team2D.id];
   const seq=_dailySeq++;
   const id='dm_'+_dailyNow().toString(36)+'_'+seq+'_'+Math.random().toString(36).slice(2,5);
@@ -3385,6 +3504,7 @@ function _dailyPublicEvent(){
   return {
     mode:_dailyTeamMode?'team':'daily',
     teamMode:_dailyTeamMode,
+    operationStarted:_dailyOperationStarted,
     teamBlue:teamNames.blue,
     teamWhite:teamNames.white,
     completed:st.completed.length,
@@ -3628,6 +3748,8 @@ function dailyOpenBoardTarget(target){
 function dailyRenderOpsStats(){
   const el=document.getElementById('dailyOpsStats');
   if(!el)return;
+  const transitionBtn=document.getElementById('dailyTransitionBtn');
+  if(transitionBtn)transitionBtn.style.display=_dailyOperationStarted?'none':'inline-flex';
   const courts=_dailyCourtCount();
   const activeMatches=_dailyActiveMatches();
   const active=activeMatches.length;
@@ -3656,7 +3778,7 @@ function dailyRenderOpsStats(){
       : flow.label;
   const cards=[
     {label:'진행',value:`${active}/${courts}`,hint:courtHint,cls:'primary',target:'active'},
-    {label:'대진',value:flow.auto?queueValue:'대기',hint:queueHint,cls:'primary',target:'queue'},
+    {label:'대진',value:flow.auto?queueValue:(_dailyOperationStarted?'대기':'전환 전'),hint:queueHint,cls:'primary',target:'queue'},
     {label:'라이브',value:flow.pool,hint:liveHint,cls:flow.auto?'primary':'warn',target:'players'}
   ];
   el.innerHTML=cards.map(x=>`<button type="button" class="daily-op ${x.cls||''} is-link" onclick="dailyOpenBoardTarget('${esc(x.target)}')" aria-label="${esc(x.label)} 보기"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></button>`).join('');
@@ -3668,7 +3790,7 @@ function dailyRenderStatusBar(){
   const todo=dailyCountActionItems();
   const flowInfo=_dailyNaturalAutoInfo();
   const stage=dailyCurrentStage();
-  const stageLabel={notice:'링크 공유',checkin:'시작 대기',auto:'자동대진',finish:'자동종료'}[stage]||'운영';
+  const stageLabel=!_dailyOperationStarted?'자율 운영':({notice:'링크 공유',checkin:'시작 대기',auto:'자동대진',finish:'자동종료'}[stage]||'운영');
   const entryReady=_dailyActiveMatches().some(m=>['soon','due'].includes(_dailyTimerState(m)))&&_dailyQueue.some(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q));
   const chips=[];
   const flow=document.getElementById('dailyFlowState');
@@ -5118,7 +5240,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.331&from=daily';
+  location.href='team.html?v=1.10.332&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
