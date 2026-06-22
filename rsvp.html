@@ -323,7 +323,7 @@ button.decline:before,
     <h1 id="title">팀전LIVE 출석</h1>
     <p class="sub" id="sessionSub">팀전LIVE 출석부를 불러오는 중입니다.</p>
     <div class="notice">이름을 선택한 뒤 출석을 눌러주세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.345</span>
+    <span class="version-chip" id="appVersion">v1.10.346</span>
     <div class="my-state hidden" id="myState"></div>
     <div class="stats">
       <div class="stat"><b id="attendCount">0</b><span>출석</span></div>
@@ -362,7 +362,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={},identityLookupOpen=false;
-const APP_VERSION='1.10.345';
+const APP_VERSION='1.10.346';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
