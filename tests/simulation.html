@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>콕매치 시뮬레이션 런처</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:28px 18px;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;background:#f6f8fb;color:#1f2937}.wrap{max-width:760px;margin:0 auto}.head{margin-bottom:20px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;color:#5b8def}.head h1{font-size:28px;line-height:1.2;margin:8px 0 6px}.head p{margin:0;color:#64748b;line-height:1.6}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.card{display:block;padding:18px;border:1px solid #e2e8f0;border-radius:18px;background:#fff;text-decoration:none;color:inherit;box-shadow:0 12px 30px rgba(31,41,55,.06)}.card b{display:block;font-size:17px;margin-bottom:8px}.card span{display:block;color:#64748b;font-size:14px;line-height:1.5}.meta{margin-top:18px;color:#94a3b8;font-size:12px;line-height:1.6}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#475569}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="head">
+    <div class="eyebrow">KOKMATCH SIMULATION</div>
+    <h1>테스트용 시뮬레이션</h1>
+    <p>샘플 모드와 정적 검사를 한곳에서 실행하기 위한 개발용 진입점입니다.</p>
+  </div>
+  <section class="grid">
+    <a class="card" href="../index.html?sample=1"><b>민턴LIVE 샘플</b><span>관리자 화면에서 샘플 명단과 운동 흐름을 확인합니다.</span></a>
+    <a class="card" href="../team.html?sample=1"><b>팀전LIVE 샘플</b><span>팀전 명단, 출석 응답, 팀 배정, 대진 흐름을 확인합니다.</span></a>
+    <a class="card" href="../checkin.html?sample=1"><b>민턴LIVE 회원 링크</b><span>회원용 시작/휴식/종료 입력 화면을 샘플로 확인합니다.</span></a>
+    <a class="card" href="../rsvp.html?id=sample&sample=team"><b>팀전LIVE 출석 링크</b><span>출석, 늦음, 뒤풀이, 파트너 요청 흐름을 샘플로 확인합니다.</span></a>
+  </section>
+  <p class="meta">정적 검사는 프로젝트 루트에서 <code>node tests/simulation-smoke.js</code>로 실행합니다.</p>
+</main>
+</body>
+</html>
