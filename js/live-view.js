@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.328';
+const APP_VERSION='1.10.329';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──

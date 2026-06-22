@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.328';
+const APP_VERSION = '1.10.329';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3396,9 +3396,11 @@ function dailyRenderAdminAlerts(){
   const el=document.getElementById('dailyAdminAlerts');
   if(!el)return;
   const area=document.getElementById('dailyAlertArea');
-  const checkinPending=_dailyCheckinPendingRequests().length;
   const flow=_dailyNaturalAutoInfo();
   const alerts=[];
+  const activeMatches=_dailyActiveMatches();
+  const endingMatches=activeMatches.filter(m=>['soon','due'].includes(_dailyTimerState(m))).sort((a,b)=>(a.court||0)-(b.court||0));
+  const readyQueue=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q)).length;
   if(_dailyLastCompleteUndo&&_dailyNow()<=_dailyLastCompleteUndo.expiresAt){
     const remain=Math.max(1,Math.ceil((_dailyLastCompleteUndo.expiresAt-_dailyNow())/1000));
     alerts.push({
@@ -3423,20 +3425,13 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn" onclick="dailyShareCheckinLink()">공유</button>`
     });
   }
-  if(_dailyCheckinId&&!flow.auto){
-    alerts.push({
-      cls:'primary',
-      title:`${flow.label} · 시작 ${flow.pool}명`,
-      desc:'',
-      actions:''
-    });
-  }
-  if(checkinPending){
+  if(_dailyPlayers.length&&_dailyCheckinId&&endingMatches.length&&readyQueue){
+    const courts=endingMatches.map(m=>`${m.court}코트`).join(', ');
     alerts.push({
       cls:'warn',
-      title:`요청 ${checkinPending}건`,
-      desc:'',
-      actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailyCheckinDetails','dailyCheckinCard')">보기</button>`
+      title:'입장 준비',
+      desc:`${courts} 종료임박 · 다음 대진 ${Math.min(readyQueue,endingMatches.length)}팀 준비`,
+      actions:`<button class="daily-mini-btn" onclick="dailyOpenBoardTarget('queue')">대진 보기</button>`
     });
   }
   const courtRec=_dailyCourtRecommendation(flow);
@@ -3501,7 +3496,6 @@ function dailyRenderOpsStats(){
   const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited'&&p.isGuest).length;
   const cap=_dailyQueueCapacity();
   const expectedCount=_dailyProjectedQueue(_dailyExpectedQueueTarget(cap)).length;
-  const checkinPending=_dailyCheckinPendingRequests().length;
   const flow=_dailyNaturalAutoInfo();
   const courtHint=endingSoon
     ? `${endingSoon}코트 종료임박`
@@ -3514,7 +3508,6 @@ function dailyRenderOpsStats(){
     : flow.auto
       ? '자동 편성 대기'
       : flow.hint;
-  const requestHint=checkinPending?'확인 필요':'없음';
   const liveHint=rest
     ? `휴식 ${rest}`
     : guestLive
@@ -3523,7 +3516,6 @@ function dailyRenderOpsStats(){
   const cards=[
     {label:'진행',value:`${active}/${courts}`,hint:courtHint,cls:'primary',target:'active'},
     {label:'대진',value:flow.auto?queueValue:'대기',hint:queueHint,cls:'primary',target:'queue'},
-    {label:'요청',value:checkinPending,hint:requestHint,cls:checkinPending?'warn':'primary',target:'request'},
     {label:'라이브',value:flow.pool,hint:liveHint,cls:flow.auto?'primary':'warn',target:'players'}
   ];
   el.innerHTML=cards.map(x=>`<button type="button" class="daily-op ${x.cls||''} is-link" onclick="dailyOpenBoardTarget('${esc(x.target)}')" aria-label="${esc(x.label)} 보기"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></button>`).join('');
@@ -3536,11 +3528,12 @@ function dailyRenderStatusBar(){
   const flowInfo=_dailyNaturalAutoInfo();
   const stage=dailyCurrentStage();
   const stageLabel={notice:'링크 공유',checkin:'시작 대기',auto:'자동대진',finish:'자동종료'}[stage]||'운영';
+  const entryReady=_dailyActiveMatches().some(m=>['soon','due'].includes(_dailyTimerState(m)))&&_dailyQueue.some(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q));
   const chips=[];
   const flow=document.getElementById('dailyFlowState');
   if(flow){
     flow.classList.toggle('need',!!todo);
-    flow.innerHTML=`<span class="daily-dot"></span> ${todo?`조치 ${todo}건`:flowInfo.label}`;
+    flow.innerHTML=`<span class="daily-dot"></span> ${todo?(entryReady?'입장 준비':`조치 ${todo}건`):flowInfo.label}`;
   }
   const autoHint=document.getElementById('dailyAutoFlowHint');
   if(autoHint){
@@ -3555,7 +3548,7 @@ function dailyRenderStatusBar(){
   chips.push(`<span class="daily-sb-chip">시작 ${flowInfo.pool}명</span>`);
   chips.push(`<span class="daily-sb-chip">${flowInfo.auto?`${flowInfo.operatingCourts}/${courts}`:courts}코트</span>`);
   const stateChip=todo
-    ? `<span class="daily-sb-state need">처리 필요 ${todo}건</span>`
+    ? `<span class="daily-sb-state need">${entryReady?'입장 준비':`처리 필요 ${todo}건`}</span>`
     : `<span class="daily-sb-state ok">특이사항 없음</span>`;
   el.className='daily-statusbar'+(todo?' need':'');
   el.innerHTML=`<div class="daily-sb-chips">${chips.join('')}</div>${stateChip}`;
@@ -3563,9 +3556,9 @@ function dailyRenderStatusBar(){
 function dailyCountActionItems(){
   if(!_dailyPlayers.length)return 1;
   if(!_dailyCheckinId)return 1;
-  let n=0;
-  n+=_dailyCheckinPendingRequests().length?1:0;
-  return n;
+  const endingMatches=_dailyActiveMatches().filter(m=>['soon','due'].includes(_dailyTimerState(m)));
+  const readyQueue=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q)).length;
+  return endingMatches.length&&readyQueue?1:0;
 }
 function dailyRenderUnscheduled(){
   const el=document.getElementById('dailyUnscheduledBox');
@@ -4981,7 +4974,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.328&from=daily';
+  location.href='team.html?v=1.10.329&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
