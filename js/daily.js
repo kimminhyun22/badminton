@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.332';
+const APP_VERSION = '1.10.333';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1016,7 +1016,12 @@ function _dailyFirstStartableQueueForCourt(court){
 function _dailyQueueStartInfo(idx){
   const active=_dailyActiveMatches()
     .filter(m=>!m.cancelledAt)
-    .sort((a,b)=>(_dailyMatchEndAt(a)-_dailyMatchEndAt(b))||(a.court-b.court));
+    .sort((a,b)=>{
+      const ah=a.transitionStarted?0:1;
+      const bh=b.transitionStarted?0:1;
+      if(ah!==bh)return ah-bh;
+      return (_dailyMatchEndAt(a)-_dailyMatchEndAt(b))||(a.court-b.court);
+    });
   const freeCourts=_dailyFreeCourts();
   const q=_dailyQueue[idx]||null;
   const usableBefore=_dailyQueue.slice(0,idx).filter(item=>_dailyQueueItemValid(item,null)&&!_dailyQueueRestPassActive(item)).length;
@@ -1029,6 +1034,7 @@ function _dailyQueueStartInfo(idx){
   }
   const m=active[usableBefore-freeCourts.length];
   if(!m)return {state:'normal',text:'코트 배정 대기',detail:'진행중 경기 없음',court:null,matchId:''};
+  if(m.transitionStarted)return {state:'handoff',text:`${m.court}코트 초기 등록`,detail:'끝났으면 다음 대진 직접 입장',court:m.court,matchId:m.id};
   const state=_dailyTimerState(m);
   const remain=_dailyRemainingMinutes(m);
   if(state==='due')return {state:'due',text:`${m.court}코트 종료 확인`,detail:'끝나면 다음 대진이 직접 입장',court:m.court,matchId:m.id};
@@ -3454,7 +3460,8 @@ function _dailyPublicEvent(){
       remain:_dailyRemainingMinutes(m),
       startedAt:m.startedAt||0,
       endAt:_dailyMatchEndAt(m),
-      timerState:_dailyTimerState(m)
+      timerState:_dailyTimerState(m),
+      transitionStarted:!!m.transitionStarted
     };
   });
   const queuePayload=(q,idx,extra)=>{
@@ -4134,9 +4141,10 @@ function _dailyCompleteRequestError(req){
     if(!_dailyQueueIds(q).includes(req.playerId))return '다음 대진 선수만 종료 처리할 수 있습니다.';
     if(!_dailyQueueItemValid(q,null))return '다음 대진 선수 상태가 바뀌었습니다.';
     const info=_dailyQueueStartInfo(idx);
-    if(!['soon','due'].includes(info.state))return '아직 입장 순서가 아닙니다.';
+    const initialHandoff=info.state==='handoff'&&!!m.transitionStarted;
+    if(!initialHandoff&&!['soon','due'].includes(info.state))return '아직 입장 순서가 아닙니다.';
     const matchState=_dailyTimerState(m);
-    if(!['soon','due'].includes(matchState))return '아직 입장 가능한 종료임박 코트가 아닙니다.';
+    if(!initialHandoff&&!['soon','due'].includes(matchState))return '아직 입장 가능한 종료임박 코트가 아닙니다.';
     return '';
   }
   return '경기 종료는 다음 입장 대진에서 처리해 주세요.';
@@ -5240,7 +5248,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.332&from=daily';
+  location.href='team.html?v=1.10.333&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

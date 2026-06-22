@@ -8,7 +8,7 @@
 - 실시간 현황: `view.html`
 - 회원용 민턴LIVE 링크: `checkin.html`
 - 회원용 팀전LIVE 링크: `rsvp.html`
-- 현재 버전: `1.10.332`
+- 현재 버전: `1.10.333`
 - Firebase 프로젝트: `kokmatch-23b31`
 
 ## 운영 철학
