@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.329';
+const APP_VERSION = '1.10.330';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -505,6 +505,9 @@ function _dailyPairButton(p){
 function _dailyReservationIds(r){
   return [...(r.team1||[]),...(r.team2||[])].filter(Boolean);
 }
+function _dailyReservationIsMember(r){
+  return !!(r&&(r.source==='member-request'||r.requestKey));
+}
 function _dailyReservationPlayerConflict(ids,exceptId){
   const target=new Set(ids.filter(Boolean));
   if(!target.size)return null;
@@ -657,13 +660,89 @@ function _dailyBuildReservationQueueItem(excludeIds,onlyId){
   }
   return null;
 }
+function _dailyTryApplyReservationToExistingQueue(r){
+  if(!r||!r.id||_dailyQueue.some(q=>q.reservationId===r.id))return false;
+  const ids=_dailyReservationIds(r);
+  if(!ids.length)return false;
+  const locs=ids.map(_dailyQueuedPlayerLocation);
+  if(locs.some(x=>!x))return false;
+  const idx=locs[0].idx;
+  if(!locs.every(x=>x.idx===idx))return false;
+  const q=locs[0].q;
+  if(q.reservationId&&q.reservationId!==r.id)return false;
+  const before=JSON.parse(JSON.stringify(q));
+  const restore=()=>{
+    Object.keys(q).forEach(k=>delete q[k]);
+    Object.assign(q,before);
+  };
+  const mark=()=>{
+    q.reservationId=r.id;
+    q.reservationLabel=_dailyReservationLabel(r);
+    _dailyRecalcQueueItem(q);
+    return true;
+  };
+  if(r.mode==='match'){
+    const all=[...(r.team1||[]),...(r.team2||[])].filter(Boolean);
+    if(all.length!==4||new Set(all).size!==4)return false;
+    if(new Set(_dailyQueueIds(q)).size!==4||!all.every(id=>_dailyQueueIds(q).includes(id)))return false;
+    q.team1=[...(r.team1||[])];
+    q.team2=[...(r.team2||[])];
+    _dailyRecalcQueueItem(q);
+    if(_dailyQueueItemValid(q,null))return mark();
+    restore();
+    return false;
+  }
+  const pair=(r.team1||[]).filter(Boolean);
+  if(pair.length!==2)return false;
+  const pairLocs=pair.map(_dailyQueuedPlayerLocation);
+  if(pairLocs.some(x=>!x||x.idx!==idx))return false;
+  if(pairLocs[0].side===pairLocs[1].side)return mark();
+  const others=_dailyQueueIds(q).filter(id=>!pair.includes(id));
+  if(others.length!==2)return false;
+  const tryTeams=[
+    {team1:[...pair],team2:[...others]},
+    {team1:[...others],team2:[...pair]}
+  ];
+  for(const next of tryTeams){
+    q.team1=next.team1;
+    q.team2=next.team2;
+    _dailyRecalcQueueItem(q);
+    if(_dailyQueueItemValid(q,null))return mark();
+  }
+  restore();
+  return false;
+}
+function _dailyApplyReservationsToExistingQueue(){
+  let changed=false;
+  _dailyReservations.forEach(r=>{
+    if(_dailyTryApplyReservationToExistingQueue(r))changed=true;
+  });
+  return changed;
+}
 function _dailyReservationStatus(r){
+  _dailyTryApplyReservationToExistingQueue(r);
   const qIdx=_dailyQueue.findIndex(q=>q.reservationId===r.id);
-  if(qIdx>=0)return {cls:'queued',text:`대기표 반영됨 #${qIdx+1}`,ready:false};
+  if(qIdx>=0){
+    return {
+      cls:'queued',
+      text:`다음 대진 ${qIdx+1}순위`,
+      detail:_dailyReservationIsMember(r)?'파트너 신청이 반영됐어요. 순번은 그대로 유지돼요.':'대기표에 반영됐습니다.',
+      ready:false
+    };
+  }
   const ids=_dailyReservationIds(r).map(id=>_dailyPlayer(id)).filter(Boolean);
   if(ids.length<(r.mode==='match'?4:2))return {cls:'',text:'선수 선택 필요',ready:false};
   const reservedQueued=ids.filter(p=>_dailyIsLockedQueued(p.id));
   if(reservedQueued.length)return {cls:'queued',text:`다른 신청대기 포함: ${reservedQueued.map(_dailyNameText).join(', ')}`,ready:false};
+  const queued=ids.filter(p=>_dailyIsQueued(p.id));
+  if(queued.length&&_dailyReservationIsMember(r)){
+    return {
+      cls:'queued',
+      text:'현재 대진 순번 유지',
+      detail:'앞선 대진을 밀지 않고, 해당 경기 뒤 빈 순서에 반영돼요.',
+      ready:false
+    };
+  }
   const blocked=ids.filter(p=>!DAILY_STATUS[p.status]?.eligible||p.currentMatchId);
   if(blocked.length){
     const playing=blocked.filter(p=>p.currentMatchId||_dailyNormalizeStatus(p.status)==='playing');
@@ -673,14 +752,14 @@ function _dailyReservationStatus(r){
       return {
         cls:'waiting-player',
         text:'상대 경기 중',
-        detail:`${subject} 경기 종료 후 신청 대진으로 우선 배정돼요.`,
+        detail:`${subject} 경기 종료 후 기존 대진 뒤 빈 순서에 반영돼요.`,
         ready:false
       };
     }
     return {
       cls:'blocked',
       text:`시작 상태 아님: ${blocked.map(_dailyNameText).join(', ')}`,
-      detail:'모두 시작 상태가 되면 기존 다음 대진 뒤 빈 순서에 자동 반영돼요.',
+      detail:'모두 시작 상태가 되면 순번을 앞당기지 않고 빈 순서에 반영돼요.',
       ready:false
     };
   }
@@ -702,6 +781,14 @@ function _dailyReservationStatus(r){
     _dailyQueueIds(q).forEach(id=>used.add(id));
   });
   const q=_dailyBuildReservationQueueItem(used,r.id);
+  if(q&&_dailyReservationIsMember(r)&&_dailyQueue.length>=_dailyQueueCapacity().target){
+    return {
+      cls:'',
+      text:'기존 대진 뒤 반영 대기',
+      detail:'순번은 앞당기지 않고 빈 순서가 생기면 들어가요.',
+      ready:false
+    };
+  }
   return q?{cls:'ready',text:'반영 가능',ready:true}:{cls:'',text:'신청 조건 확인 필요',ready:false};
 }
 function _dailyReservationReadyCount(){
@@ -713,14 +800,10 @@ function _dailyPromoteReadyReservations(silent){
     const forceMember=r.source==='member-request';
     const existingIdx=_dailyQueue.findIndex(q=>q.reservationId===r.id);
     if(existingIdx>=0){
-      if(forceMember){
-        const item=_dailyQueue.splice(existingIdx,1)[0];
-        let insertAt=0;
-        while(insertAt<_dailyQueue.length&&_dailyQueue[insertAt].reservationId)insertAt++;
-        _dailyQueue.splice(insertAt,0,item);
-        _dailyQueue=_dailyQueue.slice(0,_dailyQueueCapacity().target);
-        changed=true;
-      }
+      continue;
+    }
+    if(forceMember&&_dailyTryApplyReservationToExistingQueue(r)){
+      changed=true;
       continue;
     }
     const locked=_dailyQueue.filter(q=>q.reservationId&&q.reservationId!==r.id);
@@ -728,6 +811,12 @@ function _dailyPromoteReadyReservations(silent){
     locked.forEach(q=>_dailyQueueIds(q).forEach(pid=>lockedIds.add(pid)));
     const q=_dailyBuildReservationQueueItem(lockedIds,r.id);
     if(!q)continue;
+    if(forceMember){
+      if(_dailyQueue.length>=_dailyQueueCapacity().target)continue;
+      _dailyQueue.push(q);
+      changed=true;
+      continue;
+    }
     const ids=new Set(_dailyQueueIds(q));
     const lockedQueueIds=new Set(locked.map(item=>item.id));
     const flex=_dailyQueue
@@ -1492,14 +1581,17 @@ function dailyEnsureQueue(){
     next.push(q);
     _dailyQueueIds(q).forEach(id=>used.add(id));
   }
-  while(next.length<target){
-    const q=_dailyBuildQueueItem(used);
+  _dailyQueue=next;
+  if(_dailyApplyReservationsToExistingQueue())changed=true;
+  used.clear();
+  _dailyQueue.forEach(q=>_dailyQueueIds(q).forEach(id=>used.add(id)));
+  while(_dailyQueue.length<target){
+    const q=_dailyBuildReservationQueueItem(used)||_dailyBuildQueueItem(used);
     if(!q)break;
-    next.push(q);
+    _dailyQueue.push(q);
     _dailyQueueIds(q).forEach(id=>used.add(id));
     changed=true;
   }
-  if(changed||next.length!==_dailyQueue.length)_dailyQueue=next;
   if(_dailyEmergencyEditQueueId&&!_dailyQueue.some(q=>q.id===_dailyEmergencyEditQueueId))_dailyEmergencyEditQueueId=null;
   _dailyRefreshNextFromQueue();
   return changed;
@@ -2108,7 +2200,7 @@ function dailyRenderReservations(){
           <div class="daily-res-meta">${esc(_dailyReservationLabel(r))}${esc(note)}</div>
         </div>
         <div class="daily-queue-actions">
-          ${st.ready?`<button class="daily-mini-btn" onclick="dailyPromoteReservation('${r.id}')">우선 반영</button>`:''}
+          ${st.ready?`<button class="daily-mini-btn" onclick="dailyPromoteReservation('${r.id}')">수동 반영</button>`:''}
           <button class="daily-mini-btn danger" onclick="dailyDeleteReservation('${r.id}')">삭제</button>
         </div>
       </div>
@@ -2469,7 +2561,7 @@ function _dailyReasons(next){
     `${_dailyNameText(wait)} 선수가 약 ${_dailyMinutes(wait.waitFrom)}분 대기했습니다.`,
     `25점 기준 약 ${DAILY_MATCH_MINUTES}분 경기로 보고 종료 시간을 예측합니다.`
   ];
-  if(m.reservationLabel)reasons.unshift(`게임신청: ${m.reservationLabel} 요청을 우선 반영했습니다.`);
+  if(m.reservationLabel)reasons.unshift(`게임신청: ${m.reservationLabel} 요청을 반영했습니다.`);
   if(paired.length)reasons.push(`${paired.join(', ')} 신청을 같은 편으로 반영했습니다.`);
   if(recent.length)reasons.push(`${recent.join(', ')} 선수는 최근 경기자라 대기 인원 여유에 따라 우선순위를 낮춰 반영했습니다.`);
   if(!next.strict)reasons.push('표준 남복/여복/혼복 조합이 어려워 실력 균형을 맞춘 예외 조합입니다.');
@@ -3845,17 +3937,20 @@ function _dailyRegisterReservationRequest(req){
   if(error)return false;
   const team1=(req.team1||[]).filter(Boolean);
   const team2=(req.mode==='match'?(req.team2||[]):[]).filter(Boolean);
-  _dailyReleaseTemporaryQueueForReservationIds([...team1,...team2]);
-  _dailyReservations.push({
+  const isMember=req.source==='member-game-request'||req.source==='member-request'||!!req.playerId;
+  if(!isMember)_dailyReleaseTemporaryQueueForReservationIds([...team1,...team2]);
+  const reservation={
     id:'dres_'+_dailyNow().toString(36)+'_'+Math.random().toString(36).slice(2,5),
     mode:req.mode==='match'?'match':'pair',
     team1,
     team2,
     note:req.note||`회원 신청: ${req.playerName||'이름 없음'}`,
     createdAt:req.createdAt||_dailyNow(),
-    source:'member-request',
+    source:isMember?'member-request':'admin-request',
     requestKey:req.key||''
-  });
+  };
+  _dailyReservations.push(reservation);
+  if(isMember)_dailyTryApplyReservationToExistingQueue(reservation);
   return true;
 }
 function _dailyCompleteRequestError(req){
@@ -4974,7 +5069,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.329&from=daily';
+  location.href='team.html?v=1.10.330&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
