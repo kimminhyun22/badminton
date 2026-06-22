@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.318';
+const APP_VERSION = '1.10.319';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2322,6 +2322,8 @@ function _dailyFourRepeatCount(players){
 const DAILY_PARTNER_GAP_OK=1.25;
 const DAILY_PARTNER_GAP_CAUTION=2.25;
 const DAILY_PARTNER_GAP_HARD=3;
+const DAILY_RECENT_SOFT_MIN=6;
+const DAILY_RECENT_RECOVERY_MIN=12;
 function _dailyPartnerLevelGap(team){
   if(!team||team.length<2)return 0;
   return Math.abs(effLevel(team[0])-effLevel(team[1]));
@@ -2349,6 +2351,35 @@ function _dailyMatchLevelSpreadPenalty(players){
   if(levels.length<4)return 0;
   const spread=Math.max(...levels)-Math.min(...levels);
   return Math.max(0,spread-3)*120 + Math.max(0,spread-4)*360;
+}
+function _dailyRecoveryPoolStrength(ref){
+  const count=Array.isArray(ref)?ref.length:_dailyEligible().length;
+  const courts=Math.max(1,_dailyCourtCount());
+  if(count>=courts*6)return 'plenty';
+  if(count>=courts*4)return 'normal';
+  return 'tight';
+}
+function _dailyRecentRecoveryMinutes(p){
+  if(!p||!p.lastPlayedSeq)return Infinity;
+  const from=p.waitFrom||p.lastStatusAt||0;
+  return from?_dailyMinutes(from):0;
+}
+function _dailyRecentRecoveryPenalty(p,ref){
+  if(!p||!p.lastPlayedSeq)return 0;
+  const seqGap=Math.max(0,_dailySeq-(p.lastPlayedSeq||0));
+  const elapsed=_dailyRecentRecoveryMinutes(p);
+  const strength=_dailyRecoveryPoolStrength(ref);
+  if(strength==='tight'){
+    return seqGap<=1&&elapsed<DAILY_RECENT_SOFT_MIN
+      ? 70+Math.max(0,DAILY_RECENT_SOFT_MIN-elapsed)*18
+      : 0;
+  }
+  let penalty=0;
+  if(seqGap<=1)penalty+=strength==='plenty'?520:320;
+  else if(seqGap===2)penalty+=strength==='plenty'?180:80;
+  if(elapsed<DAILY_RECENT_SOFT_MIN)penalty+=(DAILY_RECENT_SOFT_MIN-elapsed)*(strength==='plenty'?85:50);
+  if(strength==='plenty'&&elapsed<DAILY_RECENT_RECOVERY_MIN)penalty+=(DAILY_RECENT_RECOVERY_MIN-elapsed)*18;
+  return penalty;
 }
 function _dailyFlexibleMatch(four){
   const combos=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
@@ -2380,8 +2411,7 @@ function _dailyScoreMatch(m,strict){
     const wait=_dailyMinutes(p.waitFrom||p.joinedAt);
     score+=(p.games-minGames)*170;
     score-=Math.min(wait,60)*4;
-    if(p.lastPlayedSeq&&_dailySeq-p.lastPlayedSeq<=1)score+=260;
-    if(p.lastPlayedSeq&&_dailySeq-p.lastPlayedSeq===2)score+=80;
+    score+=_dailyRecentRecoveryPenalty(p,ref);
   });
   const teams=[[m.team1A,m.team1B],[m.team2C,m.team2D]];
   teams.forEach(t=>{score+=(t[0].partnerCount[t[1].name]||0)*150;});
@@ -2413,6 +2443,7 @@ function _dailyReasons(next){
   const low=all.filter(p=>p.games===minGames).map(_dailyNameText);
   const wait=[...all].sort((a,b)=>(_dailyMinutes(b.waitFrom)-_dailyMinutes(a.waitFrom)))[0];
   const paired=_dailyPairedLabels(all);
+  const recent=all.filter(p=>_dailyRecentRecoveryPenalty(p,ref)>0).map(_dailyNameText);
   const label=next.label||`대기 ${next.queueIndex?next.queueIndex+1:1}순위`;
   const reasons=[
     `${label} · ${m.type}${m.isFlexible?' 조합':''} · 팀 실력차 ${m.levelDiff}`,
@@ -2422,6 +2453,7 @@ function _dailyReasons(next){
   ];
   if(m.reservationLabel)reasons.unshift(`게임신청: ${m.reservationLabel} 요청을 우선 반영했습니다.`);
   if(paired.length)reasons.push(`${paired.join(', ')} 신청을 같은 편으로 반영했습니다.`);
+  if(recent.length)reasons.push(`${recent.join(', ')} 선수는 최근 경기자라 대기 인원 여유에 따라 우선순위를 낮춰 반영했습니다.`);
   if(!next.strict)reasons.push('표준 남복/여복/혼복 조합이 어려워 실력 균형을 맞춘 예외 조합입니다.');
   return reasons;
 }
@@ -4960,7 +4992,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.318&from=daily';
+  location.href='team.html?v=1.10.319&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
