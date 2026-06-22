@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.339';
+const APP_VERSION = '1.10.343';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -608,8 +608,8 @@ function _dailySameOpponentShape(team1,team2){
   return _dailyTeamGenderShape(team1)===_dailyTeamGenderShape(team2);
 }
 function _dailyReservationMatchFromTeams(r,t1,t2){
-  const team1Level=effLevel(t1[0])+effLevel(t1[1]);
-  const team2Level=effLevel(t2[0])+effLevel(t2[1]);
+  const team1Level=_dailyTeamLevel(t1);
+  const team2Level=_dailyTeamLevel(t2);
   const levelDiff=Math.round(Math.abs(team1Level-team2Level)*10)/10;
   return {
     team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],
@@ -633,7 +633,9 @@ function _dailyReservationToQueueItem(r,excludeIds){
     if(all.some(p=>excludeIds.has(p.id)||!DAILY_STATUS[p.status]?.eligible||p.currentMatchId))return null;
     if(!_dailyValidTeamPairing(team1,team2))return null;
     const m=_dailyReservationMatchFromTeams(r,team1,team2);
+    if(!_dailyMatchTeamBalanceOk(m))return null;
     const strict=m.type!=='예외'&&_dailyMatchPartnerGapOfficialOk(m);
+    if(!strict)return null;
     return _dailyQueueFromMatch(m,_dailyScoreMatch(m,strict)-1200,strict);
   }
   const heldByOthers=_dailyReservationHeldIds(r.id);
@@ -649,7 +651,9 @@ function _dailyReservationToQueueItem(r,excludeIds){
     if(!_dailySameOpponentShape(team1,team2))continue;
     if(!_dailyValidTeamPairing(team1,team2))continue;
     const m=_dailyReservationMatchFromTeams(r,team1,team2);
+    if(!_dailyMatchTeamBalanceOk(m))continue;
     const strict=m.type!=='예외'&&_dailyMatchPartnerGapOfficialOk(m);
+    if(!strict)continue;
     const score=_dailyScoreMatch(m,strict)-1200;
     if(score<bestScore){best=m;bestScore=score;bestStrict=strict;}
   }
@@ -1477,14 +1481,14 @@ function _dailyQueueType(t1,t2){
 function _dailyRecalcQueueItem(q){
   const t1=(q.team1||[]).map(_dailyPlayer).filter(Boolean),t2=(q.team2||[]).map(_dailyPlayer).filter(Boolean);
   if(t1.length!==2||t2.length!==2)return q;
-  q.team1Level=effLevel(t1[0])+effLevel(t1[1]);
-  q.team2Level=effLevel(t2[0])+effLevel(t2[1]);
+  q.team1Level=_dailyTeamLevel(t1);
+  q.team2Level=_dailyTeamLevel(t2);
   q.levelDiff=Math.round(Math.abs(q.team1Level-q.team2Level)*10)/10;
   const computedType=_dailyQueueType(t1,t2);
   q.type=(q.teamMode&&q.type==='보정')?'보정':computedType;
   q.flexible=q.type==='예외';
   q.strict=!q.flexible;
-  q.score=Math.round(_dailyScoreMatch({team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:q.levelDiff},q.strict));
+  q.score=Math.round(_dailyScoreMatch({team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:q.levelDiff,team1Level:q.team1Level,team2Level:q.team2Level},q.strict));
   return q;
 }
 function _dailyQueueItemValid(q,used){
@@ -1500,7 +1504,11 @@ function _dailyQueueItemValid(q,used){
     if(![...t1,...t2].every(_dailyTeamSide))return false;
     if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)return false;
   }
-  return _dailyValidTeamPairing(t1,t2);
+  if(!_dailyValidTeamPairing(t1,t2))return false;
+  const team1Level=_dailyTeamLevel(t1);
+  const team2Level=_dailyTeamLevel(t2);
+  const m={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:Math.round(Math.abs(team1Level-team2Level)*10)/10,team1Level,team2Level};
+  return _dailyMatchTeamBalanceOk(m)&&_dailyMatchPartnerGapOfficialOk(m);
 }
 function _dailyQueueFromMatch(m,score,strict){
   const q={
@@ -1555,11 +1563,12 @@ function _dailyBuildQueueItem(excludeIds,options){
       if(!_dailyPartnerConstraintOk(four))continue;
       if(avoidExactRepeat&&_dailyFourRepeatCount(four)>0)continue;
       const m=_dailyTeamMode
-        ? (formTeams(four,true,'any',99)||formTeams(four,true,'adjust',99))
-        : formTeams(four,false,'any',99);
+        ? (formTeams(four,true,'any',DAILY_TEAM_DIFF_LIMIT)||formTeams(four,true,'adjust',DAILY_TEAM_DIFF_LIMIT))
+        : formTeams(four,false,'any',DAILY_TEAM_DIFF_LIMIT);
       if(!m)continue;
       if(_dailyTeamMode)m.teamMode=true;
       if(!_dailyValidTeamPairing([m.team1A,m.team1B],[m.team2C,m.team2D]))continue;
+      if(!_dailyMatchTeamBalanceOk(m))continue;
       if(!_dailyMatchPartnerGapOfficialOk(m))continue;
       const score=_dailyScoreMatch(m,true);
       if(score<bestScore){best=m;bestScore=score;strictBest=true;}
@@ -1571,6 +1580,7 @@ function _dailyBuildQueueItem(excludeIds,options){
       if(avoidExactRepeat&&_dailyFourRepeatCount(four)>0)continue;
       const m=_dailyFlexibleMatch(four);
       if(!m)continue;
+      if(!_dailyMatchTeamBalanceOk(m))continue;
       const score=_dailyScoreMatch(m,false);
       if(score<bestScore){best=m;bestScore=score;strictBest=false;}
     }
@@ -2065,8 +2075,8 @@ function _dailyApplyQueueYield(playerId,queueId,source){
   dailyEnsureQueue();
   let idx=_dailyQueue.findIndex(q=>String(q.id||'')===String(queueId||'')&&_dailyQueueIds(q).includes(playerId));
   if(idx<0)idx=_dailyQueue.findIndex(q=>_dailyQueueIds(q).includes(playerId));
-  if(idx<0)return {ok:false,reason:'양보할 다음 대진을 찾지 못했습니다.'};
-  if(idx>=_dailyQueue.length-1)return {ok:false,reason:'뒤에 먼저 보낼 다음 대진이 없습니다.'};
+  if(idx<0)return {ok:false,reason:'뒤로 보낼 다음 대진을 찾지 못했습니다.'};
+  if(idx>=_dailyQueue.length-1)return {ok:false,reason:'뒤에 보낼 다음 대진이 없습니다.'};
   const item=_dailyQueue.splice(idx,1)[0];
   item.yieldedAt=_dailyNow();
   item.yieldedBy=playerId;
@@ -2516,8 +2526,35 @@ function _dailyFourRepeatCount(players){
 const DAILY_PARTNER_GAP_OK=1.25;
 const DAILY_PARTNER_GAP_CAUTION=2.25;
 const DAILY_PARTNER_GAP_HARD=3;
+const DAILY_TEAM_DIFF_TARGET=1.5;
+const DAILY_TEAM_DIFF_LIMIT=2;
 const DAILY_RECENT_SOFT_MIN=6;
 const DAILY_RECENT_RECOVERY_MIN=12;
+function _dailyTeamLevel(team){
+  if(!team||team.length<2)return 0;
+  return effLevel(team[0])+effLevel(team[1]);
+}
+function _dailyTeamLevelDiff(t1,t2){
+  return Math.round(Math.abs(_dailyTeamLevel(t1)-_dailyTeamLevel(t2))*10)/10;
+}
+function _dailyMatchTeamLevelDiff(m){
+  if(!m)return 0;
+  if(m.team1A&&m.team1B&&m.team2C&&m.team2D){
+    return _dailyTeamLevelDiff([m.team1A,m.team1B],[m.team2C,m.team2D]);
+  }
+  if(Number.isFinite(+m.levelDiff))return Math.round(Math.abs(+m.levelDiff)*10)/10;
+  return _dailyTeamLevelDiff([m.team1A,m.team1B],[m.team2C,m.team2D]);
+}
+function _dailyMatchTeamBalanceOk(m){
+  return _dailyMatchTeamLevelDiff(m)<=DAILY_TEAM_DIFF_LIMIT;
+}
+function _dailyTeamDiffPenalty(diff){
+  const d=Math.max(0,Number.isFinite(+diff)?+diff:0);
+  let penalty=d*360;
+  if(d>DAILY_TEAM_DIFF_TARGET)penalty+=(d-DAILY_TEAM_DIFF_TARGET)*1600;
+  if(d>DAILY_TEAM_DIFF_LIMIT)penalty+=50000+(d-DAILY_TEAM_DIFF_LIMIT)*12000;
+  return penalty;
+}
 function _dailyPartnerLevelGap(team){
   if(!team||team.length<2)return 0;
   return Math.abs(effLevel(team[0])-effLevel(team[1]));
@@ -2581,15 +2618,20 @@ function _dailyFlexibleMatch(four){
   combos.forEach(c=>{
     const t1=[four[c[0]],four[c[1]]],t2=[four[c[2]],four[c[3]]];
     if(!_dailyValidTeamPairing(t1,t2))return;
-    const ld=Math.abs((effLevel(t1[0])+effLevel(t1[1]))-(effLevel(t2[0])+effLevel(t2[1])));
-    let score=ld*120+Math.abs(effLevel(t1[0])-effLevel(t1[1]))*18+Math.abs(effLevel(t2[0])-effLevel(t2[1]))*18;
+    const team1Level=_dailyTeamLevel(t1);
+    const team2Level=_dailyTeamLevel(t2);
+    const ld=Math.round(Math.abs(team1Level-team2Level)*10)/10;
+    const match={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],type:'예외',levelDiff:ld,team1Level,team2Level,isFlexible:true};
+    if(!_dailyMatchTeamBalanceOk(match))return;
+    if(!_dailyMatchPartnerGapOfficialOk(match))return;
+    let score=_dailyTeamDiffPenalty(ld)+Math.abs(effLevel(t1[0])-effLevel(t1[1]))*18+Math.abs(effLevel(t2[0])-effLevel(t2[1]))*18;
     score+=_dailyPartnerLevelGapPenalty(t1)+_dailyPartnerLevelGapPenalty(t2)+_dailyMatchLevelSpreadPenalty([t1[0],t1[1],t2[0],t2[1]]);
     t1.forEach(a=>t2.forEach(b=>{score+=(a.opponentCount[b.name]||0)*60;}));
     score+=(t1[0].partnerCount[t1[1].name]||0)*130;
     score+=(t2[0].partnerCount[t2[1].name]||0)*130;
     if(score<bestScore){
       bestScore=score;
-      best={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],type:'예외',levelDiff:Math.round(ld*10)/10,team1Level:effLevel(t1[0])+effLevel(t1[1]),team2Level:effLevel(t2[0])+effLevel(t2[1]),isFlexible:true};
+      best=match;
     }
   });
   return best;
@@ -2600,7 +2642,7 @@ function _dailyScoreMatch(m,strict){
   const ref=fairnessPool.length?fairnessPool:_dailyPlayers;
   const minGames=ref.length?Math.min(...ref.map(p=>p.games||0)):0;
   const maxGames=ref.length?Math.max(...ref.map(p=>p.games||0)):0;
-  let score=(m.levelDiff||0)*130;
+  let score=_dailyTeamDiffPenalty(_dailyMatchTeamLevelDiff(m));
   all.forEach(p=>{
     const wait=_dailyMinutes(p.waitFrom||p.joinedAt);
     score+=(p.games-minGames)*170;
@@ -4272,7 +4314,7 @@ function dailyProcessCheckinRequests(){
           ? _dailyApplyQueueYield(req.playerId,req.queueId,req.type==='queue-yield'?'member-queue-yield':'member-queue-defer')
           : {ok:false,reason:'선수를 찾지 못했습니다.'};
         if(!result.ok){
-          autoRejected.push({...req,_completeRejectReason:result.reason||'양보할 다음 대진을 찾지 못했습니다.'});
+          autoRejected.push({...req,_completeRejectReason:result.reason||'뒤로 보낼 다음 대진을 찾지 못했습니다.'});
         }else{
           autoApplied.push(req);
           changed=true;
@@ -5318,7 +5360,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.339&from=daily';
+  location.href='team.html?v=1.10.343&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -6704,7 +6746,7 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     if(teamMode){if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)continue;}
     const ld=Math.abs((effLevel(t1[0])+effLevel(t1[1]))-(effLevel(t2[0])+effLevel(t2[1])));
     if(ld>maxLD)continue;
-    let score=ld*80; // 실력차 최우선
+    let score=_dailyTeamDiffPenalty(ld); // 실력차 최우선
     score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
     score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
     const p1pair=t1[0].partnerName===t1[1].name;
