@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.343';
+const APP_VERSION = '1.10.344';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -274,6 +274,9 @@ let _dailyPairSelectId=null;
 let _dailyTimerId=null;
 let _dailyIsGuest=false;
 let _dailyPlayerSort='status';
+let _dailyPlayerFilter='all';
+let _dailyPlayerSearch='';
+let _dailyPlayerSheetId=null;
 let _dailyWaveStarts=0;
 let _dailyFourRepeatCache=null;
 let _dailyCheckinId=null;
@@ -2284,11 +2287,50 @@ function setDailyPlayerSort(mode){
   _dailyPlayerSort=['status','name','gender'].includes(mode)?mode:'status';
   dailyRender();
 }
+function setDailyPlayerSearch(value){
+  _dailyPlayerSearch=String(value||'').trim();
+  dailyRender();
+}
+function setDailyPlayerFilter(mode){
+  _dailyPlayerFilter=['all','wait','playing','rest','queued'].includes(mode)?mode:'all';
+  dailyRender();
+}
 function _dailyUpdatePlayerSortButtons(){
   ['status','name','gender'].forEach(mode=>{
     const el=document.getElementById('dailyPlayerSort'+mode.charAt(0).toUpperCase()+mode.slice(1));
     if(el)el.classList.toggle('active',_dailyPlayerSort===mode);
   });
+}
+function _dailyUpdatePlayerToolState(){
+  const search=document.getElementById('dailyPlayerSearch');
+  if(search&&search.value!==_dailyPlayerSearch)search.value=_dailyPlayerSearch;
+  ['all','wait','playing','rest','queued'].forEach(mode=>{
+    const el=document.getElementById('dailyPlayerFilter'+mode.charAt(0).toUpperCase()+mode.slice(1));
+    if(el)el.classList.toggle('active',_dailyPlayerFilter===mode);
+  });
+}
+function _dailyHangulInitials(text){
+  const CHO='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+  return String(text||'').split('').map(ch=>{
+    const code=ch.charCodeAt(0)-44032;
+    if(code>=0&&code<11172)return CHO[Math.floor(code/588)]||ch;
+    return ch;
+  }).join('');
+}
+function _dailyPlayerMatchesSearch(p){
+  const q=String(_dailyPlayerSearch||'').trim().toLowerCase();
+  if(!q)return true;
+  const name=String(p.name||'').toLowerCase();
+  const initials=_dailyHangulInitials(p.name).toLowerCase();
+  return name.includes(q)||initials.includes(q);
+}
+function _dailyPlayerMatchesFilter(p){
+  if(_dailyPlayerFilter==='all')return true;
+  if(_dailyPlayerFilter==='queued')return _dailyIsQueued(p.id);
+  return _dailyNormalizeStatus(p.status)===_dailyPlayerFilter;
+}
+function _dailyFilterPlayersForManage(players){
+  return players.filter(p=>_dailyPlayerMatchesFilter(p)&&_dailyPlayerMatchesSearch(p));
 }
 function _dailySortPlayersForManage(players){
   const statusOrder={wait:0,playing:1,rest:2,done:3,planned:4,invited:4};
@@ -2307,6 +2349,84 @@ function _dailySortPlayersForManage(players){
     ((a.waitFrom||0)-(b.waitFrom||0))||
     nameSort(a,b)
   );
+}
+function _dailyPlayerMetaText(p){
+  return `${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')}급 · ${esc(p.ageGroup||'40대')} · ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분`;
+}
+function _dailyRenamePlayerEverywhere(oldName,newName){
+  const renameMapKey=map=>{
+    if(!map||!Object.prototype.hasOwnProperty.call(map,oldName))return;
+    map[newName]=(map[newName]||0)+(map[oldName]||0);
+    delete map[oldName];
+  };
+  _dailyPlayers.forEach(p=>{
+    if(p.partnerName===oldName)p.partnerName=newName;
+    renameMapKey(p.partnerCount);
+    renameMapKey(p.opponentCount);
+  });
+  const touchPlayer=obj=>{if(obj&&obj.name===oldName)obj.name=newName;};
+  _dailyMatches.forEach(m=>{
+    ['team1A','team1B','team2C','team2D'].forEach(k=>touchPlayer(m[k]));
+  });
+}
+function dailyRenamePlayer(id){
+  if(!_dailyCanChangeRoster())return;
+  const p=_dailyPlayer(id);
+  if(!p)return;
+  const name=prompt('이름 변경',p.name);
+  if(name==null)return;
+  const next=name.trim();
+  if(!next)return;
+  if(_dailyPlayers.some(x=>x.id!==id&&x.name===next)){
+    alert('민턴LIVE 명단에 이미 있는 선수입니다.');
+    return;
+  }
+  const prev=p.name;
+  p.name=next;
+  _dailyRenamePlayerEverywhere(prev,next);
+  dailySave();
+  dailyRender();
+  dailyOpenPlayerSheet(id);
+}
+function dailyClosePlayerSheet(){
+  _dailyPlayerSheetId=null;
+  document.getElementById('dailyPlayerSheet')?.classList.add('hidden');
+}
+function dailyOpenPlayerSheet(id){
+  const p=_dailyPlayer(id);
+  if(!p)return;
+  _dailyPlayerSheetId=id;
+  const overlay=document.getElementById('dailyPlayerSheet');
+  const title=document.getElementById('dailyPlayerSheetTitle');
+  const body=document.getElementById('dailyPlayerSheetBody');
+  if(!overlay||!title||!body)return;
+  title.textContent=p.name;
+  const playing=p.status==='playing'||!!p.currentMatchId;
+  const statusButtons=['wait','rest','done'].map(st=>{
+    const active=_dailyNormalizeStatus(p.status)===st;
+    const disabled=playing?'disabled':'';
+    return `<button class="daily-player-sheet-action ${active?'active':''}" ${disabled} onclick="dailySheetSetStatus('${id}','${st}')">${esc(DAILY_STATUS[st].label)}</button>`;
+  }).join('');
+  const playingNote=playing?'<div class="daily-player-sheet-note">경기중 선수는 진행중 경기 카드에서 처리하세요.</div>':'';
+  body.innerHTML=`<div class="daily-player-sheet-summary">
+      <div class="daily-player-sheet-name">${_dailyNameHtml(p)} ${_dailyStatusBadge(p.status)} ${_dailyQueueLabelForPlayer(p.id)}</div>
+      <div class="daily-player-sheet-meta">${_dailyPlayerMetaText(p)}</div>
+    </div>
+    ${playingNote}
+    <div class="daily-player-sheet-actions">${statusButtons}</div>
+    <div class="daily-player-sheet-actions secondary">
+      <button class="daily-player-sheet-action" onclick="dailyRenamePlayer('${id}')">이름 변경</button>
+      <button class="daily-player-sheet-action danger" onclick="dailySheetRemovePlayer('${id}')">삭제</button>
+    </div>`;
+  overlay.classList.remove('hidden');
+}
+function dailySheetSetStatus(id,status){
+  dailyClosePlayerSheet();
+  dailySetStatus(id,status);
+}
+function dailySheetRemovePlayer(id){
+  dailyClosePlayerSheet();
+  dailyRemovePlayer(id);
 }
 function dailyRemovePlayer(id){
   if(!_dailyCanChangeRoster())return;
@@ -4545,21 +4665,20 @@ function dailyRender(){
   const list=document.getElementById('dailyPlayerList');
   if(list){
     _dailyUpdatePlayerSortButtons();
+    _dailyUpdatePlayerToolState();
     if(!_dailyPlayers.length)list.innerHTML='<div class="daily-empty">민턴LIVE 명단이 비어 있습니다. 클럽 명부를 가져오거나 선수를 직접 추가하세요.</div>';
     else{
-      const sorted=_dailySortPlayersForManage(_dailyPlayers);
-      list.innerHTML=sorted.map(p=>`<div class="daily-player ${_dailyPairSelectId===p.id?'daily-pair-selecting':''}">
-        <div class="daily-player-main">
-          <div class="daily-player-top">
-            <div class="daily-player-name">${_dailyNameHtml(p)} ${_dailyStatusBadge(p.status)} ${_dailyQueueLabelForPlayer(p.id)}</div>
-            <button class="daily-mini-btn danger daily-remove-btn" onclick="dailyRemovePlayer('${p.id}')">삭제</button>
-          </div>
-          <div class="daily-player-meta">${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')}급 · ${esc(p.ageGroup||'40대')} · 오늘 ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분</div>
-        </div>
-        <div class="daily-player-actions">
-          ${_dailyStatusSelect(p)}
-        </div>
-      </div>`).join('');
+      const filtered=_dailyFilterPlayersForManage(_dailyPlayers);
+      const sorted=_dailySortPlayersForManage(filtered);
+      list.innerHTML=sorted.length?sorted.map(p=>`<button type="button" class="daily-player ${_dailyPairSelectId===p.id?'daily-pair-selecting':''}" onclick="dailyOpenPlayerSheet('${p.id}')">
+        <span class="daily-player-main">
+          <span class="daily-player-top">
+            <span class="daily-player-name">${_dailyNameHtml(p)} ${_dailyStatusBadge(p.status)} ${_dailyQueueLabelForPlayer(p.id)}</span>
+          </span>
+          <span class="daily-player-meta">${_dailyPlayerMetaText(p)}</span>
+        </span>
+        <span class="daily-player-more" aria-hidden="true">›</span>
+      </button>`).join(''):`<div class="daily-empty">검색 결과가 없습니다.</div>`;
     }
   }
   dailyRenderRecommend();
@@ -5360,7 +5479,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.343&from=daily';
+  location.href='team.html?v=1.10.344&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

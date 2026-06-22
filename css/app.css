@@ -941,12 +941,21 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-stat{background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:9px;text-align:center;}
 .daily-stat b{display:block;font-size:1.08rem;color:var(--txt);line-height:1.1;}
 .daily-stat span{display:block;font-size:.62rem;color:var(--dim);margin-top:2px;font-weight:700;}
-.daily-player-list{display:flex;flex-direction:column;gap:6px;}
-.daily-player{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;background:#fff;border:1px solid var(--bdr);border-radius:11px;padding:10px 11px;}
+.daily-player-tools{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border:1px solid var(--bdr);border-radius:14px;padding:8px;margin-bottom:8px;box-shadow:0 8px 20px rgba(35,55,90,.045);}
+.daily-player-search{width:100%;height:38px;border:1.5px solid var(--bdr);border-radius:11px;background:#fff;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:.82rem;font-weight:800;padding:0 12px;outline:none;}
+.daily-player-search:focus{border-color:var(--bl);box-shadow:0 0 0 3px rgba(91,141,239,.12);}
+.daily-player-filter{display:flex;gap:5px;overflow-x:auto;padding-top:7px;scrollbar-width:none;}
+.daily-player-filter::-webkit-scrollbar{display:none;}
+.daily-player-filter-btn{flex:0 0 auto;border:1.5px solid var(--bdr);border-radius:999px;background:#fff;color:var(--dim);font-family:'Noto Sans KR',sans-serif;font-size:.66rem;font-weight:900;padding:6px 10px;cursor:pointer;white-space:nowrap;}
+.daily-player-filter-btn.active{border-color:var(--bl);background:var(--bl-soft);color:var(--bl-deep);}
+.daily-player-list{display:flex;flex-direction:column;gap:5px;}
+.daily-player{appearance:none;width:100%;display:grid;grid-template-columns:minmax(0,1fr) 18px;gap:8px;align-items:center;text-align:left;background:#fff;border:1px solid var(--bdr);border-radius:14px;padding:9px 11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;color:var(--txt);}
+.daily-player:active{transform:scale(.992);background:#f8fbff;border-color:var(--bl-softbdr);}
 .daily-player-main{min-width:0;}
 .daily-player-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;}
-.daily-player-name{font-size:.92rem;font-weight:900;color:var(--txt);display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-.daily-player-meta{font-size:.68rem;color:var(--dim);margin-top:3px;line-height:1.45;}
+.daily-player-name{font-size:.88rem;font-weight:900;color:var(--txt);display:flex;align-items:center;gap:5px;flex-wrap:wrap;line-height:1.25;}
+.daily-player-meta{display:block;font-size:.64rem;color:var(--dim);margin-top:3px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.daily-player-more{font-size:1.18rem;font-weight:900;color:#a8b2c2;text-align:right;line-height:1;}
 .daily-status{font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;border:1px solid var(--bdr);}
 .daily-status.invited{background:#f8fafc;border-color:#e2e8f0;color:#64748b;}
 .daily-status.planned{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
@@ -1283,7 +1292,9 @@ body.monthly-team-mode .team-partner-help{display:block;}
   .daily-admin-alert{flex-direction:column;}.daily-admin-alert-actions{width:100%;}.daily-admin-alert-actions .daily-mini-btn{flex:1;}
   .daily-note{font-size:.68rem;line-height:1.5;padding:8px 10px;}
   .daily-form-grid{grid-template-columns:1fr 1fr;}.daily-form-grid .dir-input{grid-column:1/-1;}
-  .daily-player{grid-template-columns:1fr;}.daily-player-actions{justify-content:stretch;flex-wrap:wrap;}.daily-player-actions select{width:100%;flex:1 1 100%;}
+  .daily-player{grid-template-columns:minmax(0,1fr) 18px;}
+  .daily-player-tools{top:0;margin-left:-2px;margin-right:-2px;}
+  .daily-player-filter-btn{padding:6px 9px;font-size:.64rem;}
   .daily-res-grid{grid-template-columns:1fr 1fr;}.daily-res-grid .daily-vs{display:none;}.daily-res-body{grid-template-columns:1fr;}.daily-res-vs{display:none;}
   .daily-urgent-list{display:flex;flex-direction:column;gap:7px;}
   .daily-result-score,.daily-team-roster-grid{grid-template-columns:1fr;}
@@ -1626,6 +1637,17 @@ body.monthly-team-mode .team-partner-help{display:block;}
   width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .modal-head>button:hover{background:var(--sur2);color:var(--txt);}
 .modal-body{padding:14px 16px;}
+.daily-player-sheet{max-width:520px;}
+.daily-player-sheet-summary{border:1px solid var(--bdr);border-radius:14px;background:#fbfcff;padding:12px;margin-bottom:10px;}
+.daily-player-sheet-name{font-size:1rem;font-weight:900;color:var(--txt);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.daily-player-sheet-meta{font-size:.72rem;color:var(--dim);font-weight:800;margin-top:5px;line-height:1.45;}
+.daily-player-sheet-note{border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:12px;padding:9px 10px;font-size:.72rem;font-weight:900;line-height:1.45;margin-bottom:10px;}
+.daily-player-sheet-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px;}
+.daily-player-sheet-actions.secondary{grid-template-columns:1fr 1fr;}
+.daily-player-sheet-action{min-height:44px;border:1.5px solid var(--bdr);border-radius:13px;background:#fff;color:var(--txt);font-family:'Noto Sans KR',sans-serif;font-size:.82rem;font-weight:900;cursor:pointer;}
+.daily-player-sheet-action.active{border-color:#9edab4;background:#ecfdf3;color:#166534;box-shadow:0 0 0 3px rgba(34,197,94,.08);}
+.daily-player-sheet-action:disabled{opacity:.42;cursor:not-allowed;background:#f8fafc;color:#94a3b8;}
+.daily-player-sheet-action.danger{border-color:#fecdd3;background:#fff1f2;color:#be123c;}
 /* ── 선수 변동 모달 ── */
 .cp-info-box{background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:9px 12px;font-size:.76rem;color:#0369a1;line-height:1.8;margin-bottom:4px;}
 .cp-team-no-join{background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;padding:9px 12px;font-size:.74rem;color:#9a3412;line-height:1.7;margin:12px 0 4px;}
@@ -1859,6 +1881,10 @@ body.monthly-team-mode .team-partner-help{display:block;}
   border-color:var(--ml-line);
   border-radius:18px;
   background:#fff;
+}
+.daily-player-list .daily-player{
+  border-radius:14px;
+  box-shadow:0 5px 14px rgba(35,55,90,.035);
 }
 .daily-auto-row-top{
   border-color:#c8dbfb;
