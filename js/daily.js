@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.314';
+const APP_VERSION = '1.10.316';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1184,18 +1184,58 @@ function _dailyExpectedQueueTarget(cap){
   const info=_dailyNaturalAutoInfo();
   if(!info.auto||_dailyTeamLocked||info.operating?.closingSoon)return 0;
   const c=cap||_dailyQueueCapacity();
-  const spare=Math.max(0,(c.maxGames||0)-(c.target||0));
+  const projectedMaxGames=Math.floor(_dailyProjectedCandidatePlayers().length/4);
+  const spare=Math.max(0,projectedMaxGames-(c.target||0));
   if(spare>=4)return 2;
   if(spare>=2)return 1;
   return 0;
 }
+function _dailyProjectedCandidatePlayers(){
+  const candidates=[];
+  const byId=new Map();
+  const add=p=>{
+    if(!p||byId.has(p.id))return;
+    byId.set(p.id,p);
+    candidates.push(p);
+  };
+  _dailyEligible().forEach(add);
+  const activeByPlayer=new Map();
+  _dailyActiveMatches()
+    .slice()
+    .sort((a,b)=>_dailyMatchEndAt(a)-_dailyMatchEndAt(b))
+    .forEach((m,rank)=>{
+      _dailyMatchPlayers(m).forEach(p=>{
+        if(!p)return;
+        activeByPlayer.set(p.id,{match:m,rank});
+      });
+    });
+  _dailyPlayers.forEach(p=>{
+    const active=activeByPlayer.get(p.id);
+    if(!active||byId.has(p.id))return;
+    if(_dailyNormalizeStatus(p.status)!=='playing'&&!p.currentMatchId)return;
+    if(_dailyTeamMode&&!_dailyTeamSide(p))return;
+    add({
+      ...p,
+      status:'wait',
+      currentMatchId:null,
+      games:(p.games||0)+1,
+      lastPlayedSeq:active.match.seq||p.lastPlayedSeq||_dailySeq,
+      waitFrom:_dailyNow(),
+      projectedActive:true,
+      projectedReadyAt:_dailyMatchEndAt(active.match),
+      projectedRank:active.rank
+    });
+  });
+  return candidates;
+}
 function _dailyProjectedQueue(extraCount){
   const out=[],used=new Set();
   const target=_dailyQueueCapacity().target;
+  const projectedCandidates=_dailyProjectedCandidatePlayers();
   _dailyQueue.slice(0,target).forEach(q=>_dailyQueueIds(q).forEach(id=>used.add(id)));
   let guard=0;
   while(out.length<extraCount&&guard++<extraCount+4){
-    const q=_dailyBuildQueueItem(used);
+    const q=_dailyBuildQueueItem(used,{candidates:projectedCandidates,expectedOnly:true,allowReservations:false});
     if(!q)break;
     out.push(q);
     _dailyQueueIds(q).forEach(id=>used.add(id));
@@ -1326,11 +1366,16 @@ function _dailyQueueFromMatch(m,score,strict){
   q.strict=!!strict;
   return q;
 }
-function _dailyBuildQueueItem(excludeIds){
-  const baseEligible=_dailyEligible().filter(p=>!excludeIds.has(p.id));
+function _dailyBuildQueueItem(excludeIds,options){
+  options=options||{};
+  const source=Array.isArray(options.candidates)?options.candidates:_dailyEligible();
+  const projectedActiveIds=new Set(source.filter(p=>p&&p.projectedActive).map(p=>p.id));
+  const baseEligible=source.filter(p=>!excludeIds.has(p.id));
   if(baseEligible.length<4)return null;
-  const reserved=_dailyBuildReservationQueueItem(excludeIds);
-  if(reserved&&(!_dailyTeamMode||_dailyQueueItemValid(reserved,null)))return reserved;
+  if(options.allowReservations!==false){
+    const reserved=_dailyBuildReservationQueueItem(excludeIds);
+    if(reserved&&(!_dailyTeamMode||_dailyQueueItemValid(reserved,null)))return reserved;
+  }
   const heldIds=_dailyReservationHeldIds();
   const eligible=baseEligible.filter(p=>!heldIds.has(p.id));
   if(eligible.length<4)return null;
@@ -1340,6 +1385,8 @@ function _dailyBuildQueueItem(excludeIds){
     if(b<2||w<2)return null;
   }
   const ranked=[...eligible].sort((a,b)=>{
+    if(!!a.projectedActive!==!!b.projectedActive)return a.projectedActive?1:-1;
+    if((a.projectedRank??999)!==(b.projectedRank??999))return (a.projectedRank??999)-(b.projectedRank??999);
     if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
     return (a.waitFrom||0)-(b.waitFrom||0);
   }).slice(0,22);
@@ -1372,7 +1419,17 @@ function _dailyBuildQueueItem(excludeIds){
     return !!best;
   };
   if(!pick(ranked.length>=8))pick(false);
-  return best?_dailyQueueFromMatch(best,bestScore,strictBest):null;
+  if(!best)return null;
+  const q=_dailyQueueFromMatch(best,bestScore,strictBest);
+  if(options.expectedOnly){
+    const activeIds=_dailyQueueIds(q).filter(id=>projectedActiveIds.has(id));
+    if(activeIds.length){
+      q.expectedOnly=true;
+      q.projectedActiveIds=activeIds;
+      q.projectedDetail='진행 중 경기 종료 후 예상 · 상황에 따라 조정 가능';
+    }
+  }
+  return q;
 }
 function _dailyRefreshNextFromQueue(){
   _dailyNext=_dailyQueue[0]?{queueId:_dailyQueue[0].id,match:_dailyQueueMatch(_dailyQueue[0]),score:_dailyQueue[0].score,strict:_dailyQueue[0].strict,createdAt:_dailyQueue[0].createdAt,label:'1순위 대기'}:null;
@@ -2907,7 +2964,7 @@ function _dailyPublicEvent(){
     const m=_dailyQueueMatch(q);
     if(!m)return null;
     const info=extra
-      ? {matchId:'',court:null,text:'예상 대진',detail:'대기풀이 넉넉하면 이어질 수 있음',state:'expected'}
+      ? {matchId:'',court:null,text:'예상 대진',detail:q.projectedDetail||'대기풀이 넉넉하면 이어질 수 있음',state:'expected'}
       : _dailyQueueStartInfo(idx);
     return {
       idx:idx+1,type:m.type,teamMode:!!(q.teamMode||m.teamMode),
@@ -2937,7 +2994,7 @@ function _dailyPublicEvent(){
   const expectedCount=expected.length;
   const deferredCount=_dailyDeferredWaitingPlayers().length;
   const policyDetail=queuedCount
-    ? `다음 ${queuedCount}경기 준비됨 · 필요하면 이번 차례만 양보할 수 있어요`
+    ? `다음 ${queuedCount}경기 준비됨 · 필요하면 이번 대진만 양보할 수 있어요`
     : readyCount>=4
       ? `대기풀 ${visibleReadyCount}명 · 대진 후보 ${readyCount}명`
       : `대기풀 ${visibleReadyCount}명 · 후보 ${readyCount}명`;
@@ -4710,7 +4767,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.314&from=daily';
+  location.href='team.html?v=1.10.316&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

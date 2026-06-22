@@ -1221,7 +1221,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.314</span>
+    <span class="version-chip" id="appVersion">v1.10.316</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="balance-policy hidden" id="balancePolicy"></div>
     <div class="last-sent hidden" id="lastSent"></div>
@@ -1266,7 +1266,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
-const APP_VERSION='1.10.314';
+const APP_VERSION='1.10.316';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1576,7 +1576,7 @@ function renderBalancePolicy(){
       ? `대기풀 ${ready}명 · 조합 선별 중`
       : label;
   const detail=policy.detail||(queued
-    ? '필요하면 이번 차례만 양보할 수 있어요.'
+    ? '필요하면 이번 대진만 양보할 수 있어요.'
     : '코트가 비어도 급수 차가 크면 바로 배정하지 않을 수 있어요.');
   el.className='balance-policy';
   el.innerHTML=`<b>${esc(title)}</b><small>${esc(detail)}</small><small class="balance-rule">운영 기준: ${esc(label)}</small>`;
@@ -1653,10 +1653,10 @@ function nextQueueNoticeHtml(playerId){
   const target=String(qid||'');
   const qIndex=nextList.findIndex(item=>String(item.queueId||item.id||'')===target);
   const canYield=!!target&&qIndex>=0&&qIndex<nextList.length-1;
-  const helper=canYield?'잠깐 필요하면 이번 차례만 양보할 수 있어요.':'곧 입장할 차례예요.';
+  const helper=canYield?'잠깐 필요하면 이번 대진만 양보할 수 있어요.':'곧 다음 대진에 입장해요.';
   return `<div class="next-queue-notice">다음 대진 ${order}${esc(wait)}
     <small>${esc(helper)}</small>
-    ${canYield?`<button class="queue-defer-btn" type="button" onclick="sendQueueDefer('${esc(playerId)}','${esc(qid)}')">이번 차례 양보</button>`:''}
+    ${canYield?`<button class="queue-defer-btn" type="button" onclick="sendQueueDefer('${esc(playerId)}','${esc(qid)}')">이번 대진 양보</button>`:''}
   </div>`;
 }
 function activeMatchLabel(m){
@@ -1961,16 +1961,17 @@ function playerCardHtml(p,disabled,opts={}){
   const selected=getSelectedStatus(p);
   const requested=!!latestStatusRequest(p.id);
   const highlighted=opts.forceHighlight||recent||requested;
-  const disabledAttr=disabled?'disabled':'';
+  const statusDisabledAttr=(disabled||locked)?'disabled':'';
+  const requestDisabledAttr=disabled?'disabled':'';
   const readonly=!!opts.readonly;
   const selectOnly=!!opts.selectOnly;
   const selectAttr=selectOnly
     ? ` onclick="selectPlayerIdentity('${esc(p.id)}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectPlayerIdentity('${esc(p.id)}')}"`
     : '';
   const selectHint=selectOnly?'<div class="select-hint">카드를 눌러 내 이름으로 선택</div>':'';
-  const mainButtons=(readonly||selectOnly)?'':statusButtons(p,MAIN_STATUS_KEYS,disabledAttr);
-  const subSection=(readonly||selectOnly)?'':statusSection(p,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
-  const requestBox=(readonly||selectOnly)?'':gameRequestBox(p,disabledAttr);
+  const mainButtons=(readonly||selectOnly)?'':statusButtons(p,MAIN_STATUS_KEYS,statusDisabledAttr);
+  const subSection=(readonly||selectOnly)?'':statusSection(p,'상태 변경',SUB_STATUS_KEYS,statusDisabledAttr);
+  const requestBox=(readonly||selectOnly)?'':gameRequestBox(p,requestDisabledAttr);
   const readonlyNote=readonly?'<div class="request-status">상태 변경은 상단 내 카드에서만 가능합니다.</div>':'';
   return `<article class="player ${locked?'locked':''} ${highlighted?'recent':''} ${selectOnly?'selectable':''}"${selectAttr}>
     <div class="phead">
@@ -2002,11 +2003,14 @@ function renderMyCard(last,players){
   if(fold&&!query)fold.open=false;
   const initial=String(selected.name||'?').trim().slice(0,1)||'?';
   const selectedState=compactLabel(getSelectedStatus(selected));
-  const disabledAttr=sendingKey?'disabled':'';
-	  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,disabledAttr);
-	  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,disabledAttr);
+  const statusDisabledAttr=(sendingKey||selected.locked)?'disabled':'';
+  const requestDisabledAttr=sendingKey?'disabled':'';
+	  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,statusDisabledAttr);
+	  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,statusDisabledAttr);
 	  const nextNotice=nextQueueNoticeHtml(selected.id);
-	  const restGuide=getSelectedStatus(selected)==='rest'
+	  const restGuide=selected.locked
+	    ? `<div class="rest-guide">경기중이에요<small>경기 종료 후 시작·휴식·종료를 선택할 수 있어요.</small></div>`
+	    : getSelectedStatus(selected)==='rest'
 	    ? `<div class="rest-guide">휴식 중이에요<small>계속 운동하려면 시작을 눌러주세요.</small></div>`
 	    : '';
 	  const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
@@ -2029,7 +2033,7 @@ function renderMyCard(last,players){
 	      ${restGuide}
 	      ${nextNotice}
 	      ${subSection}
-	      ${gameRequestBox(selected,disabledAttr)}
+	      ${gameRequestBox(selected,requestDisabledAttr)}
 	    </div>
   </section>`;
 }
@@ -2149,6 +2153,7 @@ async function sendStatus(playerId,status){
     if(sessionExpired())return showEndedLink();
     const p=(session.players||[]).find(x=>x.id===playerId);
     if(!p)return toast('선수를 찾지 못했습니다.');
+    if(p.locked||p.status==='playing')return toast('경기중에는 상태 변경이 잠겨 있어요. 경기 종료 후 선택해 주세요.');
     if(!confirmPlayerIdentity(p))return;
     if(isRapidStatusChange(p,status))return toast('상태 변경은 잠시 후 다시 눌러주세요.');
     if(!confirmStatusChange(p,status))return;
@@ -2173,6 +2178,7 @@ async function sendStatus(playerId,status){
   if(sessionExpired())return showEndedLink();
   const p=(session.players||[]).find(x=>x.id===playerId);
   if(!p)return toast('선수를 찾지 못했습니다.');
+  if(p.locked||p.status==='playing')return toast('경기중에는 상태 변경이 잠겨 있어요. 경기 종료 후 선택해 주세요.');
   if(!confirmPlayerIdentity(p))return;
   if(isRapidStatusChange(p,status))return toast('상태 변경은 잠시 후 다시 눌러주세요.');
   if(!confirmStatusChange(p,status))return;
@@ -2216,7 +2222,7 @@ async function sendQueueDefer(playerId,queueId){
   if(qIndex<0||qIndex>=nextList.length-1)return toast('뒤에 먼저 보낼 다음 대진이 없습니다.');
   if(!isSampleMode()&&(!db||!checkinId||!session||sendingKey))return;
   if(!isSampleMode()&&sessionExpired())return showEndedLink();
-  if(!confirm('이번 차례를 양보할까요?\n다음 대진이 먼저 들어가고, 우리 대진은 바로 뒤로 이동합니다.'))return;
+  if(!confirm('이번 대진을 양보할까요?\n다음 대진이 먼저 들어가고, 우리 대진은 바로 뒤로 이동합니다.'))return;
   if(isSampleMode()){
     if(session?.event?.next){
       const item=session.event.next.splice(qIndex,1)[0];
@@ -2229,7 +2235,7 @@ async function sendQueueDefer(playerId,queueId){
         session.event.next.forEach((x,i)=>{x.idx=i+1;});
       }
     }
-    toast('이번 차례를 양보했어요.');
+    toast('이번 대진을 양보했어요.');
     renderEvent();
     return;
   }
@@ -2245,7 +2251,7 @@ async function sendQueueDefer(playerId,queueId){
   renderEvent();
   try{
     await db.ref(checkinPath()+'/requests').push(req);
-    toast('이번 차례를 양보했어요.');
+    toast('이번 대진을 양보했어요.');
   }catch(e){
     toast('요청 전송에 실패했습니다.');
   }finally{
