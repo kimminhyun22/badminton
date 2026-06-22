@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.317';
+const APP_VERSION = '1.10.318';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -244,8 +244,6 @@ const DAILY_AUTO_GRACE_MS=3*60*1000;
 const DAILY_CHECKIN_TTL_MS=48*60*60*1000;
 const DAILY_REST_AUTO_DONE_MS=60*60*1000;
 const DAILY_QUEUE_REST_PASS_MS=45*60*1000;
-const DAILY_CLOSING_SOON_MS=30*60*1000;
-const DAILY_CLOSING_STOP_MS=15*60*1000;
 const DAILY_STATUS={
   invited:{label:'미응답',eligible:false},
   planned:{label:'미응답',eligible:false},
@@ -323,18 +321,10 @@ function _dailyOperatingInfo(nowMs){
     const prevEnd=endAt-24*60*60*1000;
     if(nowMs<=prevEnd){startAt=prevStart;endAt=prevEnd;}
   }
-  const before=nowMs<startAt;
-  const ended=nowMs>=endAt;
   const msToStart=startAt-nowMs;
   const msToEnd=endAt-nowMs;
-  const closingStop=!ended&&msToEnd<=DAILY_CLOSING_STOP_MS;
-  const closingSoon=!ended&&msToEnd<=DAILY_CLOSING_SOON_MS;
-  let label='운영 중';
-  if(before)label=`${startTime} 시작`;
-  else if(ended)label='운영 종료';
-  else if(closingStop)label='마감 정리';
-  else if(closingSoon)label='마감 준비';
-  return {startTime,endTime,startAt,endAt,before,started:!before,ended,msToStart,msToEnd,closingSoon,closingStop,label};
+  const label='참고 시간';
+  return {startTime,endTime,startAt,endAt,before:false,started:true,ended:false,msToStart,msToEnd,closingSoon:false,closingStop:false,label};
 }
 function _dailyNormalize(raw){
   const g=_dailyGender(raw.gender||'남');
@@ -1005,8 +995,6 @@ function dailyRefreshUndoCountdown(){
 }
 function _dailyAutoEndIdleRestPlayers(){
   const now=_dailyNow();
-  const op=_dailyOperatingInfo(now);
-  if(!op.started)return 0;
   let changed=0;
   _dailyPlayers.forEach(p=>{
     if(_dailyNormalizeStatus(p.status)!=='rest')return;
@@ -1087,19 +1075,7 @@ function _dailyNaturalAutoInfo(){
   const active=_dailyActiveMatches().length;
   const operating=_dailyOperatingInfo();
   let auto=false,operatingCourts=0,phase='waiting',label='입장 대기',hint='시작 대기',graceLeftMs=0;
-  if(operating.ended&&!_dailyTeamLocked){
-    phase='closed';
-    label='운영 종료';
-    hint='새 대진 중단 · 진행 중 경기만 마무리';
-  }else if(operating.closingStop&&!_dailyTeamLocked){
-    phase='closing-stop';
-    label='마감 정리';
-    hint=`${operating.endTime} 종료 · 새 대진 중단`;
-  }else if(operating.before&&!_dailyTeamLocked){
-    phase='before';
-    label='운영 전';
-    hint=`${operating.startTime}부터 자동 대진`;
-  }else if(_dailyTeamLocked){
+  if(_dailyTeamLocked){
     auto=true;
     operatingCourts=courts;
     phase='team';
@@ -1142,12 +1118,6 @@ function _dailyNaturalAutoInfo(){
     phase='warmup';
     label='몸풀기';
     hint=`${pool}명 시작 · ${Math.max(0,DAILY_AUTO_MIN_START-pool)}명 더 필요`;
-  }
-  if(auto&&operating.closingSoon&&!_dailyTeamLocked){
-    phase='closing';
-    label='마감 준비';
-    operatingCourts=courts;
-    hint=`${operating.endTime} 종료 · 새 대진은 신중히 투입`;
   }
   return {courts,pool,eligible,active,auto,operatingCourts,phase,label,hint,min:DAILY_AUTO_MIN_START,fullStart:DAILY_AUTO_FULL_START,graceLeftMs,operating};
 }
@@ -1197,12 +1167,10 @@ function _dailyDeferLabel(p){
 function _dailyQueueBaseTarget(){
   const info=_dailyNaturalAutoInfo();
   if(!info.auto)return 0;
-  if(info.operating?.closingSoon&&!_dailyTeamLocked)return Math.min(1,info.operatingCourts);
   return Math.max(1,info.operatingCourts);
 }
 function _dailyQueueBoostNeeded(){
   if(!_dailyNaturalAutoInfo().auto)return false;
-  if(_dailyOperatingInfo().closingSoon&&!_dailyTeamLocked)return false;
   const urgent=_dailyActiveMatches().filter(m=>{
     const state=_dailyTimerState(m);
     return state==='soon'||state==='due';
@@ -1214,7 +1182,7 @@ function _dailyQueueBoostAmount(){
 }
 function _dailyQueueExtraTarget(base,flowInfo){
   const info=flowInfo||_dailyNaturalAutoInfo();
-  if(!info.auto||_dailyTeamLocked||info.operating?.closingSoon)return 0;
+  if(!info.auto||_dailyTeamLocked)return 0;
   const baseTarget=Math.max(0,Number(base)||0);
   const maxGames=Math.floor(_dailyEligible().length/4);
   const spareGames=Math.max(0,maxGames-baseTarget);
@@ -1241,7 +1209,7 @@ function _dailyQueueCapacity(){
 }
 function _dailyExpectedQueueTarget(cap){
   const info=_dailyNaturalAutoInfo();
-  if(!info.auto||_dailyTeamLocked||info.operating?.closingSoon)return 0;
+  if(!info.auto||_dailyTeamLocked)return 0;
   const c=cap||_dailyQueueCapacity();
   const projectedMaxGames=Math.floor(_dailyProjectedCandidatePlayers().length/4);
   const spare=Math.max(0,projectedMaxGames-(c.target||0));
@@ -3179,7 +3147,7 @@ function _dailyPublicEvent(){
     if(!m)return null;
     const restPass=_dailyQueueRestPassActive(q);
     const info=extra
-      ? {matchId:'',court:null,text:'예상 대진',detail:q.projectedDetail||'대기풀이 넉넉하면 이어질 수 있음',state:'expected'}
+      ? {matchId:'',court:null,text:'예상 대진',detail:q.projectedDetail||'미편성 인원이 충분하면 이어질 수 있음',state:'expected'}
       : _dailyQueueStartInfo(idx);
     return {
       idx:idx+1,type:m.type,teamMode:!!(q.teamMode||m.teamMode),
@@ -3213,8 +3181,8 @@ function _dailyPublicEvent(){
   const policyDetail=queuedCount
     ? `다음 ${queuedCount}경기 준비됨 · 빈 코트는 선호 순서대로 사용합니다`
     : readyCount>=4
-      ? `대기풀 ${visibleReadyCount}명 · 대진 후보 ${readyCount}명`
-      : `대기풀 ${visibleReadyCount}명 · 후보 ${readyCount}명`;
+      ? `미편성 ${visibleReadyCount}명 · 대진 후보 ${readyCount}명`
+      : `미편성 ${visibleReadyCount}명 · 후보 ${readyCount}명`;
   return {
     mode:_dailyTeamMode?'team':'daily',
     teamMode:_dailyTeamMode,
@@ -3443,28 +3411,6 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailySetupDetails','dailySetupDetails')">코트 설정</button>`
     });
   }
-  if(flow.phase==='before'){
-    alerts.push({
-      cls:'primary',
-      title:`${flow.operating.startTime} 시작 예정`,
-      desc:'시작 전에는 자동 대진을 만들지 않습니다.',
-      actions:''
-    });
-  }else if(flow.phase==='closing'){
-    alerts.push({
-      cls:'warn',
-      title:'마감 준비',
-      desc:'다음 대진을 최소화합니다.',
-      actions:''
-    });
-  }else if(flow.phase==='closing-stop'||flow.phase==='closed'){
-    alerts.push({
-      cls:'warn',
-      title:'새 대진 중단',
-      desc:'진행 중인 경기만 마무리합니다.',
-      actions:''
-    });
-  }
   if(!alerts.length){
     if(area)area.hidden=true;
     el.innerHTML='';
@@ -3551,7 +3497,7 @@ function dailyRenderOpsStats(){
     {label:'대기선수',value:ready,hint:waitHint,cls:ready?'primary':'warn',target:'wait'},
     {label:'라이브 인원',value:flow.pool,hint:guestLive?`게스트 ${guestLive}`:flow.label,cls:flow.auto?'primary':'warn',target:'players'},
     {label:'휴식',value:rest,hint:rest?'60분 후 자동 종료':'없음',cls:rest?'warn':'primary',target:'rest'},
-    {label:'운영시간',value:`${operating.startTime}~${operating.endTime}`,hint:operating.label,cls:(operating.closingSoon||operating.ended)?'warn':'primary',target:'setup'}
+    {label:'시간 메모',value:'참고',hint:`${operating.startTime}~${operating.endTime}`,cls:'primary',target:'setup'}
   ];
   el.innerHTML=cards.map(x=>`<button type="button" class="daily-op ${x.cls||''} is-link" onclick="dailyOpenBoardTarget('${esc(x.target)}')" aria-label="${esc(x.label)} 보기"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></button>`).join('');
   dailyRenderStatusBar();
@@ -3581,7 +3527,7 @@ function dailyRenderStatusBar(){
   chips.push(`<span class="daily-sb-chip live">${stageLabel}</span>`);
   chips.push(`<span class="daily-sb-chip ${flowInfo.auto?'on':flowInfo.phase==='warmup'?'warn':'off'}">${flowInfo.label}</span>`);
   chips.push(`<span class="daily-sb-chip balance">${_dailyBalancePolicyText(flowInfo)}</span>`);
-  chips.push(`<span class="daily-sb-chip ${flowInfo.operating?.closingSoon?'warn':''}">${flowInfo.operating?.startTime||_dailyStartTime}~${flowInfo.operating?.endTime||_dailyEndTime}</span>`);
+  chips.push(`<span class="daily-sb-chip">시간 ${flowInfo.operating?.startTime||_dailyStartTime}~${flowInfo.operating?.endTime||_dailyEndTime}</span>`);
   chips.push(`<span class="daily-sb-chip">시작 ${flowInfo.pool}명</span>`);
   chips.push(`<span class="daily-sb-chip">${flowInfo.auto?`${flowInfo.operatingCourts}/${courts}`:courts}코트${free?` · 빈 ${free}`:''}</span>`);
   const stateChip=todo
@@ -5014,7 +4960,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.317&from=daily';
+  location.href='team.html?v=1.10.318&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

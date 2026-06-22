@@ -1802,6 +1802,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
   appearance:none;
   -webkit-appearance:none;
   width:100%;
+  padding-right:58px;
   text-align:left;
   font-family:inherit;
   cursor:pointer;
