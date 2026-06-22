@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.330';
+const APP_VERSION = '1.10.331';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2614,6 +2614,44 @@ function _dailyQueueReplacementCandidates(q,currentId){
       return a.name.localeCompare(b.name,'ko');
     });
 }
+function _dailyExpectedReplacementCandidates(q,currentId){
+  const cap=_dailyQueueCapacity();
+  const expected=_dailyProjectedQueue(_dailyExpectedQueueTarget(cap));
+  const current=_dailyPlayer(currentId);
+  const requiredTeam=(_dailyTeamMode&&current)?_dailyTeamSide(current):'';
+  const currentQueueIds=new Set(_dailyQueueIds(q));
+  const seen=new Set();
+  const out=[];
+  expected.forEach((item,expectedIdx)=>{
+    _dailyQueueIds(item).forEach(id=>{
+      if(id===currentId||currentQueueIds.has(id)||seen.has(id))return;
+      const p=_dailyPlayer(id);
+      if(!p||!DAILY_STATUS[p.status]?.eligible||p.currentMatchId)return;
+      if(requiredTeam&&p.team!==requiredTeam)return;
+      seen.add(id);
+      out.push({player:p,source:'expected',expectedIdx});
+    });
+  });
+  return out;
+}
+function _dailyTailQueueReplacementCandidates(q,currentId,idx){
+  const current=_dailyPlayer(currentId);
+  const requiredTeam=(_dailyTeamMode&&current)?_dailyTeamSide(current):'';
+  const currentQueueIds=new Set(_dailyQueueIds(q));
+  const out=[];
+  for(let sourceIdx=_dailyQueue.length-1;sourceIdx>idx;sourceIdx--){
+    const sourceQ=_dailyQueue[sourceIdx];
+    if(!sourceQ||sourceQ.reservationId)continue;
+    _dailyQueueIds(sourceQ).forEach(id=>{
+      if(id===currentId||currentQueueIds.has(id))return;
+      const p=_dailyPlayer(id);
+      if(!p||!DAILY_STATUS[p.status]?.eligible||p.currentMatchId)return;
+      if(requiredTeam&&p.team!==requiredTeam)return;
+      out.push({player:p,source:'tail',sourceIdx,sourceId:sourceQ.id});
+    });
+  }
+  return out;
+}
 function _dailyActiveReplacementCandidates(match,currentId){
   const blocked=new Set();
   _dailyActiveMatches().forEach(other=>{
@@ -2637,12 +2675,20 @@ function _dailyFindQueueReplacement(playerId){
   const loc=_dailyQueuedPlayerLocation(playerId);
   if(!loc)return null;
   const before={team1:[...(loc.q.team1||[])],team2:[...(loc.q.team2||[])]};
-  for(const candidate of _dailyQueueReplacementCandidates(loc.q,playerId)){
+  const direct=_dailyQueueReplacementCandidates(loc.q,playerId).map(player=>({player,source:'free'}));
+  const expected=_dailyExpectedReplacementCandidates(loc.q,playerId);
+  const tail=_dailyTailQueueReplacementCandidates(loc.q,playerId,loc.idx);
+  const candidates=[...direct,...expected,...tail];
+  const seen=new Set();
+  for(const item of candidates){
+    const candidate=item.player;
+    if(!candidate||seen.has(candidate.id))continue;
+    seen.add(candidate.id);
     loc.q[loc.side][loc.pos]=candidate.id;
     const ok=new Set(_dailyQueueIds(loc.q)).size===4&&_dailyQueueItemValid(loc.q,null);
     loc.q.team1=[...before.team1];
     loc.q.team2=[...before.team2];
-    if(ok)return {loc,candidate};
+    if(ok)return {loc,candidate,source:item.source,sourceIdx:item.sourceIdx,sourceId:item.sourceId};
   }
   loc.q.team1=[...before.team1];
   loc.q.team2=[...before.team2];
@@ -2658,6 +2704,9 @@ function _dailyTryReplaceQueuedPlayer(playerId,reason){
   }
   found.loc.q[found.loc.side][found.loc.pos]=found.candidate.id;
   _dailyRecalcQueueItem(found.loc.q);
+  if(found.source==='tail'&&found.sourceId){
+    _dailyQueue=_dailyQueue.filter(q=>q.id!==found.sourceId);
+  }
   return true;
 }
 function _dailyRemoveQueuedPlayer(playerId,reason){
@@ -5069,7 +5118,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.330&from=daily';
+  location.href='team.html?v=1.10.331&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
