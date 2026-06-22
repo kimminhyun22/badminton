@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.319';
+const APP_VERSION = '1.10.320';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3207,14 +3207,17 @@ function _dailyPublicEvent(){
     .filter(Boolean);
   const readyCount=_dailyEligible().length;
   const visibleReadyCount=_dailyStartedWaitingPlayers().length;
+  const assignedReadyIds=new Set();
+  [...next,...expected].forEach(item=>(item.playerIds||[]).forEach(id=>assignedReadyIds.add(id)));
+  const unassignedReadyCount=_dailyStartedWaitingPlayers().filter(p=>!assignedReadyIds.has(p.id)).length;
   const queuedCount=next.length;
   const expectedCount=expected.length;
   const deferredCount=_dailyDeferredWaitingPlayers().length;
   const policyDetail=queuedCount
     ? `다음 ${queuedCount}경기 준비됨 · 빈 코트는 선호 순서대로 사용합니다`
     : readyCount>=4
-      ? `미편성 ${visibleReadyCount}명 · 대진 후보 ${readyCount}명`
-      : `미편성 ${visibleReadyCount}명 · 후보 ${readyCount}명`;
+      ? `미편성 ${unassignedReadyCount}명 · 대진 후보 ${readyCount}명`
+      : `미편성 ${unassignedReadyCount}명 · 후보 ${readyCount}명`;
   return {
     mode:_dailyTeamMode?'team':'daily',
     teamMode:_dailyTeamMode,
@@ -3230,7 +3233,8 @@ function _dailyPublicEvent(){
       official,
       extra,
       free,
-      ready:visibleReadyCount,
+      ready:unassignedReadyCount,
+      readyTotal:visibleReadyCount,
       eligible:readyCount,
       deferred:deferredCount,
       queued:queuedCount,
@@ -4992,7 +4996,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.319&from=daily';
+  location.href='team.html?v=1.10.320&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
