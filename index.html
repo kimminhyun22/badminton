@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.327  (2026-06)
+     APP VERSION: 1.10.328  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.327">
+<meta name="app-version" content="1.10.328">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.327&from=daily'">민턴LIVE</button>
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.327&from=daily'">팀전LIVE</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.328&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.328&from=daily'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -91,10 +91,10 @@
           <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 시작·휴식·종료 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.327&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.328&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.327</small>
+          <small>팀전LIVE 최신판 v1.10.328</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -468,16 +468,6 @@
             <label>선호 코트 순서</label>
             <div id="dailyCourtOrderBox" class="daily-court-pref-list"></div>
           </div>
-          <div class="setting-grid" style="grid-template-columns:1fr 1fr;margin-top:10px;">
-            <div class="si">
-              <label>시작 메모</label>
-              <input class="dir-input" id="dailyStartTime" type="time" value="19:00" onchange="dailyUpdateOperatingHours()">
-            </div>
-            <div class="si">
-              <label>종료 메모</label>
-              <input class="dir-input" id="dailyEndTime" type="time" value="22:00" onchange="dailyUpdateOperatingHours()">
-            </div>
-          </div>
         </div>
 	      </div>
 
@@ -500,7 +490,6 @@
             </div>
             <div class="daily-dashboard-head-actions">
               <div class="daily-state-pill" id="dailyFlowState"><span class="daily-dot"></span> 정상 운영</div>
-              <button class="daily-reset-top" onclick="dailyReset()">전체 초기화</button>
             </div>
           </div>
           <div class="daily-ops-grid" id="dailyOpsStats"></div>
@@ -519,6 +508,7 @@
 	          <div class="daily-dashboard-actions" style="margin-bottom:10px;">
 	            <button class="daily-mini-btn" onclick="dailyShareCheckinLink()">링크 공유</button>
 	            <button class="daily-mini-btn danger" onclick="dailyStopCheckinLink()">링크 종료</button>
+	            <button class="daily-mini-btn danger" onclick="dailyReset()">데이터 초기화</button>
 	          </div>
 	          <div id="dailyCheckinBox" class="daily-empty">링크 없음</div>
 	        </div>
@@ -538,21 +528,12 @@
 
       <div class="card daily-primary-card daily-urgent-card">
         <div class="card-head" id="dailyUrgentCard">
-          <span class="card-title">다음 대진</span>
+          <span class="card-title">다음·예상 대진</span>
         </div>
         <div class="card-body">
           <div id="dailyUrgentBox" class="daily-empty">4명부터 자동</div>
         </div>
       </div>
-
-	      <details class="card" id="dailyUnscheduledDetails">
-	        <summary class="card-head" id="dailyFreeWaitCard">
-	          <span class="card-title">대기선수</span>
-	        </summary>
-	        <div class="card-body">
-	          <div id="dailyUnscheduledBox" class="daily-empty">대기 없음</div>
-	        </div>
-	      </details>
 
       <details class="card" id="dailyResultDetails">
         <summary class="card-head" id="dailyResultCard">
@@ -863,7 +844,7 @@
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>명부 불러오기</strong> — 오늘 올 회원을 가져오고 단톡방에 링크를 공유합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>코트 수 확인</strong> — 실제 사용할 코트 수만 맞춰둡니다. 코트가 남으면 선호 코트부터 사용합니다.</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>상황판 확인</strong> — 진행중, 다음 대진, 대기선수만 봅니다. 특이 상황이 있을 때만 수정합니다.</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>상황판 확인</strong> — 진행중, 다음 대진, 예상 대진, 회원 요청만 봅니다. 특이 상황이 있을 때만 수정합니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>종료 처리</strong> — 코트가 끝나면 종료만 누릅니다. 방금 뛴 선수는 휴식으로 돌아가고 다음 대진이 보충됩니다.</p></div>
     </div>
   </div>
@@ -980,7 +961,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.327</span>
+  <span class="app-version" id="appVersion">v1.10.328</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
