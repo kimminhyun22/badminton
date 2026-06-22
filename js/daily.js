@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.324';
+const APP_VERSION = '1.10.325';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -665,7 +665,25 @@ function _dailyReservationStatus(r){
   const reservedQueued=ids.filter(p=>_dailyIsLockedQueued(p.id));
   if(reservedQueued.length)return {cls:'queued',text:`다른 신청대기 포함: ${reservedQueued.map(_dailyNameText).join(', ')}`,ready:false};
   const blocked=ids.filter(p=>!DAILY_STATUS[p.status]?.eligible||p.currentMatchId);
-  if(blocked.length)return {cls:'',text:`시작 상태 아님: ${blocked.map(_dailyNameText).join(', ')}`,ready:false};
+  if(blocked.length){
+    const playing=blocked.filter(p=>p.currentMatchId||_dailyNormalizeStatus(p.status)==='playing');
+    if(playing.length){
+      const names=playing.map(p=>`${_dailyNameText(p)}님`).join(', ');
+      const subject=playing.length===1?names:`${names} 모두`;
+      return {
+        cls:'waiting-player',
+        text:'상대 경기 중',
+        detail:`${subject} 경기 종료 후 신청 대진으로 우선 배정돼요.`,
+        ready:false
+      };
+    }
+    return {
+      cls:'blocked',
+      text:`시작 상태 아님: ${blocked.map(_dailyNameText).join(', ')}`,
+      detail:'모두 시작 상태가 되면 기존 다음 대진 뒤 빈 순서에 자동 반영돼요.',
+      ready:false
+    };
+  }
   if(r.mode==='pair'){
     const heldByOthers=_dailyReservationHeldIds(r.id);
     const pool=_dailyEligible().filter(p=>!ids.some(x=>x.id===p.id)&&!heldByOthers.has(p.id));
@@ -3690,6 +3708,7 @@ function _dailyCheckinPayload(){
         team2:[...(r.team2||[])],
         label:_dailyReservationLabel(r),
         statusText:status.text||'예약 대기 중',
+        statusDetail:status.detail||'',
         statusClass:status.cls||'',
         ready:!!status.ready,
         createdAt:r.createdAt||0
@@ -4998,7 +5017,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.324&from=daily';
+  location.href='team.html?v=1.10.325&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
