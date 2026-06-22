@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.344  (2026-06)
+     APP VERSION: 1.10.345  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.344">
+<meta name="app-version" content="1.10.345">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.344&from=daily'">민턴LIVE</button>
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.344&from=daily'">팀전LIVE</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.345&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.345&from=daily'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -91,10 +91,10 @@
           <span>평소 운동의 기본 화면입니다. 클럽 명부를 가져오고 시작·휴식·종료 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 운영</small>
         </button>
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.344&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.345&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
-          <small>팀전LIVE 최신판 v1.10.344</small>
+          <small>팀전LIVE 최신판 v1.10.345</small>
         </button>
       </div>
       <div class="operation-hint" id="operationModeHint">
@@ -437,11 +437,11 @@
       </div>
 
       <div class="card">
-        <div class="card-head"><span class="card-title">코트 설정</span></div>
+        <div class="card-head"><span class="card-title">사용 코트 수</span></div>
         <div class="card-body">
           <div class="setting-grid" style="grid-template-columns:1fr;">
             <div class="si">
-              <label>사용 코트 수</label>
+              <label>오늘 사용할 코트</label>
               <div class="stepper">
                 <button class="stepper-btn" onclick="dailyStepCourts(-1)">−</button>
                 <input type="number" id="dailyCourts" value="3" min="1" max="12" readonly>
@@ -449,27 +449,8 @@
               </div>
             </div>
           </div>
-          <div class="setting-grid" style="grid-template-columns:1fr;margin-top:10px;">
-            <div class="si">
-              <label>체육관 이름</label>
-              <input class="dir-input" id="dailyGymName" type="text" placeholder="예) 월곡체육관" onchange="dailyUpdateGymName()">
-            </div>
-          </div>
-          <div class="daily-gym-tools">
-            <select class="daily-select" id="dailyGymSelect" onchange="dailyLoadGymPreset(this.value)">
-              <option value="">저장된 체육관 불러오기</option>
-            </select>
-            <div class="daily-gym-actions">
-              <button class="daily-mini-btn" type="button" onclick="dailySaveGymPreset()">현재 설정 저장</button>
-              <button class="daily-mini-btn danger" type="button" onclick="dailyDeleteGymPreset()">삭제</button>
-            </div>
-          </div>
-          <div class="si daily-court-pref-wrap">
-            <label>선호 코트 순서</label>
-            <div id="dailyCourtOrderBox" class="daily-court-pref-list"></div>
-          </div>
         </div>
-	      </div>
+		      </div>
 
 	        </div>
 	        </div>
@@ -868,7 +849,7 @@
     <h2>🚀 관리자 4단계</h2>
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>명부 불러오기</strong> — 오늘 올 회원을 가져오고 단톡방에 링크를 공유합니다.</p></div>
-      <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>코트 수 확인</strong> — 실제 사용할 코트 수만 맞춰둡니다. 코트가 남으면 선호 코트부터 사용합니다.</p></div>
+      <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>코트 수 확인</strong> — 실제 사용할 코트 수만 맞춰둡니다. 남는 코트는 비워두고 회원들이 자유롭게 사용합니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>상황판 확인</strong> — 진행중 코트와 다음·예상 대진 흐름만 봅니다. 입장 준비처럼 바로 판단할 일만 알림으로 표시됩니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>종료 처리</strong> — 코트가 끝나면 종료만 누릅니다. 방금 뛴 선수는 휴식으로 돌아가고 다음 대진이 보충됩니다.</p></div>
     </div>
@@ -986,7 +967,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.344</span>
+  <span class="app-version" id="appVersion">v1.10.345</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

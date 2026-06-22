@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.344';
+const APP_VERSION = '1.10.345';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -234,7 +234,6 @@ function openManual(){
 
 /* ═══ DAILY MODE: 민턴LIVE 실시간 추천 ═══ */
 const DAILY_KEY='kokmatch_daily_v1';
-const DAILY_GYMS_KEY='kokmatch_daily_gyms_v1';
 const DAILY_CHECKIN_KEY='kokmatch_daily_checkin_id';
 const DAILY_CHECKIN_CREATED_KEY='kokmatch_daily_checkin_created_at';
 const DAILY_MATCH_MINUTES=15;
@@ -288,7 +287,6 @@ let _dailyVoteDeadlineAt='';
 let _dailyStartTime='19:00';
 let _dailyEndTime='22:00';
 let _dailyCourtOrder=[];
-let _dailyGymName='';
 let _dailyManualActiveDraft={mode:'manual',court:null,ids:[],registeredCount:0};
 let _dailyEmergencyEditQueueId=null;
 let _dailyLastCompleteUndo=null;
@@ -1164,7 +1162,7 @@ function _dailyNormalizeCourtOrder(order,count){
 }
 function _dailyCourtOrderForUse(limit){
   const count=_dailyCourtCount();
-  _dailyCourtOrder=_dailyNormalizeCourtOrder(_dailyCourtOrder,count);
+  _dailyCourtOrder=_dailyDefaultCourtOrder(count);
   const cap=limit==null?count:Math.max(0,Math.min(count,parseInt(limit)||0));
   return cap?_dailyCourtOrder.slice(0,cap):[];
 }
@@ -1211,7 +1209,7 @@ function _dailyNaturalAutoInfo(){
     hint=`${courts}코트 기준으로 진행`;
   }else if(_dailyFinishMode){
     const queued=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)).length;
-    if(active||queued){
+    if(queued){
       auto=true;
       operatingCourts=courts;
       phase='finish';
@@ -1219,8 +1217,8 @@ function _dailyNaturalAutoInfo(){
       hint=queued?`남은 대진 ${queued}경기`:'새 대진 없음';
     }else{
       phase='finished';
-      label='운영 종료';
-      hint='새 대진 없음';
+      label='자율게임 전환';
+      hint='새 자동대진 없음 · 빈 코트 자유 사용';
     }
   }else if(!_dailyOperationStarted&&!_dailyAutoAssign){
     phase='free';
@@ -1678,8 +1676,7 @@ function dailySave(){
       voteDeadlineAt:_dailyVoteDeadlineAt,
       operatingStart:_dailyStartTime,
       operatingEnd:_dailyEndTime,
-      courtOrder:_dailyCourtOrderForUse(),
-      gymName:_dailyGymName,
+      courtOrder:_dailyDefaultCourtOrder(_dailyCourtCount()),
       players:_dailyPlayers,
       matches:_dailyMatches,
       queue:_dailyQueue,
@@ -1703,9 +1700,7 @@ function _dailySavedDateLabel(ts){
 function _dailySyncControls(courts){
   const c=document.getElementById('dailyCourts');
   if(c)c.value=courts||3;
-  _dailyCourtOrder=_dailyNormalizeCourtOrder(_dailyCourtOrder,courts||3);
-  const gymEl=document.getElementById('dailyGymName');
-  if(gymEl&&gymEl.value!==_dailyGymName)gymEl.value=_dailyGymName||'';
+  _dailyCourtOrder=_dailyDefaultCourtOrder(courts||3);
   const autoEl=document.getElementById('dailyAutoAssign');
   if(autoEl)autoEl.checked=_dailyAutoAssign;
   const autoTopEl=document.getElementById('dailyAutoAssignTop');
@@ -1717,127 +1712,9 @@ function _dailySyncControls(courts){
   const endEl=document.getElementById('dailyEndTime');
   if(endEl)endEl.value=_dailyEndTime||'22:00';
   dailyRenderCourtSettings();
-  dailyRenderGymPresets();
-}
-function _dailyGymPresets(){
-  try{
-    const raw=JSON.parse(localStorage.getItem(DAILY_GYMS_KEY)||'[]');
-    if(!Array.isArray(raw))return [];
-    return raw.filter(g=>g&&g.name).map(g=>({
-      name:String(g.name||'').trim(),
-      courts:Math.max(1,Math.min(12,parseInt(g.courts)||3)),
-      courtOrder:_dailyNormalizeCourtOrder(g.courtOrder||[],g.courts||3),
-      startTime:_dailyNormalizeTimeValue(g.startTime||g.operatingStart,'19:00'),
-      endTime:_dailyNormalizeTimeValue(g.endTime||g.operatingEnd,'22:00'),
-      savedAt:g.savedAt||0
-    })).filter(g=>g.name);
-  }catch(e){return [];}
-}
-function _dailySaveGymPresets(list){
-  const dedup=[];
-  const seen=new Set();
-  (list||[]).forEach(g=>{
-    const key=String(g.name||'').trim();
-    if(!key||seen.has(key))return;
-    seen.add(key);
-    dedup.push({
-      name:key,
-      courts:Math.max(1,Math.min(12,parseInt(g.courts)||3)),
-      courtOrder:_dailyNormalizeCourtOrder(g.courtOrder||[],g.courts||3),
-      startTime:_dailyNormalizeTimeValue(g.startTime,'19:00'),
-      endTime:_dailyNormalizeTimeValue(g.endTime,'22:00'),
-      savedAt:g.savedAt||_dailyNow()
-    });
-  });
-  localStorage.setItem(DAILY_GYMS_KEY,JSON.stringify(dedup.sort((a,b)=>a.name.localeCompare(b.name,'ko'))));
-}
-function dailyUpdateGymName(){
-  _dailyGymName=(document.getElementById('dailyGymName')?.value||'').trim();
-  dailySave();
-  dailyRenderGymPresets();
-}
-function dailyMoveCourtPreference(court,delta){
-  const order=_dailyCourtOrderForUse();
-  const idx=order.indexOf(parseInt(court,10));
-  const next=idx+parseInt(delta,10);
-  if(idx<0||next<0||next>=order.length)return;
-  const tmp=order[idx];
-  order[idx]=order[next];
-  order[next]=tmp;
-  _dailyCourtOrder=order;
-  dailySave();
-  dailyRender();
-  dailyMaybeAutoAssign();
-}
-function dailyResetCourtOrder(){
-  _dailyCourtOrder=_dailyDefaultCourtOrder(_dailyCourtCount());
-  dailySave();
-  dailyRender();
-  dailyMaybeAutoAssign();
 }
 function dailyRenderCourtSettings(){
-  const box=document.getElementById('dailyCourtOrderBox');
-  if(!box)return;
-  const order=_dailyCourtOrderForUse();
-  box.innerHTML=order.map((court,idx)=>`<div class="daily-court-pref-chip">
-    <b>${idx+1}</b><span>${court}코트</span>
-    <button type="button" title="앞으로" ${idx===0?'disabled':''} onclick="dailyMoveCourtPreference(${court},-1)">‹</button>
-    <button type="button" title="뒤로" ${idx===order.length-1?'disabled':''} onclick="dailyMoveCourtPreference(${court},1)">›</button>
-  </div>`).join('')+`<button class="daily-court-pref-reset" type="button" onclick="dailyResetCourtOrder()">초기화</button>`;
-}
-function dailyRenderGymPresets(){
-  const select=document.getElementById('dailyGymSelect');
-  if(!select)return;
-  const presets=_dailyGymPresets();
-  const current=_dailyGymName||'';
-  select.innerHTML=`<option value="">저장된 체육관 불러오기</option>`+presets.map(g=>`<option value="${esc(g.name)}" ${g.name===current?'selected':''}>${esc(g.name)} · ${g.courts}코트</option>`).join('');
-}
-function dailySaveGymPreset(){
-  const name=(document.getElementById('dailyGymName')?.value||_dailyGymName||'').trim();
-  if(!name){
-    alert('체육관 이름을 입력해 주세요.');
-    document.getElementById('dailyGymName')?.focus();
-    return;
-  }
-  _dailyGymName=name;
-  const presets=_dailyGymPresets().filter(g=>g.name!==name);
-  presets.push({
-    name,
-    courts:_dailyCourtCount(),
-    courtOrder:_dailyCourtOrderForUse(),
-    startTime:_dailyStartTime,
-    endTime:_dailyEndTime,
-    savedAt:_dailyNow()
-  });
-  _dailySaveGymPresets(presets);
-  dailySave();
-  _dailySyncControls(_dailyCourtCount());
-  alert(`${name} 설정을 저장했습니다.`);
-}
-function dailyLoadGymPreset(name){
-  name=String(name||'').trim();
-  if(!name)return;
-  const preset=_dailyGymPresets().find(g=>g.name===name);
-  if(!preset)return;
-  _dailyGymName=preset.name;
-  _dailyStartTime=preset.startTime||'19:00';
-  _dailyEndTime=preset.endTime||'22:00';
-  _dailyCourtOrder=_dailyNormalizeCourtOrder(preset.courtOrder||[],preset.courts||3);
-  _dailySyncControls(preset.courts||3);
-  dailyEnsureQueue();
-  dailySave();
-  dailyRender();
-  dailyMaybeAutoAssign();
-}
-function dailyDeleteGymPreset(){
-  const select=document.getElementById('dailyGymSelect');
-  const name=(select?.value||_dailyGymName||'').trim();
-  if(!name)return alert('삭제할 체육관 설정을 선택해 주세요.');
-  if(!confirm(`${name} 체육관 설정을 삭제할까요?`))return;
-  _dailySaveGymPresets(_dailyGymPresets().filter(g=>g.name!==name));
-  if(_dailyGymName===name)_dailyGymName='';
-  dailySave();
-  _dailySyncControls(_dailyCourtCount());
+  _dailyCourtOrder=_dailyDefaultCourtOrder(_dailyCourtCount());
 }
 function _dailyLoadAsNewDay(s){
   const now=_dailyNow();
@@ -1859,8 +1736,7 @@ function _dailyLoadAsNewDay(s){
   _dailyVoteDeadlineAt='';
   _dailyStartTime=s.operatingStart||_dailyStartTime||'19:00';
   _dailyEndTime=s.operatingEnd||_dailyEndTime||'22:00';
-  _dailyCourtOrder=_dailyNormalizeCourtOrder(s.courtOrder||[],s.courts||3);
-  _dailyGymName=s.gymName||'';
+  _dailyCourtOrder=_dailyDefaultCourtOrder(s.courts||3);
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _dailyPairSelectId=null;
   if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
@@ -1907,8 +1783,7 @@ function dailyLoad(){
     _dailyVoteDeadlineAt=s.voteDeadlineAt||'';
     _dailyStartTime=s.operatingStart||'19:00';
     _dailyEndTime=s.operatingEnd||'22:00';
-    _dailyCourtOrder=_dailyNormalizeCourtOrder(s.courtOrder||[],s.courts||3);
-    _dailyGymName=s.gymName||'';
+    _dailyCourtOrder=_dailyDefaultCourtOrder(s.courts||3);
     _dailyCheckinId=s.checkinId||localStorage.getItem(DAILY_CHECKIN_KEY)||null;
     _dailyCheckinCreatedAt=s.checkinCreatedAt||parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||(_dailyCheckinId?(s.savedAt||_dailyNow()):0);
     if(_dailyCheckinId){
@@ -1982,7 +1857,6 @@ function dailyApplyReviewSample(){
   _dailyStartTime='19:00';
   _dailyEndTime='22:00';
   _dailyCourtOrder=[1,2,3];
-  _dailyGymName='샘플 체육관';
   _dailyCheckinId='DFAKE201';
   _dailyCheckinCreatedAt=now;
   _dailyCheckinRequests=[];
@@ -1997,7 +1871,7 @@ function dailyStepCourts(delta){
   const el=document.getElementById('dailyCourts');
   if(!el)return;
   el.value=Math.max(1,Math.min(12,(parseInt(el.value)||3)+delta));
-  _dailyCourtOrder=_dailyNormalizeCourtOrder(_dailyCourtOrder,parseInt(el.value)||3);
+  _dailyCourtOrder=_dailyDefaultCourtOrder(parseInt(el.value)||3);
   _dailySyncControls(parseInt(el.value)||3);
   dailySave();
   dailyRender();
@@ -3722,8 +3596,11 @@ function _dailyPublicEvent(){
   const queuedCount=next.length;
   const expectedCount=expected.length;
   const deferredCount=_dailyDeferredWaitingPlayers().length;
-  const policyDetail=queuedCount
-    ? (_dailyFinishMode?`남은 대진 ${queuedCount}경기`:`다음 ${queuedCount}경기 준비됨 · 빈 코트는 선호 순서대로 사용합니다`)
+  const finishComplete=!!(_dailyFinishMode&&!queuedCount);
+  const policyDetail=finishComplete
+    ? '마무리 완료 · 빈 코트는 자율게임'
+    : queuedCount
+    ? (_dailyFinishMode?`남은 대진 ${queuedCount}경기`:`다음 ${queuedCount}경기 준비됨`)
     : readyCount>=4
       ? (_dailyFinishMode?'새 대진 없음':`미편성 ${unassignedReadyCount}명 · 대진 후보 ${readyCount}명`)
       : (_dailyFinishMode?'새 대진 없음':`미편성 ${unassignedReadyCount}명 · 후보 ${readyCount}명`);
@@ -3752,7 +3629,8 @@ function _dailyPublicEvent(){
       expected:expectedCount,
       short:!!cap.short,
       finishMode:_dailyFinishMode,
-      label:_dailyFinishMode?'마무리':_dailyBalancePolicyText(flowInfo),
+      finishComplete,
+      label:finishComplete?'자율게임 전환':(_dailyFinishMode?'마무리':_dailyBalancePolicyText(flowInfo)),
       detail:policyDetail
     },
     active,
@@ -3890,6 +3768,14 @@ function dailyRenderAdminAlerts(){
   const activeMatches=_dailyActiveMatches();
   const endingMatches=activeMatches.filter(m=>['soon','due'].includes(_dailyTimerState(m))).sort((a,b)=>(a.court||0)-(b.court||0));
   const readyQueue=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q)).length;
+  if(_dailyFinishMode&&!readyQueue){
+    alerts.push({
+      cls:'primary',
+      title:'자율게임 전환',
+      desc:'새 자동대진은 없습니다. 남은 회원은 빈 코트에서 자유게임으로 진행하세요.',
+      actions:''
+    });
+  }
   if(_dailyLastCompleteUndo&&_dailyNow()<=_dailyLastCompleteUndo.expiresAt){
     const remain=Math.max(1,Math.ceil((_dailyLastCompleteUndo.expiresAt-_dailyNow())/1000));
     alerts.push({
@@ -3998,6 +3884,7 @@ function dailyRenderOpsStats(){
   const cap=_dailyQueueCapacity();
   const expectedCount=_dailyProjectedQueue(_dailyExpectedQueueTarget(cap)).length;
   const flow=_dailyNaturalAutoInfo();
+  const finishComplete=!!(_dailyFinishMode&&!locked);
   const courtHint=endingSoon
     ? `${endingSoon}코트 종료임박`
     : active
@@ -4016,7 +3903,7 @@ function dailyRenderOpsStats(){
       : flow.label;
   const cards=[
     {label:'진행',value:`${active}/${courts}`,hint:courtHint,cls:'primary',target:'active'},
-    {label:'대진',value:_dailyFinishMode?(locked||0):(flow.auto?queueValue:(_dailyOperationStarted?'대기':'시작 전')),hint:_dailyFinishMode?(locked?`남은 ${locked}경기`:'새 대진 없음'):queueHint,cls:'primary',target:'queue'},
+    {label:'대진',value:_dailyFinishMode?(locked||0):(flow.auto?queueValue:(_dailyOperationStarted?'대기':'시작 전')),hint:_dailyFinishMode?(finishComplete?'자율게임':(locked?`남은 ${locked}경기`:'새 대진 없음')):queueHint,cls:'primary',target:'queue'},
     {label:'라이브',value:flow.pool,hint:liveHint,cls:flow.auto?'primary':'warn',target:'players'}
   ];
   el.innerHTML=cards.map(x=>`<button type="button" class="daily-op ${x.cls||''} is-link" onclick="dailyOpenBoardTarget('${esc(x.target)}')" aria-label="${esc(x.label)} 보기"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></button>`).join('');
@@ -4637,7 +4524,6 @@ function dailyRender(){
   if(queueChanged)dailySave();
   dailyRenderClosingSchedule();
   dailyRenderCourtSettings();
-  dailyRenderGymPresets();
   dailyRenderTeamControls();
   dailyRenderTeamRoster();
   dailyRenderOpsStats();
@@ -5479,7 +5365,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.344&from=daily';
+  location.href='team.html?v=1.10.345&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

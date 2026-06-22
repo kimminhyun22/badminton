@@ -1106,6 +1106,8 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   border-color:#f1cdcf;
   background:#fff7f7;
 }
+.event-row.finish{border-color:#bbf7d0;background:#f0fdf4;}
+.event-row.finish .event-cue{color:#166534;}
 .event-row.next .event-row-main{
   grid-template-columns:auto minmax(0,1fr);
   gap:10px;
@@ -1368,7 +1370,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.344</span>
+    <span class="version-chip" id="appVersion">v1.10.345</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="balance-policy hidden" id="balancePolicy"></div>
     <div class="last-sent hidden" id="lastSent"></div>
@@ -1413,7 +1415,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
-const APP_VERSION='1.10.344';
+const APP_VERSION='1.10.345';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1597,7 +1599,7 @@ function sampleSession(){
         official:4,
         free:0,
         label:'4코트 기준 · 밸런스 보호 중',
-        detail:'다음 2경기 준비됨 · 빈 코트는 선호 순서대로 사용합니다'
+        detail:'다음 2경기 준비됨'
       },
       updatedAt:now,
       active:[
@@ -2014,7 +2016,8 @@ function renderEvent(){
   if(!el)return;
   const ev=session?.event;
   const nextList=eventNextList();
-  const has=ev&&(ev.activeCount||ev.completed||nextList.length);
+  const finishComplete=!!(ev?.finishMode&&(ev.queuePolicy?.finishComplete||!nextList.length));
+  const has=ev&&(ev.activeCount||ev.completed||nextList.length||finishComplete);
   if(!has){
     el.className='panel event-panel hidden';
     el.innerHTML='';
@@ -2089,8 +2092,17 @@ function renderEvent(){
     </div>
     <em>${esc(lastComplete.remainingSec)}초</em>
   </div>`:'';
+  const finishNotice=finishComplete?`<div class="event-row finish">
+    <div class="event-row-main full">
+      <div>
+        <div class="event-match-title">민턴LIVE 마무리</div>
+        <small class="event-cue">새 자동대진은 없습니다. 빈 코트는 자유롭게 사용하세요.</small>
+      </div>
+    </div>
+  </div>`:'';
   el.innerHTML=`<div class="event-title"><b>민턴LIVE 현황</b><span>${esc(updated)} 업데이트</span></div>
     <div>${summary}</div>
+    ${finishNotice}
     ${next||undo?`<div class="event-section-title">다음 대진</div><div class="event-list">${undo}${next}</div>`:''}
     ${expected?`<div class="event-section-title">예상 대진</div><div class="event-list">${expected}</div>`:''}
     ${active?`<div class="event-section-title">진행중 코트</div><div class="event-list">${active}</div>`:''}`;
