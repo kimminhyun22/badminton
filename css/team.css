@@ -71,6 +71,20 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .wrap{max-width:1200px;margin:0 auto;padding:22px 18px;}
 .two-col{display:grid;grid-template-columns:350px 1fr;gap:16px;align-items:start;}
 @media(max-width:900px){.two-col{grid-template-columns:1fr;}}
+#resultArea:not(.hidden){display:flex;flex-direction:column;}
+#scoreboardSec{order:1;}
+#teamLiveActionRow{order:2;}
+#liveOpsSummary{order:3;}
+#sec-bracket{order:4;}
+#sec-quality{order:5;}
+@media(max-width:900px){
+  #pageMain .two-col>div:first-child{display:contents;}
+  #autoFlowCard{order:0;}
+  #resultArea{order:1;}
+  #sec-rsvp{order:2;}
+  #sec-players{order:3;}
+  #sec-settings{order:4;}
+}
 
 /* ── CARD ── */
 .card{background:#ffffff;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow);}

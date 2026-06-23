@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.355';
+const APP_VERSION = '1.10.356';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5967,7 +5967,7 @@ function teamLiveOpenPanel(target){
     players:{tab:'players',id:'sec-players',open:'sec-players'},
     team:{tab:'players',id:'sec-players',open:'sec-players'},
     settings:{tab:'bracket',id:'sec-settings',open:'sec-settings'},
-    bracket:{tab:'bracket',id:'resultArea'},
+    bracket:{tab:'bracket',id:'sec-bracket'},
     scoreboard:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'},
     live:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'}
   };
@@ -6013,23 +6013,16 @@ function renderAutoFlowDashboard(){
     const matches=currentMatches.length;
     const done=matches?currentMatches.filter((_,i)=>_isMatchDone(i)).length:0;
     const live=!!_liveOn;
-    const scoreCounts=_teamLiveScoreCounts();
-    const blueWins=matches?scoreCounts.blueWins:0;
-    const whiteWins=matches?scoreCounts.whiteWins:0;
     const blue=teamAssignment?.blue||[];
     const white=teamAssignment?.white||[];
     const genderCount=arr=>({m:arr.filter(p=>p.gender==='M'||p.gender==='남').length,f:arr.filter(p=>p.gender==='F'||p.gender==='여').length});
     const bg=genderCount(blue), wg=genderCount(white);
     let currentRound='-';
     let currentRoundNum=null;
-    let currentRoundRows=[];
     if(matches){
       const rounds=[...new Set(currentMatches.map(m=>m.round))].sort((a,b)=>a-b);
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
-      currentRoundRows=currentRoundNum
-        ? currentMatches.map((m,i)=>({m,i})).filter(row=>row.m.round===currentRoundNum)
-        : [];
     }
     const rsvpBits=[
       counts.plan?`늦음 ${counts.plan}`:'',
@@ -6053,7 +6046,7 @@ function renderAutoFlowDashboard(){
     let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부 선택'};
     if(live){
       stage='live';
-      cfg={badge:'진행 중',title:'팀전LIVE 상황판',sub:currentRound==='완료'?'결과 확인':'승패 입력'};
+      cfg={badge:'진행 중',title:'팀전LIVE 상황판',sub:currentRound==='완료'?'결과 확인':'진행 상황'};
     } else if(matches){
       stage='broadcast';
       cfg={badge:'시작 전',title:'팀전LIVE 상황판',sub:'팀전LIVE 시작'};
@@ -6094,7 +6087,7 @@ function renderAutoFlowDashboard(){
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate','품질 자동 확인'),
       broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림'),
-      live:_autoFlowAction(remaining?'승패 입력':'결과 확인','teamLiveOpenScoreboard',remaining?`${remaining}경기 남음`:'모든 승패 입력됨')
+      live:''
     }[stage]||'';
     const stageGuide={
       roster:{k:'1. 명부 불러오기',t:'오늘 팀전에 사용할 명부를 먼저 선택하세요.'},
@@ -6128,27 +6121,7 @@ function renderAutoFlowDashboard(){
       </div>`;
     if(live){
       body.innerHTML=`
-        <div class="auto-flow-live-score" role="button" tabindex="0" onclick="teamLiveOpenPanel('scoreboard')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();teamLiveOpenPanel('scoreboard');}">
-          <div>
-            <span>${esc(teamNames.blue||'청 팀')}</span>
-            <b>${blueWins}</b>
-          </div>
-          <em>${currentRound==='완료'?'완료':'진행'}</em>
-          <div>
-            <span>${esc(teamNames.white||'홍 팀')}</span>
-            <b>${whiteWins}</b>
-          </div>
-        </div>
-        <div class="auto-flow-board live-board">${boardHtml}</div>
-        <div class="auto-flow-match-section">
-          <div class="auto-flow-match-head">
-            <b>진행 중 대진</b>
-            <span>${esc(currentRound)}</span>
-          </div>
-          <div class="auto-flow-match-list">${_teamLiveMatchListHtml(currentRoundRows,currentRound==='완료'?'모든 승패 입력이 끝났습니다.':'진행 중인 라운드가 없습니다.')}</div>
-        </div>
-        ${actionHtml}
-        `;
+        <div class="auto-flow-board live-board">${boardHtml}</div>`;
     }else{
       body.innerHTML=`
         <div class="auto-flow-focus">
@@ -7249,7 +7222,7 @@ function switchMobileTab(tab){
   if(isMobile()){
     const targetMap = {
       players: 'sec-players',
-      bracket: 'resultArea',
+      bracket: 'sec-bracket',
     };
     const targetId = targetMap[tab];
     const el = document.getElementById(targetId);
@@ -7273,7 +7246,7 @@ function updateActiveBnavByScroll(){
   if(!isMobile()) return;
   const sections = [
     {id:'scoreboardSec', tab:'result'},
-    {id:'resultArea',    tab:'bracket'},
+    {id:'sec-bracket',   tab:'bracket'},
     {id:'sec-players',   tab:'players'},
     {id:'autoFlowCard',  tab:'dashboard'},
   ];
