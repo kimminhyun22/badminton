@@ -1520,23 +1520,9 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
 .auto-flow-panel.live .auto-flow-panel-title,.auto-flow-panel.live .auto-flow-panel-note{color:#be123c;}
 .auto-flow-panel.is-link{
   position:relative;
-  padding-right:40px;
   cursor:pointer;
 }
 .auto-flow-panel.is-link:active{transform:translateY(1px);}
-.auto-flow-panel-go{
-  position:absolute;
-  top:9px;
-  right:9px;
-  padding:2px 7px;
-  border:1px solid #e2e8f0;
-  border-radius:999px;
-  background:#fbfdff;
-  color:#64748b;
-  font-size:.54rem;
-  font-weight:1000;
-  line-height:1.2;
-}
 .auto-flow-check{
   background:rgba(255,255,255,.82);border-color:#dbeafe;color:#64748b;
 }
@@ -2642,7 +2628,10 @@ header,.nav-bar{
   font-style:normal;
   font-weight:1000;
 }
-.auto-flow-board.live-board{margin-top:0;}
+.auto-flow-board.live-board{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  margin-top:0;
+}
 .auto-flow-match-section{
   margin-top:10px;
   padding:12px;
@@ -2656,6 +2645,21 @@ header,.nav-bar{
   justify-content:space-between;
   gap:10px;
   margin-bottom:9px;
+}
+
+@media(max-width:720px){
+  .auto-flow-board.live-board{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .auto-flow-board.live-board .auto-flow-panel{
+    padding:10px 7px;
+  }
+  .auto-flow-board.live-board .auto-flow-panel-value{
+    font-size:1.12rem;
+  }
+  .auto-flow-board.live-board .auto-flow-panel-note{
+    font-size:.68rem;
+  }
 }
 .auto-flow-match-head b{
   color:#172033;

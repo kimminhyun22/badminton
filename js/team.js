@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.352';
+const APP_VERSION = '1.10.353';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2048,6 +2048,7 @@ function updateScores(){
   // 참가자 현황 테이블 갱신 (승패 컬럼 반영)
   if(_ptParticipants.length) renderPlayersTable();
   updateCurrentRoundHighlight();
+  if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
   scheduleSave();
   pushLiveState();
 }
@@ -5834,7 +5835,6 @@ function _autoFlowPanel(title,value,note,cls='',target=''){
     ? ` role="button" tabindex="0" onclick="teamLiveOpenPanel('${safeTarget}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();teamLiveOpenPanel('${safeTarget}');}" aria-label="${esc(title)} 보기"`
     : '';
   return `<div class="auto-flow-panel ${esc(cls)}${interactive?' is-link':''}"${attrs}>
-    ${interactive?'<div class="auto-flow-panel-go">보기</div>':''}
     <div class="auto-flow-panel-title">${esc(title)}</div>
     <div class="auto-flow-panel-value">${esc(String(value))}</div>
     <div class="auto-flow-panel-note">${esc(note||'')}</div>
@@ -5868,6 +5868,26 @@ function _teamLiveMatchListHtml(rows,emptyText='진행 중인 라운드가 없�
       </span>
     </button>`;
   }).join('');
+}
+function _teamLiveScoreCounts(){
+  let blueWins=0,whiteWins=0;
+  currentMatches.forEach((m,i)=>{
+    const win=winOverride[i]||null;
+    if(!win)return;
+    const t1Blue=m.team1A?.team==='청팀';
+    if(win==='t1'){
+      if(t1Blue)blueWins++;
+      else whiteWins++;
+    }else if(win==='t2'){
+      if(t1Blue)whiteWins++;
+      else blueWins++;
+    }else if(win==='blue'){
+      blueWins++;
+    }else if(win==='white'||win==='red'){
+      whiteWins++;
+    }
+  });
+  return {blueWins,whiteWins};
 }
 function _autoFlowSetSection(id,open){
   const el=document.getElementById(id);
@@ -5941,8 +5961,9 @@ function renderAutoFlowDashboard(){
     const matches=currentMatches.length;
     const done=matches?currentMatches.filter((_,i)=>_isMatchDone(i)).length:0;
     const live=!!_liveOn;
-    const blueWins=matches?currentMatches.reduce((n,_,i)=>n+(winOverride[i]==='blue'?1:0),0):0;
-    const whiteWins=matches?currentMatches.reduce((n,_,i)=>n+(winOverride[i]==='white'?1:0),0):0;
+    const scoreCounts=_teamLiveScoreCounts();
+    const blueWins=matches?scoreCounts.blueWins:0;
+    const whiteWins=matches?scoreCounts.whiteWins:0;
     const blue=teamAssignment?.blue||[];
     const white=teamAssignment?.white||[];
     const genderCount=arr=>({m:arr.filter(p=>p.gender==='M'||p.gender==='남').length,f:arr.filter(p=>p.gender==='F'||p.gender==='여').length});
@@ -5950,17 +5971,12 @@ function renderAutoFlowDashboard(){
     let currentRound='-';
     let currentRoundNum=null;
     let currentRoundRows=[];
-    let nextRoundRows=[];
     if(matches){
       const rounds=[...new Set(currentMatches.map(m=>m.round))].sort((a,b)=>a-b);
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
       currentRoundRows=currentRoundNum
         ? currentMatches.map((m,i)=>({m,i})).filter(row=>row.m.round===currentRoundNum)
-        : [];
-      const nextRoundNum=currentRoundNum?rounds.find(r=>r>currentRoundNum):null;
-      nextRoundRows=nextRoundNum
-        ? currentMatches.map((m,i)=>({m,i})).filter(row=>row.m.round===nextRoundNum)
         : [];
     }
     const rsvpBits=[
@@ -6042,7 +6058,6 @@ function renderAutoFlowDashboard(){
       ? [
           _autoFlowPanel('현재',currentRound,`${done}/${matches} 입력`,remaining?'warn':'live','bracket'),
           _autoFlowPanel('미입력',`${remaining}경기`,remaining?'승패 확인':'완료',remaining?'warn':'live','scoreboard'),
-          _autoFlowPanel('다음',nextRoundRows.length?`R${nextRoundRows[0].m.round}`:'없음',nextRoundRows.length?`${nextRoundRows.length}경기`:'마지막 라운드','','bracket'),
           _autoFlowPanel('늦음',`${counts.plan||0}명`,(counts.plan||0)?'대체 확인':'없음',(counts.plan||0)?'warn':'','players')
         ].join('')
       : [
@@ -6081,7 +6096,7 @@ function renderAutoFlowDashboard(){
           <div class="auto-flow-match-list">${_teamLiveMatchListHtml(currentRoundRows,currentRound==='완료'?'모든 승패 입력이 끝났습니다.':'진행 중인 라운드가 없습니다.')}</div>
         </div>
         ${actionHtml}
-        ${stepHtml}`;
+        `;
     }else{
       body.innerHTML=`
         <div class="auto-flow-focus">
