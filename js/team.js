@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.351';
+const APP_VERSION = '1.10.352';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5840,6 +5840,35 @@ function _autoFlowPanel(title,value,note,cls='',target=''){
     <div class="auto-flow-panel-note">${esc(note||'')}</div>
   </div>`;
 }
+function _teamLiveMatchNames(m,side){
+  if(!m)return '';
+  const arr=side==='t1'?[m.team1A,m.team1B]:[m.team2C,m.team2D];
+  return arr.map(p=>p?.name||'').filter(Boolean).join(' · ');
+}
+function _teamLiveMatchSideMeta(m,side){
+  if(!currentSettings?.teamMode||!m)return side==='t1'?'A':'B';
+  const isBlue=side==='t1'
+    ? m.team1A?.team==='청팀'
+    : m.team2C?.team==='청팀';
+  return isBlue?(teamNames.blue||'청 팀'):(teamNames.white||'홍 팀');
+}
+function _teamLiveMatchListHtml(rows,emptyText='진행 중인 라운드가 없습니다.'){
+  if(!rows.length)return `<div class="auto-flow-match-empty">${esc(emptyText)}</div>`;
+  return rows.slice(0,4).map(({m,i})=>{
+    const done=_isMatchDone(i);
+    return `<button class="auto-flow-match-card ${done?'done':''}" type="button" onclick="teamLiveOpenPanel('scoreboard')">
+      <span class="auto-flow-match-top">
+        <b>${esc(`R${m.round||'-'} · ${m.court||'-'}코트`)}</b>
+        <em>${done?'입력완료':'승패입력'}</em>
+      </span>
+      <span class="auto-flow-match-body">
+        <span><small>${esc(_teamLiveMatchSideMeta(m,'t1'))}</small>${esc(_teamLiveMatchNames(m,'t1'))}</span>
+        <i>vs</i>
+        <span><small>${esc(_teamLiveMatchSideMeta(m,'t2'))}</small>${esc(_teamLiveMatchNames(m,'t2'))}</span>
+      </span>
+    </button>`;
+  }).join('');
+}
 function _autoFlowSetSection(id,open){
   const el=document.getElementById(id);
   if(!el||el.tagName!=='DETAILS')return;
@@ -5919,18 +5948,28 @@ function renderAutoFlowDashboard(){
     const genderCount=arr=>({m:arr.filter(p=>p.gender==='M'||p.gender==='남').length,f:arr.filter(p=>p.gender==='F'||p.gender==='여').length});
     const bg=genderCount(blue), wg=genderCount(white);
     let currentRound='-';
+    let currentRoundNum=null;
+    let currentRoundRows=[];
+    let nextRoundRows=[];
     if(matches){
       const rounds=[...new Set(currentMatches.map(m=>m.round))].sort((a,b)=>a-b);
-      const nextRound=rounds.find(r=>currentMatches.filter(m=>m.round===r).some(m=>!_isMatchDone(currentMatches.indexOf(m))));
-      currentRound=nextRound?`R${nextRound}`:'완료';
+      currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
+      currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
+      currentRoundRows=currentRoundNum
+        ? currentMatches.map((m,i)=>({m,i})).filter(row=>row.m.round===currentRoundNum)
+        : [];
+      const nextRoundNum=currentRoundNum?rounds.find(r=>r>currentRoundNum):null;
+      nextRoundRows=nextRoundNum
+        ? currentMatches.map((m,i)=>({m,i})).filter(row=>row.m.round===nextRoundNum)
+        : [];
     }
-    const rsvpNote=[
-      `늦음 ${counts.plan||0}`,
-      `뒤풀이 ${counts.party||0}`,
-      `G ${counts.guest||0}`,
+    const rsvpBits=[
+      counts.plan?`늦음 ${counts.plan}`:'',
+      counts.guest?`G ${counts.guest}`:'',
       counts.partner?`P ${counts.partner}`:'',
       counts.issues?`확인 ${counts.issues}`:''
-    ].filter(Boolean).join(' · ');
+    ].filter(Boolean);
+    const rsvpNote=rsvpBits.join(' · ')||(_rsvpId?'응답 확인':(hasRoster?rosterName:'명부 선택'));
     const activePairCount=_partners.filter(pair=>pair.members.every(n=>_directPlayers.some(p=>p.name===n))).length;
     const teamLevelDiff=teamReady?Math.round(Math.abs(blue.reduce((s,p)=>s+effLevel(p),0)-white.reduce((s,p)=>s+effLevel(p),0))*10)/10:0;
     const teamValue=teamReady?`${blue.length}:${white.length}`:(players?`${players}명`:'대기');
@@ -5989,32 +6028,73 @@ function renderAutoFlowDashboard(){
       broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림'),
       live:_autoFlowAction(remaining?'승패 입력':'결과 확인','teamLiveOpenScoreboard',remaining?`${remaining}경기 남음`:'모든 승패 입력됨')
     }[stage]||'';
+    const stageGuide={
+      roster:{k:'1. 명부',t:'오늘 팀전에 사용할 명부를 먼저 선택하세요.'},
+      link:{k:'2. 출석부 공유',t:'회원에게 링크를 보내 출석을 받습니다.'},
+      wait:{k:'응답 대기',t:'응답이 모이면 출석자를 불러오세요.'},
+      import:{k:'3. 출석자 반영',t:'출석자를 참가자 목록으로 가져옵니다.'},
+      playerReview:{k:'4. 참가자 확인',t:'누락·게스트·P만 확인하고 팀을 나눕니다.'},
+      generate:{k:'5. 대진 생성',t:'청/홍팀 확인 후 전체 라운드를 만듭니다.'},
+      broadcast:{k:'6. LIVE 시작',t:'대진표가 준비됐습니다. 회원 링크를 시작하세요.'},
+      live:{k:'운영 중',t:remaining?'현재 라운드 승패를 입력하세요.':'결과를 확인하세요.'}
+    }[stage]||{k:'다음 단계',t:''};
     const boardHtml=live
       ? [
-          _autoFlowPanel('라운드',currentRound,`${done}/${matches} 입력`,remaining?'warn':'live','bracket'),
-          _autoFlowPanel('스코어',`${blueWins}:${whiteWins}`,'청:홍','','scoreboard'),
+          _autoFlowPanel('현재',currentRound,`${done}/${matches} 입력`,remaining?'warn':'live','bracket'),
           _autoFlowPanel('미입력',`${remaining}경기`,remaining?'승패 확인':'완료',remaining?'warn':'live','scoreboard'),
+          _autoFlowPanel('다음',nextRoundRows.length?`R${nextRoundRows[0].m.round}`:'없음',nextRoundRows.length?`${nextRoundRows.length}경기`:'마지막 라운드','','bracket'),
           _autoFlowPanel('늦음',`${counts.plan||0}명`,(counts.plan||0)?'대체 확인':'없음',(counts.plan||0)?'warn':'','players')
         ].join('')
       : [
-          _autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':'','rsvp'),
-          _autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn','players'),
-          _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings'),
-          _autoFlowPanel('LIVE',liveValue,liveNote,live?'live':'',matches?'scoreboard':'bracket')
+          _autoFlowPanel('명부',hasRoster?rosterName:'미선택',hasRoster?`${rosterTotal}명`:'먼저 선택',hasRoster?'':'warn','rsvp'),
+          _autoFlowPanel('출석',_rsvpId?`${counts.attend||0}명`:'공유 전',rsvpNote,counts.issues?'warn':'','rsvp'),
+          _autoFlowPanel('참가자',players?`${players}명`:'대기',teamReady?teamNote:'확인 필요',players?'':'warn','players'),
+          _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings')
         ].join('');
-    body.innerHTML=`
-      <div class="auto-flow-board">
-        ${boardHtml}
-      </div>
-      <div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
+    const stepHtml=`<div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
         <span class="team-live-step ${stepState('roster')}">명부</span>
         <span class="team-live-step ${stepState(['link','wait','import'])}">출석</span>
         <span class="team-live-step ${stepState('playerReview')}">참가자</span>
         <span class="team-live-step ${stepState('generate')}">청/홍</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
         <span class="team-live-step ${stepState('live')}">LIVE</span>
-      </div>
-      ${actionHtml}`;
+      </div>`;
+    if(live){
+      body.innerHTML=`
+        <div class="auto-flow-live-score" role="button" tabindex="0" onclick="teamLiveOpenPanel('scoreboard')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();teamLiveOpenPanel('scoreboard');}">
+          <div>
+            <span>${esc(teamNames.blue||'청 팀')}</span>
+            <b>${blueWins}</b>
+          </div>
+          <em>${currentRound==='완료'?'완료':'진행'}</em>
+          <div>
+            <span>${esc(teamNames.white||'홍 팀')}</span>
+            <b>${whiteWins}</b>
+          </div>
+        </div>
+        <div class="auto-flow-board live-board">${boardHtml}</div>
+        <div class="auto-flow-match-section">
+          <div class="auto-flow-match-head">
+            <b>진행 중 대진</b>
+            <span>${esc(currentRound)}</span>
+          </div>
+          <div class="auto-flow-match-list">${_teamLiveMatchListHtml(currentRoundRows,currentRound==='완료'?'모든 승패 입력이 끝났습니다.':'진행 중인 라운드가 없습니다.')}</div>
+        </div>
+        ${actionHtml}
+        ${stepHtml}`;
+    }else{
+      body.innerHTML=`
+        <div class="auto-flow-focus">
+          <div>
+            <span>다음 할 일</span>
+            <b>${esc(stageGuide.k)}</b>
+            <small>${esc(stageGuide.t)}</small>
+          </div>
+          ${actionHtml}
+        </div>
+        ${stepHtml}
+        <div class="auto-flow-board setup-board">${boardHtml}</div>`;
+    }
     _autoFlowSetSection('sec-rsvp',['roster','link','wait','import'].includes(stage));
     _autoFlowSetSection('sec-players',stage==='playerReview');
     _autoFlowSetSection('sec-settings',stage==='generate');
