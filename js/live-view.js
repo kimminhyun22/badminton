@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.358';
+const APP_VERSION='1.10.359';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1209,7 +1209,7 @@ async function submitLiveWin(matchIdx,side){
 }
 
 function buildResultInputControls(m,d,opts){
-  if(!opts || !opts.current) return '';
+  if(!opts || !(opts.current||opts.next)) return '';
   if(m.win){
     const winner=m.win==='t1'?'청 승':'홍 승';
     return '<div class="result-entry-done">입력 완료 · '+esc(winner)+'</div>';
@@ -1380,7 +1380,8 @@ function buildLiveMatchCard(m,d,opts){
   const courtLabel=(opts.next?'R'+esc(String(m.round||''))+' · ':'')+esc(String(m.court||''))+'코트';
   const typeLabel=(opts.next?'대기 · ':'')+esc(m.type||'경기')+(m.isFiller?' · 보완':'');
   const imminent=opts.next && _isImminentMatch(m);
-  return '<article class="live-match '+tc+(opts.current?' is-current':'')+(imminent?' is-imminent':'')+'">'
+  const resultControls=buildResultInputControls(m,d,opts);
+  return '<article class="live-match '+tc+(opts.current?' is-current':'')+(imminent?' is-imminent':'')+(resultControls?' has-result':'')+'">'
     +(imminent?'<div class="imminent-banner">대진 임박 · 다음 경기 준비해주세요</div>':'')
     +'<div class="live-match-top">'
       +'<span class="live-court">'+courtLabel+'</span>'
@@ -1399,7 +1400,7 @@ function buildLiveMatchCard(m,d,opts){
         +_playerLine(t2[1],d)
       +'</div>'
     +'</div>'
-    +buildResultInputControls(m,d,opts)
+    +resultControls
   +'</article>';
 }
 
