@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.349';
+const APP_VERSION = '1.10.350';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2109,7 +2109,8 @@ function _buildLiveState(){
   const _subWhite=captains?.white?.sub||null;
   const liveMember=p=>({
     n:p.name||'',l:p.level||0,g:p.gender||'',
-    isGuest:!!p.isGuest
+    isGuest:!!p.isGuest,
+    partnerName:p.partnerName||getPartnerOf(p.name)||''
   });
   const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>({
     ...liveMember(p),
@@ -2428,7 +2429,7 @@ async function stopLiveBroadcast(){
     _liveAttendance={};_liveParty={};_liveResultInputs={};_liveResultConflicts={};
     _liveOn=false; _liveMatchStartedAt=null; _updateLiveUI(); _renderLiveOpsSummary(); return;
   }
-  if(!confirm('실시간 중계를 종료할까요?\n링크로 접속한 사람들이 더 이상 볼 수 없게 됩니다.')) return;
+  if(!confirm('팀전LIVE를 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.')) return;
   try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
   localStorage.removeItem('badminton_liveId');
   _unbindLiveAdminListener();
@@ -2436,15 +2437,15 @@ async function stopLiveBroadcast(){
   _liveOn=false; _liveId=null; _liveMatchStartedAt=null; _updateLiveUI();
   rsvpPushEventState();
   _renderLiveOpsSummary();
-  alert('실시간 중계를 종료했어요.');
+  alert('팀전LIVE를 종료했어요.');
 }
 
 /* 중계 버튼 UI 갱신 */
 function _updateLiveUI(){
   const btn=document.getElementById('liveBtn');
   if(!btn) return;
-  if(_liveOn){ btn.classList.add('on'); btn.innerHTML='중계 중'; }
-  else { btn.classList.remove('on'); btn.innerHTML='중계 시작'; }
+  if(_liveOn){ btn.classList.add('on'); btn.innerHTML='팀전LIVE 진행 중'; }
+  else { btn.classList.remove('on'); btn.innerHTML='팀전LIVE 시작'; }
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
 }
 
@@ -4799,6 +4800,7 @@ function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.
 function resetAll(){
   if(!confirm('팀전 기록을 모두 초기화할까요?\n참가자, 팀 배정, 대진표, 승패 입력이 모두 지워집니다.\n팀전 보관함과 클럽 명부는 삭제되지 않습니다.'))return;
   if(currentMatches.length || _directPlayers.length) _captureUndoSnapshot('전체 초기화 전');
+  _lastRsvpImportSummary=null;
   const _ps=document.getElementById('parseStatus');if(_ps)_ps.textContent='';
   document.getElementById('teamListWrap').classList.remove('show');
   document.getElementById('teamAssignBtn').classList.remove('done','hidden');
@@ -5022,11 +5024,35 @@ function removeDirectPlayer(idx){
   rsvpSyncRosterChange();
 }
 
+function _renderRsvpImportSummary(){
+  const box=document.getElementById('rsvpImportSummary');
+  if(!box)return;
+  const s=_lastRsvpImportSummary;
+  if(!s){
+    box.classList.add('hidden');
+    box.innerHTML='';
+    return;
+  }
+  const chips=[
+    ['출석',`${s.attend||0}명`],
+    ['늦음',`${s.late||0}명`],
+    ['게스트',`${s.guest||0}명`],
+    ['P',`${s.partner||0}쌍`]
+  ];
+  box.classList.remove('hidden');
+  box.innerHTML=`<div class="rsvp-import-summary-title">출석자 반영 완료</div>
+    <div class="rsvp-import-summary-chips">
+      ${chips.map(([label,value])=>`<span><b>${esc(value)}</b>${esc(label)}</span>`).join('')}
+    </div>
+    <div class="rsvp-import-summary-next">다음: 참가자 확인 후 청/홍팀 배정</div>`;
+}
+
 function renderDirectPlayerList(){
   const list = document.getElementById('directPlayerList');
   const bar  = document.getElementById('dirCountBar');
   const sortBar = document.getElementById('dirSortBar');
   const partnerHint = document.getElementById('partnerHint');
+  _renderRsvpImportSummary();
   const syncPartnerHint=()=>{
     if(!partnerHint)return;
     const activeNames=new Set(_directPlayers.map(p=>p.name));
@@ -5171,6 +5197,7 @@ let _rsvpRosterRefreshLock=false;
 let _rsvpAdminSort='status';
 let _rsvpAdminQuery='';
 let _autoFlowRendering=false;
+let _lastRsvpImportSummary=null;
 function isTeamSampleMode(){
   const v=new URLSearchParams(location.search).get('sample');
   return v==='1'||v==='team';
@@ -5491,6 +5518,7 @@ async function rsvpCreateNew(){
     return;
   }
   if(_rsvpId&&!confirm('새 팀전LIVE 링크를 만들까요?\n현재 열려 있는 팀전LIVE는 보관함에 그대로 남습니다.'))return;
+  _lastRsvpImportSummary=null;
   _rsvpId=_rsvpGenId();
   _rsvpCreatedAt=Date.now();
   localStorage.setItem(RSVP_KEY,_rsvpId);
@@ -5504,6 +5532,7 @@ async function rsvpCreateNew(){
 function rsvpLoadSaved(id){
   const item=_rsvpHistoryList().find(x=>x&&x.id===id);
   if(!item){alert('저장된 투표를 찾을 수 없습니다.');return;}
+  _lastRsvpImportSummary=null;
   _rsvpId=item.id;
   _rsvpCreatedAt=item.createdAt||Date.now();
   localStorage.setItem(RSVP_KEY,_rsvpId);
@@ -5902,9 +5931,11 @@ function renderAutoFlowDashboard(){
       counts.partner?`P ${counts.partner}`:'',
       counts.issues?`확인 ${counts.issues}`:''
     ].filter(Boolean).join(' · ');
+    const activePairCount=_partners.filter(pair=>pair.members.every(n=>_directPlayers.some(p=>p.name===n))).length;
+    const teamLevelDiff=teamReady?Math.round(Math.abs(blue.reduce((s,p)=>s+effLevel(p),0)-white.reduce((s,p)=>s+effLevel(p),0))*10)/10:0;
     const teamValue=teamReady?`${blue.length}:${white.length}`:(players?`${players}명`:'대기');
     const teamNote=teamReady
-      ? `청 남${bg.m}여${bg.f} · 홍 남${wg.m}여${wg.f}`
+      ? `실력차 ${teamLevelDiff} · P ${activePairCount}쌍`
       : (players?'참가자 확인 후 팀 배정':'출석자 필요');
     const matchValue=matches?`${done}/${matches}`:'전';
     const remaining=Math.max(0,matches-done);
@@ -5912,28 +5943,28 @@ function renderAutoFlowDashboard(){
     const liveValue=live?'ON':(matches?'대기':'전');
     const liveNote=live?'링크 활성':(matches?'시작 전':'대진 필요');
     let stage='roster';
-    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부'};
+    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부 선택'};
     if(live){
       stage='live';
-      cfg={badge:'운영 중',title:'팀전LIVE 상황판',sub:'중계 중'};
+      cfg={badge:'진행 중',title:'팀전LIVE 상황판',sub:currentRound==='완료'?'결과 확인':'승패 입력'};
     } else if(matches){
       stage='broadcast';
-      cfg={badge:'중계 전',title:'팀전LIVE 상황판',sub:'중계 시작'};
+      cfg={badge:'시작 전',title:'팀전LIVE 상황판',sub:'팀전LIVE 시작'};
     } else if(teamReady){
       stage='generate';
       cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'대진 생성'};
     } else if(players>=4){
       stage='playerReview';
-      cfg={badge:'확인',title:'팀전LIVE 상황판',sub:'팀 배정'};
+      cfg={badge:'팀 배정',title:'팀전LIVE 상황판',sub:'참가자 확인'};
     } else if((counts.attend||0)>0){
       stage='import';
-      cfg={badge:'출석 집계',title:'팀전LIVE 상황판',sub:'불러오기'};
+      cfg={badge:'반영',title:'팀전LIVE 상황판',sub:'출석자 반영'};
     } else if(_rsvpId){
       stage='wait';
       cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'응답 대기'};
     } else if(hasRoster){
       stage='link';
-      cfg={badge:'출석부',title:'팀전LIVE 상황판',sub:'공유'};
+      cfg={badge:'공유',title:'팀전LIVE 상황판',sub:'출석부 공유'};
     }
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
@@ -5949,10 +5980,14 @@ function renderAutoFlowDashboard(){
       return '';
     };
     const actionHtml={
-      import:_autoFlowAction('불러오기','rsvpImportAttendees','출석자 반영'),
+      roster:_autoFlowAction('명부 선택','teamLiveOpenRsvp','처음 단계'),
+      link:_autoFlowAction('출석부 공유','rsvpShareLink','단톡방에 공유'),
+      wait:_autoFlowAction('링크 다시 공유','rsvpShareLink','응답 대기 중'),
+      import:_autoFlowAction('출석자 반영','rsvpImportAttendees','참가자 목록 만들기'),
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
-      generate:_autoFlowAction('대진 생성','generateBracket','품질 자동 확인'),
-      broadcast:_autoFlowAction('중계 시작','onLiveBtnClick','회원 링크 연결')
+      generate:_autoFlowAction('대진 생성','generate','품질 자동 확인'),
+      broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림'),
+      live:_autoFlowAction(remaining?'승패 입력':'결과 확인','teamLiveOpenScoreboard',remaining?`${remaining}경기 남음`:'모든 승패 입력됨')
     }[stage]||'';
     const boardHtml=live
       ? [
@@ -5965,7 +6000,7 @@ function renderAutoFlowDashboard(){
           _autoFlowPanel('출석',`${counts.attend||0}명`,rsvpNote,counts.issues?'warn':'','rsvp'),
           _autoFlowPanel('팀',teamValue,teamNote,teamReady?'':'warn','players'),
           _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings'),
-          _autoFlowPanel('중계',liveValue,liveNote,live?'live':'',matches?'scoreboard':'bracket')
+          _autoFlowPanel('LIVE',liveValue,liveNote,live?'live':'',matches?'scoreboard':'bracket')
         ].join('');
     body.innerHTML=`
       <div class="auto-flow-board">
@@ -5975,14 +6010,14 @@ function renderAutoFlowDashboard(){
         <span class="team-live-step ${stepState('roster')}">명부</span>
         <span class="team-live-step ${stepState(['link','wait','import'])}">출석</span>
         <span class="team-live-step ${stepState('playerReview')}">참가자</span>
-        <span class="team-live-step ${stepState('generate')}">팀배정</span>
+        <span class="team-live-step ${stepState('generate')}">청/홍</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
-        <span class="team-live-step ${stepState('live')}">중계</span>
+        <span class="team-live-step ${stepState('live')}">LIVE</span>
       </div>
       ${actionHtml}`;
     _autoFlowSetSection('sec-rsvp',['roster','link','wait','import'].includes(stage));
     _autoFlowSetSection('sec-players',stage==='playerReview');
-    _autoFlowSetSection('sec-settings',false);
+    _autoFlowSetSection('sec-settings',stage==='generate');
     _autoFlowSetResultSections(stage);
   }finally{
     _autoFlowRendering=false;
@@ -6293,6 +6328,13 @@ function rsvpImportAttendees(){
     color:PARTNER_COLORS[i%PARTNER_COLORS.length],
     source:'rsvp'
   }));
+  _lastRsvpImportSummary={
+    attend:counts.attend||attendees.length,
+    late:counts.plan||0,
+    guest:counts.guest||0,
+    partner:_partners.length,
+    ts:Date.now()
+  };
   teamAssignment=null;
   _teamWanted=true;
   _teamModeOverride=null;
@@ -6309,7 +6351,7 @@ function rsvpImportAttendees(){
   if(playersCard){
     setTimeout(()=>playersCard.scrollIntoView({behavior:'smooth',block:'start'}),30);
   }
-  alert(`출석자 ${counts.attend}명과 게스트 ${counts.guest}명을 참가자로 가져왔습니다.${_partners.length?`\nP 신청 ${_partners.length}쌍도 함께 반영했습니다.`:''}\n\nP 매칭, 게스트, 동명이인, 늦음 표시를 확인한 뒤 청/홍팀 자동 배정을 진행하세요.`);
+  renderAutoFlowDashboard();
 }
 async function rsvpStopLink(){
   if(!_rsvpId)return;
@@ -6321,6 +6363,7 @@ async function rsvpStopLink(){
   _rsvpId=null;
   _rsvpCreatedAt=null;
   _rsvpResponses={};
+  _lastRsvpImportSummary=null;
   _rsvpListening=false;
   rsvpRender();
 }

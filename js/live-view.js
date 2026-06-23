@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.349';
+const APP_VERSION='1.10.350';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -944,6 +944,9 @@ function _viewerRoleText(p){
   if(p.isSub) return '부단장';
   return '선수';
 }
+function _viewerPartnerText(p){
+  return p&&p.partnerName?('P '+p.partnerName):'';
+}
 
 function setLiveViewerName(name){
   _viewerName=String(name||'').trim();
@@ -1071,7 +1074,7 @@ function _viewerStatusButtons(current){
   const partyOn=_partyOn(current.n);
   return '<div class="viewer-status-actions">'
     +'<button type="button" class="viewer-state-btn attend on static" aria-disabled="true">출석</button>'
-    +'<button type="button" class="viewer-state-btn ready '+(expectedOn?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(expectedOn?'늦음✓':'늦음')+'</button>'
+    +'<button type="button" class="viewer-state-btn ready '+(expectedOn?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(expectedOn?'도착':'늦음')+'</button>'
     +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
   +'</div>';
 }
@@ -1082,12 +1085,14 @@ function buildViewerIdentity(d){
   const current=_viewerInfo(d);
   if(current){
     const team=current.team==='blue'?liveTeamLabel(d,'blue'):current.team==='red'?liveTeamLabel(d,'red'):'참가자';
+    const partnerText=_viewerPartnerText(current);
     return '<section class="viewer-identity">'
       +'<div class="viewer-identity-row">'
         +'<div class="viewer-identity-main">'
           +'<div class="viewer-identity-k">MY PAGE</div>'
           +'<div class="viewer-identity-name">'+esc(current.n)+'님</div>'
           +'<div class="viewer-identity-role">'+esc(team)+' · '+esc(_viewerRoleText(current))+'</div>'
+          +(partnerText?'<div class="viewer-identity-partner">'+esc(partnerText)+'</div>':'')
         +'</div>'
         +'<button type="button" onclick="setLiveViewerName(\'\')">변경</button>'
       +'</div>'
@@ -1103,9 +1108,10 @@ function buildViewerIdentity(d){
   const cards=filtered.map(p=>{
     const team=p.team==='blue'?liveTeamLabel(d,'blue'):p.team==='red'?liveTeamLabel(d,'red'):'참가자';
     const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
+    const partnerText=_viewerPartnerText(p);
     return '<button type="button" class="viewer-name-card" onclick="setLiveViewerName('+nameArg+')">'
       +'<b>'+esc(p.n)+'</b>'
-      +'<span>'+esc(team)+' · '+esc(_viewerRoleText(p))+'</span>'
+      +'<span>'+esc(team)+' · '+esc(_viewerRoleText(p))+(partnerText?' · '+esc(partnerText):'')+'</span>'
     +'</button>';
   }).join('');
   return '<section class="viewer-identity">'
@@ -1202,12 +1208,13 @@ function buildResultInputControls(m,d,opts){
   if(!opts || !opts.current) return '';
   if(m.win){
     const winner=m.win==='t1'?'청 승':'홍 승';
-    return '<div class="result-entry-done">승패 입력됨 · '+esc(winner)+'</div>';
+    return '<div class="result-entry-done">입력 완료 · '+esc(winner)+'</div>';
   }
   if(!_canSubmitResult(m,d)) return '';
   const idx=Number(m._idx);
   if(!Number.isFinite(idx) || idx<0) return '';
   return '<div class="result-entry">'
+    +'<div class="result-entry-label">이긴 팀 선택</div>'
     +'<button type="button" class="blue-win" onclick="submitLiveWin('+idx+',\'t1\')">청 승</button>'
     +'<button type="button" class="red-win" onclick="submitLiveWin('+idx+',\'t2\')">홍 승</button>'
   +'</div>';
@@ -1309,12 +1316,14 @@ function buildTeamRosterCard(d){
       const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
       const genderCls=p.g==='F'?'female':p.g==='M'?'male':'';
       const genderText=p.g==='M'?'남':p.g==='F'?'여':'·';
+      const partner=p.partnerName?'<span class="team-member-partner" title="파트너">P '+esc(p.partnerName)+'</span>':'';
+      const badges=(badge||partner)?'<span class="team-member-badges">'+badge+partner+'</span>':'';
       return '<div class="team-member">'
         +'<span class="team-member-g '+genderCls+'">'+genderText+'</span>'
         +'<span class="team-member-name">'+esc(p.n)+'</span>'
-        +badge
+        +badges
         +'<div class="team-member-actions">'
-          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(on?'늦음✓':'늦음')+'</button>'
+          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(on?'도착':'늦음')+'</button>'
           +'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
         +'</div>'
       +'</div>';

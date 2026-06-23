@@ -2442,3 +2442,100 @@ header,.nav-bar{
   #tabBracket .match-grid{grid-template-columns:1fr!important;}
 }
 
+/* 팀전LIVE 흐름 간소화 */
+.sync-bar{
+  grid-template-columns:repeat(auto-fit,minmax(96px,1fr))!important;
+}
+.sync-btn.s-reset{
+  background:#fff7f7;
+  color:#aa3f48;
+  border:1px solid #f2d3d3;
+}
+.sync-btn.s-reset:hover{
+  background:#fff1f1;
+  border-color:#e9b9bd;
+}
+.rsvp-import-summary{
+  border:1px solid #c9daf8;
+  background:linear-gradient(180deg,#f8fbff,#fff);
+  border-radius:18px;
+  padding:12px;
+  margin:0 0 9px;
+  box-shadow:0 8px 22px rgba(91,141,239,.08);
+}
+.rsvp-import-summary.hidden{display:none!important;}
+.rsvp-import-summary-title{
+  font-size:.92rem;
+  font-weight:1000;
+  color:#172033;
+  letter-spacing:-.03em;
+}
+.rsvp-import-summary-chips{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px;
+  margin-top:8px;
+}
+.rsvp-import-summary-chips span{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  min-height:48px;
+  border:1px solid #e3e9f3;
+  border-radius:14px;
+  background:#fff;
+  color:#6f7a8a;
+  font-size:.68rem;
+  font-weight:900;
+}
+.rsvp-import-summary-chips b{
+  color:#406fc7;
+  font-size:1.1rem;
+  line-height:1;
+  margin-bottom:3px;
+}
+.rsvp-import-summary-next{
+  margin-top:8px;
+  border-radius:999px;
+  background:#f3fbf6;
+  border:1px solid #ccebd8;
+  color:#28794f;
+  padding:8px 10px;
+  font-size:.76rem;
+  font-weight:1000;
+  text-align:center;
+}
+.auto-flow-action{
+  border:1px solid #c9daf8!important;
+  border-radius:20px!important;
+  background:rgba(255,255,255,.78)!important;
+  padding:9px!important;
+}
+.auto-flow-next{
+  color:#172033!important;
+  font-weight:1000!important;
+}
+.auto-flow-btn{
+  font-size:1rem!important;
+  min-height:52px!important;
+  padding:14px 18px!important;
+}
+.live-btn{
+  background:#76a6f4!important;
+  color:#fff!important;
+  border-color:transparent!important;
+  border-radius:16px!important;
+  padding:11px 16px!important;
+  min-height:46px!important;
+  font-size:.9rem!important;
+  box-shadow:0 9px 20px rgba(91,141,239,.14)!important;
+}
+.live-btn.on{
+  background:#e35b55!important;
+  color:#fff!important;
+  border-color:transparent!important;
+}
+@media(max-width:480px){
+  .rsvp-import-summary-chips{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
