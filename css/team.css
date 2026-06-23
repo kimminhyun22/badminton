@@ -1334,7 +1334,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-saved-btn.active{background:#2563eb;border-color:#2563eb;color:#fff;}
 .rsvp-saved-btn.danger{color:#b91c1c;border-color:#fecaca;}
 
-/* ── 팀전LIVE 상황판 ── */
+/* ── 팀전LIVE 운영 보드 ── */
 .auto-flow-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 52%,#f0fdf4 100%);
   box-shadow:0 14px 34px rgba(37,99,235,.1);}
 .auto-flow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
@@ -1378,6 +1378,121 @@ details.card:not([open]) .card-head{border-bottom:none;}
   border-radius:999px;padding:6px 9px;font-size:.67rem;font-weight:900;color:#64748b;white-space:nowrap;}
 .team-live-step.on{border-color:#bfdbfe;background:#eff6ff;color:#2563eb;}
 .team-live-step.done{border-color:#bbf7d0;background:#f0fdf4;color:#15803d;}
+.auto-flow-card.live-compact{
+  border-color:#dfe7f3;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 8px 24px rgba(45,55,75,.045),inset 0 1px 0 rgba(255,255,255,.9);
+}
+.auto-flow-card.live-compact .auto-flow-head{
+  align-items:center;
+  margin-bottom:9px;
+}
+.auto-flow-card.live-compact .auto-flow-kicker{
+  font-size:.62rem;
+  color:#7a8798;
+}
+.auto-flow-card.live-compact .auto-flow-title{
+  font-size:1rem;
+}
+.auto-flow-card.live-compact .auto-flow-sub{
+  font-size:.74rem;
+  margin-top:1px;
+}
+.auto-flow-card.live-compact .auto-flow-reset-btn{
+  display:none;
+}
+.team-live-ops-strip{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  border:1px solid #dbeafe;
+  border-radius:18px;
+  background:#f8fbff;
+  padding:12px;
+}
+.team-live-ops-strip.warn{
+  border-color:#f5df9b;
+  background:#fffaf0;
+}
+.team-live-ops-strip.done{
+  border-color:#bbf7d0;
+  background:#f0fdf4;
+}
+.team-live-ops-main{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.team-live-ops-main span{
+  font-size:.66rem;
+  font-weight:1000;
+  color:#5b8def;
+  letter-spacing:.08em;
+}
+.team-live-ops-strip.warn .team-live-ops-main span{color:#a16207;}
+.team-live-ops-strip.done .team-live-ops-main span{color:#15803d;}
+.team-live-ops-main b{
+  color:#172033;
+  font-size:1.04rem;
+  font-weight:1000;
+  line-height:1.18;
+  letter-spacing:-.04em;
+}
+.team-live-ops-main small{
+  color:#64748b;
+  font-size:.76rem;
+  font-weight:900;
+  line-height:1.35;
+}
+.team-live-ops-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.team-live-primary,
+.team-live-secondary,
+.team-live-alert{
+  border:1px solid #dbeafe;
+  border-radius:13px;
+  background:#fff;
+  color:#386fd6;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:.76rem;
+  font-weight:1000;
+  min-height:38px;
+  padding:8px 11px;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.team-live-primary{
+  border-color:transparent;
+  background:#76a6f4;
+  color:#fff;
+  box-shadow:0 8px 18px rgba(91,141,239,.15);
+}
+.team-live-secondary{
+  color:#64748b;
+  background:#fff;
+}
+.team-live-alert-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:8px;
+}
+.team-live-alert{
+  min-height:32px;
+  padding:6px 9px;
+  color:#64748b;
+  background:#fff;
+}
+.team-live-alert.warn{
+  color:#a16207;
+  border-color:#f5df9b;
+  background:#fffbeb;
+}
 
 @media(max-width:720px){
   .rsvp-grid{grid-template-columns:1fr;}
@@ -1426,6 +1541,25 @@ details.card:not([open]) .card-head{border-bottom:none;}
   .auto-flow-btn{width:100%;font-size:1rem;min-height:54px;}
   .auto-flow-next{font-size:.86rem;}
   .auto-flow-check{font-size:.72rem;padding:7px 10px;}
+  .auto-flow-card.live-compact{
+    border-radius:20px;
+  }
+  .team-live-ops-strip{
+    grid-template-columns:1fr;
+    gap:9px;
+    padding:11px;
+  }
+  .team-live-ops-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    width:100%;
+  }
+  .team-live-primary,
+  .team-live-secondary{
+    width:100%;
+    min-height:42px;
+    font-size:.82rem;
+  }
 }
 
 /* ── 민턴LIVE 톤 통일: 파스텔·미니멀 관리자 화면 ── */

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.359';
+const APP_VERSION = '1.10.360';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2293,6 +2293,7 @@ function _bindLiveAdminListener(){
     _liveResultConflicts=data.resultConflicts||{};
     _syncLiveWinsFromData(data);
     _renderLiveOpsSummary();
+    renderAutoFlowDashboard();
   };
   _liveAdminRef.on('value',_liveAdminHandler);
 }
@@ -5941,6 +5942,57 @@ function _teamLiveScoreCounts(){
   });
   return {blueWins,whiteWins};
 }
+function _teamLivePendingCourts(roundNum){
+  if(!roundNum)return [];
+  return currentMatches
+    .map((m,i)=>({m,i}))
+    .filter(({m,i})=>m.round===roundNum&&!_isMatchDone(i))
+    .sort((a,b)=>(a.m.court-b.m.court))
+    .map(({m})=>`${m.court||'-'}코트`);
+}
+function _teamLiveConflictCount(){
+  return Object.values(_liveResultConflicts||{}).reduce((sum,v)=>sum+Object.keys(v||{}).length,0);
+}
+function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remaining,counts}){
+  const pendingCourts=_teamLivePendingCourts(currentRoundNum);
+  const conflictCount=_teamLiveConflictCount();
+  const lateCount=counts.plan||0;
+  const allDone=matches>0&&remaining===0;
+  const stateClass=conflictCount?'warn':allDone?'done':'live';
+  const status=allDone?'입력 완료':`${currentRound} 진행`;
+  const title=conflictCount
+    ? '승패 확인 필요'
+    : allDone
+      ? '모든 경기 입력 완료'
+      : pendingCourts.length
+        ? `${pendingCourts.length}코트 입력 필요`
+        : '현재 라운드 입력 완료';
+  const detail=conflictCount
+    ? `${conflictCount}건이 서로 다르게 입력됐습니다`
+    : allDone
+      ? '승패 집계와 최종 대진을 확인하세요'
+      : pendingCourts.length
+        ? pendingCourts.join(' · ')
+        : '다음 라운드를 확인하세요';
+  const primaryLabel=allDone?'결과 보기':'승패 입력';
+  const primaryTarget=allDone?'scoreboard':'bracket';
+  const chips=[];
+  if(conflictCount)chips.push(`<button class="team-live-alert warn" type="button" onclick="teamLiveOpenPanel('scoreboard')">승패 확인 ${conflictCount}</button>`);
+  if(lateCount)chips.push(`<button class="team-live-alert" type="button" onclick="teamLiveOpenPanel('players')">늦음 ${lateCount}명</button>`);
+  if(counts.issues)chips.push(`<button class="team-live-alert" type="button" onclick="teamLiveOpenPanel('rsvp')">응답 확인 ${counts.issues}</button>`);
+  return `<div class="team-live-ops-strip ${stateClass}">
+      <div class="team-live-ops-main">
+        <span>${esc(status)}</span>
+        <b>${esc(title)}</b>
+        <small>${esc(detail)}</small>
+      </div>
+      <div class="team-live-ops-actions">
+        <button class="team-live-primary" type="button" onclick="teamLiveOpenPanel('${primaryTarget}')">${esc(primaryLabel)}</button>
+        <button class="team-live-secondary" type="button" onclick="rsvpShareLink()">링크 공유</button>
+      </div>
+    </div>
+    ${chips.length?`<div class="team-live-alert-row">${chips.join('')}</div>`:''}`;
+}
 function _autoFlowSetSection(id,open){
   const el=document.getElementById(id);
   if(!el||el.tagName!=='DETAILS')return;
@@ -5999,6 +6051,7 @@ function renderAutoFlowDashboard(){
   const subEl=document.getElementById('autoFlowSub');
   const badgeEl=document.getElementById('autoFlowBadge');
   const body=document.getElementById('autoFlowBody');
+  const card=document.getElementById('autoFlowCard');
   if(!titleEl||!subEl||!badgeEl||!body)return;
   _autoFlowRendering=true;
   try{
@@ -6043,29 +6096,30 @@ function renderAutoFlowDashboard(){
     const liveValue=live?'ON':(matches?'대기':'전');
     const liveNote=live?'링크 활성':(matches?'시작 전':'대진 필요');
     let stage='roster';
-    let cfg={badge:'준비',title:'팀전LIVE 상황판',sub:'명부 선택'};
+    let cfg={badge:'준비',title:'팀전LIVE 세팅',sub:'명부 선택'};
     if(live){
       stage='live';
-      cfg={badge:'진행 중',title:'팀전LIVE 상황판',sub:currentRound==='완료'?'결과 확인':'진행 상황'};
+      cfg={badge:'진행 중',title:'팀전LIVE 운영',sub:currentRound==='완료'?'결과 확인':`${currentRound} 진행`};
     } else if(matches){
       stage='broadcast';
-      cfg={badge:'시작 전',title:'팀전LIVE 상황판',sub:'팀전LIVE 시작'};
+      cfg={badge:'시작 전',title:'팀전LIVE 세팅',sub:'팀전LIVE 시작'};
     } else if(teamReady){
       stage='generate';
-      cfg={badge:'팀 완료',title:'팀전LIVE 상황판',sub:'대진 생성'};
+      cfg={badge:'팀 완료',title:'팀전LIVE 세팅',sub:'대진 생성'};
     } else if(players>=4){
       stage='playerReview';
-      cfg={badge:'팀 배정',title:'팀전LIVE 상황판',sub:'참가자 확인'};
+      cfg={badge:'팀 배정',title:'팀전LIVE 세팅',sub:'참가자 확인'};
     } else if((counts.attend||0)>0){
       stage='import';
-      cfg={badge:'불러오기',title:'팀전LIVE 상황판',sub:'참가자 불러오기'};
+      cfg={badge:'불러오기',title:'팀전LIVE 세팅',sub:'참가자 불러오기'};
     } else if(_rsvpId){
       stage='wait';
-      cfg={badge:'응답 대기',title:'팀전LIVE 상황판',sub:'응답 대기'};
+      cfg={badge:'응답 대기',title:'팀전LIVE 세팅',sub:'응답 대기'};
     } else if(hasRoster){
       stage='link';
-      cfg={badge:'공유',title:'팀전LIVE 상황판',sub:'링크 공유'};
+      cfg={badge:'공유',title:'팀전LIVE 세팅',sub:'링크 공유'};
     }
+    if(card)card.classList.toggle('live-compact',live);
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
     titleEl.textContent=cfg.title;
@@ -6099,18 +6153,12 @@ function renderAutoFlowDashboard(){
       broadcast:{k:'6. LIVE 시작',t:'대진표가 준비됐습니다. 회원 링크를 시작하세요.'},
       live:{k:'운영 중',t:remaining?'현재 라운드 승패를 입력하세요.':'결과를 확인하세요.'}
     }[stage]||{k:'다음 단계',t:''};
-    const boardHtml=live
-      ? [
-          _autoFlowPanel('현재',currentRound,`${done}/${matches} 입력`,remaining?'warn':'live','bracket'),
-          _autoFlowPanel('미입력',`${remaining}경기`,remaining?'승패 확인':'완료',remaining?'warn':'live','scoreboard'),
-          _autoFlowPanel('늦음',`${counts.plan||0}명`,(counts.plan||0)?'대체 확인':'없음',(counts.plan||0)?'warn':'','players')
-        ].join('')
-      : [
-          _autoFlowPanel('명부',hasRoster?rosterName:'미선택',hasRoster?`${rosterTotal}명`:'먼저 선택',hasRoster?'':'warn','rsvp'),
-          _autoFlowPanel('응답',_rsvpId?`${counts.attend||0}명`:'공유 전',rsvpNote,counts.issues?'warn':'','rsvp'),
-          _autoFlowPanel('참가자',players?`${players}명`:'대기',teamReady?teamNote:'확인 필요',players?'':'warn','players'),
-          _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings')
-        ].join('');
+    const boardHtml=[
+      _autoFlowPanel('명부',hasRoster?rosterName:'미선택',hasRoster?`${rosterTotal}명`:'먼저 선택',hasRoster?'':'warn','rsvp'),
+      _autoFlowPanel('응답',_rsvpId?`${counts.attend||0}명`:'공유 전',rsvpNote,counts.issues?'warn':'','rsvp'),
+      _autoFlowPanel('참가자',players?`${players}명`:'대기',teamReady?teamNote:'확인 필요',players?'':'warn','players'),
+      _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings')
+    ].join('');
     const stepHtml=`<div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
         <span class="team-live-step ${stepState('roster')}">명부</span>
         <span class="team-live-step ${stepState(['link','wait','import'])}">링크</span>
@@ -6121,7 +6169,7 @@ function renderAutoFlowDashboard(){
       </div>`;
     if(live){
       body.innerHTML=`
-        <div class="auto-flow-board live-board">${boardHtml}</div>`;
+        ${_teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remaining,counts})}`;
     }else{
       body.innerHTML=`
         <div class="auto-flow-focus">
