@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.347';
+const APP_VERSION = '1.10.348';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3169,10 +3169,10 @@ function dailyRenderManualActiveModal(){
   const note=document.getElementById('dailyManualNote');
   if(note){
     note.textContent=transition
-      ? (selectedIds.length
-        ? '선택한 4명을 먼저 이 코트 등록으로 저장하세요.'
-        : (registeredCount?'더 등록할 코트가 있으면 선택하세요. 끝났으면 운영 시작을 누릅니다.':'이미 진행 중인 코트만 먼저 등록하세요. 없으면 등록 없이 시작하세요.'))
-      : '시작 상태 선수 4명을 선택합니다. 1·2번은 한 팀, 3·4번은 상대 팀입니다.';
+      ? (selectedIds.length===4
+        ? '코트 등록'
+        : (selectedIds.length?'4명 선택':'코트 선택'))
+      : '4명 선택';
   }
   const courtGrid=document.getElementById('dailyManualCourtGrid');
   if(courtGrid){
@@ -3183,14 +3183,14 @@ function dailyRenderManualActiveModal(){
       const busy=used.has(c);
       const on=!busy&&c===_dailyManualActiveDraft.court;
       const cls=registered?'registered':(busy?'busy':(on?'on':''));
-      const state=registered?'등록됨':(busy?'진행 중':(on?'선택 중':'미등록'));
+      const state=registered?'완료':(busy?'진행':(on?'선택':'대기'));
       const meta=registered
         ? _dailyManualActiveMatchShortLabel(registered)
         : busy
           ? '사용 중'
           : on
-            ? `${selectedIds.length}/4명 선택`
-            : '선택 가능';
+            ? `${selectedIds.length}/4`
+            : '선택';
       return `<button type="button" class="daily-manual-court-btn ${cls}" ${busy?'disabled':''} onclick="dailySetManualActiveCourt(${c})">
         <span class="daily-manual-court-main"><b>${c}코트</b><em>${state}</em></span>
         <span class="daily-manual-court-meta">${esc(meta)}</span>
@@ -3223,27 +3223,30 @@ function dailyRenderManualActiveModal(){
     const currentCourt=_dailyManualActiveDraft.court||'-';
     let main;
     let board='';
+    let actionClass='';
     if(transition&&!selected.length){
       main=registeredCount
-        ? '다음 코트를 등록하거나 운영 시작'
-        : '진행 중인 코트가 있으면 코트와 선수 4명을 선택';
+        ? '운영 시작 가능'
+        : '코트 선택';
+      actionClass=registeredCount?'go':'pick';
     }else{
       main=selected.length===4
-        ? `${currentCourt}코트 등록 준비됨`
-        : `${currentCourt}코트 · ${selected.length}/4명 선택 중`;
+        ? `${currentCourt}코트 준비`
+        : `${currentCourt}코트 ${selected.length}/4`;
+      actionClass=selected.length===4?'ready':'pick';
       board=_dailyManualActiveSelectionBoard(selected);
     }
     const nextAction=selected.length===4
-      ? '이 코트 등록을 누르세요.'
+      ? '코트 등록'
       : selected.length
-        ? '같은 편 2명, 상대 2명 순서로 선택하세요.'
+        ? '4명 선택'
         : registeredCount
-          ? '등록할 코트가 더 없으면 운영 시작을 누르세요.'
-          : '이미 진행 중인 코트만 등록합니다.';
+          ? '운영 시작'
+          : '4명 선택';
     const registeredHtml=registeredMatches.length
       ? `<div class="daily-manual-registered">${registeredMatches.map(m=>`<div class="daily-manual-registered-row"><b>${esc((m.court||'-')+'코트')}</b><span>${esc(_dailyManualActiveMatchShortLabel(m))}</span></div>`).join('')}</div>`
       : '';
-    summary.innerHTML=`<div class="daily-manual-next-action">${esc(main)}<small>${esc(nextAction)}</small></div>${board}${registeredHtml}`;
+    summary.innerHTML=`<div class="daily-manual-next-action ${actionClass}"><strong>${esc(main)}</strong><span>${esc(nextAction)}</span></div>${board}${registeredHtml}`;
   }
   const btn=document.getElementById('dailyManualConfirmBtn');
   if(btn){
@@ -5507,7 +5510,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.347&from=daily';
+  location.href='team.html?v=1.10.348&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
