@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.346';
+const APP_VERSION = '1.10.347';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3017,6 +3017,32 @@ function _dailyManualActiveMatchLabel(m){
   const t2=(m.team2||[]).map(name).join(' / ')||'2팀';
   return `${m.court||'-'}코트 · ${t1} vs ${t2}`;
 }
+function _dailyManualActiveTeamLabel(ids, fallback){
+  const names=(ids||[]).map(id=>{
+    const p=typeof id==='string'?_dailyPlayer(id):id;
+    return p&&p.name?p.name:'';
+  }).filter(Boolean);
+  return names.length?names.join(' · '):fallback;
+}
+function _dailyManualActiveMatchShortLabel(m){
+  return `${_dailyManualActiveTeamLabel(m.team1,'1팀')} vs ${_dailyManualActiveTeamLabel(m.team2,'2팀')}`;
+}
+function _dailyManualActiveSelectionBoard(selected){
+  const t1=selected.slice(0,2);
+  const t2=selected.slice(2,4);
+  const name=p=>p&&p.name?esc(p.name):'선택';
+  return `<div class="daily-manual-pick-board">
+    <div class="daily-manual-pick-side">
+      <b>${name(t1[0])}</b>
+      <b>${name(t1[1])}</b>
+    </div>
+    <div class="daily-manual-pick-vs">vs</div>
+    <div class="daily-manual-pick-side">
+      <b>${name(t2[0])}</b>
+      <b>${name(t2[1])}</b>
+    </div>
+  </div>`;
+}
 function dailyCreateActiveMatch(){
   const candidates=_dailyManualActiveCandidates('manual');
   if(candidates.length<4){
@@ -3135,6 +3161,7 @@ function dailyRenderManualActiveModal(){
   const selectedIds=_dailyManualActiveDraft.ids||[];
   const registeredMatches=_dailyManualActiveRegisteredMatches();
   const registeredCount=Math.max(_dailyManualActiveDraft.registeredCount||0,registeredMatches.length);
+  const registeredByCourt=new Map(registeredMatches.map(m=>[parseInt(m.court,10)||0,m]));
   const title=document.getElementById('dailyManualModalTitle');
   if(title)title.textContent=transition?'민턴LIVE 시작':'수동 게임 등록';
   const sub=document.getElementById('dailyManualModalSub');
@@ -3152,9 +3179,22 @@ function dailyRenderManualActiveModal(){
     const max=_dailyManualActiveCourtMax();
     courtGrid.innerHTML=Array.from({length:max},(_,i)=>{
       const c=i+1;
+      const registered=registeredByCourt.get(c);
       const busy=used.has(c);
       const on=!busy&&c===_dailyManualActiveDraft.court;
-      return `<button type="button" class="daily-manual-court-btn ${on?'on':''} ${busy?'busy':''}" ${busy?'disabled':''} onclick="dailySetManualActiveCourt(${c})">${c}코트</button>`;
+      const cls=registered?'registered':(busy?'busy':(on?'on':''));
+      const state=registered?'등록됨':(busy?'진행 중':(on?'선택 중':'미등록'));
+      const meta=registered
+        ? _dailyManualActiveMatchShortLabel(registered)
+        : busy
+          ? '사용 중'
+          : on
+            ? `${selectedIds.length}/4명 선택`
+            : '선택 가능';
+      return `<button type="button" class="daily-manual-court-btn ${cls}" ${busy?'disabled':''} onclick="dailySetManualActiveCourt(${c})">
+        <span class="daily-manual-court-main"><b>${c}코트</b><em>${state}</em></span>
+        <span class="daily-manual-court-meta">${esc(meta)}</span>
+      </button>`;
     }).join('');
   }
   const hint=document.getElementById('dailyManualCourtHint');
@@ -3180,20 +3220,30 @@ function dailyRenderManualActiveModal(){
   const selected=_dailyManualActiveSelected();
   const summary=document.getElementById('dailyManualSummary');
   if(summary){
-    const t1=selected.slice(0,2).map(p=>p.name).join(' / ') || '1·2번 선택';
-    const t2=selected.slice(2,4).map(p=>p.name).join(' / ') || '3·4번 선택';
+    const currentCourt=_dailyManualActiveDraft.court||'-';
     let main;
+    let board='';
     if(transition&&!selected.length){
       main=registeredCount
-        ? `등록된 경기 ${registeredCount}개 · 더 등록하거나 운영 시작`
-        : '진행 중인 경기가 있으면 코트와 선수 4명을 선택';
+        ? '다음 코트를 등록하거나 운영 시작'
+        : '진행 중인 코트가 있으면 코트와 선수 4명을 선택';
     }else{
-      main=`${_dailyManualActiveDraft.court||'-'}코트 · ${t1} vs ${t2}`;
+      main=selected.length===4
+        ? `${currentCourt}코트 등록 준비됨`
+        : `${currentCourt}코트 · ${selected.length}/4명 선택 중`;
+      board=_dailyManualActiveSelectionBoard(selected);
     }
+    const nextAction=selected.length===4
+      ? '이 코트 등록을 누르세요.'
+      : selected.length
+        ? '같은 편 2명, 상대 2명 순서로 선택하세요.'
+        : registeredCount
+          ? '등록할 코트가 더 없으면 운영 시작을 누르세요.'
+          : '이미 진행 중인 코트만 등록합니다.';
     const registeredHtml=registeredMatches.length
-      ? `<div class="daily-manual-registered">${registeredMatches.map(m=>`<div class="daily-manual-registered-row"><b>${esc((m.court||'-')+'코트')}</b><span>${esc(_dailyManualActiveMatchLabel(m).replace(/^.+? · /,''))}</span></div>`).join('')}</div>`
+      ? `<div class="daily-manual-registered">${registeredMatches.map(m=>`<div class="daily-manual-registered-row"><b>${esc((m.court||'-')+'코트')}</b><span>${esc(_dailyManualActiveMatchShortLabel(m))}</span></div>`).join('')}</div>`
       : '';
-    summary.innerHTML=`${esc(main)}${registeredHtml}`;
+    summary.innerHTML=`<div class="daily-manual-next-action">${esc(main)}<small>${esc(nextAction)}</small></div>${board}${registeredHtml}`;
   }
   const btn=document.getElementById('dailyManualConfirmBtn');
   if(btn){
@@ -5457,7 +5507,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.346&from=daily';
+  location.href='team.html?v=1.10.347&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
