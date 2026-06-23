@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.354';
+const APP_VERSION = '1.10.355';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4812,7 +4812,7 @@ function hideErr(){document.getElementById('errBar').classList.remove('on');}
 function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.textContent=m;b.classList.add('on');}
 function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.remove('on');}
 async function resetAll(){
-  if(!confirm('팀전LIVE를 전체 초기화할까요?\n출석부, 게스트, 참가자, 팀 배정, 대진표, 승패 입력이 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
+  if(!confirm('팀전LIVE를 전체 초기화할까요?\n링크 응답, 게스트, 참가자, 팀 배정, 대진표, 승패 입력이 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
   if(currentMatches.length || _directPlayers.length) _captureUndoSnapshot('전체 초기화 전');
   _lastRsvpImportSummary=null;
   const _ps=document.getElementById('parseStatus');if(_ps)_ps.textContent='';
@@ -5058,13 +5058,13 @@ function _renderRsvpImportSummary(){
     return;
   }
   const chips=[
-    ['출석',`${s.attend||0}명`],
+    ['참가',`${s.attend||0}명`],
     ['늦음',`${s.late||0}명`],
     ['게스트',`${s.guest||0}명`],
     ['P',`${s.partner||0}쌍`]
   ];
   box.classList.remove('hidden');
-  box.innerHTML=`<div class="rsvp-import-summary-title">출석자 반영 완료</div>
+  box.innerHTML=`<div class="rsvp-import-summary-title">참가자 불러오기 완료</div>
     <div class="rsvp-import-summary-chips">
       ${chips.map(([label,value])=>`<span><b>${esc(value)}</b>${esc(label)}</span>`).join('')}
     </div>
@@ -6043,7 +6043,7 @@ function renderAutoFlowDashboard(){
     const teamValue=teamReady?`${blue.length}:${white.length}`:(players?`${players}명`:'대기');
     const teamNote=teamReady
       ? `실력차 ${teamLevelDiff} · P ${activePairCount}쌍`
-      : (players?'참가자 확인 후 팀 배정':'출석자 필요');
+      : (players?'참가자 확인 후 팀 배정':'참가자 필요');
     const matchValue=matches?`${done}/${matches}`:'전';
     const remaining=Math.max(0,matches-done);
     const matchNote=matches?`${currentRound} · ${remaining} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
@@ -6065,13 +6065,13 @@ function renderAutoFlowDashboard(){
       cfg={badge:'팀 배정',title:'팀전LIVE 상황판',sub:'참가자 확인'};
     } else if((counts.attend||0)>0){
       stage='import';
-      cfg={badge:'반영',title:'팀전LIVE 상황판',sub:'출석자 반영'};
+      cfg={badge:'불러오기',title:'팀전LIVE 상황판',sub:'참가자 불러오기'};
     } else if(_rsvpId){
       stage='wait';
-      cfg={badge:'출석 대기',title:'팀전LIVE 상황판',sub:'응답 대기'};
+      cfg={badge:'응답 대기',title:'팀전LIVE 상황판',sub:'응답 대기'};
     } else if(hasRoster){
       stage='link';
-      cfg={badge:'공유',title:'팀전LIVE 상황판',sub:'출석부 공유'};
+      cfg={badge:'공유',title:'팀전LIVE 상황판',sub:'링크 공유'};
     }
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
@@ -6087,20 +6087,20 @@ function renderAutoFlowDashboard(){
       return '';
     };
     const actionHtml={
-      roster:_autoFlowAction('명부 선택','teamLiveOpenRsvp','처음 단계'),
-      link:_autoFlowAction('출석부 공유','rsvpShareLink','단톡방에 공유'),
-      wait:_autoFlowAction('링크 다시 공유','rsvpShareLink','응답 대기 중'),
-      import:_autoFlowAction('출석자 반영','rsvpImportAttendees','참가자 목록 만들기'),
+      roster:_autoFlowAction('명부 불러오기','teamLiveOpenRsvp','처음 단계'),
+      link:_autoFlowAction('링크 공유','rsvpShareLink','단톡방에 공유'),
+      wait:_autoFlowAction('다시 공유','rsvpShareLink','응답 대기 중'),
+      import:_autoFlowAction('참가자 불러오기','rsvpImportAttendees','참가자 목록 만들기'),
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate','품질 자동 확인'),
       broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림'),
       live:_autoFlowAction(remaining?'승패 입력':'결과 확인','teamLiveOpenScoreboard',remaining?`${remaining}경기 남음`:'모든 승패 입력됨')
     }[stage]||'';
     const stageGuide={
-      roster:{k:'1. 명부',t:'오늘 팀전에 사용할 명부를 먼저 선택하세요.'},
-      link:{k:'2. 출석부 공유',t:'회원에게 링크를 보내 출석을 받습니다.'},
-      wait:{k:'응답 대기',t:'응답이 모이면 출석자를 불러오세요.'},
-      import:{k:'3. 출석자 반영',t:'출석자를 참가자 목록으로 가져옵니다.'},
+      roster:{k:'1. 명부 불러오기',t:'오늘 팀전에 사용할 명부를 먼저 선택하세요.'},
+      link:{k:'2. 링크 공유',t:'회원에게 링크를 보내 응답을 받습니다.'},
+      wait:{k:'응답 대기',t:'응답이 모이면 참가자를 불러오세요.'},
+      import:{k:'3. 참가자 불러오기',t:'응답자를 참가자 목록으로 가져옵니다.'},
       playerReview:{k:'4. 참가자 확인',t:'누락·게스트·P만 확인하고 팀을 나눕니다.'},
       generate:{k:'5. 대진 생성',t:'청/홍팀 확인 후 전체 라운드를 만듭니다.'},
       broadcast:{k:'6. LIVE 시작',t:'대진표가 준비됐습니다. 회원 링크를 시작하세요.'},
@@ -6114,13 +6114,13 @@ function renderAutoFlowDashboard(){
         ].join('')
       : [
           _autoFlowPanel('명부',hasRoster?rosterName:'미선택',hasRoster?`${rosterTotal}명`:'먼저 선택',hasRoster?'':'warn','rsvp'),
-          _autoFlowPanel('출석',_rsvpId?`${counts.attend||0}명`:'공유 전',rsvpNote,counts.issues?'warn':'','rsvp'),
+          _autoFlowPanel('응답',_rsvpId?`${counts.attend||0}명`:'공유 전',rsvpNote,counts.issues?'warn':'','rsvp'),
           _autoFlowPanel('참가자',players?`${players}명`:'대기',teamReady?teamNote:'확인 필요',players?'':'warn','players'),
           _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings')
         ].join('');
     const stepHtml=`<div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
         <span class="team-live-step ${stepState('roster')}">명부</span>
-        <span class="team-live-step ${stepState(['link','wait','import'])}">출석</span>
+        <span class="team-live-step ${stepState(['link','wait','import'])}">링크</span>
         <span class="team-live-step ${stepState('playerReview')}">참가자</span>
         <span class="team-live-step ${stepState('generate')}">청/홍</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
@@ -6179,7 +6179,7 @@ function rsvpRender(){
   const {members,responses,counts}=_rsvpStats();
   const guestLimitForSummary=_rsvpGuestLimit();
   const guestSummaryText=guestLimitForSummary?`${counts.guest}/${guestLimitForSummary}`:String(counts.guest);
-  if(summary)summary.textContent=_rsvpId?`(${counts.attend}명 출석 · 늦음 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · G ${guestSummaryText}명)`:'';
+  if(summary)summary.textContent=_rsvpId?`(${counts.attend}명 참가 · 늦음 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · G ${guestSummaryText}명)`:'';
   if(_rsvpNeedsClubSelection()){
     box.className='rsvp-empty';
     box.textContent='단톡방에 보낼 명부를 선택하세요.';
@@ -6190,8 +6190,8 @@ function rsvpRender(){
     box.className='rsvp-panel';
     box.innerHTML=members.length
       ?`<div class="rsvp-create-box">
-          <div class="rsvp-create-title">출석부 준비 전</div>
-          <div class="rsvp-create-sub">명부를 선택하면 공유 문구가 자동으로 복사됩니다.</div>
+          <div class="rsvp-create-title">명부 불러오기 전</div>
+          <div class="rsvp-create-sub">명부를 선택하면 링크 공유 문구가 자동으로 복사됩니다.</div>
         </div>`
       :`<div class="rsvp-empty">현재 접속 주소에 저장된 클럽 명부가 없습니다. 명부 탭에서 불러오거나, 명부를 만든 것과 같은 주소의 팀전 페이지에서 열어주세요.</div>`;
     renderAutoFlowDashboard();
@@ -6210,13 +6210,13 @@ function rsvpRender(){
     <div class="rsvp-current rsvp-import-only">
       <div class="rsvp-current-top">
         <div>
-          <div class="rsvp-current-k">출석부</div>
-          <div class="rsvp-current-meta">출석 ${counts.attend}명 · 늦음 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${esc(guestText)}명</div>
+          <div class="rsvp-current-k">명부 응답</div>
+          <div class="rsvp-current-meta">참가 ${counts.attend}명 · 늦음 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${esc(guestText)}명</div>
         </div>
       </div>
       <div class="rsvp-current-actions">
-        <button class="rsvp-action-btn primary soft" onclick="rsvpShareLink()">공유하기</button>
-        <button class="rsvp-action-btn primary soft" onclick="rsvpImportAttendees()">불러오기</button>
+        <button class="rsvp-action-btn primary soft" onclick="rsvpShareLink()">링크 공유</button>
+        <button class="rsvp-action-btn primary soft" onclick="rsvpImportAttendees()">참가자 불러오기</button>
       </div>
     </div>
     ${_rsvpAdminRosterHtml(members,responses)}
@@ -6370,7 +6370,7 @@ function _rsvpBracketHasStarted(){
 }
 function _rsvpClearUnstartedBracket(){
   if(!currentMatches.length)return;
-  _captureUndoSnapshot('출석자 가져오기 전');
+  _captureUndoSnapshot('참가자 불러오기 전');
   teamAssignment=null;
   _teamModeOverride=null;
   _teamWanted=true;
@@ -6391,16 +6391,16 @@ function _rsvpClearUnstartedBracket(){
 function rsvpImportAttendees(){
   const {responses,counts}= _rsvpStats();
   const attendees=responses.filter(r=>_rsvpIsAttending(r.status));
-  if(!attendees.length){alert('출석자가 아직 없습니다.');return;}
+  if(!attendees.length){alert('참가자가 아직 없습니다.');return;}
   if(currentMatches.length){
     if(_rsvpBracketHasStarted()){
       alert('이미 진행되었거나 결과가 입력된 기존 대진표가 있습니다.\n기록 보호를 위해 자동 초기화하지 않습니다.\n필요하면 전체 초기화 후 다시 가져와 주세요.');
       return;
     }
-    if(!confirm('기존 대진표가 아직 남아 있습니다.\n미진행 대진표를 초기화하고 출석자를 가져올까요?'))return;
+    if(!confirm('기존 대진표가 아직 남아 있습니다.\n미진행 대진표를 초기화하고 참가자를 불러올까요?'))return;
     _rsvpClearUnstartedBracket();
   }
-  if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 출석자 ${counts.attend}명으로 교체할까요?`))return;
+  if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 응답자 ${counts.attend}명으로 교체할까요?`))return;
   const next=[];
   const seen=new Set();
   const usedNames=new Set();
@@ -6502,7 +6502,7 @@ function rsvpImportAttendees(){
 }
 async function rsvpStopLink(){
   if(!_rsvpId)return;
-  if(!confirm('팀전LIVE 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 출석부를 볼 수 없습니다.'))return;
+  if(!confirm('팀전LIVE 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 명부 응답을 볼 수 없습니다.'))return;
   await _rsvpClearActiveLinkData();
   rsvpRender();
   renderAutoFlowDashboard();
