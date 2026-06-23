@@ -1,7 +1,8 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.356';
+const APP_VERSION = '1.10.357';
+const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1595,7 +1596,7 @@ function _dailyBuildQueueItem(excludeIds,options){
     if(activeIds.length){
       q.expectedOnly=true;
       q.projectedActiveIds=activeIds;
-      q.projectedDetail='진행 중 경기 종료 후 예상 · 상황에 따라 조정 가능';
+      q.projectedDetail=DAILY_EXPECTED_DETAIL;
     }
   }
   return q;
@@ -3572,7 +3573,7 @@ function _dailyRenderQueueItem(q,idx,mode){
     </div>
     ${boardHtml}
     ${urgent?'':editHtml}
-    ${expected?`<div class="daily-reasons"><div class="daily-reason">${esc(q.projectedDetail||'진행 중 경기 종료 후 예상 · 상황에 따라 조정 가능')}</div></div>`:urgent?'':`<div class="daily-reasons">${_dailyReasons(next).slice(0,3).map(r=>`<div class="daily-reason">${esc(r)}</div>`).join('')}</div>`}
+    ${expected?`<div class="daily-reasons"><div class="daily-reason">${esc(q.projectedDetail||DAILY_EXPECTED_DETAIL)}</div></div>`:urgent?'':`<div class="daily-reasons">${_dailyReasons(next).slice(0,3).map(r=>`<div class="daily-reason">${esc(r)}</div>`).join('')}</div>`}
   </div>`;
 }
 function dailyRenderQueue(){
@@ -3700,7 +3701,7 @@ function _dailyPublicEvent(){
     if(!m)return null;
     const restPass=_dailyQueueRestPassActive(q);
     const info=extra
-      ? {matchId:'',court:null,text:'예상 대진',detail:q.projectedDetail||'미편성 인원이 충분하면 이어질 수 있음',state:'expected'}
+      ? {matchId:'',court:null,text:'예상 대진',detail:q.projectedDetail||DAILY_EXPECTED_DETAIL,state:'expected'}
       : _dailyQueueStartInfo(idx);
     return {
       idx:idx+1,type:m.type,teamMode:!!(q.teamMode||m.teamMode),
@@ -5554,7 +5555,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.356&from=daily';
+  location.href='team.html?v=1.10.357&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
