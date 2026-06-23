@@ -1557,6 +1557,23 @@ body{
   .score-hero,.current-panel,.next-panel,.info-details,.team-roster-card,.live-match,.viewer-identity{
     border-radius:22px!important;
   }
+  .current-grid,
+  .next-list{
+    grid-template-columns:1fr!important;
+  }
+  .current-panel .live-match,
+  .next-panel .live-match{
+    padding:14px!important;
+  }
+  .current-panel .live-player,
+  .next-panel .live-player{
+    font-size:1.18rem!important;
+    line-height:1.36!important;
+  }
+  .current-panel .live-versus,
+  .next-panel .live-versus{
+    gap:10px!important;
+  }
   .live-player{font-size:1.08rem!important;}
   .viewer-status-actions{gap:6px;}
   .viewer-state-btn{font-size:.78rem;min-height:42px;padding:8px 6px;}

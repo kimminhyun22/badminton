@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.357';
+const APP_VERSION='1.10.358';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -84,6 +84,7 @@ let _teamRosterOpen=false;
 let _latestLiveData=null;
 let _liveTicker=null;
 let _viewerName='';
+let _viewerNameCleared=false;
 let _viewerSearchTerm='';
 
 const content=document.getElementById('content');
@@ -915,6 +916,7 @@ function _recentStoredViewerName(){
 }
 
 function hydrateLiveViewerName(d){
+  if(_viewerNameCleared) return;
   const candidates=[
     _viewerParamName,
     (()=>{try{return localStorage.getItem(_viewerStorageKey())||'';}catch(e){return '';}})(),
@@ -950,6 +952,7 @@ function _viewerPartnerText(p){
 
 function setLiveViewerName(name){
   _viewerName=String(name||'').trim();
+  _viewerNameCleared=!_viewerName;
   if(_viewerName) _viewerSearchTerm='';
   try{
     if(_viewerName){
@@ -957,6 +960,7 @@ function setLiveViewerName(name){
       localStorage.setItem('kokmatch_live_viewer_last',JSON.stringify({name:_viewerName,liveId,source:'view',savedAt:Date.now()}));
     }else{
       localStorage.removeItem(_viewerStorageKey());
+      localStorage.removeItem('kokmatch_live_viewer_last');
     }
   }catch(e){}
   if(window._lastLiveData) render(window._lastLiveData);
