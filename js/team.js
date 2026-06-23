@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.353';
+const APP_VERSION = '1.10.354';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2423,21 +2423,34 @@ function _showCopyFallback(label,text){
   alert(label+'\n\n'+text);
 }
 
+async function _teamClearLiveBroadcastData(){
+  const liveId=_liveId;
+  if(_fbDb&&liveId){
+    await _fbDb.ref('live/'+liveId).remove().catch(()=>{});
+  }
+  try{localStorage.removeItem('badminton_liveId');}catch(e){}
+  _unbindLiveAdminListener();
+  _liveAttendance={};
+  _liveParty={};
+  _liveResultInputs={};
+  _liveResultConflicts={};
+  Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);
+  _liveOn=false;
+  _liveId=null;
+  _liveMatchStartedAt=null;
+  _updateLiveUI();
+  _renderLiveOpsSummary();
+}
+
 /* 실시간 중계 종료 */
 async function stopLiveBroadcast(){
   if(!_liveId || !_fbDb){
-    _unbindLiveAdminListener();
-    _liveAttendance={};_liveParty={};_liveResultInputs={};_liveResultConflicts={};
-    _liveOn=false; _liveMatchStartedAt=null; _updateLiveUI(); _renderLiveOpsSummary(); return;
+    await _teamClearLiveBroadcastData();
+    return;
   }
   if(!confirm('팀전LIVE를 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.')) return;
-  try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
-  localStorage.removeItem('badminton_liveId');
-  _unbindLiveAdminListener();
-  _liveAttendance={};_liveParty={};_liveResultInputs={};_liveResultConflicts={};
-  _liveOn=false; _liveId=null; _liveMatchStartedAt=null; _updateLiveUI();
-  rsvpPushEventState();
-  _renderLiveOpsSummary();
+  await _teamClearLiveBroadcastData();
+  await rsvpPushEventState();
   alert('팀전LIVE를 종료했어요.');
 }
 
@@ -4798,8 +4811,8 @@ function showErr(m){const b=document.getElementById('errBar');b.textContent=m;b.
 function hideErr(){document.getElementById('errBar').classList.remove('on');}
 function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.textContent=m;b.classList.add('on');}
 function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.remove('on');}
-function resetAll(){
-  if(!confirm('팀전 기록을 모두 초기화할까요?\n참가자, 팀 배정, 대진표, 승패 입력이 모두 지워집니다.\n팀전 보관함과 클럽 명부는 삭제되지 않습니다.'))return;
+async function resetAll(){
+  if(!confirm('팀전LIVE를 전체 초기화할까요?\n출석부, 게스트, 참가자, 팀 배정, 대진표, 승패 입력이 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
   if(currentMatches.length || _directPlayers.length) _captureUndoSnapshot('전체 초기화 전');
   _lastRsvpImportSummary=null;
   const _ps=document.getElementById('parseStatus');if(_ps)_ps.textContent='';
@@ -4812,6 +4825,8 @@ function resetAll(){
   _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
   currentMatches=[];currentParticipants=[];currentSettings={};
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
+  Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);
+  _lockedBeforeRound=null;
   teamNames={blue:'청 팀',white:'홍 팀'};
   document.getElementById('blueNameInput').value='청 팀';
   document.getElementById('whiteNameInput').value='홍 팀';
@@ -4824,6 +4839,14 @@ function resetAll(){
   // 직접입력 초기화
   _directPlayers=[];
   renderDirectPlayerList();
+  _ptParticipants=[];
+  _resetScoreboard();
+  await _teamClearLiveBroadcastData();
+  await _rsvpClearActiveLinkData();
+  rsvpRenderClubSelect();
+  rsvpRender();
+  renderAutoFlowDashboard();
+  scheduleSave();
   // (직접입력 전용 모드 — 별도 전환 불필요)
 }
 
@@ -5556,6 +5579,35 @@ function rsvpRemoveSaved(id){
   const list=_rsvpHistoryList().filter(x=>x&&x.id!==id);
   try{localStorage.setItem(RSVP_HISTORY_KEY,JSON.stringify(list));}catch(e){}
   rsvpRenderSavedBox();
+}
+function _rsvpRemoveHistoryId(id){
+  if(!id)return;
+  try{
+    const list=_rsvpHistoryList().filter(x=>x&&x.id!==id);
+    localStorage.setItem(RSVP_HISTORY_KEY,JSON.stringify(list));
+  }catch(e){}
+}
+async function _rsvpClearActiveLinkData(){
+  const id=_rsvpId;
+  const path=_rsvpPath();
+  if(_rsvpListening&&_rsvpListenPath&&_fbDb){
+    try{_fbDb.ref(_rsvpListenPath).off();}catch(e){}
+  }
+  _rsvpListening=false;
+  _rsvpListenPath='';
+  if(path&&_fbDb){
+    await _fbDb.ref(path).remove().catch(()=>{});
+  }
+  _rsvpRemoveHistoryId(id);
+  localStorage.removeItem(RSVP_KEY);
+  localStorage.removeItem(RSVP_CREATED_KEY);
+  localStorage.removeItem(RSVP_TITLE_KEY);
+  localStorage.removeItem(RSVP_TITLE_AUTO_KEY);
+  _rsvpId=null;
+  _rsvpCreatedAt=null;
+  _rsvpResponses={};
+  _lastRsvpImportSummary=null;
+  _rsvpApplyAutoTitle(true);
 }
 function rsvpPushSession(){
   if(!_rsvpId||!_fbDb)return;
@@ -6451,16 +6503,9 @@ function rsvpImportAttendees(){
 async function rsvpStopLink(){
   if(!_rsvpId)return;
   if(!confirm('팀전LIVE 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 출석부를 볼 수 없습니다.'))return;
-  const path=_rsvpPath();
-  if(_fbDb)await _fbDb.ref(path).remove().catch(()=>{});
-  localStorage.removeItem(RSVP_KEY);
-  localStorage.removeItem(RSVP_CREATED_KEY);
-  _rsvpId=null;
-  _rsvpCreatedAt=null;
-  _rsvpResponses={};
-  _lastRsvpImportSummary=null;
-  _rsvpListening=false;
+  await _rsvpClearActiveLinkData();
   rsvpRender();
+  renderAutoFlowDashboard();
 }
 
 /* ═══ ROSTER MANAGEMENT ═══ */
