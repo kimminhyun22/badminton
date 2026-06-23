@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.348';
+const APP_VERSION = '1.10.349';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2363,12 +2363,43 @@ function dailyToggleAutoAssign(on){
   dailyRender();
   dailyMaybeAutoAssign();
 }
+function _dailyFinishPlanInfo(){
+  const queued=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)).length;
+  const courts=_dailyCourtCount();
+  const active=_dailyActiveMatches();
+  const free=Math.max(0,courts-active.length);
+  if(!queued){
+    return {queued,active:active.length,etaMin:0,label:'바로 자율게임'};
+  }
+  const slots=active
+    .map(m=>Math.max(0,_dailyRemainingMinutes(m)))
+    .sort((a,b)=>a-b);
+  for(let i=0;i<free;i++)slots.push(0);
+  if(!slots.length)slots.push(0);
+  let remain=queued;
+  let eta=0;
+  const queue=slots.sort((a,b)=>a-b);
+  while(remain>0){
+    const t=queue.shift()??0;
+    eta=t;
+    remain--;
+    queue.push(t+DAILY_MATCH_MINUTES);
+    queue.sort((a,b)=>a-b);
+  }
+  return {queued,active:active.length,etaMin:Math.max(0,Math.ceil(eta)),label:_dailyFinishEtaLabel(Math.max(0,Math.ceil(eta)))};
+}
+function _dailyFinishEtaLabel(minutes){
+  if(!minutes)return '곧 자율게임';
+  if(minutes<=3)return '곧 자율게임';
+  return `약 ${minutes}분 후 자율게임`;
+}
 function dailyToggleFinishMode(){
+  dailyEnsureQueue();
   if(!_dailyFinishMode){
-    const queued=_dailyQueue.length;
-    const msg=queued
-      ? `마무리를 시작할까요?\n\n현재 잡힌 다음 대진 ${queued}경기까지만 진행하고 새 대진은 만들지 않습니다.`
-      : '마무리를 시작할까요?\n\n새 대진을 만들지 않고 진행 중 경기만 마칩니다.';
+    const plan=_dailyFinishPlanInfo();
+    const msg=plan.queued
+      ? `마무리 시작\n\n남은 자동대진 ${plan.queued}경기\n${plan.label}\n\n새 대진은 더 만들지 않습니다.`
+      : '마무리 시작\n\n새 자동대진 없음\n빈 코트는 자율게임으로 전환됩니다.';
     if(!confirm(msg))return;
     _dailyOperationStarted=true;
     _dailyFinishMode=true;
@@ -3875,6 +3906,15 @@ function dailyRenderAdminAlerts(){
   const activeMatches=_dailyActiveMatches();
   const endingMatches=activeMatches.filter(m=>['soon','due'].includes(_dailyTimerState(m))).sort((a,b)=>(a.court||0)-(b.court||0));
   const readyQueue=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q)).length;
+  const finishPlan=_dailyFinishPlanInfo();
+  if(_dailyFinishMode&&readyQueue){
+    alerts.push({
+      cls:'primary',
+      title:'마무리 중',
+      desc:`남은 자동대진 ${finishPlan.queued}경기 · ${finishPlan.label}`,
+      actions:`<button class="daily-mini-btn" onclick="dailyOpenBoardTarget('queue')">대진 보기</button>`
+    });
+  }
   if(_dailyFinishMode&&!readyQueue){
     alerts.push({
       cls:'primary',
@@ -4013,7 +4053,10 @@ function dailyRenderOpsStats(){
   const showFinish=!!_dailyOperationStarted;
   if(finishBtn){
     finishBtn.style.display=showFinish?'flex':'none';
-    finishBtn.textContent=_dailyFinishMode?'마무리 취소':'마무리';
+    const finishPlan=_dailyFinishPlanInfo();
+    finishBtn.innerHTML=_dailyFinishMode
+      ? `<span>마무리 취소</span><small>${finishPlan.queued?`남은 ${finishPlan.queued}경기 · ${finishPlan.label}`:'자율게임 전환'}</small>`
+      : '<span>마무리</span><small>새 대진 중지</small>';
     finishBtn.classList.toggle('active',_dailyFinishMode);
   }
   const controlStrip=document.querySelector('.daily-live-control-strip');
@@ -4030,6 +4073,7 @@ function dailyRenderOpsStats(){
   const expectedCount=_dailyProjectedQueue(_dailyExpectedQueueTarget(cap)).length;
   const flow=_dailyNaturalAutoInfo();
   const finishComplete=!!(_dailyFinishMode&&!locked);
+  const finishPlan=_dailyFinishPlanInfo();
   const courtHint=endingSoon
     ? `${endingSoon}코트 종료임박`
     : active
@@ -4037,7 +4081,7 @@ function dailyRenderOpsStats(){
       : '시작 전';
   const queueValue=expectedCount?`${locked}+${expectedCount}`:String(locked||0);
   const queueHint=locked||expectedCount
-    ? (_dailyFinishMode?`남은 ${locked}`:`다음 ${locked} · 예상 ${expectedCount}`)
+    ? (_dailyFinishMode?`${finishPlan.label}`:`다음 ${locked} · 예상 ${expectedCount}`)
     : flow.auto
       ? '자동 편성 대기'
       : flow.hint;
@@ -4048,7 +4092,7 @@ function dailyRenderOpsStats(){
       : flow.label;
   const cards=[
     {label:'진행',value:`${active}/${courts}`,hint:courtHint,cls:'primary',target:'active'},
-    {label:'대진',value:_dailyFinishMode?(locked||0):(flow.auto?queueValue:(_dailyOperationStarted?'대기':'시작 전')),hint:_dailyFinishMode?(finishComplete?'자율게임':(locked?`남은 ${locked}경기`:'새 대진 없음')):queueHint,cls:'primary',target:'queue'},
+    {label:'대진',value:_dailyFinishMode?(locked||0):(flow.auto?queueValue:(_dailyOperationStarted?'대기':'시작 전')),hint:_dailyFinishMode?(finishComplete?'자율게임':(locked?finishPlan.label:'새 대진 없음')):queueHint,cls:'primary',target:'queue'},
     {label:'라이브',value:flow.pool,hint:liveHint,cls:flow.auto?'primary':'warn',target:'players'}
   ];
   el.innerHTML=cards.map(x=>`<button type="button" class="daily-op ${x.cls||''} is-link" onclick="dailyOpenBoardTarget('${esc(x.target)}')" aria-label="${esc(x.label)} 보기"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></button>`).join('');
@@ -5510,7 +5554,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.348&from=daily';
+  location.href='team.html?v=1.10.349&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
