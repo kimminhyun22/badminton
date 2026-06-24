@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.360  (2026-06)
+     APP VERSION: 1.10.361  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.360">
+<meta name="app-version" content="1.10.361">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.360&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.360&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.361&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.361&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -580,22 +580,23 @@
   <button class="manual-back-btn" onclick="switchNav('main');window.scrollTo({top:0});">← 대진표로 돌아가기</button>
   <div class="manual-section">
     <h2>📌 팀전LIVE 한눈에 보기</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">청팀·홍팀 월례전을 현장에서 빠르게 만드는 화면입니다. 명부를 고르고 링크를 공유한 뒤, 참가자를 불러와 팀배정과 대진표를 자동 생성합니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">청팀·홍팀 월례전을 현장에서 빠르게 운영하는 화면입니다. 링크로 출석을 받고, 최종 인원을 확인한 뒤 팀배정과 대진표를 만듭니다.</p>
     <div class="feat-grid">
-      <div class="feat-card"><h4>1. 명부</h4><p>클럽 명부를 고르면 회원용 링크를 바로 공유합니다.</p></div>
-      <div class="feat-card"><h4>2. 링크</h4><p>회원은 출석, 늦음, 뒤풀이만 누릅니다.</p></div>
-      <div class="feat-card"><h4>3. 팀배정</h4><p>관리자는 참가자를 불러오고 필요한 상태·파트너만 정리합니다.</p></div>
-      <div class="feat-card"><h4>4. 대진</h4><p>팀전 품질점수 기준으로 좋은 대진을 자동 선택합니다.</p></div>
+      <div class="feat-card"><h4>1. 명부·링크</h4><p>오늘 명부를 고르고 단톡방에 공유합니다.</p></div>
+      <div class="feat-card"><h4>2. 현장 확인</h4><p>난타 중 늦음, 게스트, 제외 인원을 정리합니다.</p></div>
+      <div class="feat-card"><h4>3. 청/홍·대진</h4><p>참가자를 불러와 팀배정과 대진표를 생성합니다.</p></div>
+      <div class="feat-card"><h4>4. 승패 입력</h4><p>진행 중·다음 대진을 보며 승패만 입력합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
-    <h2>🚀 관리자 5단계</h2>
+    <h2>🚀 관리자 6단계</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>명부 불러오기</strong> — 오늘 사용할 클럽 명부를 선택합니다. 링크 공유가 바로 이어집니다.</p></div>
-      <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>참가자 불러오기</strong> — 회원 응답을 가져옵니다. 출석과 늦음 표식이 함께 반영됩니다.</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>정리</strong> — 늦게 오는 선수, 단장·부단장, 파트너 묶음, 비상 대체만 확인합니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>팀배정</strong> — 자동 배정 후 필요한 선수만 청팀·홍팀 사이에서 맞바꿉니다.</p></div>
-      <div class="step-item"><span class="step-num">5</span><p class="step-text"><strong>대진 생성</strong> — 품질점수를 확인하고 중계를 시작합니다. 회원은 같은 링크에서 바로 봅니다.</p></div>
+      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>명부 불러오기</strong> — 오늘 사용할 클럽 명부를 선택합니다.</p></div>
+      <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>링크 공유</strong> — 단톡방에 보내고 30분 정도 현장 흐름을 봅니다.</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>참가자 불러오기</strong> — 출석, 늦음, 게스트를 참가자 목록으로 가져옵니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>최종 확인</strong> — 빠질 사람, 늦게 오는 사람, 파트너 묶음만 확인합니다.</p></div>
+      <div class="step-item"><span class="step-num">5</span><p class="step-text"><strong>청/홍 배정</strong> — 자동 배정 후 필요한 선수만 맞바꿉니다.</p></div>
+      <div class="step-item"><span class="step-num">6</span><p class="step-text"><strong>대진 생성·LIVE</strong> — 품질점수를 확인하고 팀전LIVE를 시작합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -603,7 +604,7 @@
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">출석</span><p class="step-text">오늘 팀전에 참여합니다. 대진 생성 대상입니다.</p></div>
       <div class="step-item"><span class="step-num ico">늦음</span><p class="step-text">오고 있지만 아직 도착 전입니다. 대진에는 포함하되 관리자에게 작게 표시됩니다.</p></div>
-      <div class="step-item"><span class="step-num ico">뒤풀이</span><p class="step-text">뒤풀이 참석 여부만 따로 집계합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">뒤풀이</span><p class="step-text">필요한 날만 뒤풀이 참석 여부를 표시합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -635,15 +636,16 @@
   <div class="manual-section">
     <h2>📡 중계와 결과 입력</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">중계</span><p class="step-text">회원 링크 하나가 대진표와 실시간 현황으로 이어집니다. 중계 시작은 새 링크를 만들지 않습니다.</p></div>
-      <div class="step-item"><span class="step-num ico">승패</span><p class="step-text">경기 후 승패만 입력합니다. 선수 또는 단장·부단장이 입력해도 흐름이 이어집니다.</p></div>
+      <div class="step-item"><span class="step-num ico">중계</span><p class="step-text">회원 링크 하나가 출석, 대진표, 실시간 현황으로 이어집니다.</p></div>
+      <div class="step-item"><span class="step-num ico">승패</span><p class="step-text">진행 중 대진과 다음 대진 모두 승패 입력이 가능합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">확인</span><p class="step-text">서로 다른 승패 입력이 생기면 관리자 화면에 확인 표시만 뜹니다.</p></div>
       <div class="step-item"><span class="step-num ico">48h</span><p class="step-text">중계 데이터는 대진 시작 후 48시간 뒤 자동 정리됩니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
     <h2>💬 단톡방 안내 문구</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">복사</span><p class="step-text">팀전LIVE 링크입니다. 참석자는 <strong>출석</strong>, 늦게 오면 <strong>늦음</strong>, 뒤풀이 참석자는 <strong>뒤풀이</strong>를 눌러주세요. 대진과 실시간 현황도 같은 링크에서 확인합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">복사</span><p class="step-text">팀전LIVE 링크입니다. 참석자는 <strong>출석</strong>, 늦게 오면 <strong>늦음</strong>을 눌러주세요. 대진과 실시간 현황도 같은 링크에서 확인합니다.</p></div>
       <div class="step-item"><span class="step-num ico">안심</span><p class="step-text">잘못 눌러도 다시 바꿀 수 있습니다. 링크 사용이 어려운 분은 관리자가 대신 처리할 수 있습니다.</p></div>
     </div>
   </div>
@@ -652,6 +654,7 @@
     <div class="step-list">
       <div class="step-item"><span class="step-num">•</span><p class="step-text">명부, 출석 응답, 팀배정, 대진표는 브라우저에 자동 저장됩니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">같은 기기·같은 브라우저에서는 앱을 다시 열어도 이어서 볼 수 있습니다.</p></div>
+      <div class="step-item"><span class="step-num">•</span><p class="step-text">전체 초기화는 링크 응답, 게스트, 참가자, 팀배정, 대진표, 승패를 지웁니다. 클럽 명부는 남습니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">중요한 대회 전에는 JSON 백업을 함께 남기면 더 안전합니다.</p></div>
     </div>
   </div>
@@ -745,7 +748,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.360</span>
+  <span class="app-version" id="appVersion">v1.10.361</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
