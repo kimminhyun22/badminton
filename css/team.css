@@ -434,7 +434,16 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .step-list{display:flex;flex-direction:column;gap:8px;}
 .step-item{display:flex;gap:10px;align-items:flex-start;}
 .step-num{min-width:22px;height:22px;border-radius:50%;background:var(--txt);color:#fff;font-size:.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
-.step-num.ico{background:var(--sur2);font-size:.8rem;}
+.step-num.ico{
+  min-width:34px;
+  padding:0 8px;
+  border-radius:999px;
+  background:#eaf8ef;
+  border:1px solid #c9edd6;
+  color:#1d7a47;
+  font-size:.72rem;
+  font-weight:800;
+}
 .step-text{font-size:.82rem;color:var(--dim);line-height:1.8;}
 .step-text strong{color:var(--txt);}
 .step-text code{font-size:.72rem;background:var(--sur2);border:1px solid var(--bdr);padding:1px 5px;border-radius:3px;color:var(--bl);font-family:monospace;}
