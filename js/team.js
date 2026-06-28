@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.362';
+const APP_VERSION = '1.10.363';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6220,7 +6220,7 @@ function rsvpRender(){
   }
   const guestLimit=_rsvpGuestLimit();
   const guestText=guestLimit?`${counts.guest}/${guestLimit}`:String(counts.guest);
-  const latest=[...responses].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,8);
+  const latest=[...responses].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   const guestRows=responses
     .flatMap(r=>_rsvpResponseGuests(r).map(g=>({response:r,guest:g})))
     .filter(item=>_rsvpIsAttending(item.response.status))
