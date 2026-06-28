@@ -28,11 +28,57 @@ h1{margin:8px 0 8px;font-size:27px;line-height:1.18;letter-spacing:-.5px}
 .stat span{display:block;font-size:12px;color:var(--mut);font-weight:900;margin-top:3px}
 .event-panel{margin:14px 0 0;padding:14px;border-radius:20px;border:1px solid #c7d8fb;background:#f8fbff;color:#1f3356;line-height:1.45}
 .event-panel.hidden{display:none}
-.event-panel.live{border-color:#bfdbfe;background:linear-gradient(135deg,#eff6ff,#fff)}
+.event-panel.live{border-color:#fecaca;background:linear-gradient(135deg,#fff1f2,#fff)}
 .event-title{font-size:16px;font-weight:900;margin-bottom:4px}
+.event-panel.live .event-title{display:flex;align-items:center;gap:8px;color:#991b1b}
+.event-panel.live .event-title:before{
+  content:'';
+  width:11px;
+  height:11px;
+  border-radius:999px;
+  background:#ef4444;
+  box-shadow:0 0 0 6px rgba(239,68,68,.14);
+  animation:liveBlink 1.35s ease-in-out infinite;
+}
 .event-desc{font-size:13px;color:#526176}
 .event-actions{margin-top:11px;display:flex;gap:8px;flex-wrap:wrap}
 .event-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 15px;border-radius:15px;text-decoration:none;font-weight:900;background:var(--blue);color:#fff;box-shadow:0 10px 24px rgba(91,141,239,.23)}
+.event-panel.live .event-actions{display:block}
+.event-panel.live .event-btn{
+  position:relative;
+  overflow:hidden;
+  width:100%;
+  min-height:64px;
+  border-radius:18px;
+  background:linear-gradient(180deg,#f87171,#dc2626);
+  color:#fff;
+  font-size:18px;
+  letter-spacing:-.02em;
+  box-shadow:0 14px 30px rgba(220,38,38,.28),0 0 0 4px rgba(248,113,113,.14);
+}
+.event-panel.live .event-btn:before{
+  content:'';
+  position:absolute;
+  inset:-35% auto -35% -45%;
+  width:38%;
+  transform:rotate(18deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.32),transparent);
+  animation:liveSweep 2.4s ease-in-out infinite;
+}
+.event-panel.live .event-btn:after{
+  content:'›';
+  margin-left:10px;
+  font-size:24px;
+  line-height:1;
+}
+@keyframes liveBlink{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.58;transform:scale(.82)}
+}
+@keyframes liveSweep{
+  0%,42%{left:-45%}
+  100%{left:112%}
+}
 .summary-actions{margin-top:12px;display:flex}
 .summary-toggle{width:100%;background:#18202d;color:#fff;box-shadow:0 12px 26px rgba(24,32,45,.16)}
 .summary-panel{margin-top:10px;padding:13px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.92);line-height:1.45}
@@ -458,7 +504,7 @@ button.decline:before,
     <div class="event-panel hidden" id="eventPanel"></div>
     <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">출석 현황</button></div>
     <div class="summary-panel hidden" id="summaryPanel"></div>
-    <span class="version-chip" id="appVersion">v1.10.363</span>
+    <span class="version-chip" id="appVersion">v1.10.365</span>
   </section>
 </main>
 <div id="toast" class="toast"></div>
@@ -476,7 +522,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={},identityLookupOpen=false;
-const APP_VERSION='1.10.363';
+const APP_VERSION='1.10.365';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -528,7 +574,7 @@ function qs(k){return new URLSearchParams(location.search).get(k)||'';}
 function path(){return 'live/rsvp_'+rsvpId;}
 function isSampleMode(){
   const v=qs('sample');
-  return v==='1'||v==='team';
+  return v==='1'||v==='team'||v==='live';
 }
 function sampleMembers(){
   const rows=[
@@ -544,11 +590,13 @@ function sampleMembers(){
   return rows.map(([name,grade,gender],i)=>({id:'m_sample_'+i,name,grade,gender,ageGroup:'40대',club:'미르클럽'}));
 }
 function sampleSession(){
+  const liveSample=qs('sample')==='live';
   return {
     kind:'tournamentRsvp',mode:'team',title:'미르클럽 팀전 06.18',
     rsvpId:rsvpId||'TFAKE201',createdAt:Date.now()-3600000,updatedAt:Date.now(),
     clubName:'미르클럽',gamesPerPlayer:4,guestLimit:null,
-    phase:'bracket',bracketReady:true,matchCount:32,roundCount:8,
+    phase:liveSample?'live':'bracket',bracketReady:true,matchCount:32,roundCount:8,
+    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.365':'',
     members:sampleMembers()
   };
 }
@@ -805,7 +853,8 @@ function renderEventPanel(){
     const linkedLiveUrl=liveUrlWithViewer(liveUrl);
     panel.className='event-panel live';
     panel.innerHTML=`<div class="event-title">팀전LIVE 진행 중</div>
-      <div class="event-actions"><a class="event-btn" href="${esc(linkedLiveUrl)}">대진표 보기</a></div>`;
+      <div class="event-desc">지금 경기와 승패 현황을 확인하세요.</div>
+      <div class="event-actions"><a class="event-btn" href="${esc(linkedLiveUrl)}">실시간 현황 보기</a></div>`;
     return;
   }
   if(session.bracketReady){
