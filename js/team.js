@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.365';
+const APP_VERSION = '1.10.366';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -9,9 +9,33 @@ const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
 // 예: C급 남(4) vs C급 여(3) → 실효 4 vs 2.5 → 격차 1.5
 function effLevel(p){
   const isF = p.gender==='F' || p.gender==='여';
-  const _AGE_BONUS={'20대':+0.4,'30대':+0.3,'40대':0,'50대':-0.4,'60대+':-0.8};
+  const _AGE_BONUS={'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2.0};
   const ageMod = _AGE_BONUS[p.ageGroup] || 0;
   return Math.round((p.level - (isF ? 0.5 : 0) + ageMod) * 10) / 10;
+}
+const BALANCE_PARTNER_GAP_OK=1.25;
+const BALANCE_PARTNER_GAP_CAUTION=2.25;
+const BALANCE_PARTNER_GAP_HARD=3;
+const BALANCE_TEAM_DIFF_TARGET=1.5;
+const BALANCE_TEAM_DIFF_LIMIT=2;
+function balanceTeamDiffPenalty(diff){
+  const d=Math.max(0,Number.isFinite(+diff)?+diff:0);
+  let penalty=d*360;
+  if(d>BALANCE_TEAM_DIFF_TARGET)penalty+=(d-BALANCE_TEAM_DIFF_TARGET)*1600;
+  if(d>BALANCE_TEAM_DIFF_LIMIT)penalty+=50000+(d-BALANCE_TEAM_DIFF_LIMIT)*12000;
+  return penalty;
+}
+function balancePartnerLevelGap(team){
+  if(!team||team.length<2)return 0;
+  return Math.abs(effLevel(team[0])-effLevel(team[1]));
+}
+function balancePartnerLevelGapPenalty(team){
+  const gap=balancePartnerLevelGap(team);
+  if(gap<=BALANCE_PARTNER_GAP_OK)return 0;
+  let penalty=(gap-BALANCE_PARTNER_GAP_OK)*900;
+  if(gap>BALANCE_PARTNER_GAP_CAUTION)penalty+=1200+(gap-BALANCE_PARTNER_GAP_CAUTION)*2200;
+  if(gap>=BALANCE_PARTNER_GAP_HARD)penalty+=4200+(gap-BALANCE_PARTNER_GAP_HARD)*3200;
+  return penalty;
 }
 let _currentRound=1;
 let _partnerGapThreshold=2; // 파트너 최소 간격 (generateMatches에서 자동 설정)
@@ -1440,7 +1464,7 @@ function selectFourTeamAdjustment(pool,settings,maxLD){
       const help=four.reduce((s,p)=>s+Math.max(0,_goalForPlayer(p,settings)-(p.gamesPlayed||0)),0);
       const newOver=four.reduce((s,p)=>s+Math.max(0,(p.gamesPlayed||0)+1-_goalForPlayer(p,settings)),0);
       const wait=four.reduce((s,p)=>s+Math.min(_currentRound-(p.lastRoundPlayed||0),10),0);
-      const score=(m.levelDiff||0)*80+diversityScore(four,m.levelDiff||0)*0.35-help*220+newOver*160-wait*8;
+      const score=balanceTeamDiffPenalty(m.levelDiff||0)+diversityScore(four,m.levelDiff||0)*0.35-help*220+newOver*160-wait*8;
       if(score<bestScore){bestScore=score;best=four;}
     }
   return best;
@@ -1680,9 +1704,10 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     if(teamMode){if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)continue;}
     const ld=Math.abs((effLevel(t1[0])+effLevel(t1[1]))-(effLevel(t2[0])+effLevel(t2[1])));
     if(ld>maxLD)continue;
-    let score=ld*80; // 실력차 최우선
+    let score=balanceTeamDiffPenalty(ld); // 실력차 최우선
     score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
     score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
+    score+=balancePartnerLevelGapPenalty(t1)+balancePartnerLevelGapPenalty(t2);
     const p1pair=t1[0].partnerName===t1[1].name;
     const p2pair=t2[0].partnerName===t2[1].name;
     if(!p1pair) score+=(t1[0].partnerCount[t1[1].name]||0)*10;

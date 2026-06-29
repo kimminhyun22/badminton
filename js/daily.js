@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.365';
+const APP_VERSION = '1.10.366';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -10,7 +10,7 @@ const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
 // 예: C급 남(4) vs C급 여(3) → 실효 4 vs 2.5 → 격차 1.5
 function effLevel(p){
   const isF = p.gender==='F' || p.gender==='여';
-  const _AGE_BONUS={'20대':+0.4,'30대':+0.3,'40대':0,'50대':-0.4,'60대+':-0.8};
+  const _AGE_BONUS={'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2.0};
   const ageMod = _AGE_BONUS[p.ageGroup] || 0;
   return Math.round((p.level - (isF ? 0.5 : 0) + ageMod) * 10) / 10;
 }
@@ -5555,7 +5555,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.365&from=daily';
+  location.href='team.html?v=1.10.366&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -6717,7 +6717,7 @@ function selectFourTeamAdjustment(pool,settings,maxLD){
       const help=four.reduce((s,p)=>s+Math.max(0,_goalForPlayer(p,settings)-(p.gamesPlayed||0)),0);
       const newOver=four.reduce((s,p)=>s+Math.max(0,(p.gamesPlayed||0)+1-_goalForPlayer(p,settings)),0);
       const wait=four.reduce((s,p)=>s+Math.min(_currentRound-(p.lastRoundPlayed||0),10),0);
-      const score=(m.levelDiff||0)*80+diversityScore(four,m.levelDiff||0)*0.35-help*220+newOver*160-wait*8;
+      const score=_dailyTeamDiffPenalty(m.levelDiff||0)+diversityScore(four,m.levelDiff||0)*0.35-help*220+newOver*160-wait*8;
       if(score<bestScore){bestScore=score;best=four;}
     }
   return best;
@@ -6944,6 +6944,7 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     let score=_dailyTeamDiffPenalty(ld); // 실력차 최우선
     score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
     score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
+    score+=_dailyPartnerLevelGapPenalty(t1)+_dailyPartnerLevelGapPenalty(t2);
     const p1pair=t1[0].partnerName===t1[1].name;
     const p2pair=t2[0].partnerName===t2[1].name;
     if(!p1pair) score+=(t1[0].partnerCount[t1[1].name]||0)*10;
