@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.368';
+const APP_VERSION = '1.10.369';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5763,7 +5763,8 @@ function rsvpStartListener(){
   _rsvpListenPath=path;
   _fbDb.ref(path).on('value',snap=>{
     _rsvpResponses=snap.val()||{};
-    rsvpRender();
+    if(document.querySelector('.rsvp-admin-panel[open]'))rsvpRenderPreservingAdmin();
+    else rsvpRender();
   });
 }
 function _rsvpResponseList(){
@@ -5825,7 +5826,7 @@ function _rsvpStatusLabel(status){
 function rsvpSetAdminSort(sort){
   _rsvpAdminSort=sort||'status';
   _rsvpAdminPanelOpen=true;
-  rsvpRender();
+  rsvpRenderPreservingAdmin();
 }
 function rsvpSetAdminQuery(value){
   _rsvpAdminQuery=String(value||'').trim();
@@ -5841,6 +5842,59 @@ function rsvpRefreshAdminList(){
   const {members,responses}=_rsvpStats();
   list.innerHTML=_rsvpAdminRosterRowsHtml(members,responses);
   return true;
+}
+function _rsvpAdminViewSnapshot(){
+  const panel=document.querySelector('.rsvp-admin-panel');
+  const list=document.querySelector('.rsvp-admin-list');
+  return {
+    open:!!(panel&&panel.open),
+    pageY:typeof window!=='undefined'&&Number.isFinite(window.scrollY)?window.scrollY:0,
+    listTop:list?list.scrollTop:0
+  };
+}
+function _rsvpRestoreAdminView(snapshot){
+  if(!snapshot||!snapshot.open)return;
+  const restore=()=>{
+    const list=document.querySelector('.rsvp-admin-list');
+    if(list)list.scrollTop=snapshot.listTop||0;
+    if(typeof window!=='undefined'&&typeof window.scrollTo==='function'){
+      try{
+        window.scrollTo({top:snapshot.pageY||0,left:0,behavior:'auto'});
+      }catch(e){
+        window.scrollTo(0,snapshot.pageY||0);
+      }
+    }
+  };
+  restore();
+  if(typeof requestAnimationFrame==='function'){
+    requestAnimationFrame(()=>{ restore(); setTimeout(restore,0); });
+  }else{
+    setTimeout(restore,0);
+  }
+}
+function rsvpRenderPreservingAdmin(snapshot){
+  const state=snapshot||_rsvpAdminViewSnapshot();
+  if(state.open)_rsvpAdminPanelOpen=true;
+  rsvpRender();
+  _rsvpRestoreAdminView(state);
+}
+function rsvpRefreshSummaryBits(){
+  const {counts}= _rsvpStats();
+  const guestLimit=_rsvpGuestLimit();
+  const guestText=guestLimit?`${counts.guest}/${guestLimit}`:String(counts.guest);
+  const summary=document.getElementById('rsvpSummary');
+  if(summary)summary.textContent=_rsvpId?`(${counts.attend}명 참가 · 늦음 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · G ${guestText}명)`:'';
+  const currentMeta=document.querySelector('.rsvp-current-meta');
+  if(currentMeta)currentMeta.textContent=`참가 ${counts.attend}명 · 늦음 ${counts.plan||0}명 · 뒷풀이 ${counts.party||0}명 · 게스트 ${guestText}명`;
+}
+function rsvpRefreshAdminContext(snapshot){
+  const state=snapshot||_rsvpAdminViewSnapshot();
+  if(state.open)_rsvpAdminPanelOpen=true;
+  const refreshed=rsvpRefreshAdminList();
+  rsvpRefreshSummaryBits();
+  renderAutoFlowDashboard();
+  _rsvpRestoreAdminView(state);
+  return refreshed;
 }
 function _rsvpInitials(text){
   const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -6328,7 +6382,8 @@ function _rsvpRowHtml(r,warn){
 }
 async function rsvpSetResponseStatus(memberId,status){
   if(!_rsvpId||!memberId)return;
-  _rsvpAdminPanelOpen=!!document.querySelector('.rsvp-admin-panel[open]');
+  const adminView=_rsvpAdminViewSnapshot();
+  _rsvpAdminPanelOpen=adminView.open;
   const members=_rsvpRosterMembers();
   const member=members.find(m=>m.id===memberId);
   const prev=_rsvpResponses?.[memberId]||{};
@@ -6337,7 +6392,7 @@ async function rsvpSetResponseStatus(memberId,status){
       await _fbDb.ref(_rsvpPath()+'/responses/'+memberId).remove().catch(()=>{});
     }
     delete _rsvpResponses[memberId];
-    rsvpRender();
+    if(!rsvpRefreshAdminContext(adminView))rsvpRenderPreservingAdmin(adminView);
     return;
   }
   if(!member&&!prev.memberName&&!prev.name)return;
@@ -6359,11 +6414,12 @@ async function rsvpSetResponseStatus(memberId,status){
   if(_fbDb){
     await _fbDb.ref(_rsvpPath()+'/responses/'+memberId).set(payload).catch(()=>{});
   }
-  rsvpRender();
+  if(!rsvpRefreshAdminContext(adminView))rsvpRenderPreservingAdmin(adminView);
 }
 async function rsvpSetPartnerRequest(memberId){
   if(!_rsvpId||!memberId)return;
-  _rsvpAdminPanelOpen=!!document.querySelector('.rsvp-admin-panel[open]');
+  const adminView=_rsvpAdminViewSnapshot();
+  _rsvpAdminPanelOpen=adminView.open;
   const members=_rsvpRosterMembers();
   const member=members.find(m=>m.id===memberId);
   if(!member)return;
@@ -6431,7 +6487,7 @@ async function rsvpSetPartnerRequest(memberId){
       await _fbDb.ref(_rsvpPath()+'/responses/'+prev.partnerRequest.memberId).set(_rsvpResponses[prev.partnerRequest.memberId]).catch(()=>{});
     }
   }
-  rsvpRender();
+  if(!rsvpRefreshAdminContext(adminView))rsvpRenderPreservingAdmin(adminView);
 }
 function _rsvpBracketHasStarted(){
   if(!currentMatches.length)return false;
