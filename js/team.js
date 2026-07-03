@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.373';
+const APP_VERSION = '1.10.374';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4898,6 +4898,7 @@ let _dirGender = '남';
 let _dirAge = '40대';
 let _directPlayers = [];
 let _dirSort = 'reg'; // 'reg' | 'name' | 'level'
+let _rsvpSyncingImportedPlayers = false;
 
 function setDirSort(mode){
   _dirSort = mode;
@@ -5117,65 +5118,72 @@ function _renderRsvpImportSummary(){
 }
 
 function _rsvpSyncImportedPlayersFromRoster(){
-  if(currentMatches.length||!_lastRsvpImportSummary||!_directPlayers.length)return false;
+  if(_rsvpSyncingImportedPlayers)return false;
+  if(currentMatches.length||!_directPlayers.length)return false;
   if(_rsvpSelectedSource()===RSVP_DIRECT_VALUE)return false;
   const rosterMap=_rsvpRosterMemberMap();
   if(!rosterMap.size)return false;
+  _rsvpSyncingImportedPlayers=true;
   const byNameClub=new Map();
   const byName=new Map();
-  rosterMap.forEach(m=>{
-    const nameKey=_rsvpNameKey(m.name);
-    const clubKey=`${nameKey}|${m.club||''}`;
-    byNameClub.set(clubKey,byNameClub.has(clubKey)?null:m);
-    byName.set(nameKey,byName.has(nameKey)?null:m);
-  });
-  let changed=false;
-  const renamed=new Map();
-  _directPlayers=_directPlayers.map(p=>{
-    if(!p||p.isGuest)return p;
-    let roster=p.memberId?rosterMap.get(p.memberId):null;
-    if(!roster){
-      const nameKey=_rsvpNameKey(p.name);
-      roster=byNameClub.get(`${nameKey}|${p.club||''}`)||byName.get(nameKey)||null;
-    }
-    if(!roster)return p;
-    const gender=roster.gender||p.gender||'남';
-    const grade=roster.grade||p.grade||levelToGrade(p.level||4,gender)||'C';
-    const level=gradeToLevel(grade,gender)||p.level||4;
-    const next={
-      ...p,
-      memberId:roster.id,
-      name:roster.name||p.name,
-      grade,
-      gender,
-      level,
-      ageGroup:roster.ageGroup||p.ageGroup||'40대',
-      club:roster.club||p.club||''
-    };
-    ['memberId','name','grade','gender','level','ageGroup','club'].forEach(key=>{
-      if(String(next[key]||'')!==String(p[key]||''))changed=true;
+  try{
+    rosterMap.forEach(m=>{
+      const nameKey=_rsvpNameKey(m.name);
+      const clubKey=`${nameKey}|${m.club||''}`;
+      byNameClub.set(clubKey,byNameClub.has(clubKey)?null:m);
+      byName.set(nameKey,byName.has(nameKey)?null:m);
     });
-    if(next.name!==p.name)renamed.set(p.name,next.name);
-    return next;
-  });
-  if(!changed)return false;
-  if(renamed.size){
-    _partners=_partners.map(pair=>({
-      ...pair,
-      members:pair.members.map(name=>renamed.get(name)||name)
-    }));
+    let changed=false;
+    const renamed=new Map();
+    _directPlayers=_directPlayers.map(p=>{
+      if(!p||p.isGuest)return p;
+      let roster=p.memberId?rosterMap.get(p.memberId):null;
+      if(!roster){
+        const nameKey=_rsvpNameKey(p.name);
+        roster=byNameClub.get(`${nameKey}|${p.club||''}`)||byName.get(nameKey)||null;
+      }
+      if(!roster)return p;
+      const gender=roster.gender||p.gender||'남';
+      const grade=roster.grade||p.grade||levelToGrade(p.level||4,gender)||'C';
+      const level=gradeToLevel(grade,gender)||p.level||4;
+      const next={
+        ...p,
+        memberId:roster.id,
+        name:roster.name||p.name,
+        grade,
+        gender,
+        level,
+        ageGroup:roster.ageGroup||p.ageGroup||'40대',
+        club:roster.club||p.club||''
+      };
+      ['memberId','name','grade','gender','level','ageGroup','club'].forEach(key=>{
+        if(String(next[key]||'')!==String(p[key]||''))changed=true;
+      });
+      if(next.name!==p.name)renamed.set(p.name,next.name);
+      return next;
+    });
+    if(!changed)return false;
+    if(renamed.size){
+      _partners=_partners.map(pair=>({
+        ...pair,
+        members:pair.members.map(name=>renamed.get(name)||name)
+      }));
+    }
+    if(teamAssignment){
+      teamAssignment=null;
+      _teamModeOverride=null;
+    }
+    syncDirectToPaste();
+    updateTeamModeBadge();
+    scheduleSave();
+    return true;
+  }finally{
+    _rsvpSyncingImportedPlayers=false;
   }
-  if(teamAssignment){
-    teamAssignment=null;
-    _teamModeOverride=null;
-  }
-  syncDirectToPaste();
-  updateTeamModeBadge();
-  scheduleSave();
-  return true;
 }
 
 function renderDirectPlayerList(){
+  _rsvpSyncImportedPlayersFromRoster();
   const list = document.getElementById('directPlayerList');
   const bar  = document.getElementById('dirCountBar');
   const sortBar = document.getElementById('dirSortBar');
@@ -5761,8 +5769,9 @@ function rsvpPushSession(){
   _fbDb.ref(path+'/session').set(_rsvpSessionPayload()).catch(()=>{});
 }
 function rsvpSyncRosterChange(){
-  _rsvpSyncImportedPlayersFromRoster();
+  const changed=_rsvpSyncImportedPlayersFromRoster();
   rsvpRender();
+  if(changed&&document.getElementById('directPlayerList'))renderDirectPlayerList();
   if(!_rsvpId||!_fbDb)return;
   if(_rsvpNeedsClubSelection()||!_rsvpRosterMembers().length)return;
   clearTimeout(_rsvpSyncTimer);
@@ -6055,7 +6064,7 @@ function _rsvpAdminRosterRowsHtml(members,responses){
     const p=item.type==='guest'?item.guest:item.member;
     const r=item.response||{};
     const hay=[
-      p.name,p.club||r.club,p.grade,p.gender,
+      p.name,p.club||r.club,p.grade,p.gender,p.ageGroup,
       item.type==='guest'?'게스트':'회원',
       item.type==='guest'?r.memberName||r.name:'',
       _rsvpInitials(p.name)
@@ -6085,7 +6094,7 @@ function _rsvpAdminRosterRowsHtml(members,responses){
       return `<div class="rsvp-admin-row guest ${esc(status)}">
         <div>
           <div class="rsvp-name">${esc(g.name)} <span class="guest-badge">G</span> <span class="rsvp-badge ${esc(status)}">${esc(_rsvpStatusLabel(status))}</span></div>
-          <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')} · ${esc(g.grade||'C')}급 · ${esc(g.gender||'남')}</div>
+          <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')} · ${esc(g.grade||'C')}급 · ${esc(g.gender||'남')} · ${esc(g.ageGroup||'40대')}</div>
         </div>
         <div class="rsvp-admin-actions">
           <button class="rsvp-action-btn ready ${status==='ready'?'primary':''}" onclick="rsvpSetGuestStatus('${esc(ownerId)}',${Number(item.index)||0},'ready')">출석</button>
@@ -6102,7 +6111,7 @@ function _rsvpAdminRosterRowsHtml(members,responses){
     return `<div class="rsvp-admin-row ${esc(status)}">
       <div>
         <div class="rsvp-name">${esc(m.name)} <span class="rsvp-badge ${esc(status)}">${esc(_rsvpStatusLabel(status))}</span></div>
-        <div class="rsvp-meta">${esc(m.club||_rsvpSelectedLabel())} · ${esc(m.grade||'C')}급 · ${esc(m.gender||'남')}${esc(partnerName)}</div>
+        <div class="rsvp-meta">${esc(m.club||_rsvpSelectedLabel())} · ${esc(m.grade||'C')}급 · ${esc(m.gender||'남')} · ${esc(m.ageGroup||'40대')}${esc(partnerName)}</div>
       </div>
       <div class="rsvp-admin-actions">
       <button class="rsvp-action-btn ready ${status==='ready'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(m.id)}','ready')">출석</button>
