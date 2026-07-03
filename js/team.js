@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.372';
+const APP_VERSION = '1.10.373';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -54,6 +54,7 @@ let teamAssignment=null;
 let currentMatches=[];
 let currentParticipants=[];
 let currentSettings={};
+const _teamManualClosedSections=new Set();
 
 /* ═══ 되돌리기(Undo) 스택 ═══ */
 const _UNDO_MAX=20;
@@ -776,8 +777,6 @@ function generate(){
       _resetScoreboard();
       renderResults(matches,participants,settings);
       openQualityPanelAfterRender();
-      const settingsCard=document.getElementById('sec-settings');
-      if(settingsCard)settingsCard.open=false;
       updateSettingsMiniSummary();
       show('resultArea');
       rsvpPushEventState();
@@ -2902,8 +2901,7 @@ function renderQualityDashboard(matches,participants,settings){
 }
 
 function openQualityPanelAfterRender(scroll=false){
-  const section=document.getElementById('sec-quality');
-  if(section&&section.tagName==='DETAILS')section.open=true;
+  const section=_teamForceOpenSection('sec-quality')||document.getElementById('sec-quality');
   const result=document.getElementById('resultArea');
   if(result)result.classList.remove('hidden');
   if(scroll){
@@ -5629,6 +5627,7 @@ function rsvpCloseDetailsPanel(btn,event){
   const panel=btn&&btn.closest?btn.closest('details'):null;
   if(!panel)return;
   panel.open=false;
+  if(panel.id&&panel.classList.contains('card'))_teamManualClosedSections.add(panel.id);
   if(panel.classList.contains('rsvp-admin-panel'))_rsvpAdminPanelOpen=false;
 }
 function rsvpRenderSavedBox(){
@@ -6261,24 +6260,33 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
     </div>
     ${chips.length?`<div class="team-live-alert-row">${chips.join('')}</div>`:''}`;
 }
-function _autoFlowSetSection(id,open){
+function _autoFlowSetSection(id,open,force=false){
   const el=document.getElementById(id);
   if(!el||el.tagName!=='DETAILS')return;
-  el.open=!!open;
+  if(!open)return;
+  if(force)_teamManualClosedSections.delete(id);
+  if(!_teamManualClosedSections.has(id))el.open=true;
+}
+function _teamForceOpenSection(id){
+  const el=document.getElementById(id);
+  if(!el||el.tagName!=='DETAILS')return null;
+  _teamManualClosedSections.delete(id);
+  el.open=true;
+  return el;
 }
 function teamLiveFocusRoster(){switchNav('roster');}
 function teamLiveOpenRsvp(){
-  const el=document.getElementById('sec-rsvp');
+  const el=_teamForceOpenSection('sec-rsvp');
   if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
 }
 function teamLiveOpenPlayers(){
-  const el=document.getElementById('sec-players');
+  const el=_teamForceOpenSection('sec-players');
   if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
 }
 function teamLiveOpenScoreboard(){
   const sec=document.getElementById('scoreboardSec');
   if(sec)sec.classList.remove('hidden');
-  const el=document.getElementById('sec-scoreboard');
+  const el=_teamForceOpenSection('sec-scoreboard');
   if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
 }
 function teamLiveOpenPanel(target){
@@ -6298,13 +6306,12 @@ function teamLiveOpenPanel(target){
   const btn=document.getElementById('bnav-'+(cfg.tab||'dashboard'));
   if(btn)btn.classList.add('active');
   if(cfg.open){
-    const fold=document.getElementById(cfg.open);
-    if(fold&&fold.tagName==='DETAILS')fold.open=true;
+    _teamForceOpenSection(cfg.open);
   }
   const el=document.getElementById(cfg.id);
   if(el){
     if(el.classList&&el.classList.contains('hidden'))el.classList.remove('hidden');
-    if(el.tagName==='DETAILS')el.open=true;
+    if(el.tagName==='DETAILS')_teamForceOpenSection(el.id);
     const top=el.getBoundingClientRect().top+window.scrollY-8;
     window.scrollTo({top,behavior:'smooth'});
   }
@@ -6817,9 +6824,7 @@ function rsvpImportAttendees(){
   updateTeamModeBadge();
   switchNav('main');
   scheduleSave();
-  _autoFlowSetSection('sec-rsvp',false);
-  _autoFlowSetSection('sec-players',true);
-  _autoFlowSetSection('sec-settings',false);
+  _autoFlowSetSection('sec-players',true,true);
   const playersCard=document.getElementById('sec-players');
   if(playersCard){
     setTimeout(()=>playersCard.scrollIntoView({behavior:'smooth',block:'start'}),30);

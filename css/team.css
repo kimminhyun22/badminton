@@ -1335,7 +1335,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-summary-close{display:none;align-items:center;justify-content:center;border:1px solid #c9daf8;border-radius:999px;background:#f8fbff;color:#406fc7;font-family:'Noto Sans KR',sans-serif;font-size:.66rem;font-weight:1000;padding:5px 10px;cursor:pointer;white-space:nowrap;}
 .rsvp-response-details[open] > summary .rsvp-summary-close,
 .rsvp-admin-panel[open] > summary .rsvp-summary-close,
-.rsvp-archive[open] > summary .rsvp-summary-close{display:inline-flex;}
+.rsvp-archive[open] > summary .rsvp-summary-close,
+details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
 .rsvp-summary-close:hover{background:#edf4ff;border-color:#bfd4fb;color:#1d4ed8;}
 .rsvp-saved{display:flex;flex-direction:column;gap:7px;margin-bottom:9px;}
 .rsvp-saved-title{font-size:.78rem;font-weight:1000;color:#334155;letter-spacing:-.02em;display:flex;align-items:center;justify-content:space-between;gap:8px;}
@@ -1634,6 +1635,7 @@ summary.card-head::after{
   content:'접기';font-size:.64rem;font-weight:1000;color:#94a3b8;
   padding:4px 8px;border:1px solid #e2e8f0;border-radius:999px;background:#fff;
 }
+details.card[open] > summary.team-closable-head::after{display:none;}
 details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb;background:#eff6ff;border-color:#bfdbfe;}
 
 .btn,.btn-ta,.sync-btn,.rsvp-action-btn,.rsvp-saved-btn,.pseg-btn,.lv-sel-btn,.gender-sel-btn,.age-sel-btn{
