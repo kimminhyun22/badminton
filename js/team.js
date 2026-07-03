@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.369';
+const APP_VERSION = '1.10.370';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5083,11 +5083,15 @@ function _renderRsvpImportSummary(){
     box.innerHTML='';
     return;
   }
+  const activeNames=new Set(_directPlayers.map(p=>p.name));
+  const guestCount=_directPlayers.filter(p=>p.isGuest).length;
+  const memberCount=Math.max(0,_directPlayers.length-guestCount);
+  const partnerCount=_partners.filter(pair=>pair.members.every(n=>activeNames.has(n))).length;
   const chips=[
-    ['참가',`${s.attend||0}명`],
+    ['참가',`${memberCount}명`],
     ['늦음',`${s.late||0}명`],
-    ['게스트',`${s.guest||0}명`],
-    ['P',`${s.partner||0}쌍`]
+    ['게스트',`${guestCount}명`],
+    ['P',`${partnerCount}쌍`]
   ];
   box.classList.remove('hidden');
   box.innerHTML=`<div class="rsvp-import-summary-title">참가자 불러오기 완료</div>
@@ -6602,9 +6606,9 @@ function rsvpImportAttendees(){
     source:'rsvp'
   }));
   _lastRsvpImportSummary={
-    attend:counts.attend||attendees.length,
+    attend:next.filter(p=>!p.isGuest).length,
     late:counts.plan||0,
-    guest:counts.guest||0,
+    guest:next.filter(p=>p.isGuest).length,
     partner:_partners.length,
     ts:Date.now()
   };
