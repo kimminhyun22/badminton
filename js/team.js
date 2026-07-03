@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.366';
+const APP_VERSION = '1.10.368';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5246,6 +5246,7 @@ let _rsvpSyncTimer=null;
 let _rsvpRosterRefreshLock=false;
 let _rsvpAdminSort='status';
 let _rsvpAdminQuery='';
+let _rsvpAdminPanelOpen=false;
 let _autoFlowRendering=false;
 let _lastRsvpImportSummary=null;
 function isTeamSampleMode(){
@@ -5514,6 +5515,19 @@ function _rsvpSavedDate(ts){
     return new Date(ts).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});
   }catch(e){return '';}
 }
+function _rsvpDetailsCloseButton(){
+  return `<button type="button" class="rsvp-summary-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>`;
+}
+function rsvpCloseDetailsPanel(btn,event){
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const panel=btn&&btn.closest?btn.closest('details'):null;
+  if(!panel)return;
+  panel.open=false;
+  if(panel.classList.contains('rsvp-admin-panel'))_rsvpAdminPanelOpen=false;
+}
 function rsvpRenderSavedBox(){
   const box=document.getElementById('rsvpSavedBox');
   if(!box)return;
@@ -5533,7 +5547,7 @@ function rsvpRenderSavedBox(){
     </div>`;
   }).join('');
   box.innerHTML=`<details class="rsvp-archive">
-    <summary>이전 팀전LIVE ${list.length}개</summary>
+    <summary><span>이전 팀전LIVE ${list.length}개</span>${_rsvpDetailsCloseButton()}</summary>
     <div class="rsvp-archive-list">${rows}</div>
   </details>`;
 }
@@ -5810,19 +5824,23 @@ function _rsvpStatusLabel(status){
 }
 function rsvpSetAdminSort(sort){
   _rsvpAdminSort=sort||'status';
+  _rsvpAdminPanelOpen=true;
   rsvpRender();
 }
 function rsvpSetAdminQuery(value){
   _rsvpAdminQuery=String(value||'').trim();
-  rsvpRender();
-  setTimeout(()=>{
-    const input=document.querySelector('.rsvp-admin-search');
-    if(input){
-      input.focus();
-      const len=input.value.length;
-      try{input.setSelectionRange(len,len);}catch(e){}
-    }
-  },0);
+  _rsvpAdminPanelOpen=true;
+  if(!rsvpRefreshAdminList())rsvpRender();
+}
+function rsvpToggleAdminPanel(open){
+  _rsvpAdminPanelOpen=!!open;
+}
+function rsvpRefreshAdminList(){
+  const list=document.querySelector('.rsvp-admin-list');
+  if(!list)return false;
+  const {members,responses}=_rsvpStats();
+  list.innerHTML=_rsvpAdminRosterRowsHtml(members,responses);
+  return true;
 }
 function _rsvpInitials(text){
   const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -5841,7 +5859,7 @@ function _rsvpAdminPartnerOptions(memberId,selectedId){
       .map(m=>`<option value="${esc(m.id)}" ${m.id===selectedId?'selected':''}>${esc(m.name)} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급</option>`))
     .join('');
 }
-function _rsvpAdminRosterHtml(members,responses){
+function _rsvpAdminRosterRowsHtml(members,responses){
   const responseMap=new Map(responses.map(r=>[r.memberId||r.id,r]));
   const q=String(_rsvpAdminQuery||'').trim().toLowerCase();
   const filtered=members.filter(m=>{
@@ -5858,7 +5876,6 @@ function _rsvpAdminRosterHtml(members,responses){
     if(_rsvpAdminSort==='level')return levelOf(b)-levelOf(a)||a.name.localeCompare(b.name,'ko');
     return statusRank(ra.status)-statusRank(rb.status)||a.name.localeCompare(b.name,'ko');
   });
-  const sortBtn=(key,label)=>`<button class="rsvp-sort-btn ${_rsvpAdminSort===key?'active':''}" onclick="rsvpSetAdminSort('${key}')">${label}</button>`;
   const rows=filtered.map(m=>{
     const r=responseMap.get(m.id)||{};
     const status=r.status||'none';
@@ -5883,8 +5900,13 @@ function _rsvpAdminRosterHtml(members,responses){
       </details>
     </div>`;
   }).join('');
-  return `<details class="rsvp-admin-panel">
-    <summary>관리자 상태 관리 · ${members.length}명</summary>
+  return rows||'<div class="rsvp-admin-empty">검색된 회원이 없습니다.</div>';
+}
+function _rsvpAdminRosterHtml(members,responses){
+  const sortBtn=(key,label)=>`<button class="rsvp-sort-btn ${_rsvpAdminSort===key?'active':''}" onclick="rsvpSetAdminSort('${key}')">${label}</button>`;
+  const openAttr=(_rsvpAdminPanelOpen||_rsvpAdminQuery)?' open':'';
+  return `<details class="rsvp-admin-panel"${openAttr} ontoggle="rsvpToggleAdminPanel(this.open)">
+    <summary><span>관리자 상태 관리 · ${members.length}명</span>${_rsvpDetailsCloseButton()}</summary>
     <div class="rsvp-admin-tools">
       <input class="rsvp-admin-search" value="${esc(_rsvpAdminQuery)}" placeholder="이름/초성 검색" oninput="rsvpSetAdminQuery(this.value)">
       <div class="rsvp-admin-sort">
@@ -5893,7 +5915,7 @@ function _rsvpAdminRosterHtml(members,responses){
         ${sortBtn('level','급수순')}
       </div>
     </div>
-    <div class="rsvp-admin-list">${rows||'<div class="rsvp-admin-empty">검색된 회원이 없습니다.</div>'}</div>
+    <div class="rsvp-admin-list">${_rsvpAdminRosterRowsHtml(members,responses)}</div>
   </details>`;
 }
 function _autoFlowMetric(label,value){
@@ -6266,10 +6288,10 @@ function rsvpRender(){
       </div>
     </div>
     ${_rsvpAdminRosterHtml(members,responses)}
-    ${guestRows.length?`<details class="rsvp-response-details"><summary>게스트 신청 ${esc(guestText)}명</summary><div class="rsvp-list">${guestRows.map(item=>_rsvpGuestRowHtml(item)).join('')}</div></details>`:''}
+    ${guestRows.length?`<details class="rsvp-response-details"><summary><span>게스트 신청 ${esc(guestText)}명</span>${_rsvpDetailsCloseButton()}</summary><div class="rsvp-list">${guestRows.map(item=>_rsvpGuestRowHtml(item)).join('')}</div></details>`:''}
     ${issueRows.length?`<div class="rsvp-list">${issueRows.map(r=>_rsvpRowHtml(r,true)).join('')}</div>`:''}
     <details class="rsvp-response-details">
-      <summary>최근 응답 ${responses.length}명</summary>
+      <summary><span>최근 응답 ${responses.length}명</span>${_rsvpDetailsCloseButton()}</summary>
       <div class="rsvp-list">${latest.length?latest.map(r=>_rsvpRowHtml(r,false)).join(''):'<div class="rsvp-empty">아직 응답이 없습니다.</div>'}</div>
     </details>`;
   renderAutoFlowDashboard();
@@ -6306,6 +6328,7 @@ function _rsvpRowHtml(r,warn){
 }
 async function rsvpSetResponseStatus(memberId,status){
   if(!_rsvpId||!memberId)return;
+  _rsvpAdminPanelOpen=!!document.querySelector('.rsvp-admin-panel[open]');
   const members=_rsvpRosterMembers();
   const member=members.find(m=>m.id===memberId);
   const prev=_rsvpResponses?.[memberId]||{};
@@ -6340,6 +6363,7 @@ async function rsvpSetResponseStatus(memberId,status){
 }
 async function rsvpSetPartnerRequest(memberId){
   if(!_rsvpId||!memberId)return;
+  _rsvpAdminPanelOpen=!!document.querySelector('.rsvp-admin-panel[open]');
   const members=_rsvpRosterMembers();
   const member=members.find(m=>m.id===memberId);
   if(!member)return;
