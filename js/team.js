@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.374';
+const APP_VERSION = '1.10.375';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5120,24 +5120,38 @@ function _renderRsvpImportSummary(){
 function _rsvpSyncImportedPlayersFromRoster(){
   if(_rsvpSyncingImportedPlayers)return false;
   if(currentMatches.length||!_directPlayers.length)return false;
-  if(_rsvpSelectedSource()===RSVP_DIRECT_VALUE)return false;
-  const rosterMap=_rsvpRosterMemberMap();
-  if(!rosterMap.size)return false;
+  const clubs=_rsvpClubs();
+  const selected=_rsvpSelectedSource();
+  const selectedClub=selected&&selected!==RSVP_DIRECT_VALUE?clubs.find(c=>c.id===selected):null;
+  const orderedClubs=selectedClub
+    ? [selectedClub,...clubs.filter(c=>c.id!==selectedClub.id)]
+    : clubs;
+  if(!orderedClubs.length)return false;
   _rsvpSyncingImportedPlayers=true;
+  const byId=new Map();
   const byNameClub=new Map();
   const byName=new Map();
   try{
-    rosterMap.forEach(m=>{
-      const nameKey=_rsvpNameKey(m.name);
-      const clubKey=`${nameKey}|${m.club||''}`;
-      byNameClub.set(clubKey,byNameClub.has(clubKey)?null:m);
-      byName.set(nameKey,byName.has(nameKey)?null:m);
+    orderedClubs.forEach(club=>{
+      (club.members||[]).forEach(member=>{
+        if(!member||!member.name)return;
+        const roster={
+          ...member,
+          club:club.name||member.club||''
+        };
+        roster.id=_rsvpMemberId(roster);
+        if(!byId.has(roster.id))byId.set(roster.id,roster);
+        const nameKey=_rsvpNameKey(roster.name);
+        const clubKey=`${nameKey}|${roster.club||''}`;
+        byNameClub.set(clubKey,byNameClub.has(clubKey)?null:roster);
+        byName.set(nameKey,byName.has(nameKey)?null:roster);
+      });
     });
     let changed=false;
     const renamed=new Map();
     _directPlayers=_directPlayers.map(p=>{
       if(!p||p.isGuest)return p;
-      let roster=p.memberId?rosterMap.get(p.memberId):null;
+      let roster=p.memberId?byId.get(p.memberId):null;
       if(!roster){
         const nameKey=_rsvpNameKey(p.name);
         roster=byNameClub.get(`${nameKey}|${p.club||''}`)||byName.get(nameKey)||null;
@@ -5769,8 +5783,14 @@ function rsvpPushSession(){
   _fbDb.ref(path+'/session').set(_rsvpSessionPayload()).catch(()=>{});
 }
 function rsvpSyncRosterChange(){
+  const adminView=_rsvpAdminViewSnapshot();
   const changed=_rsvpSyncImportedPlayersFromRoster();
-  rsvpRender();
+  if(adminView.open){
+    _rsvpAdminPanelOpen=true;
+    if(!rsvpRefreshAdminContext(adminView))rsvpRenderPreservingAdmin(adminView);
+  }else{
+    rsvpRender();
+  }
   if(changed&&document.getElementById('directPlayerList'))renderDirectPlayerList();
   if(!_rsvpId||!_fbDb)return;
   if(_rsvpNeedsClubSelection()||!_rsvpRosterMembers().length)return;
@@ -7203,7 +7223,18 @@ function importSelected(){
   let added=0,skipped=0;
   sel.forEach(m=>{
     if(!_directPlayers.some(p=>p.name===m.name)){
-      _directPlayers.push({name:m.name,grade:m.grade,level:m.level,gender:m.gender,ageGroup:m.ageGroup||'40대'});
+      const sourceClub=rosters.clubs[_importClubIdx];
+      const clubName=sourceClub?.name||m.club||'';
+      const memberId=_rsvpMemberId({name:m.name,club:clubName});
+      _directPlayers.push({
+        memberId,
+        name:m.name,
+        grade:m.grade,
+        level:m.level,
+        gender:m.gender,
+        ageGroup:m.ageGroup||'40대',
+        club:clubName
+      });
       added++;
     }else skipped++;
   });
