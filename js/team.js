@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.370';
+const APP_VERSION = '1.10.371';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -775,6 +775,7 @@ function generate(){
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       _resetScoreboard();
       renderResults(matches,participants,settings);
+      openQualityPanelAfterRender();
       const settingsCard=document.getElementById('sec-settings');
       if(settingsCard)settingsCard.open=false;
       updateSettingsMiniSummary();
@@ -2897,7 +2898,20 @@ function renderQualityDashboard(matches,participants,settings){
         <button id="undoBtn" class="btn btn-undo" style="padding:10px 14px;font-size:.88rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩ 복원</button>
       </div>
     </div>
-    ${total<=82?`<div class="qd-hint">💡 ${total<=70?'재생성을 권장합니다. 재배정 버튼을 눌러보세요.':'점수가 낮은 항목을 확인하고 필요 시 재배정하세요.'}</div>`:''}`;
+	    ${total<=82?`<div class="qd-hint">💡 ${total<=70?'재생성을 권장합니다. 재배정 버튼을 눌러보세요.':'점수가 낮은 항목을 확인하고 필요 시 재배정하세요.'}</div>`:''}`;
+}
+
+function openQualityPanelAfterRender(scroll=false){
+  const section=document.getElementById('sec-quality');
+  if(section&&section.tagName==='DETAILS')section.open=true;
+  const result=document.getElementById('resultArea');
+  if(result)result.classList.remove('hidden');
+  if(scroll){
+    setTimeout(()=>{
+      const target=document.getElementById('qualDash')||section||result;
+      if(target)target.scrollIntoView({behavior:'smooth',block:'start'});
+    },80);
+  }
 }
 
 
@@ -4469,6 +4483,7 @@ function reshuffleFromRound(r){
       currentParticipants=bestP1;
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       renderResults(currentMatches,currentParticipants,currentSettings);
+      openQualityPanelAfterRender();
       setTimeout(()=>{
         completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
         updateScores();scheduleSave();
@@ -4536,10 +4551,11 @@ function reshuffleMatches(){
       currentParticipants=bestP2;
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       renderResults(currentMatches,currentParticipants,currentSettings);
+      openQualityPanelAfterRender();
       setTimeout(()=>{
         completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
         updateScores();scheduleSave();
-        (document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});},100);
+        openQualityPanelAfterRender(true);},100);
       const _cw=checkEmptyCourts(newMatches.length?newMatches:allMatches,currentSettings,activeParticipants);
       if(_cw.length){let _msg='⚠ 일부 라운드에 빈 코트가 있습니다\n\n';_cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');showWarn(_msg);}else{hideWarn();}
     }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
@@ -4688,6 +4704,7 @@ function executeChangeModal(){
       renderDirectPlayerList();
 
       renderResults(currentMatches,currentParticipants,currentSettings);
+      openQualityPanelAfterRender();
       show('resultArea');
 
       // 9. 완료된 게임 점수 복원 + winOverride 복원
@@ -4696,7 +4713,7 @@ function executeChangeModal(){
         completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
         updateScores();
         scheduleSave();
-        (document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});
+        openQualityPanelAfterRender(true);
       },100);
 
       // 빈 코트 경고
@@ -5777,33 +5794,52 @@ function _rsvpResponseList(){
 function _rsvpIsAttending(status){
   return status==='attend'||status==='ready';
 }
-function _rsvpResponseGuests(r){
+function _rsvpGuestStatusValue(status){
+  return status==='ready'||status==='attend'||status==='none'||status==='decline'?status:'';
+}
+function _rsvpGuestEffectiveStatus(g,r){
+  const explicit=_rsvpGuestStatusValue(g?.status);
+  if(explicit)return explicit;
+  return _rsvpIsAttending(r?.status)?r.status:'none';
+}
+function _rsvpNormalizeGuestForTeam(g,fallbackAgeGroup='40대'){
+  if(!g||!String(g.name||'').trim())return null;
+  const status=_rsvpGuestStatusValue(g.status);
+  const item={
+    name:String(g.name).trim(),
+    gender:g.gender||'남',
+    grade:g.grade||'C',
+    ageGroup:g.ageGroup||fallbackAgeGroup||'40대'
+  };
+  if(status)item.status=status;
+  return item;
+}
+function _rsvpResponseGuestEntries(r){
   const list=[];
   const seen=new Set();
-  const add=g=>{
-    if(!g||!String(g.name||'').trim())return;
-    const item={
-      name:String(g.name).trim(),
-      gender:g.gender||'남',
-      grade:g.grade||'C',
-      ageGroup:g.ageGroup||r?.ageGroup||'40대'
-    };
+  const add=(g,index)=>{
+    const item=_rsvpNormalizeGuestForTeam(g,r?.ageGroup||'40대');
+    if(!item)return;
     const key=[item.name,item.gender,item.grade,item.ageGroup].join('|');
     if(seen.has(key))return;
     seen.add(key);
-    list.push(item);
+    list.push({guest:item,index,response:r});
   };
-  if(Array.isArray(r?.guests))r.guests.forEach(add);
-  add(r?.guest);
+  if(Array.isArray(r?.guests))r.guests.forEach((g,i)=>add(g,i));
+  add(r?.guest,Array.isArray(r?.guests)?r.guests.length:0);
   return list;
+}
+function _rsvpResponseGuests(r){
+  return _rsvpResponseGuestEntries(r).map(entry=>entry.guest);
 }
 function _rsvpStats(){
   const members=_rsvpRosterMembers();
   const memberIds=new Set(members.map(m=>m.id));
   const responses=_rsvpResponseList().filter(r=>memberIds.has(r.memberId||r.id));
-  const counts={attend:0,ready:0,plan:0,decline:0,maybe:0,guest:0,party:0,issues:0,partner:0};
+  const counts={attend:0,ready:0,plan:0,decline:0,maybe:0,guest:0,guestAll:0,party:0,issues:0,partner:0};
   responses.forEach(r=>{
     const guestList=_rsvpResponseGuests(r);
+    const activeGuests=guestList.filter(g=>_rsvpIsAttending(_rsvpGuestEffectiveStatus(g,r)));
     if(r.status==='ready'){
       counts.attend++;
       counts.ready++;
@@ -5815,10 +5851,11 @@ function _rsvpStats(){
     }else{
       counts.maybe++;
     }
-    counts.guest+=guestList.length;
+    counts.guest+=activeGuests.length;
+    counts.guestAll+=guestList.length;
     if(r.party)counts.party++;
     if(r.partnerRequest&&r.partnerRequest.memberId)counts.partner++;
-    if(_rsvpIsAttending(r.status)&&guestList.some(g=>!g.gender||!g.grade))counts.issues++;
+    if(activeGuests.some(g=>!g.gender||!g.grade))counts.issues++;
   });
   counts.noResponse=Math.max(0,members.length-responses.length);
   counts.total=members.length;
@@ -5920,22 +5957,63 @@ function _rsvpAdminPartnerOptions(memberId,selectedId){
 function _rsvpAdminRosterRowsHtml(members,responses){
   const responseMap=new Map(responses.map(r=>[r.memberId||r.id,r]));
   const q=String(_rsvpAdminQuery||'').trim().toLowerCase();
-  const filtered=members.filter(m=>{
+  const memberItems=members.map(m=>({type:'member',member:m,response:responseMap.get(m.id)||{}}));
+  const guestItems=responses.flatMap(r=>{
+    const ownerId=r.memberId||r.id;
+    return _rsvpResponseGuestEntries(r).map(entry=>({
+      type:'guest',
+      ownerId,
+      guest:entry.guest,
+      index:entry.index,
+      response:r
+    }));
+  });
+  const filtered=memberItems.concat(guestItems).filter(item=>{
     if(!q)return true;
-    const hay=[m.name,m.club,m.grade,m.gender,_rsvpInitials(m.name)].join(' ').toLowerCase();
+    const p=item.type==='guest'?item.guest:item.member;
+    const r=item.response||{};
+    const hay=[
+      p.name,p.club||r.club,p.grade,p.gender,
+      item.type==='guest'?'게스트':'회원',
+      item.type==='guest'?r.memberName||r.name:'',
+      _rsvpInitials(p.name)
+    ].join(' ').toLowerCase();
     return hay.includes(q);
   });
   const statusRank=s=>s==='none'||!s?0:s==='attend'?1:s==='ready'?2:3;
-  const levelOf=m=>gradeToLevel(m.grade||'C',m.gender||'남')||m.level||0;
+  const itemStatus=item=>item.type==='guest'
+    ? _rsvpGuestEffectiveStatus(item.guest,item.response)
+    : ((item.response||{}).status||'none');
+  const itemName=item=>item.type==='guest'?item.guest.name:item.member.name;
+  const levelOf=item=>{
+    const p=item.type==='guest'?item.guest:item.member;
+    return gradeToLevel(p.grade||'C',p.gender||'남')||p.level||0;
+  };
   filtered.sort((a,b)=>{
-    const ra=responseMap.get(a.id)||{};
-    const rb=responseMap.get(b.id)||{};
-    if(_rsvpAdminSort==='name')return a.name.localeCompare(b.name,'ko');
-    if(_rsvpAdminSort==='level')return levelOf(b)-levelOf(a)||a.name.localeCompare(b.name,'ko');
-    return statusRank(ra.status)-statusRank(rb.status)||a.name.localeCompare(b.name,'ko');
+    if(_rsvpAdminSort==='name')return itemName(a).localeCompare(itemName(b),'ko');
+    if(_rsvpAdminSort==='level')return levelOf(b)-levelOf(a)||itemName(a).localeCompare(itemName(b),'ko');
+    return statusRank(itemStatus(a))-statusRank(itemStatus(b))||itemName(a).localeCompare(itemName(b),'ko');
   });
-  const rows=filtered.map(m=>{
-    const r=responseMap.get(m.id)||{};
+  const rows=filtered.map(item=>{
+    if(item.type==='guest'){
+      const g=item.guest||{};
+      const r=item.response||{};
+      const ownerId=item.ownerId||r.memberId||r.id||'';
+      const status=_rsvpGuestEffectiveStatus(g,r);
+      return `<div class="rsvp-admin-row guest ${esc(status)}">
+        <div>
+          <div class="rsvp-name">${esc(g.name)} <span class="guest-badge">G</span> <span class="rsvp-badge ${esc(status)}">${esc(_rsvpStatusLabel(status))}</span></div>
+          <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')} · ${esc(g.grade||'C')}급 · ${esc(g.gender||'남')}</div>
+        </div>
+        <div class="rsvp-admin-actions">
+          <button class="rsvp-action-btn ready ${status==='ready'?'primary':''}" onclick="rsvpSetGuestStatus('${esc(ownerId)}',${Number(item.index)||0},'ready')">출석</button>
+          <button class="rsvp-action-btn ${status==='attend'?'primary':''}" onclick="rsvpSetGuestStatus('${esc(ownerId)}',${Number(item.index)||0},'attend')">늦음</button>
+          <button class="rsvp-action-btn danger" onclick="rsvpSetGuestStatus('${esc(ownerId)}',${Number(item.index)||0},'none')">초기화</button>
+        </div>
+      </div>`;
+    }
+    const m=item.member;
+    const r=item.response||{};
     const status=r.status||'none';
     const partner=r.partnerRequest||{};
     const partnerName=partner.memberName?` · P ${partner.memberName}`:'';
@@ -5963,8 +6041,10 @@ function _rsvpAdminRosterRowsHtml(members,responses){
 function _rsvpAdminRosterHtml(members,responses){
   const sortBtn=(key,label)=>`<button class="rsvp-sort-btn ${_rsvpAdminSort===key?'active':''}" onclick="rsvpSetAdminSort('${key}')">${label}</button>`;
   const openAttr=(_rsvpAdminPanelOpen||_rsvpAdminQuery)?' open':'';
+  const guestCount=responses.reduce((sum,r)=>sum+_rsvpResponseGuests(r).length,0);
+  const countText=`${members.length}명${guestCount?` · G ${guestCount}명`:''}`;
   return `<details class="rsvp-admin-panel"${openAttr} ontoggle="rsvpToggleAdminPanel(this.open)">
-    <summary><span>관리자 상태 관리 · ${members.length}명</span>${_rsvpDetailsCloseButton()}</summary>
+    <summary><span>관리자 상태 관리 · ${esc(countText)}</span>${_rsvpDetailsCloseButton()}</summary>
     <div class="rsvp-admin-tools">
       <input class="rsvp-admin-search" value="${esc(_rsvpAdminQuery)}" placeholder="이름/초성 검색" oninput="rsvpSetAdminQuery(this.value)">
       <div class="rsvp-admin-sort">
@@ -6328,9 +6408,9 @@ function rsvpRender(){
   const latest=[...responses].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   const guestRows=responses
     .flatMap(r=>_rsvpResponseGuests(r).map(g=>({response:r,guest:g})))
-    .filter(item=>_rsvpIsAttending(item.response.status))
+    .filter(item=>_rsvpIsAttending(_rsvpGuestEffectiveStatus(item.guest,item.response)))
     .sort((a,b)=>(b.response.updatedAt||0)-(a.response.updatedAt||0));
-  const issueRows=responses.filter(r=>_rsvpIsAttending(r.status)&&_rsvpResponseGuests(r).some(g=>!g.gender||!g.grade));
+  const issueRows=responses.filter(r=>_rsvpResponseGuests(r).some(g=>_rsvpIsAttending(_rsvpGuestEffectiveStatus(g,r))&&(!g.gender||!g.grade)));
   box.className='rsvp-panel';
   box.innerHTML=`
     <div class="rsvp-current rsvp-import-only">
@@ -6357,18 +6437,22 @@ function rsvpRender(){
 function _rsvpGuestRowHtml(item){
   const r=item.response||item;
   const g=item.guest||r.guest||{};
+  const status=_rsvpGuestEffectiveStatus(g,r);
   const updated=r.updatedAt?new Date(r.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="rsvp-row guest">
     <div>
       <div class="rsvp-name">${esc(g.name||'게스트 이름 없음')} <span class="rsvp-meta">(${esc(g.gender||'성별?')} · ${esc(g.grade||'급수?')}급)</span></div>
       <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')}${r.club?` · ${esc(r.club)}`:''}${updated?` · ${esc(updated)}`:''}</div>
     </div>
-    <span class="rsvp-badge attend">게스트</span>
+    <span class="rsvp-badge ${esc(status)}">G ${esc(_rsvpStatusLabel(status))}</span>
   </div>`;
 }
 function _rsvpRowHtml(r,warn){
   const guestList=_rsvpResponseGuests(r);
-  const guest=guestList.length?` · 게스트 ${guestList.map(g=>`${g.name}(${g.gender||'성별?'}/${g.grade||'급수?'})`).join(', ')}`:'';
+  const guest=guestList.length?` · 게스트 ${guestList.map(g=>{
+    const status=_rsvpGuestEffectiveStatus(g,r);
+    return `${g.name}(${g.gender||'성별?'}/${g.grade||'급수?'}${status==='none'?'·미응답':status==='attend'?'·늦음':'·출석'})`;
+  }).join(', ')}`:'';
   const partner=r.partnerRequest&&r.partnerRequest.memberName?` · P ${r.partnerRequest.memberName}`:'';
   const updated=r.updatedAt?new Date(r.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="rsvp-row ${warn?'warn':''}">
@@ -6411,6 +6495,47 @@ async function rsvpSetResponseStatus(memberId,status){
     gender:prev.gender||base.gender||'남',
     ageGroup:prev.ageGroup||base.ageGroup||'40대',
     status,
+    updatedAt:Date.now(),
+    source:'admin-rsvp'
+  };
+  _rsvpResponses[memberId]=payload;
+  if(_fbDb){
+    await _fbDb.ref(_rsvpPath()+'/responses/'+memberId).set(payload).catch(()=>{});
+  }
+  if(!rsvpRefreshAdminContext(adminView))rsvpRenderPreservingAdmin(adminView);
+}
+async function rsvpSetGuestStatus(memberId,guestIndex,status){
+  if(!_rsvpId||!memberId)return;
+  const nextStatus=status==='ready'||status==='attend'?status:'none';
+  const adminView=_rsvpAdminViewSnapshot();
+  _rsvpAdminPanelOpen=adminView.open;
+  const prev=_rsvpResponses?.[memberId]||{};
+  const member=_rsvpRosterMembers().find(m=>m.id===memberId)||{};
+  const rawGuests=Array.isArray(prev.guests)?prev.guests.slice():[];
+  if(prev.guest){
+    const single=_rsvpNormalizeGuestForTeam(prev.guest,prev.ageGroup||member.ageGroup||'40대');
+    const exists=single&&rawGuests.some(g=>{
+      const item=_rsvpNormalizeGuestForTeam(g,prev.ageGroup||member.ageGroup||'40대');
+      return item&&[item.name,item.gender,item.grade,item.ageGroup].join('|')===[single.name,single.gender,single.grade,single.ageGroup].join('|');
+    });
+    if(single&&!exists)rawGuests.push(prev.guest);
+  }
+  const guests=rawGuests.map(g=>_rsvpNormalizeGuestForTeam(g,prev.ageGroup||member.ageGroup||'40대')).filter(Boolean);
+  const idx=parseInt(guestIndex,10);
+  if(!Number.isFinite(idx)||idx<0||idx>=guests.length)return;
+  guests[idx]={...guests[idx],status:nextStatus};
+  const payload={
+    ...prev,
+    memberId,
+    memberName:prev.memberName||member.name||prev.name||'',
+    name:prev.name||member.name||prev.memberName||'',
+    club:prev.club||member.club||'',
+    grade:prev.grade||member.grade||'C',
+    gender:prev.gender||member.gender||'남',
+    ageGroup:prev.ageGroup||member.ageGroup||'40대',
+    status:prev.status||'none',
+    guest:guests[0]||null,
+    guests,
     updatedAt:Date.now(),
     source:'admin-rsvp'
   };
@@ -6520,8 +6645,10 @@ function _rsvpClearUnstartedBracket(){
 }
 function rsvpImportAttendees(){
   const {responses,counts}= _rsvpStats();
-  const attendees=responses.filter(r=>_rsvpIsAttending(r.status));
-  if(!attendees.length){alert('참가자가 아직 없습니다.');return;}
+  const attendees=responses.filter(r=>_rsvpIsAttending(r.status)||_rsvpResponseGuests(r).some(g=>_rsvpIsAttending(_rsvpGuestEffectiveStatus(g,r))));
+  const memberAttendees=attendees.filter(r=>_rsvpIsAttending(r.status));
+  const importCount=(counts.attend||0)+(counts.guest||0);
+  if(!attendees.length||importCount===0){alert('참가자가 아직 없습니다.');return;}
   if(currentMatches.length){
     if(_rsvpBracketHasStarted()){
       alert('이미 진행되었거나 결과가 입력된 기존 대진표가 있습니다.\n기록 보호를 위해 자동 초기화하지 않습니다.\n필요하면 전체 초기화 후 다시 가져와 주세요.');
@@ -6530,7 +6657,7 @@ function rsvpImportAttendees(){
     if(!confirm('기존 대진표가 아직 남아 있습니다.\n미진행 대진표를 초기화하고 참가자를 불러올까요?'))return;
     _rsvpClearUnstartedBracket();
   }
-  if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 응답자 ${counts.attend}명으로 교체할까요?`))return;
+  if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 응답자 ${importCount}명으로 교체할까요?`))return;
   const next=[];
   const seen=new Set();
   const usedNames=new Set();
@@ -6567,10 +6694,14 @@ function rsvpImportAttendees(){
     return name;
   };
   attendees.forEach(r=>{
-    const memberName=add({name:r.memberName||r.name,grade:r.grade,gender:r.gender,ageGroup:r.ageGroup,club:r.club},'member');
+    let memberName='';
+    if(_rsvpIsAttending(r.status)){
+      memberName=add({name:r.memberName||r.name,grade:r.grade,gender:r.gender,ageGroup:r.ageGroup,club:r.club},'member');
+    }
     const memberId=r.memberId||r.id;
     if(memberName&&memberId)finalNameByMemberId.set(memberId,memberName);
     _rsvpResponseGuests(r).forEach((g,idx)=>{
+      if(!_rsvpIsAttending(_rsvpGuestEffectiveStatus(g,r)))return;
       add({
         name:g.name,
         grade:g.grade||'C',
@@ -6584,7 +6715,7 @@ function rsvpImportAttendees(){
   const rsvpPairs=[];
   const pairKeys=new Set();
   const pairUsedNames=new Set();
-  attendees.forEach(r=>{
+  memberAttendees.forEach(r=>{
     const memberId=r.memberId||r.id;
     const a=finalNameByMemberId.get(memberId);
     const req=r.partnerRequest||null;

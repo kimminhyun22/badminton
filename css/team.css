@@ -1316,6 +1316,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-sort-btn.active{border-color:#bfd4fb;background:#edf4ff;color:#406fc7;}
 .rsvp-admin-list{display:flex;flex-direction:column;gap:7px;padding:10px 12px;max-height:430px;overflow:auto;}
 .rsvp-admin-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;border:1px solid #e3e9f3;border-radius:14px;background:#fff;padding:10px;}
+.rsvp-admin-row.guest{border-color:#d8ccff;background:#fcfbff;}
 .rsvp-admin-row.ready{border-color:#bfdbfe;background:#f8fbff;}
 .rsvp-admin-row.attend{border-color:#bfe8cf;background:#fbfffd;}
 .rsvp-admin-actions{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap;}
