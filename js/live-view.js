@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.382';
+const APP_VERSION='1.10.384';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -675,11 +675,12 @@ function buildPartySpotlight(d){
   if(!d || !d.isTeam) return '';
   const members=d.members||{};
   const all=[..._normalizeMembers(members.blue),..._normalizeMembers(members.red)];
+  const rosterNames=new Set(all.map(p=>String(p&&p.n||'').trim()).filter(Boolean));
   const seen=new Set();
   const partyNames=[];
   const pushName=name=>{
     const clean=String(name||'').trim();
-    if(!clean || seen.has(clean)) return;
+    if(!clean || !rosterNames.has(clean) || seen.has(clean)) return;
     seen.add(clean);
     partyNames.push(clean);
   };

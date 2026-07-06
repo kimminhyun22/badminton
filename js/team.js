@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.382';
+const APP_VERSION = '1.10.384';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -708,7 +708,8 @@ function generate(){
   const settings={
     courts,gamesPerPlayer:gpp,
     mixedDoublesPerPerson:xDbl,
-    teamMode: !!teamAssignment
+    teamMode: !!teamAssignment,
+    rsvpId:_teamParticipantSourceRsvpId||null
   };
   if(settings.teamMode){
     const b=participants.filter(x=>x.team==='청팀'),w=participants.filter(x=>x.team==='홍팀');
@@ -2181,6 +2182,7 @@ function _buildLiveState(){
     expiresAt: _liveMatchStartedAt?(_liveMatchStartedAt+LIVE_TTL_MS):null,
     resultInputs:_liveResultInputs||{},
     resultConflicts:_liveResultConflicts||{},
+    rsvpId:_currentBracketRsvpId()||_rsvpId||null,
     attendanceSeeded: !!_rsvpId,
     attendanceMode: _rsvpId ? 'rsvp' : 'manual',
     updatedAt: Date.now()
@@ -2214,11 +2216,23 @@ function _rsvpPlannedAttendanceKeys(){
 function _rsvpPartyMap(){
   const out={};
   if(!_rsvpId)return out;
+  const memberIds=new Set(_rsvpRosterMembers().map(m=>m.id));
   _rsvpResponseList().forEach(r=>{
+    if(!memberIds.has(r.memberId||r.id))return;
     if(!r.party)return;
     const name=r.memberName||r.name||'';
     if(!name)return;
     out[_liveKey(name)]={name,team:'',ts:r.updatedAt||Date.now(),source:'rsvp-party'};
+  });
+  return out;
+}
+function _liveParticipantStateMap(map){
+  const names=new Set((currentParticipants||[]).map(p=>String(p&&p.name||'').trim()).filter(Boolean));
+  const out={};
+  Object.values(map||{}).forEach(v=>{
+    const name=String(v&&v.name||'').trim();
+    if(!name||!names.has(name))return;
+    out[_liveKey(name)]={...v,name};
   });
   return out;
 }
@@ -2359,10 +2373,13 @@ async function startLiveBroadcast(){
     const prev=await liveRef.once('value').catch(()=>null);
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
     _liveMatchStartedAt=prevData.matchStartedAt||Date.now();
-    const prevAttendance={...(prevData.attendance||{})};
-    _rsvpPlannedAttendanceKeys().forEach(k=>{ delete prevAttendance[k]; });
-    _liveAttendance={...prevAttendance,..._rsvpReadyAttendanceMap()};
-    _liveParty={..._rsvpPartyMap(),...(prevData.party||{})};
+    const ownerRsvpId=_currentBracketRsvpId();
+    const activeRsvpOwns=!!(_rsvpId && ownerRsvpId && _rsvpId===ownerRsvpId);
+    const sameRsvp=!!(ownerRsvpId && prevData.rsvpId===ownerRsvpId);
+    const prevAttendance=sameRsvp?_liveParticipantStateMap(prevData.attendance||{}):{};
+    if(activeRsvpOwns)_rsvpPlannedAttendanceKeys().forEach(k=>{ delete prevAttendance[k]; });
+    _liveAttendance={...prevAttendance,...(activeRsvpOwns?_rsvpReadyAttendanceMap():{})};
+    _liveParty={...(sameRsvp?_liveParticipantStateMap(prevData.party||{}):{}),...(activeRsvpOwns?_rsvpPartyMap():{})};
     _liveResultInputs=prevData.resultInputs||{};
     _liveResultConflicts=prevData.resultConflicts||{};
     const state={..._buildLiveState(),attendance:_liveAttendance||{},party:_liveParty||{}};
@@ -2391,6 +2408,11 @@ async function _tryResumeLive(){
     const data=snap.val();
     if(!data.isTeam){
       if(savedFromTeamKey)_teamClearStoredLiveId(savedId);
+      return;
+    }
+    const ownerRsvpId=_currentBracketRsvpId();
+    if(ownerRsvpId&&data.rsvpId&&data.rsvpId!==ownerRsvpId){
+      _teamClearStoredLiveId(savedId);
       return;
     }
     const startedAt=data.matchStartedAt||data.createdAt||data.updatedAt||0;
@@ -3959,6 +3981,7 @@ function restoreState(){
       };
     });
     currentSettings=state.settings;
+    _teamParticipantSourceRsvpId=currentSettings?.rsvpId||null;
     _lockedBeforeRound = state.lockedBeforeRound ?? null;
     Object.keys(winOverride).forEach(k=>delete winOverride[k]);
     Object.assign(winOverride,state.winOverride||{});
@@ -4927,6 +4950,7 @@ async function resetAll(){
   teamAssignment=null;_teamModeOverride=null;_teamWanted=true;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
   currentMatches=[];currentParticipants=[];currentSettings={};
+  _teamParticipantSourceRsvpId=null;
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
   Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);
   _lockedBeforeRound=null;
@@ -5409,6 +5433,7 @@ let _rsvpRosterRefreshLock=false;
 let _rsvpAdminSort='status';
 let _rsvpAdminQuery='';
 let _rsvpAdminPanelOpen=false;
+let _teamParticipantSourceRsvpId=null;
 let _autoFlowRendering=false;
 let _lastRsvpImportSummary=null;
 function isTeamSampleMode(){
@@ -5490,14 +5515,21 @@ function _liveUrl(){
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
   return base+'view.html?id='+_liveId;
 }
+function _currentBracketRsvpId(){
+  return (currentSettings&&currentSettings.rsvpId)||_teamParticipantSourceRsvpId||null;
+}
+function _rsvpOwnsCurrentEvent(){
+  return !!(_rsvpId && currentMatches.length && _currentBracketRsvpId()===_rsvpId);
+}
 function _rsvpEventPayload(){
   const roundCount=currentMatches.length?Math.max(...currentMatches.map(m=>m.round||0)):0;
-  const liveActive=!!(_liveOn&&_liveId);
+  const ownsEvent=_rsvpOwnsCurrentEvent();
+  const liveActive=!!(ownsEvent&&_liveOn&&_liveId);
   return {
-    phase:liveActive?'live':(currentMatches.length?'bracket':'rsvp'),
-    bracketReady:!!currentMatches.length,
-    matchCount:currentMatches.length||0,
-    roundCount,
+    phase:liveActive?'live':(ownsEvent?'bracket':'rsvp'),
+    bracketReady:!!ownsEvent,
+    matchCount:ownsEvent?(currentMatches.length||0):0,
+    roundCount:ownsEvent?roundCount:0,
     liveId:liveActive?_liveId:null,
     liveUrl:liveActive?_liveUrl():null,
     matchStartedAt:liveActive?(_liveMatchStartedAt||null):null,
@@ -5810,6 +5842,8 @@ async function rsvpCreateNew(){
     return;
   }
   if(_rsvpId&&!confirm('새 팀전LIVE 링크를 만들까요?\n현재 열려 있는 팀전LIVE는 보관함에 그대로 남습니다.'))return;
+  _teamResetLocalLiveState(_liveId||_teamStoredLiveId());
+  _teamParticipantSourceRsvpId=null;
   _lastRsvpImportSummary=null;
   _rsvpId=_rsvpGenId();
   _rsvpCreatedAt=Date.now();
@@ -5824,6 +5858,8 @@ async function rsvpCreateNew(){
 function rsvpLoadSaved(id){
   const item=_rsvpHistoryList().find(x=>x&&x.id===id);
   if(!item){alert('저장된 투표를 찾을 수 없습니다.');return;}
+  _teamResetLocalLiveState(_liveId||_teamStoredLiveId());
+  _teamParticipantSourceRsvpId=null;
   _lastRsvpImportSummary=null;
   _rsvpId=item.id;
   _rsvpCreatedAt=item.createdAt||Date.now();
@@ -5839,7 +5875,6 @@ function rsvpLoadSaved(id){
   if(_fbInit())rsvpStartListener(true);
   rsvpRenderClubSelect();
   rsvpRender();
-  rsvpPushSession();
 }
 function rsvpRemoveSaved(id){
   const item=_rsvpHistoryList().find(x=>x&&x.id===id);
@@ -5874,6 +5909,7 @@ async function _rsvpClearActiveLinkData(){
   _rsvpId=null;
   _rsvpCreatedAt=null;
   _rsvpResponses={};
+  _teamParticipantSourceRsvpId=null;
   _lastRsvpImportSummary=null;
   _rsvpApplyAutoTitle(true);
 }
@@ -6835,6 +6871,7 @@ function _rsvpClearUnstartedBracket(){
   currentMatches=[];
   currentParticipants=[];
   currentSettings={};
+  _teamParticipantSourceRsvpId=null;
   Object.keys(winOverride).forEach(k=>delete winOverride[k]);
   _resetScoreboard();
   const result=document.getElementById('resultArea');
@@ -6861,6 +6898,8 @@ function rsvpImportAttendees(){
     _rsvpClearUnstartedBracket();
   }
   if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 응답자 ${importCount}명으로 교체할까요?`))return;
+  _teamResetLocalLiveState(_liveId||_teamStoredLiveId());
+  _teamParticipantSourceRsvpId=_rsvpId||null;
   const next=[];
   const seen=new Set();
   const usedNames=new Set();
