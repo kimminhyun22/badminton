@@ -1735,9 +1735,59 @@ body{
 }
 .result-entry.needs-result{
   position:relative;
-  animation:resultReminder 1.9s ease-in-out infinite;
+  margin-top:14px!important;
+  padding:13px 12px 12px!important;
+  border:2px solid #fb923c!important;
+  border-radius:20px!important;
+  background:linear-gradient(180deg,#fff7ed,#fffdf7)!important;
+  box-shadow:0 0 0 4px rgba(251,146,60,.18),0 12px 26px rgba(194,65,12,.14)!important;
+  animation:resultReminder 1.15s ease-in-out infinite;
+}
+.result-entry.needs-result:before{
+  content:'입력 필요';
+  position:absolute;
+  top:-13px;
+  left:14px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:26px;
+  padding:0 11px;
+  border-radius:999px;
+  background:#ea580c;
+  color:#fff;
+  font-size:.72rem;
+  font-weight:1000;
+  letter-spacing:-.02em;
+  box-shadow:0 6px 14px rgba(234,88,12,.25);
+}
+.result-entry.needs-result .result-entry-label{
+  color:#9a3412!important;
+  font-size:.92rem!important;
+  font-weight:1000!important;
+  margin-top:2px;
+}
+.result-entry.needs-result button{
+  min-height:56px!important;
+  border-width:2px!important;
+  font-size:1rem!important;
+  box-shadow:0 7px 16px rgba(15,23,42,.08)!important;
+}
+.result-entry.needs-result .blue-win{
+  background:#eaf2ff!important;
+  border-color:#7ca7ed!important;
+  color:#245fb8!important;
+}
+.result-entry.needs-result .red-win{
+  background:#fff0f0!important;
+  border-color:#efa2a2!important;
+  color:#a93f45!important;
 }
 @keyframes resultReminder{
-  0%,100%{filter:none;}
-  50%{filter:drop-shadow(0 0 10px rgba(240,167,58,.28));}
+  0%,100%{
+    box-shadow:0 0 0 4px rgba(251,146,60,.18),0 12px 26px rgba(194,65,12,.14);
+  }
+  50%{
+    box-shadow:0 0 0 8px rgba(251,146,60,.32),0 16px 34px rgba(194,65,12,.22);
+  }
 }

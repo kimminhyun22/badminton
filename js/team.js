@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.376';
+const APP_VERSION = '1.10.377';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3771,6 +3771,8 @@ function saveState(){
     return{s1:s1?parseInt(s1.value)||0:0,s2:s2?parseInt(s2.value)||0:0};
   });
   const state={
+    mode:'team',
+    appMode:'teamLive',
     savedAt:Date.now(),
     directPlayers:_directPlayers.slice(),
     courts:document.getElementById('courts').value,
@@ -3821,6 +3823,15 @@ function saveState(){
 
 function slim(p){return{name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team||'',isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대'};}
 
+function _teamIsDailyBracketState(state){
+  if(!state)return false;
+  if(state.mode==='daily'||state.appMode==='dailyLive')return true;
+  if(state.mode==='team'||state.appMode==='teamLive')return false;
+  if(state.teamAssignment&&((state.teamAssignment.blue||[]).length||(state.teamAssignment.white||[]).length))return false;
+  if(state.teamModeOverride===true||(state.settings&&state.settings.teamMode===true))return false;
+  return !!(state.settings&&state.settings.operationPreset==='daily');
+}
+
 function _restoreJoinerGoals(participants,settings){
   const defaultGoal=(settings&&settings.gamesPerPlayer)||4;
   participants.forEach(p=>{
@@ -3840,6 +3851,7 @@ function checkSavedState(){
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw)return;
     const state=migrateStateIfNeeded(JSON.parse(raw));
+    if(_teamIsDailyBracketState(state))return;
     if(!state.matches||!state.matches.length)return;
     const age=Date.now()-state.savedAt;
     const h=Math.floor(age/3600000),m=Math.floor((age%3600000)/60000);
@@ -3870,6 +3882,10 @@ function restoreState(){
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw){alert('저장된 데이터가 없습니다.');return;}
     const state=migrateStateIfNeeded(JSON.parse(raw));
+    if(_teamIsDailyBracketState(state)){
+      alert('민턴LIVE 저장본입니다. 민턴LIVE에서 복구하세요.');
+      return;
+    }
     // 마이그레이션 결과를 즉시 다시 저장 (다음 실행 시 중복 적용 방지)
     try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));}catch(e){}
 
@@ -5412,16 +5428,30 @@ function _rsvpCleanLabel(label){
   return s.replace(/\s*명부$/,'').trim()||'팀전';
 }
 function _rsvpDefaultTitle(ts){
+  const day=_rsvpShortDate(ts||_rsvpCreatedAt||Date.now());
+  return `팀전LIVE ${day}`;
+}
+function _rsvpLegacyClubTitle(ts){
   const base=_rsvpCleanLabel(_rsvpSelectedLabel());
   const day=_rsvpShortDate(ts||_rsvpCreatedAt||Date.now());
   return base==='팀전'?`팀전 ${day}`:`${base} 팀전 ${day}`;
+}
+function _rsvpIsAutoTitle(current,prevAuto){
+  const s=String(current||'').trim();
+  if(!s)return true;
+  if(prevAuto&&s===prevAuto)return true;
+  if(s==='팀전'||/^\d{1,2}월\s*팀전$/.test(s))return true;
+  const created=_rsvpCreatedAt||Date.now();
+  if(s===_rsvpLegacyClubTitle(created))return true;
+  const selected=_rsvpCleanLabel(_rsvpSelectedLabel());
+  const escaped=selected.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return !!selected&&selected!=='팀전'&&new RegExp(`^${escaped}\\s+팀전\\s+\\d{2}\\.\\d{2}$`).test(s);
 }
 function _rsvpApplyAutoTitle(force){
   const el=document.getElementById('rsvpTitle');
   const current=(el&&el.value.trim())||localStorage.getItem(RSVP_TITLE_KEY)||'';
   const prevAuto=localStorage.getItem(RSVP_TITLE_AUTO_KEY)||'';
-  const legacy=/^\d{1,2}월\s*팀전$/.test(current)||current==='팀전';
-  if(force||!current||current===prevAuto||legacy){
+  if(force||_rsvpIsAutoTitle(current,prevAuto)){
     const title=_rsvpDefaultTitle(_rsvpCreatedAt||Date.now());
     if(el)el.value=title;
     localStorage.setItem(RSVP_TITLE_KEY,title);
@@ -5537,20 +5567,46 @@ function _rsvpSelectedLabel(){
   const club=_rsvpClubs().find(c=>c.id===src);
   return club?club.name:'클럽 미선택';
 }
+function _rsvpSelectedDisplayLabel(){
+  const src=_rsvpSelectedSource();
+  if(src===RSVP_DIRECT_VALUE)return `오늘 팀전 명단 (${_directPlayers.length}명)`;
+  const club=_rsvpClubs().find(c=>c.id===src);
+  return club?`오늘 팀전 명부 (${(club.members||[]).length}명)`:'명부 선택';
+}
+function _rsvpSelectedSourceNote(){
+  const src=_rsvpSelectedSource();
+  if(src===RSVP_DIRECT_VALUE)return _directPlayers.length?`출처: 현재 참가자 입력 · ${_directPlayers.length}명`:'';
+  const club=_rsvpClubs().find(c=>c.id===src);
+  return club?`출처: ${club.name} 명부 · ${(club.members||[]).length}명`:'';
+}
 function _rsvpNeedsClubSelection(){
   return !_rsvpSelectedSource()&&_rsvpClubs().length>1;
 }
 function rsvpRenderClubSelect(){
   const sel=document.getElementById('rsvpClubSelect');
   if(!sel)return;
+  const note=document.getElementById('rsvpSelectedSourceNote');
   const clubs=_rsvpClubs();
   const src=_rsvpSelectedSource();
   const opts=[];
-  opts.push(`<option value="">${clubs.length?'단톡방에 보낼 명부 선택':'현재 주소에 저장된 클럽 명부 없음'}</option>`);
-  clubs.forEach(c=>opts.push(`<option value="${esc(c.id)}">${esc(c.name)} 명부 (${(c.members||[]).length}명)</option>`));
-  if(_directPlayers.length)opts.push(`<option value="${RSVP_DIRECT_VALUE}">현재 참가자 입력 (${_directPlayers.length}명)</option>`);
+  if(src){
+    opts.push(`<option value="${esc(src)}">${esc(_rsvpSelectedDisplayLabel())}</option>`);
+    const otherClubs=clubs.filter(c=>c.id!==src);
+    if(otherClubs.length)opts.push('<option value="" disabled>다른 명부 선택</option>');
+    otherClubs.forEach(c=>opts.push(`<option value="${esc(c.id)}">${esc(c.name)} 명부 (${(c.members||[]).length}명)</option>`));
+    if(src!==RSVP_DIRECT_VALUE&&_directPlayers.length)opts.push(`<option value="${RSVP_DIRECT_VALUE}">현재 참가자 입력 (${_directPlayers.length}명)</option>`);
+  }else{
+    opts.push(`<option value="">${clubs.length?'단톡방에 보낼 명부 선택':'현재 주소에 저장된 클럽 명부 없음'}</option>`);
+    clubs.forEach(c=>opts.push(`<option value="${esc(c.id)}">${esc(c.name)} 명부 (${(c.members||[]).length}명)</option>`));
+    if(_directPlayers.length)opts.push(`<option value="${RSVP_DIRECT_VALUE}">현재 참가자 입력 (${_directPlayers.length}명)</option>`);
+  }
   sel.innerHTML=opts.join('');
   sel.value=src;
+  if(note){
+    const text=_rsvpSelectedSourceNote();
+    note.textContent=text;
+    note.classList.toggle('hidden',!text);
+  }
 }
 async function rsvpSetClub(value){
   if(value)localStorage.setItem(RSVP_CLUB_KEY,value);
@@ -5616,6 +5672,7 @@ function _rsvpMergedMemberProfile(memberId,fallback={},rosterMap=null){
   };
 }
 function _rsvpSessionPayload(){
+  _rsvpApplyAutoTitle(false);
   const src=_rsvpSelectedSource();
   const club=_rsvpClubs().find(c=>c.id===src);
   const gamesEl=document.getElementById('gamesPerPlayer');
@@ -5662,6 +5719,7 @@ function _rsvpHistoryList(){
 }
 function _rsvpRememberHistory(){
   if(!_rsvpId)return;
+  _rsvpApplyAutoTitle(false);
   let list=_rsvpHistoryList();
   const src=_rsvpSelectedSource();
   const item={
@@ -5824,6 +5882,7 @@ function rsvpPushSession(){
   if(_rsvpNeedsClubSelection()||!_rsvpRosterMembers().length)return;
   const path=_rsvpPath();
   if(!_rsvpCreatedAt)rsvpEnsureId();
+  _rsvpApplyAutoTitle(false);
   _rsvpRememberHistory();
   _fbDb.ref(path).update({kind:'tournamentRsvp',mode:'team',createdAt:_rsvpCreatedAt||Date.now(),updatedAt:Date.now()}).catch(()=>{});
   _fbDb.ref(path+'/session').set(_rsvpSessionPayload()).catch(()=>{});
@@ -5859,6 +5918,7 @@ async function rsvpPublishSession(silent){
   }
   rsvpEnsureId();
   const path=_rsvpPath();
+  _rsvpApplyAutoTitle(false);
   _rsvpRememberHistory();
   await _fbDb.ref(path).update({kind:'tournamentRsvp',mode:'team',createdAt:_rsvpCreatedAt||Date.now(),updatedAt:Date.now()});
   await _fbDb.ref(path+'/session').set(_rsvpSessionPayload());
@@ -5884,9 +5944,9 @@ async function rsvpCopyShareText(auto){
   }
   rsvpEnsureId();
   const url=_rsvpUrl();
+  _rsvpApplyAutoTitle(false);
   const title=_rsvpTitle();
-  const target=_rsvpSelectedLabel();
-  const text=`🏸 ${target} · ${title} 팀전LIVE\n\n본인 이름을 찾고 출석을 눌러 주세요.\n늦게 오면 출석 옆 늦음 딱지를 켜면 됩니다.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
+  const text=`🏸 ${title}\n\n본인 이름을 찾고 출석을 눌러 주세요.\n늦게 오면 출석 옆 늦음 딱지를 켜면 됩니다.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
   const published=await rsvpPublishSession(true).catch(()=>null);
   if(!published){
     alert('팀전LIVE 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
@@ -5894,7 +5954,7 @@ async function rsvpCopyShareText(auto){
   }
   if(navigator.share){
     try{
-      await navigator.share({title:`${title} 팀전LIVE`,text});
+      await navigator.share({title,text});
       return true;
     }catch(e){
       if(e&&e.name==='AbortError'){
@@ -6407,7 +6467,8 @@ function renderAutoFlowDashboard(){
     const counts=stats.counts||{};
     const rosterTotal=(stats.members||[]).length || _rsvpRosterMembers().length || 0;
     const hasRoster=!_rsvpNeedsClubSelection() && rosterTotal>0;
-    const rosterName=hasRoster?_rsvpSelectedLabel():'명부 필요';
+    const rosterName=hasRoster?_rsvpSelectedDisplayLabel().replace(/^오늘 팀전\s*/,''):'명부 필요';
+    const rosterSource=hasRoster?_rsvpSelectedLabel():'먼저 선택';
     const players=_directPlayers.length;
     const teamReady=!!teamAssignment;
     const matches=currentMatches.length;
@@ -6501,7 +6562,7 @@ function renderAutoFlowDashboard(){
       live:{k:'운영 중',t:remaining?'현재 라운드 승패를 입력하세요.':'결과를 확인하세요.'}
     }[stage]||{k:'다음 단계',t:''};
     const boardHtml=[
-      _autoFlowPanel('명부',hasRoster?rosterName:'미선택',hasRoster?`${rosterTotal}명`:'먼저 선택',hasRoster?'':'warn','rsvp'),
+      _autoFlowPanel('명부',hasRoster?rosterName:'미선택',hasRoster?`출처 ${rosterSource}`:'먼저 선택',hasRoster?'':'warn','rsvp'),
       _autoFlowPanel('응답',_rsvpId?`${counts.attend||0}명`:'공유 전',rsvpNote,counts.issues?'warn':'','rsvp'),
       _autoFlowPanel('참가자',players?`${players}명`:'대기',teamReady?teamNote:'확인 필요',players?'':'warn','players'),
       _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings')

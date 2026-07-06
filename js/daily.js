@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.376';
+const APP_VERSION = '1.10.377';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1662,6 +1662,8 @@ function dailySave(){
     _dailyClearSimpleTeamState();
     dailyEnsureQueue();
     localStorage.setItem(DAILY_KEY,JSON.stringify({
+      mode:'daily',
+      appMode:'dailyLive',
       savedAt:_dailyNow(),
       courts:document.getElementById('dailyCourts')?.value||3,
       autoAssign:_dailyAutoAssign,
@@ -1754,12 +1756,13 @@ function dailyLoad(){
     const raw=localStorage.getItem(DAILY_KEY);
     if(!raw)return;
     const s=JSON.parse(raw);
+    if(s.mode&&s.mode!=='daily'&&s.appMode!=='dailyLive'){
+      localStorage.removeItem(DAILY_KEY);
+      return;
+    }
     if(s.savedAt&&!_dailySameLocalDay(s.savedAt,_dailyNow())){
-      const resume=confirm(`${_dailySavedDateLabel(s.savedAt)} 민턴LIVE 기록입니다.\n\n확인: 어제 기록을 이어서 보기\n취소: 명단만 남기고 오늘 새로 시작`);
-      if(!resume){
-        _dailyLoadAsNewDay(s);
-        return;
-      }
+      _dailyLoadAsNewDay(s);
+      return;
     }
     _dailyPlayers=(s.players||[]).map(_dailyNormalize).filter(p=>p.name);
     _dailyMatches=s.matches||[];
@@ -5555,7 +5558,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.376&from=daily';
+  location.href='team.html?v=1.10.377&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -8937,6 +8940,8 @@ function saveState(){
     return{s1:s1?parseInt(s1.value)||0:0,s2:s2?parseInt(s2.value)||0:0};
   });
   const state={
+    mode:'daily',
+    appMode:'dailyLive',
     savedAt:Date.now(),
     directPlayers:_directPlayers.slice(),
     courts:document.getElementById('courts').value,
@@ -8985,6 +8990,15 @@ function saveState(){
 
 function slim(p){return{name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team||'',isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대'};}
 
+function _dailyIsTeamBracketState(state){
+  if(!state)return false;
+  if(state.mode==='team'||state.appMode==='teamLive')return true;
+  if(state.teamModeOverride===true)return true;
+  if(state.teamAssignment&&((state.teamAssignment.blue||[]).length||(state.teamAssignment.white||[]).length))return true;
+  if(state.settings&&state.settings.teamMode===true)return true;
+  return false;
+}
+
 function _restoreJoinerGoals(participants,settings){
   const defaultGoal=(settings&&settings.gamesPerPlayer)||4;
   participants.forEach(p=>{
@@ -9003,6 +9017,7 @@ function checkSavedState(){
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw)return;
     const state=migrateStateIfNeeded(JSON.parse(raw));
+    if(_dailyIsTeamBracketState(state))return;
     if(!state.matches||!state.matches.length)return;
     const age=Date.now()-state.savedAt;
     const h=Math.floor(age/3600000),m=Math.floor((age%3600000)/60000);
@@ -9033,6 +9048,10 @@ function restoreState(){
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw){alert('저장된 데이터가 없습니다.');return;}
     const state=migrateStateIfNeeded(JSON.parse(raw));
+    if(_dailyIsTeamBracketState(state)){
+      alert('팀전LIVE 저장본입니다. 팀전LIVE에서 복구하세요.');
+      return;
+    }
     // 마이그레이션 결과를 즉시 다시 저장 (다음 실행 시 중복 적용 방지)
     try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));}catch(e){}
 

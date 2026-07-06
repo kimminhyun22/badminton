@@ -1249,6 +1249,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
 #rsvpClubSelect{min-height:46px;border:1.5px solid #c9daf6;background:#f8fbff;color:#456fb8;
   font-size:.9rem;font-weight:900;border-radius:12px;box-shadow:0 4px 12px rgba(91,141,239,.055);}
 #rsvpClubSelect:focus{outline:none;border-color:#5b8def;box-shadow:0 0 0 4px rgba(91,141,239,.16);}
+.rsvp-source-note{margin:-3px 2px 8px;font-size:.72rem;font-weight:850;color:#64748b;letter-spacing:-.02em;}
+.rsvp-source-note.hidden{display:none!important;}
 .rsvp-panel{display:flex;flex-direction:column;gap:8px;}
 .rsvp-current{border:1.5px solid #dbeafe;border-radius:18px;background:linear-gradient(180deg,#fff,#f8fbff);padding:13px;display:flex;flex-direction:column;gap:10px;}
 .rsvp-current-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
