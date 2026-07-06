@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.386';
+const APP_VERSION = '1.10.387';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2952,11 +2952,11 @@ function renderQualityDashboard(matches,participants,settings){
   if(balanceHardCount>0)blocking.push('실력차 2.0 초과');
   if(avoidableUnderSlots>0)blocking.push('목표 미달');
   if(avoidableExact>0)blocking.push('똑같은 경기 반복');
-  if(excessConsec>0)blocking.push('회피 가능한 연속 출전');
   if(fillers.length>2)blocking.push('보완게임 과다');
   const caution=[];
   if(avoidableSameFour>0)caution.push('같은 4명 재경기');
   if(partner3>0||partner4>0)caution.push('같은 편 반복 높음');
+  if(excessConsec>0)caution.push(`연속 출전 ${excessConsec}건`);
   if(balanceCautionCount>0)caution.push('실력 균형 주의');
   if(total<85)caution.push('품질점수 낮음');
   const splitFixed=fixedStats.filter(x=>x.separate>0);

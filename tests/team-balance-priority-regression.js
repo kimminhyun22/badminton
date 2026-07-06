@@ -85,4 +85,7 @@ assert(
 assert.strictEqual(sandbox._balanceQualityStats(tilted, settings).hardCount, 1, '2.0 초과 경기를 강한 불균형으로 잡아야 합니다.');
 assert.strictEqual(sandbox._balanceQualityStats(balanced, settings).hardCount, 0, '균형 후보에는 강한 불균형이 없어야 합니다.');
 
+assert(!src.includes("blocking.push('회피 가능한 연속 출전')"), '연속 출전만으로 재생성 권장을 띄우면 안 됩니다.');
+assert(src.includes("caution.push(`연속 출전 ${excessConsec}건`)"), '연속 출전은 확인 후 진행 사유로 안내해야 합니다.');
+
 console.log('team balance priority regression ok');
