@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.377';
+const APP_VERSION='1.10.378';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -676,11 +676,16 @@ function buildRanking(matches, d){
   if(arr.length<2) return '';
   const rate=s=>(s.w+s.l)>0?s.w/(s.w+s.l):0;
   const rateStr=s=>(s.w+s.l)>0?Math.round(rate(s)*100)+'%':'—';
-  const byWin=[...arr].sort((a,b)=>b.w-a.w||rate(b)-rate(a));
-  const sameRank=(a,b)=>a&&b&&a.w===b.w&&Math.round(rate(a)*100)===Math.round(rate(b)*100);
-  let html='<div class="rank-box"><div class="rank-title">전적 순위 TOP 5</div>';
+  const ratePct=s=>Math.round(rate(s)*100);
+  const byRate=[...arr].sort((a,b)=>rate(b)-rate(a)||b.w-a.w||a.l-b.l||a.name.localeCompare(b.name,'ko'));
+  const sameRank=(a,b)=>a&&b&&ratePct(a)===ratePct(b);
+  const topRate=ratePct(byRate[0]);
+  const cutoff=byRate[Math.min(4,byRate.length-1)];
+  const cutoffRate=cutoff?ratePct(cutoff):topRate;
+  const visible=byRate.filter((s,i)=>i<5||ratePct(s)===topRate||ratePct(s)===cutoffRate);
+  let html='<div class="rank-box"><div class="rank-title">전적 순위 '+(visible.length>5?'TOP 5+':'TOP 5')+'</div>';
   let rankNum=0,prev=null;
-  byWin.slice(0,5).forEach((s,i)=>{
+  visible.forEach((s,i)=>{
     if(prev===null||!sameRank(s,prev))rankNum=i+1; prev=s;
     const medal=rankNum===1?'🥇':rankNum===2?'🥈':rankNum===3?'🥉':rankNum;
     html+='<div class="rank-row'+(rankNum<=3?' top':'')+'">'
