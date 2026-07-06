@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.380';
+const APP_VERSION = '1.10.382';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5946,7 +5946,7 @@ async function rsvpCopyShareText(auto){
   const url=_rsvpUrl();
   _rsvpApplyAutoTitle(false);
   const title=_rsvpTitle();
-  const text=`🏸 ${title}\n\n본인 이름을 찾고 출석을 눌러 주세요.\n늦게 오면 출석 옆 늦음 딱지를 켜면 됩니다.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
+  const text=`🏸 ${title}\n\n내 이름 선택 → 출석 체크\n대진표·실시간 현황도 여기서!\n\n${url}`;
   const published=await rsvpPublishSession(true).catch(()=>null);
   if(!published){
     alert('팀전LIVE 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');

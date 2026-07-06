@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.380';
+const APP_VERSION='1.10.382';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -668,6 +668,41 @@ function buildMvpSpotlight(matches, d){
     +'<div class="mvp-label">🏆 실시간 MVP'+(mvps.length>1?' · 공동 '+mvps.length+'명':'')+'</div>'
     +'<div class="mvp-names">'+mvps.map(s=>'<span class="mvp-chip'+_solo+'">'+esc(s.name)+'</span>').join('')+'</div>'
     +'<div class="mvp-sub">'+top.w+'승 '+top.l+'패 · 승률 '+rateStr(top)+' · 현재 입력된 승패 기준</div>'
+    +'</section>';
+}
+
+function buildPartySpotlight(d){
+  if(!d || !d.isTeam) return '';
+  const members=d.members||{};
+  const all=[..._normalizeMembers(members.blue),..._normalizeMembers(members.red)];
+  const seen=new Set();
+  const partyNames=[];
+  const pushName=name=>{
+    const clean=String(name||'').trim();
+    if(!clean || seen.has(clean)) return;
+    seen.add(clean);
+    partyNames.push(clean);
+  };
+  all.forEach(p=>{ if(_partyOn(p.n)) pushName(p.n); });
+  Object.values(d.party||{}).forEach(v=>{
+    if(v && typeof v==='object') pushName(v.name);
+  });
+  const count=partyNames.length;
+  if(!count){
+    return '<section class="mvp-card party-spotlight party-empty">'
+      +'<div class="mvp-label">🍻 뒷풀이 멤버 모집 중</div>'
+      +'<div class="mvp-sub">함께 마무리할 멤버를 기다려요.</div>'
+      +'</section>';
+  }
+  const visible=partyNames.slice(0,12);
+  const more=count-visible.length;
+  return '<section class="mvp-card party-spotlight">'
+    +'<div class="mvp-label">🍻 뒷풀이 멤버 · '+count+'명</div>'
+    +'<div class="mvp-names">'
+      +visible.map(name=>'<span class="mvp-chip party-chip">'+esc(name)+'</span>').join('')
+      +(more?'<span class="mvp-chip party-more">외 '+more+'명</span>':'')
+    +'</div>'
+    +'<div class="mvp-sub">오늘도 끝까지 같이 가는 멤버들이에요.</div>'
     +'</section>';
 }
 
@@ -1506,6 +1541,7 @@ function render(d){
     html+=buildNextPanel(nextMatches,d);
   }
   html+=buildMvpSpotlight(matches,d);
+  html+=buildPartySpotlight(d);
   html+=buildTeamRosterCard(d);
 
   html+='<details class="info-details primary" id="fullBracket" '+(_viewerDetailsOpen.fullBracket?'open':'')+' ontoggle="setViewerDetailsOpen(\'fullBracket\',this.open)"><summary>전체 대진표 보기</summary><div class="info-body">';
