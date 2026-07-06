@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.378';
+const APP_VERSION='1.10.379';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -683,7 +683,7 @@ function buildRanking(matches, d){
   const cutoff=byRate[Math.min(4,byRate.length-1)];
   const cutoffRate=cutoff?ratePct(cutoff):topRate;
   const visible=byRate.filter((s,i)=>i<5||ratePct(s)===topRate||ratePct(s)===cutoffRate);
-  let html='<div class="rank-box"><div class="rank-title">전적 순위 '+(visible.length>5?'TOP 5+':'TOP 5')+'</div>';
+  let html='<div class="rank-box"><div class="rank-title">전적 순위</div>';
   let rankNum=0,prev=null;
   visible.forEach((s,i)=>{
     if(prev===null||!sameRank(s,prev))rankNum=i+1; prev=s;
