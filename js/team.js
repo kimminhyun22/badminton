@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.384';
+const APP_VERSION = '1.10.385';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -18,12 +18,41 @@ const BALANCE_PARTNER_GAP_CAUTION=2.25;
 const BALANCE_PARTNER_GAP_HARD=3;
 const BALANCE_TEAM_DIFF_TARGET=1.5;
 const BALANCE_TEAM_DIFF_LIMIT=2;
+const BALANCE_TEAM_DIFF_SEVERE=3;
 function balanceTeamDiffPenalty(diff){
   const d=Math.max(0,Number.isFinite(+diff)?+diff:0);
   let penalty=d*360;
   if(d>BALANCE_TEAM_DIFF_TARGET)penalty+=(d-BALANCE_TEAM_DIFF_TARGET)*1600;
   if(d>BALANCE_TEAM_DIFF_LIMIT)penalty+=50000+(d-BALANCE_TEAM_DIFF_LIMIT)*12000;
   return penalty;
+}
+function _balanceQualityStats(matches,settings={}){
+  const list=(matches||[]).map(m=>Math.abs(Number(m&&m.levelDiff)||0));
+  const count=list.length||1;
+  const avgLD=list.reduce((s,v)=>s+v,0)/count;
+  const maxLD=list.reduce((m,v)=>Math.max(m,v),0);
+  const cautionCount=list.filter(v=>v>BALANCE_TEAM_DIFF_TARGET).length;
+  const hardCount=list.filter(v=>v>BALANCE_TEAM_DIFF_LIMIT).length;
+  const severeCount=list.filter(v=>v>=BALANCE_TEAM_DIFF_SEVERE).length;
+  const weightedPenalty=list.reduce((s,v)=>s+balanceTeamDiffPenalty(v),0);
+  const roundBias=!!settings.teamMode?_teamRoundLevelBias(matches):{maxBias:0,totalBias:0};
+  return {avgLD,maxLD,cautionCount,hardCount,severeCount,weightedPenalty,
+    roundBiasMax:roundBias.maxBias,roundBiasTotal:roundBias.totalBias};
+}
+function _teamRoundLevelBias(matches){
+  const byRound={};
+  (matches||[]).forEach(m=>{
+    if(!m||!m.round||!m.team1A||!m.team2C)return;
+    const t1=Number.isFinite(+m.team1Level)?+m.team1Level:effLevel(m.team1A)+effLevel(m.team1B);
+    const t2=Number.isFinite(+m.team2Level)?+m.team2Level:effLevel(m.team2C)+effLevel(m.team2D);
+    const blueDelta=m.team1A.team==='청팀'?t1-t2:t2-t1;
+    byRound[m.round]=(byRound[m.round]||0)+blueDelta;
+  });
+  const vals=Object.values(byRound).map(v=>Math.abs(v));
+  return {
+    maxBias: vals.reduce((m,v)=>Math.max(m,v),0),
+    totalBias: vals.reduce((s,v)=>s+v,0)
+  };
 }
 function balancePartnerLevelGap(team){
   if(!team||team.length<2)return 0;
@@ -1877,9 +1906,11 @@ function _bracketQualityScore(matches, participants, settings){
   const N=participants.length;
   let penalty=0;
   // ① 실력 균형
-  let ldSum=0, ldMax=0;
-  matches.forEach(m=>{ const ld=Math.abs(m.levelDiff||0); ldSum+=ld; if(ld>ldMax)ldMax=ld; });
-  penalty += ldSum*2 + ldMax*3;
+  const balance=_balanceQualityStats(matches,settings);
+  penalty += balance.weightedPenalty;
+  penalty += balance.cautionCount*250 + balance.hardCount*3000 + balance.severeCount*12000;
+  penalty += balance.maxLD*120 + balance.avgLD*80;
+  penalty += balance.roundBiasMax*80 + balance.roundBiasTotal*20;
   penalty += matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0)*10000;
   penalty += matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0)*10000;
   // ② 게임 수 보장 (미달 페널티 큼)
@@ -1911,7 +1942,7 @@ function _bracketQualityScore(matches, participants, settings){
   return penalty;
 }
 
-// 후보 선택 우선순위: 출전 공정성과 경기 수를 먼저 지키고, 같은 조건에서 다양성을 개선한다.
+// 후보 선택 우선순위: 구조/출전 누락을 지킨 뒤 실력 균형을 먼저 보호한다.
 function _candidateQualityKey(matches,participants,settings,baseScore){
   const goal=p=>p._goal!=null?p._goal:settings.gamesPerPlayer;
   // 재배정에서는 gamesPlayed에 이미 완료된 라운드 출전 수도 들어 있다.
@@ -1922,6 +1953,7 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
   const genderErr=matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0);
   const structureErr=matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0);
   const adjustmentCount=matches.filter(m=>m.type==='보정').length;
+  const balance=_balanceQualityStats(matches,settings);
   matches.forEach(m=>{
     [[m.team1A,m.team1B],[m.team2C,m.team2D]].forEach(pair=>{
       // 사용자가 지정한 고정 파트너는 반복 감점에서 제외한다.
@@ -1944,6 +1976,11 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
     structureErr,
     genderErr,
     avoidableUnderSlots,
+    balance.hardCount,
+    balance.cautionCount,
+    Math.round(balance.maxLD*10),
+    Math.round(balance.avgLD*100),
+    Math.round(balance.roundBiasMax*10),
     avoidableOverSlots,
     underSlots,
     overSlots,
@@ -2652,9 +2689,10 @@ function _qualityAssessment(matches,participants,settings){
   if(!matches.length||!participants.length)return null;
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const gpp=settings.gamesPerPlayer||4;
-  const avgLD=matches.reduce((s,m)=>s+(m.levelDiff||0),0)/matches.length;
+  const balance=_balanceQualityStats(matches,settings);
+  const avgLD=balance.avgLD;
   const spikes=matches.filter(m=>(m.levelDiff||0)>=3);
-  const maxLD=Math.max(...matches.map(m=>m.levelDiff||0));
+  const maxLD=balance.maxLD;
   const counts={};participants.forEach(p=>counts[p.name]=0);
   matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
     if(p&&counts[p.name]!==undefined)counts[p.name]++;
@@ -2723,7 +2761,12 @@ function _qualityAssessment(matches,participants,settings){
   const structureErr=matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0);
   const adjustments=matches.filter(m=>m.type==='보정');
 
-  const sBalance=clamp(30-avgLD/1.5*22-spikes.length*2-Math.max(0,maxLD-2)*2,0,30);
+  const sBalance=clamp(30-avgLD/1.5*18
+    -balance.cautionCount*1.5
+    -balance.hardCount*6
+    -balance.severeCount*6
+    -Math.max(0,maxLD-BALANCE_TEAM_DIFF_LIMIT)*4
+    -balance.roundBiasMax*1.5,0,30);
   const sFair=clamp(25-avoidableUnderSlots*6-avoidableOverSlots*2-Math.min(4,variance*20),0,25);
   const sPartner=clamp(15-avoidablePartnerExcess*.5
     -(avoidablePartnerExcess>0?partner3*2+partner4*5:0),0,15);
@@ -2741,7 +2784,9 @@ function _qualityAssessment(matches,participants,settings){
   if(avoidableUnderSlots>0||genderErr>0||structureErr>0)total=Math.min(total,89);
   const grade=total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D';
   const gradeLabel={S:'완벽',A:'우수',B:'양호',C:'보통',D:'재생성 권장'}[grade];
-  return {gpp,avgLD,spikes,maxLD,counts,pGoal,under,over,underSlots,overSlots,
+  return {gpp,avgLD,spikes,maxLD,balanceCautionCount:balance.cautionCount,
+    balanceHardCount:balance.hardCount,balanceSevereCount:balance.severeCount,
+    balanceRoundBiasMax:balance.roundBiasMax,counts,pGoal,under,over,underSlots,overSlots,
     minimumMatches,minimumOver,parityAdjustment,avoidableUnderSlots,avoidableOverSlots,extraMatchCount,
     excessConsec,excessNames,excessRatio,partner2,partner3,partner4,
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
@@ -2756,7 +2801,8 @@ function renderQualityDashboard(matches,participants,settings){
   if(!el) return;
   if(!matches.length){ el.innerHTML=''; return; }
   const q=_qualityAssessment(matches,participants,settings);
-  const {avgLD,spikes,maxLD,counts,pGoal:_pGoal,under,over,underSlots,overSlots,
+  const {avgLD,spikes,maxLD,balanceCautionCount,balanceHardCount,balanceRoundBiasMax,
+    counts,pGoal:_pGoal,under,over,underSlots,overSlots,
     minimumMatches,minimumOver,parityAdjustment,avoidableUnderSlots,avoidableOverSlots,extraMatchCount,
     excessConsec,excessNames,excessRatio,partner2,partner3,partner4,
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
@@ -2782,8 +2828,11 @@ function renderQualityDashboard(matches,participants,settings){
     (()=>{
       const pct=sBalance/30;
       let detail=`평균 실력차 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
-      if(spikes.length) detail+=` · 실력차 큰 경기(3+) ${spikes.length}개`;
+      if(balanceHardCount) detail+=` · 재배정 우선 ${balanceHardCount}경기`;
+      else if(balanceCautionCount) detail+=` · 주의 ${balanceCautionCount}경기`;
+      else if(spikes.length) detail+=` · 실력차 큰 경기(3+) ${spikes.length}개`;
       else detail+=' · 튀는 경기 없음';
+      if(balanceRoundBiasMax>2) detail+=` · 라운드 편차 ${balanceRoundBiasMax.toFixed(1)}`;
       return {label:'경기 실력 균형',detail,score:sBalance,max:30,pct};
     })(),
     (()=>{
