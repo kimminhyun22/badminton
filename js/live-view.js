@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.375';
+const APP_VERSION='1.10.376';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -81,6 +81,7 @@ const _viewerParamMember=(params.get('member')||params.get('memberId')||'').trim
 let liveDb=null;
 let _teamRosterSort=localStorage.getItem('kokmatch_live_roster_sort')||'name';
 let _teamRosterOpen=false;
+let _viewerDetailsOpen={schedule:false,fullBracket:false,ranking:false};
 let _latestLiveData=null;
 let _liveTicker=null;
 let _viewerName='';
@@ -997,17 +998,25 @@ function _matchPlayersLine(m,side){
   return esc(mine.filter(Boolean).join(' / ')||'-')+' <b>vs</b> '+esc(opp.filter(Boolean).join(' / ')||'-');
 }
 
-function _viewerPairHtml(names,cls){
-  return '<div class="viewer-pair '+(cls||'')+'">'+(names||[]).slice(0,2).map(n=>'<span>'+esc(n||'-')+'</span>').join('')+'</div>';
+function setViewerDetailsOpen(key,open){
+  if(!_viewerDetailsOpen)_viewerDetailsOpen={};
+  _viewerDetailsOpen[key]=!!open;
 }
 
-function _viewerMatchBoardHtml(m,side){
-  const mine=side==='t2'?(m.t2||[]):(m.t1||[]);
-  const opp=side==='t2'?(m.t1||[]):(m.t2||[]);
+function _viewerPairHtml(names,cls,label){
+  const side=(cls||'').includes('red')?'red':'blue';
+  const badge=label?'<b class="viewer-side-badge '+side+'">'+esc(label)+'</b>':'';
+  return '<div class="viewer-pair '+(cls||'')+'">'+badge+(names||[]).slice(0,2).map(n=>'<span>'+esc(n||'-')+'</span>').join('')+'</div>';
+}
+
+function _viewerMatchBoardHtml(m,side,d){
+  const isTeam=!!(d&&d.isTeam);
+  const leftCls='blue'+(side==='t1'?' mine':'');
+  const rightCls='right red'+(side==='t2'?' mine':'');
   return '<div class="viewer-match-versus">'
-    +_viewerPairHtml(mine,'mine')
+    +_viewerPairHtml(m.t1||[],leftCls,isTeam?'청':'')
     +'<div class="viewer-vs">VS</div>'
-    +_viewerPairHtml(opp,'right')
+    +_viewerPairHtml(m.t2||[],rightCls,isTeam?'홍':'')
   +'</div>';
 }
 
@@ -1055,7 +1064,7 @@ function _viewerNextHtml(d,current){
   const where='R'+esc(String(next.round||'-'))+' · '+esc(String(next.court||'-'))+'코트';
   return '<div class="viewer-next-card">'
     +'<div class="viewer-next-top"><span class="viewer-next-label">'+label+'</span><span class="viewer-next-where">'+where+'</span></div>'
-    +_viewerMatchBoardHtml(next,next._side)
+    +_viewerMatchBoardHtml(next,next._side,d)
     +'<div class="viewer-next-type">'+esc(next.type||'경기')+(next.isFiller?' · 보완':'')+'</div>'
   +'</div>';
 }
@@ -1063,10 +1072,10 @@ function _viewerNextHtml(d,current){
 function _viewerScheduleHtml(d,current){
   const future=_viewerMatches(d,current.n).filter(m=>!m.win).sort((a,b)=>(a.round-b.round)||(a.court-b.court));
   if(future.length<=1) return '';
-  return '<details class="viewer-schedule">'
+  return '<details class="viewer-schedule" '+(_viewerDetailsOpen.schedule?'open':'')+' ontoggle="setViewerDetailsOpen(\'schedule\',this.open)">'
     +'<summary>전체 예정 경기 '+future.length+'개</summary>'
     +'<div class="viewer-schedule-list">'
-      +future.map(m=>'<div class="viewer-schedule-item"><span>R'+esc(String(m.round||'-'))+' · '+esc(String(m.court||'-'))+'코트</span>'+_viewerMatchBoardHtml(m,m._side)+'</div>').join('')
+      +future.map(m=>'<div class="viewer-schedule-item"><span>R'+esc(String(m.round||'-'))+' · '+esc(String(m.court||'-'))+'코트</span>'+_viewerMatchBoardHtml(m,m._side,d)+'</div>').join('')
     +'</div>'
   +'</details>';
 }
@@ -1217,8 +1226,8 @@ function buildResultInputControls(m,d,opts){
   if(!_canSubmitResult(m,d)) return '';
   const idx=Number(m._idx);
   if(!Number.isFinite(idx) || idx<0) return '';
-  return '<div class="result-entry">'
-    +'<div class="result-entry-label">이긴 팀 선택</div>'
+  return '<div class="result-entry '+(opts.current?'needs-result':'')+'">'
+    +'<div class="result-entry-label">'+(opts.current?'경기 후 승패 입력':'이긴 팀 선택')+'</div>'
     +'<button type="button" class="blue-win" onclick="submitLiveWin('+idx+',\'t1\')">청 승</button>'
     +'<button type="button" class="red-win" onclick="submitLiveWin('+idx+',\'t2\')">홍 승</button>'
   +'</div>';
@@ -1228,6 +1237,7 @@ window.setLiveViewerName=setLiveViewerName;
 window.selectLiveViewer=selectLiveViewer;
 window.setLiveViewerSearch=setLiveViewerSearch;
 window.submitLiveWin=submitLiveWin;
+window.setViewerDetailsOpen=setViewerDetailsOpen;
 
 function setTeamRosterSort(sort){
   _teamRosterSort=sort||'name';
@@ -1381,6 +1391,7 @@ function buildLiveMatchCard(m,d,opts){
   const typeLabel=(opts.next?'대기 · ':'')+esc(m.type||'경기')+(m.isFiller?' · 보완':'');
   const imminent=opts.next && _isImminentMatch(m);
   const resultControls=buildResultInputControls(m,d,opts);
+  const teamLabels=d&&d.isTeam;
   return '<article class="live-match '+tc+(opts.current?' is-current':'')+(imminent?' is-imminent':'')+(resultControls?' has-result':'')+'">'
     +(imminent?'<div class="imminent-banner">대진 임박 · 다음 경기 준비해주세요</div>':'')
     +'<div class="live-match-top">'
@@ -1389,12 +1400,14 @@ function buildLiveMatchCard(m,d,opts){
     +'</div>'
     +'<div class="live-versus">'
       +'<div class="live-side blue'+(t1win?' win':'')+'">'
+        +(teamLabels?'<div class="live-team-label">청팀</div>':'')
         +(t1win?'<span class="win-chip">WIN</span>':'')
         +_playerLine(t1[0],d)
         +_playerLine(t1[1],d)
       +'</div>'
       +'<div class="live-vs">VS</div>'
       +'<div class="live-side red'+(t2win?' win':'')+'">'
+        +(teamLabels?'<div class="live-team-label">홍팀</div>':'')
         +(t2win?'<span class="win-chip">WIN</span>':'')
         +_playerLine(t2[0],d)
         +_playerLine(t2[1],d)
@@ -1490,7 +1503,7 @@ function render(d){
   html+=buildMvpSpotlight(matches,d);
   html+=buildTeamRosterCard(d);
 
-  html+='<details class="info-details primary" id="fullBracket"><summary>전체 대진표 보기</summary><div class="info-body">';
+  html+='<details class="info-details primary" id="fullBracket" '+(_viewerDetailsOpen.fullBracket?'open':'')+' ontoggle="setViewerDetailsOpen(\'fullBracket\',this.open)"><summary>전체 대진표 보기</summary><div class="info-body">';
   rounds.forEach(r=>{
     const isCur=(r===curRound);
     html+='<div class="round'+(isCur?' cur':'')+'" id="round_all_'+r+'">';
@@ -1502,7 +1515,7 @@ function render(d){
   html+='</div></details>';
   const rankingHtml=buildRanking(matches,d);
   if(rankingHtml){
-    html+='<details class="info-details"><summary>전적 순위 보기</summary><div class="info-body">'+rankingHtml+'</div></details>';
+    html+='<details class="info-details" '+(_viewerDetailsOpen.ranking?'open':'')+' ontoggle="setViewerDetailsOpen(\'ranking\',this.open)"><summary>전적 순위 보기</summary><div class="info-body">'+rankingHtml+'</div></details>';
   }
   html+='</div>';
 

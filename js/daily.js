@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.375';
+const APP_VERSION = '1.10.376';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5555,7 +5555,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.375&from=daily';
+  location.href='team.html?v=1.10.376&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -7508,12 +7508,32 @@ function updateScores(){
 
 /* 팀전 중간 현황 공유 (단톡방/밴드) */
 let _liveId=null, _liveOn=false;
+const DAILY_LIVE_STORAGE_KEY='badminton_daily_liveId';
+const LEGACY_LIVE_STORAGE_KEY='badminton_liveId';
 
 /* 대회 고유 ID 생성 (6자리) */
 function _genLiveId(){
   const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s=''; for(let i=0;i<6;i++) s+=c[Math.floor(Math.random()*c.length)];
   return s;
+}
+
+function _dailyStoredLiveId(){
+  try{return localStorage.getItem(DAILY_LIVE_STORAGE_KEY)||localStorage.getItem(LEGACY_LIVE_STORAGE_KEY)||'';}catch(e){return '';}
+}
+function _dailySaveLiveId(id){
+  try{
+    if(id)localStorage.setItem(DAILY_LIVE_STORAGE_KEY,id);
+    localStorage.removeItem(LEGACY_LIVE_STORAGE_KEY);
+  }catch(e){}
+}
+function _dailyClearStoredLiveId(id){
+  try{
+    const dailyId=localStorage.getItem(DAILY_LIVE_STORAGE_KEY);
+    if(!id||dailyId===id)localStorage.removeItem(DAILY_LIVE_STORAGE_KEY);
+    const legacyId=localStorage.getItem(LEGACY_LIVE_STORAGE_KEY);
+    if(!id||legacyId===id)localStorage.removeItem(LEGACY_LIVE_STORAGE_KEY);
+  }catch(e){}
 }
 
 /* 현재 대진·스코어를 직렬화 (뷰어가 읽을 형태) */
@@ -7581,26 +7601,31 @@ async function startLiveBroadcast(){
     await _fbDb.ref('live/'+_liveId).set(_buildLiveState());
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
   await rsvpPushEventState();
-  try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
+  _dailySaveLiveId(_liveId);
   _updateLiveUI();
 }
 
 /* 앱 재시작 시 중계 자동 재연결 */
 async function _tryResumeLive(){
   if(_liveOn) return; // 이미 중계 중
-  const savedId=localStorage.getItem('badminton_liveId');
+  const savedId=_dailyStoredLiveId();
   if(!savedId) return;
+  const savedFromDailyKey=(()=>{try{return localStorage.getItem(DAILY_LIVE_STORAGE_KEY)===savedId;}catch(e){return false;}})();
   if(!_fbInit()) return;
   try{
     const snap=await _fbDb.ref('live/'+savedId).once('value');
     if(!snap.exists()){
-      localStorage.removeItem('badminton_liveId');
+      _dailyClearStoredLiveId(savedId);
       return;
     }
     const data=snap.val();
+    if(data.isTeam){
+      if(savedFromDailyKey)_dailyClearStoredLiveId(savedId);
+      return;
+    }
     const age=Date.now()-(data.updatedAt||0);
     // 48시간 초과 or 데이터 없으면 무시
-    if(age>48*60*60*1000){ localStorage.removeItem('badminton_liveId'); return; }
+    if(age>48*60*60*1000){ _dailyClearStoredLiveId(savedId); return; }
     // 사용자에게 확인
     const mins=Math.floor(age/60000);
     const timeStr=mins<60?`${mins}분 전`:`${Math.floor(mins/60)}시간 ${mins%60}분 전`;
@@ -7630,7 +7655,7 @@ async function _tryResumeLive(){
       alert(`✅ 중계 재개됐어요!
 링크: ${url}`);
     } else {
-      localStorage.removeItem('badminton_liveId');
+      _dailyClearStoredLiveId(savedId);
     }
   }catch(e){ /* 재연결 실패는 조용히 무시 */ }
 }
@@ -7671,7 +7696,7 @@ async function stopLiveBroadcast(){
   if(!_liveId || !_fbDb){ _liveOn=false; _updateLiveUI(); return; }
   if(!confirm('실시간 중계를 종료할까요?\n링크로 접속한 사람들이 더 이상 볼 수 없게 됩니다.')) return;
   try{ await _fbDb.ref('live/'+_liveId).remove(); }catch(e){}
-  localStorage.removeItem('badminton_liveId');
+  _dailyClearStoredLiveId(_liveId);
   _liveOn=false; _liveId=null;
   await rsvpPushEventState();
   _updateLiveUI();
@@ -8952,7 +8977,7 @@ function saveState(){
   };
   // 실시간 중계 ID 저장 (앱 종료 후 재시작 시 자동 재연결용)
   if(_liveId) {
-    try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
+    _dailySaveLiveId(_liveId);
   }
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));setSaveStatus('saved');}
   catch(e){setSaveStatus('','⚠ 저장 실패');}
@@ -8983,12 +9008,18 @@ function checkSavedState(){
     const h=Math.floor(age/3600000),m=Math.floor((age%3600000)/60000);
     const ageStr=h>0?`${h}시간 ${m}분 전`:`${m}분 전`;
     const pCount=state.participants?state.participants.length:'?';
-    document.getElementById('restoreBtn').textContent=`📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
-    document.getElementById('restoreBtn').classList.remove('hidden');
+    const hasLive=!!localStorage.getItem(DAILY_LIVE_STORAGE_KEY);
+    const restoreBtn=document.getElementById('restoreBtn');
+    restoreBtn.textContent=hasLive
+      ? `🔴 진행 중 민턴LIVE 복구 (${pCount}명 · ${ageStr})`
+      : `📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
+    restoreBtn.classList.toggle('live-restore',hasLive);
+    restoreBtn.classList.remove('hidden');
     // 모바일 버튼도 표시
     const mb=document.getElementById('mobRestoreBtn');
     if(mb){
-      mb.textContent=`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.textContent=hasLive?`🔴 민턴LIVE 복구 (${pCount}명)`:`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.classList.toggle('live-restore',hasLive);
       mb.classList.remove('hidden');
     }
     const ms=document.getElementById('mobSaveStatus');

@@ -1702,3 +1702,42 @@ body{
 .viewer-name-card span{
   line-height:1.25;
 }
+
+/* 팀전LIVE 실전 피드백: 청/홍 구분과 승패 입력 유도 */
+.viewer-side-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:28px;
+  min-height:24px;
+  margin-bottom:5px;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:.7rem;
+  font-weight:1000;
+  letter-spacing:-.02em;
+}
+.viewer-side-badge.blue{
+  background:var(--bl-soft)!important;
+  border:1px solid var(--bl-softbdr)!important;
+  color:var(--bl-deep)!important;
+}
+.viewer-side-badge.red{
+  background:var(--red-soft)!important;
+  border:1px solid #f2d3d3!important;
+  color:var(--red-deep)!important;
+}
+.viewer-pair.mine{
+  filter:saturate(1.08);
+}
+.viewer-pair.mine .viewer-side-badge{
+  box-shadow:0 0 0 3px rgba(91,141,239,.10);
+}
+.result-entry.needs-result{
+  position:relative;
+  animation:resultReminder 1.9s ease-in-out infinite;
+}
+@keyframes resultReminder{
+  0%,100%{filter:none;}
+  50%{filter:drop-shadow(0 0 10px rgba(240,167,58,.28));}
+}

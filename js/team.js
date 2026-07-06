@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.375';
+const APP_VERSION = '1.10.376';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -771,6 +771,7 @@ function generate(){
       matches.sort((a,b)=>a.round-b.round||a.court-b.court);
       matches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=matches;currentParticipants=participants;currentSettings=settings;
+      _teamDiscardLiveForNewBracket();
       _lockedBeforeRound=null; // 새 대진 생성 시 잠금 해제
       // 이전 점수·승패 완전 초기화
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
@@ -2081,6 +2082,8 @@ function updateScores(){
 /* 팀전 중간 현황 공유 (단톡방/밴드) */
 const LIVE_TTL_MS=48*60*60*1000;
 let _liveId=null, _liveOn=false, _liveMatchStartedAt=null;
+const TEAM_LIVE_STORAGE_KEY='badminton_team_liveId';
+const LEGACY_LIVE_STORAGE_KEY='badminton_liveId';
 let _liveAttendance={}, _liveParty={}, _liveResultInputs={}, _liveResultConflicts={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
 
 /* 대회 고유 ID 생성 (6자리) */
@@ -2088,6 +2091,24 @@ function _genLiveId(){
   const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s=''; for(let i=0;i<6;i++) s+=c[Math.floor(Math.random()*c.length)];
   return s;
+}
+
+function _teamStoredLiveId(){
+  try{return localStorage.getItem(TEAM_LIVE_STORAGE_KEY)||localStorage.getItem(LEGACY_LIVE_STORAGE_KEY)||'';}catch(e){return '';}
+}
+function _teamSaveLiveId(id){
+  try{
+    if(id)localStorage.setItem(TEAM_LIVE_STORAGE_KEY,id);
+    localStorage.removeItem(LEGACY_LIVE_STORAGE_KEY);
+  }catch(e){}
+}
+function _teamClearStoredLiveId(id){
+  try{
+    const teamId=localStorage.getItem(TEAM_LIVE_STORAGE_KEY);
+    if(!id||teamId===id)localStorage.removeItem(TEAM_LIVE_STORAGE_KEY);
+    const legacyId=localStorage.getItem(LEGACY_LIVE_STORAGE_KEY);
+    if(!id||legacyId===id)localStorage.removeItem(LEGACY_LIVE_STORAGE_KEY);
+  }catch(e){}
 }
 
 /* 현재 대진·스코어를 직렬화 (뷰어가 읽을 형태) */
@@ -2349,7 +2370,7 @@ async function startLiveBroadcast(){
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; _updateLiveUI(); _renderLiveOpsSummary(); return; }
   _bindLiveAdminListener();
   _renderLiveOpsSummary();
-  try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
+  _teamSaveLiveId(_liveId);
   _updateLiveUI();
   await rsvpPushEventState();
 }
@@ -2357,20 +2378,25 @@ async function startLiveBroadcast(){
 /* 앱 재시작 시 중계 자동 재연결 */
 async function _tryResumeLive(){
   if(_liveOn) return; // 이미 중계 중
-  const savedId=localStorage.getItem('badminton_liveId');
+  const savedId=_teamStoredLiveId();
   if(!savedId) return;
+  const savedFromTeamKey=(()=>{try{return localStorage.getItem(TEAM_LIVE_STORAGE_KEY)===savedId;}catch(e){return false;}})();
   if(!_fbInit()) return;
   try{
     const snap=await _fbDb.ref('live/'+savedId).once('value');
     if(!snap.exists()){
-      localStorage.removeItem('badminton_liveId');
+      _teamClearStoredLiveId(savedId);
       return;
     }
     const data=snap.val();
+    if(!data.isTeam){
+      if(savedFromTeamKey)_teamClearStoredLiveId(savedId);
+      return;
+    }
     const startedAt=data.matchStartedAt||data.createdAt||data.updatedAt||0;
     const age=Date.now()-startedAt;
     // 대진 시작 후 48시간 초과 or 데이터 없으면 무시
-    if(!startedAt||age>LIVE_TTL_MS){ localStorage.removeItem('badminton_liveId'); return; }
+    if(!startedAt||age>LIVE_TTL_MS){ _teamClearStoredLiveId(savedId); return; }
     // 사용자에게 확인
     const mins=Math.floor(age/60000);
     const timeStr=mins<60?`${mins}분 전`:`${Math.floor(mins/60)}시간 ${mins%60}분 전`;
@@ -2412,7 +2438,7 @@ async function _tryResumeLive(){
       alert(`✅ 중계 재개됐어요!
 링크: ${url}`);
     } else {
-      localStorage.removeItem('badminton_liveId');
+      _teamClearStoredLiveId(savedId);
     }
   }catch(e){ /* 재연결 실패는 조용히 무시 */ }
 }
@@ -2449,12 +2475,8 @@ function _showCopyFallback(label,text){
   alert(label+'\n\n'+text);
 }
 
-async function _teamClearLiveBroadcastData(){
-  const liveId=_liveId;
-  if(_fbDb&&liveId){
-    await _fbDb.ref('live/'+liveId).remove().catch(()=>{});
-  }
-  try{localStorage.removeItem('badminton_liveId');}catch(e){}
+function _teamResetLocalLiveState(liveId){
+  _teamClearStoredLiveId(liveId);
   _unbindLiveAdminListener();
   _liveAttendance={};
   _liveParty={};
@@ -2466,6 +2488,24 @@ async function _teamClearLiveBroadcastData(){
   _liveMatchStartedAt=null;
   _updateLiveUI();
   _renderLiveOpsSummary();
+}
+
+function _teamDiscardLiveForNewBracket(){
+  const liveId=_liveId||_teamStoredLiveId();
+  const db=_fbDb;
+  _teamResetLocalLiveState(liveId);
+  if(db&&liveId){
+    db.ref('live/'+liveId).remove().catch(()=>{});
+  }
+}
+
+async function _teamClearLiveBroadcastData(){
+  const liveId=_liveId;
+  const db=_fbDb;
+  _teamResetLocalLiveState(liveId);
+  if(db&&liveId){
+    await db.ref('live/'+liveId).remove().catch(()=>{});
+  }
 }
 
 /* 실시간 중계 종료 */
@@ -3773,7 +3813,7 @@ function saveState(){
   };
   // 실시간 중계 ID 저장 (앱 종료 후 재시작 시 자동 재연결용)
   if(_liveId) {
-    try{localStorage.setItem('badminton_liveId',_liveId);}catch(e){}
+    _teamSaveLiveId(_liveId);
   }
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));setSaveStatus('saved');}
   catch(e){setSaveStatus('','⚠ 저장 실패');}
@@ -3805,12 +3845,18 @@ function checkSavedState(){
     const h=Math.floor(age/3600000),m=Math.floor((age%3600000)/60000);
     const ageStr=h>0?`${h}시간 ${m}분 전`:`${m}분 전`;
     const pCount=state.participants?state.participants.length:'?';
-    document.getElementById('restoreBtn').textContent=`📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
-    document.getElementById('restoreBtn').classList.remove('hidden');
+    const hasLive=!!localStorage.getItem(TEAM_LIVE_STORAGE_KEY);
+    const restoreBtn=document.getElementById('restoreBtn');
+    restoreBtn.textContent=hasLive
+      ? `🔴 진행 중 팀전LIVE 복구 (${pCount}명 · ${ageStr})`
+      : `📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
+    restoreBtn.classList.toggle('live-restore',hasLive);
+    restoreBtn.classList.remove('hidden');
     // 모바일 버튼도 표시
     const mb=document.getElementById('mobRestoreBtn');
     if(mb){
-      mb.textContent=`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.textContent=hasLive?`🔴 팀전LIVE 복구 (${pCount}명)`:`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.classList.toggle('live-restore',hasLive);
       mb.classList.remove('hidden');
     }
     const ms=document.getElementById('mobSaveStatus');
@@ -5841,23 +5887,20 @@ async function rsvpCopyShareText(auto){
   const title=_rsvpTitle();
   const target=_rsvpSelectedLabel();
   const text=`🏸 ${target} · ${title} 팀전LIVE\n\n본인 이름을 찾고 출석을 눌러 주세요.\n늦게 오면 출석 옆 늦음 딱지를 켜면 됩니다.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
-  const publishPromise=rsvpPublishSession(true).catch(()=>null);
-  if(navigator.share){
-    try{
-      await navigator.share({title:`${title} 팀전LIVE`,text});
-      await publishPromise;
-      return true;
-    }catch(e){
-      if(e&&e.name==='AbortError'){
-        await publishPromise;
-        return true;
-      }
-    }
-  }
-  const published=await publishPromise;
+  const published=await rsvpPublishSession(true).catch(()=>null);
   if(!published){
     alert('팀전LIVE 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
     return false;
+  }
+  if(navigator.share){
+    try{
+      await navigator.share({title:`${title} 팀전LIVE`,text});
+      return true;
+    }catch(e){
+      if(e&&e.name==='AbortError'){
+        return true;
+      }
+    }
   }
   try{
     await navigator.clipboard.writeText(text);
