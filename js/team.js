@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.390';
+const APP_VERSION = '1.10.391';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -697,6 +697,7 @@ function generate(){
   let participants=_directPlayers.map(p=>({
     name:p.name,level:p.level,gender:p.gender==='남'?'M':'F',
     team:p.team||'',isGuest:!!p.isGuest,_valid:true,
+    memberId:p.memberId||'',club:p.club||'',
     grade:p.grade,  // 입력한 실제 급수 (남: B→level5, 여: B→level4 이므로 grade로 표시해야 정확)
     _grade:p.grade, // 하위 호환 유지
     ageGroup:p.ageGroup||'40대',
@@ -2347,7 +2348,9 @@ function _liveKey(name){
 function _rsvpReadyAttendanceMap(){
   const out={};
   if(!_rsvpId)return out;
+  const memberIds=new Set(_rsvpSessionMembers().map(m=>m.id));
   _rsvpResponseList().forEach(r=>{
+    if(memberIds.size&&!memberIds.has(r.memberId||r.id))return;
     if(r.status!=='ready')return;
     const name=r.memberName||r.name||'';
     if(!name)return;
@@ -2358,7 +2361,9 @@ function _rsvpReadyAttendanceMap(){
 function _rsvpPlannedAttendanceKeys(){
   const keys=new Set();
   if(!_rsvpId)return keys;
+  const memberIds=new Set(_rsvpSessionMembers().map(m=>m.id));
   _rsvpResponseList().forEach(r=>{
+    if(memberIds.size&&!memberIds.has(r.memberId||r.id))return;
     if(r.status!=='attend')return;
     const name=r.memberName||r.name||'';
     if(name)keys.add(_liveKey(name));
@@ -2368,7 +2373,7 @@ function _rsvpPlannedAttendanceKeys(){
 function _rsvpPartyMap(){
   const out={};
   if(!_rsvpId)return out;
-  const memberIds=new Set(_rsvpRosterMembers().map(m=>m.id));
+  const memberIds=new Set(_rsvpSessionMembers().map(m=>m.id));
   _rsvpResponseList().forEach(r=>{
     if(!memberIds.has(r.memberId||r.id))return;
     if(!r.party)return;
@@ -3991,8 +3996,8 @@ function saveState(){
     partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
-      blue:teamAssignment.blue.map(p=>({name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null})),
-      white:teamAssignment.white.map(p=>({name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,isGuest:!!p.isGuest,partnerName:p.partnerName||null}))
+      blue:teamAssignment.blue.map(p=>({memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,partnerName:p.partnerName||null})),
+      white:teamAssignment.white.map(p=>({memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,partnerName:p.partnerName||null}))
     }:null,
     matches:currentMatches.map(m=>({
       matchNumber:m.matchNumber,round:m.round,court:m.court,
@@ -4002,7 +4007,7 @@ function saveState(){
       team2C:slim(m.team2C),team2D:slim(m.team2D)
     })),
     participants:currentParticipants.map(p=>({
-      name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,
+      memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',
       partnerName:p.partnerName||getPartnerOf(p.name)||null,
       partnerId:p.partnerId||(getPartnerInfo(p.name)||{}).id||null,
       isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대',
@@ -4151,12 +4156,13 @@ function restoreState(){
     currentParticipants=state.participants.map(p=>Object.assign({
       _valid:true,partnerCount:{},opponentCount:{},lastRoundPlayed:0,_levelRaw:'',_genderRaw:'',isGuest:!!p.isGuest,
       adjustmentPlayed:0,
+      memberId:'',club:'',
       ageGroup:'40대' // 구버전 저장 데이터 호환: ageGroup 없으면 40대 기본값
     },p));
     _attachPartnerNames(currentParticipants);
     _restoreJoinerGoals(currentParticipants,state.settings);
     currentMatches=state.matches.map(m=>{
-      const findP=name=>currentParticipants.find(p=>p.name===name)||{name,level:3,gender:'M',team:'',ageGroup:'40대',grade:''};
+      const findP=name=>currentParticipants.find(p=>p.name===name)||{name,level:3,gender:'M',team:'',ageGroup:'40대',grade:'',memberId:'',club:''};
       return{
         matchNumber:m.matchNumber,round:m.round,court:m.court,
         type:m.type,isFiller:m.isFiller||false,levelDiff:m.levelDiff,
@@ -5922,9 +5928,39 @@ function _rsvpRosterMembers(){
   }
   return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')||String(a.club||'').localeCompare(String(b.club||''),'ko'));
 }
+function _rsvpKoreanGender(g){
+  return g==='F'||g==='여'?'여':'남';
+}
+function _rsvpEventMembers(){
+  if(!currentMatches.length||!currentParticipants.length)return [];
+  const directByName=new Map((_directPlayers||[]).filter(p=>p&&p.name).map(p=>[p.name,p]));
+  const map=new Map();
+  currentParticipants.forEach(p=>{
+    if(!p||!p.name)return;
+    const src=directByName.get(p.name)||{};
+    const gender=_rsvpKoreanGender(p.gender||src.gender);
+    const grade=p.grade||p._grade||src.grade||levelToGrade(p.level||src.level||4,gender)||'C';
+    const club=p.club||src.club||'';
+    const base={
+      id:p.memberId||src.memberId||src.id||_rsvpMemberId({name:p.name,club}),
+      name:p.name,
+      grade,
+      gender,
+      ageGroup:p.ageGroup||src.ageGroup||'40대',
+      club,
+      isGuest:!!(p.isGuest||src.isGuest)
+    };
+    if(!map.has(base.id))map.set(base.id,base);
+  });
+  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')||String(a.club||'').localeCompare(String(b.club||''),'ko'));
+}
+function _rsvpSessionMembers(){
+  const eventMembers=_rsvpEventMembers();
+  return eventMembers.length?eventMembers:_rsvpRosterMembers();
+}
 function _rsvpRosterMemberMap(){
   const map=new Map();
-  _rsvpRosterMembers().forEach(m=>{
+  _rsvpSessionMembers().forEach(m=>{
     if(m&&m.id)map.set(m.id,m);
   });
   return map;
@@ -5963,7 +5999,7 @@ function _rsvpSessionPayload(){
     version:APP_VERSION,
     guestLimit:_rsvpGuestLimit(),
     gamesPerPlayer:parseInt(gamesEl?.value||'4',10)||4,
-    members:_rsvpRosterMembers(),
+    members:_rsvpSessionMembers(),
     ..._rsvpEventPayload()
   };
 }
@@ -6166,7 +6202,8 @@ function rsvpPushSession(){
     if(!_currentBracketRsvpId()||_rsvpId!==_currentBracketRsvpId())return;
   }
   if(!_rsvpId||!_fbDb)return;
-  if(_rsvpNeedsClubSelection()||!_rsvpRosterMembers().length)return;
+  const hasEventMembers=!!_rsvpEventMembers().length;
+  if((!hasEventMembers&&_rsvpNeedsClubSelection())||!_rsvpSessionMembers().length)return;
   const path=_rsvpPath();
   if(!_rsvpCreatedAt)rsvpEnsureId();
   _rsvpApplyAutoTitle(false);
@@ -6185,19 +6222,21 @@ function rsvpSyncRosterChange(){
   }
   if(changed&&document.getElementById('directPlayerList'))renderDirectPlayerList();
   if(!_rsvpId||!_fbDb)return;
-  if(_rsvpNeedsClubSelection()||!_rsvpRosterMembers().length)return;
+  const hasEventMembers=!!_rsvpEventMembers().length;
+  if((!hasEventMembers&&_rsvpNeedsClubSelection())||!_rsvpSessionMembers().length)return;
   clearTimeout(_rsvpSyncTimer);
   _rsvpSyncTimer=setTimeout(()=>rsvpPushSession(),250);
 }
 async function rsvpPublishSession(silent){
   if(currentMatches.length)_rsvpEnsureCurrentEventLink({silent:true,createIfMissing:true});
-  if(_rsvpNeedsClubSelection()){
+  const hasEventMembers=!!_rsvpEventMembers().length;
+  if(!hasEventMembers&&_rsvpNeedsClubSelection()){
     if(!silent)alert('먼저 공지를 보낼 클럽 명부를 선택해 주세요.');
     return null;
   }
-  const members=_rsvpRosterMembers();
+  const members=_rsvpSessionMembers();
   if(!members.length){
-    if(!silent)alert('선택한 클럽 명부에 회원이 없습니다. 명부를 확인해 주세요.');
+    if(!silent)alert(hasEventMembers?'현재 대진 참가자 명단을 확인해 주세요.':'선택한 클럽 명부에 회원이 없습니다. 명부를 확인해 주세요.');
     return null;
   }
   if(!_fbInit()){
@@ -6219,12 +6258,13 @@ async function rsvpShareLink(){
 }
 async function rsvpCopyShareText(auto){
   if(currentMatches.length)_rsvpEnsureCurrentEventLink({silent:auto,createIfMissing:true});
-  if(_rsvpNeedsClubSelection()){
+  const hasEventMembers=!!_rsvpEventMembers().length;
+  if(!hasEventMembers&&_rsvpNeedsClubSelection()){
     alert('먼저 공지를 보낼 클럽 명부를 선택해 주세요.');
     return false;
   }
-  if(!_rsvpRosterMembers().length){
-    alert('선택한 클럽 명부에 회원이 없습니다. 명부를 확인해 주세요.');
+  if(!_rsvpSessionMembers().length){
+    alert(hasEventMembers?'현재 대진 참가자 명단을 확인해 주세요.':'선택한 클럽 명부에 회원이 없습니다. 명부를 확인해 주세요.');
     return false;
   }
   if(!_fbInit()){
@@ -6272,7 +6312,7 @@ function rsvpLoad(){
   _rsvpCreatedAt=Number.isFinite(savedCreated)&&savedCreated>0?savedCreated:null;
   _rsvpApplyAutoTitle(false);
   if(_rsvpId&&_fbInit()){
-    if(!_rsvpNeedsClubSelection()&&_rsvpRosterMembers().length)rsvpPushSession();
+    if((currentMatches.length||!_rsvpNeedsClubSelection())&&_rsvpSessionMembers().length)rsvpPushSession();
     rsvpStartListener();
   }
 }
@@ -6336,7 +6376,7 @@ function _rsvpResponseGuests(r){
   return _rsvpResponseGuestEntries(r).map(entry=>entry.guest);
 }
 function _rsvpStats(){
-  const members=_rsvpRosterMembers();
+  const members=_rsvpSessionMembers();
   const memberIds=new Set(members.map(m=>m.id));
   const responses=_rsvpResponseList().filter(r=>memberIds.has(r.memberId||r.id));
   const counts={attend:0,ready:0,plan:0,decline:0,maybe:0,guest:0,guestAll:0,party:0,issues:0,partner:0};
@@ -6449,7 +6489,7 @@ function _rsvpInitials(text){
   }).join('');
 }
 function _rsvpAdminPartnerOptions(memberId,selectedId){
-  const members=_rsvpRosterMembers();
+  const members=_rsvpSessionMembers();
   return ['<option value="">P 없음</option>']
     .concat(members
       .filter(m=>m.id!==memberId)
