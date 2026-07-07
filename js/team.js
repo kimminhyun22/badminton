@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.395';
+const APP_VERSION = '1.10.396';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2912,12 +2912,18 @@ function _qualityAssessment(matches,participants,settings){
   const structureErr=matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0);
   const adjustments=matches.filter(m=>m.type==='보정');
 
-  const sBalance=clamp(40-avgLD/1.5*24
+  const excellentAvgLD=0.25;
+  const excellentMaxLD=1.0;
+  const balanceAvgPenalty=Math.max(0,avgLD-excellentAvgLD)/(BALANCE_TEAM_DIFF_TARGET-excellentAvgLD)*24;
+  const balanceMaxPenalty=Math.max(0,maxLD-excellentMaxLD)*3;
+  const balanceRoundBiasPenalty=Math.max(0,balance.roundBiasMax-2)*2;
+  const sBalance=clamp(40-balanceAvgPenalty
+    -balanceMaxPenalty
     -balance.cautionCount*2
     -balance.hardCount*8
     -balance.severeCount*8
     -Math.max(0,maxLD-BALANCE_TEAM_DIFF_LIMIT)*5
-    -balance.roundBiasMax*2,0,40);
+    -balanceRoundBiasPenalty,0,40);
   const sFair=clamp(10-avoidableUnderSlots*5-avoidableOverSlots*1.2-Math.min(2,variance*10),0,10);
   const sDiversity=clamp(20
     -partnerOnlyExcess*1.25
