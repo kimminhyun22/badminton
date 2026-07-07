@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.388';
+const APP_VERSION = '1.10.389';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -801,7 +801,7 @@ function generate(){
       matches.sort((a,b)=>a.round-b.round||a.court-b.court);
       matches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=matches;currentParticipants=participants;currentSettings=settings;
-      _teamDiscardLiveForNewBracket();
+      _teamResetLocalLiveState(_liveId||_teamStoredLiveId());
       _lockedBeforeRound=null; // 새 대진 생성 시 잠금 해제
       // 이전 점수·승패 완전 초기화
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
@@ -2186,6 +2186,77 @@ function _teamClearStoredLiveId(id){
     if(!id||legacyId===id)localStorage.removeItem(LEGACY_LIVE_STORAGE_KEY);
   }catch(e){}
 }
+function _teamLiveSigName(name){
+  return String(name||'').replace(/\s+/g,'').trim();
+}
+function _teamLiveSignatureFromMatches(matches){
+  return JSON.stringify((matches||[]).map(m=>[
+    m.round||0,
+    m.court||0,
+    String(m.type||''),
+    [
+      _teamLiveSigName(m.team1A&&m.team1A.name),
+      _teamLiveSigName(m.team1B&&m.team1B.name)
+    ].sort(),
+    [
+      _teamLiveSigName(m.team2C&&m.team2C.name),
+      _teamLiveSigName(m.team2D&&m.team2D.name)
+    ].sort()
+  ]).sort((a,b)=>(a[0]-b[0])||(a[1]-b[1])||String(a[2]).localeCompare(String(b[2]))));
+}
+function _teamLiveSignatureFromData(data){
+  return JSON.stringify(((data&&data.matches)||[]).map(m=>[
+    m.round||0,
+    m.court||0,
+    String(m.type||''),
+    (m.t1||[]).map(_teamLiveSigName).sort(),
+    (m.t2||[]).map(_teamLiveSigName).sort()
+  ]).sort((a,b)=>(a[0]-b[0])||(a[1]-b[1])||String(a[2]).localeCompare(String(b[2]))));
+}
+function _teamLiveSignature(){
+  return currentMatches.length?_teamLiveSignatureFromMatches(currentMatches):'';
+}
+function _teamLiveEventLabel(){
+  const title=(_rsvpTitle&&_rsvpTitle())||'팀전LIVE';
+  const round=currentMatches.length?Math.max(...currentMatches.map(m=>m.round||0)):0;
+  return `${title}${round?` · R${round}`:''}`;
+}
+function _teamConfirmDetachLiveBeforeChange(actionLabel){
+  const liveId=_liveId||_teamStoredLiveId();
+  if(!liveId)return true;
+  if(_liveOn){
+    alert(`팀전LIVE 중계 중입니다.\n\n${actionLabel} 전에 먼저 팀전LIVE를 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
+    return false;
+  }
+  if(!confirm(`진행 중이던 팀전LIVE 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
+  _teamResetLocalLiveState(liveId);
+  return true;
+}
+function _teamLiveMismatchMessage(){
+  return '현재 대진과 기존 팀전LIVE 링크의 대진이 다릅니다.\n\n기존 회원 링크에 다른 경기가 섞이지 않도록 송출을 막았습니다.\n기존 LIVE를 종료하거나, 이 대진은 새 링크로 다시 시작해 주세요.';
+}
+function _teamValidateLiveDataForCurrent(data){
+  if(!data||!Object.keys(data).length)return true;
+  if(!data.isTeam){
+    alert('저장된 LIVE ID가 민턴LIVE 링크입니다.\n팀전LIVE와 섞이지 않도록 연결을 끊었습니다.');
+    _teamResetLocalLiveState(_liveId);
+    return false;
+  }
+  const ownerRsvpId=_currentBracketRsvpId();
+  if(ownerRsvpId&&data.rsvpId&&data.rsvpId!==ownerRsvpId){
+    alert(_teamLiveMismatchMessage());
+    _teamResetLocalLiveState(_liveId);
+    return false;
+  }
+  const liveSig=data.bracketKey||_teamLiveSignatureFromData(data);
+  const currentSig=_teamLiveSignature();
+  if(liveSig&&currentSig&&liveSig!==currentSig){
+    alert(_teamLiveMismatchMessage());
+    _teamResetLocalLiveState(_liveId);
+    return false;
+  }
+  return true;
+}
 
 /* 현재 대진·스코어를 직렬화 (뷰어가 읽을 형태) */
 function _buildLiveState(){
@@ -2246,6 +2317,8 @@ function _buildLiveState(){
   const membersAll=isTeam?[]:currentParticipants.map(liveMember);
   return {
     title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
+    eventLabel:_teamLiveEventLabel(),
+    bracketKey:_teamLiveSignature(),
     members: {blue:membersBlue, red:membersRed, all:membersAll},
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
     blueWins:bW||0, whiteWins:wW||0,
@@ -2440,13 +2513,14 @@ async function startLiveBroadcast(){
   if(dups.length&&!confirm('동명이인이 있습니다.\n\n'+dups.join(', ')+'\n\n출석/뒷풀이 체크가 같은 이름으로 합쳐질 수 있어요.\n가능하면 이름 뒤에 A/B 같은 구분자를 붙이는 것을 권장합니다.\n\n그래도 중계를 시작할까요?')) return;
   if(!_fbInit()){ alert('실시간 서버 연결에 실패했어요. 네트워크를 확인해주세요.'); return; }
   if(!_liveId) _liveId=_genLiveId();
-  _liveOn=true;
   // 오래된 중계 데이터 자동 정리 (48시간 경과분 삭제) — 새 중계 시작하는 김에 청소
   _cleanupOldLive();
   try{
     const liveRef=_fbDb.ref('live/'+_liveId);
     const prev=await liveRef.once('value').catch(()=>null);
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
+    if(!_teamValidateLiveDataForCurrent(prevData))return;
+    _liveOn=true;
     _liveMatchStartedAt=prevData.matchStartedAt||Date.now();
     const ownerRsvpId=_currentBracketRsvpId();
     const activeRsvpOwns=!!(_rsvpId && ownerRsvpId && _rsvpId===ownerRsvpId);
@@ -2485,6 +2559,9 @@ async function _tryResumeLive(){
       if(savedFromTeamKey)_teamClearStoredLiveId(savedId);
       return;
     }
+    _liveId=savedId;
+    if(!_teamValidateLiveDataForCurrent(data))return;
+    _liveId=null;
     const ownerRsvpId=_currentBracketRsvpId();
     if(ownerRsvpId&&data.rsvpId&&data.rsvpId!==ownerRsvpId){
       _teamClearStoredLiveId(savedId);
@@ -2589,11 +2666,9 @@ function _teamResetLocalLiveState(liveId){
 
 function _teamDiscardLiveForNewBracket(){
   const liveId=_liveId||_teamStoredLiveId();
-  const db=_fbDb;
+  // 새 대진을 만들 때 기존 회원 링크를 지우면 실전에서 혼란이 커진다.
+  // 관리자 화면의 연결만 끊고, 기존 LIVE 노드는 그대로 둔다.
   _teamResetLocalLiveState(liveId);
-  if(db&&liveId){
-    db.ref('live/'+liveId).remove().catch(()=>{});
-  }
 }
 
 async function _teamClearLiveBroadcastData(){
@@ -4215,6 +4290,7 @@ function renderSlotList(){
 function loadSlot(id){
   const slot=getSlots().find(s=>s.id===id);
   if(!slot){alert('저장 데이터를 찾을 수 없습니다.');return;}
+  if(!_teamConfirmDetachLiveBeforeChange('저장 대진표 불러오기'))return;
   if(!confirm(`'${slot.name}' 을 불러올까요?\n현재 작업 내용은 자동저장으로 복원할 수 있습니다.`)) return;
   localStorage.setItem(SAVE_KEY,JSON.stringify(slot.state));
   restoreState();
@@ -4262,6 +4338,7 @@ function importBracketJson(e){
       if(!state.matches||!state.participants){
         alert('올바른 대진표 파일이 아닙니다.');return;
       }
+      if(!_teamConfirmDetachLiveBeforeChange('대진표 파일 불러오기')){e.target.value='';return;}
       if(!confirm(`저장된 대진표를 불러올까요?\n선수 ${state.participants?.length||0}명, 경기 ${state.matches?.length||0}게임\n현재 데이터는 덮어씌워집니다.`)){return;}
       // localStorage에 저장 후 복원
       localStorage.setItem(SAVE_KEY,JSON.stringify(state));
@@ -4316,6 +4393,7 @@ function importBracketAll(e){
         const bCount=combined.bracket?.participants?.length||0;
         const rCount=combined.roster?.clubs?.reduce((s,c)=>s+c.members.length,0)||0;
         const sCount=combined.slots?.length||0;
+        if(!_teamConfirmDetachLiveBeforeChange('전체 백업 불러오기')){e.target.value='';return;}
         if(!confirm(
           `전체 백업 불러오기\n`+
           `• 대진표: 선수 ${bCount}명\n`+
@@ -5043,7 +5121,7 @@ function hideErr(){document.getElementById('errBar').classList.remove('on');}
 function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.textContent=m;b.classList.add('on');}
 function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.remove('on');}
 async function resetAll(){
-  if(!confirm('팀전LIVE를 전체 초기화할까요?\n링크 응답, 게스트, 참가자, 팀 배정, 대진표, 승패 입력이 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
+  if(!confirm('팀전LIVE를 전체 초기화할까요?\n링크 응답, 게스트, 참가자, 팀 배정, 대진표, 승패 입력, 진행 중 LIVE가 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
   if(currentMatches.length || _directPlayers.length) _captureUndoSnapshot('전체 초기화 전');
   _lastRsvpImportSummary=null;
   const _ps=document.getElementById('parseStatus');if(_ps)_ps.textContent='';

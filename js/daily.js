@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.388';
+const APP_VERSION = '1.10.389';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2331,6 +2331,7 @@ function dailyRemovePlayer(id){
   dailySave();dailyRender();
 }
 function dailyReset(){
+  if(!_dailyConfirmDetachLiveBeforeChange('민턴LIVE 데이터 초기화'))return;
   if(!confirm('민턴LIVE 기록을 모두 초기화할까요?\n기존 대진표와 명부는 지워지지 않습니다.'))return;
   _dailyPlayers=[];_dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
   _dailyPairSelectId=null;
@@ -5558,7 +5559,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.388&from=daily';
+  location.href='team.html?v=1.10.389&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -7538,6 +7539,72 @@ function _dailyClearStoredLiveId(id){
     if(!id||legacyId===id)localStorage.removeItem(LEGACY_LIVE_STORAGE_KEY);
   }catch(e){}
 }
+function _dailyLiveSigName(name){
+  return String(name||'').replace(/\s+/g,'').trim();
+}
+function _dailyLiveSignatureFromMatches(matches){
+  return JSON.stringify((matches||[]).map(m=>[
+    m.round||0,
+    m.court||0,
+    String(m.type||''),
+    [
+      _dailyLiveSigName(m.team1A&&m.team1A.name),
+      _dailyLiveSigName(m.team1B&&m.team1B.name)
+    ].sort(),
+    [
+      _dailyLiveSigName(m.team2C&&m.team2C.name),
+      _dailyLiveSigName(m.team2D&&m.team2D.name)
+    ].sort()
+  ]).sort((a,b)=>(a[0]-b[0])||(a[1]-b[1])||String(a[2]).localeCompare(String(b[2]))));
+}
+function _dailyLiveSignatureFromData(data){
+  return JSON.stringify(((data&&data.matches)||[]).map(m=>[
+    m.round||0,
+    m.court||0,
+    String(m.type||''),
+    (m.t1||[]).map(_dailyLiveSigName).sort(),
+    (m.t2||[]).map(_dailyLiveSigName).sort()
+  ]).sort((a,b)=>(a[0]-b[0])||(a[1]-b[1])||String(a[2]).localeCompare(String(b[2]))));
+}
+function _dailyLiveSignature(){
+  return currentMatches.length?_dailyLiveSignatureFromMatches(currentMatches):'';
+}
+function _dailyResetLocalLiveState(liveId){
+  _dailyClearStoredLiveId(liveId);
+  _liveOn=false;
+  _liveId=null;
+  _updateLiveUI();
+}
+function _dailyConfirmDetachLiveBeforeChange(actionLabel){
+  const liveId=_liveId||_dailyStoredLiveId();
+  if(!liveId)return true;
+  if(_liveOn){
+    alert(`민턴LIVE 중계 중입니다.\n\n${actionLabel} 전에 먼저 실시간 중계를 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
+    return false;
+  }
+  if(!confirm(`진행 중이던 민턴LIVE 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
+  _dailyResetLocalLiveState(liveId);
+  return true;
+}
+function _dailyLiveMismatchMessage(){
+  return '현재 대진과 기존 민턴LIVE 링크의 대진이 다릅니다.\n\n기존 회원 링크에 다른 경기가 섞이지 않도록 송출을 막았습니다.\n기존 중계를 종료하거나, 이 대진은 새 링크로 다시 시작해 주세요.';
+}
+function _dailyValidateLiveDataForCurrent(data){
+  if(!data||!Object.keys(data).length)return true;
+  if(data.isTeam){
+    alert('저장된 LIVE ID가 팀전LIVE 링크입니다.\n민턴LIVE와 섞이지 않도록 연결을 끊었습니다.');
+    _dailyResetLocalLiveState(_liveId);
+    return false;
+  }
+  const liveSig=data.bracketKey||_dailyLiveSignatureFromData(data);
+  const currentSig=_dailyLiveSignature();
+  if(liveSig&&currentSig&&liveSig!==currentSig){
+    alert(_dailyLiveMismatchMessage());
+    _dailyResetLocalLiveState(_liveId);
+    return false;
+  }
+  return true;
+}
 
 /* 현재 대진·스코어를 직렬화 (뷰어가 읽을 형태) */
 function _buildLiveState(){
@@ -7581,6 +7648,7 @@ function _buildLiveState(){
   })):[];
   return {
     title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
+    bracketKey:_dailyLiveSignature(),
     members: {blue:membersBlue, red:membersRed},
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
     blueWins:bW||0, whiteWins:wW||0,
@@ -7597,11 +7665,15 @@ async function startLiveBroadcast(){
   if(!currentMatches.length){ alert('대진표를 먼저 생성하세요.'); return; }
   if(!_fbInit()){ alert('실시간 서버 연결에 실패했어요. 네트워크를 확인해주세요.'); return; }
   if(!_liveId) _liveId=_genLiveId();
-  _liveOn=true;
   // 오래된 중계 데이터 자동 정리 (48시간 경과분 삭제) — 새 중계 시작하는 김에 청소
   _cleanupOldLive();
   try{
-    await _fbDb.ref('live/'+_liveId).set(_buildLiveState());
+    const liveRef=_fbDb.ref('live/'+_liveId);
+    const prev=await liveRef.once('value').catch(()=>null);
+    const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
+    if(!_dailyValidateLiveDataForCurrent(prevData))return;
+    _liveOn=true;
+    await liveRef.set(_buildLiveState());
   }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; return; }
   await rsvpPushEventState();
   _dailySaveLiveId(_liveId);
@@ -7626,6 +7698,9 @@ async function _tryResumeLive(){
       if(savedFromDailyKey)_dailyClearStoredLiveId(savedId);
       return;
     }
+    _liveId=savedId;
+    if(!_dailyValidateLiveDataForCurrent(data))return;
+    _liveId=null;
     const age=Date.now()-(data.updatedAt||0);
     // 48시간 초과 or 데이터 없으면 무시
     if(age>48*60*60*1000){ _dailyClearStoredLiveId(savedId); return; }
@@ -9247,6 +9322,7 @@ function renderSlotList(){
 function loadSlot(id){
   const slot=getSlots().find(s=>s.id===id);
   if(!slot){alert('저장 데이터를 찾을 수 없습니다.');return;}
+  if(!_dailyConfirmDetachLiveBeforeChange('저장 대진표 불러오기'))return;
   if(!confirm(`'${slot.name}' 을 불러올까요?\n현재 작업 내용은 자동저장으로 복원할 수 있습니다.`)) return;
   localStorage.setItem(SAVE_KEY,JSON.stringify(slot.state));
   restoreState();
@@ -9294,6 +9370,7 @@ function importBracketJson(e){
       if(!state.matches||!state.participants){
         alert('올바른 대진표 파일이 아닙니다.');return;
       }
+      if(!_dailyConfirmDetachLiveBeforeChange('대진표 파일 불러오기')){e.target.value='';return;}
       if(!confirm(`저장된 대진표를 불러올까요?\n선수 ${state.participants?.length||0}명, 경기 ${state.matches?.length||0}게임\n현재 데이터는 덮어씌워집니다.`)){return;}
       // localStorage에 저장 후 복원
       localStorage.setItem(SAVE_KEY,JSON.stringify(state));
@@ -9348,6 +9425,7 @@ function importBracketAll(e){
         const bCount=combined.bracket?.participants?.length||0;
         const rCount=combined.roster?.clubs?.reduce((s,c)=>s+c.members.length,0)||0;
         const sCount=combined.slots?.length||0;
+        if(!_dailyConfirmDetachLiveBeforeChange('전체 백업 불러오기')){e.target.value='';return;}
         if(!confirm(
           `전체 백업 불러오기\n`+
           `• 대진표: 선수 ${bCount}명\n`+
@@ -10081,6 +10159,7 @@ function hideErr(){document.getElementById('errBar').classList.remove('on');}
 function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.textContent=m;b.classList.add('on');}
 function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.remove('on');}
 function resetAll(){
+  if(!_dailyConfirmDetachLiveBeforeChange('전체 초기화'))return;
   if(currentMatches.length || _directPlayers.length) _captureUndoSnapshot('전체 초기화 전');
   const _ps=document.getElementById('parseStatus');if(_ps)_ps.textContent='';
   document.getElementById('teamListWrap').classList.remove('show');
