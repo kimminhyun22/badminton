@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.396';
+const APP_VERSION = '1.10.397';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2935,16 +2935,7 @@ function _qualityAssessment(matches,participants,settings){
   const extraMatchRate=extraMatchCount/Math.max(1,minimumMatches);
   const sEfficiency=clamp(5*(1-Math.max(extraMatchRate/.2,extraRate/.1)),0,5);
   const sValid=(genderErr===0&&structureErr===0)?10:Math.max(0,10-(genderErr+structureErr)*4);
-  let total=Math.round(sBalance+sFair+sDiversity+sInterval+sEfficiency+sValid);
-  if(balance.severeCount>0)total=Math.min(total,78);
-  else if(balance.hardCount>0)total=Math.min(total,84);
-  if(avoidableExact>0)total=Math.min(total,84);
-  if(avoidablePartnerExcess>=7||partner4>0)total=Math.min(total,84);
-  else if(avoidablePartnerExcess>=4||partner3>0)total=Math.min(total,88);
-  else if((partner4>0&&avoidablePartnerExcess>0)||avoidableSameFour>0)total=Math.min(total,88);
-  else if(partner3>0&&avoidablePartnerExcess>0)total=Math.min(total,94);
-  if(excessConsec>0)total=Math.min(total,88);
-  if(avoidableUnderSlots>0||genderErr>0||structureErr>0)total=Math.min(total,89);
+  const total=Math.round(sBalance+sFair+sDiversity+sInterval+sEfficiency+sValid);
   const grade=total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D';
   const gradeLabel={S:'완벽',A:'우수',B:'양호',C:'보통',D:'재생성 권장'}[grade];
   return {gpp,avgLD,spikes,maxLD,balanceCautionCount:balance.cautionCount,

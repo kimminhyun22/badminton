@@ -150,5 +150,6 @@ assert(!src.includes("blocking.push('회피 가능한 연속 출전')"), '연속
 assert(src.includes("caution.push(`연속 출전 ${excessConsec}건`)"), '연속 출전은 확인 후 진행 사유로 안내해야 합니다.');
 assert(src.includes('파트너 재배정 과다'), '파트너 반복 과다는 재생성 권장 사유로 안내해야 합니다.');
 assert(src.includes('상대 만남은 제외했습니다'), '파트너 반복 안내에서 상대 만남 제외를 명확히 알려야 합니다.');
+assert(!src.includes('Math.min(total'), '품질 총점은 숨은 상한 없이 항목 점수 합산과 일치해야 합니다.');
 
 console.log('team balance priority regression ok');
