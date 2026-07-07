@@ -119,8 +119,10 @@ assert(teamJs.includes('resumeTeamLiveBroadcast'), '사용자가 직접 팀전LI
 assert(teamJs.includes('if(shouldResume)'), '자동 재개 확인을 취소해도 복구 정보를 즉시 지우지 않아야 합니다.');
 assert(teamJs.includes("'live-start'"), '팀전LIVE 시작/이어 켜기 주요 액션은 눈에 띄는 전용 스타일을 써야 합니다.');
 assert(teamJs.includes('function _teamSavedLiveRestoreInfo()'), '앱 재실행 첫 화면에서 저장된 LIVE 대진을 감지해야 합니다.');
+assert(teamJs.includes('function _teamSavedBracketRestoreInfo()'), 'LIVE ID가 없어도 저장 대진이 있으면 첫 화면에서 불러오기를 우선해야 합니다.');
 assert(teamJs.includes('function restoreTeamLiveAndResume()'), '첫 화면에서 대진 불러오기와 중계 재개를 한 번에 실행해야 합니다.');
 assert(teamJs.includes("stage='restoreLive'"), '저장된 LIVE가 있으면 운영 보드가 바로 이어가기 단계로 전환되어야 합니다.');
+assert(teamJs.includes("stage='restoreBracket'"), '저장 대진이 있으면 참가자 불러오기보다 대진표 불러오기가 먼저 보여야 합니다.');
 assert(teamJs.includes('restoreState({resumeLive:true})'), '바로 이어가기는 복원 후 수동 재개 흐름으로 연결되어야 합니다.');
 
 const teamHtml = fs.readFileSync(path.join(__dirname, '..', 'team.html'), 'utf8');
