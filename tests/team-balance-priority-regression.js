@@ -85,7 +85,44 @@ assert(
 assert.strictEqual(sandbox._balanceQualityStats(tilted, settings).hardCount, 1, '2.0 초과 경기를 강한 불균형으로 잡아야 합니다.');
 assert.strictEqual(sandbox._balanceQualityStats(balanced, settings).hardCount, 0, '균형 후보에는 강한 불균형이 없어야 합니다.');
 
+const b1 = player('청1', 3, '청팀');
+const b2 = player('청2', 3, '청팀');
+const b3 = player('청3', 3, '청팀');
+const b4 = player('청4', 3, '청팀');
+const r1 = player('홍1', 3, '홍팀');
+const r2 = player('홍2', 3, '홍팀');
+const r3 = player('홍3', 3, '홍팀');
+const r4 = player('홍4', 3, '홍팀');
+const diversityParticipants = [b1, b2, b3, b4, r1, r2, r3, r4];
+const repeatedPartners = [
+  match(1, 1, b1, b2, r1, r2),
+  match(2, 1, b1, b2, r3, r4),
+  match(3, 1, b3, b4, r1, r2),
+  match(4, 1, b3, b4, r3, r4),
+];
+const diversePartners = [
+  match(1, 1, b1, b2, r1, r2),
+  match(2, 1, b3, b4, r3, r4),
+  match(3, 1, b1, b3, r1, r3),
+  match(4, 1, b2, b4, r2, r4),
+];
+const repeatedPartnerScore = sandbox._bracketQualityScore(repeatedPartners, diversityParticipants, settings);
+const diversePartnerScore = sandbox._bracketQualityScore(diversePartners, diversityParticipants, settings);
+assert(
+  diversePartnerScore < repeatedPartnerScore,
+  '실력 균형이 같다면 파트너 반복이 적은 후보가 더 낮은 품질 페널티를 받아야 합니다.'
+);
+assert(
+  sandbox._isBetterQualityKey(
+    sandbox._candidateQualityKey(diversePartners, diversityParticipants, settings, diversePartnerScore),
+    sandbox._candidateQualityKey(repeatedPartners, diversityParticipants, settings, repeatedPartnerScore)
+  ),
+  '파트너 반복이 많은 후보보다 다양한 파트너 후보가 우선 선택되어야 합니다.'
+);
+
 assert(!src.includes("blocking.push('회피 가능한 연속 출전')"), '연속 출전만으로 재생성 권장을 띄우면 안 됩니다.');
 assert(src.includes("caution.push(`연속 출전 ${excessConsec}건`)"), '연속 출전은 확인 후 진행 사유로 안내해야 합니다.');
+assert(src.includes('파트너 재배정 과다'), '파트너 반복 과다는 재생성 권장 사유로 안내해야 합니다.');
+assert(src.includes('상대 만남은 제외했습니다'), '파트너 반복 안내에서 상대 만남 제외를 명확히 알려야 합니다.');
 
 console.log('team balance priority regression ok');

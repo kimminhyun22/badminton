@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.387';
+const APP_VERSION = '1.10.388';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1495,7 +1495,7 @@ function selectFourTeamAdjustment(pool,settings,maxLD){
       const help=four.reduce((s,p)=>s+Math.max(0,_goalForPlayer(p,settings)-(p.gamesPlayed||0)),0);
       const newOver=four.reduce((s,p)=>s+Math.max(0,(p.gamesPlayed||0)+1-_goalForPlayer(p,settings)),0);
       const wait=four.reduce((s,p)=>s+Math.min(_currentRound-(p.lastRoundPlayed||0),10),0);
-      const score=balanceTeamDiffPenalty(m.levelDiff||0)+diversityScore(four,m.levelDiff||0)*0.35-help*220+newOver*160-wait*8;
+      const score=balanceTeamDiffPenalty(m.levelDiff||0)+diversityScore(four,m.levelDiff||0)*0.7-help*220+newOver*160-wait*8;
       if(score<bestScore){bestScore=score;best=four;}
     }
   return best;
@@ -1618,7 +1618,7 @@ function diversityScore(four,ld){
     const isPartnerPair=four[i].partnerName===four[j].name;
     if(!isPartnerPair){
       const pc=four[i].partnerCount[four[j].name]||0;
-      score+=pc*10; // 같은 팀 중복
+      score+=pc===0?0:pc===1?120:pc===2?900:1e9; // 같은 팀 반복: 2회는 강하게 회피, 3회+ 사실상 금지
     }
     const oc=four[i].opponentCount[four[j].name]||0;
     if(oc===0) score+=0;
@@ -1741,8 +1741,9 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     score+=balancePartnerLevelGapPenalty(t1)+balancePartnerLevelGapPenalty(t2);
     const p1pair=t1[0].partnerName===t1[1].name;
     const p2pair=t2[0].partnerName===t2[1].name;
-    if(!p1pair) score+=(t1[0].partnerCount[t1[1].name]||0)*10;
-    if(!p2pair) score+=(t2[0].partnerCount[t2[1].name]||0)*10;
+    const partnerRepeatPenalty=(count)=>count===0?0:count===1?140:count===2?1200:1e9;
+    if(!p1pair) score+=partnerRepeatPenalty(t1[0].partnerCount[t1[1].name]||0);
+    if(!p2pair) score+=partnerRepeatPenalty(t2[0].partnerCount[t2[1].name]||0);
     // 상대 중복: 1회 허용, 2회+만 패널티
     t1.forEach(a=>t2.forEach(b=>{const oc=a.opponentCount[b.name]||0;score+=oc===0?0:oc===1?2:oc===2?15:oc===3?80:1e9;}));
     if(!teamMode&&type==='any'){const f1=t1.filter(p=>p.gender==='F').length,f2=t2.filter(p=>p.gender==='F').length;if(f1===1&&f2===1)score-=50;}
@@ -1951,8 +1952,10 @@ function _bracketQualityScore(matches, participants, settings){
   penalty += ov.filter(c=>c===3).length*10 + ov.filter(c=>c>=4).length*100;
   const sameFourRepeats=Object.values(sameFourCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
   const exactMatchRepeats=Object.values(exactMatchCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
-  const partnerExcess=Object.values(partnerCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
-  penalty += exactMatchRepeats*1200 + sameFourRepeats*450 + Math.max(0,partnerExcess-sameFourRepeats*2)*80;
+  const pcVals=Object.values(partnerCounts);
+  const partnerExcess=pcVals.reduce((s,c)=>s+Math.max(0,c-1),0);
+  const partner3Plus=pcVals.filter(c=>c>=3).length;
+  penalty += exactMatchRepeats*1200 + sameFourRepeats*600 + Math.max(0,partnerExcess-sameFourRepeats*2)*260 + partner3Plus*700;
   // ⑤ 보완 게임 수
   penalty += matches.filter(m=>m.isFiller).length*15;
   // ⑥ 성비 보정경기는 허용하되, 같은 품질이면 적은 쪽을 선호
@@ -1996,7 +1999,13 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
     exactMatchCounts[exact]=(exactMatchCounts[exact]||0)+1;
   });
   const pv=Object.values(partnerCounts);
-  const partner2=pv.filter(c=>c===2).length;
+  const partner3=pv.filter(c=>c===3).length;
+  const partner4=pv.filter(c=>c>=4).length;
+  const possiblePairs=participants.length*(participants.length-1)/2;
+  const partnerEncounters=matches.length*2;
+  const partnerExcess=pv.reduce((s,c)=>s+Math.max(0,c-1),0);
+  const unavoidablePartnerExcess=Math.max(0,partnerEncounters-possiblePairs);
+  const avoidablePartnerExcess=Math.max(0,partnerExcess-unavoidablePartnerExcess);
   const sameFourRepeats=Object.values(sameFourCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
   const exactMatchRepeats=Object.values(exactMatchCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
   return [
@@ -2005,20 +2014,21 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
     avoidableUnderSlots,
     balance.hardCount,
     exactMatchRepeats,
-    excessConsec,
-    sameFourRepeats,
     balance.cautionCount,
     Math.round(balance.maxLD*10),
     Math.round(balance.avgLD*100),
     Math.round(balance.roundBiasMax*10),
+    sameFourRepeats,
+    partner4,
+    partner3,
+    avoidablePartnerExcess,
+    excessConsec,
     avoidableOverSlots,
     underSlots,
     overSlots,
     adjustmentCount,
     matches.filter(m=>m.isFiller).length,
-    pv.filter(c=>c>=4).length,
-    pv.filter(c=>c===3).length,
-    baseScore+partner2*2
+    baseScore
   ];
 }
 function _isBetterQualityKey(next,best){
@@ -2769,6 +2779,8 @@ function _qualityAssessment(matches,participants,settings){
   const partner2=pcVals.filter(c=>c===2).length;
   const partner3=pcVals.filter(c=>c===3).length;
   const partner4=pcVals.filter(c=>c>=4).length;
+  const repeatedPartnerPairs=pcVals.filter(c=>c>=2).length;
+  const maxPartnerRepeat=pcVals.length?Math.max(...pcVals):0;
   const possiblePairs=nPlayers*(nPlayers-1)/2;
   const partnerEncounters=matches.length*2;
   const partnerExcess=pcVals.reduce((s,c)=>s+Math.max(0,c-1),0);
@@ -2800,8 +2812,8 @@ function _qualityAssessment(matches,participants,settings){
     -balance.roundBiasMax*2,0,40);
   const sFair=clamp(10-avoidableUnderSlots*5-avoidableOverSlots*1.2-Math.min(2,variance*10),0,10);
   const sDiversity=clamp(20
-    -partnerOnlyExcess*.6
-    -(avoidablePartnerExcess>0?partner3*1.5+partner4*4:0)
+    -partnerOnlyExcess*1.25
+    -(avoidablePartnerExcess>0?partner3*3+partner4*8:0)
     -avoidableSameFour*3
     -avoidableExact*6,0,20);
   const sInterval=clamp(15*(1-excessRatio/.2),0,15);
@@ -2813,6 +2825,8 @@ function _qualityAssessment(matches,participants,settings){
   if(balance.severeCount>0)total=Math.min(total,78);
   else if(balance.hardCount>0)total=Math.min(total,84);
   if(avoidableExact>0)total=Math.min(total,84);
+  if(avoidablePartnerExcess>=7||partner4>0)total=Math.min(total,84);
+  else if(avoidablePartnerExcess>=4||partner3>0)total=Math.min(total,88);
   else if((partner4>0&&avoidablePartnerExcess>0)||avoidableSameFour>0)total=Math.min(total,88);
   else if(partner3>0&&avoidablePartnerExcess>0)total=Math.min(total,94);
   if(excessConsec>0)total=Math.min(total,88);
@@ -2824,6 +2838,7 @@ function _qualityAssessment(matches,participants,settings){
     balanceRoundBiasMax:balance.roundBiasMax,counts,pGoal,under,over,underSlots,overSlots,
     minimumMatches,minimumOver,parityAdjustment,avoidableUnderSlots,avoidableOverSlots,extraMatchCount,
     excessConsec,excessNames,excessRatio,partner2,partner3,partner4,
+    repeatedPartnerPairs,maxPartnerRepeat,
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,fillerRate,adjustments,genderErr,structureErr,
@@ -2840,6 +2855,7 @@ function renderQualityDashboard(matches,participants,settings){
     counts,pGoal:_pGoal,under,over,underSlots,overSlots,
     minimumMatches,minimumOver,parityAdjustment,avoidableUnderSlots,avoidableOverSlots,extraMatchCount,
     excessConsec,excessNames,excessRatio,partner2,partner3,partner4,
+    repeatedPartnerPairs,maxPartnerRepeat,
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,adjustments,genderErr,structureErr,
@@ -2873,10 +2889,11 @@ function renderQualityDashboard(matches,participants,settings){
     (()=>{
       const pct=sDiversity/20;
       const parts=[];
-      if(partnerOnlyExcess>0||partner3||partner4)parts.push(`같은 편 반복 ${avoidablePartnerExcess}건`);
+      if(partnerOnlyExcess>0||partner3||partner4)parts.push(`파트너 재배정 ${avoidablePartnerExcess}회`);
       if(avoidableSameFour>0)parts.push(`같은 4명 ${avoidableSameFour}건`);
       if(avoidableExact>0)parts.push(`완전 동일 ${avoidableExact}건`);
       let detail=parts.length?parts.join(' · '):'반복 대진 없음';
+      if(avoidablePartnerExcess>0)detail+=` · 반복 조합 ${repeatedPartnerPairs}쌍 · 최다 ${maxPartnerRepeat}회 · 상대 제외`;
       if(unavoidablePartnerExcess>0&&avoidablePartnerExcess===0)detail+=' · 인원상 반복 감점 제외';
       if((unavoidableSameFour>0||unavoidableExact>0)&&avoidableSameFour===0&&avoidableExact===0)
         detail+=' · 인원상 재대결 감점 제외';
@@ -2955,7 +2972,8 @@ function renderQualityDashboard(matches,participants,settings){
   if(fillers.length>2)blocking.push('보완게임 과다');
   const caution=[];
   if(avoidableSameFour>0)caution.push('같은 4명 재경기');
-  if(partner3>0||partner4>0)caution.push('같은 편 반복 높음');
+  if(avoidablePartnerExcess>=7||partner4>0)blocking.push('파트너 재배정 과다');
+  else if(avoidablePartnerExcess>=4||partner3>0)caution.push('파트너 재배정 많음');
   if(excessConsec>0)caution.push(`연속 출전 ${excessConsec}건`);
   if(balanceCautionCount>0)caution.push('실력 균형 주의');
   if(total<85)caution.push('품질점수 낮음');
@@ -2976,7 +2994,7 @@ function renderQualityDashboard(matches,participants,settings){
     adjustments.length?chip(`성비보정 ${adjustments.length}경기`,'warn'):'',
     chip(under.length===0?'목표 달성':'미달 '+under.length+'명',avoidableUnderSlots===0?'ok':'bad'),
     chip(avoidableOverSlots===0?(over.length?`최소 초과 ${over.length}명`:'초과 없음'):`추가 초과 ${avoidableOverSlots}`,avoidableOverSlots===0?'ok':'warn'),
-    chip(avoidableExact===0&&avoidableSameFour===0&&partnerOnlyExcess===0?'반복 없음':`반복 ${partnerOnlyExcess+avoidableSameFour+avoidableExact}건`,avoidableExact===0&&avoidableSameFour===0?'ok':'warn'),
+    chip(avoidableExact===0&&avoidableSameFour===0&&avoidablePartnerExcess===0?'반복 없음':`파트너 ${avoidablePartnerExcess}회`,avoidableExact===0&&avoidableSameFour===0&&avoidablePartnerExcess<4?'ok':'warn'),
     chip(excessConsec===0?'연속 없음':`연속 ${excessConsec}건`,excessConsec===0?'ok':'warn'),
     fixedPairs.length?chip(`P 파트너 ${fixedPairs.length}쌍`,splitFixed.length?'warn':'ok'):''
   ].filter(Boolean).join('');
@@ -2985,7 +3003,7 @@ function renderQualityDashboard(matches,participants,settings){
   else if(balanceCautionCount>0)issueItems.push(`실력 균형 주의 경기 ${balanceCautionCount}개가 있습니다.`);
   if(avoidableExact>0)issueItems.push(`완전히 같은 경기 반복 ${avoidableExact}건은 클레임 가능성이 높습니다.`);
   else if(avoidableSameFour>0)issueItems.push(`같은 4명 재경기 ${avoidableSameFour}건은 필요 시 재배정하세요.`);
-  if(partnerOnlyExcess>0||partner3>0||partner4>0)issueItems.push(`같은 편 반복 ${avoidablePartnerExcess}건이 있습니다.`);
+  if(partnerOnlyExcess>0||partner3>0||partner4>0)issueItems.push(`파트너 재배정 ${avoidablePartnerExcess}회가 있습니다. 반복 조합 ${repeatedPartnerPairs}쌍, 최다 ${maxPartnerRepeat}회이며 상대 만남은 제외했습니다.`);
   if(over.length&&avoidableOverSlots===0)issueItems.push(`인원 구조상 ${over.length}명 초과 출전은 감점하지 않았습니다.`);
   if(parityAdjustment>0)issueItems.push('성비상 1게임 차이는 불가피한 최소 조정으로 처리했습니다.');
   if(adjustments.length)issueItems.push(`팀 성비 때문에 보정경기 ${adjustments.length}개를 사용했습니다. 목표 게임 수 공정성을 맞추기 위한 예외 조합입니다.`);
