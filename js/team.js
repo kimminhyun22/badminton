@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.394';
+const APP_VERSION = '1.10.395';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -327,13 +327,27 @@ function parseParticipants(raw){
 }
 
 /* ═══ TEAM ASSIGNMENT ═══ */
+function _teamConfirmOverwriteGeneratedBracket(actionText, actionLabel){
+  if(!currentMatches.length)return true;
+  if(!_teamConfirmDetachLiveBeforeChange(actionLabel||actionText))return false;
+  const enteredScores=Object.keys(winOverride).filter(k=>winOverride[k]).length;
+  const msg=enteredScores>0
+    ? `이미 대진표가 있고 ${enteredScores}경기의 승패가 입력되어 있습니다.\n\n${actionText}하면 현재 대진표와 입력된 결과가 모두 사라집니다.\n계속할까요?`
+    : `이미 생성된 대진표가 있습니다.\n\n${actionText}하면 현재 대진표가 사라집니다.\n계속할까요?`;
+  return confirm(msg);
+}
+
 function doTeamAssign(opts={}){
   if(currentMatches.length&&!opts.forGenerate){
-    alert('이미 생성된 대진표가 있습니다.\n\n청/홍팀만 다시 배정하면 현재 대진표·팀전LIVE 명단과 서로 달라질 수 있어 막았습니다.\n급수 수정이나 팀 변경을 반영하려면 대진표 생성 버튼으로 새 대진을 다시 만들어 주세요.');
-    return;
+    if(!_teamConfirmOverwriteGeneratedBracket('청/홍팀을 다시 배정하고 새 대진표를 생성','청/홍팀 재배정과 새 대진표 생성'))return false;
+    _captureUndoSnapshot('팀 재배정 전');
+    const assigned=doTeamAssign({forGenerate:true});
+    if(!assigned)return false;
+    generate({skipExistingConfirm:true,skipUndoSnapshot:true});
+    return true;
   }
-  if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
-  if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
+  if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return false;}
+  if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return false;}
   _teamWanted=true; // 팀전 의도 확정
   const all=_directPlayers.map(p=>({
     name:p.name, level:p.level,
@@ -352,7 +366,7 @@ function doTeamAssign(opts={}){
     const aWhite=whiteFixedNames.has(a), bWhite=whiteFixedNames.has(b);
     if((aBlue&&bWhite)||(aWhite&&bBlue)){
       showErr(`고정 파트너 "${a}"·"${b}"가 청/홍팀 고정 선수로 갈라져 있습니다. 단장/부단장 지정 또는 파트너 지정을 먼저 조정해주세요.`);
-      return;
+      return false;
     }
     if(aBlue||bBlue){blueFixedNames.add(a);blueFixedNames.add(b);}
     if(aWhite||bWhite){whiteFixedNames.add(a);whiteFixedNames.add(b);}
@@ -403,6 +417,7 @@ function doTeamAssign(opts={}){
   if(rbtn) rbtn.classList.remove('hidden');
   btn.innerHTML='🔀 청/홍팀 재배정 (클릭 시 새로 배정)';
   updateSettingsMiniSummary();
+  return true;
 }
 
 function renderTeamList(){
@@ -679,16 +694,12 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
 }
 
 /* ═══ GENERATE ═══ */
-function generate(){
+function generate(opts={}){
   hideErr();hideWarn();
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   // 이미 대진표가 있으면 덮어쓰기 경고 (특히 점수 입력된 경우)
-  if(currentMatches.length){
-    const enteredScores=Object.keys(winOverride).filter(k=>winOverride[k]).length;
-    const msg=enteredScores>0
-      ? `이미 대진표가 있고 ${enteredScores}경기의 승패가 입력되어 있습니다.\n\n새로 생성하면 현재 대진표와 입력된 결과가 모두 사라집니다.\n계속할까요?`
-      : `이미 생성된 대진표가 있습니다.\n새로 생성하면 현재 대진표가 사라집니다.\n계속할까요?`;
-    if(!confirm(msg)) return;
+  if(currentMatches.length&&!opts.skipExistingConfirm){
+    if(!_teamConfirmOverwriteGeneratedBracket('새 대진표를 생성','새 대진표 생성')) return;
   }
   if(!teamAssignment){
     doTeamAssign({forGenerate:true});
@@ -753,7 +764,7 @@ function generate(){
     if(w.length<2){showErr('홍팀 최소 2명이 필요합니다.');return;}
   }
 
-  _captureUndoSnapshot('대진표 생성 전');
+  if(!opts.skipUndoSnapshot)_captureUndoSnapshot('대진표 생성 전');
   document.getElementById('loadingOverlay').classList.add('on');
   setTimeout(()=>{
     try{
@@ -4285,7 +4296,7 @@ function restoreState(){
 
     if(profileChanged&&teamAssignment)renderTeamList();
     renderResults(currentMatches,currentParticipants,currentSettings);
-    if(profileChanged)showWarn('명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 이미 생성된 대진 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.');
+    if(profileChanged)showWarn('명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 단, 청/홍팀 구성은 기존 그대로입니다. 팀 밸런스까지 다시 맞추려면 운영 전 "다시 배정하기"를 눌러 새 팀과 대진표를 다시 만들어 주세요.');
     show('resultArea');
 
     setTimeout(()=>{
