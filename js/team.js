@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.399';
+const APP_VERSION = '1.10.400';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4214,6 +4214,30 @@ function _restoreJoinerGoals(participants,settings){
   return participants;
 }
 
+function _teamSavedLiveRestoreInfo(){
+  if(isTeamSampleMode())return null;
+  try{
+    const liveId=_teamStoredLiveId();
+    if(!liveId)return null;
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return null;
+    const state=migrateStateIfNeeded(JSON.parse(raw));
+    if(_teamIsDailyBracketState(state))return null;
+    if(!state.matches||!state.matches.length)return null;
+    const age=Date.now()-(state.savedAt||Date.now());
+    const h=Math.floor(age/3600000),m=Math.floor((age%3600000)/60000);
+    const ageStr=h>0?`${h}시간 ${m}분 전`:`${m}분 전`;
+    const pCount=state.participants?state.participants.length:'?';
+    return {liveId,state,ageStr,pCount};
+  }catch(e){return null;}
+}
+function _teamNeedsSavedLiveRestore(){
+  return !_liveOn && !currentMatches.length && !!_teamSavedLiveRestoreInfo();
+}
+function restoreTeamLiveAndResume(){
+  restoreState({resumeLive:true});
+}
+
 function checkSavedState(){
   if(isTeamSampleMode())return;
   try{
@@ -4243,10 +4267,11 @@ function checkSavedState(){
     const ms=document.getElementById('mobSaveStatus');
     if(ms){ms.textContent=`마지막 저장: ${new Date(state.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}`;}
     setSaveStatus('',`마지막 저장: ${new Date(state.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}`);
+    if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
   }catch(e){}
 }
 
-function restoreState(){
+function restoreState(opts={}){
   try{
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw){alert('저장된 데이터가 없습니다.');return;}
@@ -4360,7 +4385,7 @@ function restoreState(){
       setSaveStatus('saved');
       (document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});
       // 중계 자동 재연결: 저장된 liveId가 있으면 Firebase 확인 후 재개
-      _tryResumeLive();
+      _tryResumeLive(opts.resumeLive?{manual:true}:{});
     },100);
   }catch(e){alert('복원 중 오류: '+e.message);console.error(e);}
 }
@@ -6961,6 +6986,7 @@ function renderAutoFlowDashboard(){
   const body=document.getElementById('autoFlowBody');
   const card=document.getElementById('autoFlowCard');
   if(!titleEl||!subEl||!badgeEl||!body)return;
+  const savedLiveRestore=_teamSavedLiveRestoreInfo();
   _autoFlowRendering=true;
   try{
     let stats={counts:{attend:0,guest:0,noResponse:0,issues:0,total:0},responses:[],members:[]};
@@ -7003,6 +7029,7 @@ function renderAutoFlowDashboard(){
     const remaining=Math.max(0,matches-done);
     const matchNote=matches?`${currentRound} · ${remaining} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
     const resumeLive=_teamHasResumeLiveHint();
+    const restoreLive=!!savedLiveRestore && !_liveOn && !matches;
     const liveValue=live?'ON':(resumeLive?'복구':(matches?'대기':'전'));
     const liveNote=live?'링크 활성':(resumeLive?'같은 링크로 이어 켜기':(matches?'시작 전':'대진 필요'));
     let stage='roster';
@@ -7010,6 +7037,9 @@ function renderAutoFlowDashboard(){
     if(live){
       stage='live';
       cfg={badge:'진행 중',title:'팀전LIVE 운영',sub:currentRound==='완료'?'결과 확인':`${currentRound} 진행`};
+    } else if(restoreLive){
+      stage='restoreLive';
+      cfg={badge:'이어가기',title:'팀전LIVE 이어가기',sub:'앱이 꺼졌던 중계를 바로 재개'};
     } else if(resumeLive){
       stage='resume';
       cfg={badge:'복구 필요',title:'팀전LIVE 이어 켜기',sub:'앱이 꺼졌던 중계를 같은 링크로 재개'};
@@ -7035,11 +7065,11 @@ function renderAutoFlowDashboard(){
     if(card)card.classList.toggle('live-compact',live);
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
-    badgeEl.classList.toggle('resume',resumeLive);
+    badgeEl.classList.toggle('resume',resumeLive||restoreLive);
     titleEl.textContent=cfg.title;
     subEl.textContent=cfg.sub;
     const stepState=(step)=>{
-      const order=['roster','link','wait','import','playerReview','generate','broadcast','resume','live'];
+      const order=['restoreLive','roster','link','wait','import','playerReview','generate','broadcast','resume','live'];
       const idx=order.indexOf(stage);
       const steps=Array.isArray(step)?step:[step];
       if(steps.includes(stage))return 'on';
@@ -7055,6 +7085,7 @@ function renderAutoFlowDashboard(){
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate','품질 자동 확인'),
       broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림','live-start'),
+      restoreLive:_autoFlowAction('팀전LIVE 바로 이어가기','restoreTeamLiveAndResume','대진 불러오기와 중계 재개를 한 번에','live-start'),
       resume:_autoFlowAction('중계 이어 켜기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지','live-start'),
       live:''
     }[stage]||'';
@@ -7066,10 +7097,16 @@ function renderAutoFlowDashboard(){
       playerReview:{k:'4. 참가자 확인',t:'누락·게스트·P만 확인하고 팀을 나눕니다.'},
       generate:{k:'5. 대진 생성',t:'청/홍팀 확인 후 전체 라운드를 만듭니다.'},
       broadcast:{k:'6. LIVE 시작',t:'대진표가 준비됐습니다. 회원 링크를 시작하세요.'},
+      restoreLive:{k:'팀전LIVE 바로 이어가기',t:`${savedLiveRestore?.pCount||'?'}명 대진을 불러오고 기존 회원 링크로 중계를 재개합니다.`},
       resume:{k:'중계 이어 켜기',t:'앱이 꺼졌던 중계를 기존 회원 링크 그대로 재개합니다.'},
       live:{k:'운영 중',t:remaining?'현재 라운드 승패를 입력하세요.':'결과를 확인하세요.'}
     }[stage]||{k:'다음 단계',t:''};
-    const boardHtml=[
+    const boardHtml=restoreLive?[
+      _autoFlowPanel('저장 대진',`${savedLiveRestore.pCount}명`,`${savedLiveRestore.ageStr} 저장`,'live',''),
+      _autoFlowPanel('LIVE','이어가기','기존 회원 링크 유지','live',''),
+      _autoFlowPanel('대진','불러오기','버튼 한 번으로 복원','warn',''),
+      _autoFlowPanel('다음','중계 재개','승패 입력 계속','live','')
+    ].join(''):[
       _autoFlowPanel('명부',hasRoster?rosterName:'미선택',hasRoster?`출처 ${rosterSource}`:'먼저 선택',hasRoster?'':'warn','rsvp'),
       _autoFlowPanel('응답',_rsvpId?`${counts.attend||0}명`:'공유 전',rsvpNote,counts.issues?'warn':'','rsvp'),
       _autoFlowPanel('참가자',players?`${players}명`:'대기',teamReady?teamNote:'확인 필요',players?'':'warn','players'),
@@ -7082,7 +7119,7 @@ function renderAutoFlowDashboard(){
         <span class="team-live-step ${stepState('playerReview')}">참가자</span>
         <span class="team-live-step ${stepState('generate')}">청/홍</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
-        <span class="team-live-step ${stepState(['resume','live'])}">LIVE</span>
+        <span class="team-live-step ${stepState(['restoreLive','resume','live'])}">LIVE</span>
       </div>`;
     if(live){
       body.innerHTML=`
