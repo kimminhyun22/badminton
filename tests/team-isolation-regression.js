@@ -112,5 +112,11 @@ const loadSavedBody = teamJs.match(/function rsvpLoadSaved\(id\)\{([\s\S]*?)\n\}
 assert(loadSavedBody.includes('_teamResetLocalLiveState'), '이전 팀전LIVE 열기 시 현재 LIVE 연결을 먼저 끊어야 합니다.');
 assert(!loadSavedBody.includes('rsvpPushSession()'), '이전 팀전LIVE 열기만으로 현재 대진/LIVE 세션을 덮어쓰면 안 됩니다.');
 assert(teamJs.includes('function _rsvpOwnsCurrentEvent()'), 'RSVP 링크와 현재 대진의 소유권 확인 함수가 필요합니다.');
+assert(teamJs.includes('상단 운영 보드의 "중계 종료" 버튼'), '불러오기 차단 안내에서 종료 버튼 위치를 알려야 합니다.');
+assert(teamJs.includes("['liveStopTopBtn','mobLiveStopBtn','liveStopManageBtn']"), 'LIVE 중에는 여러 위치의 종료 버튼을 동기화해야 합니다.');
+
+const teamHtml = fs.readFileSync(path.join(__dirname, '..', 'team.html'), 'utf8');
+assert(teamHtml.includes('id="liveStopTopBtn"'), '운영 보드에 팀전LIVE 종료 버튼이 있어야 합니다.');
+assert(teamHtml.includes('id="liveStopManageBtn"'), '저장·관리 영역에 팀전LIVE 종료 버튼이 있어야 합니다.');
 
 console.log('team isolation regression ok');

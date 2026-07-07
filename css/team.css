@@ -613,7 +613,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .sync-details summary:after{content:'펼치기';font-size:.64rem;color:var(--bl-deep);font-weight:800;}
 .sync-details[open] summary{border-bottom:1px solid var(--bdr);color:var(--txt);}
 .sync-details[open] summary:after{content:'접기';}
-.sync-bar{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:8px;}
+.sync-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px;margin-top:8px;}
 .sync-details .sync-bar{padding:8px;margin-top:0;}
 .sync-btn{
   display:flex;align-items:center;justify-content:center;gap:5px;
@@ -631,6 +631,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .s-export:hover {background:var(--bl-softbdr);}
 .s-import{background:var(--bl-soft);color:var(--bl-deep);border:1px solid var(--bl-softbdr);cursor:pointer;}
 .s-import:hover {background:var(--bl-softbdr);}
+.s-live-stop{background:#fff1f2;color:#be123c;border:1px solid #fecdd3;}
+.s-live-stop:hover{background:#ffe4e6;}
 .print-sheet-overlay{
   display:none;position:fixed;inset:0;
   background:rgba(0,0,0,.45);z-index:1100;
@@ -1046,6 +1048,14 @@ details.card:not([open]) .card-head{border-bottom:none;}
     white-space:nowrap;min-height:36px;
   }
   .mob-restore-btn.hidden{display:none!important;}
+  .mob-live-stop-btn{
+    padding:6px 12px;border:1px solid #fecdd3;border-radius:6px;
+    background:#fff1f2;color:#be123c;
+    font-size:.74rem;font-weight:900;
+    font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+    white-space:nowrap;min-height:36px;
+  }
+  .mob-live-stop-btn.hidden{display:none!important;}
   .mob-hide{display:none !important;}
   .mob-show{display:block !important;}
 
@@ -1371,6 +1381,19 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
   padding:8px 12px;
   font-size:.72rem;
   box-shadow:0 6px 16px rgba(225,29,72,.08);
+}
+.auto-flow-stop-btn{
+  border:1.5px solid #fecdd3;
+  border-radius:999px;
+  background:#fff1f2;
+  color:#be123c;
+  padding:8px 12px;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:.72rem;
+  font-weight:1000;
+  box-shadow:0 6px 16px rgba(225,29,72,.08);
+  cursor:pointer;
+  white-space:nowrap;
 }
 .auto-flow-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0;}
 .auto-flow-metric{border:1px solid #dbeafe;background:rgba(255,255,255,.86);border-radius:12px;padding:10px 8px;text-align:center;}

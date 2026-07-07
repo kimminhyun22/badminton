@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.392';
+const APP_VERSION = '1.10.393';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2232,7 +2232,7 @@ function _teamConfirmDetachLiveBeforeChange(actionLabel){
   const liveId=_liveId||_teamStoredLiveId();
   if(!liveId)return true;
   if(_liveOn){
-    alert(`팀전LIVE 중계 중입니다.\n\n${actionLabel} 전에 먼저 팀전LIVE를 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
+    alert(`팀전LIVE 중계 중입니다.\n\n${actionLabel} 전에 상단 운영 보드의 "중계 종료" 버튼으로 현재 중계를 먼저 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
     return false;
   }
   if(!confirm(`진행 중이던 팀전LIVE 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
@@ -2707,11 +2707,19 @@ async function stopLiveBroadcast(){
 }
 
 /* 중계 버튼 UI 갱신 */
+function _teamSyncLiveStopShortcuts(){
+  ['liveStopTopBtn','mobLiveStopBtn','liveStopManageBtn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.classList.toggle('hidden',!_liveOn);
+  });
+}
 function _updateLiveUI(){
   const btn=document.getElementById('liveBtn');
-  if(!btn) return;
-  if(_liveOn){ btn.classList.add('on'); btn.innerHTML='팀전LIVE 진행 중'; }
-  else { btn.classList.remove('on'); btn.innerHTML='팀전LIVE 시작'; }
+  if(btn){
+    if(_liveOn){ btn.classList.add('on'); btn.innerHTML='팀전LIVE 진행 중'; }
+    else { btn.classList.remove('on'); btn.innerHTML='팀전LIVE 시작'; }
+  }
+  _teamSyncLiveStopShortcuts();
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
 }
 
