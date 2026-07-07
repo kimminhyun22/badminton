@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.401';
+const APP_VERSION = '1.10.402';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2563,6 +2563,7 @@ async function startLiveBroadcast(){
   _renderLiveOpsSummary();
   _teamSaveLiveId(_liveId);
   _updateLiveUI();
+  saveState();
   await rsvpPushEventState();
 }
 
@@ -2658,6 +2659,7 @@ async function _tryResumeLive(opts={}){
       const url=base+'view.html?id='+_liveId;
       alert(`✅ 중계 재개됐어요!
 링크: ${url}`);
+      saveState();
       return true;
     } else {
       _updateLiveUI();
@@ -2742,11 +2744,13 @@ async function _teamClearLiveBroadcastData(){
 async function stopLiveBroadcast(){
   if(!_liveId || !_fbDb){
     await _teamClearLiveBroadcastData();
+    saveState();
     return;
   }
   if(!confirm('팀전LIVE를 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.')) return;
   await _teamClearLiveBroadcastData();
   await rsvpPushEventState();
+  saveState();
   alert('팀전LIVE를 종료했어요.');
 }
 
@@ -4179,6 +4183,9 @@ function saveState(){
     settings:currentSettings,scores,
     winOverride:JSON.parse(JSON.stringify(winOverride)),
     liveWinAt:JSON.parse(JSON.stringify(liveWinAt)),
+    liveId:_liveOn?(_liveId||_teamStoredLiveId()||null):null,
+    liveOn:!!_liveOn,
+    liveMatchStartedAt:_liveMatchStartedAt||null,
     lockedBeforeRound:_lockedBeforeRound,
     pointSystem:_pointSystem
   };
@@ -4217,12 +4224,16 @@ function _restoreJoinerGoals(participants,settings){
 function _teamSavedBracketRestoreInfo(){
   if(isTeamSampleMode())return null;
   try{
-    const liveId=_teamStoredLiveId();
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw)return null;
     const state=migrateStateIfNeeded(JSON.parse(raw));
     if(_teamIsDailyBracketState(state))return null;
     if(!state.matches||!state.matches.length)return null;
+    let liveId=_teamStoredLiveId();
+    if(!liveId&&state.liveOn&&state.liveId){
+      liveId=state.liveId;
+      _teamSaveLiveId(liveId);
+    }
     const age=Date.now()-(state.savedAt||Date.now());
     const h=Math.floor(age/3600000),m=Math.floor((age%3600000)/60000);
     const ageStr=h>0?`${h}시간 ${m}분 전`:`${m}분 전`;
@@ -4366,6 +4377,7 @@ function restoreState(opts={}){
     Object.assign(winOverride,state.winOverride||{});
     Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);
     Object.assign(liveWinAt,state.liveWinAt||{});
+    if(state.liveOn&&state.liveId)_teamSaveLiveId(state.liveId);
     if(state.pointSystem){ _pointSystem=state.pointSystem; document.querySelectorAll('.pseg-btn').forEach(b=>b.classList.toggle('active',+b.dataset.pt===_pointSystem)); }
 
     if(profileChanged&&teamAssignment)renderTeamList();

@@ -124,6 +124,8 @@ assert(teamJs.includes('function restoreTeamLiveAndResume()'), '첫 화면에서
 assert(teamJs.includes("stage='restoreLive'"), '저장된 LIVE가 있으면 운영 보드가 바로 이어가기 단계로 전환되어야 합니다.');
 assert(teamJs.includes("stage='restoreBracket'"), '저장 대진이 있으면 참가자 불러오기보다 대진표 불러오기가 먼저 보여야 합니다.');
 assert(teamJs.includes('restoreState({resumeLive:true})'), '바로 이어가기는 복원 후 수동 재개 흐름으로 연결되어야 합니다.');
+assert(teamJs.includes('liveId:_liveOn?'), 'LIVE ID를 대진 저장본에도 남겨 앱 재실행 시 복구해야 합니다.');
+assert(teamJs.includes('if(!liveId&&state.liveOn&&state.liveId)'), '별도 LIVE 키가 없어도 저장본의 LIVE ID를 복구해야 합니다.');
 
 const teamHtml = fs.readFileSync(path.join(__dirname, '..', 'team.html'), 'utf8');
 assert(teamHtml.includes('id="liveStopTopBtn"'), '운영 보드에 팀전LIVE 종료 버튼이 있어야 합니다.');
