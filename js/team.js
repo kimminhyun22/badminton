@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.393';
+const APP_VERSION = '1.10.394';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -329,7 +329,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(opts={}){
   if(currentMatches.length&&!opts.forGenerate){
-    alert('이미 생성된 대진표가 있습니다.\n\n청/홍팀만 다시 배정하면 현재 대진표·팀전LIVE 명단과 서로 달라질 수 있어 막았습니다.\n팀을 바꾸려면 대진표 생성 버튼으로 새 대진을 다시 만들어 주세요.');
+    alert('이미 생성된 대진표가 있습니다.\n\n청/홍팀만 다시 배정하면 현재 대진표·팀전LIVE 명단과 서로 달라질 수 있어 막았습니다.\n급수 수정이나 팀 변경을 반영하려면 대진표 생성 버튼으로 새 대진을 다시 만들어 주세요.');
     return;
   }
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
@@ -4027,6 +4027,54 @@ function _teamEnrichAssignmentProfiles(assignment,...sources){
     white:Array.isArray(assignment.white)?assignment.white.map(fill):[]
   };
 }
+function _teamApplyDirectProfileToPlayer(p,byName){
+  if(!p||!p.name)return false;
+  const src=byName.get(p.name);
+  if(!src)return false;
+  const gender=_teamGenderCode(src.gender||p.gender);
+  const grade=src.grade||p.grade||levelToGrade(p.level||src.level||4,gender)||'C';
+  const level=gradeToLevel(grade,gender)||src.level||p.level||4;
+  const next={
+    memberId:src.memberId||p.memberId||'',
+    grade,
+    gender,
+    level,
+    ageGroup:src.ageGroup||p.ageGroup||'40대',
+    club:src.club||p.club||'',
+    isGuest:!!(p.isGuest||src.isGuest)
+  };
+  let changed=false;
+  Object.keys(next).forEach(key=>{
+    if(String(p[key]||'')!==String(next[key]||'')){
+      p[key]=next[key];
+      changed=true;
+    }
+  });
+  return changed;
+}
+function _teamRecalcMatchLevels(m){
+  if(!m||!m.team1A||!m.team1B||!m.team2C||!m.team2D)return;
+  m.team1Level=effLevel(m.team1A)+effLevel(m.team1B);
+  m.team2Level=effLevel(m.team2C)+effLevel(m.team2D);
+  m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;
+}
+function _teamSyncGeneratedProfilesFromDirectPlayers(){
+  if(!_directPlayers.length)return false;
+  const byName=new Map(_directPlayers.filter(p=>p&&p.name).map(p=>[p.name,p]));
+  let changed=false;
+  if(teamAssignment){
+    (teamAssignment.blue||[]).forEach(p=>{if(_teamApplyDirectProfileToPlayer(p,byName))changed=true;});
+    (teamAssignment.white||[]).forEach(p=>{if(_teamApplyDirectProfileToPlayer(p,byName))changed=true;});
+  }
+  (currentParticipants||[]).forEach(p=>{if(_teamApplyDirectProfileToPlayer(p,byName))changed=true;});
+  (currentMatches||[]).forEach(m=>{
+    ['team1A','team1B','team2C','team2D'].forEach(k=>{
+      if(_teamApplyDirectProfileToPlayer(m[k],byName))changed=true;
+    });
+    _teamRecalcMatchLevels(m);
+  });
+  return changed;
+}
 
 function saveState(){
   if(!currentMatches.length)return;
@@ -4193,7 +4241,7 @@ function restoreState(){
     renderDirectPlayerList();
 
     if(state.teamAssignment){
-      teamAssignment=_teamEnrichAssignmentProfiles(state.teamAssignment,state.participants||[],state.directPlayers||[]);
+      teamAssignment=_teamEnrichAssignmentProfiles(state.teamAssignment,state.participants||[],state.directPlayers||[],_directPlayers||[]);
       _attachPartnerNames(teamAssignment.blue||[]);
       _attachPartnerNames(teamAssignment.white||[]);
       _teamWanted=true; // 팀전 상태 복원
@@ -4224,6 +4272,7 @@ function restoreState(){
         team2C:findP(m.team2C.name),team2D:findP(m.team2D.name)
       };
     });
+    const profileChanged=_teamSyncGeneratedProfilesFromDirectPlayers();
     currentSettings=state.settings;
     _teamParticipantSourceRsvpId=currentSettings?.rsvpId||null;
     if(_teamParticipantSourceRsvpId)_rsvpEnsureCurrentEventLink({silent:true});
@@ -4234,7 +4283,9 @@ function restoreState(){
     Object.assign(liveWinAt,state.liveWinAt||{});
     if(state.pointSystem){ _pointSystem=state.pointSystem; document.querySelectorAll('.pseg-btn').forEach(b=>b.classList.toggle('active',+b.dataset.pt===_pointSystem)); }
 
+    if(profileChanged&&teamAssignment)renderTeamList();
     renderResults(currentMatches,currentParticipants,currentSettings);
+    if(profileChanged)showWarn('명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 이미 생성된 대진 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.');
     show('resultArea');
 
     setTimeout(()=>{
@@ -5453,7 +5504,8 @@ function _renderRsvpImportSummary(){
 
 function _rsvpSyncImportedPlayersFromRoster(){
   if(_rsvpSyncingImportedPlayers)return false;
-  if(currentMatches.length||!_directPlayers.length)return false;
+  if(!_directPlayers.length)return false;
+  const hasBracket=!!currentMatches.length;
   const clubs=_rsvpClubs();
   const selected=_rsvpSelectedSource();
   const selectedClub=selected&&selected!==RSVP_DIRECT_VALUE?clubs.find(c=>c.id===selected):null;
@@ -5497,7 +5549,7 @@ function _rsvpSyncImportedPlayersFromRoster(){
       const next={
         ...p,
         memberId:roster.id,
-        name:roster.name||p.name,
+        name:hasBracket?p.name:(roster.name||p.name),
         grade,
         gender,
         level,
@@ -5507,7 +5559,7 @@ function _rsvpSyncImportedPlayersFromRoster(){
       ['memberId','name','grade','gender','level','ageGroup','club'].forEach(key=>{
         if(String(next[key]||'')!==String(p[key]||''))changed=true;
       });
-      if(next.name!==p.name)renamed.set(p.name,next.name);
+      if(!hasBracket&&next.name!==p.name)renamed.set(p.name,next.name);
       return next;
     });
     if(!changed)return false;
@@ -5517,7 +5569,16 @@ function _rsvpSyncImportedPlayersFromRoster(){
         members:pair.members.map(name=>renamed.get(name)||name)
       }));
     }
-    if(teamAssignment){
+    if(hasBracket){
+      const synced=_teamSyncGeneratedProfilesFromDirectPlayers();
+      if(teamAssignment)renderTeamList();
+      if(currentMatches.length){
+        renderResults(currentMatches,currentParticipants,currentSettings);
+        if(Object.keys(winOverride).some(k=>winOverride[k]))updateScores();
+      }
+      showWarn('명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 이미 생성된 대진 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.');
+      if(synced)scheduleSave();
+    }else if(teamAssignment){
       teamAssignment=null;
       _teamModeOverride=null;
     }
