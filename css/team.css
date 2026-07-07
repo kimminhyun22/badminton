@@ -1055,6 +1055,14 @@ details.card:not([open]) .card-head{border-bottom:none;}
     font-family:'Noto Sans KR',sans-serif;cursor:pointer;
     white-space:nowrap;min-height:36px;
   }
+  .mob-live-resume-btn{
+    padding:6px 12px;border:1px solid #bfdbfe;border-radius:6px;
+    background:#eff6ff;color:#1d4ed8;
+    font-size:.74rem;font-weight:900;
+    font-family:'Noto Sans KR',sans-serif;cursor:pointer;
+    white-space:nowrap;min-height:36px;
+  }
+  .mob-live-resume-btn.hidden{display:none!important;}
   .mob-live-stop-btn.hidden{display:none!important;}
   .mob-hide{display:none !important;}
   .mob-show{display:block !important;}
@@ -1373,6 +1381,7 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
 .auto-flow-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;
   border-radius:999px;padding:6px 10px;background:#dbeafe;color:#1d4ed8;font-size:.72rem;font-weight:1000;white-space:nowrap;}
 .auto-flow-badge.live{background:#fee2e2;color:#b91c1c;}
+.auto-flow-badge.resume{background:#e0f2fe;color:#0369a1;}
 .auto-flow-actions{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex-shrink:0;}
 .auto-flow-reset-btn{
   border-width:1.5px;
@@ -1392,6 +1401,19 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
   font-size:.72rem;
   font-weight:1000;
   box-shadow:0 6px 16px rgba(225,29,72,.08);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.auto-flow-resume-btn{
+  border:1.5px solid #bfdbfe;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  padding:8px 12px;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:.72rem;
+  font-weight:1000;
+  box-shadow:0 6px 16px rgba(37,99,235,.1);
   cursor:pointer;
   white-space:nowrap;
 }
@@ -2715,6 +2737,11 @@ header,.nav-bar{
   min-height:46px!important;
   font-size:.9rem!important;
   box-shadow:0 9px 20px rgba(91,141,239,.14)!important;
+}
+.live-btn.resume{
+  background:#1d8ed0!important;
+  color:#fff!important;
+  box-shadow:0 10px 24px rgba(14,116,144,.2)!important;
 }
 .live-btn.on{
   background:#e35b55!important;

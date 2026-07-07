@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.397';
+const APP_VERSION = '1.10.398';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2566,42 +2566,64 @@ async function startLiveBroadcast(){
   await rsvpPushEventState();
 }
 
+function _teamHasResumeLiveHint(){
+  return !_liveOn && !!currentMatches.length && !!_teamStoredLiveId();
+}
+function _teamLiveResumeLabel(){
+  return '팀전LIVE 이어 켜기';
+}
+
 /* 앱 재시작 시 중계 자동 재연결 */
-async function _tryResumeLive(){
-  if(_liveOn) return; // 이미 중계 중
+async function _tryResumeLive(opts={}){
+  const manual=!!opts.manual;
+  if(_liveOn) return true; // 이미 중계 중
   const savedId=_teamStoredLiveId();
-  if(!savedId) return;
+  if(!savedId) return false;
   const savedFromTeamKey=(()=>{try{return localStorage.getItem(TEAM_LIVE_STORAGE_KEY)===savedId;}catch(e){return false;}})();
-  if(!_fbInit()) return;
+  if(!_fbInit()){
+    if(manual)alert('팀전LIVE 서버 연결에 실패했어요. 네트워크를 확인한 뒤 다시 눌러주세요.');
+    return false;
+  }
   try{
     const snap=await _fbDb.ref('live/'+savedId).once('value');
     if(!snap.exists()){
       _teamClearStoredLiveId(savedId);
-      return;
+      _updateLiveUI();
+      if(manual)alert('이어 켤 팀전LIVE 데이터를 찾지 못했어요. 새 중계를 시작해 주세요.');
+      return false;
     }
     const data=snap.val();
     if(!data.isTeam){
       if(savedFromTeamKey)_teamClearStoredLiveId(savedId);
-      return;
+      _updateLiveUI();
+      if(manual)alert('저장된 LIVE가 팀전LIVE가 아니어서 이어 켤 수 없습니다.');
+      return false;
     }
     _liveId=savedId;
-    if(!_teamValidateLiveDataForCurrent(data))return;
+    if(!_teamValidateLiveDataForCurrent(data)){_updateLiveUI();return false;}
     _liveId=null;
     const ownerRsvpId=_currentBracketRsvpId();
     if(ownerRsvpId&&data.rsvpId&&data.rsvpId!==ownerRsvpId){
       _teamClearStoredLiveId(savedId);
-      return;
+      _updateLiveUI();
+      if(manual)alert('현재 대진과 저장된 팀전LIVE 링크가 달라서 이어 켤 수 없습니다.');
+      return false;
     }
     const startedAt=data.matchStartedAt||data.createdAt||data.updatedAt||0;
     const age=Date.now()-startedAt;
     // 대진 시작 후 48시간 초과 or 데이터 없으면 무시
-    if(!startedAt||age>LIVE_TTL_MS){ _teamClearStoredLiveId(savedId); return; }
-    // 사용자에게 확인
+    if(!startedAt||age>LIVE_TTL_MS){
+      _teamClearStoredLiveId(savedId);
+      _updateLiveUI();
+      if(manual)alert('이전 팀전LIVE가 48시간을 지나 새 중계를 시작해야 합니다.');
+      return false;
+    }
     const mins=Math.floor(age/60000);
     const timeStr=mins<60?`${mins}분 전`:`${Math.floor(mins/60)}시간 ${mins%60}분 전`;
-    if(confirm(`📡 실시간 중계가 ${timeStr}에 끊겼어요.
+    const shouldResume=manual||confirm(`📡 팀전LIVE 중계가 ${timeStr}에 끊겼어요.
 
-이어서 중계를 재개할까요?`)){
+이어서 중계를 재개할까요?`);
+    if(shouldResume){
       _liveId=savedId;
       _liveOn=true;
       _liveMatchStartedAt=startedAt;
@@ -2636,10 +2658,21 @@ async function _tryResumeLive(){
       const url=base+'view.html?id='+_liveId;
       alert(`✅ 중계 재개됐어요!
 링크: ${url}`);
+      return true;
     } else {
-      _teamClearStoredLiveId(savedId);
+      _updateLiveUI();
+      return false;
     }
-  }catch(e){ /* 재연결 실패는 조용히 무시 */ }
+  }catch(e){
+    if(manual)alert('중계 재개에 실패했어요. 네트워크를 확인한 뒤 다시 눌러주세요.');
+    return false;
+  }
+}
+
+async function resumeTeamLiveBroadcast(){
+  const resumed=await _tryResumeLive({manual:true});
+  if(!resumed&&!_teamHasResumeLiveHint()&&!_liveOn)_updateLiveUI();
+  return resumed;
 }
 
 /* 오래된 실시간 데이터 자동 정리: 대진 시작 후 48시간 지난 중계 노드만 삭제.
@@ -2724,20 +2757,35 @@ function _teamSyncLiveStopShortcuts(){
     if(el)el.classList.toggle('hidden',!_liveOn);
   });
 }
+function _teamSyncLiveResumeShortcuts(){
+  const show=_teamHasResumeLiveHint();
+  ['liveResumeTopBtn','mobLiveResumeBtn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.classList.toggle('hidden',!show);
+  });
+}
 function _updateLiveUI(){
   const btn=document.getElementById('liveBtn');
   if(btn){
-    if(_liveOn){ btn.classList.add('on'); btn.innerHTML='팀전LIVE 진행 중'; }
-    else { btn.classList.remove('on'); btn.innerHTML='팀전LIVE 시작'; }
+    if(_liveOn){ btn.classList.add('on'); btn.classList.remove('resume'); btn.innerHTML='팀전LIVE 진행 중'; }
+    else if(_teamHasResumeLiveHint()){
+      btn.classList.remove('on');
+      btn.classList.add('resume');
+      btn.innerHTML=_teamLiveResumeLabel();
+    }
+    else { btn.classList.remove('on','resume'); btn.innerHTML='팀전LIVE 시작'; }
   }
   _teamSyncLiveStopShortcuts();
+  _teamSyncLiveResumeShortcuts();
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
 }
 
 /* 실시간 버튼 클릭: 켜져있으면 종료, 꺼져있으면 시작 */
-function onLiveBtnClick(){
+async function onLiveBtnClick(){
   if(_liveOn){
     stopLiveBroadcast();
+  } else if(_teamHasResumeLiveHint()){
+    await resumeTeamLiveBroadcast();
   } else {
     startLiveBroadcast();
   }
@@ -4181,14 +4229,14 @@ function checkSavedState(){
     const hasLive=!!localStorage.getItem(TEAM_LIVE_STORAGE_KEY);
     const restoreBtn=document.getElementById('restoreBtn');
     restoreBtn.textContent=hasLive
-      ? `🔴 진행 중 팀전LIVE 복구 (${pCount}명 · ${ageStr})`
+      ? `🔴 팀전LIVE 이어하기 (${pCount}명 · ${ageStr})`
       : `📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
     restoreBtn.classList.toggle('live-restore',hasLive);
     restoreBtn.classList.remove('hidden');
     // 모바일 버튼도 표시
     const mb=document.getElementById('mobRestoreBtn');
     if(mb){
-      mb.textContent=hasLive?`🔴 팀전LIVE 복구 (${pCount}명)`:`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.textContent=hasLive?`🔴 LIVE 이어하기 (${pCount}명)`:`📂 불러오기 (${pCount}명 · ${ageStr})`;
       mb.classList.toggle('live-restore',hasLive);
       mb.classList.remove('hidden');
     }
@@ -6900,7 +6948,7 @@ function teamLiveOpenPanel(target){
   }
 }
 function _autoFlowSetResultSections(stage){
-  _autoFlowSetSection('sec-quality',stage==='broadcast');
+  _autoFlowSetSection('sec-quality',stage==='broadcast'||stage==='resume');
   _autoFlowSetSection('sec-scoreboard',stage==='live');
 }
 function renderAutoFlowDashboard(){
@@ -6952,13 +7000,17 @@ function renderAutoFlowDashboard(){
     const matchValue=matches?`${done}/${matches}`:'전';
     const remaining=Math.max(0,matches-done);
     const matchNote=matches?`${currentRound} · ${remaining} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
-    const liveValue=live?'ON':(matches?'대기':'전');
-    const liveNote=live?'링크 활성':(matches?'시작 전':'대진 필요');
+    const resumeLive=_teamHasResumeLiveHint();
+    const liveValue=live?'ON':(resumeLive?'복구':(matches?'대기':'전'));
+    const liveNote=live?'링크 활성':(resumeLive?'같은 링크로 이어 켜기':(matches?'시작 전':'대진 필요'));
     let stage='roster';
     let cfg={badge:'준비',title:'팀전LIVE 세팅',sub:'명부 선택'};
     if(live){
       stage='live';
       cfg={badge:'진행 중',title:'팀전LIVE 운영',sub:currentRound==='완료'?'결과 확인':`${currentRound} 진행`};
+    } else if(resumeLive){
+      stage='resume';
+      cfg={badge:'복구 필요',title:'팀전LIVE 이어 켜기',sub:'앱이 꺼졌던 중계를 같은 링크로 재개'};
     } else if(matches){
       stage='broadcast';
       cfg={badge:'시작 전',title:'팀전LIVE 세팅',sub:'팀전LIVE 시작'};
@@ -6981,10 +7033,11 @@ function renderAutoFlowDashboard(){
     if(card)card.classList.toggle('live-compact',live);
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
+    badgeEl.classList.toggle('resume',resumeLive);
     titleEl.textContent=cfg.title;
     subEl.textContent=cfg.sub;
     const stepState=(step)=>{
-      const order=['roster','link','wait','import','playerReview','generate','broadcast','live'];
+      const order=['roster','link','wait','import','playerReview','generate','broadcast','resume','live'];
       const idx=order.indexOf(stage);
       const steps=Array.isArray(step)?step:[step];
       if(steps.includes(stage))return 'on';
@@ -7000,6 +7053,7 @@ function renderAutoFlowDashboard(){
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate','품질 자동 확인'),
       broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림'),
+      resume:_autoFlowAction('중계 이어 켜기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지'),
       live:''
     }[stage]||'';
     const stageGuide={
@@ -7010,13 +7064,15 @@ function renderAutoFlowDashboard(){
       playerReview:{k:'4. 참가자 확인',t:'누락·게스트·P만 확인하고 팀을 나눕니다.'},
       generate:{k:'5. 대진 생성',t:'청/홍팀 확인 후 전체 라운드를 만듭니다.'},
       broadcast:{k:'6. LIVE 시작',t:'대진표가 준비됐습니다. 회원 링크를 시작하세요.'},
+      resume:{k:'중계 이어 켜기',t:'앱이 꺼졌던 중계를 기존 회원 링크 그대로 재개합니다.'},
       live:{k:'운영 중',t:remaining?'현재 라운드 승패를 입력하세요.':'결과를 확인하세요.'}
     }[stage]||{k:'다음 단계',t:''};
     const boardHtml=[
       _autoFlowPanel('명부',hasRoster?rosterName:'미선택',hasRoster?`출처 ${rosterSource}`:'먼저 선택',hasRoster?'':'warn','rsvp'),
       _autoFlowPanel('응답',_rsvpId?`${counts.attend||0}명`:'공유 전',rsvpNote,counts.issues?'warn':'','rsvp'),
       _autoFlowPanel('참가자',players?`${players}명`:'대기',teamReady?teamNote:'확인 필요',players?'':'warn','players'),
-      _autoFlowPanel('대진',matchValue,matchNote,matches&&!live?'warn':'',matches?'bracket':'settings')
+      _autoFlowPanel('대진',matchValue,matchNote,matches&&!live&&!resumeLive?'warn':'',matches?'bracket':'settings'),
+      resumeLive?_autoFlowPanel('LIVE',liveValue,liveNote,'live','bracket'):''
     ].join('');
     const stepHtml=`<div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
         <span class="team-live-step ${stepState('roster')}">명부</span>
@@ -7024,7 +7080,7 @@ function renderAutoFlowDashboard(){
         <span class="team-live-step ${stepState('playerReview')}">참가자</span>
         <span class="team-live-step ${stepState('generate')}">청/홍</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
-        <span class="team-live-step ${stepState('live')}">LIVE</span>
+        <span class="team-live-step ${stepState(['resume','live'])}">LIVE</span>
       </div>`;
     if(live){
       body.innerHTML=`

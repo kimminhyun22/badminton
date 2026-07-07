@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.397  (2026-06)
+     APP VERSION: 1.10.398  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.397">
+<meta name="app-version" content="1.10.398">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.397&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.397&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.398&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.398&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -94,6 +94,7 @@
           </div>
           <div class="auto-flow-actions">
             <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
+            <button class="auto-flow-resume-btn hidden" id="liveResumeTopBtn" onclick="resumeTeamLiveBroadcast()" title="앱이 꺼졌던 팀전LIVE 중계를 같은 링크로 이어 켭니다">중계 이어 켜기</button>
             <button class="auto-flow-stop-btn hidden" id="liveStopTopBtn" onclick="stopLiveBroadcast()" title="현재 팀전LIVE 중계를 종료">중계 종료</button>
             <button class="team-reset-top auto-flow-reset-btn" onclick="resetAll()" title="응답·게스트까지 팀전 전체 초기화">전체 초기화</button>
           </div>
@@ -132,6 +133,7 @@
             <button class="mob-restore-btn hidden" id="mobRestoreBtn" onclick="restoreState()">
               📂 이전 대진표 불러오기
             </button>
+            <button class="mob-live-resume-btn hidden" id="mobLiveResumeBtn" onclick="resumeTeamLiveBroadcast()">중계 이어 켜기</button>
             <button class="mob-live-stop-btn hidden" id="mobLiveStopBtn" onclick="stopLiveBroadcast()">중계 종료</button>
           </div>
           <div id="directSection">
@@ -761,7 +763,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.397</span>
+  <span class="app-version" id="appVersion">v1.10.398</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
