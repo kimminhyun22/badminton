@@ -2812,6 +2812,20 @@ header,.nav-bar{
   border-color:#5b8def!important;
   color:#fff!important;
 }
+.auto-flow-action.live-start .auto-flow-btn,
+.auto-flow-focus .auto-flow-action.live-start .auto-flow-btn,
+.auto-flow-focus .auto-flow-btn.live-start{
+  background:linear-gradient(135deg,#ef4444 0%,#be123c 100%)!important;
+  border-color:#ef4444!important;
+  color:#fff!important;
+  box-shadow:0 14px 30px rgba(225,29,72,.28)!important;
+}
+.auto-flow-action.live-start .auto-flow-btn::before,
+.auto-flow-focus .auto-flow-action.live-start .auto-flow-btn::before,
+.auto-flow-focus .auto-flow-btn.live-start::before{
+  background:#fff1f2!important;
+  box-shadow:0 0 0 5px rgba(255,255,255,.18),0 0 14px rgba(255,255,255,.42)!important;
+}
 .rsvp-action-btn.primary.soft{
   background:#f8fbff!important;
   color:#2563eb!important;
