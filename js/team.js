@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.398';
+const APP_VERSION = '1.10.399';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6772,11 +6772,13 @@ function _rsvpAdminRosterHtml(members,responses){
 function _autoFlowMetric(label,value){
   return `<div class="auto-flow-metric"><b>${esc(String(value))}</b><span>${esc(label)}</span></div>`;
 }
-function _autoFlowAction(label,fnName,note=''){
+function _autoFlowAction(label,fnName,note='',cls=''){
   if(!label||!fnName)return '';
-  return `<div class="auto-flow-action">
+  const safeCls=String(cls||'').replace(/[^a-z0-9_-]/gi,'');
+  const extra=safeCls?` ${safeCls}`:'';
+  return `<div class="auto-flow-action${extra}">
     <div class="auto-flow-next">${esc(note||'다음 단계')}</div>
-    <button class="auto-flow-btn" onclick="${fnName}()">${esc(label)}</button>
+    <button class="auto-flow-btn${extra}" onclick="${fnName}()">${esc(label)}</button>
   </div>`;
 }
 function _autoFlowPanel(title,value,note,cls='',target=''){
@@ -7052,8 +7054,8 @@ function renderAutoFlowDashboard(){
       import:_autoFlowAction('참가자 불러오기','rsvpImportAttendees','참가자 목록 만들기'),
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate','품질 자동 확인'),
-      broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림'),
-      resume:_autoFlowAction('중계 이어 켜기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지'),
+      broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림','live-start'),
+      resume:_autoFlowAction('중계 이어 켜기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지','live-start'),
       live:''
     }[stage]||'';
     const stageGuide={

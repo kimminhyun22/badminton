@@ -117,11 +117,15 @@ assert(teamJs.includes("['liveStopTopBtn','mobLiveStopBtn','liveStopManageBtn']"
 assert(teamJs.includes('function _teamHasResumeLiveHint()'), '앱 재시작 후 이어 켤 LIVE가 있음을 감지해야 합니다.');
 assert(teamJs.includes('resumeTeamLiveBroadcast'), '사용자가 직접 팀전LIVE 중계를 이어 켤 수 있어야 합니다.');
 assert(teamJs.includes('if(shouldResume)'), '자동 재개 확인을 취소해도 복구 정보를 즉시 지우지 않아야 합니다.');
+assert(teamJs.includes("'live-start'"), '팀전LIVE 시작/이어 켜기 주요 액션은 눈에 띄는 전용 스타일을 써야 합니다.');
 
 const teamHtml = fs.readFileSync(path.join(__dirname, '..', 'team.html'), 'utf8');
 assert(teamHtml.includes('id="liveStopTopBtn"'), '운영 보드에 팀전LIVE 종료 버튼이 있어야 합니다.');
 assert(teamHtml.includes('id="liveStopManageBtn"'), '저장·관리 영역에 팀전LIVE 종료 버튼이 있어야 합니다.');
 assert(teamHtml.includes('id="liveResumeTopBtn"'), '운영 보드에 팀전LIVE 이어 켜기 버튼이 있어야 합니다.');
 assert(teamHtml.includes('id="mobLiveResumeBtn"'), '모바일 저장 바에 팀전LIVE 이어 켜기 버튼이 있어야 합니다.');
+const teamCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'team.css'), 'utf8');
+assert(teamCss.includes('.auto-flow-btn.live-start'), '운영 보드의 팀전LIVE 시작 버튼은 레드 전용 스타일이어야 합니다.');
+assert(teamCss.includes('.live-btn.resume'), '결과 영역의 팀전LIVE 이어 켜기 버튼도 시작 버튼과 같은 계열이어야 합니다.');
 
 console.log('team isolation regression ok');
