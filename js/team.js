@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.391';
+const APP_VERSION = '1.10.392';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -327,7 +327,11 @@ function parseParticipants(raw){
 }
 
 /* ═══ TEAM ASSIGNMENT ═══ */
-function doTeamAssign(){
+function doTeamAssign(opts={}){
+  if(currentMatches.length&&!opts.forGenerate){
+    alert('이미 생성된 대진표가 있습니다.\n\n청/홍팀만 다시 배정하면 현재 대진표·팀전LIVE 명단과 서로 달라질 수 있어 막았습니다.\n팀을 바꾸려면 대진표 생성 버튼으로 새 대진을 다시 만들어 주세요.');
+    return;
+  }
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
   _teamWanted=true; // 팀전 의도 확정
@@ -417,7 +421,7 @@ function renderTeamList(){
   const diff=Math.round((bSum-wSum)*10)/10;
   const diffStr=diff>0?`+${diff}`:diff<0?`${diff}`:'균형';
   const diffColor=diff===0?'color:var(--green)':'color:var(--acc)';
-  document.getElementById('blueDiff').innerHTML=`실력 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSumR} : 백 ${wSumR})`;
+  document.getElementById('blueDiff').innerHTML=`실력 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSumR} : 홍 ${wSumR})`;
   document.getElementById('whiteDiff').textContent='';
   const bn=teamNames.blue, wn=teamNames.white;
 
@@ -687,11 +691,11 @@ function generate(){
     if(!confirm(msg)) return;
   }
   if(!teamAssignment){
-    doTeamAssign();
+    doTeamAssign({forGenerate:true});
     if(!teamAssignment)return;
   }
   if(teamAssignment&&_teamAssignmentHasSplitPartners()){
-    doTeamAssign();
+    doTeamAssign({forGenerate:true});
     if(_teamAssignmentHasSplitPartners())return;
   }
   let participants=_directPlayers.map(p=>({
@@ -3975,6 +3979,47 @@ function setSaveStatus(type,msg){
   else mel.textContent=msg||'대진표 저장 안 됨';
 }
 
+function _teamGenderCode(g){
+  return g==='F'||g==='여'?'F':'M';
+}
+function _teamProfileMap(...lists){
+  const map=new Map();
+  lists.flat().forEach(p=>{
+    if(!p||!p.name)return;
+    const prev=map.get(p.name)||{};
+    map.set(p.name,{...prev,...p});
+  });
+  return map;
+}
+function _teamEnrichAssignmentProfiles(assignment,...sources){
+  if(!assignment)return assignment;
+  const byName=_teamProfileMap(...sources);
+  const fill=p=>{
+    if(!p||!p.name)return p;
+    const src=byName.get(p.name)||{};
+    const gender=p.gender||src.gender||'M';
+    const level=Number.isFinite(+p.level)?+p.level:(Number.isFinite(+src.level)?+src.level:4);
+    return {
+      ...p,
+      memberId:p.memberId||src.memberId||'',
+      name:p.name,
+      level,
+      grade:p.grade||src.grade||src._grade||levelToGrade(level,gender)||'C',
+      gender:_teamGenderCode(gender),
+      team:p.team||src.team||'',
+      club:p.club||src.club||'',
+      isGuest:!!(p.isGuest||src.isGuest),
+      ageGroup:p.ageGroup||src.ageGroup||'40대',
+      partnerName:p.partnerName||src.partnerName||null
+    };
+  };
+  return {
+    ...assignment,
+    blue:Array.isArray(assignment.blue)?assignment.blue.map(fill):[],
+    white:Array.isArray(assignment.white)?assignment.white.map(fill):[]
+  };
+}
+
 function saveState(){
   if(!currentMatches.length)return;
   const scores=currentMatches.map((m,i)=>{
@@ -3996,8 +4041,8 @@ function saveState(){
     partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
-      blue:teamAssignment.blue.map(p=>({memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,partnerName:p.partnerName||null})),
-      white:teamAssignment.white.map(p=>({memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,partnerName:p.partnerName||null}))
+      blue:teamAssignment.blue.map(p=>({memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null})),
+      white:teamAssignment.white.map(p=>({memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null}))
     }:null,
     matches:currentMatches.map(m=>({
       matchNumber:m.matchNumber,round:m.round,court:m.court,
@@ -4140,7 +4185,7 @@ function restoreState(){
     renderDirectPlayerList();
 
     if(state.teamAssignment){
-      teamAssignment=state.teamAssignment;
+      teamAssignment=_teamEnrichAssignmentProfiles(state.teamAssignment,state.participants||[],state.directPlayers||[]);
       _attachPartnerNames(teamAssignment.blue||[]);
       _attachPartnerNames(teamAssignment.white||[]);
       _teamWanted=true; // 팀전 상태 복원
