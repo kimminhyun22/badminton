@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.403';
+const APP_VERSION = '1.10.404';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2567,8 +2567,23 @@ async function startLiveBroadcast(){
   await rsvpPushEventState();
 }
 
+function _teamStoredLiveMatchesCurrentBracket(savedId){
+  if(!savedId||!currentMatches.length)return false;
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return true;
+    const state=migrateStateIfNeeded(JSON.parse(raw));
+    if(_teamIsDailyBracketState(state))return true;
+    if(state.liveId&&state.liveId!==savedId)return false;
+    if(!state.matches||!state.matches.length)return true;
+    const savedSig=_teamLiveSignatureFromMatches(state.matches);
+    const currentSig=_teamLiveSignature();
+    return !savedSig||!currentSig||savedSig===currentSig;
+  }catch(e){return true;}
+}
 function _teamHasResumeLiveHint(){
-  return !_liveOn && !!currentMatches.length && !!_teamStoredLiveId();
+  const savedId=_teamStoredLiveId();
+  return !_liveOn && !!currentMatches.length && !!savedId && _teamStoredLiveMatchesCurrentBracket(savedId);
 }
 function _teamLiveResumeLabel(){
   return '팀전LIVE 이어 켜기';
@@ -7083,6 +7098,7 @@ function renderAutoFlowDashboard(){
       cfg={badge:'공유',title:'팀전LIVE 세팅',sub:'링크 공유'};
     }
     if(card)card.classList.toggle('live-compact',live);
+    if(card)card.classList.toggle('live-resume-ready',stage==='restoreLive'||stage==='resume');
     badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
     badgeEl.classList.toggle('resume',resumeLive||restoreLive||restoreBracket);
@@ -7148,6 +7164,10 @@ function renderAutoFlowDashboard(){
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
         <span class="team-live-step ${stepState(['restoreLive','restoreBracket','resume','live'])}">LIVE</span>
       </div>`;
+    const directResumeMode=stage==='restoreLive'||stage==='resume';
+    const supportHtml=directResumeMode
+      ? '<div class="auto-flow-resume-note">기존 회원 링크와 입력된 결과를 그대로 이어갑니다.</div>'
+      : `${stepHtml}<div class="auto-flow-board setup-board">${boardHtml}</div>`;
     if(live){
       body.innerHTML=`
         ${_teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remaining,counts})}`;
@@ -7161,8 +7181,7 @@ function renderAutoFlowDashboard(){
           </div>
           ${actionHtml}
         </div>
-        ${stepHtml}
-        <div class="auto-flow-board setup-board">${boardHtml}</div>`;
+        ${supportHtml}`;
     }
     _autoFlowSetSection('sec-rsvp',['roster','link','wait','import'].includes(stage));
     _autoFlowSetSection('sec-players',stage==='playerReview');

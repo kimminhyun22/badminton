@@ -1474,6 +1474,23 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
 .auto-flow-card.live-compact .auto-flow-reset-btn{
   display:none;
 }
+.auto-flow-card.live-resume-ready{
+  border-color:#fecaca!important;
+  background:linear-gradient(180deg,#fff 0%,#fff7f7 100%)!important;
+  box-shadow:0 16px 36px rgba(225,29,72,.13)!important;
+}
+.auto-flow-resume-note{
+  margin-top:10px;
+  border:1px solid #fecaca;
+  border-radius:16px;
+  background:#fff1f2;
+  color:#be123c;
+  padding:10px 12px;
+  font-size:.78rem;
+  font-weight:900;
+  line-height:1.45;
+  text-align:center;
+}
 .team-live-ops-strip{
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;
