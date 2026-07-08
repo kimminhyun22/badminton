@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.404';
+const APP_VERSION = '1.10.405';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2570,6 +2570,7 @@ async function startLiveBroadcast(){
 function _teamStoredLiveMatchesCurrentBracket(savedId){
   if(!savedId||!currentMatches.length)return false;
   try{
+    _teamMigrateLegacySaveKey();
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw)return true;
     const state=migrateStateIfNeeded(JSON.parse(raw));
@@ -2586,7 +2587,7 @@ function _teamHasResumeLiveHint(){
   return !_liveOn && !!currentMatches.length && !!savedId && _teamStoredLiveMatchesCurrentBracket(savedId);
 }
 function _teamLiveResumeLabel(){
-  return '팀전LIVE 이어 켜기';
+  return '팀전LIVE 이어가기';
 }
 
 /* 앱 재시작 시 중계 자동 재연결 */
@@ -3214,6 +3215,7 @@ function renderQualityDashboard(matches,participants,settings){
       <div class="op-issues-title">실전 특이사항</div>
       <div class="op-issue-list">${issueHtml}</div>
     </div>
+    <div class="qd-balance-note">실효 실력 기준: 급수 · 여성 -0.5 · 나이 보정(30대 -0.2, 40대 -0.5, 50대 -1.2, 60대+ -2.0)</div>
     <div class="qd-rows">
       ${rows.map(row=>`
         <div class="qd-row ${rowCls(row.pct)}">
@@ -3971,7 +3973,8 @@ async function sharePreviewImg(){
 }
 
 /* ═══ LOCAL STORAGE ═══ */
-const SAVE_KEY='badminton_bracket_v7';
+const LEGACY_SHARED_SAVE_KEY='badminton_bracket_v7';
+const SAVE_KEY='badminton_team_bracket_v7';
 const LV_VERSION=2; // 레벨 체계 버전: 1=구버전(E여자=0), 2=신버전(E여자=1)
 
 // 선수 객체 레벨 +1 (이름+레벨 구조일 때만)
@@ -4223,6 +4226,19 @@ function _teamIsDailyBracketState(state){
   return !!(state.settings&&state.settings.operationPreset==='daily');
 }
 
+function _teamMigrateLegacySaveKey(){
+  try{
+    if(localStorage.getItem(SAVE_KEY))return false;
+    const raw=localStorage.getItem(LEGACY_SHARED_SAVE_KEY);
+    if(!raw)return false;
+    const state=migrateStateIfNeeded(JSON.parse(raw));
+    if(_teamIsDailyBracketState(state))return false;
+    if(!state.matches||!state.matches.length)return false;
+    localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+    return true;
+  }catch(e){return false;}
+}
+
 function _restoreJoinerGoals(participants,settings){
   const defaultGoal=(settings&&settings.gamesPerPlayer)||4;
   participants.forEach(p=>{
@@ -4239,6 +4255,7 @@ function _restoreJoinerGoals(participants,settings){
 function _teamSavedBracketRestoreInfo(){
   if(isTeamSampleMode())return null;
   try{
+    _teamMigrateLegacySaveKey();
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw)return null;
     const state=migrateStateIfNeeded(JSON.parse(raw));
@@ -4266,10 +4283,16 @@ function _teamNeedsSavedLiveRestore(){
 function restoreTeamLiveAndResume(){
   restoreState({resumeLive:true});
 }
+function restoreSavedBracketAction(){
+  const info=_teamSavedBracketRestoreInfo();
+  if(info&&info.liveId)return restoreTeamLiveAndResume();
+  return restoreState();
+}
 
 function checkSavedState(){
   if(isTeamSampleMode())return;
   try{
+    _teamMigrateLegacySaveKey();
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw)return;
     const state=migrateStateIfNeeded(JSON.parse(raw));
@@ -4283,14 +4306,16 @@ function checkSavedState(){
     const hasLive=!!(restoreInfo&&restoreInfo.liveId);
     const restoreBtn=document.getElementById('restoreBtn');
     restoreBtn.textContent=hasLive
-      ? `🔴 팀전LIVE 이어하기 (${pCount}명 · ${ageStr})`
+      ? `🔴 팀전LIVE 이어가기 (${pCount}명 · ${ageStr})`
       : `📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
+    restoreBtn.onclick=restoreSavedBracketAction;
     restoreBtn.classList.toggle('live-restore',hasLive);
     restoreBtn.classList.remove('hidden');
     // 모바일 버튼도 표시
     const mb=document.getElementById('mobRestoreBtn');
     if(mb){
-      mb.textContent=hasLive?`🔴 LIVE 이어하기 (${pCount}명)`:`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.textContent=hasLive?`🔴 LIVE 이어가기 (${pCount}명)`:`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.onclick=restoreSavedBracketAction;
       mb.classList.toggle('live-restore',hasLive);
       mb.classList.remove('hidden');
     }
@@ -4303,6 +4328,7 @@ function checkSavedState(){
 
 function restoreState(opts={}){
   try{
+    _teamMigrateLegacySaveKey();
     const raw=localStorage.getItem(SAVE_KEY);
     if(!raw){alert('저장된 데이터가 없습니다.');return;}
     const state=migrateStateIfNeeded(JSON.parse(raw));
@@ -7063,7 +7089,7 @@ function renderAutoFlowDashboard(){
     const restoreLive=!!(savedBracketRestore&&savedBracketRestore.liveId) && !_liveOn && !matches;
     const restoreBracket=!!savedBracketRestore && !_liveOn && !matches && !restoreLive;
     const liveValue=live?'ON':(resumeLive?'복구':(matches?'대기':'전'));
-    const liveNote=live?'링크 활성':(resumeLive?'같은 링크로 이어 켜기':(matches?'시작 전':'대진 필요'));
+    const liveNote=live?'링크 활성':(resumeLive?'같은 링크로 이어가기':(matches?'시작 전':'대진 필요'));
     let stage='roster';
     let cfg={badge:'준비',title:'팀전LIVE 세팅',sub:'명부 선택'};
     if(live){
@@ -7071,13 +7097,13 @@ function renderAutoFlowDashboard(){
       cfg={badge:'진행 중',title:'팀전LIVE 운영',sub:currentRound==='완료'?'결과 확인':`${currentRound} 진행`};
     } else if(restoreLive){
       stage='restoreLive';
-      cfg={badge:'이어가기',title:'팀전LIVE 이어가기',sub:'앱이 꺼졌던 중계를 바로 재개'};
+      cfg={badge:'이어가기',title:'팀전LIVE 이어가기',sub:'앱이 꺼졌던 중계를 재개'};
     } else if(restoreBracket){
       stage='restoreBracket';
       cfg={badge:'불러오기',title:'저장 대진표 불러오기',sub:'이전 대진을 먼저 복원'};
     } else if(resumeLive){
       stage='resume';
-      cfg={badge:'복구 필요',title:'팀전LIVE 이어 켜기',sub:'앱이 꺼졌던 중계를 같은 링크로 재개'};
+      cfg={badge:'복구 필요',title:'팀전LIVE 이어가기',sub:'앱이 꺼졌던 중계를 같은 링크로 재개'};
     } else if(matches){
       stage='broadcast';
       cfg={badge:'시작 전',title:'팀전LIVE 세팅',sub:'팀전LIVE 시작'};
@@ -7121,9 +7147,9 @@ function renderAutoFlowDashboard(){
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate','품질 자동 확인'),
       broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림','live-start'),
-      restoreLive:_autoFlowAction('팀전LIVE 바로 이어가기','restoreTeamLiveAndResume','대진 불러오기와 중계 재개를 한 번에','live-start'),
+      restoreLive:_autoFlowAction('팀전LIVE 이어가기','restoreTeamLiveAndResume','대진 불러오기와 중계 재개를 한 번에','live-start'),
       restoreBracket:_autoFlowAction('이전 대진표 불러오기','restoreState','저장된 대진부터 복원','live-start'),
-      resume:_autoFlowAction('중계 이어 켜기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지','live-start'),
+      resume:_autoFlowAction('팀전LIVE 이어가기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지','live-start'),
       live:''
     }[stage]||'';
     const stageGuide={
@@ -7134,9 +7160,9 @@ function renderAutoFlowDashboard(){
       playerReview:{k:'4. 참가자 확인',t:'누락·게스트·P만 확인하고 팀을 나눕니다.'},
       generate:{k:'5. 대진 생성',t:'청/홍팀 확인 후 전체 라운드를 만듭니다.'},
       broadcast:{k:'6. LIVE 시작',t:'대진표가 준비됐습니다. 회원 링크를 시작하세요.'},
-      restoreLive:{k:'팀전LIVE 바로 이어가기',t:`${savedBracketRestore?.pCount||'?'}명 대진을 불러오고 기존 회원 링크로 중계를 재개합니다.`},
+      restoreLive:{k:'팀전LIVE 이어가기',t:`${savedBracketRestore?.pCount||'?'}명 대진을 불러오고 기존 회원 링크로 중계를 재개합니다.`},
       restoreBracket:{k:'이전 대진표 불러오기',t:`${savedBracketRestore?.pCount||'?'}명 저장 대진을 먼저 복원합니다.`},
-      resume:{k:'중계 이어 켜기',t:'앱이 꺼졌던 중계를 기존 회원 링크 그대로 재개합니다.'},
+      resume:{k:'팀전LIVE 이어가기',t:'앱이 꺼졌던 중계를 기존 회원 링크 그대로 재개합니다.'},
       live:{k:'운영 중',t:remaining?'현재 라운드 승패를 입력하세요.':'결과를 확인하세요.'}
     }[stage]||{k:'다음 단계',t:''};
     const boardHtml=restoreLive?[
@@ -7452,10 +7478,13 @@ function rsvpImportAttendees(){
       return;
     }
     if(!confirm('기존 대진표가 아직 남아 있습니다.\n미진행 대진표를 초기화하고 참가자를 불러올까요?'))return;
-    _rsvpClearUnstartedBracket();
   }
   if(_directPlayers.length&&!confirm(`현재 참가자 ${_directPlayers.length}명을 지우고 응답자 ${importCount}명으로 교체할까요?`))return;
-  _teamResetLocalLiveState(_liveId||_teamStoredLiveId());
+  if(_liveId||_teamStoredLiveId()){
+    if(!_teamConfirmDetachLiveBeforeChange('참가자 불러오기'))return;
+  }
+  if(currentMatches.length)_rsvpClearUnstartedBracket();
+  if(_liveId||_teamStoredLiveId())_teamResetLocalLiveState(_liveId||_teamStoredLiveId());
   _teamParticipantSourceRsvpId=_rsvpId||null;
   const next=[];
   const seen=new Set();
