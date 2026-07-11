@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.406';
+const APP_VERSION = '1.10.409';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2190,7 +2190,7 @@ let _liveId=null, _liveOn=false, _liveMatchStartedAt=null;
 const TEAM_LIVE_STORAGE_KEY='badminton_team_liveId';
 const LEGACY_LIVE_STORAGE_KEY='badminton_liveId';
 let _liveAttendance={}, _liveParty={}, _liveResultInputs={}, _liveResultConflicts={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
-let _teamVoiceRecognition=null, _teamVoiceListening=false, _teamVoiceAnalyzing=false, _teamVoiceValidated=null;
+let _teamVoiceRecognition=null, _teamVoiceListening=false, _teamVoiceStarting=false, _teamVoiceAnalyzing=false, _teamVoiceValidated=null, _teamVoiceStartTimer=null, _teamVoiceInterpretationSource='local';
 let _teamLiveMutationPending=false;
 
 /* 대회 고유 ID 생성 (6자리) */
@@ -2845,8 +2845,8 @@ function _teamVoiceTaggedNumber(text,kind){
   const normalized=_teamVoiceNormalizeText(text);
   const token='(\\d+|첫|한|하나|일|두|둘|이|세|셋|삼|네|넷|사|다섯|오|여섯|육|일곱|칠|여덟|팔|아홉|구|열|십)';
   const patterns=kind==='court'
-    ?[new RegExp(token+'번?코트'),new RegExp('코트'+token+'번?')]
-    :[new RegExp(token+'라운드'),/r(\d+)/i];
+    ?[new RegExp(token+'(?:번|번째)?코트'),new RegExp('코트'+token+'(?:번|번째)?')]
+    :[new RegExp(token+'(?:번|번째)?라운드'),/r(\d+)/i];
   for(const pattern of patterns){
     const match=normalized.match(pattern);
     if(match){
@@ -2870,18 +2870,26 @@ function _teamVoiceParseLocalCommand(text){
   const normalized=_teamVoiceNormalizeText(text);
   const court=_teamVoiceTaggedNumber(text,'court');
   const round=_teamVoiceTaggedNumber(text,'round');
-  const team=/청팀|청색|파란팀|블루/.test(normalized)
+  const bothTeams=/청홍|홍청|양팀|두팀|팀간/.test(normalized)||
+    (/청팀/.test(normalized)&&/홍팀/.test(normalized));
+  const team=!bothTeams&&/청팀|청색|파란팀|파랑팀|파랑이|블루팀?|청측|청승|코트(?:는|에서)?청이/.test(normalized)
     ?'blue'
-    :/홍팀|홍색|빨간팀|레드|백팀/.test(normalized)?'white':null;
-  const cancel=/취소|삭제|지워|없애/.test(normalized);
-  if(court&&cancel&&/결과|승패|점수/.test(normalized)){
+    :!bothTeams&&/홍팀|홍색|빨간팀|빨강팀|빨강이|레드팀?|백팀|홍측|홍승|코트(?:는|에서)?홍이/.test(normalized)?'white':null;
+  const teamScope=bothTeams||/팀밸런스|팀균형|팀실력|팀전력|팀배정|팀구성/.test(normalized);
+  const balanceWords=/밸런스|균형|실력차|전력차/.test(normalized);
+  const rebalanceWords=/다시맞|맞춰|조정|줄여|재조정|재배정|다시나눠|새로나눠|새로배정|섞어|바꿔/.test(normalized);
+  if((teamScope&&balanceWords)||(teamScope&&rebalanceWords)||/팀(?:을)?다시나눠|팀재배정/.test(normalized)){
+    return {type:'team_balance_review'};
+  }
+  const cancel=/취소|삭제|지워|없애|되돌|잘못|정정/.test(normalized);
+  if(court&&cancel&&/결과|승패|점수|승|입력|기록/.test(normalized)){
     return {type:'clear_winner',court,round};
   }
-  if(court&&team&&/승|이김|이겼|승리/.test(normalized)){
+  if(court&&team&&/승|이김|이겼|이긴|이겨|승리|가져갔|가져가|먹었|획득|기록해|처리해/.test(normalized)){
     return {type:'set_winner',court,round,team};
   }
   const playerName=_teamVoiceFindParticipantName(text);
-  if(playerName&&/제외|부상|귀가|빠져|빠짐|못뜀|못뛰|중단|그만/.test(normalized)){
+  if(playerName&&/제외|부상|다쳤|다쳐|아파|귀가|집에가|빠져|빠짐|불참|못뜀|못뛰|오늘못해|경기못해|참가못해|못나와|안나와|중단|그만|나갔|퇴장/.test(normalized)){
     return {type:'exclude_player',playerName,fromRound:round};
   }
   if(/결과|승패|점수/.test(normalized)&&/보여|열어|이동|확인/.test(normalized)){
@@ -2891,7 +2899,7 @@ function _teamVoiceParseLocalCommand(text){
      (/대진|경기/.test(normalized)&&/보여|열어|이동|확인/.test(normalized))){
     return {type:'open_panel',target:'bracket'};
   }
-  if(/현재상황|진행상황|현황|현재라운드|몇라운드/.test(normalized)){
+  if(/현재상황|진행상황|점수상황|현황|현재라운드|몇라운드|어떻게돼|어떻게되고|누가이기|몇대몇|스코어/.test(normalized)){
     return {type:'status'};
   }
   return {type:'unknown'};
@@ -2907,7 +2915,7 @@ function _teamVoiceCommandContext(){
       team1:[m.team1A?.name||'',m.team1B?.name||''],
       team2:[m.team2C?.name||'',m.team2D?.name||'']
     })),
-    allowedTypes:['set_winner','clear_winner','exclude_player','open_panel','status']
+    allowedTypes:['set_winner','clear_winner','exclude_player','open_panel','status','team_balance_review']
   };
 }
 function _teamVoiceNormalizeExternalPlan(raw){
@@ -2917,10 +2925,11 @@ function _teamVoiceNormalizeExternalPlan(raw){
     setWinner:'set_winner',winner:'set_winner',
     clearWinner:'clear_winner',cancelWinner:'clear_winner',
     excludePlayer:'exclude_player',removePlayer:'exclude_player',
-    openPanel:'open_panel'
+    openPanel:'open_panel',
+    reviewTeamBalance:'team_balance_review',rebalanceTeams:'team_balance_review',balanceTeams:'team_balance_review'
   };
   const type=aliases[value.type]||value.type;
-  if(!['set_winner','clear_winner','exclude_player','open_panel','status'].includes(type))return null;
+  if(!['set_winner','clear_winner','exclude_player','open_panel','status','team_balance_review'].includes(type))return null;
   const teamRaw=String(value.team||'').toLowerCase();
   const team=['blue','청','청팀'].includes(teamRaw)?'blue':(['white','red','홍','홍팀'].includes(teamRaw)?'white':null);
   return {
@@ -2935,16 +2944,30 @@ function _teamVoiceNormalizeExternalPlan(raw){
 }
 async function _teamVoiceInterpretCommand(text){
   const localPlan=_teamVoiceParseLocalCommand(text);
+  _teamVoiceInterpretationSource='local';
   if(localPlan.type!=='unknown')return localPlan;
-  // GitHub Pages에는 비밀키를 두지 않는다. 보안 프록시가 준비되면 이 함수만 주입한다.
   const interpreter=window.KokMatchTeamVoiceAI;
   if(typeof interpreter!=='function')return localPlan;
   try{
+    _teamVoiceSetStatus('AI가 명령 의도를 해석하고 있어요.');
     const remote=await interpreter({text,context:_teamVoiceCommandContext()});
-    return _teamVoiceNormalizeExternalPlan(remote)||localPlan;
+    const normalized=_teamVoiceNormalizeExternalPlan(remote);
+    if(normalized){
+      _teamVoiceInterpretationSource='ai';
+      return normalized;
+    }
+    return {...localPlan,aiError:'AI도 명령 의도를 확정하지 못했습니다. 코트·팀·선수 이름과 원하는 작업을 조금 더 구체적으로 말해 주세요.'};
   }catch(e){
     console.warn('팀전LIVE AI 명령 해석 실패',e);
-    return localPlan;
+    const code=String(e?.code||'').toLowerCase();
+    const aiError=code.includes('app-check')||code.includes('permission')||code.includes('unauthorized')
+      ?'AI 보안 연결이 아직 준비되지 않았습니다. Firebase AI Logic과 App Check 설정을 확인해 주세요.'
+      :code.includes('quota')||code.includes('resource-exhausted')
+        ?'AI 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.'
+        :code.includes('timeout')
+          ?'AI 응답이 늦어 중단했습니다. 다시 시도하거나 코트·팀·선수 이름을 포함해 입력해 주세요.'
+          :'AI 연결을 확인하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.';
+    return {...localPlan,aiError};
   }
 }
 function _teamVoiceCurrentRound(){
@@ -2985,11 +3008,47 @@ function _teamVoiceResolveParticipant(name){
   const found=(currentParticipants||[]).filter(p=>_teamVoiceNormalizeText(p?.name)===normalized);
   return {player:found.length===1?found[0]:null,ambiguous:found.length>1};
 }
+function _teamVoiceTeamBalanceSnapshot(){
+  const blue=(currentParticipants||[]).filter(p=>p?.team==='청팀');
+  const white=(currentParticipants||[]).filter(p=>p?.team==='홍팀');
+  if(!blue.length||!white.length)return null;
+  const blueTotal=blue.reduce((sum,p)=>sum+effLevel(p),0);
+  const whiteTotal=white.reduce((sum,p)=>sum+effLevel(p),0);
+  const unequalSize=blue.length!==white.length;
+  const blueCompare=unequalSize?blueTotal/blue.length:blueTotal;
+  const whiteCompare=unequalSize?whiteTotal/white.length:whiteTotal;
+  return {
+    blueCount:blue.length,
+    whiteCount:white.length,
+    blueValue:Math.round(blueCompare*10)/10,
+    whiteValue:Math.round(whiteCompare*10)/10,
+    difference:Math.round(Math.abs(blueCompare-whiteCompare)*10)/10,
+    label:unequalSize?'1인 평균 실력차':'팀 실력차'
+  };
+}
 function _teamVoiceValidatePlan(plan){
   if(!_liveOn)return _teamVoiceError('팀전LIVE가 진행 중일 때 사용할 수 있습니다.');
   if(!currentMatches.length)return _teamVoiceError('현재 대진표가 없습니다.');
   if(!plan||plan.type==='unknown'){
-    return _teamVoiceError('명령을 확인하지 못했습니다. “1코트 청팀 승” 또는 “김민현 부상으로 제외”처럼 다시 말씀해 주세요.');
+    if(plan?.aiError)return _teamVoiceError(plan.aiError);
+    return _teamVoiceError('의도를 확인하지 못했습니다. 코트·팀·선수 이름과 원하는 작업을 함께 말해 주세요. 예: “1코트 청팀이 이겼어”, “김민현이 다쳐서 제외”, “팀 밸런스 확인해 줘”');
+  }
+  if(plan.type==='team_balance_review'){
+    const balance=_teamVoiceTeamBalanceSnapshot();
+    if(!balance)return _teamVoiceError('현재 청팀·홍팀 명단에서 실력 균형을 계산할 수 없습니다.');
+    const completed=currentMatches.filter((_,i)=>_isMatchDone(i)).length;
+    const round=_teamVoiceCurrentRound();
+    const stable=balance.difference<=0.5;
+    return {
+      ok:true,
+      plan:{type:'team_balance_review'},
+      title:'청·홍팀 밸런스 요청을 이해했습니다.',
+      detail:`${balance.label} ${balance.difference} · 청 ${balance.blueValue} (${balance.blueCount}명) · 홍 ${balance.whiteValue} (${balance.whiteCount}명)`,
+      impact:completed
+        ?`${completed}경기가 이미 완료${round?`되고 ROUND ${round}이 진행`:''}되어 있습니다. 승점과 팀 소속이 엇갈리지 않도록 LIVE 중에는 팀을 다시 나누지 않습니다.${stable?' 현재 팀 균형은 안정적입니다.':''}`
+        :`LIVE 링크와 대진표가 서로 달라지지 않도록 중계 중에는 팀을 다시 나누지 않습니다.${stable?' 현재 팀 균형은 안정적입니다.':' 중계를 종료한 뒤 새 팀과 대진표를 함께 생성해 주세요.'}`,
+      applyLabel:'팀 목록 보기'
+    };
   }
   if(plan.type==='set_winner'||plan.type==='clear_winner'){
     const target=_teamVoiceMatchTarget(plan);
@@ -3097,6 +3156,16 @@ function _teamVoiceSetStatus(message,state=''){
   el.textContent=message||'';
   el.classList.toggle('listening',state==='listening');
 }
+function _teamVoiceClearStartTimer(){
+  if(_teamVoiceStartTimer){clearTimeout(_teamVoiceStartTimer);_teamVoiceStartTimer=null;}
+}
+function _teamVoiceSetStarting(on){
+  _teamVoiceStarting=!!on;
+  const mic=document.getElementById('teamVoiceMicBtn');
+  const label=document.getElementById('teamVoiceMicLabel');
+  if(mic)mic.classList.toggle('starting',_teamVoiceStarting);
+  if(label&&!_teamVoiceListening)label.textContent=_teamVoiceStarting?'연결 중':'말하기';
+}
 function _teamVoiceSetListening(on){
   _teamVoiceListening=!!on;
   const mic=document.getElementById('teamVoiceMicBtn');
@@ -3107,8 +3176,24 @@ function _teamVoiceSetListening(on){
   if(shortcut)shortcut.classList.toggle('listening',_teamVoiceListening);
   if(_teamVoiceListening)_teamVoiceSetStatus('듣고 있어요.','listening');
 }
+function _teamVoiceTextFallback(message){
+  _teamVoiceClearStartTimer();
+  _teamVoiceSetStarting(false);
+  _teamVoiceSetListening(false);
+  _teamVoiceSetStatus(message||'아래 입력창에 명령을 직접 입력해 주세요.');
+  document.getElementById('teamVoiceInput')?.focus();
+}
+function stopTeamVoiceListeningForText(){
+  if(!_teamVoiceListening&&!_teamVoiceStarting)return;
+  _teamVoiceClearStartTimer();
+  try{_teamVoiceRecognition?.abort();}catch(e){}
+  _teamVoiceSetStarting(false);
+  _teamVoiceSetListening(false);
+  _teamVoiceSetStatus('텍스트 입력으로 전환했습니다.');
+}
 function resetTeamVoicePlan(){
   _teamVoiceValidated=null;
+  _teamVoiceInterpretationSource='local';
   const feedback=document.getElementById('teamVoiceFeedback');
   const plan=document.getElementById('teamVoicePlan');
   const apply=document.getElementById('teamVoiceApplyBtn');
@@ -3126,7 +3211,11 @@ function _teamVoicePrepareRecognition(){
     recognition.interimResults=true;
     recognition.continuous=false;
     recognition.maxAlternatives=1;
-    recognition.onstart=()=>_teamVoiceSetListening(true);
+    recognition.onstart=()=>{
+      _teamVoiceClearStartTimer();
+      _teamVoiceSetStarting(false);
+      _teamVoiceSetListening(true);
+    };
     recognition.onresult=event=>{
       let transcript='';
       let finalReady=false;
@@ -3140,6 +3229,8 @@ function _teamVoicePrepareRecognition(){
       if(finalReady&&transcript.trim())analyzeTeamVoiceCommand();
     };
     recognition.onerror=event=>{
+      _teamVoiceClearStartTimer();
+      _teamVoiceSetStarting(false);
       _teamVoiceSetListening(false);
       const messages={
         'not-allowed':'마이크 권한이 필요합니다. 권한을 허용하거나 아래에 직접 입력해 주세요.',
@@ -3148,9 +3239,11 @@ function _teamVoicePrepareRecognition(){
         'no-speech':'목소리를 듣지 못했습니다. 마이크를 다시 눌러 주세요.',
         'network':'음성 인식 연결이 불안정합니다. 다시 시도하거나 직접 입력해 주세요.'
       };
-      _teamVoiceSetStatus(messages[event.error]||'음성 인식을 완료하지 못했습니다. 다시 시도해 주세요.');
+      _teamVoiceTextFallback(messages[event.error]||'음성 인식을 완료하지 못했습니다. 아래에 직접 입력해 주세요.');
     };
     recognition.onend=()=>{
+      _teamVoiceClearStartTimer();
+      _teamVoiceSetStarting(false);
       _teamVoiceSetListening(false);
       const input=document.getElementById('teamVoiceInput');
       if(!_teamVoiceAnalyzing&&!input?.value.trim())_teamVoiceSetStatus('마이크를 누르거나 명령을 직접 입력해 주세요.');
@@ -3164,20 +3257,32 @@ function _teamVoicePrepareRecognition(){
 function startTeamVoiceListening(){
   const recognition=_teamVoicePrepareRecognition();
   if(!recognition){
-    const mic=document.getElementById('teamVoiceMicBtn');
-    if(mic)mic.disabled=true;
-    _teamVoiceSetStatus('이 기기에서는 음성 인식을 사용할 수 없습니다. 아래에 직접 입력해 주세요.');
-    document.getElementById('teamVoiceInput')?.focus();
+    _teamVoiceTextFallback('이 기기에서는 앱 마이크를 사용할 수 없습니다. 입력창을 누르고 키보드의 마이크 또는 직접 입력을 사용해 주세요.');
     return;
   }
-  if(_teamVoiceListening)return;
+  if(_teamVoiceListening||_teamVoiceStarting)return;
   resetTeamVoicePlan();
-  try{recognition.start();}
-  catch(e){_teamVoiceSetStatus('마이크를 다시 눌러 주세요.');}
+  _teamVoiceSetStarting(true);
+  _teamVoiceSetStatus('마이크를 연결하고 있어요.');
+  try{
+    recognition.start();
+    _teamVoiceClearStartTimer();
+    _teamVoiceStartTimer=setTimeout(()=>{
+      if(!_teamVoiceStarting)return;
+      try{recognition.abort();}catch(e){}
+      _teamVoiceTextFallback('마이크가 응답하지 않아 텍스트 입력으로 전환했습니다. 입력창의 키보드 마이크도 사용할 수 있습니다.');
+    },1800);
+  }catch(e){
+    _teamVoiceTextFallback('마이크를 시작하지 못했습니다. 입력창의 키보드 마이크 또는 직접 입력을 사용해 주세요.');
+  }
 }
 function toggleTeamVoiceListening(){
-  if(_teamVoiceListening){
-    try{_teamVoiceRecognition?.stop();}catch(e){}
+  if(_teamVoiceListening||_teamVoiceStarting){
+    _teamVoiceClearStartTimer();
+    try{_teamVoiceRecognition?.abort();}catch(e){}
+    _teamVoiceSetStarting(false);
+    _teamVoiceSetListening(false);
+    _teamVoiceSetStatus('음성 입력을 멈췄습니다.');
     return;
   }
   startTeamVoiceListening();
@@ -3193,17 +3298,19 @@ function openTeamVoiceCommand(){
   if(mic)mic.disabled=false;
   resetTeamVoicePlan();
   modal.classList.remove('hidden');
-  _teamVoiceSetStatus('명령을 말씀해 주세요.');
+  _teamVoiceSetStatus('마이크를 누르거나 명령을 직접 입력해 주세요.');
   if(isTeamSampleMode()){
     if(mic)mic.disabled=true;
     _teamVoiceSetStatus('샘플에서는 아래에 명령을 직접 입력해 확인할 수 있습니다.');
     input.focus();
     return;
   }
-  startTeamVoiceListening();
+  input.focus();
 }
 function closeTeamVoiceCommand(){
-  if(_teamVoiceListening){try{_teamVoiceRecognition?.abort();}catch(e){}}
+  _teamVoiceClearStartTimer();
+  if(_teamVoiceListening||_teamVoiceStarting){try{_teamVoiceRecognition?.abort();}catch(e){}}
+  _teamVoiceSetStarting(false);
   _teamVoiceSetListening(false);
   _teamVoiceAnalyzing=false;
   _teamVoiceValidated=null;
@@ -3224,7 +3331,9 @@ function _teamVoiceRenderValidation(result){
     return;
   }
   _teamVoiceValidated=result;
-  feedback.textContent='현재 대진과 명단으로 검증했습니다.';
+  feedback.textContent=_teamVoiceInterpretationSource==='ai'
+    ?'AI 해석 후 현재 대진과 명단으로 검증했습니다.'
+    :'현재 대진과 명단으로 검증했습니다.';
   feedback.className='team-voice-feedback ok';
   plan.innerHTML=`
     <div class="team-voice-plan-title">${esc(result.title||'')}</div>
@@ -3245,7 +3354,7 @@ async function analyzeTeamVoiceCommand(){
   if(_teamVoiceAnalyzing)return;
   _teamVoiceAnalyzing=true;
   if(button)button.disabled=true;
-  _teamVoiceSetStatus('현재 대진을 확인하고 있어요.');
+  _teamVoiceSetStatus('명령 의도를 확인하고 있어요.');
   try{
     const plan=await _teamVoiceInterpretCommand(text);
     const result=_teamVoiceValidatePlan(plan);
@@ -3343,6 +3452,12 @@ function applyTeamVoiceCommand(){
   if(!fresh.ok){_teamVoiceRenderValidation(fresh);return;}
   const plan=fresh.plan;
   if(plan.type==='status'||plan.noChange){closeTeamVoiceCommand();return;}
+  if(plan.type==='team_balance_review'){
+    closeTeamVoiceCommand();
+    teamLiveOpenPanel('team');
+    _teamVoiceToast('현재 청·홍팀 구성과 밸런스를 표시했습니다.');
+    return;
+  }
   if(plan.type==='open_panel'){
     closeTeamVoiceCommand();
     teamLiveOpenPanel(plan.target);
@@ -7623,7 +7738,7 @@ function teamLiveOpenPanel(target){
   const map={
     rsvp:{tab:'dashboard',id:'sec-rsvp',open:'sec-rsvp'},
     players:{tab:'players',id:'sec-players',open:'sec-players'},
-    team:{tab:'players',id:'sec-players',open:'sec-players'},
+    team:{tab:'players',id:'teamListWrap',open:'sec-settings'},
     settings:{tab:'bracket',id:'sec-settings',open:'sec-settings'},
     bracket:{tab:'bracket',id:'sec-bracket'},
     scoreboard:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'},

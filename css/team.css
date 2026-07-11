@@ -1717,6 +1717,11 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
   color:#fff;
   box-shadow:0 0 0 8px rgba(227,91,85,.12),0 12px 28px rgba(190,18,60,.2);
 }
+.team-voice-mic.starting{
+  border-color:#f0a7a3;
+  background:#fff7f7;
+  box-shadow:0 0 0 6px rgba(227,91,85,.08);
+}
 .team-voice-mic:disabled{opacity:.42;cursor:not-allowed;box-shadow:none;}
 .team-voice-status{
   min-height:22px;

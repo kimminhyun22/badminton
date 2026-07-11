@@ -7,6 +7,7 @@ const FB_CONFIG = {
   messagingSenderId: "57349245242",
   appId: "1:57349245242:web:6c0ac6f4cc131b44192803"
 };
+window.KokMatchFirebaseConfig = Object.freeze({...FB_CONFIG});
 
 let _fbApp = null;
 let _fbDb = null;
