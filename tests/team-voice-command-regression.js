@@ -205,6 +205,9 @@ api.setWin(2, null);
 
 plan = api.parse('현재 상황 알려줘');
 assert.strictEqual(plan.type, 'status');
+assert.strictEqual(api.parse('점수 알려 줘').type, 'status', '짧은 점수 질문은 AI 연결 없이 즉시 처리해야 합니다.');
+assert.strictEqual(api.parse('현재 점수 뭐야').type, 'status', '현재 점수 질문은 로컬 현황 명령이어야 합니다.');
+assert.strictEqual(api.parse('청홍 몇 승이야').type, 'status', '청홍팀 승수 질문은 로컬 현황 명령이어야 합니다.');
 plan = api.parse('지금 누가 이기고 있어?');
 assert.strictEqual(plan.type, 'status', '자연스러운 점수 질문을 현재 현황으로 이해해야 합니다.');
 plan = api.parse('승패 결과 보여줘');
@@ -238,6 +241,12 @@ assert(!/sk-[A-Za-z0-9_-]{20,}/.test(src), '브라우저 코드에 OpenAI 비밀
 assert(!/AIza[A-Za-z0-9_-]{20,}/.test(aiSrc), 'AI 모듈에 Firebase 또는 Gemini 키를 중복 저장하면 안 됩니다.');
 assert(aiSrc.includes('_kokMatchAIRedactCommand'), 'AI 전송 전에 등록 선수 이름을 치환해야 합니다.');
 assert(aiSrc.includes('kokmatch/app-check-site-key-missing'), 'App Check 키가 없으면 무보호 AI 호출을 차단해야 합니다.');
+assert(aiSrc.includes("gemini-3.1-flash-lite"), '운영 명령 분류에는 저지연 Flash-Lite 모델을 사용해야 합니다.');
+assert(aiSrc.includes('ThinkingLevel.MINIMAL'), '간단한 명령 분류가 불필요한 추론으로 지연되면 안 됩니다.');
+assert(aiSrc.includes('KokMatchTeamVoiceAI.prepare'), '음성 창에서 AI 보안 연결을 미리 준비할 수 있어야 합니다.');
+assert(aiSrc.includes('_kokMatchAIGetToken'), 'App Check 토큰을 명령 입력 전에 준비해야 합니다.');
+const aiTimeout=Number(aiSrc.match(/KOKMATCH_AI_TIMEOUT_MS\s*=\s*(\d+)/)?.[1]||0);
+assert(aiTimeout>=20000, '모바일 첫 AI 연결을 10초 만에 중단하면 안 됩니다.');
 assert(aiSrc.includes('JSON.stringify(_kokMatchAICompactContext(context))'), 'AI에는 최소화한 운영 문맥만 보내야 합니다.');
 const compactStart=aiSrc.indexOf('function _kokMatchAICompactContext');
 const compactEnd=aiSrc.indexOf('function _kokMatchAIPrompt',compactStart);
@@ -248,6 +257,7 @@ const openVoiceSource=extractFunction('openTeamVoiceCommand','closeTeamVoiceComm
 const startVoiceSource=extractFunction('startTeamVoiceListening','toggleTeamVoiceListening');
 assert(!openVoiceSource.includes('startTeamVoiceListening();'), '음성 창을 열 때 마이크를 자동 시작하면 iPhone 키보드 입력을 막을 수 있습니다.');
 assert(openVoiceSource.includes('input.focus();'), '음성 창은 텍스트 입력을 먼저 사용할 수 있어야 합니다.');
+assert(openVoiceSource.includes('KokMatchTeamVoiceAI?.prepare'), '음성 창을 열면 입력을 막지 않고 AI 연결을 준비해야 합니다.');
 assert(html.includes('onpointerdown="stopTeamVoiceListeningForText()"'), '입력창을 누르면 음성 세션을 먼저 종료해야 합니다.');
 assert(startVoiceSource.includes('_teamVoiceStartTimer=setTimeout'), '마이크 시작 무응답을 텍스트 입력으로 돌리는 감시 타이머가 있어야 합니다.');
 

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.409';
+const APP_VERSION = '1.10.410';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2899,7 +2899,8 @@ function _teamVoiceParseLocalCommand(text){
      (/대진|경기/.test(normalized)&&/보여|열어|이동|확인/.test(normalized))){
     return {type:'open_panel',target:'bracket'};
   }
-  if(/현재상황|진행상황|점수상황|현황|현재라운드|몇라운드|어떻게돼|어떻게되고|누가이기|몇대몇|스코어/.test(normalized)){
+  const statusQuestion=/(?:점수|승패)(?:를)?(?:좀)?(?:알려|말해|브리핑)|현재점수|팀점수|청홍(?:팀)?(?:이)?몇승|몇승몇패/.test(normalized);
+  if(statusQuestion||/현재상황|진행상황|점수상황|현황|현재라운드|몇라운드|어떻게돼|어떻게되고|누가이기|몇대몇|스코어/.test(normalized)){
     return {type:'status'};
   }
   return {type:'unknown'};
@@ -2965,7 +2966,7 @@ async function _teamVoiceInterpretCommand(text){
       :code.includes('quota')||code.includes('resource-exhausted')
         ?'AI 사용량 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.'
         :code.includes('timeout')
-          ?'AI 응답이 늦어 중단했습니다. 다시 시도하거나 코트·팀·선수 이름을 포함해 입력해 주세요.'
+          ?'AI 응답이 늦어 중단했습니다. 점수·승패·선수 제외 같은 기본 명령은 그대로 사용할 수 있습니다.'
           :'AI 연결을 확인하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.';
     return {...localPlan,aiError};
   }
@@ -3305,6 +3306,8 @@ function openTeamVoiceCommand(){
     input.focus();
     return;
   }
+  const prepareAI=window.KokMatchTeamVoiceAI?.prepare;
+  if(typeof prepareAI==='function')prepareAI().catch(()=>{});
   input.focus();
 }
 function closeTeamVoiceCommand(){

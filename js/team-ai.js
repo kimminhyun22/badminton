@@ -1,6 +1,7 @@
 const KOKMATCH_AI_SDK_VERSION = '12.15.0';
-const KOKMATCH_AI_MODEL = 'gemini-3.5-flash';
-const KOKMATCH_AI_TIMEOUT_MS = 10000;
+const KOKMATCH_AI_MODEL = 'gemini-3.1-flash-lite';
+const KOKMATCH_AI_REQUEST_TIMEOUT_MS = 25000;
+const KOKMATCH_AI_TIMEOUT_MS = 30000;
 const KOKMATCH_AI_ALLOWED_TYPES = [
   'set_winner',
   'clear_winner',
@@ -12,6 +13,9 @@ const KOKMATCH_AI_ALLOWED_TYPES = [
 ];
 
 let _kokMatchAIModelPromise = null;
+let _kokMatchAIPreparePromise = null;
+let _kokMatchAIAppCheck = null;
+let _kokMatchAIGetToken = null;
 
 function _kokMatchAIConfig(){
   const config=window.KokMatchFirebaseConfig;
@@ -105,19 +109,20 @@ async function _kokMatchAIModel(){
   _kokMatchAIModelPromise=(async()=>{
     const appModuleUrl=`https://www.gstatic.com/firebasejs/${KOKMATCH_AI_SDK_VERSION}/firebase-app.js`;
     const aiModuleUrl=`https://www.gstatic.com/firebasejs/${KOKMATCH_AI_SDK_VERSION}/firebase-ai.js`;
-    const [{initializeApp,getApps},aiModule]=await Promise.all([
+    const appCheckModuleUrl=`https://www.gstatic.com/firebasejs/${KOKMATCH_AI_SDK_VERSION}/firebase-app-check.js`;
+    const [{initializeApp,getApps},aiModule,appCheckModule]=await Promise.all([
       import(appModuleUrl),
-      import(aiModuleUrl)
+      import(aiModuleUrl),
+      import(appCheckModuleUrl)
     ]);
     const appName='kokmatch-team-ai';
     const app=getApps().find(item=>item.name===appName)||initializeApp(_kokMatchAIConfig(),appName);
     const siteKey=_kokMatchAIAppCheckSiteKey();
-    const appCheckModuleUrl=`https://www.gstatic.com/firebasejs/${KOKMATCH_AI_SDK_VERSION}/firebase-app-check.js`;
-    const {initializeAppCheck,ReCaptchaEnterpriseProvider}=await import(appCheckModuleUrl);
-    initializeAppCheck(app,{
-      provider:new ReCaptchaEnterpriseProvider(siteKey),
+    _kokMatchAIAppCheck=appCheckModule.initializeAppCheck(app,{
+      provider:new appCheckModule.ReCaptchaEnterpriseProvider(siteKey),
       isTokenAutoRefreshEnabled:true
     });
+    _kokMatchAIGetToken=appCheckModule.getToken;
     const responseSchema=aiModule.Schema.object({
       properties:{
         type:aiModule.Schema.string(),
@@ -134,12 +139,12 @@ async function _kokMatchAIModel(){
     return aiModule.getGenerativeModel(ai,{
       model:KOKMATCH_AI_MODEL,
       generationConfig:{
-        temperature:0,
         maxOutputTokens:180,
+        thinkingConfig:{thinkingLevel:aiModule.ThinkingLevel.MINIMAL},
         responseMimeType:'application/json',
         responseSchema
       }
-    });
+    },{timeout:KOKMATCH_AI_REQUEST_TIMEOUT_MS});
   })().catch(error=>{
     _kokMatchAIModelPromise=null;
     throw error;
@@ -148,28 +153,46 @@ async function _kokMatchAIModel(){
 }
 
 function _kokMatchAITimeout(promise){
+  let timer=null;
   return Promise.race([
     promise,
-    new Promise((_,reject)=>setTimeout(()=>{
+    new Promise((_,reject)=>{timer=setTimeout(()=>{
       const error=new Error('AI 응답 시간이 초과되었습니다.');
       error.code='kokmatch/ai-timeout';
       reject(error);
-    },KOKMATCH_AI_TIMEOUT_MS))
-  ]);
+    },KOKMATCH_AI_TIMEOUT_MS);})
+  ]).finally(()=>{if(timer)clearTimeout(timer);});
 }
 
 window.KokMatchTeamVoiceAI=async({text,context}={})=>{
-  const {redacted,tokenToName}=_kokMatchAIRedactCommand(text,context);
-  const model=await _kokMatchAIModel();
-  const result=await _kokMatchAITimeout(model.generateContent(_kokMatchAIPrompt(redacted,context)));
-  const raw=result?.response?.text?.()||'';
-  try{return _kokMatchAIRestorePlan(JSON.parse(raw),tokenToName);}
-  catch(error){
-    if(error?.code)throw error;
-    const parseError=new Error('AI 응답 형식이 올바르지 않습니다.');
-    parseError.code='kokmatch/ai-invalid-response';
-    throw parseError;
-  }
+  return _kokMatchAITimeout((async()=>{
+    const {redacted,tokenToName}=_kokMatchAIRedactCommand(text,context);
+    const model=await _kokMatchAIModel();
+    const result=await model.generateContent(_kokMatchAIPrompt(redacted,context));
+    const raw=result?.response?.text?.()||'';
+    try{return _kokMatchAIRestorePlan(JSON.parse(raw),tokenToName);}
+    catch(error){
+      if(error?.code)throw error;
+      const parseError=new Error('AI 응답 형식이 올바르지 않습니다.');
+      parseError.code='kokmatch/ai-invalid-response';
+      throw parseError;
+    }
+  })());
+};
+
+window.KokMatchTeamVoiceAI.prepare=()=>{
+  if(_kokMatchAIPreparePromise)return _kokMatchAIPreparePromise;
+  _kokMatchAIPreparePromise=(async()=>{
+    await _kokMatchAIModel();
+    if(_kokMatchAIAppCheck&&typeof _kokMatchAIGetToken==='function'){
+      const tokenResult=await _kokMatchAIGetToken(_kokMatchAIAppCheck,false);
+      if(tokenResult?.error)throw tokenResult.error;
+    }
+  })().catch(error=>{
+    _kokMatchAIPreparePromise=null;
+    throw error;
+  });
+  return _kokMatchAIPreparePromise;
 };
 
 window.KokMatchTeamVoiceAI.model=KOKMATCH_AI_MODEL;
