@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.411  (2026-06)
+     APP VERSION: 1.10.412  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.411">
+<meta name="app-version" content="1.10.412">
 <!-- Firebase App Check용 공개 reCAPTCHA Enterprise 사이트 키 -->
 <meta name="firebase-app-check-site-key" content="6LfspU0tAAAAAMGsRpLVdJsTBPnEWk0fJINVGsSj">
 <meta name="theme-color" content="#5b8def">
@@ -54,8 +54,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.411&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.411&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.412&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.412&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -244,9 +244,21 @@
               </div>
             </div>
           </div>
-          <div class="hidden" id="teamModeBadge" aria-hidden="true"></div>
+          <div class="match-mode-block" id="matchModeControl">
+            <div class="match-mode-label">대진 방식</div>
+            <div class="match-mode-seg" role="group" aria-label="대진 방식 선택">
+              <button class="match-mode-option team active" id="teamModeTeamBtn" type="button"
+                onclick="setTeamMatchMode('team')" aria-pressed="true">
+                <b>청·홍 팀전</b><small>팀을 나눠 승부</small>
+              </button>
+              <button class="match-mode-option free" id="teamModeFreeBtn" type="button"
+                onclick="setTeamMatchMode('free')" aria-pressed="false">
+                <b>자유 대진</b><small>매 경기 균형</small>
+              </button>
+            </div>
+            <div class="match-mode-hint" id="teamModeBadge" aria-live="polite">청·홍팀을 먼저 배정한 뒤 대진을 만듭니다.</div>
+          </div>
 
-          <!-- 팀전LIVE는 항상 청/홍팀 기준으로 진행한다. -->
           <button class="btn-ta" id="teamAssignBtn" onclick="doTeamAssign()">
             ⚖️ 청/홍팀 자동 배정
           </button>
@@ -633,11 +645,11 @@
   <button class="manual-back-btn" onclick="switchNav('main');window.scrollTo({top:0});">← 대진표로 돌아가기</button>
   <div class="manual-section">
     <h2>📌 팀전LIVE 한눈에 보기</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">청팀·홍팀 월례전을 현장에서 빠르게 운영하는 화면입니다. 관리자가 사전 고지된 참가자를 확정하고, 회원은 같은 링크에서 본인 확인 후 실중계로 들어갑니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">청팀·홍팀 월례전을 기본으로 하되, 인원이 적거나 팀 구성이 맞지 않으면 자유 대진으로 전환할 수 있습니다. 관리자가 참가자를 확정하고, 회원은 같은 링크에서 본인 확인 후 실중계로 들어갑니다.</p>
     <div class="feat-grid">
       <div class="feat-card"><h4>1. 참가자·링크</h4><p>오늘 선수를 확정하고 단톡방에 공유합니다.</p></div>
       <div class="feat-card"><h4>2. 예외 확인</h4><p>늦음, 게스트, 제외 인원만 관리자가 정리합니다.</p></div>
-      <div class="feat-card"><h4>3. 청/홍·대진</h4><p>확정 명단으로 팀배정과 대진표를 생성합니다.</p></div>
+      <div class="feat-card"><h4>3. 방식·대진</h4><p>청·홍 팀전 또는 자유 대진을 선택해 생성합니다.</p></div>
       <div class="feat-card"><h4>4. 승패 입력</h4><p>진행 중·다음 대진을 보며 승패만 입력합니다.</p></div>
     </div>
   </div>
@@ -646,8 +658,8 @@
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>참가자 세팅</strong> — 사전 고지된 오늘 선수 명단을 관리자가 확정합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>링크 공유</strong> — 선수는 이름을 확인하고 같은 링크로 실중계에 들어갑니다.</p></div>
-      <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>청/홍 배정</strong> — 늦음과 파트너를 확인한 뒤 자동 배정합니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>대진 생성</strong> — 팀 균형과 품질점수를 확인합니다.</p></div>
+      <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>대진 방식</strong> — 청·홍 팀전을 기본으로 선택하고, 필요하면 자유 대진으로 바꿉니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>대진 생성</strong> — 선택한 방식의 실력 균형과 품질점수를 확인합니다.</p></div>
       <div class="step-item"><span class="step-num">5</span><p class="step-text"><strong>팀전LIVE</strong> — 실중계를 시작하고 승패만 입력합니다.</p></div>
     </div>
   </div>
@@ -718,7 +730,7 @@
 </div>
 
 <script src="js/team.js"></script>
-<script type="module" src="js/team-ai.js?v=1.10.411"></script>
+<script type="module" src="js/team-ai.js?v=1.10.412"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()">
@@ -801,7 +813,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.411</span>
+  <span class="app-version" id="appVersion">v1.10.412</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

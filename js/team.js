@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.411';
+const APP_VERSION = '1.10.412';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -104,6 +104,8 @@ function _captureUndoSnapshot(label){
     ts: Date.now(),
     directPlayers: JSON.parse(JSON.stringify(_directPlayers)),
     teamAssignment: teamAssignment?JSON.parse(JSON.stringify(teamAssignment)):null,
+    teamModeOverride: _teamModeOverride,
+    teamWanted: _teamWanted,
     partners: JSON.parse(JSON.stringify(_partners||[])),
     captains: JSON.parse(JSON.stringify(captains)),
     matches: JSON.parse(JSON.stringify(currentMatches)),
@@ -144,6 +146,8 @@ function undoAction(){
     _directPlayers.length=0;
     (snap.directPlayers||[]).forEach(p=>_directPlayers.push(p));
     teamAssignment=snap.teamAssignment||null;
+    _teamModeOverride=snap.teamModeOverride===false?false:null;
+    _teamWanted=snap.teamWanted!=null?!!snap.teamWanted:_teamModeOverride!==false;
     if(Array.isArray(snap.partners))_partners=JSON.parse(JSON.stringify(snap.partners));
     if(snap.captains)captains=JSON.parse(JSON.stringify(snap.captains));
     currentMatches=JSON.parse(JSON.stringify(snap.matches||[]));
@@ -161,6 +165,7 @@ function undoAction(){
     // ③ UI 렌더링 (각각 try-catch로 보호)
     try{renderDirectPlayerList();}catch(e){console.warn('undo:renderDirectPlayerList',e);}
     try{if(teamAssignment) renderTeamList();}catch(e){console.warn('undo:renderTeamList',e);}
+    try{updateTeamModeBadge();}catch(e){console.warn('undo:updateTeamModeBadge',e);}
     if(currentMatches.length){
       try{
         renderResults(currentMatches,currentParticipants,currentSettings);
@@ -353,6 +358,7 @@ function doTeamAssign(opts={}){
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return false;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return false;}
   _teamWanted=true; // 팀전 의도 확정
+  _teamModeOverride=null;
   const all=_directPlayers.map(p=>({
     name:p.name, level:p.level,
     gender:p.gender==='남'?'M':'F',
@@ -493,8 +499,8 @@ function renderTeamList(){
     sortWithCaptain(blue,'blue').map(p=>renderRow(p,'blue','white')).join('');
   document.getElementById('whiteList').innerHTML=
     sortWithCaptain(white,'white').map(p=>renderRow(p,'white','blue')).join('');
-  // 팀 배정이 끝나면 청/홍 명단을 표시한다.
-  document.getElementById('teamListWrap').classList.toggle('show', !!teamAssignment);
+  // 자유 대진에서는 이전 청·홍 배정이 남아 있어도 명단을 숨긴다.
+  document.getElementById('teamListWrap').classList.toggle('show', !!teamAssignment&&_teamUsesFixedTeams());
 }
 
 function cycleRole(team, name){
@@ -556,8 +562,8 @@ function movePlayer(name,toTeam){
   renderTeamList();
 }
 
-let _teamModeOverride=null; // 구버전 저장본 호환용. 팀전LIVE에서는 항상 팀전으로 처리한다.
-let _teamWanted=true; // 팀전LIVE 기본값: 청/홍팀 자동 배정
+let _teamModeOverride=null; // null=청·홍 팀전, false=자유 대진
+let _teamWanted=true; // 기본값은 청·홍 팀전
 // 단장/부단장 지정 { blue:{leader:'',sub:''}, white:{leader:'',sub:''} }
 let captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 
@@ -571,12 +577,36 @@ function stepVal(id, delta){
   updateSettingsMiniSummary();
 }
 
-function toggleTeamMode(){
-  // 구버전 버튼 호환: 팀전LIVE에서는 끄기 없이 항상 팀전 상태를 유지한다.
-  _teamWanted=true;
-  _teamModeOverride=null;
+function _teamUsesFixedTeams(){
+  return _teamModeOverride!==false;
+}
+
+function setTeamMatchMode(mode){
+  const nextFree=mode==='free';
+  const currentFree=!_teamUsesFixedTeams();
+  if(nextFree===currentFree){
+    updateTeamModeBadge();
+    return true;
+  }
+  const nextLabel=nextFree?'자유 대진':'청·홍 팀전';
+  if(currentMatches.length){
+    if(!_teamConfirmOverwriteGeneratedBracket(`${nextLabel}으로 전환하고 새 대진표를 생성`,`${nextLabel} 전환`))return false;
+    _captureUndoSnapshot('대진 방식 변경 전');
+  }
+  _teamModeOverride=nextFree?false:null;
+  _teamWanted=!nextFree;
+  if(currentMatches.length){
+    if(!nextFree)teamAssignment=null;
+    updateTeamModeBadge();
+    generate({skipExistingConfirm:true,skipUndoSnapshot:true});
+    return true;
+  }
   updateTeamModeBadge();
-  updateSettingsMiniSummary();
+  return true;
+}
+
+function toggleTeamMode(){
+  return setTeamMatchMode(_teamUsesFixedTeams()?'free':'team');
 }
 
 function updateSettingsMiniSummary(){
@@ -585,12 +615,13 @@ function updateSettingsMiniSummary(){
   const courts=document.getElementById('courts')?.value||'4';
   const games=document.getElementById('gamesPerPlayer')?.value||'4';
   const mixed=document.getElementById('mixedDbl')?.value||'1';
+  const teamMode=_teamUsesFixedTeams();
   const chips=[
     `코트 ${courts}`,
     `인당 ${games}`,
     `혼복 ${mixed}`,
     `${_pointSystem}점`,
-    teamAssignment?'청/홍 배정':'팀전'
+    teamMode?(teamAssignment?'청·홍 배정':'청·홍 준비'):'자유 대진'
   ];
   el.innerHTML=chips.map(t=>`<span class="settings-mini-chip">${esc(t)}</span>`).join('');
 }
@@ -600,19 +631,37 @@ function updateTeamModeBadge(){
   const wrap=document.getElementById('teamListWrap');
   const reBtn=document.getElementById('teamReassignBtn');
   const assignBtn=document.getElementById('teamAssignBtn');
-  _teamWanted=true;
-  _teamModeOverride=null;
-  const isOn=!!teamAssignment;
-  if(b){
-    b.className='hidden';
-    b.textContent='팀전LIVE';
+  const teamBtn=document.getElementById('teamModeTeamBtn');
+  const freeBtn=document.getElementById('teamModeFreeBtn');
+  const wantTeam=_teamUsesFixedTeams();
+  const isOn=wantTeam&&!!teamAssignment;
+  if(teamBtn){
+    teamBtn.classList.toggle('active',wantTeam);
+    teamBtn.setAttribute('aria-pressed',wantTeam?'true':'false');
   }
-  if(isOn){
-    if(assignBtn) assignBtn.classList.add('hidden');
-    if(wrap) wrap.classList.add('show');
-    if(reBtn) reBtn.classList.remove('hidden');
+  if(freeBtn){
+    freeBtn.classList.toggle('active',!wantTeam);
+    freeBtn.setAttribute('aria-pressed',wantTeam?'false':'true');
+  }
+  if(b){
+    b.textContent=!wantTeam
+      ?'청·홍 구분 없이 매 경기 실력 균형과 출전 횟수를 맞춥니다.'
+      :isOn
+        ?'청·홍팀 배정이 완료되었습니다. 팀을 확인한 뒤 대진표를 생성하세요.'
+        :'청·홍팀을 먼저 자동 배정한 뒤 대진표를 생성합니다.';
+  }
+  if(wantTeam){
+    if(isOn){
+      if(assignBtn) assignBtn.classList.add('hidden');
+      if(wrap) wrap.classList.add('show');
+      if(reBtn) reBtn.classList.remove('hidden');
+    }else{
+      if(assignBtn) assignBtn.classList.remove('hidden');
+      if(wrap) wrap.classList.remove('show');
+      if(reBtn) reBtn.classList.add('hidden');
+    }
   } else {
-    if(assignBtn) assignBtn.classList.remove('hidden');
+    if(assignBtn) assignBtn.classList.add('hidden');
     if(wrap) wrap.classList.remove('show');
     if(reBtn) reBtn.classList.add('hidden');
   }
@@ -708,15 +757,16 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
 function generate(opts={}){
   hideErr();hideWarn();
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
+  const useFixedTeams=_teamUsesFixedTeams();
   // 이미 대진표가 있으면 덮어쓰기 경고 (특히 점수 입력된 경우)
   if(currentMatches.length&&!opts.skipExistingConfirm){
     if(!_teamConfirmOverwriteGeneratedBracket('새 대진표를 생성','새 대진표 생성')) return;
   }
-  if(!teamAssignment){
+  if(useFixedTeams&&!teamAssignment){
     doTeamAssign({forGenerate:true});
     if(!teamAssignment)return;
   }
-  if(teamAssignment&&_teamAssignmentHasSplitPartners()){
+  if(useFixedTeams&&teamAssignment&&_teamAssignmentHasSplitPartners()){
     doTeamAssign({forGenerate:true});
     if(_teamAssignmentHasSplitPartners())return;
   }
@@ -732,7 +782,7 @@ function generate(opts={}){
   }));
   if(!participants.length){showErr('유효한 참가자가 없습니다.');return;}
 
-  if(teamAssignment){
+  if(useFixedTeams&&teamAssignment){
     const bn=new Set(teamAssignment.blue.map(p=>p.name));
     const wn=new Set(teamAssignment.white.map(p=>p.name));
     participants.forEach(p=>{
@@ -764,7 +814,7 @@ function generate(opts={}){
   const settings={
     courts,gamesPerPlayer:gpp,
     mixedDoublesPerPerson:xDbl,
-    teamMode: !!teamAssignment,
+    teamMode: useFixedTeams&&!!teamAssignment,
     rsvpId:_teamParticipantSourceRsvpId||null,
     rsvpTitle:_teamParticipantSourceRsvpId?_rsvpTitle():'',
     rsvpClubId:_teamParticipantSourceRsvpId?_rsvpSelectedSource():''
@@ -3741,6 +3791,8 @@ function renderQualityDashboard(matches,participants,settings){
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,adjustments,genderErr,structureErr,
     sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel}=q;
+  const structureLabel=settings.teamMode?'팀배치':'경기구성';
+  const structureDetail=settings.teamMode?'팀 배치':'경기 구성';
 
   // ── 헬퍼 ──
   function barColor(pct){return pct>=0.85?'#3a8c5c':pct>=0.65?'#d48a10':'#c94040';}
@@ -3804,7 +3856,7 @@ function renderQualityDashboard(matches,participants,settings){
     (()=>{
       const pct=sValid/10;
       const detail=(genderErr===0&&structureErr===0)
-        ?(adjustments.length?`팀 배치·종목 정상 · 성비 보정 ${adjustments.length}경기`:'팀 배치·종목 조건 정상')
+        ?(adjustments.length?`${structureDetail}·종목 정상 · 성비 보정 ${adjustments.length}경기`:`${structureDetail}·종목 조건 정상`)
         :`구조 오류 ${structureErr}건 · 종목 성별 오류 ${genderErr}건`;
       return {label:'설정 준수',detail,score:sValid,max:10,pct};
     })(),
@@ -3845,7 +3897,7 @@ function renderQualityDashboard(matches,participants,settings){
   });
 
   const blocking=[];
-  if(structureErr>0)blocking.push('팀 배치/선수 중복 오류');
+  if(structureErr>0)blocking.push(`${structureDetail}/선수 중복 오류`);
   if(genderErr>0)blocking.push('종목 성별 오류');
   if(balanceHardCount>0)blocking.push('실력차 2.0 초과');
   if(avoidableUnderSlots>0)blocking.push('목표 미달');
@@ -3870,7 +3922,7 @@ function renderQualityDashboard(matches,participants,settings){
   const chip=(label,cls)=>`<span class="op-chip ${cls}">${label}</span>`;
   const opChips=[
     chip(balanceHardCount===0?'실력균형 정상':`실력차 ${balanceHardCount}경기`,balanceHardCount===0?'ok':'bad'),
-    chip(structureErr===0?'팀배치 정상':'팀배치 오류 '+structureErr+'건',structureErr===0?'ok':'bad'),
+    chip(structureErr===0?`${structureLabel} 정상`:`${structureLabel} 오류 ${structureErr}건`,structureErr===0?'ok':'bad'),
     chip(genderErr===0?'종목 정상':'종목 오류 '+genderErr+'건',genderErr===0?'ok':'bad'),
     adjustments.length?chip(`성비보정 ${adjustments.length}경기`,'warn'):'',
     chip(under.length===0?'목표 달성':'미달 '+under.length+'명',avoidableUnderSlots===0?'ok':'bad'),
@@ -3887,7 +3939,7 @@ function renderQualityDashboard(matches,participants,settings){
   if(partnerOnlyExcess>0||partner3>0||partner4>0)issueItems.push(`파트너 재배정 ${avoidablePartnerExcess}회가 있습니다. 반복 조합 ${repeatedPartnerPairs}쌍, 최다 ${maxPartnerRepeat}회이며 상대 만남은 제외했습니다.`);
   if(over.length&&avoidableOverSlots===0)issueItems.push(`인원 구조상 ${over.length}명 초과 출전은 감점하지 않았습니다.`);
   if(parityAdjustment>0)issueItems.push('성비상 1게임 차이는 불가피한 최소 조정으로 처리했습니다.');
-  if(adjustments.length)issueItems.push(`팀 성비 때문에 보정경기 ${adjustments.length}개를 사용했습니다. 목표 게임 수 공정성을 맞추기 위한 예외 조합입니다.`);
+  if(adjustments.length)issueItems.push(`${settings.teamMode?'팀':'참가자'} 성비 때문에 보정경기 ${adjustments.length}개를 사용했습니다. 목표 게임 수 공정성을 맞추기 위한 예외 조합입니다.`);
   if(excessConsec>0){
     const ns=Object.keys(excessNames).slice(0,4).map(escText).join(', ');
     issueItems.push(`연속 출전 대상: ${ns}${Object.keys(excessNames).length>4?' 외':''}`);
@@ -4878,6 +4930,7 @@ function saveState(){
     gamesPerPlayer:document.getElementById('gamesPerPlayer').value,
     mixedDbl:document.getElementById('mixedDbl').value,
     teamNames:{...teamNames},
+    matchMode:_teamUsesFixedTeams()?'team':'free',
     teamModeOverride: _teamModeOverride,
     captains: JSON.parse(JSON.stringify(captains)),
     partners: JSON.parse(JSON.stringify(_partners)),
@@ -5075,7 +5128,9 @@ function restoreState(opts={}){
       if(teamNames.white==='백 팀'||teamNames.white==='백팀') teamNames.white='홍 팀';
     }
     syncFixedTeamNames();
-    _teamModeOverride = null;
+    const restoredFree=state.matchMode==='free'||state.teamModeOverride===false||(!state.teamAssignment&&state.settings?.teamMode===false);
+    _teamModeOverride=restoredFree?false:null;
+    _teamWanted=!restoredFree;
     if(state.captains) captains=state.captains;
     else captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 
@@ -5089,7 +5144,6 @@ function restoreState(opts={}){
       teamAssignment=_teamEnrichAssignmentProfiles(state.teamAssignment,state.participants||[],state.directPlayers||[],_directPlayers||[]);
       _attachPartnerNames(teamAssignment.blue||[]);
       _attachPartnerNames(teamAssignment.white||[]);
-      _teamWanted=true; // 팀전 상태 복원
       const btn=document.getElementById('teamAssignBtn');
       btn.classList.add('done','hidden');
       btn.innerHTML='🔀 청/홍팀 재배정 (클릭 시 새로 배정)';
@@ -5131,7 +5185,9 @@ function restoreState(opts={}){
 
     if(profileChanged&&teamAssignment)renderTeamList();
     renderResults(currentMatches,currentParticipants,currentSettings);
-    if(profileChanged)showWarn('명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 단, 청/홍팀 구성은 기존 그대로입니다. 팀 밸런스까지 다시 맞추려면 운영 전 "다시 배정하기"를 눌러 새 팀과 대진표를 다시 만들어 주세요.');
+    if(profileChanged)showWarn(currentSettings?.teamMode
+      ?'명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 단, 청/홍팀 구성은 기존 그대로입니다. 팀 밸런스까지 다시 맞추려면 운영 전 "다시 배정하기"를 눌러 새 팀과 대진표를 다시 만들어 주세요.'
+      :'명부의 급수 수정이 현재 자유 대진표에 반영됐습니다. 기존 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 "대진표 생성"을 눌러 새 균형으로 다시 만들어 주세요.');
     show('resultArea');
 
     setTimeout(()=>{
@@ -6449,11 +6505,12 @@ function _rsvpSyncImportedPlayersFromRoster(){
         renderResults(currentMatches,currentParticipants,currentSettings);
         if(Object.keys(winOverride).some(k=>winOverride[k]))updateScores();
       }
-      showWarn('명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 이미 생성된 대진 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.');
+      showWarn(currentSettings?.teamMode
+        ?'명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 이미 생성된 대진 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.'
+        :'명부의 급수 수정이 현재 자유 대진표에 반영됐습니다. 기존 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.');
       if(synced)scheduleSave();
     }else if(teamAssignment){
       teamAssignment=null;
-      _teamModeOverride=null;
     }
     syncDirectToPaste();
     updateTeamModeBadge();
@@ -7732,6 +7789,7 @@ function teamLiveOpenPanel(target){
     rsvp:{tab:'dashboard',id:'sec-rsvp',open:'sec-rsvp'},
     players:{tab:'players',id:'sec-players',open:'sec-players'},
     team:{tab:'players',id:'teamListWrap',open:'sec-settings'},
+    mode:{tab:'bracket',id:'matchModeControl',open:'sec-settings'},
     settings:{tab:'bracket',id:'sec-settings',open:'sec-settings'},
     bracket:{tab:'bracket',id:'sec-bracket'},
     scoreboard:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'},
@@ -7774,7 +7832,9 @@ function renderAutoFlowDashboard(){
     try{ stats=_rsvpStats(); }catch(e){}
     const counts=stats.counts||{};
     const players=_directPlayers.length;
-    const teamReady=!!teamAssignment;
+    const fixedTeamMode=_teamUsesFixedTeams();
+    const teamReady=fixedTeamMode&&!!teamAssignment;
+    const modeReady=!fixedTeamMode||teamReady;
     const matches=currentMatches.length;
     const done=matches?currentMatches.filter((_,i)=>_isMatchDone(i)).length:0;
     const live=!!_liveOn;
@@ -7797,13 +7857,15 @@ function renderAutoFlowDashboard(){
     const rsvpNote=rsvpBits.join(' · ')||(_rsvpId?'본인 확인·실중계 링크':'공유 전');
     const activePairCount=_partners.filter(pair=>pair.members.every(n=>_directPlayers.some(p=>p.name===n))).length;
     const teamLevelDiff=teamReady?Math.round(Math.abs(blue.reduce((s,p)=>s+effLevel(p),0)-white.reduce((s,p)=>s+effLevel(p),0))*10)/10:0;
-    const teamValue=teamReady?`${blue.length}:${white.length}`:(players?`${players}명`:'대기');
-    const teamNote=teamReady
-      ? `실력차 ${teamLevelDiff} · P ${activePairCount}쌍`
-      : (players?'참가자 확인 후 팀 배정':'참가자 필요');
+    const teamValue=!fixedTeamMode?'자유':teamReady?`${blue.length}:${white.length}`:(players?'청·홍':'대기');
+    const teamNote=!fixedTeamMode
+      ? '매 경기 실력·출전 균형'
+      :teamReady
+        ? `실력차 ${teamLevelDiff} · P ${activePairCount}쌍`
+        :(players?'참가자 확인 후 팀 배정':'참가자 필요');
     const matchValue=matches?`${done}/${matches}`:'전';
     const remaining=Math.max(0,matches-done);
-    const matchNote=matches?`${currentRound} · ${remaining} 남음`:(teamReady?'생성 필요':'팀세팅 필요');
+    const matchNote=matches?`${currentRound} · ${remaining} 남음`:(modeReady?'생성 필요':'팀 배정 필요');
     const resumeLive=_teamHasResumeLiveHint();
     const restoreLive=!!(savedBracketRestore&&savedBracketRestore.liveId) && !_liveOn && !matches;
     const restoreBracket=!!savedBracketRestore && !_liveOn && !matches && !restoreLive;
@@ -7826,9 +7888,9 @@ function renderAutoFlowDashboard(){
     } else if(matches){
       stage='broadcast';
       cfg={badge:'시작 전',title:'팀전LIVE 세팅',sub:'팀전LIVE 시작'};
-    } else if(teamReady){
+    } else if(teamReady||(!fixedTeamMode&&players>=4&&_rsvpId)){
       stage='generate';
-      cfg={badge:'팀 완료',title:'팀전LIVE 세팅',sub:'대진 생성'};
+      cfg={badge:fixedTeamMode?'팀 완료':'자유 대진',title:'팀전LIVE 세팅',sub:'대진 생성'};
     } else if(players>=4&&_rsvpId){
       stage='playerReview';
       cfg={badge:'팀 배정',title:'팀전LIVE 세팅',sub:'참가자 확인'};
@@ -7856,7 +7918,7 @@ function renderAutoFlowDashboard(){
       playerSetup:_autoFlowAction('참가자 세팅','teamLiveSetupParticipants','관리자가 명단 확정'),
       link:_autoFlowAction('링크 공유','rsvpShareLink','단톡방에 공유'),
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
-      generate:_autoFlowAction('대진 생성','generate','품질 자동 확인'),
+      generate:_autoFlowAction('대진 생성','generate',fixedTeamMode?'청·홍 대진 품질 확인':'자유 대진 품질 확인'),
       broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림','live-start'),
       restoreLive:_autoFlowAction('팀전LIVE 이어가기','restoreTeamLiveAndResume','대진 불러오기와 중계 재개를 한 번에','live-start'),
       restoreBracket:_autoFlowAction('이전 대진표 불러오기','restoreState','저장된 대진부터 복원','live-start'),
@@ -7867,7 +7929,7 @@ function renderAutoFlowDashboard(){
       playerSetup:{k:'1. 참가자 세팅',t:'관리자가 사전 고지된 선수 명단을 확정하세요.'},
       link:{k:'2. 링크 공유',t:'선수는 이름 확인 후 같은 링크로 실중계에 들어갑니다.'},
       playerReview:{k:'3. 청/홍 배정',t:'늦음과 파트너만 확인하고 팀을 나눕니다.'},
-      generate:{k:'4. 대진 생성',t:'청/홍팀 확인 후 전체 라운드를 만듭니다.'},
+      generate:{k:'4. 대진 생성',t:fixedTeamMode?'청·홍팀 확인 후 전체 라운드를 만듭니다.':'청·홍 구분 없이 매 경기 균형을 맞춰 전체 라운드를 만듭니다.'},
       broadcast:{k:'5. LIVE 시작',t:'대진표가 준비됐습니다. 실중계 링크를 여세요.'},
       restoreLive:{k:'팀전LIVE 이어가기',t:`${savedBracketRestore?.pCount||'?'}명 대진을 불러오고 기존 회원 링크로 중계를 재개합니다.`},
       restoreBracket:{k:'이전 대진표 불러오기',t:`${savedBracketRestore?.pCount||'?'}명 저장 대진을 먼저 복원합니다.`},
@@ -7887,14 +7949,14 @@ function renderAutoFlowDashboard(){
     ].join(''):[
       _autoFlowPanel('참가자',players?`${players}명`:'미설정',players?'관리자 확정 명단':'먼저 세팅',players?'':'warn','players'),
       _autoFlowPanel('링크',_rsvpId?'공유됨':'공유 전',rsvpNote,counts.late?'warn':'','rsvp'),
-      _autoFlowPanel('청/홍',teamValue,teamReady?teamNote:'팀 배정 전',teamReady?'':'warn','team'),
+      _autoFlowPanel('방식',teamValue,teamNote,modeReady?'':'warn','mode'),
       _autoFlowPanel('대진',matchValue,matchNote,matches&&!live&&!resumeLive?'warn':'',matches?'bracket':'settings'),
       resumeLive?_autoFlowPanel('LIVE',liveValue,liveNote,'live','bracket'):''
     ].join('');
     const stepHtml=`<div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
         <span class="team-live-step ${stepState('playerSetup')}">참가자</span>
         <span class="team-live-step ${stepState('link')}">링크</span>
-        <span class="team-live-step ${stepState(['playerReview','generate'])}">청/홍</span>
+        <span class="team-live-step ${stepState(['playerReview','generate'])}">방식</span>
         <span class="team-live-step ${stepState('broadcast')}">대진</span>
         <span class="team-live-step ${stepState(['restoreLive','restoreBracket','resume','live'])}">LIVE</span>
       </div>`;
@@ -8137,9 +8199,10 @@ function _rsvpBracketHasStarted(){
 function _rsvpClearUnstartedBracket(){
   if(!currentMatches.length)return;
   _captureUndoSnapshot('참가자 불러오기 전');
+  const keepFree=!_teamUsesFixedTeams();
   teamAssignment=null;
-  _teamModeOverride=null;
-  _teamWanted=true;
+  _teamModeOverride=keepFree?false:null;
+  _teamWanted=!keepFree;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   currentMatches=[];
   currentParticipants=[];
@@ -8268,8 +8331,6 @@ function _legacyRsvpImportAttendees(){
     ts:Date.now()
   };
   teamAssignment=null;
-  _teamWanted=true;
-  _teamModeOverride=null;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   renderDirectPlayerList();
   syncDirectToPaste();
