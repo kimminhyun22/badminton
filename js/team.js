@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.405';
+const APP_VERSION = '1.10.406';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -104,6 +104,8 @@ function _captureUndoSnapshot(label){
     ts: Date.now(),
     directPlayers: JSON.parse(JSON.stringify(_directPlayers)),
     teamAssignment: teamAssignment?JSON.parse(JSON.stringify(teamAssignment)):null,
+    partners: JSON.parse(JSON.stringify(_partners||[])),
+    captains: JSON.parse(JSON.stringify(captains)),
     matches: JSON.parse(JSON.stringify(currentMatches)),
     participants: JSON.parse(JSON.stringify(currentParticipants)),
     settings: JSON.parse(JSON.stringify(currentSettings)),
@@ -142,6 +144,8 @@ function undoAction(){
     _directPlayers.length=0;
     (snap.directPlayers||[]).forEach(p=>_directPlayers.push(p));
     teamAssignment=snap.teamAssignment||null;
+    if(Array.isArray(snap.partners))_partners=JSON.parse(JSON.stringify(snap.partners));
+    if(snap.captains)captains=JSON.parse(JSON.stringify(snap.captains));
     currentMatches=JSON.parse(JSON.stringify(snap.matches||[]));
     currentParticipants=JSON.parse(JSON.stringify(snap.participants||[]));
     currentSettings=JSON.parse(JSON.stringify(snap.settings||{}));
@@ -433,10 +437,17 @@ function renderTeamList(){
   document.getElementById('whiteInfo').textContent=`${white.length}명 · 남${wM} 여${wF} · 실력합 ${Math.round(wSum*10)/10}`;
   const bSumR=Math.round(bSum*10)/10;
   const wSumR=Math.round(wSum*10)/10;
-  const diff=Math.round((bSum-wSum)*10)/10;
+  const unequalSize=blue.length!==white.length;
+  const bCompare=unequalSize&&blue.length?bSum/blue.length:bSum;
+  const wCompare=unequalSize&&white.length?wSum/white.length:wSum;
+  const bCompareR=Math.round(bCompare*10)/10;
+  const wCompareR=Math.round(wCompare*10)/10;
+  const diff=Math.round((bCompare-wCompare)*10)/10;
   const diffStr=diff>0?`+${diff}`:diff<0?`${diff}`:'균형';
   const diffColor=diff===0?'color:var(--green)':'color:var(--acc)';
-  document.getElementById('blueDiff').innerHTML=`실력 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSumR} : 홍 ${wSumR})`;
+  document.getElementById('blueDiff').innerHTML=unequalSize
+    ?`1인 평균 실력 차: <b style="${diffColor}">${diffStr}</b> (청 ${bCompareR} : 홍 ${wCompareR}) · 총합 ${bSumR} : ${wSumR}`
+    :`실력 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSumR} : 홍 ${wSumR})`;
   document.getElementById('whiteDiff').textContent='';
   const bn=teamNames.blue, wn=teamNames.white;
 
@@ -2179,6 +2190,8 @@ let _liveId=null, _liveOn=false, _liveMatchStartedAt=null;
 const TEAM_LIVE_STORAGE_KEY='badminton_team_liveId';
 const LEGACY_LIVE_STORAGE_KEY='badminton_liveId';
 let _liveAttendance={}, _liveParty={}, _liveResultInputs={}, _liveResultConflicts={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
+let _teamVoiceRecognition=null, _teamVoiceListening=false, _teamVoiceAnalyzing=false, _teamVoiceValidated=null;
+let _teamLiveMutationPending=false;
 
 /* 대회 고유 ID 생성 (6자리) */
 function _genLiveId(){
@@ -2716,7 +2729,7 @@ async function _cleanupOldLive(){
 
 /* 실시간 상태 갱신 (점수 입력 시 자동 호출) */
 async function pushLiveState(){
-  if(!_liveOn || !_liveId || !_fbDb) return;
+  if(!_liveOn || !_liveId || !_fbDb || _teamLiveMutationPending) return;
   try{ await _fbDb.ref('live/'+_liveId).update(_buildLiveState()); }catch(e){ /* 조용히 무시 */ }
   rsvpPushEventState();
 }
@@ -2726,6 +2739,7 @@ function _showCopyFallback(label,text){
 }
 
 function _teamResetLocalLiveState(liveId){
+  _teamLiveMutationPending=false;
   _teamClearStoredLiveId(liveId);
   _unbindLiveAdminListener();
   _liveAttendance={};
@@ -2808,6 +2822,579 @@ async function onLiveBtnClick(){
     await resumeTeamLiveBroadcast();
   } else {
     startLiveBroadcast();
+  }
+}
+
+/* ═══ 팀전LIVE 음성 운영 ═══ */
+function _teamVoiceNormalizeText(value){
+  return String(value||'').toLowerCase().replace(/\s+/g,'').replace(/[.,!?]/g,'');
+}
+function _teamVoiceNumber(token){
+  if(/^\d+$/.test(String(token||'')))return parseInt(token,10);
+  const map={
+    '첫':1,'한':1,'하나':1,'일':1,
+    '두':2,'둘':2,'이':2,
+    '세':3,'셋':3,'삼':3,
+    '네':4,'넷':4,'사':4,
+    '다섯':5,'오':5,'여섯':6,'육':6,'일곱':7,'칠':7,
+    '여덟':8,'팔':8,'아홉':9,'구':9,'열':10,'십':10
+  };
+  return map[String(token||'')]||null;
+}
+function _teamVoiceTaggedNumber(text,kind){
+  const normalized=_teamVoiceNormalizeText(text);
+  const token='(\\d+|첫|한|하나|일|두|둘|이|세|셋|삼|네|넷|사|다섯|오|여섯|육|일곱|칠|여덟|팔|아홉|구|열|십)';
+  const patterns=kind==='court'
+    ?[new RegExp(token+'번?코트'),new RegExp('코트'+token+'번?')]
+    :[new RegExp(token+'라운드'),/r(\d+)/i];
+  for(const pattern of patterns){
+    const match=normalized.match(pattern);
+    if(match){
+      const value=_teamVoiceNumber(match[1]);
+      if(value)return value;
+    }
+  }
+  return null;
+}
+function _teamVoiceFindParticipantName(text){
+  const normalized=_teamVoiceNormalizeText(text);
+  const found=(currentParticipants||[])
+    .filter(p=>p&&p.name&&normalized.includes(_teamVoiceNormalizeText(p.name)))
+    .sort((a,b)=>_teamVoiceNormalizeText(b.name).length-_teamVoiceNormalizeText(a.name).length);
+  if(!found.length)return '';
+  const longest=_teamVoiceNormalizeText(found[0].name).length;
+  const top=found.filter(p=>_teamVoiceNormalizeText(p.name).length===longest);
+  return top.length===1?top[0].name:'';
+}
+function _teamVoiceParseLocalCommand(text){
+  const normalized=_teamVoiceNormalizeText(text);
+  const court=_teamVoiceTaggedNumber(text,'court');
+  const round=_teamVoiceTaggedNumber(text,'round');
+  const team=/청팀|청색|파란팀|블루/.test(normalized)
+    ?'blue'
+    :/홍팀|홍색|빨간팀|레드|백팀/.test(normalized)?'white':null;
+  const cancel=/취소|삭제|지워|없애/.test(normalized);
+  if(court&&cancel&&/결과|승패|점수/.test(normalized)){
+    return {type:'clear_winner',court,round};
+  }
+  if(court&&team&&/승|이김|이겼|승리/.test(normalized)){
+    return {type:'set_winner',court,round,team};
+  }
+  const playerName=_teamVoiceFindParticipantName(text);
+  if(playerName&&/제외|부상|귀가|빠져|빠짐|못뜀|못뛰|중단|그만/.test(normalized)){
+    return {type:'exclude_player',playerName,fromRound:round};
+  }
+  if(/결과|승패|점수/.test(normalized)&&/보여|열어|이동|확인/.test(normalized)){
+    return {type:'open_panel',target:'scoreboard'};
+  }
+  if(/다음경기|현재대진|대진표|경기목록/.test(normalized)||
+     (/대진|경기/.test(normalized)&&/보여|열어|이동|확인/.test(normalized))){
+    return {type:'open_panel',target:'bracket'};
+  }
+  if(/현재상황|진행상황|현황|현재라운드|몇라운드/.test(normalized)){
+    return {type:'status'};
+  }
+  return {type:'unknown'};
+}
+function _teamVoiceCommandContext(){
+  return {
+    version:1,
+    liveOn:!!_liveOn,
+    currentRound:_teamVoiceCurrentRound(),
+    participants:(currentParticipants||[]).map(p=>({name:p.name,team:p.team||'',grade:p.grade||''})),
+    matches:(currentMatches||[]).map((m,i)=>({
+      round:m.round||0,court:m.court||0,done:_isMatchDone(i),
+      team1:[m.team1A?.name||'',m.team1B?.name||''],
+      team2:[m.team2C?.name||'',m.team2D?.name||'']
+    })),
+    allowedTypes:['set_winner','clear_winner','exclude_player','open_panel','status']
+  };
+}
+function _teamVoiceNormalizeExternalPlan(raw){
+  const value=raw&&raw.plan?raw.plan:raw;
+  if(!value||typeof value!=='object')return null;
+  const aliases={
+    setWinner:'set_winner',winner:'set_winner',
+    clearWinner:'clear_winner',cancelWinner:'clear_winner',
+    excludePlayer:'exclude_player',removePlayer:'exclude_player',
+    openPanel:'open_panel'
+  };
+  const type=aliases[value.type]||value.type;
+  if(!['set_winner','clear_winner','exclude_player','open_panel','status'].includes(type))return null;
+  const teamRaw=String(value.team||'').toLowerCase();
+  const team=['blue','청','청팀'].includes(teamRaw)?'blue':(['white','red','홍','홍팀'].includes(teamRaw)?'white':null);
+  return {
+    type,
+    court:value.court==null?null:parseInt(value.court,10),
+    round:value.round==null?null:parseInt(value.round,10),
+    team,
+    playerName:String(value.playerName||value.player||'').trim(),
+    fromRound:value.fromRound==null?null:parseInt(value.fromRound,10),
+    target:value.target==='scoreboard'?'scoreboard':'bracket'
+  };
+}
+async function _teamVoiceInterpretCommand(text){
+  const localPlan=_teamVoiceParseLocalCommand(text);
+  if(localPlan.type!=='unknown')return localPlan;
+  // GitHub Pages에는 비밀키를 두지 않는다. 보안 프록시가 준비되면 이 함수만 주입한다.
+  const interpreter=window.KokMatchTeamVoiceAI;
+  if(typeof interpreter!=='function')return localPlan;
+  try{
+    const remote=await interpreter({text,context:_teamVoiceCommandContext()});
+    return _teamVoiceNormalizeExternalPlan(remote)||localPlan;
+  }catch(e){
+    console.warn('팀전LIVE AI 명령 해석 실패',e);
+    return localPlan;
+  }
+}
+function _teamVoiceCurrentRound(){
+  const rounds=[...new Set((currentMatches||[]).map(m=>m.round))].sort((a,b)=>a-b);
+  return rounds.find(round=>currentMatches.some((m,i)=>m.round===round&&!_isMatchDone(i)))||null;
+}
+function _teamVoiceMatchTarget(plan){
+  const court=parseInt(plan&&plan.court,10);
+  const round=parseInt(plan&&plan.round,10)||_teamVoiceCurrentRound();
+  if(!court||!round)return null;
+  const index=currentMatches.findIndex(m=>m.round===round&&m.court===court);
+  return index>=0?{index,match:currentMatches[index],round,court}:null;
+}
+function _teamVoiceTeamSide(match,team){
+  if(!match||!team)return null;
+  const t1Blue=match.team1A?.team==='청팀';
+  const t2Blue=match.team2C?.team==='청팀';
+  if(t1Blue===t2Blue)return null;
+  if(team==='blue')return t1Blue?'t1':'t2';
+  return t1Blue?'t2':'t1';
+}
+function _teamVoiceWinnerTeam(match,side){
+  if(!match||!side)return null;
+  const target=side==='t1'?match.team1A:match.team2C;
+  return target?.team==='청팀'?'blue':'white';
+}
+function _teamVoiceTeamLabel(team){
+  return team==='blue'?(teamNames.blue||'청 팀'):(teamNames.white||'홍 팀');
+}
+function _teamVoiceMatchNames(match){
+  if(!match)return '';
+  return `${match.team1A?.name||''} · ${match.team1B?.name||''} vs ${match.team2C?.name||''} · ${match.team2D?.name||''}`;
+}
+function _teamVoiceError(message){return {ok:false,message};}
+function _teamVoiceResolveParticipant(name){
+  const normalized=_teamVoiceNormalizeText(name);
+  if(!normalized)return {player:null,ambiguous:false};
+  const found=(currentParticipants||[]).filter(p=>_teamVoiceNormalizeText(p?.name)===normalized);
+  return {player:found.length===1?found[0]:null,ambiguous:found.length>1};
+}
+function _teamVoiceValidatePlan(plan){
+  if(!_liveOn)return _teamVoiceError('팀전LIVE가 진행 중일 때 사용할 수 있습니다.');
+  if(!currentMatches.length)return _teamVoiceError('현재 대진표가 없습니다.');
+  if(!plan||plan.type==='unknown'){
+    return _teamVoiceError('명령을 확인하지 못했습니다. “1코트 청팀 승” 또는 “김민현 부상으로 제외”처럼 다시 말씀해 주세요.');
+  }
+  if(plan.type==='set_winner'||plan.type==='clear_winner'){
+    const target=_teamVoiceMatchTarget(plan);
+    if(!target)return _teamVoiceError('현재 대진에서 해당 라운드와 코트를 찾지 못했습니다.');
+    const existingSide=winOverride[target.index]||null;
+    const existingTeam=_teamVoiceWinnerTeam(target.match,existingSide);
+    if(plan.type==='clear_winner'){
+      const s1=parseInt(document.getElementById('s1_'+target.index)?.value||'0',10)||0;
+      const s2=parseInt(document.getElementById('s2_'+target.index)?.value||'0',10)||0;
+      if(!existingSide&&!s1&&!s2)return _teamVoiceError(`R${target.round} · ${target.court}코트에는 취소할 결과가 없습니다.`);
+      return {
+        ok:true,
+        plan:{type:'clear_winner',round:target.round,court:target.court,matchIndex:target.index},
+        title:`R${target.round} · ${target.court}코트 결과 취소`,
+        detail:_teamVoiceMatchNames(target.match),
+        impact:existingTeam?`${_teamVoiceTeamLabel(existingTeam)} 승 기록을 지웁니다.`:'입력된 점수를 지웁니다.',
+        applyLabel:'결과 취소'
+      };
+    }
+    if(!plan.team)return _teamVoiceError('청팀인지 홍팀인지 다시 말씀해 주세요.');
+    const side=_teamVoiceTeamSide(target.match,plan.team);
+    if(!side)return _teamVoiceError('현재 경기의 청팀·홍팀 정보를 확인할 수 없습니다.');
+    const noChange=existingSide===side;
+    return {
+      ok:true,
+      plan:{type:'set_winner',round:target.round,court:target.court,team:plan.team,side,matchIndex:target.index,noChange},
+      title:`R${target.round} · ${target.court}코트 ${_teamVoiceTeamLabel(plan.team)} 승`,
+      detail:_teamVoiceMatchNames(target.match),
+      impact:noChange
+        ?'이미 같은 결과로 입력되어 있습니다.'
+        :existingTeam
+          ?`${_teamVoiceTeamLabel(existingTeam)} 승에서 ${_teamVoiceTeamLabel(plan.team)} 승으로 바꿉니다.`
+          :'승패 1경기를 입력합니다.',
+      applyLabel:noChange?'닫기':'승패 적용'
+    };
+  }
+  if(plan.type==='exclude_player'){
+    const resolved=_teamVoiceResolveParticipant(plan.playerName);
+    if(resolved.ambiguous)return _teamVoiceError('같은 이름이 두 명 이상입니다. 명부에서 이름을 구분한 뒤 다시 시도해 주세요.');
+    if(!resolved.player)return _teamVoiceError('현재 대진 참가자에서 해당 선수를 찾지 못했습니다.');
+    const player=resolved.player;
+    const fromRound=Number.isFinite(+plan.fromRound)&&+plan.fromRound>0?parseInt(plan.fromRound,10):null;
+    if(fromRound&&!currentMatches.some(m=>m.round===fromRound))return _teamVoiceError(`ROUND ${fromRound}을 현재 대진에서 찾지 못했습니다.`);
+    if(fromRound&&currentMatches.some((m,i)=>m.round>=fromRound&&_isMatchDone(i))){
+      return _teamVoiceError(`ROUND ${fromRound} 이후에 이미 입력된 결과가 있습니다. 라운드를 빼고 “${player.name} 제외”라고 말하면 완료 경기는 모두 유지됩니다.`);
+    }
+    const regen=currentMatches.map((m,i)=>({m,i})).filter(({m,i})=>fromRound?m.round>=fromRound:!_isMatchDone(i));
+    if(!regen.length)return _teamVoiceError('재배정할 남은 경기가 없습니다.');
+    const appears=regen.some(({m})=>[m.team1A,m.team1B,m.team2C,m.team2D].some(p=>p?.name===player.name));
+    if(!appears)return _teamVoiceError(`${player.name} 선수는 재배정 대상 경기에 포함되어 있지 않습니다.`);
+    const active=currentParticipants.filter(p=>p.name!==player.name);
+    if(active.length<4)return _teamVoiceError('선수를 제외하면 재배정 가능한 인원이 4명보다 적습니다.');
+    const blue=active.filter(p=>p.team==='청팀');
+    const white=active.filter(p=>p.team==='홍팀');
+    if(blue.length<2||white.length<2)return _teamVoiceError('선수를 제외하면 한 팀이 2명보다 적어 팀전 대진을 만들 수 없습니다.');
+    const kept=currentMatches.length-regen.length;
+    const blueLevel=blue.reduce((sum,p)=>sum+effLevel(p),0);
+    const whiteLevel=white.reduce((sum,p)=>sum+effLevel(p),0);
+    const unequalSize=blue.length!==white.length;
+    const blueCompare=unequalSize?blueLevel/blue.length:blueLevel;
+    const whiteCompare=unequalSize?whiteLevel/white.length:whiteLevel;
+    const levelDiff=Math.round(Math.abs(blueCompare-whiteCompare)*10)/10;
+    const levelLabel=unequalSize?'1인 평균 실력차':'팀 실력차';
+    const role=[captains.blue.leader,captains.white.leader].includes(player.name)
+      ?' · 단장 지정 해제'
+      :[captains.blue.sub,captains.white.sub].includes(player.name)?' · 부단장 지정 해제':'';
+    return {
+      ok:true,
+      plan:{type:'exclude_player',playerName:player.name,fromRound},
+      title:`${player.name} 선수 제외 후 재배정`,
+      detail:fromRound?`ROUND ${fromRound}부터 새 대진을 만듭니다.`:'입력 완료 경기는 그대로 두고 남은 대진을 다시 만듭니다.',
+      impact:`기존 ${kept}경기 유지 · ${regen.length}경기 재생성 · 청 ${blue.length}명 / 홍 ${white.length}명 · ${levelLabel} ${levelDiff}${role}`,
+      applyLabel:'제외 후 재배정'
+    };
+  }
+  if(plan.type==='open_panel'){
+    const target=plan.target==='scoreboard'?'scoreboard':'bracket';
+    return {
+      ok:true,
+      plan:{type:'open_panel',target},
+      title:target==='scoreboard'?'승패 집계 열기':'현재 대진 열기',
+      detail:target==='scoreboard'?'청팀·홍팀 승패 현황으로 이동합니다.':'현재 진행 라운드의 대진으로 이동합니다.',
+      impact:'기록은 변경되지 않습니다.',
+      applyLabel:'열기'
+    };
+  }
+  if(plan.type==='status'){
+    const round=_teamVoiceCurrentRound();
+    const score=_teamLiveScoreCounts();
+    const pending=_teamLivePendingCourts(round);
+    return {
+      ok:true,
+      plan:{type:'status'},
+      title:round?`ROUND ${round} 진행 중`:'모든 경기 입력 완료',
+      detail:`${_teamVoiceTeamLabel('blue')} ${score.blueWins}승 · ${_teamVoiceTeamLabel('white')} ${score.whiteWins}승`,
+      impact:pending.length?`승패 입력 대기: ${pending.join(' · ')}`:'남은 승패 입력이 없습니다.',
+      applyLabel:'확인'
+    };
+  }
+  return _teamVoiceError('아직 지원하지 않는 명령입니다.');
+}
+function _teamVoiceSetStatus(message,state=''){
+  const el=document.getElementById('teamVoiceStatus');
+  if(!el)return;
+  el.textContent=message||'';
+  el.classList.toggle('listening',state==='listening');
+}
+function _teamVoiceSetListening(on){
+  _teamVoiceListening=!!on;
+  const mic=document.getElementById('teamVoiceMicBtn');
+  const label=document.getElementById('teamVoiceMicLabel');
+  const shortcut=document.getElementById('teamLiveVoiceBtn');
+  if(mic)mic.classList.toggle('listening',_teamVoiceListening);
+  if(label)label.textContent=_teamVoiceListening?'듣는 중':'말하기';
+  if(shortcut)shortcut.classList.toggle('listening',_teamVoiceListening);
+  if(_teamVoiceListening)_teamVoiceSetStatus('듣고 있어요.','listening');
+}
+function resetTeamVoicePlan(){
+  _teamVoiceValidated=null;
+  const feedback=document.getElementById('teamVoiceFeedback');
+  const plan=document.getElementById('teamVoicePlan');
+  const apply=document.getElementById('teamVoiceApplyBtn');
+  if(feedback){feedback.textContent='';feedback.className='team-voice-feedback';}
+  if(plan){plan.innerHTML='';plan.classList.add('hidden');}
+  if(apply){apply.disabled=true;apply.textContent='적용';}
+}
+function _teamVoicePrepareRecognition(){
+  if(_teamVoiceRecognition)return _teamVoiceRecognition;
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!Recognition)return null;
+  try{
+    const recognition=new Recognition();
+    recognition.lang='ko-KR';
+    recognition.interimResults=true;
+    recognition.continuous=false;
+    recognition.maxAlternatives=1;
+    recognition.onstart=()=>_teamVoiceSetListening(true);
+    recognition.onresult=event=>{
+      let transcript='';
+      let finalReady=false;
+      for(let i=0;i<event.results.length;i++){
+        transcript+=event.results[i][0]?.transcript||'';
+        if(event.results[i].isFinal)finalReady=true;
+      }
+      const input=document.getElementById('teamVoiceInput');
+      if(input)input.value=transcript.trim();
+      resetTeamVoicePlan();
+      if(finalReady&&transcript.trim())analyzeTeamVoiceCommand();
+    };
+    recognition.onerror=event=>{
+      _teamVoiceSetListening(false);
+      const messages={
+        'not-allowed':'마이크 권한이 필요합니다. 권한을 허용하거나 아래에 직접 입력해 주세요.',
+        'service-not-allowed':'이 기기에서는 음성 인식을 사용할 수 없습니다. 아래에 직접 입력해 주세요.',
+        'audio-capture':'마이크를 찾지 못했습니다. 아래에 직접 입력해 주세요.',
+        'no-speech':'목소리를 듣지 못했습니다. 마이크를 다시 눌러 주세요.',
+        'network':'음성 인식 연결이 불안정합니다. 다시 시도하거나 직접 입력해 주세요.'
+      };
+      _teamVoiceSetStatus(messages[event.error]||'음성 인식을 완료하지 못했습니다. 다시 시도해 주세요.');
+    };
+    recognition.onend=()=>{
+      _teamVoiceSetListening(false);
+      const input=document.getElementById('teamVoiceInput');
+      if(!_teamVoiceAnalyzing&&!input?.value.trim())_teamVoiceSetStatus('마이크를 누르거나 명령을 직접 입력해 주세요.');
+    };
+    _teamVoiceRecognition=recognition;
+  }catch(e){
+    _teamVoiceRecognition=null;
+  }
+  return _teamVoiceRecognition;
+}
+function startTeamVoiceListening(){
+  const recognition=_teamVoicePrepareRecognition();
+  if(!recognition){
+    const mic=document.getElementById('teamVoiceMicBtn');
+    if(mic)mic.disabled=true;
+    _teamVoiceSetStatus('이 기기에서는 음성 인식을 사용할 수 없습니다. 아래에 직접 입력해 주세요.');
+    document.getElementById('teamVoiceInput')?.focus();
+    return;
+  }
+  if(_teamVoiceListening)return;
+  resetTeamVoicePlan();
+  try{recognition.start();}
+  catch(e){_teamVoiceSetStatus('마이크를 다시 눌러 주세요.');}
+}
+function toggleTeamVoiceListening(){
+  if(_teamVoiceListening){
+    try{_teamVoiceRecognition?.stop();}catch(e){}
+    return;
+  }
+  startTeamVoiceListening();
+}
+function openTeamVoiceCommand(){
+  if(!_liveOn){alert('팀전LIVE를 시작하거나 이어간 뒤 사용할 수 있습니다.');return;}
+  if(!currentMatches.length){alert('현재 대진표가 없습니다.');return;}
+  const modal=document.getElementById('teamVoiceModal');
+  const input=document.getElementById('teamVoiceInput');
+  const mic=document.getElementById('teamVoiceMicBtn');
+  if(!modal||!input)return;
+  input.value='';
+  if(mic)mic.disabled=false;
+  resetTeamVoicePlan();
+  modal.classList.remove('hidden');
+  _teamVoiceSetStatus('명령을 말씀해 주세요.');
+  if(isTeamSampleMode()){
+    if(mic)mic.disabled=true;
+    _teamVoiceSetStatus('샘플에서는 아래에 명령을 직접 입력해 확인할 수 있습니다.');
+    input.focus();
+    return;
+  }
+  startTeamVoiceListening();
+}
+function closeTeamVoiceCommand(){
+  if(_teamVoiceListening){try{_teamVoiceRecognition?.abort();}catch(e){}}
+  _teamVoiceSetListening(false);
+  _teamVoiceAnalyzing=false;
+  _teamVoiceValidated=null;
+  document.getElementById('teamVoiceModal')?.classList.add('hidden');
+}
+function _teamVoiceRenderValidation(result){
+  const feedback=document.getElementById('teamVoiceFeedback');
+  const plan=document.getElementById('teamVoicePlan');
+  const apply=document.getElementById('teamVoiceApplyBtn');
+  if(!feedback||!plan||!apply)return;
+  if(!result.ok){
+    _teamVoiceValidated=null;
+    feedback.textContent=result.message||'명령을 확인하지 못했습니다.';
+    feedback.className='team-voice-feedback error';
+    plan.classList.add('hidden');
+    apply.disabled=true;
+    apply.textContent='적용';
+    return;
+  }
+  _teamVoiceValidated=result;
+  feedback.textContent='현재 대진과 명단으로 검증했습니다.';
+  feedback.className='team-voice-feedback ok';
+  plan.innerHTML=`
+    <div class="team-voice-plan-title">${esc(result.title||'')}</div>
+    <div class="team-voice-plan-detail">${esc(result.detail||'')}</div>
+    <div class="team-voice-plan-impact">${esc(result.impact||'')}</div>`;
+  plan.classList.remove('hidden');
+  apply.disabled=false;
+  apply.textContent=result.applyLabel||'적용';
+}
+async function analyzeTeamVoiceCommand(){
+  const input=document.getElementById('teamVoiceInput');
+  const button=document.getElementById('teamVoiceAnalyzeBtn');
+  const text=input?.value.trim()||'';
+  if(!text){
+    _teamVoiceRenderValidation(_teamVoiceError('명령을 말씀하거나 입력해 주세요.'));
+    return;
+  }
+  if(_teamVoiceAnalyzing)return;
+  _teamVoiceAnalyzing=true;
+  if(button)button.disabled=true;
+  _teamVoiceSetStatus('현재 대진을 확인하고 있어요.');
+  try{
+    const plan=await _teamVoiceInterpretCommand(text);
+    const result=_teamVoiceValidatePlan(plan);
+    _teamVoiceRenderValidation(result);
+    _teamVoiceSetStatus(result.ok?'적용할 내용을 확인해 주세요.':'명령을 다시 확인해 주세요.');
+  }finally{
+    _teamVoiceAnalyzing=false;
+    if(button)button.disabled=false;
+  }
+}
+function _teamVoiceToast(message){
+  let toast=document.getElementById('teamVoiceToast');
+  if(!toast){
+    toast=document.createElement('div');
+    toast.id='teamVoiceToast';
+    toast.className='team-voice-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent=message;
+  toast.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer=setTimeout(()=>toast.classList.remove('show'),2600);
+}
+function _teamVoiceSetWinner(plan){
+  if(plan.noChange)return false;
+  _captureUndoSnapshot('음성 승패 입력 전');
+  winOverride[plan.matchIndex]=plan.side;
+  liveWinAt[plan.matchIndex]=Date.now();
+  const s1=document.getElementById('s1_'+plan.matchIndex);
+  const s2=document.getElementById('s2_'+plan.matchIndex);
+  if(s1)s1.value='';
+  if(s2)s2.value='';
+  updateScores();
+  return true;
+}
+function _teamVoiceClearWinner(plan){
+  _captureUndoSnapshot('음성 승패 취소 전');
+  delete winOverride[plan.matchIndex];
+  delete liveWinAt[plan.matchIndex];
+  const s1=document.getElementById('s1_'+plan.matchIndex);
+  const s2=document.getElementById('s2_'+plan.matchIndex);
+  if(s1)s1.value='';
+  if(s2)s2.value='';
+  updateScores();
+}
+async function _teamVoiceFinalizeLiveReallocation(playerName,staleKeys){
+  if(!_fbDb&&typeof isTeamSampleMode==='function'&&isTeamSampleMode()){
+    const playerKey=_liveKey(playerName);
+    delete _liveAttendance[playerKey];
+    delete _liveParty[playerKey];
+    (staleKeys||[]).forEach(key=>{
+      delete _liveResultInputs[key];
+      delete _liveResultConflicts[key];
+    });
+    return true;
+  }
+  if(!_fbDb||!_liveId)throw new Error('LIVE 연결 없음');
+  const ref=_fbDb.ref('live/'+_liveId);
+  let lastError=null;
+  for(let attempt=0;attempt<3;attempt++){
+    try{
+      const snapshot=await ref.once('value');
+      const remote=snapshot?.val?.()||{};
+      _liveAttendance=remote.attendance||_liveAttendance||{};
+      _liveParty=remote.party||_liveParty||{};
+      _liveResultInputs=remote.resultInputs||_liveResultInputs||{};
+      _liveResultConflicts=remote.resultConflicts||_liveResultConflicts||{};
+      const playerKey=_liveKey(playerName);
+      delete _liveAttendance[playerKey];
+      delete _liveParty[playerKey];
+      (staleKeys||[]).forEach(key=>{
+        delete _liveResultInputs[key];
+        delete _liveResultConflicts[key];
+      });
+      await ref.update({
+        ..._buildLiveState(),
+        attendance:_liveAttendance,
+        party:_liveParty,
+        resultInputs:_liveResultInputs,
+        resultConflicts:_liveResultConflicts
+      });
+      rsvpPushSession();
+      await rsvpPushEventState();
+      return true;
+    }catch(error){
+      lastError=error;
+      if(attempt<2)await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));
+    }
+  }
+  throw lastError||new Error('LIVE 갱신 실패');
+}
+function applyTeamVoiceCommand(){
+  if(!_teamVoiceValidated?.ok)return;
+  const fresh=_teamVoiceValidatePlan(_teamVoiceValidated.plan);
+  if(!fresh.ok){_teamVoiceRenderValidation(fresh);return;}
+  const plan=fresh.plan;
+  if(plan.type==='status'||plan.noChange){closeTeamVoiceCommand();return;}
+  if(plan.type==='open_panel'){
+    closeTeamVoiceCommand();
+    teamLiveOpenPanel(plan.target);
+    if(plan.target==='bracket')setTimeout(scrollToCurrentRound,250);
+    return;
+  }
+  if(plan.type==='set_winner'){
+    const changed=_teamVoiceSetWinner(plan);
+    closeTeamVoiceCommand();
+    if(changed)_teamVoiceToast(`R${plan.round} · ${plan.court}코트 ${_teamVoiceTeamLabel(plan.team)} 승 입력`);
+    return;
+  }
+  if(plan.type==='clear_winner'){
+    _teamVoiceClearWinner(plan);
+    closeTeamVoiceCommand();
+    _teamVoiceToast(`R${plan.round} · ${plan.court}코트 결과 취소`);
+    return;
+  }
+  if(plan.type==='exclude_player'){
+    const liveWasOn=_liveOn;
+    const staleKeys=[...new Set(currentMatches
+      .map((m,i)=>({m,i}))
+      .filter(({m,i})=>plan.fromRound?m.round>=plan.fromRound:!_isMatchDone(i))
+      .map(({m})=>`${m.round||0}_${m.court||0}`))];
+    if(liveWasOn){
+      _teamLiveMutationPending=true;
+      _unbindLiveAdminListener();
+    }
+    _cpFromRound=plan.fromRound;
+    _cpExcluded=new Set([plan.playerName]);
+    _cpNewPlayers=[];
+    closeTeamVoiceCommand();
+    executeChangeModal({
+      onComplete:async()=>{
+        try{
+          await _teamVoiceFinalizeLiveReallocation(plan.playerName,staleKeys);
+          _teamLiveMutationPending=false;
+          if(liveWasOn&&_liveOn)_bindLiveAdminListener();
+          _renderLiveOpsSummary();
+          _teamVoiceToast(`${plan.playerName} 제외 · 남은 대진 재배정 완료`);
+        }catch(error){
+          _teamLiveMutationPending=false;
+          undoAction();
+          setTimeout(()=>{if(liveWasOn&&_liveOn)_bindLiveAdminListener();},180);
+          alert('LIVE 서버 연결을 확인하지 못해 선수 제외를 취소하고 이전 대진을 복원했습니다.\n네트워크를 확인한 뒤 다시 시도해 주세요.');
+        }
+      },
+      onError:()=>{
+        _teamLiveMutationPending=false;
+        if(liveWasOn&&_liveOn)_bindLiveAdminListener();
+      }
+    });
   }
 }
 
@@ -5083,7 +5670,24 @@ function reshuffleMatches(){
   },50);
 }
 
-function executeChangeModal(){
+function _teamSyncAssignmentAfterExclusion(participants,excludedNames){
+  if(!currentSettings?.teamMode||!teamAssignment||!excludedNames?.size)return;
+  const byName=new Map((participants||[]).map(p=>[p.name,p]));
+  const sync=(list,team)=> (list||[])
+    .filter(p=>!excludedNames.has(p.name)&&byName.has(p.name))
+    .map(p=>({...p,...byName.get(p.name),team}));
+  teamAssignment.blue=sync(teamAssignment.blue,'청팀');
+  teamAssignment.white=sync(teamAssignment.white,'홍팀');
+  ['blue','white'].forEach(side=>{
+    if(excludedNames.has(captains[side].leader))captains[side].leader='';
+    if(excludedNames.has(captains[side].sub))captains[side].sub='';
+  });
+  _partners=_partners.filter(pair=>!(pair.members||[]).some(name=>excludedNames.has(name)));
+}
+
+function executeChangeModal(options={}){
+  const onComplete=typeof options?.onComplete==='function'?options.onComplete:null;
+  const onError=typeof options?.onError==='function'?options.onError:null;
   if(currentSettings?.teamMode&&_cpNewPlayers.length){
     alert('팀전에서는 경기 중 새 선수 추가를 할 수 없습니다.\n\n추가된 선수를 비우고 재배정하거나, 전체 새 대진을 생성해 주세요.');
     _cpNewPlayers=[];
@@ -5149,6 +5753,8 @@ function executeChangeModal(){
       _goal: wasJoiner ? (p._njGames!=null?p._njGames:newJoinerGames) : target,
       isNewJoiner: wasJoiner, // 딱지 유지
       _njGames: wasJoiner ? (p._njGames!=null?p._njGames:newJoinerGames) : undefined,
+      partnerName:_cpExcluded.has(p.partnerName)?null:(p.partnerName||null),
+      partnerId:_cpExcluded.has(p.partnerName)?null:(p.partnerId||null),
       lastRoundPlayed:0,
       womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,adjustmentPlayed:0,
       partnerCount:h.partnerCount,opponentCount:h.opponentCount
@@ -5221,7 +5827,9 @@ function executeChangeModal(){
         if(!_directPlayers.some(p=>p.name===np.name))
           _directPlayers.push({name:np.name,grade:np.grade,level:np.level,gender:np.gender,team:np.team||''});
       });
+      _teamSyncAssignmentAfterExclusion(currentParticipants,new Set(_cpExcluded));
       renderDirectPlayerList();
+      if(currentSettings.teamMode&&teamAssignment)renderTeamList();
 
       renderResults(currentMatches,currentParticipants,currentSettings);
       openQualityPanelAfterRender();
@@ -5234,6 +5842,9 @@ function executeChangeModal(){
         updateScores();
         scheduleSave();
         openQualityPanelAfterRender(true);
+        if(onComplete){
+          Promise.resolve(onComplete({matches:currentMatches,participants:currentParticipants})).catch(err=>console.warn('선수 변동 완료 처리 실패',err));
+        }
       },100);
 
       // 빈 코트 경고
@@ -5243,7 +5854,10 @@ function executeChangeModal(){
         _cw.forEach(w=>_msg+='• 라운드 '+w.round+': 코트 '+w.emptyCourts.join(', ')+'\n');
         showWarn(_msg);
       }else{hideWarn();}
-    }catch(err){showErr('재배정 오류: '+err.message);console.error(err);}
+    }catch(err){
+      showErr('재배정 오류: '+err.message);console.error(err);
+      if(onError)Promise.resolve(onError(err)).catch(()=>{});
+    }
     finally{
       document.getElementById('loadingOverlay').classList.remove('on');
       _skipNewFirstRound=true; // 플래그 복원
@@ -6971,6 +7585,7 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
       <div class="team-live-ops-actions">
         <button class="team-live-primary" type="button" onclick="teamLiveOpenPanel('${primaryTarget}')">${esc(primaryLabel)}</button>
         <button class="team-live-secondary" type="button" onclick="rsvpShareLink()">링크 공유</button>
+        <button class="team-live-voice" id="teamLiveVoiceBtn" type="button" onclick="openTeamVoiceCommand()" title="음성으로 승패 입력과 선수 변동 처리">🎙 음성</button>
       </div>
     </div>
     ${chips.length?`<div class="team-live-alert-row">${chips.join('')}</div>`:''}`;
@@ -8486,6 +9101,12 @@ function applyTeamSampleData(){
   generate();
   setTimeout(()=>{
     _rsvpResponses=_teamSampleResponses();
+    if(new URLSearchParams(location.search).get('voicePreview')==='1'){
+      _liveId='TFAKE201';
+      _liveOn=true;
+      _liveMatchStartedAt=Date.now();
+      _updateLiveUI();
+    }
     rsvpRender();
     renderDirectPlayerList();
     renderAutoFlowDashboard();

@@ -504,7 +504,7 @@ button.decline:before,
     <div class="event-panel hidden" id="eventPanel"></div>
     <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">출석 현황</button></div>
     <div class="summary-panel hidden" id="summaryPanel"></div>
-    <span class="version-chip" id="appVersion">v1.10.405</span>
+    <span class="version-chip" id="appVersion">v1.10.406</span>
   </section>
 </main>
 <div id="toast" class="toast"></div>
@@ -522,7 +522,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={},identityLookupOpen=false;
-const APP_VERSION='1.10.405';
+const APP_VERSION='1.10.406';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -596,7 +596,7 @@ function sampleSession(){
     rsvpId:rsvpId||'TFAKE201',createdAt:Date.now()-3600000,updatedAt:Date.now(),
     clubName:'미르클럽',gamesPerPlayer:4,guestLimit:null,
     phase:liveSample?'live':'bracket',bracketReady:true,matchCount:32,roundCount:8,
-    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.405':'',
+    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.406':'',
     members:sampleMembers()
   };
 }
