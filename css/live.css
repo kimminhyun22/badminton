@@ -1827,3 +1827,19 @@ body{
   border-style:dashed!important;
   box-shadow:0 8px 18px rgba(194,65,12,.06)!important;
 }
+
+/* 팀전LIVE는 정상 참가를 기본값으로 두고 늦음만 예외로 표시한다. */
+.viewer-status-actions{grid-template-columns:1fr 1fr;}
+.viewer-state-btn.ready,
+.team-member-att{
+  background:#fff6f6!important;
+  border-color:#f4d0d0!important;
+  color:#b85b60!important;
+}
+.viewer-state-btn.ready.on,
+.team-member-att.on{
+  background:linear-gradient(180deg,#df6b73,#c94f59)!important;
+  border-color:#df6b73!important;
+  color:#fff!important;
+  box-shadow:0 0 0 4px rgba(223,107,115,.15),0 10px 24px rgba(201,79,89,.14)!important;
+}

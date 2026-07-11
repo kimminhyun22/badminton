@@ -34,7 +34,7 @@ const winOverride={};
 const teamNames={blue:'청 팀',white:'홍 팀'};
 const captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 let _liveId='LIVE1';
-let _liveAttendance={};
+let _liveLate={};
 let _liveParty={};
 let _liveResultInputs={};
 let _liveResultConflicts={};
@@ -281,15 +281,15 @@ assert.strictEqual(assignmentState.captains.blue.sub,'','제외 선수의 부단
   assert(aiFailed.aiError.includes('응답이 늦어'),'AI 실패 원인을 사용자에게 안전한 문구로 알려야 합니다.');
 
   api.setRemote({
-    attendance:{김민현:{name:'김민현'},이준호:{name:'이준호'}},
+    late:{김민현:{name:'김민현'},이준호:{name:'이준호'}},
     party:{김민현:{name:'김민현'}},
     resultInputs:{'1_1':{kept:true},'2_1':{stale:true}},
     resultConflicts:{'2_1':{stale:true}}
   });
   await api.finalize('김민현',['2_1']);
   const liveState=api.liveUpdateState();
-  assert(!liveState.lastLiveUpdate.attendance.김민현,'제외 선수의 LIVE 출석 상태는 제거되어야 합니다.');
-  assert(liveState.lastLiveUpdate.attendance.이준호,'남은 선수의 최신 출석 상태는 보존되어야 합니다.');
+  assert(!liveState.lastLiveUpdate.late.김민현,'제외 선수의 LIVE 늦음 표시는 제거되어야 합니다.');
+  assert(liveState.lastLiveUpdate.late.이준호,'남은 선수의 LIVE 늦음 표시는 보존되어야 합니다.');
   assert(liveState.lastLiveUpdate.resultInputs['1_1'],'완료 경기의 회원 승패 입력은 보존되어야 합니다.');
   assert(!liveState.lastLiveUpdate.resultInputs['2_1'],'재생성 경기의 이전 승패 입력은 제거되어야 합니다.');
   assert.strictEqual(liveState.rsvpSessionPushCount,1,'팀전LIVE 회원 명단을 다시 저장해야 합니다.');

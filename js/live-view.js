@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.410';
+const APP_VERSION='1.10.411';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -850,20 +850,31 @@ function _attKey(name){
   return encodeURIComponent(String(name||'')).replace(/[.#$\[\]\/']/g,'_');
 }
 
-function _attOn(name){
-  return !!(window._liveAttendance && window._liveAttendance[_attKey(name)]);
+function _lateOn(name){
+  return !!(window._liveLate && window._liveLate[_attKey(name)]);
 }
 
 function _partyOn(name){
   return !!(window._liveParty && window._liveParty[_attKey(name)]);
 }
 
-function _hasAttendanceData(){
-  return !!(window._liveAttendanceSeeded || (window._liveAttendance && Object.keys(window._liveAttendance).length));
-}
-
-function _expectedOn(name){
-  return !!(_hasAttendanceData() && !_attOn(name));
+function _lateMapFromData(d){
+  if(d?.late&&typeof d.late==='object')return d.late;
+  if(!d||(!d.attendanceSeeded&&d.attendanceMode!=='rsvp'))return {};
+  const arrived=d.attendance||{};
+  const out={};
+  const members=d.members||{};
+  const add=(list,team)=>{
+    (list||[]).forEach(p=>{
+      const name=String(p?.n||p?.name||'').trim();
+      if(!name||arrived[_attKey(name)])return;
+      out[_attKey(name)]={name,team,ts:d.updatedAt||Date.now(),source:'legacy-rsvp-late'};
+    });
+  };
+  add(members.blue,'blue');
+  add(members.red,'red');
+  add(members.all,'all');
+  return out;
 }
 
 function _normalizeMembers(list){
@@ -876,8 +887,8 @@ function _sortMembers(list){
   const roleRank=p=>p.isLeader?0:p.isSub?1:2;
   const genderRank=p=>p.g==='M'?0:p.g==='F'?1:2;
   return arr.sort((a,b)=>{
-    if(sort==='att'){
-      const av=_expectedOn(a.n)?0:1, bv=_expectedOn(b.n)?0:1;
+    if(sort==='late'||sort==='att'){
+      const av=_lateOn(a.n)?0:1, bv=_lateOn(b.n)?0:1;
       if(av!==bv) return av-bv;
     }
     if(sort==='role'){
@@ -1124,11 +1135,10 @@ function _viewerScheduleHtml(d,current){
 function _viewerStatusButtons(current){
   const nameArg=JSON.stringify(current.n).replace(/"/g,'&quot;');
   const teamKey=current.team||'';
-  const expectedOn=_expectedOn(current.n);
+  const lateOn=_lateOn(current.n);
   const partyOn=_partyOn(current.n);
   return '<div class="viewer-status-actions">'
-    +'<button type="button" class="viewer-state-btn attend on static" aria-disabled="true">출석</button>'
-    +'<button type="button" class="viewer-state-btn ready '+(expectedOn?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(expectedOn?'도착':'늦음')+'</button>'
+    +'<button type="button" class="viewer-state-btn ready '+(lateOn?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(lateOn?'늦음 취소':'늦음')+'</button>'
     +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
   +'</div>';
 }
@@ -1299,25 +1309,25 @@ function closeTeamRoster(){
   }
 }
 
-async function toggleMemberAttendance(name, team){
+async function toggleMemberLate(name, team){
   if(!name) return;
   if(!liveDb || !liveId){
     alert('늦음 표시를 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
     return;
   }
   const key=_attKey(name);
-  const ref=liveDb.ref('live/'+liveId+'/attendance/'+key);
+  const ref=liveDb.ref('live/'+liveId+'/late/'+key);
   try{
-    if(_expectedOn(name)){
+    if(_lateOn(name)){
+      await ref.remove();
+    } else {
+      if(!confirm(name+'님을 늦음으로 표시할까요?')) return;
       await ref.set({
         name:name,
         team:team||'',
-        source:'arrived',
+        source:'member-late',
         ts:firebase.database.ServerValue.TIMESTAMP
       });
-    } else {
-      if(!confirm(name+'님을 늦음으로 표시할까요?')) return;
-      await ref.remove();
     }
   }catch(e){
     alert('늦음 표시 저장 실패: '+e.message);
@@ -1356,17 +1366,16 @@ function buildTeamRosterCard(d){
   const showTeam=!!(d.isTeam && (blue.length||red.length));
   const showSolo=!showTeam && !!solo.length;
   if(!showTeam && !showSolo) return '';
-  const attendance=d.attendance||{};
+  const late=_lateMapFromData(d);
   const party=d.party||{};
-  window._liveAttendance=attendance;
+  window._liveLate=late;
   window._liveParty=party;
-  window._liveAttendanceSeeded=!!(d && (d.attendanceSeeded || d.attendanceMode==='rsvp'));
   const mk=(list,teamKey)=>{
     const arr=_sortMembers(list);
     if(!arr.length) return '<div class="faq-note">명단이 없습니다.</div>';
     return arr.map(p=>{
       const badge=p.isLeader?'<span class="team-member-badge" title="단장">단</span>':p.isSub?'<span class="team-member-badge" title="부단장">부</span>':'';
-      const on=_expectedOn(p.n);
+      const on=_lateOn(p.n);
       const partyOn=_partyOn(p.n);
       const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
       const genderCls=p.g==='F'?'female':p.g==='M'?'male':'';
@@ -1378,28 +1387,28 @@ function buildTeamRosterCard(d){
         +'<span class="team-member-name">'+esc(p.n)+'</span>'
         +badges
         +'<div class="team-member-actions">'
-          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberAttendance('+nameArg+',\''+teamKey+'\')">'+(on?'도착':'늦음')+'</button>'
+          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(on?'늦음 취소':'늦음')+'</button>'
           +'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
         +'</div>'
       +'</div>';
     }).join('');
   };
   const all=showTeam?[...blue,...red]:solo;
-  const attCount=all.filter(p=>_expectedOn(p.n)).length;
+  const lateCount=all.filter(p=>_lateOn(p.n)).length;
   const partyCount=all.filter(p=>_partyOn(p.n)).length;
   const sortBtn=(key,label)=>'<button type="button" class="team-roster-sort '+(_teamRosterSort===key?'active':'')+'" onclick="setTeamRosterSort(\''+key+'\')">'+label+'</button>';
   return '<details class="info-details primary" id="teamRoster" '+(_teamRosterOpen?'open':'')+' ontoggle="setTeamRosterOpen(this.open)">'
     +'<summary>'+(showTeam?'팀 명단':'명단')+' · 늦음 · 뒷풀이</summary>'
     +'<div class="info-body">'
       +'<section class="team-roster-card">'
-        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>늦음 '+attCount+'/'+all.length+' · 뒷풀이 '+partyCount+'명</span></div>'
+        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>늦음 '+lateCount+'명 · 뒷풀이 '+partyCount+'명</span></div>'
         +'<div class="team-att-summary"><b>늦음</b> · <b>뒷풀이</b> 확인</div>'
-        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('att','늦음')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
+        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','늦음')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
         +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
           +(showTeam
-            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>'+blue.filter(p=>_expectedOn(p.n)).length+'/'+blue.length+'명</small></div>'+mk(blue,'blue')+'</div>'
-              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>'+red.filter(p=>_expectedOn(p.n)).length+'/'+red.length+'명</small></div>'+mk(red,'red')+'</div>'
-            :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>'+attCount+'/'+solo.length+'명</small></div>'+mk(solo,'all')+'</div>')
+            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>늦음 '+blue.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(blue,'blue')+'</div>'
+              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>늦음 '+red.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(red,'red')+'</div>'
+            :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>늦음 '+lateCount+'명</small></div>'+mk(solo,'all')+'</div>')
         +'</div>'
         +'<button type="button" class="team-roster-close" onclick="closeTeamRoster()">▲ 명단 접기</button>'
       +'</section>'
@@ -1417,7 +1426,7 @@ function _isImminentMatch(m){
 function _playerLine(name,d){
   const n=String(name||'');
   if(!n) return '<div class="live-player">-</div>';
-  const flag=!!(d&&_expectedOn(n));
+  const flag=!!(d&&_lateOn(n));
   return '<div class="live-player '+(flag?'not-ready':'')+'">'+esc(n)
     +(flag?'<span class="ready-badge">늦음</span>':'')
   +'</div>';
@@ -1499,9 +1508,8 @@ function buildNextPanel(nextMatches,d){
 function render(d){
   _randomizeViewerGender();
   window._lastLiveData=d;
-  window._liveAttendance=d.attendance||{};
+  window._liveLate=_lateMapFromData(d);
   window._liveParty=d.party||{};
-  window._liveAttendanceSeeded=!!(d && (d.attendanceSeeded || d.attendanceMode==='rsvp'));
   const matches=(d.matches||[]).map((m,i)=>Object.assign({},m,{_idx:i,_key:_matchKey(m)}));
   const byRound={};
   matches.forEach(m=>{ (byRound[m.round]=byRound[m.round]||[]).push(m); });

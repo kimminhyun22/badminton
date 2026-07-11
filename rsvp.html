@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#5b8def">
-<title>콕매치 팀전LIVE 출석</title>
+<title>콕매치 팀전LIVE</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -104,16 +104,20 @@ h1{margin:8px 0 8px;font-size:27px;line-height:1.18;letter-spacing:-.5px}
 .member.recent{border-color:#bbf7d0;box-shadow:0 0 0 3px rgba(53,165,106,.12)}
 .member.attending{border-color:#86efac;background:linear-gradient(180deg,#fff,#fbfffd)}
 .member.ready-state{border-color:#bfdbfe;background:linear-gradient(180deg,#fff,#f8fbff)}
+.member.late-state{border-color:#f3c7c9;background:linear-gradient(180deg,#fff,#fff8f8)}
 .member.declined{opacity:.78}
 .mhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:11px}
 .name{font-size:18px;font-weight:900;line-height:1.35}
 .meta{color:var(--mut);font-size:13px;margin-top:3px;line-height:1.45}
+.member-note{margin:0 0 9px;color:#6f7a8a;font-size:12px;font-weight:800;line-height:1.5}
 .badge{padding:7px 10px;border-radius:999px;background:#f2f5fa;color:#4b5668;font-weight:900;font-size:12px;white-space:nowrap}
 .badge.attend{background:#ecfdf3;color:#166534}
 .badge.ready{background:#eff6ff;color:#1d4ed8}
+.badge.late{background:#fff1f2;color:#be4450}
 .badge.decline{background:#f1f5f9;color:#64748b}
 .badge.maybe{background:#fffbeb;color:#92400e}
 .actions{display:grid;grid-template-columns:minmax(0,1.15fr) auto minmax(0,1fr);gap:8px;align-items:center}
+.actions.late-only{grid-template-columns:1fr}
 .checkin-submit{min-width:0}
 .plan-chip{
   min-width:58px;
@@ -127,12 +131,12 @@ h1{margin:8px 0 8px;font-size:27px;line-height:1.18;letter-spacing:-.5px}
 .party-toggle.selected{background:linear-gradient(180deg,#f0a73a,#d68d22);border-color:#f0a73a;color:#fff}
 button{appearance:none;border:0;border-radius:15px;padding:12px 8px;font:inherit;font-weight:900;background:#f2f5fa;color:#273246;min-height:50px}
 button.attend,button.ready{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px}
-button.attend{background:#eaf8f0;color:#187347}
+button.attend{background:#fff5f5;color:#be4450}
 button.ready{background:#eef5ff;color:#1d4ed8}
 button.maybe{background:#fff5df;color:#9a610b}
 button.decline{background:#f1f5f9;color:#64748b}
 button.selected{transform:translateY(-1px);box-shadow:0 10px 24px rgba(24,32,45,.14),0 0 0 3px rgba(91,141,239,.16)}
-button.attend.selected{background:#16834f;color:#fff}
+button.attend.selected{background:#d85d66;color:#fff}
 button.ready.selected{background:#3b82f6;color:#fff}
 button.maybe.selected{background:#b7791f;color:#fff}
 button.decline.selected{background:#64748b;color:#fff}
@@ -193,7 +197,7 @@ h1,.name,.summary-top,.event-title{color:var(--txt);letter-spacing:-.04em;}
   border-color:#bfd4fb;
   color:var(--blue-deep);
 }
-button.attend{background:#f3fbf6;color:#24784d;border-color:#ccebd8;}
+button.attend{background:#fff6f6;color:#b85b60;border-color:#f4d0d0;}
 button.ready{background:#f3f7ff;color:#2767c8;border-color:#cfe0ff;}
 button.maybe{background:#fffaf2;color:#9a650c;border-color:#edd5aa;}
 button.decline{background:#f7f9fc;color:#5f6b7c;border-color:var(--line2);}
@@ -202,9 +206,10 @@ button.selected{
   box-shadow:0 0 0 4px rgba(53,165,106,.14),0 12px 28px rgba(53,165,106,.16);
 }
 button.attend.selected{
-  background:linear-gradient(180deg,#35a56a,#2c8f5a);
-  border-color:#35a56a;
+  background:linear-gradient(180deg,#df6b73,#c94f59);
+  border-color:#df6b73;
   color:#fff;
+  box-shadow:0 0 0 4px rgba(223,107,115,.16),0 12px 28px rgba(201,79,89,.16);
 }
 button.ready.selected{
   background:linear-gradient(180deg,#5b8def,#3f6fd0);
@@ -492,19 +497,15 @@ button.decline:before,
     </div>
   </section>
   <section class="hero event-hero">
-    <div class="eyebrow">KOKMATCH RSVP</div>
-    <h1 id="title">팀전LIVE 출석</h1>
+    <div class="eyebrow">KOKMATCH TEAM LIVE</div>
+    <h1 id="title">팀전LIVE</h1>
     <p class="sub" id="sessionSub">팀전LIVE 명부를 불러오는 중입니다.</p>
-    <div class="notice">이름을 선택한 뒤 출석을 눌러주세요.</div>
+    <div class="notice">내 이름을 확인하면 실중계로 바로 들어갈 수 있습니다. 늦는 경우에만 표시해 주세요.</div>
     <div class="my-state hidden" id="myState"></div>
-    <div class="rsvp-hidden-metrics">
-      <div class="stat"><b id="attendCount">0</b><span>출석</span></div>
-      <div class="stat"><b id="guestCount">0</b><span>뒷풀이</span></div>
-    </div>
     <div class="event-panel hidden" id="eventPanel"></div>
-    <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">출석 현황</button></div>
+    <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">늦음 현황</button></div>
     <div class="summary-panel hidden" id="summaryPanel"></div>
-    <span class="version-chip" id="appVersion">v1.10.410</span>
+    <span class="version-chip" id="appVersion">v1.10.411</span>
   </section>
 </main>
 <div id="toast" class="toast"></div>
@@ -521,8 +522,8 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,arrivalChoices={},identityLookupOpen=false;
-const APP_VERSION='1.10.410';
+let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,identityLookupOpen=false;
+const APP_VERSION='1.10.411';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -596,7 +597,7 @@ function sampleSession(){
     rsvpId:rsvpId||'TFAKE201',createdAt:Date.now()-3600000,updatedAt:Date.now(),
     clubName:'미르클럽',gamesPerPlayer:4,guestLimit:null,
     phase:liveSample?'live':'bracket',bracketReady:true,matchCount:32,roundCount:8,
-    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.410':'',
+    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.411':'',
     members:sampleMembers()
   };
 }
@@ -607,7 +608,7 @@ function sampleResponses(){
       {name:'현장게스트A',gender:'남',grade:'C',ageGroup:'40대'},
       {name:'현장게스트A2',gender:'여',grade:'D',ageGroup:'40대'}
     ]:i===15?[{name:'현장게스트B',gender:'여',grade:'C',ageGroup:'40대'}]:[];
-    const status=i%6===0?'attend':'ready';
+    const status=i%6===0?'late':'none';
     out[m.id]=responseFor(m,status,{guests,party:i%7===0});
     out[m.id].updatedAt=Date.now()-i*60000;
     out[m.id].source='sample-rsvp';
@@ -669,10 +670,10 @@ function clearRsvpIdentity(){
 function selectRsvpIdentity(memberId){
   const m=(session?.members||[]).find(x=>x.id===memberId);
   if(!m)return toast('회원 정보를 찾지 못했습니다.');
-  const ok=confirm(`${m.name}님 본인이 맞나요?\n\n이 휴대폰에서 내 페이지로 고정됩니다. 다른 사람 이름으로 누르면 출석 확인이 잘못될 수 있어요.`);
+  const ok=confirm(`${m.name}님 본인이 맞나요?\n\n이 휴대폰에서 내 팀전 페이지로 고정됩니다.`);
   if(!ok)return;
   const current=memberResponse(memberId)||{};
-  const status=isAttendStatus(current.status)?current.status:'none';
+  const status=normalizeLateStatus(current.status);
   setLast(responseFor(m,status,{
     guests:guestListFor(current),
     partnerRequest:current.partnerRequest||null,
@@ -703,30 +704,10 @@ function liveUrlWithViewer(url){
     return url+sep+'viewer='+encodeURIComponent(last.memberName)+(last.memberId?'&member='+encodeURIComponent(last.memberId):'');
   }
 }
-function isAttendStatus(s){return s==='attend'||s==='ready';}
-function statusLabel(s){return s==='ready'?'출석':s==='attend'?'늦음':'미응답';}
-function guestStatusValue(s){return s==='ready'||s==='attend'||s==='none'||s==='decline'?s:'';}
-function arrivalChoice(memberId,currentStatus){
-  if(arrivalChoices[memberId])return arrivalChoices[memberId];
-  return isAttendStatus(currentStatus)?currentStatus:'ready';
-}
-function setArrivalChoice(memberId,status){
-  if(status!=='ready'&&status!=='attend')return;
-  arrivalChoices[memberId]=status;
-  render();
-}
-function sendSelectedStatus(memberId){
-  const current=memberResponse(memberId);
-  sendStatus(memberId,arrivalChoice(memberId,current?.status||'none'));
-}
-function toggleArrivalPlan(memberId){
-  const current=memberResponse(memberId);
-  const next=arrivalChoice(memberId,current?.status||'none')==='attend'?'ready':'attend';
-  setArrivalChoice(memberId,next);
-  if(isAttendStatus(current?.status)){
-    sendStatus(memberId,next);
-  }
-}
+function isLateStatus(s){return s==='late'||s==='attend';}
+function normalizeLateStatus(s){return isLateStatus(s)?'late':'none';}
+function statusLabel(s){return isLateStatus(s)?'늦음':'정상';}
+function guestStatusValue(s){return s==='late'||s==='attend'||s==='ready'||s==='none'||s==='decline'?s:'';}
 function responseValues(){
   const members=session?.members||[];
   const ids=new Set(members.map(m=>m.id));
@@ -766,8 +747,7 @@ function counts(){
   const members=session?.members||[];
   const vals=responseValues();
   return {
-    attend:vals.filter(r=>isAttendStatus(r.status)).length,
-    ready:vals.filter(r=>r.status==='ready').length,
+    late:vals.filter(r=>isLateStatus(r.status)).length,
     guest:guestTotal(vals),
     party:vals.filter(r=>r.party).length,
     pending:Math.max(0,members.length-vals.length)
@@ -790,7 +770,7 @@ function shortDate(ts){
 }
 function sessionDisplayTitle(){
   const raw=String(session?.title||'').trim();
-  if(!raw)return '팀전LIVE 출석';
+  if(!raw)return '팀전LIVE';
   const club=String(session?.clubName||'').trim();
   if(club){
     const escaped=club.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -802,8 +782,6 @@ function sessionDisplayTitle(){
 }
 function renderHeader(){
   const c=counts();
-  document.getElementById('attendCount').textContent=c.attend;
-  document.getElementById('guestCount').textContent=c.party;
   const title=sessionDisplayTitle();
   document.getElementById('title').textContent=title;
   const sub=document.getElementById('sessionSub');
@@ -828,42 +806,27 @@ function renderSummaryPanel(){
   const panel=document.getElementById('summaryPanel');
   const btn=document.getElementById('summaryToggle');
   if(!panel||!btn)return;
-  btn.textContent=summaryOpen?'출석 현황 접기':'출석 현황';
+  btn.textContent=summaryOpen?'늦음 현황 접기':'늦음 현황';
   if(!summaryOpen||!session){
     panel.className='summary-panel hidden';
     panel.innerHTML='';
     return;
   }
   const vals=responseValues().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-  const attend=vals.filter(r=>isAttendStatus(r.status));
-  const ready=vals.filter(r=>r.status==='ready');
-  const planned=vals.filter(r=>r.status==='attend');
-  const guestEntries=vals.flatMap(r=>guestListFor(r).map(g=>({response:r,guest:g})));
+  const late=vals.filter(r=>isLateStatus(r.status));
   const parties=vals.filter(r=>r.party);
-  const limit=guestLimit();
   const last=getLast();
-  const myText=last?`${esc(last.memberName||'나')} · ${esc(statusLabel(last.status))}`:'아직 이 기기에서 신청한 기록이 없습니다.';
-  const guestRows=guestEntries.length?guestEntries.map(item=>{
-    const r=item.response;
-    const g=item.guest||{};
-    return `<div class="summary-row"><b>${esc(g.name||'게스트')}</b><span>${esc(g.gender||'?')} · ${esc(g.grade||'?')}급<br>신청자 ${esc(r.memberName||r.name||'확인 필요')}</span></div>`;
-  }).join(''):'<div class="summary-empty">신청된 게스트가 없습니다.</div>';
+  const myText=last?`${esc(last.memberName||'나')} · ${isLateStatus(last.status)?'늦음 표시':'참가 명단 확인'}`:'내 이름을 먼저 확인해 주세요.';
   panel.className='summary-panel';
   panel.innerHTML=`
-    <div class="summary-top">내 신청 확인: ${myText}</div>
+    <div class="summary-top">내 상태: ${myText}</div>
     <div class="summary-grid">
-      <div class="summary-chip"><b>${attend.length}</b><span>출석</span></div>
-      <div class="summary-chip"><b>${planned.length}</b><span>늦음</span></div>
+      <div class="summary-chip"><b>${late.length}</b><span>늦음</span></div>
       <div class="summary-chip"><b>${parties.length}</b><span>뒷풀이</span></div>
-      <div class="summary-chip"><b>${guestEntries.length}${limit?`/${limit}`:''}</b><span>게스트 신청</span></div>
     </div>
     <div class="summary-section">
-      <div class="summary-section-title">참가자</div>
-      <div class="summary-names">${summaryNames(attend)}</div>
-    </div>
-    <div class="summary-section">
-      <div class="summary-section-title">게스트 신청 내역</div>
-      ${guestRows}
+      <div class="summary-section-title">늦음 표시</div>
+      <div class="summary-names">${summaryNames(late)}</div>
     </div>`;
 }
 function renderEventPanel(){
@@ -872,11 +835,18 @@ function renderEventPanel(){
   if(!session){panel.className='event-panel hidden';panel.innerHTML='';return;}
   const liveUrl=session.liveUrl||'';
   if(session.phase==='live'&&liveUrl){
+    const selected=selectedMemberFromLast();
+    if(!selected){
+      panel.className='event-panel';
+      panel.innerHTML=`<div class="event-title">팀전LIVE 진행 중</div>
+        <div class="event-desc">내 이름을 먼저 확인하면 실중계 버튼이 열립니다.</div>`;
+      return;
+    }
     const linkedLiveUrl=liveUrlWithViewer(liveUrl);
     panel.className='event-panel live';
     panel.innerHTML=`<div class="event-title">팀전LIVE 진행 중</div>
       <div class="event-desc">지금 경기와 승패 현황을 확인하세요.</div>
-      <div class="event-actions"><a class="event-btn" href="${esc(linkedLiveUrl)}">실시간 현황 보기</a></div>`;
+      <div class="event-actions"><a class="event-btn" href="${esc(linkedLiveUrl)}">실중계 들어가기</a></div>`;
     return;
   }
   if(session.bracketReady){
@@ -945,7 +915,7 @@ function renderIdentityPanel(selected){
 }
 function memberSelectCard(m,recent){
   const r=memberResponse(m.id);
-  const normalized=isAttendStatus(r?.status)?r.status:'none';
+  const normalized=normalizeLateStatus(r?.status);
   const badge=normalized==='none'?'':statusLabel(normalized);
   const partyOn=!!r?.party;
   const meta=[m.club||'소속 없음',m.gender||'',`${m.grade||'C'}급`,badge,partyOn?'뒷풀이':''].filter(Boolean).join(' · ');
@@ -963,59 +933,28 @@ function memberSelectCard(m,recent){
 function memberCard(m,recent){
   const r=memberResponse(m.id);
   const status=r?.status||'none';
-  const guests=guestListFor(r);
   const partyOn=!!r?.party;
-  const partner=r?.partnerRequest||null;
-  const normalized=isAttendStatus(status)?status:'none';
+  const normalized=normalizeLateStatus(status);
   const badge=normalized==='none'?'':statusLabel(normalized);
-  const guestOpen=guests.length?' open':'';
-  const partnerOpen=partner?.memberId?' open':'';
   const optionOpen=partyOn?' open':'';
-  const choice=arrivalChoice(m.id,normalized);
-  const selected=s=>choice===s?' selected':'';
   const disabled=sendingKey?'disabled':'';
-  const closed=guestLimitReached(m.id);
-  const memberState=normalized==='ready'?'ready-state':normalized==='attend'?'attending':'';
-  const guestSummary=guests.length?`게스트 ${guests.length}명 신청됨`:(closed?'게스트 신청 마감':'게스트 신청/수정');
-  const guestListHtml=guests.length?`<div class="guest-list">${guests.map((g,i)=>`
-    <div class="guest-item">
-      <span>${esc(g.name)} · ${esc(g.gender)} · ${esc(g.grade)}급${guestStatusValue(g.status)?` · ${esc(statusLabel(g.status))}`:''}</span>
-      <button type="button" class="guest-remove" onclick="event.stopPropagation();removeGuest('${esc(m.id)}',${i})">삭제</button>
-    </div>`).join('')}</div>`:'';
-  const partnerSummary=partner?.memberName?`P 신청: ${esc(partner.memberName)}`:'P 파트너 신청';
+  const memberState=isLateStatus(normalized)?'late-state':'';
   return `<article class="member ${recent?'recent':''} ${memberState}">
     <div class="mhead">
       <div>
         <div class="name">${esc(m.name)}</div>
-        <div class="meta">${esc(m.club||'소속 없음')} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급${guests.length?` · 게스트 ${guests.length}명`:''}</div>
+        <div class="meta">${esc(m.club||'소속 없음')} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급</div>
       </div>
       ${badge?`<span class="badge ${esc(normalized)}">${esc(badge)}</span>`:''}
     </div>
-    <div class="actions">
-      <button class="checkin-submit ready${isAttendStatus(normalized)?' selected':''}" ${disabled} onclick="sendSelectedStatus('${esc(m.id)}')">${isAttendStatus(normalized)?'출석✓':'출석'}</button>
-      <button class="plan-chip attend${selected('attend')}" ${disabled} onclick="toggleArrivalPlan('${esc(m.id)}')">${choice==='attend'?'늦음✓':'늦음'}</button>
+    <div class="member-note">참가 명단에 확정되어 있습니다. 늦는 경우에만 표시하세요.</div>
+    <div class="actions late-only">
+      <button class="plan-chip attend${isLateStatus(normalized)?' selected':''}" ${disabled} onclick="toggleLateStatus('${esc(m.id)}')">${isLateStatus(normalized)?'늦음 취소':'늦음'}</button>
     </div>
     <details class="optional-actions"${optionOpen}>
       <summary>${partyOn?'뒷풀이 신청됨':'추가 선택'}</summary>
       <div class="option-row">
         <button class="party-toggle${partyOn?' selected':''}" ${disabled} onclick="toggleParty('${esc(m.id)}')">${partyOn?'뒷풀이 취소':'뒷풀이 신청'}</button>
-      </div>
-    </details>
-    <details class="guest"${guestOpen}>
-      <summary>${guestSummary}</summary>
-      <div class="guest-body">
-        ${guestListHtml}
-        <input id="gName_${esc(m.id)}" placeholder="게스트 이름" value="">
-        <select id="gGender_${esc(m.id)}"><option value="남">남</option><option value="여">여</option></select>
-        <select id="gGrade_${esc(m.id)}">${['E','D','C','B','A','S'].map(g=>`<option value="${g}" ${g==='C'?'selected':''}>${g}</option>`).join('')}</select>
-        <button ${closed?'disabled':''} onclick="saveGuest('${esc(m.id)}')">${closed?'게스트 신청 마감':'게스트 추가하고 출석'}</button>
-      </div>
-    </details>
-    <details class="partner-request"${partnerOpen}>
-      <summary>${partnerSummary}</summary>
-      <div class="partner-body">
-        <select id="pReq_${esc(m.id)}">${partnerOptions(m.id,partner?.memberId||'')}</select>
-        <button onclick="savePartnerRequest('${esc(m.id)}')">${partner?.memberId?'수정':'저장'}</button>
       </div>
     </details>
   </article>`;
@@ -1056,7 +995,7 @@ async function toggleParty(memberId){
   const m=(session.members||[]).find(x=>x.id===memberId);
   if(!m)return toast('회원 정보를 찾지 못했습니다.');
   const current=memberResponse(memberId);
-  const status=isAttendStatus(current?.status)?current.status:arrivalChoice(memberId,'none');
+  const status=normalizeLateStatus(current?.status);
   const nextParty=!current?.party;
   sendingKey=memberId+'_party';render();
   const payload=responseFor(m,status,{party:nextParty});
@@ -1068,7 +1007,15 @@ async function toggleParty(memberId){
     return toast(`${m.name} · 뒷풀이 ${nextParty?'참석':'취소'} 반영됨`);
   }
   try{
-    await db.ref(path()+'/responses/'+memberId).set(payload);
+    const updates={};
+    updates[path()+'/responses/'+memberId]=payload;
+    const activeLiveId=session?.phase==='live'?liveIdFromUrl(session.liveUrl):'';
+    if(activeLiveId){
+      updates['live/'+activeLiveId+'/party/'+liveLateKey(m.name)]=nextParty
+        ?{name:m.name,team:'',source:'member-party',ts:firebase.database.ServerValue.TIMESTAMP}
+        :null;
+    }
+    await db.ref().update(updates);
     responses[memberId]=payload;
     setLast(payload);
     toast(`${m.name} · 뒷풀이 ${nextParty?'참석':'취소'} 저장 완료`);
@@ -1077,6 +1024,28 @@ async function toggleParty(memberId){
   }finally{
     sendingKey='';render();
   }
+}
+function liveLateKey(name){
+  return encodeURIComponent(String(name||'')).replace(/[.#$[\]\/]/g,'_');
+}
+function liveLateUpdates(m,payload){
+  const updates={};
+  updates[path()+'/responses/'+m.id]=payload;
+  const activeLiveId=session?.phase==='live'?liveIdFromUrl(session.liveUrl):'';
+  if(activeLiveId){
+    updates['live/'+activeLiveId+'/late/'+liveLateKey(m.name)]=isLateStatus(payload.status)
+      ?{name:m.name,team:'',source:'member-late',ts:firebase.database.ServerValue.TIMESTAMP}
+      :null;
+  }
+  return updates;
+}
+function toggleLateStatus(memberId){
+  const m=(session?.members||[]).find(x=>x.id===memberId);
+  if(!m)return toast('회원 정보를 찾지 못했습니다.');
+  const current=memberResponse(memberId);
+  const next=isLateStatus(current?.status)?'none':'late';
+  if(next==='late'&&!confirm(`${m.name}님을 늦음으로 표시할까요?\n\n관리자가 대체 선수를 확인할 수 있도록 표시됩니다.`))return;
+  sendStatus(memberId,next);
 }
 async function sendStatus(memberId,status){
   if((!db&&!isSampleMode())||!session||sendingKey)return;
@@ -1096,7 +1065,7 @@ async function sendStatus(memberId,status){
     return toast(`${m.name} · ${statusLabel(status)} 반영됨`);
   }
   try{
-    await db.ref(path()+'/responses/'+memberId).set(payload);
+    await db.ref().update(liveLateUpdates(m,payload));
     responses[memberId]=payload;
     setLast(payload);
     toast(`${m.name} · ${statusLabel(status)} 전송 완료`);
@@ -1126,7 +1095,7 @@ async function saveGuest(memberId){
   if(guests.some(g=>keyOf(g)===keyOf(guest)))return toast('이미 추가된 게스트입니다.');
   const nextGuests=[...guests,guest];
   sendingKey=memberId+'_guest';render();
-  const payload=responseFor(m,arrivalChoice(m.id,current?.status||'none'),{guests:nextGuests});
+  const payload=responseFor(m,normalizeLateStatus(current?.status),{guests:nextGuests});
   if(isSampleMode()){
     responses[memberId]=payload;
     setLast(payload);
@@ -1154,7 +1123,7 @@ async function removeGuest(memberId,index){
   if(index<0||index>=guests.length)return toast('삭제할 게스트를 찾지 못했습니다.');
   guests.splice(index,1);
   sendingKey=memberId+'_guest_remove';render();
-  const payload=responseFor(m,arrivalChoice(m.id,current?.status||'none'),{guests});
+  const payload=responseFor(m,normalizeLateStatus(current?.status),{guests});
   if(isSampleMode()){
     responses[memberId]=payload;
     setLast(payload);
@@ -1191,7 +1160,7 @@ async function savePartnerRequest(memberId){
   const partnerId=document.getElementById('pReq_'+memberId)?.value||'';
   const partner=(session.members||[]).find(x=>x.id===partnerId);
   const current=memberResponse(memberId);
-  const status=isAttendStatus(current?.status)?current.status:'attend';
+  const status=normalizeLateStatus(current?.status);
   const partnerRequest=partner?{
     memberId:partner.id,
     memberName:partner.name,
