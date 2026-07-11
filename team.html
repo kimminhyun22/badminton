@@ -9,13 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.413  (2026-06)
+     APP VERSION: 1.10.414  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.413">
-<!-- Firebase App Check용 공개 reCAPTCHA Enterprise 사이트 키 -->
-<meta name="firebase-app-check-site-key" content="6LfspU0tAAAAAMGsRpLVdJsTBPnEWk0fJINVGsSj">
+<meta name="app-version" content="1.10.414">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -54,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.413&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.413&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.414&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.414&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -458,42 +456,6 @@
   </div>
 </div>
 
-<!-- ── 팀전LIVE 음성 운영 모달 ── -->
-<div class="modal-overlay hidden" id="teamVoiceModal">
-  <div class="modal-box team-voice-modal" role="dialog" aria-modal="true" aria-labelledby="teamVoiceTitle">
-    <div class="modal-head">
-      <span id="teamVoiceTitle">음성 운영</span>
-      <button type="button" onclick="closeTeamVoiceCommand()" aria-label="닫기">✕</button>
-    </div>
-    <div class="modal-body team-voice-body">
-      <button class="team-voice-mic" id="teamVoiceMicBtn" type="button"
-        onclick="toggleTeamVoiceListening()" aria-label="음성 명령 듣기">
-        <span aria-hidden="true">🎙</span>
-        <small id="teamVoiceMicLabel">말하기</small>
-      </button>
-      <div class="team-voice-status" id="teamVoiceStatus" aria-live="polite">명령을 말씀해 주세요.</div>
-      <div class="team-voice-input-row">
-        <label class="sr-only" for="teamVoiceInput">팀전LIVE 명령</label>
-        <input id="teamVoiceInput" type="text" autocomplete="off" maxlength="80"
-          placeholder="예: 1코트 청팀 승"
-          inputmode="text" enterkeyhint="done" autocapitalize="off" spellcheck="false"
-          onpointerdown="stopTeamVoiceListeningForText()"
-          onfocus="stopTeamVoiceListeningForText()"
-          oninput="resetTeamVoicePlan()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();analyzeTeamVoiceCommand();}">
-        <button type="button" id="teamVoiceAnalyzeBtn" onclick="analyzeTeamVoiceCommand()">확인</button>
-      </div>
-      <div class="team-voice-feedback" id="teamVoiceFeedback" aria-live="polite"></div>
-      <div class="team-voice-plan hidden" id="teamVoicePlan"></div>
-    </div>
-    <div class="team-voice-footer">
-      <button class="team-voice-cancel" type="button" onclick="closeTeamVoiceCommand()">취소</button>
-      <button class="team-voice-apply" id="teamVoiceApplyBtn" type="button"
-        onclick="applyTeamVoiceCommand()" disabled>적용</button>
-    </div>
-  </div>
-</div>
-
 <!-- ═══════════════ ROSTER PAGE ═══════════════ -->
 <div class="page" id="pageRoster">
 <div class="wrap">
@@ -746,7 +708,6 @@
 </div>
 
 <script src="js/team.js"></script>
-<script type="module" src="js/team-ai.js?v=1.10.413"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()">
@@ -829,7 +790,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.413</span>
+  <span class="app-version" id="appVersion">v1.10.414</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

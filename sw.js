@@ -1,5 +1,5 @@
 // network-first 서비스워커: PWA(홈 화면 설치본)도 항상 최신 코드를 받도록 함
-const CACHE = 'badminton-v1.10.413';
+const CACHE = 'badminton-v1.10.414';
 const FILES = [
   '/badminton/',
   '/badminton/index.html',
@@ -13,7 +13,6 @@ const FILES = [
   '/badminton/js/storage.js',
   '/badminton/js/daily.js',
   '/badminton/js/team.js',
-  '/badminton/js/team-ai.js',
   '/badminton/js/live-view.js'
 ];
 
