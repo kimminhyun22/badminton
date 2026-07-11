@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.412';
+const APP_VERSION = '1.10.413';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4818,11 +4818,13 @@ function setSaveStatus(type,msg){
 
   // 모바일 바 동기화
   const mel=document.getElementById('mobSaveStatus');
-  if(!mel) return;
-  mel.className='mob-save-status '+(type||'');
-  if(type==='saved') mel.textContent='✓ 자동저장됨';
-  else if(type==='saving') mel.textContent='저장 중...';
-  else mel.textContent=msg||'대진표 저장 안 됨';
+  if(mel){
+    mel.className='mob-save-status '+(type||'');
+    if(type==='saved') mel.textContent='✓ 자동저장됨';
+    else if(type==='saving') mel.textContent='저장 중...';
+    else mel.textContent=msg||'대진표 저장 안 됨';
+  }
+  if(typeof renderBracketSaveQuick==='function')renderBracketSaveQuick();
 }
 
 function _teamGenderCode(g){
@@ -5223,14 +5225,48 @@ function getSlots(){
 }
 function saveSlots(slots){
   localStorage.setItem(SLOTS_KEY,JSON.stringify(slots));
+  renderBracketSaveQuick();
+}
+
+function _defaultBracketSlotName(){
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const stamp=`${now.getMonth()+1}/${now.getDate()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const mode=currentSettings?.teamMode===false
+    ?'자유대진'
+    :`${String(teamNames.blue||'청').replace(/\s+/g,'')}-${String(teamNames.white||'홍').replace(/\s+/g,'')}`;
+  return `${mode} ${stamp}`.slice(0,20);
+}
+
+function renderBracketSaveQuick(){
+  const sample=isTeamSampleMode();
+  const slots=sample?[]:getSlots();
+  const count=slots.length;
+  const hasBracket=!!currentMatches.length;
+  const canSave=hasBracket&&!sample;
+  const quick=document.getElementById('bracketSaveQuick');
+  if(quick)quick.classList.toggle('hidden',sample||_liveOn||(!hasBracket&&count===0));
+  document.querySelectorAll('[data-bracket-save]').forEach(btn=>{
+    btn.disabled=!canSave;
+    btn.title=canSave?'현재 가대진을 이름 붙여 저장':'대진표를 먼저 생성하세요';
+  });
+  document.querySelectorAll('[data-slot-count]').forEach(el=>{el.textContent=String(count);});
+  const latest=slots[0];
+  const quickMeta=document.getElementById('bracketSaveQuickMeta');
+  const primaryMeta=document.getElementById('bracketSavePrimaryMeta');
+  const text=sample
+    ?'샘플 모드에서는 저장하지 않습니다.'
+    :hasBracket
+      ?count?`자동저장 중 · 가대진 ${count}개 보관 · 최근 ${latest.name}`:'자동저장 중 · 필요할 때 이름 붙여 별도 보관하세요.'
+      :count?`저장된 가대진 ${count}개 · 목록에서 골라 불러오세요.`:'대진 생성 후 이름 붙여 보관할 수 있습니다.';
+  if(quickMeta)quickMeta.textContent=text;
+  if(primaryMeta)primaryMeta.textContent=text;
 }
 
 function openSaveSlotModal(){
   if(!currentMatches.length){alert('대진표를 먼저 생성해주세요.');return;}
   const input=document.getElementById('slotNameInput');
-  // 기본값: 팀명 + 오늘 날짜
-  const today=new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric'}).replace(/ /g,'');
-  input.value=`${teamNames.blue||'청팀'} vs ${teamNames.white||'홍팀'} ${today}`;
+  input.value=_defaultBracketSlotName();
   document.getElementById('slotSaveMsg').textContent='';
   document.getElementById('saveSlotModal').classList.remove('hidden');
   setTimeout(()=>{input.select();},100);
@@ -5244,17 +5280,17 @@ function confirmSaveSlot(){
   if(!name){document.getElementById('slotSaveMsg').textContent='⚠️ 이름을 입력해주세요.';return;}
 
   const slots=getSlots();
-  if(slots.length>=MAX_SLOTS){
+  // 같은 이름 있으면 덮어쓸지 확인
+  const existing=slots.findIndex(s=>s.name===name);
+  if(existing<0&&slots.length>=MAX_SLOTS){
     document.getElementById('slotSaveMsg').textContent=`⚠️ 최대 ${MAX_SLOTS}개까지 저장 가능합니다. 목록에서 삭제 후 시도해주세요.`;
     return;
   }
-
-  // 같은 이름 있으면 덮어쓸지 확인
-  const existing=slots.findIndex(s=>s.name===name);
   if(existing>=0){
     if(!confirm(`'${name}' 이름의 저장이 이미 있습니다.\n덮어쓸까요?`)) return;
   }
 
+  saveState();
   const raw=localStorage.getItem(SAVE_KEY);
   if(!raw){document.getElementById('slotSaveMsg').textContent='⚠️ 저장할 데이터가 없습니다.';return;}
 
@@ -5267,10 +5303,11 @@ function confirmSaveSlot(){
     state: JSON.parse(raw),
   };
 
-  if(existing>=0) slots[existing]=slot;
-  else slots.unshift(slot); // 최신 순
+  if(existing>=0)slots.splice(existing,1);
+  slots.unshift(slot); // 최신 순
 
   saveSlots(slots);
+  setSaveStatus('saved');
   document.getElementById('slotSaveMsg').textContent='✅ 저장됐습니다!';
   setTimeout(()=>closeSaveSlotModal(), 800);
 }
@@ -5286,6 +5323,9 @@ function closeLoadSlotModal(){
 function renderSlotList(){
   const slots=getSlots();
   const el=document.getElementById('slotList');
+  const countEl=document.getElementById('slotListCount');
+  if(countEl)countEl.textContent=`${slots.length}/${MAX_SLOTS}`;
+  renderBracketSaveQuick();
   if(!slots.length){
     el.innerHTML='<div class="dir-empty" style="padding:24px;">저장된 대진표가 없습니다.</div>';
     return;
@@ -5313,6 +5353,7 @@ function loadSlot(id){
   localStorage.setItem(SAVE_KEY,JSON.stringify(slot.state));
   restoreState();
   closeLoadSlotModal();
+  renderBracketSaveQuick();
   alert(`✅ '${slot.name}' 을 불러왔습니다.`);
 }
 
@@ -7825,6 +7866,7 @@ function renderAutoFlowDashboard(){
   const body=document.getElementById('autoFlowBody');
   const card=document.getElementById('autoFlowCard');
   if(!titleEl||!subEl||!badgeEl||!body)return;
+  if(typeof renderBracketSaveQuick==='function')renderBracketSaveQuick();
   const savedBracketRestore=_teamSavedBracketRestoreInfo();
   _autoFlowRendering=true;
   try{

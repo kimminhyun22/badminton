@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.412  (2026-06)
+     APP VERSION: 1.10.413  (2026-06)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.412">
+<meta name="app-version" content="1.10.413">
 <!-- Firebase App Check용 공개 reCAPTCHA Enterprise 사이트 키 -->
 <meta name="firebase-app-check-site-key" content="6LfspU0tAAAAAMGsRpLVdJsTBPnEWk0fJINVGsSj">
 <meta name="theme-color" content="#5b8def">
@@ -54,8 +54,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.412&from=team'">민턴LIVE</button>
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.412&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.413&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.413&from=team'">팀전LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -66,8 +66,8 @@
     <span class="save-status" id="saveStatus"></span>
     <button class="btn-restore hidden" id="restoreBtn" onclick="restoreSavedBracketAction()">📂 이전 대진표 불러오기</button>
     <!-- 이름 저장/불러오기 -->
-    <button class="nav-sync-btn" onclick="openSaveSlotModal()" title="이름 붙여 저장">💾 저장</button>
-    <button class="nav-sync-btn" onclick="openLoadSlotModal()" title="저장된 대진표 불러오기">📋 목록</button>
+    <button class="nav-sync-btn" onclick="openSaveSlotModal()" title="현재 가대진을 이름 붙여 저장">💾 가대진 저장</button>
+    <button class="nav-sync-btn" onclick="openLoadSlotModal()" title="저장된 가대진 불러오기">📋 저장 목록</button>
     <!-- PC 내보내기/불러오기 -->
     <button class="nav-sync-btn" onclick="exportBracketAll()" title="대진표+명부 JSON으로 내보내기">⬆️ 내보내기</button>
     <label class="nav-sync-btn import-label" title="JSON 파일 불러오기">
@@ -102,6 +102,16 @@
           </div>
         </div>
         <div id="autoFlowBody"></div>
+        <div class="bracket-save-quick hidden" id="bracketSaveQuick" aria-label="가대진 빠른 저장">
+          <div class="bracket-save-quick-copy">
+            <b>가대진 저장</b>
+            <span id="bracketSaveQuickMeta">현재 대진을 이름 붙여 보관합니다.</span>
+          </div>
+          <div class="bracket-save-actions">
+            <button class="bracket-save-action save" data-bracket-save onclick="openSaveSlotModal()">💾 가대진 저장</button>
+            <button class="bracket-save-action list" onclick="openLoadSlotModal()">📋 저장 목록 <span class="bracket-save-count" data-slot-count>0</span></button>
+          </div>
+        </div>
       </div>
 
       <!-- 팀전 링크 -->
@@ -292,13 +302,17 @@
             <button id="undoBtnMain" class="btn btn-undo" style="padding:10px 12px;font-size:.82rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩</button>
           </div>
 
+          <div class="bracket-save-primary" aria-label="가대진 저장과 불러오기">
+            <div class="bracket-save-primary-meta" id="bracketSavePrimaryMeta">대진 생성 후 이름 붙여 보관할 수 있습니다.</div>
+            <button class="bracket-save-action save" data-bracket-save onclick="openSaveSlotModal()">💾 가대진 저장</button>
+            <button class="bracket-save-action list" onclick="openLoadSlotModal()">📋 저장 목록 <span class="bracket-save-count" data-slot-count>0</span></button>
+          </div>
+
           <!-- 저장 관리 버튼 그룹 -->
           <details class="sync-details">
-            <summary>저장·관리</summary>
+            <summary>백업·기타 관리</summary>
             <div class="sync-bar">
               <button class="sync-btn s-live-stop hidden" id="liveStopManageBtn" onclick="stopLiveBroadcast()">중계 종료</button>
-              <button class="sync-btn s-save"  onclick="openSaveSlotModal()">💾 저장</button>
-              <button class="sync-btn s-list"  onclick="openLoadSlotModal()">📋 목록</button>
               <button class="sync-btn s-export" onclick="exportBracketAll()">⬆ 내보내기</button>
               <label  class="sync-btn s-import">⬇ 불러오기
                 <input type="file" accept=".json" style="display:none" onchange="importBracketAll(event)">
@@ -717,6 +731,8 @@
     <h2>💾 자동저장 / 복원</h2>
     <div class="step-list">
       <div class="step-item"><span class="step-num">•</span><p class="step-text">참가자 명단, 늦음, 팀배정, 대진표는 자동 저장됩니다.</p></div>
+      <div class="step-item"><span class="step-num">•</span><p class="step-text">가대진을 비교할 때는 상황판 또는 대진 생성 버튼 아래의 <strong>가대진 저장</strong>을 누르세요. 날짜와 시간이 포함된 이름이 자동으로 제안됩니다.</p></div>
+      <div class="step-item"><span class="step-num">•</span><p class="step-text"><strong>저장 목록</strong>에는 최대 10개를 보관할 수 있으며 선수 수, 게임 수, 저장 시각을 보고 원하는 안을 불러올 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">같은 기기·같은 브라우저에서는 앱을 다시 열어도 이어서 볼 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">전체 초기화는 팀전 링크, 늦음, 참가자, 팀배정, 대진표, 승패를 지웁니다. 클럽 명부는 남습니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">중요한 대회 전에는 JSON 백업을 함께 남기면 더 안전합니다.</p></div>
@@ -730,7 +746,7 @@
 </div>
 
 <script src="js/team.js"></script>
-<script type="module" src="js/team-ai.js?v=1.10.412"></script>
+<script type="module" src="js/team-ai.js?v=1.10.413"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()">
@@ -813,7 +829,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.412</span>
+  <span class="app-version" id="appVersion">v1.10.413</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
@@ -844,16 +860,16 @@
   </div>
 </div>
 
-<!-- 이름 저장 모달 -->
+<!-- 가대진 저장 모달 -->
 <div class="modal-overlay hidden" id="saveSlotModal">
   <div class="modal-box" style="max-width:360px;">
     <div class="modal-head">
-      <span>💾 대진표 저장</span>
+      <span>💾 가대진 저장</span>
       <button onclick="closeSaveSlotModal()">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:.78rem;color:var(--dim);margin-bottom:10px;">이름을 입력해 저장하면 나중에 불러올 수 있습니다.</p>
-      <input type="text" id="slotNameInput" placeholder="예: 미르대회 6월12일"
+      <p style="font-size:.78rem;color:var(--dim);margin-bottom:10px;">현재 가대진을 별도 보관합니다. 제안된 이름은 바로 수정할 수 있습니다.</p>
+      <input type="text" id="slotNameInput" placeholder="예: 청-홍 7/12 14:30"
         maxlength="20"
         style="width:100%;border:1.5px solid var(--bdr);border-radius:8px;padding:11px 13px;
         font-size:.92rem;font-family:'Noto Sans KR',sans-serif;outline:none;box-sizing:border-box;"
@@ -870,7 +886,7 @@
 <div class="modal-overlay hidden" id="loadSlotModal">
   <div class="modal-box" style="max-width:420px;">
     <div class="modal-head">
-      <span>📂 저장된 대진표</span>
+      <span>📂 저장된 가대진 <small id="slotListCount"></small></span>
       <button onclick="closeLoadSlotModal()">✕</button>
     </div>
     <div class="modal-body">
