@@ -11,6 +11,7 @@ const required = [
   'js/daily.js',
   'js/team.js',
   'js/live-view.js',
+  'manifest.json',
   'scripts/bump-version.js',
   'tests/simulation.html'
 ];
@@ -38,7 +39,7 @@ for(const [page, refs] of Object.entries(pages)){
 
 const version = fs.readFileSync(path.join(root, 'index.html'), 'utf8').match(/<meta name="app-version" content="([^"]+)"/)?.[1];
 if(!version) throw new Error('index version not found');
-const versionedFiles = ['index.html','team.html','view.html','checkin.html','rsvp.html','js/daily.js','js/team.js','js/live-view.js','sw.js','README.md'];
+const versionedFiles = ['index.html','team.html','view.html','checkin.html','rsvp.html','manifest.json','js/daily.js','js/team.js','js/live-view.js','sw.js','README.md'];
 const versionPatterns = [
   /APP VERSION:\s*(\d+\.\d+\.\d+)/g,
   /app-version\" content=\"(\d+\.\d+\.\d+)/g,

@@ -3,12 +3,12 @@
 배드민턴 동호회·클럽 운영을 위한 모바일 중심 PWA입니다.
 
 - 배포 주소: https://kimminhyun22.github.io/badminton/
+- 팀전LIVE: `team.html` (기본 시작 화면)
 - 민턴LIVE: `index.html`
-- 팀전LIVE: `team.html`
 - 실시간 현황: `view.html`
 - 회원용 민턴LIVE 링크: `checkin.html`
 - 회원용 팀전LIVE 링크: `rsvp.html`
-- 현재 버전: `1.10.414`
+- 현재 버전: `1.10.415`
 - Firebase 프로젝트: `kokmatch-23b31`
 
 ## 운영 철학
