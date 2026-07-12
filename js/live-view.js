@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.416';
+const APP_VERSION='1.10.417';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -85,6 +85,7 @@ let _viewerDetailsOpen={schedule:false,fullBracket:false,ranking:false};
 let _latestLiveData=null;
 let _liveTicker=null;
 let _viewerName='';
+let _viewerMemberId='';
 let _viewerNameCleared=false;
 let _viewerSearchTerm='';
 
@@ -901,7 +902,7 @@ function _normalizeMembers(list){
 function _sortMembers(list){
   const arr=_normalizeMembers(list);
   const sort=_teamRosterSort||'name';
-  const roleRank=p=>p.isLeader?0:p.isSub?1:p.isDirector?2:3;
+  const roleRank=p=>p.isLeader?0:p.isSub?1:p.directorRole==='primary'?2:p.directorRole==='deputy'?3:p.isDirector?4:5;
   const genderRank=p=>p.g==='M'?0:p.g==='F'?1:2;
   return arr.sort((a,b)=>{
     if(sort==='late'||sort==='att'){
@@ -953,13 +954,22 @@ function _viewerSearchText(p,d){
 function _allLiveMembers(d){
   const members=d&&d.members?d.members:{};
   const rows=[];
-  const official=d&&d.officials&&d.officials.matchDirector?d.officials.matchDirector:null;
+  const officials=d&&d.officials?d.officials:{};
+  const directorSet=officials.matchDirectors||{};
+  const primary=directorSet.primary||officials.matchDirector||null;
+  const deputy=directorSet.deputy||officials.deputyMatchDirector||null;
+  const matchesOfficial=(p,official)=>{
+    if(!official)return false;
+    const playerId=String(p.id||p.memberId||'');
+    const officialId=String(official.memberId||official.id||'');
+    if(playerId&&officialId)return playerId===officialId;
+    return !!(official.name&&p.n===official.name);
+  };
   const add=(p,team)=>{
-    const isDirector=!!(p.isDirector||(official&&(
-      (official.memberId&&String(p.id||p.memberId||'')===String(official.memberId))
-      ||(official.name&&p.n===official.name)
-    )));
-    rows.push({...p,team,isDirector});
+    const directorRole=p.directorRole
+      ||(matchesOfficial(p,primary)?'primary':matchesOfficial(p,deputy)?'deputy':'');
+    const isDirector=!!(p.isDirector||directorRole);
+    rows.push({...p,team,isDirector,directorRole:directorRole||(p.isDirector?'primary':'')});
   };
   _normalizeMembers(members.blue||[]).forEach(p=>add(p,'blue'));
   _normalizeMembers(members.red||[]).forEach(p=>add(p,'red'));
@@ -972,6 +982,10 @@ function _viewerInfo(d){
     hydrateLiveViewerName(d);
   }
   if(!_viewerName) return null;
+  if(_viewerMemberId){
+    const byId=_allLiveMembers(d).find(p=>String(p.id||p.memberId||'')===_viewerMemberId);
+    if(byId)return byId;
+  }
   return _allLiveMembers(d).find(p=>p.n===_viewerName)||null;
 }
 
@@ -999,10 +1013,23 @@ function hydrateLiveViewerName(d){
     const hit=_allLiveMembers(d).find(p=>String(p.id||p.memberId||'')===_viewerParamMember);
     if(hit){
       _viewerName=hit.n;
-      try{localStorage.setItem(_viewerStorageKey(),_viewerName);}catch(e){}
+      _viewerMemberId=String(hit.id||hit.memberId||'');
+      try{
+        localStorage.setItem(_viewerStorageKey(),_viewerName);
+        localStorage.setItem(_viewerStorageKey()+'_member',_viewerMemberId);
+      }catch(e){}
       return;
     }
   }
+  try{
+    const storedMember=localStorage.getItem(_viewerStorageKey()+'_member')||'';
+    const hit=storedMember&&_allLiveMembers(d).find(p=>String(p.id||p.memberId||'')===storedMember);
+    if(hit){
+      _viewerName=hit.n;
+      _viewerMemberId=storedMember;
+      return;
+    }
+  }catch(e){}
   const candidates=[
     _viewerParamName,
     (()=>{try{return localStorage.getItem(_viewerStorageKey())||'';}catch(e){return '';}})(),
@@ -1012,7 +1039,11 @@ function hydrateLiveViewerName(d){
     const hit=_findViewerByName(d,name);
     if(hit){
       _viewerName=hit.n;
-      try{localStorage.setItem(_viewerStorageKey(),_viewerName);}catch(e){}
+      _viewerMemberId=String(hit.id||hit.memberId||'');
+      try{
+        localStorage.setItem(_viewerStorageKey(),_viewerName);
+        if(_viewerMemberId)localStorage.setItem(_viewerStorageKey()+'_member',_viewerMemberId);
+      }catch(e){}
       return;
     }
   }
@@ -1022,6 +1053,8 @@ function _viewerRoleText(p){
   if(!p) return '';
   if(p.isLeader) return '단장';
   if(p.isSub) return '부단장';
+  if(p.directorRole==='primary') return '경기이사(정)';
+  if(p.directorRole==='deputy') return '경기이사(부)';
   if(p.isDirector) return '경기이사';
   return '선수';
 }
@@ -1029,16 +1062,24 @@ function _viewerPartnerText(p){
   return p&&p.partnerName?('P '+p.partnerName):'';
 }
 
-function setLiveViewerName(name){
+function setLiveViewerName(name,memberId){
   _viewerName=String(name||'').trim();
+  _viewerMemberId=String(memberId||'');
+  if(_viewerName&&!_viewerMemberId&&window._lastLiveData){
+    const hit=_findViewerByName(window._lastLiveData,_viewerName);
+    _viewerMemberId=String(hit?.id||hit?.memberId||'');
+  }
   _viewerNameCleared=!_viewerName;
   if(_viewerName) _viewerSearchTerm='';
   try{
     if(_viewerName){
       localStorage.setItem(_viewerStorageKey(),_viewerName);
-      localStorage.setItem('kokmatch_live_viewer_last',JSON.stringify({name:_viewerName,liveId,source:'view',savedAt:Date.now()}));
+      if(_viewerMemberId)localStorage.setItem(_viewerStorageKey()+'_member',_viewerMemberId);
+      else localStorage.removeItem(_viewerStorageKey()+'_member');
+      localStorage.setItem('kokmatch_live_viewer_last',JSON.stringify({name:_viewerName,memberId:_viewerMemberId,liveId,source:'view',savedAt:Date.now()}));
     }else{
       localStorage.removeItem(_viewerStorageKey());
+      localStorage.removeItem(_viewerStorageKey()+'_member');
       localStorage.removeItem('kokmatch_live_viewer_last');
     }
   }catch(e){}
@@ -1138,9 +1179,10 @@ function _viewerNextHtml(d,current){
     +'</div>';
   }
   const cur=Number(d&&d.currentRound||0);
-  const label=next.round===cur?'지금 경기':'다음 경기';
+  const isCurrent=next.round===cur;
+  const label=isCurrent?'지금 경기':'다음 경기';
   const where='R'+esc(String(next.round||'-'))+' · '+esc(String(next.court||'-'))+'코트';
-  return '<div class="viewer-next-card">'
+  return '<div class="viewer-next-card'+(isCurrent?' is-current':'')+'">'
     +'<div class="viewer-next-top"><span class="viewer-next-label">'+label+'</span><span class="viewer-next-where">'+where+'</span></div>'
     +_viewerMatchBoardHtml(next,next._side,d)
     +'<div class="viewer-next-type">'+esc(next.type||'경기')+(next.isFiller?' · 보완':'')+'</div>'
@@ -1198,8 +1240,9 @@ function buildViewerIdentity(d){
   const cards=filtered.map(p=>{
     const team=p.team==='blue'?liveTeamLabel(d,'blue'):p.team==='red'?liveTeamLabel(d,'red'):'참가자';
     const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
+    const memberArg=JSON.stringify(String(p.id||p.memberId||'')).replace(/"/g,'&quot;');
     const partnerText=_viewerPartnerText(p);
-    return '<button type="button" class="viewer-name-card" onclick="setLiveViewerName('+nameArg+')">'
+    return '<button type="button" class="viewer-name-card" onclick="setLiveViewerName('+nameArg+','+memberArg+')">'
       +'<b>'+esc(p.n)+'</b>'
       +'<span>'+esc(team)+' · '+esc(_viewerRoleText(p))+(partnerText?' · '+esc(partnerText):'')+'</span>'
     +'</button>';
@@ -1256,6 +1299,7 @@ async function submitLiveWin(matchIdx,side){
   const key=_matchKey(m);
   const nameKey=_attKey(viewer.n);
   const role=_resultRoleForSubmit(d,m);
+  const directorRole=viewer.isDirector?(viewer.directorRole||'primary'):'';
   const memberId=viewer.id||viewer.memberId||'';
   try{
     let conflictExisting='';
@@ -1278,13 +1322,14 @@ async function submitLiveWin(matchIdx,side){
         liveMatch.winBy=viewer.n;
         liveMatch.winByMemberId=memberId;
         liveMatch.winByRole=role;
+        liveMatch.winByDirectorRole=directorRole;
         liveMatch.winAt=now;
       }
       data.resultInputs=data.resultInputs||{};
       data.resultInputs[key]=data.resultInputs[key]||{};
       data.resultInputs[key][nameKey]={
         matchKey:key,matchIdx,side,
-        byName:viewer.n,byMemberId:memberId,byRole:role,ts:now
+        byName:viewer.n,byMemberId:memberId,byRole:role,byDirectorRole:directorRole,ts:now
       };
       let blueWins=0,whiteWins=0;
       if(_usesFixedTeams(data)){
@@ -1303,7 +1348,7 @@ async function submitLiveWin(matchIdx,side){
     if(!result.committed&&conflictExisting){
       await liveDb.ref('live/'+liveId+'/resultConflicts/'+key+'/'+nameKey).set({
         matchKey:key,matchIdx,requested:side,existing:conflictExisting,
-        byName:viewer.n,byMemberId:memberId,byRole:role,
+        byName:viewer.n,byMemberId:memberId,byRole:role,byDirectorRole:directorRole,
         ts:firebase.database.ServerValue.TIMESTAMP
       });
       alert('이미 다른 결과가 입력되어 관리자 확인으로 보냈어요.');
@@ -1428,8 +1473,13 @@ function buildTeamRosterCard(d){
     const arr=_sortMembers(list);
     if(!arr.length) return '<div class="faq-note">명단이 없습니다.</div>';
     return arr.map(p=>{
+      const directorBadge=p.directorRole==='primary'
+        ?'<span class="team-member-badge director primary" title="정 경기이사">경정</span>'
+        :p.directorRole==='deputy'
+          ?'<span class="team-member-badge director deputy" title="부 경기이사">경부</span>'
+          :p.isDirector?'<span class="team-member-badge director" title="경기이사">경</span>':'';
       const badge=(p.isLeader?'<span class="team-member-badge" title="단장">단</span>':p.isSub?'<span class="team-member-badge" title="부단장">부</span>':'')
-        +(p.isDirector?'<span class="team-member-badge director" title="경기이사">경</span>':'');
+        +directorBadge;
       const on=_lateOn(p.n);
       const partyOn=_partyOn(p.n);
       const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
@@ -1563,6 +1613,7 @@ function buildNextPanel(nextMatches,d){
 }
 
 function render(d){
+  document.body.classList.toggle('team-live-view',_isTeamLiveData(d));
   _randomizeViewerGender();
   window._lastLiveData=d;
   window._liveLate=_lateMapFromData(d);

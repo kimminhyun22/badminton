@@ -1847,3 +1847,80 @@ body{
   background:#3d8c69!important;
   color:#fff!important;
 }
+
+/* 운동 중에도 현재 경기와 승패 입력 위치를 즉시 알아볼 수 있게 한다. */
+.team-live-view{
+  --live-alert:#b42318;
+  --live-alert-border:#d92d20;
+  --live-alert-soft:#fff1f0;
+}
+.team-live-view .live-dot-mini{
+  background:var(--live-alert-border)!important;
+  box-shadow:0 0 0 5px rgba(217,45,32,.18)!important;
+}
+.team-live-view .current-panel{
+  border:2px solid var(--live-alert-border)!important;
+  box-shadow:0 0 0 4px rgba(217,45,32,.10),0 14px 32px rgba(180,35,24,.14)!important;
+}
+.team-live-view .viewer-next-card.is-current{
+  border:2px solid var(--live-alert-border)!important;
+  background:linear-gradient(180deg,var(--live-alert-soft),#fffafa)!important;
+  box-shadow:0 0 0 4px rgba(217,45,32,.14),0 12px 26px rgba(180,35,24,.14)!important;
+  animation:teamLiveResultReminder 1.15s ease-in-out 4;
+}
+.team-live-view .viewer-next-card.is-current .viewer-next-label{
+  display:inline-flex;
+  align-items:center;
+  min-height:25px;
+  padding:3px 9px;
+  border-radius:999px;
+  background:var(--live-alert)!important;
+  color:#fff!important;
+}
+.team-live-view .viewer-next-card.is-current .viewer-next-where{
+  color:#8f1d18!important;
+}
+.team-live-view .round.cur,
+.team-live-view .live-match.is-current{
+  border-color:var(--live-alert-border)!important;
+  box-shadow:0 0 0 3px rgba(217,45,32,.12),0 10px 24px rgba(180,35,24,.12)!important;
+}
+.team-live-view .current-badge,
+.team-live-view .round.cur .round-badge,
+.team-live-view .now{
+  background:var(--live-alert)!important;
+  border-color:var(--live-alert)!important;
+  color:#fff!important;
+  box-shadow:0 0 0 5px rgba(180,35,24,.16)!important;
+}
+.team-live-view .current-badge,
+.team-live-view .now{
+  animation:teamLiveAlertPulse 1.15s ease-in-out 4;
+}
+.team-live-view .result-entry.needs-result{
+  border-color:var(--live-alert-border)!important;
+  background:linear-gradient(180deg,var(--live-alert-soft),#fffafa)!important;
+  box-shadow:0 0 0 4px rgba(217,45,32,.16),0 12px 26px rgba(180,35,24,.16)!important;
+  animation:teamLiveResultReminder 1.15s ease-in-out 4;
+}
+.team-live-view .result-entry.needs-result:before{
+  background:var(--live-alert)!important;
+  box-shadow:0 6px 14px rgba(180,35,24,.28)!important;
+}
+.team-live-view .result-entry.needs-result .result-entry-label{
+  color:#8f1d18!important;
+}
+@keyframes teamLiveAlertPulse{
+  0%,100%{box-shadow:0 0 0 5px rgba(180,35,24,.16);transform:scale(1);}
+  50%{box-shadow:0 0 0 9px rgba(217,45,32,.28);transform:scale(1.03);}
+}
+@keyframes teamLiveResultReminder{
+  0%,100%{box-shadow:0 0 0 4px rgba(217,45,32,.16),0 12px 26px rgba(180,35,24,.16);}
+  50%{box-shadow:0 0 0 8px rgba(217,45,32,.30),0 16px 34px rgba(180,35,24,.22);}
+}
+@media (prefers-reduced-motion:reduce){
+  .team-live-view .current-badge,
+  .team-live-view .now,
+  .team-live-view .viewer-next-card.is-current,
+  .team-live-view .result-entry.needs-result{animation:none!important;}
+}
