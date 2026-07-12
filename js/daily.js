@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.415';
+const APP_VERSION = '1.10.416';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5559,7 +5559,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.415&from=daily';
+  location.href='team.html?v=1.10.416&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -7589,9 +7589,19 @@ function _dailyConfirmDetachLiveBeforeChange(actionLabel){
 function _dailyLiveMismatchMessage(){
   return '현재 대진과 기존 민턴LIVE 링크의 대진이 다릅니다.\n\n기존 회원 링크에 다른 경기가 섞이지 않도록 송출을 막았습니다.\n기존 중계를 종료하거나, 이 대진은 새 링크로 다시 시작해 주세요.';
 }
+function _dailyIsTeamLiveData(data){
+  if(!data||!Object.keys(data).length)return false;
+  const kind=String(data.kind||data.appMode||'');
+  if(kind)return kind==='teamLive';
+  return data.isTeam===true
+    ||data.matchMode==='free'
+    ||!!data.rsvpId
+    ||data.lateMode==='explicit'
+    ||Array.isArray(data.members?.all);
+}
 function _dailyValidateLiveDataForCurrent(data){
   if(!data||!Object.keys(data).length)return true;
-  if(data.isTeam){
+  if(_dailyIsTeamLiveData(data)){
     alert('저장된 LIVE ID가 팀전LIVE 링크입니다.\n민턴LIVE와 섞이지 않도록 연결을 끊었습니다.');
     _dailyResetLocalLiveState(_liveId);
     return false;
@@ -7647,6 +7657,8 @@ function _buildLiveState(){
     isLeader:p.name===_leaderWhite, isSub:p.name===_subWhite
   })):[];
   return {
+    kind:'dailyLive',
+    appMode:'dailyLive',
     title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
     bracketKey:_dailyLiveSignature(),
     members: {blue:membersBlue, red:membersRed},
@@ -7694,7 +7706,7 @@ async function _tryResumeLive(){
       return;
     }
     const data=snap.val();
-    if(data.isTeam){
+    if(_dailyIsTeamLiveData(data)){
       if(savedFromDailyKey)_dailyClearStoredLiveId(savedId);
       return;
     }

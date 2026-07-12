@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.415';
+const APP_VERSION = '1.10.416';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -108,6 +108,7 @@ function _captureUndoSnapshot(label){
     teamWanted: _teamWanted,
     partners: JSON.parse(JSON.stringify(_partners||[])),
     captains: JSON.parse(JSON.stringify(captains)),
+    officials: {matchDirector:JSON.parse(JSON.stringify(matchDirector))},
     matches: JSON.parse(JSON.stringify(currentMatches)),
     participants: JSON.parse(JSON.stringify(currentParticipants)),
     settings: JSON.parse(JSON.stringify(currentSettings)),
@@ -150,6 +151,7 @@ function undoAction(){
     _teamWanted=snap.teamWanted!=null?!!snap.teamWanted:_teamModeOverride!==false;
     if(Array.isArray(snap.partners))_partners=JSON.parse(JSON.stringify(snap.partners));
     if(snap.captains)captains=JSON.parse(JSON.stringify(snap.captains));
+    matchDirector=JSON.parse(JSON.stringify(snap.officials?.matchDirector||{memberId:'',name:''}));
     currentMatches=JSON.parse(JSON.stringify(snap.matches||[]));
     currentParticipants=JSON.parse(JSON.stringify(snap.participants||[]));
     currentSettings=JSON.parse(JSON.stringify(snap.settings||{}));
@@ -566,6 +568,8 @@ let _teamModeOverride=null; // null=청·홍 팀전, false=자유 대진
 let _teamWanted=true; // 기본값은 청·홍 팀전
 // 단장/부단장 지정 { blue:{leader:'',sub:''}, white:{leader:'',sub:''} }
 let captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+// 경기이사는 청·홍/자유 대진 모두에서 전체 경기 승패를 입력할 수 있다.
+let matchDirector={memberId:'',name:''};
 
 function stepVal(id, delta){
   const el=document.getElementById(id);
@@ -581,11 +585,16 @@ function _teamUsesFixedTeams(){
   return _teamModeOverride!==false;
 }
 
+function _teamSyncMatchModeSession(){
+  if(typeof rsvpPushSession==='function')rsvpPushSession();
+}
+
 function setTeamMatchMode(mode){
   const nextFree=mode==='free';
   const currentFree=!_teamUsesFixedTeams();
   if(nextFree===currentFree){
     updateTeamModeBadge();
+    _teamSyncMatchModeSession();
     return true;
   }
   const nextLabel=nextFree?'자유 대진':'청·홍 팀전';
@@ -602,6 +611,7 @@ function setTeamMatchMode(mode){
     return true;
   }
   updateTeamModeBadge();
+  _teamSyncMatchModeSession();
   return true;
 }
 
@@ -889,6 +899,7 @@ function generate(opts={}){
       openQualityPanelAfterRender();
       updateSettingsMiniSummary();
       show('resultArea');
+      rsvpPushSession();
       rsvpPushEventState();
       // 생성 후 결과 영역으로 부드럽게 이동 (특히 모바일)
       setTimeout(()=>{
@@ -2314,9 +2325,19 @@ function _teamConfirmDetachLiveBeforeChange(actionLabel){
 function _teamLiveMismatchMessage(){
   return '현재 대진과 기존 팀전LIVE 링크의 대진이 다릅니다.\n\n기존 회원 링크에 다른 경기가 섞이지 않도록 송출을 막았습니다.\n기존 LIVE를 종료하거나, 이 대진은 새 링크로 다시 시작해 주세요.';
 }
+function _teamIsTeamLiveData(data){
+  if(!data||!Object.keys(data).length)return false;
+  const kind=String(data.kind||data.appMode||'');
+  if(kind)return kind==='teamLive';
+  return data.isTeam===true
+    ||data.matchMode==='free'
+    ||!!data.rsvpId
+    ||data.lateMode==='explicit'
+    ||Array.isArray(data.members?.all);
+}
 function _teamValidateLiveDataForCurrent(data){
   if(!data||!Object.keys(data).length)return true;
-  if(!data.isTeam){
+  if(!_teamIsTeamLiveData(data)){
     alert('저장된 LIVE ID가 민턴LIVE 링크입니다.\n팀전LIVE와 섞이지 않도록 연결을 끊었습니다.');
     _teamResetLocalLiveState(_liveId);
     return false;
@@ -2340,6 +2361,7 @@ function _teamValidateLiveDataForCurrent(data){
 /* 현재 대진·스코어를 직렬화 (뷰어가 읽을 형태) */
 function _buildLiveState(){
   const isTeam=!!(currentSettings && currentSettings.teamMode);
+  const matchMode=isTeam?'team':'free';
   const _s=(v)=>(v==null?'':String(v));
   const matches=currentMatches.map((m,i)=>{
     const win=winOverride[i]||null;
@@ -2381,9 +2403,10 @@ function _buildLiveState(){
   const _leaderWhite=captains?.white?.leader||null;
   const _subWhite=captains?.white?.sub||null;
   const liveMember=p=>({
-    n:p.name||'',l:p.level||0,g:p.gender||'',
+    id:_teamEnsureMemberId(p),n:p.name||'',l:p.level||0,g:p.gender||'',
     isGuest:!!p.isGuest,
-    partnerName:p.partnerName||getPartnerOf(p.name)||''
+    partnerName:p.partnerName||getPartnerOf(p.name)||'',
+    isDirector:_teamIsMatchDirector(p)
   });
   const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>({
     ...liveMember(p),
@@ -2394,12 +2417,17 @@ function _buildLiveState(){
     isLeader:p.name===_leaderWhite, isSub:p.name===_subWhite
   })):[];
   const membersAll=isTeam?[]:currentParticipants.map(liveMember);
+  const official=_teamResolveMatchDirector(currentParticipants);
   const ownerRsvpId=_currentBracketRsvpId();
   return {
-    title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
+    kind:'teamLive',
+    appMode:'teamLive',
+    matchMode,
+    title: (isTeam? (bn2+' vs '+wn2):'팀전LIVE 자유 대진'),
     eventLabel:_teamLiveEventLabel(),
     bracketKey:_teamLiveSignature(),
     members: {blue:membersBlue, red:membersRed, all:membersAll},
+    officials:{matchDirector:official?{memberId:_teamEnsureMemberId(official),name:official.name}:null},
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
     blueWins:bW||0, whiteWins:wW||0,
     currentRound: (cur==null?0:cur), matches,
@@ -2674,7 +2702,7 @@ async function _tryResumeLive(opts={}){
       return false;
     }
     const data=snap.val();
-    if(!data.isTeam){
+    if(!_teamIsTeamLiveData(data)){
       if(savedFromTeamKey)_teamClearStoredLiveId(savedId);
       _updateLiveUI();
       if(manual)alert('저장된 LIVE가 팀전LIVE가 아니어서 이어 켤 수 없습니다.');
@@ -4241,6 +4269,7 @@ function saveState(){
     matchMode:_teamUsesFixedTeams()?'team':'free',
     teamModeOverride: _teamModeOverride,
     captains: JSON.parse(JSON.stringify(captains)),
+    officials: {matchDirector:JSON.parse(JSON.stringify(matchDirector))},
     partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
@@ -4423,6 +4452,7 @@ function restoreState(opts={}){
         gender:p.gender==='M'?'남':'여',team:p.team||''
       }));
     }
+    matchDirector=JSON.parse(JSON.stringify(state.officials?.matchDirector||state.matchDirector||{memberId:'',name:''}));
     renderDirectPlayerList();
     const parseStatus=document.getElementById('parseStatus');
     if(_directPlayers.length&&parseStatus){
@@ -5348,8 +5378,11 @@ function executeChangeModal(options={}){
         if(idx>=0)_directPlayers.splice(idx,1);
       });
       _cpNewPlayers.forEach(np=>{
-        if(!_directPlayers.some(p=>p.name===np.name))
-          _directPlayers.push({name:np.name,grade:np.grade,level:np.level,gender:np.gender,team:np.team||''});
+        if(!_directPlayers.some(p=>p.name===np.name)){
+          const added={name:np.name,grade:np.grade,level:np.level,gender:np.gender,team:np.team||''};
+          _teamEnsureMemberId(added);
+          _directPlayers.push(added);
+        }
       });
       _teamSyncAssignmentAfterExclusion(currentParticipants,new Set(_cpExcluded));
       renderDirectPlayerList();
@@ -5365,6 +5398,8 @@ function executeChangeModal(options={}){
         completedScores.forEach((sc,i)=>_restoreCompletedScoreState(sc,i));
         updateScores();
         scheduleSave();
+        rsvpPushSession();
+        if(_liveOn)pushLiveState();
         openQualityPanelAfterRender(true);
         if(onComplete){
           Promise.resolve(onComplete({matches:currentMatches,participants:currentParticipants})).catch(err=>console.warn('선수 변동 완료 처리 실패',err));
@@ -5507,7 +5542,7 @@ function renderTodaySummary(){
 
 function show(id){document.getElementById(id).classList.remove('hidden');}
 function set(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function showErr(m){const b=document.getElementById('errBar');b.textContent=m;b.classList.add('on');setTimeout(()=>b.classList.remove('on'),7000);}
 function hideErr(){document.getElementById('errBar').classList.remove('on');}
 function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.textContent=m;b.classList.add('on');}
@@ -5523,6 +5558,7 @@ async function resetAll(){
   const rbtn=document.getElementById('teamReassignBtn');
   if(rbtn) rbtn.classList.add('hidden');
   teamAssignment=null;_teamModeOverride=null;_teamWanted=true;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  matchDirector={memberId:'',name:''};
   _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
   currentMatches=[];currentParticipants=[];currentSettings={};
   _teamParticipantSourceRsvpId=null;
@@ -5560,6 +5596,76 @@ let _dirAge = '40대';
 let _directPlayers = [];
 let _dirSort = 'reg'; // 'reg' | 'name' | 'level'
 let _rsvpSyncingImportedPlayers = false;
+
+function _teamEnsureMemberId(player){
+  if(!player)return '';
+  if(!player.memberId){
+    player.memberId=_rsvpMemberId({name:player.name||'',club:player.club||''});
+  }
+  return String(player.memberId||'');
+}
+
+function _teamResolveMatchDirector(players=_directPlayers){
+  const list=(players||[]).filter(p=>p&&p.name);
+  list.forEach(_teamEnsureMemberId);
+  if(!matchDirector?.memberId&&!matchDirector?.name)return null;
+  const found=list.find(p=>matchDirector.memberId&&_teamEnsureMemberId(p)===String(matchDirector.memberId))
+    ||list.find(p=>matchDirector.name&&p.name===matchDirector.name)
+    ||null;
+  if(!found){
+    matchDirector={memberId:'',name:''};
+    return null;
+  }
+  matchDirector={memberId:_teamEnsureMemberId(found),name:found.name};
+  return found;
+}
+
+function _teamIsMatchDirector(player){
+  if(!player)return false;
+  const official=_teamResolveMatchDirector();
+  if(!official)return false;
+  const playerId=_teamEnsureMemberId(player);
+  return !!(playerId&&playerId===matchDirector.memberId)||player.name===matchDirector.name;
+}
+
+function setMatchDirector(memberId){
+  const next=String(memberId||'');
+  const current=String(matchDirector?.memberId||'');
+  if(next===current)return;
+  _captureUndoSnapshot('경기이사 변경 전');
+  if(!next){
+    matchDirector={memberId:'',name:''};
+  }else{
+    const player=_directPlayers.find(p=>_teamEnsureMemberId(p)===next);
+    if(!player)return;
+    matchDirector={memberId:next,name:player.name};
+  }
+  renderMatchDirectorPanel();
+  if(currentMatches.length)scheduleSave();
+  if(_liveOn)pushLiveState();
+}
+
+function renderMatchDirectorPanel(){
+  const panel=document.getElementById('matchDirectorPanel');
+  if(!panel)return;
+  const players=(_directPlayers||[]).filter(p=>p&&p.name);
+  players.forEach(_teamEnsureMemberId);
+  const official=_teamResolveMatchDirector(players);
+  if(!players.length){
+    panel.classList.add('hidden');
+    panel.innerHTML='';
+    return;
+  }
+  panel.classList.remove('hidden');
+  const options=players.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')).map(p=>{
+    const id=_teamEnsureMemberId(p);
+    return `<option value="${esc(id)}"${official&&id===matchDirector.memberId?' selected':''}>${esc(p.name)}</option>`;
+  }).join('');
+  panel.innerHTML=`<div class="match-director-head"><b>경기이사</b><span>승패 입력 권한</span></div>
+    <select class="match-director-select" aria-label="경기이사 지정" onchange="setMatchDirector(this.value)">
+      <option value="">지정 안 함</option>${options}
+    </select>`;
+}
 
 function setDirSort(mode){
   _dirSort = mode;
@@ -5674,7 +5780,10 @@ function addDirectPlayer(){
     return;
   }
   const _newLv = gradeToLevel(_dirGrade, _dirGender) ?? 1;
-  _directPlayers.push({name, grade:_dirGrade, level:_newLv, gender:_dirGender, isGuest:_isGuest, ageGroup:_dirAge});
+  _directPlayers.push({
+    memberId:_rsvpMemberId({name,club:''}),
+    name, grade:_dirGrade, level:_newLv, gender:_dirGender, isGuest:_isGuest, ageGroup:_dirAge
+  });
   nameEl.value='';
   nameEl.focus();
   renderDirectPlayerList();
@@ -5727,15 +5836,20 @@ function selectEditDirAge(age){
 }
 function saveEditDirectPlayer(){
   if(_editDirIdx<0) return;
+  const previous=_directPlayers[_editDirIdx];
   const name = document.getElementById('editDirectName').value.trim();
   const errEl = document.getElementById('editDirErrMsg');
   if(!name){ errEl.textContent='이름을 입력해주세요.'; return; }
   const newLevel = gradeToLevel(_editDirGrade, _editDirGender) ?? 1;
   _directPlayers[_editDirIdx] = {
-    ..._directPlayers[_editDirIdx],
+    ...previous,
     name, grade:_editDirGrade, level:newLevel,
     gender:_editDirGender, ageGroup:_editDirAge
   };
+  _teamEnsureMemberId(_directPlayers[_editDirIdx]);
+  if(matchDirector?.memberId===_directPlayers[_editDirIdx].memberId){
+    matchDirector={memberId:_directPlayers[_editDirIdx].memberId,name};
+  }
   closeEditDirectModal();
   renderDirectPlayerList();
   syncDirectToPaste();
@@ -5745,7 +5859,11 @@ function saveEditDirectPlayer(){
 
 function removeDirectPlayer(idx){
   _captureUndoSnapshot('선수 삭제: '+(_directPlayers[idx]?.name||''));
+  const removed=_directPlayers[idx];
   _directPlayers.splice(idx,1);
+  if(removed&&(matchDirector?.memberId===removed.memberId||matchDirector?.name===removed.name)){
+    matchDirector={memberId:'',name:''};
+  }
   renderDirectPlayerList();
   syncDirectToPaste();
   rsvpSyncRosterChange();
@@ -5893,6 +6011,7 @@ function renderDirectPlayerList(){
     bar.className = 'dir-count-bar';
     if(sortBar) sortBar.style.display='none';
     if(partnerHint){partnerHint.classList.remove('show');partnerHint.innerHTML='';}
+    renderMatchDirectorPanel();
     if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
     return;
   }
@@ -5936,6 +6055,7 @@ function renderDirectPlayerList(){
       <button class="dpi-del" onclick="removeDirectPlayer(${p._origIdx})">✕</button>
     </div>`;
   }).join('');
+  renderMatchDirectorPanel();
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
 }
 
@@ -6161,6 +6281,7 @@ function _rsvpEventPayload(){
   const ownsEvent=_rsvpOwnsCurrentEvent();
   const liveActive=!!(ownsEvent&&_liveOn&&_liveId);
   return {
+    matchMode:currentSettings?.teamMode===false?'free':(_teamUsesFixedTeams()?'team':'free'),
     phase:liveActive?'live':(ownsEvent?'bracket':'rsvp'),
     bracketReady:!!ownsEvent,
     matchCount:ownsEvent?(currentMatches.length||0):0,
@@ -6384,6 +6505,7 @@ function _rsvpSessionPayload(){
   return {
     kind:'tournamentRsvp',
     mode:'team',
+    matchMode:currentSettings?.teamMode===false?'free':(_teamUsesFixedTeams()?'team':'free'),
     title:_rsvpTitle(),
     rsvpId:_rsvpId||'',
     createdAt:_rsvpCreatedAt||Date.now(),
@@ -7125,12 +7247,19 @@ function teamLiveSetupParticipants(){
   setTimeout(()=>{if(typeof openImportModal==='function')openImportModal();},220);
 }
 function teamLiveOpenScoreboard(){
+  if(currentSettings?.teamMode===false){
+    showTab('summary');
+    const summary=document.getElementById('tabSummary');
+    if(summary)summary.scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
   const sec=document.getElementById('scoreboardSec');
   if(sec)sec.classList.remove('hidden');
   const el=_teamForceOpenSection('sec-scoreboard');
   if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
 }
 function teamLiveOpenPanel(target){
+  if(currentSettings?.teamMode===false&&(target==='scoreboard'||target==='live'))target='summary';
   const map={
     rsvp:{tab:'dashboard',id:'sec-rsvp',open:'sec-rsvp'},
     players:{tab:'players',id:'sec-players',open:'sec-players'},
@@ -7139,6 +7268,7 @@ function teamLiveOpenPanel(target){
     settings:{tab:'bracket',id:'sec-settings',open:'sec-settings'},
     bracket:{tab:'bracket',id:'sec-bracket'},
     scoreboard:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'},
+    summary:{tab:'result',id:'tabSummary'},
     late:{tab:'result',id:'liveOpsSummary'},
     live:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'}
   };
@@ -7551,6 +7681,7 @@ function _rsvpClearUnstartedBracket(){
   _teamModeOverride=keepFree?false:null;
   _teamWanted=!keepFree;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  matchDirector={memberId:'',name:''};
   currentMatches=[];
   currentParticipants=[];
   currentSettings={};
@@ -7679,6 +7810,7 @@ function _legacyRsvpImportAttendees(){
   };
   teamAssignment=null;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  matchDirector={memberId:'',name:''};
   renderDirectPlayerList();
   syncDirectToPaste();
   updateTeamModeBadge();

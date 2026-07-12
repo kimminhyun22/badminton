@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.415';
+const APP_VERSION='1.10.416';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -87,6 +87,24 @@ let _liveTicker=null;
 let _viewerName='';
 let _viewerNameCleared=false;
 let _viewerSearchTerm='';
+
+function _isTeamLiveData(d){
+  if(!d)return false;
+  const kind=String(d.kind||d.appMode||'');
+  if(kind)return kind==='teamLive';
+  return d.isTeam===true
+    ||d.matchMode==='free'
+    ||!!d.rsvpId
+    ||d.lateMode==='explicit'
+    ||Array.isArray(d.members?.all);
+}
+
+function _usesFixedTeams(d){
+  if(!d)return false;
+  if(d.matchMode==='free')return false;
+  if(d.matchMode==='team')return true;
+  return !!d.isTeam;
+}
 
 const content=document.getElementById('content');
 
@@ -510,7 +528,7 @@ function _streakComment(matches, bNames, rNames){
 }
 
 function buildBriefing(matches, d){
-  if(!d.isTeam) return '';
+  if(!_usesFixedTeams(d)) return '';
   const bW=d.blueWins||0, wW=d.whiteWins||0;
   const total=bW+wW;
   const bn=esc(d.teamBlue||'청팀'), wn=esc(d.teamWhite||'홍팀');
@@ -672,9 +690,8 @@ function buildMvpSpotlight(matches, d){
 }
 
 function buildPartySpotlight(d){
-  if(!d || !d.isTeam) return '';
-  const members=d.members||{};
-  const all=[..._normalizeMembers(members.blue),..._normalizeMembers(members.red)];
+  if(!_isTeamLiveData(d)) return '';
+  const all=_allLiveMembers(d);
   const rosterNames=new Set(all.map(p=>String(p&&p.n||'').trim()).filter(Boolean));
   const seen=new Set();
   const partyNames=[];
@@ -736,7 +753,7 @@ function buildRanking(matches, d){
 
 function buildFinale(matches, d){
   let label='🎉 경기 종료', title='', sub='수고하셨습니다!';
-  if(d.isTeam){
+  if(_usesFixedTeams(d)){
     const bW=d.blueWins||0, wW=d.whiteWins||0;
     if(bW>wW){ title='🔵 '+esc(d.teamBlue||'청 팀')+' 우승!'; sub=bW+' : '+wW+' 승리'; }
     else if(wW>bW){ title='🔴 '+esc(d.teamWhite||'홍 팀')+' 우승!'; sub=wW+' : '+bW+' 승리'; }
@@ -807,7 +824,7 @@ function fireConfetti(isRepeat){
 }
 
 function liveTeamLabel(d, side){
-  if(!d.isTeam) return side==='blue'?'1팀':'2팀';
+  if(!_usesFixedTeams(d)) return side==='blue'?'A팀':'B팀';
   return side==='blue'?(d.teamBlue||'청팀'):(d.teamWhite||'홍팀');
 }
 
@@ -884,7 +901,7 @@ function _normalizeMembers(list){
 function _sortMembers(list){
   const arr=_normalizeMembers(list);
   const sort=_teamRosterSort||'name';
-  const roleRank=p=>p.isLeader?0:p.isSub?1:2;
+  const roleRank=p=>p.isLeader?0:p.isSub?1:p.isDirector?2:3;
   const genderRank=p=>p.g==='M'?0:p.g==='F'?1:2;
   return arr.sort((a,b)=>{
     if(sort==='late'||sort==='att'){
@@ -936,9 +953,17 @@ function _viewerSearchText(p,d){
 function _allLiveMembers(d){
   const members=d&&d.members?d.members:{};
   const rows=[];
-  _normalizeMembers(members.blue||[]).forEach(p=>rows.push({...p,team:'blue'}));
-  _normalizeMembers(members.red||[]).forEach(p=>rows.push({...p,team:'red'}));
-  _normalizeMembers(members.all||[]).forEach(p=>rows.push({...p,team:'all'}));
+  const official=d&&d.officials&&d.officials.matchDirector?d.officials.matchDirector:null;
+  const add=(p,team)=>{
+    const isDirector=!!(p.isDirector||(official&&(
+      (official.memberId&&String(p.id||p.memberId||'')===String(official.memberId))
+      ||(official.name&&p.n===official.name)
+    )));
+    rows.push({...p,team,isDirector});
+  };
+  _normalizeMembers(members.blue||[]).forEach(p=>add(p,'blue'));
+  _normalizeMembers(members.red||[]).forEach(p=>add(p,'red'));
+  _normalizeMembers(members.all||[]).forEach(p=>add(p,'all'));
   return rows;
 }
 
@@ -970,6 +995,14 @@ function _recentStoredViewerName(){
 
 function hydrateLiveViewerName(d){
   if(_viewerNameCleared) return;
+  if(_viewerParamMember){
+    const hit=_allLiveMembers(d).find(p=>String(p.id||p.memberId||'')===_viewerParamMember);
+    if(hit){
+      _viewerName=hit.n;
+      try{localStorage.setItem(_viewerStorageKey(),_viewerName);}catch(e){}
+      return;
+    }
+  }
   const candidates=[
     _viewerParamName,
     (()=>{try{return localStorage.getItem(_viewerStorageKey())||'';}catch(e){return '';}})(),
@@ -983,20 +1016,13 @@ function hydrateLiveViewerName(d){
       return;
     }
   }
-  if(_viewerParamMember){
-    // Current live payloads are name-first, but keep member id fallback for future payloads.
-    const hit=_allLiveMembers(d).find(p=>String(p.id||p.memberId||'')===_viewerParamMember);
-    if(hit){
-      _viewerName=hit.n;
-      try{localStorage.setItem(_viewerStorageKey(),_viewerName);}catch(e){}
-    }
-  }
 }
 
 function _viewerRoleText(p){
   if(!p) return '';
   if(p.isLeader) return '단장';
   if(p.isSub) return '부단장';
+  if(p.isDirector) return '경기이사';
   return '선수';
 }
 function _viewerPartnerText(p){
@@ -1062,13 +1088,13 @@ function _viewerPairHtml(names,cls,label){
 }
 
 function _viewerMatchBoardHtml(m,side,d){
-  const isTeam=!!(d&&d.isTeam);
+  const isTeam=_usesFixedTeams(d);
   const leftCls='blue'+(side==='t1'?' mine':'');
   const rightCls='right red'+(side==='t2'?' mine':'');
   return '<div class="viewer-match-versus">'
-    +_viewerPairHtml(m.t1||[],leftCls,isTeam?'청':'')
+    +_viewerPairHtml(m.t1||[],leftCls,isTeam?'청':'A')
     +'<div class="viewer-vs">VS</div>'
-    +_viewerPairHtml(m.t2||[],rightCls,isTeam?'홍':'')
+    +_viewerPairHtml(m.t2||[],rightCls,isTeam?'홍':'B')
   +'</div>';
 }
 
@@ -1194,13 +1220,15 @@ function _canSubmitResult(m,d){
   if(!viewer || !m || m.win) return false;
   const names=[...(m.t1||[]),...(m.t2||[])].filter(Boolean);
   if(names.includes(viewer.n)) return true;
-  return !!(d&&d.isTeam&&(viewer.isLeader||viewer.isSub));
+  if(_isTeamLiveData(d)&&viewer.isDirector)return true;
+  return !!(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub));
 }
 
 function _resultRoleForSubmit(d,m){
   const viewer=_viewerInfo(d);
   if(!viewer) return '';
   const names=[...(m&&m.t1||[]),...(m&&m.t2||[])].filter(Boolean);
+  if(viewer.isDirector) return 'director';
   if(names.includes(viewer.n)) return 'player';
   if(viewer.isLeader) return 'leader';
   if(viewer.isSub) return 'sub';
@@ -1208,6 +1236,7 @@ function _resultRoleForSubmit(d,m){
 }
 
 async function submitLiveWin(matchIdx,side){
+  if(side!=='t1'&&side!=='t2')return;
   const d=window._lastLiveData;
   const matches=d&&Array.isArray(d.matches)?d.matches:[];
   const m=matches[matchIdx];
@@ -1217,7 +1246,7 @@ async function submitLiveWin(matchIdx,side){
     return;
   }
   if(!_canSubmitResult(m,d)){
-    alert('이 경기의 선수 또는 단장/부단장만 승패를 입력할 수 있어요.');
+    alert('이 경기의 선수 또는 단장/부단장·경기이사만 승패를 입력할 수 있어요.');
     return;
   }
   if(!liveDb || !liveId){
@@ -1226,52 +1255,77 @@ async function submitLiveWin(matchIdx,side){
   }
   const key=_matchKey(m);
   const nameKey=_attKey(viewer.n);
-  const existing=m.win||null;
   const role=_resultRoleForSubmit(d,m);
+  const memberId=viewer.id||viewer.memberId||'';
   try{
-    if(existing && existing!==side){
+    let conflictExisting='';
+    let missingMatch=false;
+    const liveRef=liveDb.ref('live/'+liveId);
+    const result=await liveRef.transaction(data=>{
+      if(!data||!Array.isArray(data.matches)||!data.matches[matchIdx]){
+        missingMatch=true;
+        return;
+      }
+      const liveMatch=data.matches[matchIdx];
+      const existing=liveMatch.win||null;
+      if(existing&&existing!==side){
+        conflictExisting=existing;
+        return;
+      }
+      const now=Date.now();
+      if(!existing){
+        liveMatch.win=side;
+        liveMatch.winBy=viewer.n;
+        liveMatch.winByMemberId=memberId;
+        liveMatch.winByRole=role;
+        liveMatch.winAt=now;
+      }
+      data.resultInputs=data.resultInputs||{};
+      data.resultInputs[key]=data.resultInputs[key]||{};
+      data.resultInputs[key][nameKey]={
+        matchKey:key,matchIdx,side,
+        byName:viewer.n,byMemberId:memberId,byRole:role,ts:now
+      };
+      let blueWins=0,whiteWins=0;
+      if(_usesFixedTeams(data)){
+        data.matches.forEach(x=>{
+          if(x&&x.win==='t1')blueWins++;
+          else if(x&&x.win==='t2')whiteWins++;
+        });
+      }
+      const rounds=[...new Set(data.matches.map(x=>x&&x.round).filter(Boolean))].sort((a,b)=>a-b);
+      data.blueWins=blueWins;
+      data.whiteWins=whiteWins;
+      data.currentRound=rounds.find(r=>data.matches.filter(x=>x&&x.round===r).some(x=>!x.win))||0;
+      data.updatedAt=now;
+      return data;
+    });
+    if(!result.committed&&conflictExisting){
       await liveDb.ref('live/'+liveId+'/resultConflicts/'+key+'/'+nameKey).set({
-        matchKey:key, matchIdx:matchIdx, requested:side, existing:existing,
-        byName:viewer.n, byRole:role, ts:firebase.database.ServerValue.TIMESTAMP
+        matchKey:key,matchIdx,requested:side,existing:conflictExisting,
+        byName:viewer.n,byMemberId:memberId,byRole:role,
+        ts:firebase.database.ServerValue.TIMESTAMP
       });
       alert('이미 다른 결과가 입력되어 관리자 확인으로 보냈어요.');
       return;
     }
-    const nextMatches=matches.map(x=>({...x}));
-    nextMatches[matchIdx].win=side;
-    nextMatches[matchIdx].winBy=viewer.n;
-    nextMatches[matchIdx].winByRole=role;
-    nextMatches[matchIdx].winAt=Date.now();
-    let blueWins=0, whiteWins=0;
-    nextMatches.forEach(x=>{
-      if(x.win==='t1') blueWins++;
-      else if(x.win==='t2') whiteWins++;
-    });
-    const rounds=[...new Set(nextMatches.map(x=>x.round).filter(Boolean))].sort((a,b)=>a-b);
-    const nextRound=rounds.find(r=>nextMatches.filter(x=>x.round===r).some(x=>!x.win))||0;
-    const updates={};
-    updates['matches/'+matchIdx+'/win']=side;
-    updates['matches/'+matchIdx+'/winBy']=viewer.n;
-    updates['matches/'+matchIdx+'/winByRole']=role;
-    updates['matches/'+matchIdx+'/winAt']=firebase.database.ServerValue.TIMESTAMP;
-    updates['resultInputs/'+key+'/'+nameKey]={
-      matchKey:key, matchIdx:matchIdx, side:side,
-      byName:viewer.n, byRole:role, ts:firebase.database.ServerValue.TIMESTAMP
-    };
-    updates.blueWins=blueWins;
-    updates.whiteWins=whiteWins;
-    updates.currentRound=nextRound;
-    updates.updatedAt=firebase.database.ServerValue.TIMESTAMP;
-    await liveDb.ref('live/'+liveId).update(updates);
+    if(!result.committed||missingMatch){
+      alert('경기 정보를 다시 불러온 뒤 시도해주세요.');
+    }
   }catch(e){
     alert('승패 입력 실패: '+e.message);
   }
 }
 
+function _resultSideLabel(d,side){
+  if(_usesFixedTeams(d))return side==='t1'?'청 승':'홍 승';
+  return side==='t1'?'A 승':'B 승';
+}
+
 function buildResultInputControls(m,d,opts){
   if(!opts || !(opts.current||opts.next)) return '';
   if(m.win){
-    const winner=m.win==='t1'?'청 승':'홍 승';
+    const winner=_resultSideLabel(d,m.win);
     return '<div class="result-entry-done">입력 완료 · '+esc(winner)+'</div>';
   }
   if(!_canSubmitResult(m,d)) return '';
@@ -1279,8 +1333,8 @@ function buildResultInputControls(m,d,opts){
   if(!Number.isFinite(idx) || idx<0) return '';
   return '<div class="result-entry '+(opts.current?'needs-result':'')+'">'
     +'<div class="result-entry-label">'+(opts.current?'경기 후 승패 입력':'이긴 팀 선택')+'</div>'
-    +'<button type="button" class="blue-win" onclick="submitLiveWin('+idx+',\'t1\')">청 승</button>'
-    +'<button type="button" class="red-win" onclick="submitLiveWin('+idx+',\'t2\')">홍 승</button>'
+    +'<button type="button" class="blue-win" onclick="submitLiveWin('+idx+',\'t1\')">'+_resultSideLabel(d,'t1')+'</button>'
+    +'<button type="button" class="red-win" onclick="submitLiveWin('+idx+',\'t2\')">'+_resultSideLabel(d,'t2')+'</button>'
   +'</div>';
 }
 
@@ -1363,7 +1417,7 @@ function buildTeamRosterCard(d){
   const blue=_normalizeMembers(d.members.blue||[]);
   const red=_normalizeMembers(d.members.red||[]);
   const solo=_normalizeMembers(d.members.all||[]);
-  const showTeam=!!(d.isTeam && (blue.length||red.length));
+  const showTeam=!!(_usesFixedTeams(d) && (blue.length||red.length));
   const showSolo=!showTeam && !!solo.length;
   if(!showTeam && !showSolo) return '';
   const late=_lateMapFromData(d);
@@ -1374,7 +1428,8 @@ function buildTeamRosterCard(d){
     const arr=_sortMembers(list);
     if(!arr.length) return '<div class="faq-note">명단이 없습니다.</div>';
     return arr.map(p=>{
-      const badge=p.isLeader?'<span class="team-member-badge" title="단장">단</span>':p.isSub?'<span class="team-member-badge" title="부단장">부</span>':'';
+      const badge=(p.isLeader?'<span class="team-member-badge" title="단장">단</span>':p.isSub?'<span class="team-member-badge" title="부단장">부</span>':'')
+        +(p.isDirector?'<span class="team-member-badge director" title="경기이사">경</span>':'');
       const on=_lateOn(p.n);
       const partyOn=_partyOn(p.n);
       const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
@@ -1403,7 +1458,7 @@ function buildTeamRosterCard(d){
       +'<section class="team-roster-card">'
         +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>늦음 '+lateCount+'명 · 뒷풀이 '+partyCount+'명</span></div>'
         +'<div class="team-att-summary"><b>늦음</b> · <b>뒷풀이</b> 확인</div>'
-        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','늦음')+sortBtn('role','단장')+sortBtn('level','급수')+'</div>'
+        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','늦음')+sortBtn('role','역할')+sortBtn('level','급수')+'</div>'
         +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
           +(showTeam
             ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>늦음 '+blue.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(blue,'blue')+'</div>'
@@ -1441,7 +1496,9 @@ function buildLiveMatchCard(m,d,opts){
   const typeLabel=(opts.next?'대기 · ':'')+esc(m.type||'경기')+(m.isFiller?' · 보완':'');
   const imminent=opts.next && _isImminentMatch(m);
   const resultControls=buildResultInputControls(m,d,opts);
-  const teamLabels=d&&d.isTeam;
+  const teamLabels=_usesFixedTeams(d);
+  const t1Label=teamLabels?'청팀':'A팀';
+  const t2Label=teamLabels?'홍팀':'B팀';
   return '<article class="live-match '+tc+(opts.current?' is-current':'')+(imminent?' is-imminent':'')+(resultControls?' has-result':'')+'">'
     +(imminent?'<div class="imminent-banner">대진 임박 · 다음 경기 준비해주세요</div>':'')
     +'<div class="live-match-top">'
@@ -1450,14 +1507,14 @@ function buildLiveMatchCard(m,d,opts){
     +'</div>'
     +'<div class="live-versus">'
       +'<div class="live-side blue'+(t1win?' win':'')+'">'
-        +(teamLabels?'<div class="live-team-label">청팀</div>':'')
+        +'<div class="live-team-label">'+t1Label+'</div>'
         +(t1win?'<span class="win-chip">WIN</span>':'')
         +_playerLine(t1[0],d)
         +_playerLine(t1[1],d)
       +'</div>'
       +'<div class="live-vs">VS</div>'
       +'<div class="live-side red'+(t2win?' win':'')+'">'
-        +(teamLabels?'<div class="live-team-label">홍팀</div>':'')
+        +'<div class="live-team-label">'+t2Label+'</div>'
         +(t2win?'<span class="win-chip">WIN</span>':'')
         +_playerLine(t2[0],d)
         +_playerLine(t2[1],d)
@@ -1535,7 +1592,7 @@ function render(d){
   let html='<div class="live-board">';
   html+='<div class="live-top"><span class="live-pill"><span class="live-dot-mini"></span>LIVE</span><span>선수용 라이브 보드</span></div>';
   html+='<div class="title">'+esc(d.title||'대진표')+'</div>';
-  if(d.isTeam){
+  if(_usesFixedTeams(d)){
     html+=buildLiveScore(d,totalR,doneR);
   } else {
     html+='<div class="progress" id="scoreBoard">📊 '+totalR+'라운드 중 '+doneR+'라운드 완료'

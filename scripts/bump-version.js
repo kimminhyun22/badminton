@@ -16,6 +16,7 @@ const files = [
   'view.html',
   'checkin.html',
   'rsvp.html',
+  'manifest.json',
   'js/daily.js',
   'js/team.js',
   'js/live-view.js',
@@ -53,6 +54,7 @@ for(const rel of ['js/daily.js','js/team.js','js/live-view.js']){
 }
 
 update('sw.js', text => text.replace(/badminton-v\d+\.\d+\.\d+/g, 'badminton-v' + next));
+update('manifest.json', text => text.replace(/([?&]v=)\d+\.\d+\.\d+/g, '$1' + next));
 update('README.md', text => text.replace(/현재 버전: `[^`]+`/g, '현재 버전: `' + next + '`'));
 
 console.log('version set to v' + next);
