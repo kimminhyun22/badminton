@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.417';
+const APP_VERSION = '1.10.418';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -242,6 +242,7 @@ const DAILY_AUTO_MIN_START=8;
 const DAILY_AUTO_FULL_START=12;
 const DAILY_AUTO_GRACE_MS=3*60*1000;
 const DAILY_CHECKIN_TTL_MS=48*60*60*1000;
+const DAILY_CROSS_DAY_RESUME_MS=6*60*60*1000;
 const DAILY_REST_AUTO_DONE_MS=60*60*1000;
 const DAILY_QUEUE_REST_PASS_MS=45*60*1000;
 const DAILY_STATUS={
@@ -1225,8 +1226,8 @@ function _dailyNaturalAutoInfo(){
     phase='free';
     label='자율 운영';
     hint=pool>=4
-      ? `${pool}명 시작 · 민턴LIVE 시작 전`
-      : '명부·링크 준비 후 시작';
+      ? `${pool}명 준비 · 시작 전`
+      : '명부·링크 준비';
   }else if(_dailyAutoAssign){
     auto=true;
     operatingCourts=courts;
@@ -1696,6 +1697,15 @@ function _dailySameLocalDay(a,b){
   const da=new Date(a),db=new Date(b);
   return da.getFullYear()===db.getFullYear()&&da.getMonth()===db.getMonth()&&da.getDate()===db.getDate();
 }
+function _dailyCanResumeCrossDay(s,now){
+  if(!s||!s.savedAt)return false;
+  const age=now-Number(s.savedAt||0);
+  if(age<0||age>DAILY_CROSS_DAY_RESUME_MS)return false;
+  const players=(s.players||[]).filter(p=>p&&p.name);
+  const active=(s.matches||[]).some(m=>m&&!m.completedAt&&!m.cancelledAt);
+  const queued=(s.queue||[]).length>0;
+  return !!(players.length&&(s.operationStarted||s.checkinId||active||queued));
+}
 function _dailySavedDateLabel(ts){
   if(!ts)return '이전';
   return new Date(ts).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',weekday:'short'});
@@ -1721,6 +1731,7 @@ function dailyRenderCourtSettings(){
 }
 function _dailyLoadAsNewDay(s){
   const now=_dailyNow();
+  const staleCheckinId=s.checkinId||localStorage.getItem(DAILY_CHECKIN_KEY)||'';
   _dailyPlayers=(s.players||[]).map(_dailyNormalize).filter(p=>p.name).map(p=>({
     ...p,
     status:'invited',
@@ -1742,7 +1753,7 @@ function _dailyLoadAsNewDay(s){
   _dailyCourtOrder=_dailyDefaultCourtOrder(s.courts||3);
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _dailyPairSelectId=null;
-  if(_dailyCheckinId&&_fbDb)_fbDb.ref(_dailyCheckinPath()).remove().catch(()=>{});
+  if(staleCheckinId&&_fbInit())_fbDb.ref('live/checkin_'+staleCheckinId).remove().catch(()=>{});
   _dailyCheckinId=null;_dailyCheckinCreatedAt=0;_dailyCheckinRequests=[];_dailyCheckinListening=false;
   localStorage.removeItem(DAILY_CHECKIN_KEY);
   localStorage.removeItem(DAILY_CHECKIN_CREATED_KEY);
@@ -1760,7 +1771,8 @@ function dailyLoad(){
       localStorage.removeItem(DAILY_KEY);
       return;
     }
-    if(s.savedAt&&!_dailySameLocalDay(s.savedAt,_dailyNow())){
+    const now=_dailyNow();
+    if(s.savedAt&&!_dailySameLocalDay(s.savedAt,now)&&!_dailyCanResumeCrossDay(s,now)){
       _dailyLoadAsNewDay(s);
       return;
     }
@@ -3124,7 +3136,7 @@ function closeDailyManualActiveModal(){
   const modal=document.getElementById('dailyManualActiveModal');
   if(modal)modal.classList.add('hidden');
 }
-function dailyFinishLiveTransition(){
+function dailyFinishLiveTransition(skipEmptyConfirm){
   if(!_dailyPlayers.length){
     alert('먼저 민턴LIVE 명단을 추가하거나 명부를 불러오세요.');
     return;
@@ -3139,7 +3151,7 @@ function dailyFinishLiveTransition(){
     dailyRenderManualActiveModal();
     return;
   }
-  if(transition&&!registeredCount){
+  if(transition&&!registeredCount&&!skipEmptyConfirm){
     const ok=confirm('진행 중 경기 등록 없이 민턴LIVE를 시작할까요?\n현재 코트가 비어 있을 때만 선택하세요.');
     if(!ok)return;
   }
@@ -4022,21 +4034,18 @@ function dailyRenderStartGuide(){
   const courts=_dailyCourtCount();
   const playerCount=_dailyPlayers.length;
   const linkReady=!!_dailyCheckinId;
-  const registeredCount=_dailyManualActiveRegisteredMatches().length;
-  const nextIndex=!playerCount?2:(!linkReady?3:4);
+  const nextIndex=!playerCount?2:(!linkReady?3:0);
   const steps=[
     {n:1,title:'코트',value:`${courts}코트`,done:true,current:false,action:"dailyOpenFold('dailySetupDetails','dailySetupDetails')"},
     {n:2,title:'명부',value:playerCount?`${playerCount}명`:'불러오기',done:!!playerCount,current:nextIndex===2,action:playerCount?"dailyOpenBoardTarget('players')":"dailyImportRoster()"},
-    {n:3,title:'링크',value:linkReady?'공유됨':'공유',done:linkReady,current:nextIndex===3,action:'dailyShareCheckinLink()'},
-    {n:4,title:'진행 등록',value:registeredCount?`${registeredCount}경기`:'있을 때만',done:!!registeredCount,current:nextIndex===4,action:'dailyBeginLiveTransition()'},
-    {n:5,title:'운영 시작',value:playerCount?'준비':'명부 필요',done:false,current:false,action:'dailyBeginLiveTransition()'}
+    {n:3,title:'링크',value:linkReady?'공유됨':'공유',done:linkReady,current:nextIndex===3,action:'dailyShareCheckinLink()'}
   ];
   const requiredDone=1+(playerCount?1:0)+(linkReady?1:0);
   el.hidden=false;
   el.innerHTML=`<div class="daily-start-guide-head">
     <div>
-      <div class="daily-start-guide-title">처음 운영 순서</div>
-      <div class="daily-start-guide-sub">코트와 명부를 준비하고, 진행 중인 경기만 등록한 뒤 시작하세요.</div>
+      <div class="daily-start-guide-title">운영 준비</div>
+      <div class="daily-start-guide-sub">명부와 링크만 준비하면 됩니다. 이미 경기 중이면 시작할 때 등록하세요.</div>
     </div>
     <div class="daily-start-guide-count">${requiredDone}/3</div>
   </div>
@@ -4656,7 +4665,7 @@ function dailyIgnoreCheckinRequest(key){
 }
 async function dailyStopCheckinLink(){
   if(!_dailyCheckinId)return;
-  if(!confirm('회원 출석 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 명단을 볼 수 없습니다.'))return;
+  if(!confirm('민턴LIVE 회원 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 명단을 볼 수 없습니다.'))return;
   const path=_dailyCheckinPath();
   if(_fbDb)await _fbDb.ref(path).remove().catch(()=>{});
   localStorage.removeItem(DAILY_CHECKIN_KEY);
@@ -4665,7 +4674,8 @@ async function dailyStopCheckinLink(){
   _dailyCheckinCreatedAt=0;
   _dailyCheckinRequests=[];
   _dailyCheckinListening=false;
-  dailyRenderCheckinRequests();
+  dailySave();
+  dailyRender();
 }
 function dailyRenderCheckinRequests(){
   const box=document.getElementById('dailyCheckinBox');
@@ -5559,7 +5569,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.417&from=daily';
+  location.href='team.html?v=1.10.418&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

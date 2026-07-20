@@ -445,6 +445,74 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .my-action-panel{border:1px solid #e3eaf5;border-radius:22px;background:#fff;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8);}
 .my-card .game-request{margin-top:10px}
+.my-current-match{
+  margin-bottom:10px;
+  padding:13px;
+  border:1.5px solid #f1cdcf;
+  border-radius:18px;
+  background:#fff7f7;
+  color:#712b31;
+}
+.my-current-match-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.my-current-match-head span{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:13px;
+  font-weight:1000;
+}
+.my-current-match-head span:before{
+  content:'';
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  background:#dc3545;
+  box-shadow:0 0 0 4px rgba(220,53,69,.12);
+  flex-shrink:0;
+}
+.my-current-match-head b{
+  font-size:16px;
+  color:#b42331;
+}
+.my-current-match-teams{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);
+  gap:8px;
+  margin-top:11px;
+}
+.my-current-match-team{
+  min-width:0;
+  padding:9px 10px;
+  border:1px solid #f4dfe1;
+  border-radius:13px;
+  background:#fff;
+}
+.my-current-match-team small{
+  display:block;
+  margin-bottom:3px;
+  color:#9b6a70;
+  font-size:11px;
+  font-weight:900;
+}
+.my-current-match-team strong{
+  display:block;
+  color:#263041;
+  font-size:14px;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.my-current-match-time{
+  margin-top:8px;
+  color:#8f444b;
+  font-size:12px;
+  font-weight:900;
+  text-align:right;
+}
 .next-queue-notice{
   margin-top:10px;
   padding:12px 13px;
@@ -1343,7 +1411,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 이름 찾기</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.417</span>
+    <span class="version-chip" id="appVersion">v1.10.418</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1387,7 +1455,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
-const APP_VERSION='1.10.417';
+const APP_VERSION='1.10.418';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1753,6 +1821,37 @@ function courtBadge(label){
 function activeMatchById(matchId){
   return (session?.event?.active||[]).find(m=>String(m.id||'')===String(matchId||''))||null;
 }
+function currentMatchForPlayer(playerId){
+  const target=String(playerId||'');
+  if(!target)return null;
+  return (session?.event?.active||[]).find(m=>{
+    const ids=(m.playerIds||[...(m.t1Ids||[]),...(m.t2Ids||[])]).map(String);
+    return ids.includes(target);
+  })||null;
+}
+function myCurrentMatchHtml(playerId){
+  const m=currentMatchForPlayer(playerId);
+  if(!m)return '';
+  const target=String(playerId||'');
+  const t1Ids=(m.t1Ids||[]).map(String);
+  const t2Ids=(m.t2Ids||[]).map(String);
+  const onT1=t1Ids.includes(target);
+  const ownIds=onT1?t1Ids:t2Ids;
+  const ownNames=onT1?(m.t1||[]):(m.t2||[]);
+  const otherNames=onT1?(m.t2||[]):(m.t1||[]);
+  const ownIndex=ownIds.indexOf(target);
+  const partner=ownNames.filter((_,idx)=>idx!==ownIndex).filter(Boolean).join(' · ')||'파트너 확인 중';
+  const opponents=otherNames.filter(Boolean).join(' · ')||'상대 확인 중';
+  const court=m.court?`${m.court}코트`:'코트 확인 중';
+  return `<div class="my-current-match" data-my-current-player="${esc(playerId)}">
+    <div class="my-current-match-head"><span>지금 경기 중</span><b>${esc(court)}</b></div>
+    <div class="my-current-match-teams">
+      <div class="my-current-match-team"><small>파트너</small><strong>${esc(partner)}</strong></div>
+      <div class="my-current-match-team"><small>상대</small><strong>${esc(opponents)}</strong></div>
+    </div>
+    <div class="my-current-match-time">${esc(remainText(m))}</div>
+  </div>`;
+}
 function queueIdentity(q){
   return String(q?.queueId||q?.id||'');
 }
@@ -1890,8 +1989,18 @@ function refreshMyQueueNotice(){
     else node.remove();
   });
 }
+function refreshMyCurrentMatch(){
+  const nodes=[...document.querySelectorAll('[data-my-current-player]')];
+  nodes.forEach(node=>{
+    const playerId=node.getAttribute('data-my-current-player')||'';
+    const html=myCurrentMatchHtml(playerId);
+    if(html)node.outerHTML=html;
+    else node.remove();
+  });
+}
 function refreshLiveTimers(){
   renderEvent();
+  refreshMyCurrentMatch();
   refreshMyQueueNotice();
 }
 function activeMatchLabel(m){
@@ -2271,19 +2380,20 @@ function renderMyCard(last,players){
   const selectedState=compactLabel(getSelectedStatus(selected));
   const statusDisabledAttr=(sendingKey||selected.locked)?'disabled':'';
   const requestDisabledAttr=sendingKey?'disabled':'';
-	  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,statusDisabledAttr);
-	  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,statusDisabledAttr);
-	  const nextNotice=nextQueueNoticeHtml(selected.id);
-	  const restGuide=selected.locked
-	    ? `<div class="rest-guide">경기중이에요<small>경기 종료 후 시작·휴식·종료를 선택할 수 있어요.</small></div>`
-	    : getSelectedStatus(selected)==='rest'
-	    ? `<div class="rest-guide">휴식 중이에요<small>계속 운동하려면 시작을 눌러주세요.</small></div>`
-	    : '';
-	  const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
+  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,statusDisabledAttr);
+  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,statusDisabledAttr);
+  const currentMatch=myCurrentMatchHtml(selected.id);
+  const nextNotice=nextQueueNoticeHtml(selected.id);
+  const restGuide=selected.locked
+    ? (currentMatch?'':`<div class="rest-guide">경기중이에요<small>경기 종료 후 시작·휴식·종료를 선택할 수 있어요.</small></div>`)
+    : getSelectedStatus(selected)==='rest'
+    ? `<div class="rest-guide">휴식 중이에요<small>계속 운동하려면 시작을 눌러주세요.</small></div>`
+    : '';
+  const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
   const statusChips=[
     `<span class="my-status-chip ${stateChipClass}">${esc(selectedState)}</span>`,
     `<span class="my-status-chip">${selected.games||0}게임</span>`,
-    selected.locked?'<span class="my-status-chip warn">경기중</span>':'',
+    selected.locked&&selectedState!=='경기중'?'<span class="my-status-chip warn">경기중</span>':'',
   ].filter(Boolean).join('');
   el.innerHTML=`<section class="my-card">
     <div class="my-card-head">
@@ -2294,13 +2404,14 @@ function renderMyCard(last,players){
       </div>
       <button class="my-card-change" type="button" onclick="changeSelectedPlayer()">이름 변경</button>
     </div>
-	    <div class="my-action-panel">
-	      <div class="buttons main-actions">${mainButtons}</div>
-	      ${restGuide}
-	      ${nextNotice}
-	      ${subSection}
-	      ${gameRequestBox(selected,requestDisabledAttr)}
-	    </div>
+    <div class="my-action-panel">
+      ${currentMatch}
+      <div class="buttons main-actions">${mainButtons}</div>
+      ${restGuide}
+      ${nextNotice}
+      ${subSection}
+      ${gameRequestBox(selected,requestDisabledAttr)}
+    </div>
   </section>`;
 }
 function requestPlayerOptions(selfId,selected){
