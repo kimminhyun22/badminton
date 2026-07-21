@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.419  (2026-07)
+     APP VERSION: 1.10.420  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.419">
+<meta name="app-version" content="1.10.420">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.419&from=team'">팀전LIVE</button>
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.419&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.420&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.420&from=team'">민턴LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -542,7 +542,11 @@
           <button class="age-sel-btn" data-age="60대+" onclick="selectMemberAge('60대+')">60대+</button>
         </div>
       </div>
-      <div id="memberErrMsg"</div> style="font-size:.74rem;color:var(--red);min-height:16px;margin-bottom:6px;"></div>
+      <label class="member-official-toggle">
+        <input type="checkbox" id="memberOfficial">
+        <span><b>클럽 임원</b><small>오늘 참가하면 LIVE 운영 지원 권한이 자동으로 열립니다.</small></span>
+      </label>
+      <div id="memberErrMsg" style="font-size:.74rem;color:var(--red);min-height:16px;margin-bottom:6px;"></div>
       <button class="btn-dir-add" id="memberSaveBtn" onclick="saveMember()">💾 저장</button>
     </div>
   </div>
@@ -708,6 +712,7 @@
 </div>
 </div>
 
+<script src="js/match-quality.js"></script>
 <script src="js/team.js"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
@@ -791,7 +796,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.419</span>
+  <span class="app-version" id="appVersion">v1.10.420</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

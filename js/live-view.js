@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.419';
+const APP_VERSION='1.10.420';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -902,7 +902,7 @@ function _normalizeMembers(list){
 function _sortMembers(list){
   const arr=_normalizeMembers(list);
   const sort=_teamRosterSort||'name';
-  const roleRank=p=>p.isLeader?0:p.isSub?1:p.directorRole==='primary'?2:p.directorRole==='deputy'?3:p.isDirector?4:5;
+  const roleRank=p=>p.isLeader?0:p.isSub?1:p.isClubOfficial?2:p.directorRole==='primary'?3:p.directorRole==='deputy'?4:p.isDirector?5:6;
   const genderRank=p=>p.g==='M'?0:p.g==='F'?1:2;
   return arr.sort((a,b)=>{
     if(sort==='late'||sort==='att'){
@@ -1051,8 +1051,9 @@ function hydrateLiveViewerName(d){
 
 function _viewerRoleText(p){
   if(!p) return '';
-  if(p.isLeader) return '단장';
-  if(p.isSub) return '부단장';
+  if(p.isLeader) return p.isClubOfficial?'단장 · 클럽 임원':'단장';
+  if(p.isSub) return p.isClubOfficial?'부단장 · 클럽 임원':'부단장';
+  if(p.isClubOfficial) return '클럽 임원';
   if(p.directorRole==='primary') return '경기이사(정)';
   if(p.directorRole==='deputy') return '경기이사(부)';
   if(p.isDirector) return '경기이사';
@@ -1263,6 +1264,7 @@ function _canSubmitResult(m,d){
   if(!viewer || !m || m.win) return false;
   const names=[...(m.t1||[]),...(m.t2||[])].filter(Boolean);
   if(names.includes(viewer.n)) return true;
+  if(_isTeamLiveData(d)&&viewer.isClubOfficial)return true;
   if(_isTeamLiveData(d)&&viewer.isDirector)return true;
   return !!(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub));
 }
@@ -1272,6 +1274,7 @@ function _resultRoleForSubmit(d,m){
   if(!viewer) return '';
   const names=[...(m&&m.t1||[]),...(m&&m.t2||[])].filter(Boolean);
   if(viewer.isDirector) return 'director';
+  if(viewer.isClubOfficial) return 'clubOfficial';
   if(names.includes(viewer.n)) return 'player';
   if(viewer.isLeader) return 'leader';
   if(viewer.isSub) return 'sub';
@@ -1289,7 +1292,7 @@ async function submitLiveWin(matchIdx,side){
     return;
   }
   if(!_canSubmitResult(m,d)){
-    alert('이 경기의 선수 또는 단장/부단장·경기이사만 승패를 입력할 수 있어요.');
+    alert('이 경기의 선수 또는 단장/부단장·경기이사·클럽 임원만 승패를 입력할 수 있어요.');
     return;
   }
   if(!liveDb || !liveId){
@@ -1478,8 +1481,9 @@ function buildTeamRosterCard(d){
         :p.directorRole==='deputy'
           ?'<span class="team-member-badge director deputy" title="부 경기이사">경부</span>'
           :p.isDirector?'<span class="team-member-badge director" title="경기이사">경</span>':'';
+      const officialBadge=p.isClubOfficial?'<span class="team-member-badge official" title="클럽 임원">임</span>':'';
       const badge=(p.isLeader?'<span class="team-member-badge" title="단장">단</span>':p.isSub?'<span class="team-member-badge" title="부단장">부</span>':'')
-        +directorBadge;
+        +officialBadge+directorBadge;
       const on=_lateOn(p.n);
       const partyOn=_partyOn(p.n);
       const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');

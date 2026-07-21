@@ -1847,6 +1847,10 @@ body{
   background:#3d8c69!important;
   color:#fff!important;
 }
+.team-member-badge.official{
+  background:#16724c!important;
+  color:#fff!important;
+}
 
 /* 운동 중에도 현재 경기와 승패 입력 위치를 즉시 알아볼 수 있게 한다. */
 .team-live-view{
