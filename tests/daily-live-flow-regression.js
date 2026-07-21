@@ -74,7 +74,9 @@ const code = `
 let _dailyCheckinId='DTEST123';
 let _dailyCheckinCreatedAt=123;
 let _dailyCheckinRequests=[{key:'a'}];
+let _dailyCheckinParty={p1:{attending:true}};
 let _dailyCheckinListening=true;
+let _dailyCheckinListeningPath='live/checkin_DTEST123';
 const DAILY_CHECKIN_KEY='daily_checkin';
 const DAILY_CHECKIN_CREATED_KEY='daily_checkin_created';
 const calls=[];
@@ -84,6 +86,7 @@ const localStorage={
 };
 const _fbDb={ref(){ return {remove:async()=>{ calls.push('remove'); }}; }};
 function _dailyCheckinPath(){ return 'live/checkin_'+_dailyCheckinId; }
+function _dailyStopCheckinListener(){ _dailyCheckinListening=false;_dailyCheckinListeningPath='';calls.push('listener-stop'); }
 function dailySave(){ calls.push('save'); }
 function dailyRender(){ calls.push('render'); }
 function confirm(){ return true; }
@@ -92,6 +95,7 @@ this.api={dailyStopCheckinLink,state:()=>({
   id:_dailyCheckinId,
   createdAt:_dailyCheckinCreatedAt,
   requests:_dailyCheckinRequests,
+  party:_dailyCheckinParty,
   listening:_dailyCheckinListening,
   calls:[...calls],
   values:{...localStorage.values}
@@ -107,6 +111,8 @@ vm.runInContext(code, sandbox);
   const state = sandbox.api.state();
   assert.strictEqual(state.id, null, '종료한 링크 ID는 메모리에서 제거되어야 합니다.');
   assert.strictEqual(state.values.daily_checkin, undefined, '종료한 링크 ID는 별도 저장소에서도 제거되어야 합니다.');
+  assert.strictEqual(Object.keys(state.party).length, 0, '종료한 링크의 뒷풀이 응답도 메모리에서 제거되어야 합니다.');
+  assert(state.calls.includes('listener-stop'), '종료한 링크의 실시간 구독을 먼저 해제해야 합니다.');
   assert(state.calls.includes('save'), '종료 상태를 일일 저장본에 즉시 저장해야 합니다.');
   assert(state.calls.includes('render'), '종료 직후 전체 상황판을 다시 그려야 합니다.');
   assert(state.calls.indexOf('save') < state.calls.indexOf('render'), '종료 상태 저장 후 화면을 갱신해야 합니다.');

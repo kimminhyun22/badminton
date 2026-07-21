@@ -1407,7 +1407,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-support-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;}
 .official-support-head b{font-size:16px;color:var(--txt);}
 .official-connection{flex-shrink:0;padding:5px 9px;border-radius:999px;background:#eef9f3;color:#16724c;font-size:12px;font-weight:1000;}
-.official-connection.offline{background:#fff2f2;color:#b42318;}
+.official-connection.offline{background:#fff8e8;color:#8a5a00;}
 .official-support-note{font-size:12px;line-height:1.5;color:var(--mut);margin-bottom:10px;}
 .official-request-state{margin:0 0 10px;padding:8px 10px;border-radius:7px;background:#f4f7fb;color:#526177;font-size:12px;font-weight:900;}
 .official-request-state.done{background:#eef9f3;color:#16724c;}
@@ -1418,6 +1418,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-action-row small{display:block;color:var(--mut);font-size:11px;font-weight:800;margin-top:2px;}
 .official-action-row button,.official-status-actions button{min-height:42px;border:1.5px solid #e3a7aa;border-radius:8px;background:#fff4f4;color:#b42318;padding:8px 12px;font-weight:1000;font-family:inherit;}
 .official-action-row button.start{border-color:#9ccfb7;background:#eef9f3;color:#16724c;}
+.official-action-row button.yield{border-color:#e8c784;background:#fff9ed;color:#8a5a00;}
 .official-action-row button:disabled,.official-status-actions button:disabled{opacity:.42;cursor:not-allowed;}
 .official-player-tools{margin-top:12px;}
 .official-player-tools summary{cursor:pointer;font-size:13px;font-weight:1000;color:#40506a;list-style:none;}
@@ -1427,6 +1428,19 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-status-actions button{border-color:var(--line);background:#fff;color:#40506a;padding:8px 5px;}
 .official-status-actions button.rest{border-color:#e8c784;background:#fff9ed;color:#8a5a00;}
 .official-status-actions button.done{border-color:#e3a7aa;background:#fff4f4;color:#b42318;}
+.official-partner-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px;}
+.official-partner-fields label{min-width:0;color:var(--mut);font-size:11px;font-weight:900;}
+.official-partner-fields select{margin:5px 0 0;}
+.official-partner-submit{width:100%;min-height:44px;border:1.5px solid #9ccfb7;border-radius:8px;background:#eef9f3;color:#16724c;font:inherit;font-weight:1000;}
+.official-partner-list{margin-top:9px;border-top:1px solid var(--line);}
+.official-partner-list .official-action-row button{border-color:#e3a7aa;background:#fff4f4;color:#b42318;}
+.party-request{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
+.party-request b{display:block;font-size:14px;color:var(--txt);}
+.party-request small{display:block;margin-top:3px;color:var(--mut);font-size:11px;font-weight:800;line-height:1.45;}
+.party-request button{min-width:96px;min-height:44px;border:1.5px solid #edc987;border-radius:8px;background:#fff9ed;color:#8a5a00;font:inherit;font-weight:1000;}
+.party-request button.selected{border-color:#df9a2d;background:#df9a2d;color:#fff;}
+.official-party-summary{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);color:#40506a;font-size:12px;font-weight:900;line-height:1.55;overflow-wrap:anywhere;}
+.official-party-summary b{color:#8a5a00;}
 </style>
 </head>
 <body>
@@ -1436,7 +1450,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.423</span>
+    <span class="version-chip" id="appVersion">v1.10.425</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1479,11 +1493,11 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
-const APP_VERSION='1.10.423';
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
+const APP_VERSION='1.10.425';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
-const OFFICIAL_REQUEST_TTL_MS=90000;
+const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
 const OPERATOR_FRESH_MS=30000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 const MAIN_STATUS_KEYS=['wait','rest','done'];
@@ -1648,7 +1662,7 @@ function sampleSession(){
     matchStartedAt:now-35*60*1000,
     expiresAt:now+47*60*60*1000,
     version:'sample',
-    capabilities:{officialOpsV1:true},
+    capabilities:{officialOpsV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,afterPartyV1:true},
     players,
     statuses:[
       {key:'wait',label:'복귀',desc:''},
@@ -1949,11 +1963,11 @@ function nextQueueTimeInfo(q){
   if(!q)return {main:'대기 중',detail:''};
   if(q.restPass)return {main:'조금 쉬고 대기',detail:''};
   if(q.cueState==='free'){
-    return {main:'입장 준비',detail:'관리자·임원 확인 중'};
+    return {main:'입장 준비',detail:'클럽 임원 확인 중'};
   }
-  if(q.cueState==='handoff')return {main:'입장 준비',detail:'관리자·임원 확인 중'};
+  if(q.cueState==='handoff')return {main:'입장 준비',detail:'클럽 임원 확인 중'};
   if(q.cueState==='due'){
-    return {main:'입장 준비',detail:'관리자·임원 확인 중'};
+    return {main:'입장 준비',detail:'클럽 임원 확인 중'};
   }
   const m=queueTargetMatch(q);
   const endAt=Number(m?.endAt||0);
@@ -1978,9 +1992,9 @@ function memberQueueCueText(q){
   if(!q)return '';
   if(q.restPass)return q.restPassText||'조금 쉬고';
   if(q.cueState==='free'){
-    return '입장 준비 · 관리자·임원 확인 중';
+    return '입장 준비 · 클럽 임원 확인 중';
   }
-  if(q.cueState==='handoff')return '입장 준비 · 관리자·임원 확인 중';
+  if(q.cueState==='handoff')return '입장 준비 · 클럽 임원 확인 중';
   const detail=stripExpectedCourtText(q.cueDetail);
   if(detail)return detail;
   return stripExpectedCourtText(q.cue);
@@ -1994,8 +2008,9 @@ function nextQueueNoticeHtml(playerId){
   const nextList=eventNextList();
   const target=String(qid||'');
   const qIndex=nextList.findIndex(item=>String(item.queueId||item.id||'')===target);
+  const pendingYield=queueYieldRequests.some(r=>!r.appliedAt&&!r.ignoredAt&&['queue-yield','queue-defer'].includes(r.type)&&String(r.queueId||'')===target&&String(r.playerId||'')===String(playerId));
   const canRest=!!target&&q.cueState==='free'&&q.targetCourt&&!q.restPass;
-  const canYield=!canRest&&!!target&&qIndex>=0&&qIndex<nextList.length-1&&!q.restPass;
+  const canYield=!pendingYield&&!canRest&&!!target&&qIndex>=0&&qIndex<nextList.length-1&&!q.restPass;
   const title=['다음 대진',order,timeInfo.main].filter(Boolean).join(' · ');
   const showTimeDetail=!!timeInfo.detail&&!canYield;
   return `<div class="next-queue-notice" data-next-queue-player="${esc(playerId)}">
@@ -2004,7 +2019,7 @@ function nextQueueNoticeHtml(playerId){
     ${canRest?`<div class="queue-entry-actions member-rest-only">
       <button class="queue-rest-btn" type="button" onclick="sendQueueRestPass('${esc(playerId)}','${esc(qid)}','${esc(String(q.targetCourt||''))}')">조금 쉬고</button>
     </div>`:''}
-    ${canYield?`<button class="queue-defer-btn" type="button" onclick="sendQueueDefer('${esc(playerId)}','${esc(qid)}')">이번만 뒤로</button>`:''}
+    ${pendingYield?'<button class="queue-defer-btn" type="button" disabled>뒤로 이동 확인 중</button>':canYield?`<button class="queue-defer-btn" type="button" onclick="sendQueueDefer('${esc(playerId)}','${esc(qid)}')">이번만 뒤로</button>`:''}
   </div>`;
 }
 function refreshMyQueueNotice(){
@@ -2403,9 +2418,33 @@ function operatorConnected(){
   if(isSampleMode())return true;
   return !!(operatorState?.heartbeatAt&&Date.now()-Number(operatorState.heartbeatAt)<OPERATOR_FRESH_MS);
 }
+function afterPartyEntry(playerId){
+  const row=partyResponses&&partyResponses[playerId];
+  return row&&row.attending!==false?row:null;
+}
+function afterPartyNames(){
+  const byId=new Map((session?.players||[]).map(p=>[String(p.id),p]));
+  return Object.entries(partyResponses||{})
+    .filter(([id,row])=>row&&row.attending!==false&&byId.has(String(id)))
+    .map(([id])=>byId.get(String(id))?.name||'')
+    .filter(Boolean)
+    .sort((a,b)=>String(a).localeCompare(String(b),'ko'));
+}
+function afterPartyBox(p,disabled){
+  if(!p||session?.capabilities?.afterPartyV1!==true)return '';
+  const attending=!!afterPartyEntry(p.id);
+  return `<div class="party-request">
+    <div><b>뒷풀이</b><small>${attending?'참석으로 신청되어 있습니다.':'참석하는 경우 신청해 주세요.'}</small></div>
+    <button type="button" class="${attending?'selected':''}" ${disabled||''} onclick="toggleAfterParty('${esc(p.id)}')">${attending?'신청 취소':'참석 신청'}</button>
+  </div>`;
+}
+function officialPartySummaryHtml(){
+  const names=afterPartyNames();
+  return `<div class="official-party-summary"><b>뒷풀이 ${names.length}명</b>${names.length?` · ${names.map(esc).join(', ')}`:' · 신청 없음'}</div>`;
+}
 function latestOfficialRequest(actorId){
   return officialRequests
-    .filter(r=>r.actorPlayerId===actorId&&Date.now()-Number(r.createdAt||0)<5*60*1000)
+    .filter(r=>r.actorPlayerId===actorId&&Date.now()-Number(r.createdAt||0)<OFFICIAL_REQUEST_TTL_MS)
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0]||null;
 }
 function officialRequestStateHtml(actorId){
@@ -2413,7 +2452,7 @@ function officialRequestStateHtml(actorId){
   if(!req)return '';
   if(req.ignoredAt)return `<div class="official-request-state error">반영 안 됨 · ${esc(req.reason||'현재 경기 상태를 다시 확인해 주세요.')}</div>`;
   if(req.appliedAt)return '<div class="official-request-state done">운영 요청이 반영됐습니다.</div>';
-  return '<div class="official-request-state">요청 처리 중입니다.</div>';
+  return `<div class="official-request-state">${operatorConnected()?'운영 요청을 안전 확인 중입니다.':'운영 요청이 저장됐습니다. 연결이 복구되면 현재 상태를 다시 검증합니다.'}</div>`;
 }
 function officialPlayerOptions(){
   return (session?.players||[])
@@ -2422,10 +2461,55 @@ function officialPlayerOptions(){
     .map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.status==='playing'?(p.afterMatchStatus?`경기 후 ${compactLabel(p.afterMatchStatus)} 예정`:'경기중 · 경기 후 반영'):compactLabel(p.status))}</option>`)
     .join('');
 }
+function officialPartnerOptions(selected){
+  const players=(session?.players||[])
+    .filter(p=>p&&p.name&&!['invited','planned','done'].includes(p.status))
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+  return '<option value="">선수 선택</option>'+players.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)} · ${esc(compactLabel(p.status))}</option>`).join('');
+}
+function officialPartnerReservations(){
+  return (session?.reservations||[]).filter(r=>r&&r.mode!=='match'&&(r.team1||[]).length===2);
+}
+function officialPartnerToolsHtml(p,disabled){
+  if(session?.capabilities?.officialPartnerOpsV1!==true)return '';
+  const pairs=officialPartnerReservations();
+  const pairRows=pairs.map(r=>`<div class="official-action-row">
+    <span>${esc(r.label||'파트너 접수')}<small>${esc(r.statusText||'대진 반영 대기')}</small></span>
+    <button type="button" data-official-action ${disabled} onclick="sendOfficialPartnerCancel('${esc(p.id)}','${esc(r.id)}')">접수 취소</button>
+  </div>`).join('');
+  return `<details class="official-player-tools">
+    <summary>파트너 접수·취소</summary>
+    <div class="official-partner-fields">
+      <label>선수 1<select id="officialPartnerA_${esc(p.id)}">${officialPartnerOptions('')}</select></label>
+      <label>선수 2<select id="officialPartnerB_${esc(p.id)}">${officialPartnerOptions('')}</select></label>
+    </div>
+    <button type="button" class="official-partner-submit" data-official-action ${disabled} onclick="sendOfficialPartnerReservation('${esc(p.id)}')">파트너 접수</button>
+    ${pairRows?`<div class="official-partner-list">${pairRows}</div>`:''}
+  </details>`;
+}
+function officialQueueYieldToolsHtml(p,disabled){
+  if(session?.capabilities?.officialQueueYieldV1!==true)return '';
+  const list=eventNextList();
+  const rows=list.slice(0,-1).filter(q=>q&&!q.restPass&&!(q.cueState==='free'&&q.targetCourt)).map((q,index)=>{
+    const queueId=q.queueId||q.id||'';
+    if(!queueId)return '';
+    const pending=officialRequests.some(r=>r.type==='official-queue-yield'&&!r.appliedAt&&!r.ignoredAt&&String(r.queueId||'')===String(queueId));
+    const buttonDisabled=(disabled||pending)?'disabled':'';
+    return `<div class="official-action-row">
+      <span>${esc(q.idx||index+1)}순위 · ${esc(teamNames(q))}<small>${pending?'순서 변경 확인 중':'이번 대진을 한 칸 뒤로 이동'}</small></span>
+      <button type="button" class="yield" data-official-action data-official-pending="${pending?'true':'false'}" ${buttonDisabled} onclick="sendOfficialQueueYield('${esc(p.id)}','${esc(queueId)}')">${pending?'요청 중':'한 칸 뒤로'}</button>
+    </div>`;
+  }).join('');
+  if(!rows)return '';
+  return `<details class="official-player-tools">
+    <summary>다음 대진 순서 조정</summary>
+    <div class="official-action-list">${rows}</div>
+  </details>`;
+}
 function officialSupportHtml(p){
   if(!p?.isClubOfficial||!session?.capabilities?.officialOpsV1)return '';
   const connected=operatorConnected();
-  const disabled=(!connected||sendingKey)?'disabled':'';
+  const disabled=sendingKey?'disabled':'';
   const active=(session?.event?.active||[]).slice().sort((a,b)=>(a.court||0)-(b.court||0));
   const free=eventNextList().filter(q=>q.cueState==='free'&&q.targetCourt&&!q.restPass);
   const activeRows=active.map(m=>`<div class="official-action-row">
@@ -2438,10 +2522,11 @@ function officialSupportHtml(p){
   </div>`).join('');
   const playerOptions=officialPlayerOptions();
   return `<section class="official-support">
-    <div class="official-support-head"><b>클럽 임원 운영 지원</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${connected?'바로 반영':'관리자 앱 연결 필요'}</span></div>
-    <div id="officialSupportNote" class="official-support-note">${connected?'관리자 대신 현장 흐름만 이어갑니다. 명부·급수·대진 규칙은 바뀌지 않습니다.':'관리자 앱을 열면 바로 사용할 수 있습니다. 오래된 요청은 자동 실행되지 않습니다.'}</div>
+    <div class="official-support-head"><b>클럽 임원 운영</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${connected?'운영 엔진 정상':'연결 복구 중'}</span></div>
+    <div id="officialSupportNote" class="official-support-note">${connected?'코트 진행·선수 상태·대진 순서·파트너 접수는 임원이 처리합니다. 시스템 관리자는 예외만 확인합니다.':'임원 요청은 먼저 저장됩니다. 운영 연결이 복구되면 현재 경기 상태를 다시 검증해 안전하게 반영합니다.'}</div>
     ${officialRequestStateHtml(p.id)}
     ${(activeRows||freeRows)?`<div class="official-action-list">${freeRows}${activeRows}</div>`:'<div class="official-request-state">지금 처리할 코트가 없습니다.</div>'}
+    ${officialQueueYieldToolsHtml(p,disabled)}
     ${playerOptions?`<details class="official-player-tools"><summary>선수 휴식·복귀·종료 처리</summary>
       <select id="officialPlayerSelect_${esc(p.id)}">${playerOptions}</select>
       <div class="official-status-actions">
@@ -2450,17 +2535,19 @@ function officialSupportHtml(p){
         <button type="button" class="done" data-official-action ${disabled} onclick="sendOfficialPlayerStatus('${esc(p.id)}','done')">종료</button>
       </div>
     </details>`:''}
+    ${officialPartnerToolsHtml(p,disabled)}
+    ${officialPartySummaryHtml()}
   </section>`;
 }
 function refreshOfficialConnection(){
   const el=document.getElementById('officialConnection');
   if(!el)return;
   const connected=operatorConnected();
-  el.textContent=connected?'바로 반영':'관리자 앱 연결 필요';
+  el.textContent=connected?'운영 엔진 정상':'연결 복구 중';
   el.classList.toggle('offline',!connected);
   const note=document.getElementById('officialSupportNote');
-  if(note)note.textContent=connected?'관리자 대신 현장 흐름만 이어갑니다. 명부·급수·대진 규칙은 바뀌지 않습니다.':'관리자 앱을 열면 바로 사용할 수 있습니다. 오래된 요청은 자동 실행되지 않습니다.';
-  document.querySelectorAll('[data-official-action]').forEach(btn=>{btn.disabled=!connected||!!sendingKey;});
+  if(note)note.textContent=connected?'코트 진행·선수 상태·대진 순서·파트너 접수는 임원이 처리합니다. 시스템 관리자는 예외만 확인합니다.':'임원 요청은 먼저 저장됩니다. 운영 연결이 복구되면 현재 경기 상태를 다시 검증해 안전하게 반영합니다.';
+  document.querySelectorAll('[data-official-action]').forEach(btn=>{btn.disabled=!!sendingKey||btn.dataset.officialPending==='true';});
 }
 function renderMyCard(last,players){
   const el=document.getElementById('myCard');
@@ -2510,6 +2597,7 @@ function renderMyCard(last,players){
       ${restGuide}
       ${nextNotice}
       ${subSection}
+      ${afterPartyBox(selected,requestDisabledAttr)}
       ${gameRequestBox(selected,requestDisabledAttr)}
       ${officialSupportHtml(selected)}
     </div>
@@ -2578,29 +2666,12 @@ function gameRequestBox(p,disabled){
   const reqs=playerReservationRequests(p.id);
   const pending=reqs.find(r=>!r.appliedAt&&!r.ignoredAt);
   const recentCancelled=reqs.find(r=>r.ignoredAt&&Date.now()-(r.ignoredAt||0)<10*60*1000);
-  const recentApplied=reqs.find(r=>r.appliedAt&&Date.now()-(r.appliedAt||0)<5*60*1000);
   if(pending){
-    const consent=reservationConsentSummary(pending);
-    const consentText=pending.consentRequired?` · 동의 ${consent.accepted}/${consent.total}`:'';
-    const myConsent=reservationConsentState(pending,p.id);
-    const cancelButton=`<button class="decline" ${disabled} onclick="sendReservationCancel('${esc(pending.key)}','${esc(p.id)}')">${pending.playerId===p.id?'신청 취소':'동의 취소'}</button>`;
-    if(pending.consentRequired&&myConsent!=='accepted'){
-      return `<details class="game-request" open>
-        <summary>${reservationSectionTitle(pending)} 동의</summary>
-        <div class="request-status consent">예약 동의 요청${consentText}
-          <small>${esc(reservationRequestLabel(pending))}</small>
-          <div class="request-consent-actions">
-            <button class="accept" ${disabled} onclick="sendReservationConsent('${esc(pending.key)}','${esc(p.id)}',true)">동의</button>
-            <button class="decline" ${disabled} onclick="sendReservationConsent('${esc(pending.key)}','${esc(p.id)}',false)">거절</button>
-          </div>
-        </div>
-      </details>`;
-    }
     return `<details class="game-request" open>
-      <summary>${reservationSectionTitle(pending)}</summary>
-      <div class="request-status"><span class="request-chip">본인 신청 확인</span>${pending.consentRequired?'동의 완료':'신청 접수됨'}${consentText} · 순번 유지 반영 대기
+      <summary>이전 파트너 요청</summary>
+      <div class="request-status cancelled">회원 직접 요청 방식이 종료되었습니다.
         <small>${esc(reservationRequestLabel(pending))}</small>
-        <div class="request-consent-actions">${cancelButton}</div>
+        <small>클럽 임원에게 알려주면 현장에서 다시 접수합니다.</small>
       </div>
     </details>`;
   }
@@ -2610,32 +2681,59 @@ function gameRequestBox(p,disabled){
     const stateClass=(activeReservation.statusClass||'').replace(/[^a-z0-9_-]/gi,'');
     const isPartner=activeReservation.mode!=='match';
     const prefix=stateClass==='queued'
-      ? (isPartner?'파트너 신청 반영':'게임 신청 반영')
+      ? (isPartner?'파트너 접수 반영':'게임 등록 반영')
       : stateClass==='waiting-player'
-        ? '수락 완료 · 상대 경기 중'
-        : (isPartner?'파트너 신청 완료':'게임 신청 완료');
+        ? '임원 접수 완료 · 상대 경기 중'
+        : (isPartner?'파트너 접수 완료':'게임 등록 완료');
     const mainText=stateClass==='waiting-player'?prefix:`${prefix} · ${status}`;
     const detailHtml=activeReservation.statusDetail?`<small>${esc(activeReservation.statusDetail)}</small>`:'';
     return `<details class="game-request" open>
-      <summary>${reservationSectionTitle(activeReservation)}</summary>
-      <div class="request-status done ${esc(stateClass)}"><span class="request-chip">본인 신청 확인</span>${esc(mainText)}
+      <summary>${isPartner?'파트너 접수':'게임 등록'}</summary>
+      <div class="request-status done ${esc(stateClass)}"><span class="request-chip">임원 접수</span>${esc(mainText)}
         ${detailHtml}
         <small>${esc(sessionReservationLabel(activeReservation))}</small>
       </div>
     </details>`;
   }
   const cancelledHtml=recentCancelled?`<div class="request-status cancelled">최근 신청이 자동 취소됐습니다.<small>${esc(recentCancelled.reason||reservationRequestLabel(recentCancelled))}</small></div>`:'';
-  const recentHtml=recentApplied?`<div class="request-status done"><span class="request-chip">본인 신청 확인</span>신청 접수됨 · 순번 유지 반영 대기<small>${esc(reservationRequestLabel(recentApplied))}</small></div>`:'';
-  if(session?.event?.finishMode)return cancelledHtml||recentHtml||'';
-  return `<details class="game-request">
-    <summary>파트너 신청</summary>
-    ${cancelledHtml||recentHtml}
-    <div class="request-body">
-      <div class="request-field full"><label>같은 편으로 뛸 선수</label><select id="reqPartner_${esc(p.id)}">${requestPlayerOptions(p.id,'')}</select></div>
-      <div class="request-help">상대는 시스템이 밸런스와 순서를 보고 자동으로 배정해요.</div>
-      <button ${disabled} onclick="sendGameRequest('${esc(p.id)}')">파트너 신청 보내기</button>
-    </div>
-  </details>`;
+  return cancelledHtml||'';
+}
+async function toggleAfterParty(playerId){
+  if(!session||sendingKey)return;
+  if(sessionExpired())return showEndedLink();
+  const p=(session.players||[]).find(x=>x.id===playerId);
+  if(!p)return toast('선수를 찾지 못했습니다.');
+  if(!confirmPlayerIdentity(p))return;
+  const previous=afterPartyEntry(playerId)?{...afterPartyEntry(playerId)}:null;
+  const attending=!afterPartyEntry(playerId);
+  sendingKey=playerId+'_after_party';
+  if(attending)partyResponses[playerId]={attending:true,revision:Number(previous?.revision||0)+1,updatedAt:Date.now(),source:'member-after-party'};
+  else delete partyResponses[playerId];
+  render();
+  if(isSampleMode()){
+    sendingKey='';
+    toast(`${p.name} · 뒷풀이 ${attending?'참석 신청':'신청 취소'}`);
+    render();
+    return;
+  }
+  if(!db||!checkinId){sendingKey='';render();return;}
+  try{
+    const ref=db.ref(checkinPath()+'/party/'+playerId);
+    await ref.transaction(current=>attending?{
+      attending:true,
+      revision:Number(current?.revision||0)+1,
+      updatedAt:firebase.database.ServerValue.TIMESTAMP,
+      source:'member-after-party'
+    }:null);
+    toast(`${p.name} · 뒷풀이 ${attending?'참석 신청':'신청 취소'}`);
+  }catch(e){
+    if(previous)partyResponses[playerId]=previous;
+    else delete partyResponses[playerId];
+    toast('뒷풀이 신청 저장에 실패했습니다. 다시 눌러주세요.');
+  }finally{
+    sendingKey='';
+    render();
+  }
 }
 function officialActor(actorId){
   const last=getLastSent();
@@ -2651,14 +2749,14 @@ async function pushOfficialRequest(req,successText){
   }
   if(!db||!checkinId||!session||sendingKey)return false;
   if(sessionExpired()){showEndedLink();return false;}
-  if(!operatorConnected()){toast('관리자 앱 연결 후 다시 눌러주세요.');return false;}
+  const connected=operatorConnected();
   sendingKey='official_'+req.type;
   refreshOfficialConnection();
   try{
     const ref=db.ref(checkinPath()+'/requests').push();
     await ref.set(req);
     officialRequests.push({key:ref.key,...req});
-    toast(successText);
+    toast(connected?successText:`${successText} · 요청 저장됨`);
     return true;
   }catch(e){
     toast('운영 요청 전송에 실패했습니다. 다시 눌러주세요.');
@@ -2666,6 +2764,52 @@ async function pushOfficialRequest(req,successText){
   }finally{
     sendingKey='';
     refreshOfficialConnection();
+  }
+}
+async function sendOfficialPartnerReservation(actorId){
+  const actor=officialActor(actorId);
+  const aId=document.getElementById('officialPartnerA_'+actorId)?.value||'';
+  const bId=document.getElementById('officialPartnerB_'+actorId)?.value||'';
+  const players=(session?.players||[]);
+  const a=players.find(p=>p.id===aId),b=players.find(p=>p.id===bId);
+  if(!actor||!a||!b)return toast('파트너 두 명을 선택해 주세요.');
+  if(a.id===b.id)return toast('서로 다른 선수 두 명을 선택해 주세요.');
+  if([a,b].some(p=>['invited','planned','done'].includes(p.status)))return toast('현재 운동 중인 선수만 접수할 수 있습니다.');
+  const conflict=officialPartnerReservations().find(r=>(r.team1||[]).some(id=>id===a.id||id===b.id));
+  if(conflict)return toast('이미 파트너 접수에 포함된 선수가 있습니다.');
+  const now=Date.now();
+  const ok=await pushOfficialRequest({
+    type:'official-partner-reservation',
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    playerIds:[a.id,b.id],playerNames:[a.name,b.name],
+    createdAt:now,expiresAt:now+OFFICIAL_REQUEST_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-support'
+  },`${a.name} · ${b.name} 파트너 접수`);
+  if(ok&&isSampleMode()){
+    session.reservations=session.reservations||[];
+    session.reservations.push({id:'sample_pair_'+now,mode:'pair',team1:[a.id,b.id],team2:[],label:`${a.name}·${b.name} 같은 편`,statusText:'대진 반영 대기'});
+    render();
+  }
+}
+async function sendOfficialPartnerCancel(actorId,reservationId){
+  const actor=officialActor(actorId);
+  const reservation=(session?.reservations||[]).find(r=>r.id===reservationId&&r.mode!=='match');
+  if(!actor||!reservation)return toast('취소할 파트너 접수를 다시 확인해 주세요.');
+  if(!confirm(`${reservation.label||'이 파트너 접수'}를 취소할까요?`))return;
+  const now=Date.now();
+  const ok=await pushOfficialRequest({
+    type:'official-partner-cancel',
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    reservationId:reservation.id,
+    expectedPlayerIds:[...(reservation.team1||[])],
+    createdAt:now,expiresAt:now+OFFICIAL_REQUEST_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-support'
+  },'파트너 접수 취소 요청');
+  if(ok&&isSampleMode()){
+    session.reservations=(session.reservations||[]).filter(r=>r.id!==reservation.id);
+    render();
   }
 }
 async function sendOfficialPlayerStatus(actorId,status){
@@ -2742,6 +2886,47 @@ async function sendOfficialQueueEnter(actorId,queueId){
     source:'club-official-support'
   },`${q.targetCourt}코트 입장 요청`);
   if(ok&&isSampleMode())render();
+}
+async function sendOfficialQueueYield(actorId,queueId){
+  const actor=officialActor(actorId);
+  const list=eventNextList();
+  const index=list.findIndex(q=>String(q.queueId||q.id||'')===String(queueId||''));
+  const q=index>=0?list[index]:null;
+  if(!actor||!q)return toast('뒤로 보낼 다음 대진을 다시 확인해 주세요.');
+  if(q.restPass)return toast('이미 조금 쉬고 처리된 대진입니다.');
+  if(q.cueState==='free'&&q.targetCourt)return toast('빈 코트 입장 단계에서는 조금 쉬고 처리를 이용해 주세요.');
+  if(index>=list.length-1)return toast('뒤에 대진이 없어 이동할 수 없습니다.');
+  const playerIds=[...(q.playerIds||[])];
+  const team1Ids=[...(q.t1Ids||[])],team2Ids=[...(q.t2Ids||[])];
+  if(playerIds.length!==4||team1Ids.length!==2||team2Ids.length!==2)return toast('다음 대진 선수 구성을 다시 확인해 주세요.');
+  if(!confirm(`${index+1}순위 · ${teamNames(q)}\n\n이 대진을 한 칸 뒤로 보낼까요?`))return;
+  const now=Date.now();
+  const ok=await pushOfficialRequest({
+    type:'official-queue-yield',
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    queueId:q.queueId||q.id||queueId,
+    expectedQueueIndex:index+1,
+    expectedPlayerIds:playerIds,
+    expectedTeam1Ids:team1Ids,
+    expectedTeam2Ids:team2Ids,
+    createdAt:now,expiresAt:now+OFFICIAL_REQUEST_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-support'
+  },`${index+1}순위 대진 뒤로 이동 요청`);
+  if(ok&&isSampleMode()){
+    const sourceList=session?.event?.next||[];
+    const sourceIndex=sourceList.findIndex(item=>String(item.queueId||item.id||'')===String(queueId||''));
+    if(sourceIndex>=0&&sourceIndex<sourceList.length-1){
+      const item=sourceList.splice(sourceIndex,1)[0];
+      item.yieldedAt=now;
+      item.yieldedBy=actor.id;
+      item.yieldedSource='sample-club-official-queue-yield';
+      item.yieldedCount=Number(item.yieldedCount||0)+1;
+      sourceList.splice(sourceIndex+1,0,item);
+      sourceList.forEach((entry,i)=>{entry.idx=i+1;});
+    }
+    render();
+  }
 }
 async function sendOfficialCourtUndo(actorId,token){
   const actor=officialActor(actorId);
@@ -2853,9 +3038,13 @@ async function sendQueueDefer(playerId,queueId){
     playerId:p.id,
     playerName:p.name,
     queueIndex:q.idx||qIndex+1,
+    expectedPlayerIds:[...(q.playerIds||[])],
+    expectedTeam1Ids:[...(q.t1Ids||[])],
+    expectedTeam2Ids:[...(q.t2Ids||[])],
     createdAt:Date.now(),
     source:'member-queue-yield'
   };
+  req.expiresAt=req.createdAt+OFFICIAL_REQUEST_TTL_MS;
   sendingKey='queue_yield_'+p.id;
   renderEvent();
   try{
@@ -3055,46 +3244,8 @@ async function sendCourtCompleteUndo(token){
   }
 }
 async function sendGameRequest(playerId){
-  if(!db||!checkinId||!session||sendingKey)return;
-  if(sessionExpired())return showEndedLink();
-  if(session?.event?.finishMode)return toast('마무리 중입니다.');
-  const p=(session.players||[]).find(x=>x.id===playerId);
-  if(!p)return toast('선수를 찾지 못했습니다.');
-  const nextQ=nextQueueForPlayer(playerId);
-  if(nextQ&&!confirm(`${p.name}님은 현재 다음 대진에 포함되어 있어요.\n파트너 신청은 순번을 앞당기지 않고, 가능한 빈 순서에서 같은 편으로 반영됩니다.\n그래도 신청할까요?`))return;
-  const partnerId=document.getElementById('reqPartner_'+playerId)?.value||'';
-  const ids=[playerId,partnerId].filter(Boolean);
-  if(!partnerId)return toast('같은 편으로 뛸 선수를 선택해 주세요.');
-  if(new Set(ids).size!==ids.length)return toast('같은 선수가 중복 선택됐어요.');
-  const mode='pair';
-  const consentRequired=ids;
-  const consents={};
-  consentRequired.forEach(id=>{consents[id]=id===playerId?'accepted':'pending';});
-  const req={
-    type:'reservation',
-    mode,
-    playerId:p.id,
-    playerName:p.name,
-    team1:[p.id,partnerId],
-    team2:[],
-    consentRequired,
-    consents,
-    createdAt:Date.now(),
-    source:'member-game-request'
-  };
-  sendingKey=playerId+'_reservation';
-  render();
-  try{
-    const ref=db.ref(checkinPath()+'/requests').push();
-    await ref.set(req);
-    reservationRequests.push({key:ref.key,...req});
-    toast('파트너에게 동의 요청을 보냈어요.');
-  }catch(e){
-    toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
-  }finally{
-    sendingKey='';
-    render();
-  }
+  const p=(session?.players||[]).find(x=>x.id===playerId);
+  toast(`${p?.name||'선수'}님의 파트너 요청은 클럽 임원이 현장에서 접수합니다.`);
 }
 async function sendReservationConsent(reqKey,playerId,accept){
   if(!db||!checkinId||!session||sendingKey)return;
@@ -3174,6 +3325,7 @@ function boot(){
   }
   if(sampleMode){
     session=sampleSession();
+    partyResponses={s2:{attending:true,revision:1,updatedAt:Date.now(),source:'sample'}};
     const samplePlayerId=qs('player');
     const samplePlayer=(session.players||[]).find(p=>p.id===samplePlayerId);
     if(samplePlayer){
@@ -3227,8 +3379,12 @@ function boot(){
       .filter(r=>['queue-yield','queue-defer'].includes(r.type)&&!r.appliedAt&&!r.ignoredAt)
       .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
     officialRequests=rows
-      .filter(r=>String(r.type||'').startsWith('official-')&&Date.now()-Number(r.createdAt||0)<5*60*1000)
+      .filter(r=>String(r.type||'').startsWith('official-')&&Date.now()-Number(r.createdAt||0)<OFFICIAL_REQUEST_TTL_MS)
       .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+    render();
+  });
+  db.ref(checkinPath()+'/party').on('value',snap=>{
+    partyResponses=snap.val()||{};
     render();
   });
   db.ref(checkinPath()+'/operator').on('value',snap=>{
