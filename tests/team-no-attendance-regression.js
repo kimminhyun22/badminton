@@ -24,6 +24,13 @@ assert(!liveSrc.includes('출석'), '실중계 화면에 출석 버튼이 남으
 assert(rsvpHtml.includes('내 이름을 확인하면 실중계로 바로 들어갈 수 있습니다.'), '회원에게 본인 확인 다음 행동을 알려야 합니다.');
 assert(rsvpHtml.includes('실중계 들어가기'), '본인 확인 후 실중계 진입 버튼이 있어야 합니다.');
 assert(rsvpHtml.includes('if(!selected)'), '본인 확인 전에는 실중계 링크를 열지 않아야 합니다.');
+const enterLiveSource = functionSource(rsvpHtml, 'enterActiveLive', 'selectRsvpIdentity');
+const selectIdentitySource = functionSource(rsvpHtml, 'selectRsvpIdentity', 'liveIdFromUrl');
+assert(enterLiveSource.includes('!selectedMemberFromLast()'), '선택된 회원이 없으면 실중계로 자동 진입하지 않아야 합니다.');
+assert(enterLiveSource.includes("session?.phase!=='live'||!session.liveUrl"), '진행 중인 LIVE와 유효한 주소가 있을 때만 자동 진입해야 합니다.');
+assert(enterLiveSource.includes('location.assign(liveUrlWithViewer(session.liveUrl))'), '자동 진입 주소에는 선택한 회원 정보가 포함되어야 합니다.');
+assert(selectIdentitySource.indexOf('setLast(') < selectIdentitySource.indexOf('if(enterActiveLive())return;'), '회원 정보를 저장한 뒤 실중계로 이동해야 합니다.');
+assert(selectIdentitySource.indexOf('if(enterActiveLive())return;') < selectIdentitySource.indexOf('render();'), '자동 진입에 성공하면 중간 MY PAGE를 다시 그리지 않아야 합니다.');
 assert(rsvpHtml.includes('toggleLateStatus'), '회원은 늦음만 예외 상태로 표시할 수 있어야 합니다.');
 assert(rsvpHtml.includes("'/late/'" ) || rsvpHtml.includes("+'/late/'"), '회원 늦음은 LIVE late 경로에도 반영되어야 합니다.');
 assert(!rsvpHtml.includes('sendSelectedStatus'), '회원 이름 확인이 출석 전송으로 이어지면 안 됩니다.');
