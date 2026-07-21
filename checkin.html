@@ -554,6 +554,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   gap:8px;
   margin-top:9px;
 }
+.queue-entry-actions.member-rest-only{grid-template-columns:1fr;}
 .queue-enter-btn,.queue-rest-btn{
   min-height:42px;
   border-radius:15px;
@@ -1435,7 +1436,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.421</span>
+    <span class="version-chip" id="appVersion">v1.10.423</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1479,7 +1480,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
-const APP_VERSION='1.10.421';
+const APP_VERSION='1.10.423';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=90000;
@@ -1948,12 +1949,11 @@ function nextQueueTimeInfo(q){
   if(!q)return {main:'대기 중',detail:''};
   if(q.restPass)return {main:'조금 쉬고 대기',detail:''};
   if(q.cueState==='free'){
-    const court=q.targetCourt?`${q.targetCourt}코트 `:'';
-    return {main:`${court}입장 가능`,detail:''};
+    return {main:'입장 준비',detail:'관리자·임원 확인 중'};
   }
-  if(q.cueState==='handoff')return {main:'코트 선택',detail:''};
+  if(q.cueState==='handoff')return {main:'입장 준비',detail:'관리자·임원 확인 중'};
   if(q.cueState==='due'){
-    return {main:'입장',detail:''};
+    return {main:'입장 준비',detail:'관리자·임원 확인 중'};
   }
   const m=queueTargetMatch(q);
   const endAt=Number(m?.endAt||0);
@@ -1978,10 +1978,9 @@ function memberQueueCueText(q){
   if(!q)return '';
   if(q.restPass)return q.restPassText||'조금 쉬고';
   if(q.cueState==='free'){
-    const court=q.targetCourt?`${q.targetCourt}코트 `:'';
-    return `${court}입장 가능`;
+    return '입장 준비 · 관리자·임원 확인 중';
   }
-  if(q.cueState==='handoff')return '코트 선택';
+  if(q.cueState==='handoff')return '입장 준비 · 관리자·임원 확인 중';
   const detail=stripExpectedCourtText(q.cueDetail);
   if(detail)return detail;
   return stripExpectedCourtText(q.cue);
@@ -1995,20 +1994,15 @@ function nextQueueNoticeHtml(playerId){
   const nextList=eventNextList();
   const target=String(qid||'');
   const qIndex=nextList.findIndex(item=>String(item.queueId||item.id||'')===target);
-  const canEnterFree=!!target&&q.cueState==='free'&&q.targetCourt&&!q.restPass;
-  const canComplete=!!target&&canQueueCompleteCourt(q);
-  const canYield=!canEnterFree&&!!target&&qIndex>=0&&qIndex<nextList.length-1&&!q.restPass;
+  const canRest=!!target&&q.cueState==='free'&&q.targetCourt&&!q.restPass;
+  const canYield=!canRest&&!!target&&qIndex>=0&&qIndex<nextList.length-1&&!q.restPass;
   const title=['다음 대진',order,timeInfo.main].filter(Boolean).join(' · ');
   const showTimeDetail=!!timeInfo.detail&&!canYield;
   return `<div class="next-queue-notice" data-next-queue-player="${esc(playerId)}">
     <b class="next-queue-title">${esc(title)}</b>
     ${showTimeDetail?`<small>${esc(timeInfo.detail)}</small>`:''}
-    ${canEnterFree?`<div class="queue-entry-actions">
-      <button class="queue-enter-btn" type="button" onclick="sendQueueEnterFree('${esc(playerId)}','${esc(qid)}','${esc(String(q.targetCourt||''))}')">입장</button>
+    ${canRest?`<div class="queue-entry-actions member-rest-only">
       <button class="queue-rest-btn" type="button" onclick="sendQueueRestPass('${esc(playerId)}','${esc(qid)}','${esc(String(q.targetCourt||''))}')">조금 쉬고</button>
-    </div>`:''}
-    ${canComplete&&!canEnterFree?`<div class="queue-entry-actions">
-      <button class="queue-enter-btn" type="button" onclick="openCourtCompletePicker('${esc(qid)}')">코트 선택</button>
     </div>`:''}
     ${canYield?`<button class="queue-defer-btn" type="button" onclick="sendQueueDefer('${esc(playerId)}','${esc(qid)}')">이번만 뒤로</button>`:''}
   </div>`;
@@ -2134,22 +2128,17 @@ function renderEvent(){
   const lastComplete=getLastComplete();
   const next=nextList.slice(0,4).map(m=>{
     const inQueue=selectedId&&m.queueId&&(m.playerIds||[]).includes(selectedId);
-    const canEnterFree=inQueue&&m.cueState==='free'&&m.targetCourt&&!m.restPass;
-    const canComplete=inQueue&&!canEnterFree&&canQueueCompleteCourt(m)&&(ev.active||[]).length;
+    const canRest=inQueue&&m.cueState==='free'&&m.targetCourt&&!m.restPass;
     const cueText=memberQueueCueText(m);
     let action='';
     if(m.restPass&&inQueue){
       action=`<div class="event-complete-action"><span class="event-wait-pill">조금 쉬고 입장 대기</span></div>`;
     }else{
       const actionButtons=[];
-      if(canEnterFree){
-        actionButtons.push(`<button class="event-complete-btn ${esc(m.cueState||'')}" onclick="sendQueueEnterFree('${esc(selectedId)}','${esc(m.queueId)}','${esc(String(m.targetCourt||''))}')">입장</button>`);
+      if(canRest){
         actionButtons.push(`<button class="event-rest-btn" onclick="sendQueueRestPass('${esc(selectedId)}','${esc(m.queueId)}','${esc(String(m.targetCourt||''))}')">조금 쉬고</button>`);
       }
-      if(canComplete){
-        actionButtons.push(`<button class="event-complete-btn ${esc(m.cueState||'')}" onclick="openCourtCompletePicker('${esc(m.queueId)}')">코트 선택</button>`);
-      }
-      if(actionButtons.length)action=`<div class="event-complete-action split">${actionButtons.join('')}</div>`;
+      if(actionButtons.length)action=`<div class="event-complete-action">${actionButtons.join('')}</div>`;
     }
     return `<div class="event-row next ${esc(m.cueState||'')}">
     <div class="event-row-main">
@@ -2428,9 +2417,9 @@ function officialRequestStateHtml(actorId){
 }
 function officialPlayerOptions(){
   return (session?.players||[])
-    .filter(p=>p&&p.name&&!p.locked&&p.status!=='playing')
+    .filter(p=>p&&p.name)
     .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'))
-    .map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(compactLabel(p.status))}</option>`)
+    .map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.status==='playing'?(p.afterMatchStatus?`경기 후 ${compactLabel(p.afterMatchStatus)} 예정`:'경기중 · 경기 후 반영'):compactLabel(p.status))}</option>`)
     .join('');
 }
 function officialSupportHtml(p){
@@ -2684,22 +2673,28 @@ async function sendOfficialPlayerStatus(actorId,status){
   const select=document.getElementById('officialPlayerSelect_'+actorId);
   const target=(session?.players||[]).find(p=>p.id===select?.value);
   if(!actor||!target)return toast('임원 또는 선수를 다시 확인해 주세요.');
-  if(target.locked||target.status==='playing')return toast('경기중 선수는 경기 종료 후 처리할 수 있어요.');
-  if(compactLabel(target.status)===compactLabel(status))return toast('이미 같은 상태입니다.');
-  if(status==='done'&&!confirm(`${target.name}님을 오늘 운동 종료로 처리할까요?`))return;
+  const playing=target.locked||target.status==='playing';
+  if(playing&&!['rest','done'].includes(status))return toast('경기중에는 경기 후 휴식 또는 종료만 표시할 수 있어요.');
+  if(playing&&target.afterMatchStatus===status)return toast(`이미 경기 후 ${compactLabel(status)}로 표시되어 있습니다.`);
+  if(!playing&&compactLabel(target.status)===compactLabel(status))return toast('이미 같은 상태입니다.');
+  const actionLabel=playing?`경기 후 ${compactLabel(status)}`:compactLabel(status);
+  if(status==='done'&&!confirm(`${target.name}님을 ${playing?'경기가 끝난 뒤 ':'오늘 '}운동 종료로 처리할까요?`))return;
   const now=Date.now();
   const ok=await pushOfficialRequest({
     type:'official-player-status',
     actorPlayerId:actor.id,actorPlayerName:actor.name,
     playerId:target.id,playerName:target.name,status,
+    expectedStatus:target.status||'',
+    expectedCurrentMatchId:target.currentMatchId||'',
     expectedLastStatusAt:target.lastStatusAt||0,
     createdAt:now,expiresAt:now+OFFICIAL_REQUEST_TTL_MS,
     observedUpdatedAt:session.updatedAt||0,
     source:'club-official-support'
-  },`${target.name} · ${compactLabel(status)} 처리 요청`);
+  },`${target.name} · ${actionLabel} 처리 요청`);
   if(ok&&isSampleMode()){
-    target.status=status;
-    target.statusLabel=compactLabel(status);
+    if(playing)target.afterMatchStatus=status;
+    else target.status=status;
+    target.statusLabel=playing?target.statusLabel:compactLabel(status);
     target.lastStatusAt=Date.now();
     render();
   }

@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.421  (2026-07)
+     APP VERSION: 1.10.423  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.421">
+<meta name="app-version" content="1.10.423">
 <script id="defaultEntryRedirect">
 (function redirectDefaultEntryToTeamLive(){
   const params=new URLSearchParams(location.search);
@@ -21,7 +21,7 @@
   const standalone=(typeof matchMedia==='function'&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
   const rootEntry=location.pathname.endsWith('/');
   if((rootEntry||standalone)&&!explicitDaily){
-    location.replace('team.html?v=1.10.421&from=entry');
+    location.replace('team.html?v=1.10.423&from=entry');
   }
 })();
 </script>
@@ -63,8 +63,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.421&from=daily'">팀전LIVE</button>
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.421&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.423&from=daily'">팀전LIVE</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.423&from=daily'">민턴LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -97,7 +97,7 @@
         기본 시작 화면은 팀전LIVE입니다. 민턴LIVE는 관리자가 현장 참가를 확인한 뒤 반자동으로 운영하는 평소 운동용입니다.
       </div>
       <div class="operation-grid">
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.421&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.423&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
           <small>기본 시작 화면</small>
@@ -887,7 +887,7 @@
       <div class="step-item"><span class="step-num">1</span><p class="step-text">초반 10~30분은 난타와 자율게임을 그대로 둡니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">사람이 충분히 모이면 늦게 오는 사람과 빠질 사람을 확인합니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>대진 게시</strong>에서 계속 진행할 코트만 등록하고 나머지 선수의 대진을 만듭니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text">초기 등록 경기는 빨리 끝나도 다음 대진이 바로 입장 처리할 수 있습니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text">초기 등록 경기가 끝나면 관리자·임원이 다음 대진을 바로 입장 처리합니다.</p></div>
       <div class="step-item"><span class="step-num">5</span><p class="step-text">마칠 때는 <strong>마무리</strong>를 눌러 남은 대진만 진행하고 자율게임으로 넘깁니다.</p></div>
     </div>
   </div>
@@ -905,7 +905,7 @@
   <div class="manual-section">
     <h2>💬 단톡방 안내 문구</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">복사</span><p class="step-text">오늘 운동은 콕매치 링크로 진행합니다. 바로 가능하면 <strong>시작</strong>, 쉬면 <strong>휴식</strong>, 마치면 <strong>종료</strong>만 눌러주세요. 대진은 자동으로 뜹니다.</p></div>
+      <div class="step-item"><span class="step-num ico">복사</span><p class="step-text">오늘 운동은 콕매치 링크로 진행합니다. 관리자가 참가 등록을 마치면 내 경기를 확인하고, 쉬면 <strong>휴식</strong>, 다시 뛰면 <strong>복귀</strong>, 마치면 <strong>종료</strong>만 눌러주세요. 대진은 자동으로 뜹니다.</p></div>
       <div class="step-item"><span class="step-num ico">안심</span><p class="step-text">잘못 눌러도 다시 누르면 바꿀 수 있습니다. 앱이 사람을 끌고 가는 게 아니라, 현장 흐름을 따라갑니다.</p></div>
     </div>
   </div>
@@ -988,7 +988,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.421</span>
+  <span class="app-version" id="appVersion">v1.10.423</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

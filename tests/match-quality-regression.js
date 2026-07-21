@@ -85,4 +85,27 @@ fixedPair[0].partnerCount.B=3;fixedPair[1].partnerCount.A=3;
 const fixedMatch=formSandbox.formTeams(fixedPair,false,'men',99,false);
 assert.deepStrictEqual([fixedMatch.team1A.name,fixedMatch.team1B.name].sort(),['A','B'],'사전 지정 파트너는 반복 회피보다 우선해야 합니다.');
 
+const women=['여A','여B','여C','여D'].map(name=>({...livePlayer(name),gender:'F'}));
+assert.strictEqual(formSandbox.formTeams(women,false,'any',99,true).type,'여복','여성 4명은 여복으로 편성해야 합니다.');
+const mixed=[
+  {...livePlayer('남A'),gender:'M'},
+  {...livePlayer('여A'),gender:'F'},
+  {...livePlayer('남B'),gender:'M'},
+  {...livePlayer('여B'),gender:'F'}
+];
+assert.strictEqual(formSandbox.formTeams(mixed,false,'any',99,true).type,'혼복','남녀 각 2명은 양 팀에 한 명씩 나눠 혼복으로 편성해야 합니다.');
+const mixedWithRepeatedPairs=[
+  {...livePlayer('남1'),gender:'M'},
+  {...livePlayer('남2'),gender:'M'},
+  {...livePlayer('여1'),gender:'F'},
+  {...livePlayer('여2'),gender:'F'}
+];
+for(const man of mixedWithRepeatedPairs.slice(0,2)){
+  for(const woman of mixedWithRepeatedPairs.slice(2)){
+    man.partnerCount[woman.name]=2;
+    woman.partnerCount[man.name]=2;
+  }
+}
+assert.strictEqual(formSandbox.formTeams(mixedWithRepeatedPairs,false,'any',99,true).type,'혼복','남남 대 여여 점수가 더 좋아도 유효한 혼복 조합을 버리면 안 됩니다.');
+
 console.log('match quality regression ok');
