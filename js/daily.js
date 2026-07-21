@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.418';
+const APP_VERSION = '1.10.419';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -42,7 +42,7 @@ const OPERATION_PRESETS={
   },
   daily:{
     label:'민턴LIVE',
-    hint:'민턴LIVE 모드입니다. 클럽 명부를 가져오고 출석 링크와 상태 변경을 중심으로 대기표를 자동 보충합니다.'
+    hint:'민턴LIVE 모드입니다. 관리자가 현장 참가자를 등록하고 대진을 게시한 뒤 휴식 상태를 반영해 운영합니다.'
   }
 };
 function setOperationPreset(mode,hintOverride){
@@ -246,9 +246,9 @@ const DAILY_CROSS_DAY_RESUME_MS=6*60*60*1000;
 const DAILY_REST_AUTO_DONE_MS=60*60*1000;
 const DAILY_QUEUE_REST_PASS_MS=45*60*1000;
 const DAILY_STATUS={
-  invited:{label:'미응답',eligible:false},
-  planned:{label:'미응답',eligible:false},
-  wait:{label:'시작',eligible:true},
+  invited:{label:'등록 전',eligible:false},
+  planned:{label:'등록 전',eligible:false},
+  wait:{label:'참가',eligible:true},
   playing:{label:'경기중',eligible:false},
   rest:{label:'휴식',eligible:false},
   done:{label:'종료',eligible:false}
@@ -573,7 +573,7 @@ function _dailyReservationLabel(r){
 function _dailyReservationSelectOptions(current,optional){
   const players=[..._dailyPlayers].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   return `${optional?'<option value="">상대 자동</option>':'<option value="">선택</option>'}`+
-    players.map(p=>`<option value="${p.id}" ${p.id===current?'selected':''}>${p.isGuest?'[G] ':''}${esc(p.name)} · ${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')} · ${DAILY_STATUS[p.status]?.label||'시작'}</option>`).join('');
+    players.map(p=>`<option value="${p.id}" ${p.id===current?'selected':''}>${p.isGuest?'[G] ':''}${esc(p.name)} · ${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')} · ${DAILY_STATUS[p.status]?.label||'참가'}</option>`).join('');
 }
 function _dailyReservationPlayerSelects(){
   const typeEl=document.getElementById('dailyReservationType');
@@ -768,8 +768,8 @@ function _dailyReservationStatus(r){
     }
     return {
       cls:'blocked',
-      text:`시작 상태 아님: ${blocked.map(_dailyNameText).join(', ')}`,
-      detail:'모두 시작 상태가 되면 순번을 앞당기지 않고 빈 순서에 반영돼요.',
+      text:`현재 참가 아님: ${blocked.map(_dailyNameText).join(', ')}`,
+      detail:'모두 참가 상태가 되면 순번을 앞당기지 않고 빈 순서에 반영돼요.',
       ready:false
     };
   }
@@ -839,7 +839,7 @@ function _dailyPromoteReadyReservations(silent){
     changed=true;
   }
   if(!changed){
-    if(!silent)alert('지금 바로 반영 가능한 게임신청이 없습니다. 신청 선수들이 모두 시작 상태인지 확인해 주세요.');
+    if(!silent)alert('지금 바로 반영 가능한 게임신청이 없습니다. 신청 선수들이 모두 참가 상태인지 확인해 주세요.');
     return;
   }
   _dailyRefreshNextFromQueue();
@@ -1202,7 +1202,7 @@ function _dailyNaturalAutoInfo(){
   const eligible=_dailyEligible().length;
   const active=_dailyActiveMatches().length;
   const operating=_dailyOperatingInfo();
-  let auto=false,operatingCourts=0,phase='waiting',label='입장 대기',hint='시작 대기',graceLeftMs=0;
+  let auto=false,operatingCourts=0,phase='waiting',label='참가 등록 대기',hint='현장 참가 등록',graceLeftMs=0;
   if(_dailyTeamLocked){
     auto=true;
     operatingCourts=courts;
@@ -1224,10 +1224,10 @@ function _dailyNaturalAutoInfo(){
     }
   }else if(!_dailyOperationStarted&&!_dailyAutoAssign){
     phase='free';
-    label='자율 운영';
+    label='자유게임';
     hint=pool>=4
-      ? `${pool}명 준비 · 시작 전`
-      : '명부·링크 준비';
+      ? `${pool}명 참가 · 게시 전`
+      : '현장 참가 등록';
   }else if(_dailyAutoAssign){
     auto=true;
     operatingCourts=courts;
@@ -1250,7 +1250,7 @@ function _dailyNaturalAutoInfo(){
     }else{
       phase='started';
       label='운영 중';
-      hint=`시작 ${pool}명 · 4명부터 편성`;
+      hint=`참가 ${pool}명 · 4명부터 편성`;
     }
   }else if(pool>=DAILY_AUTO_FULL_START){
     auto=true;
@@ -1259,7 +1259,7 @@ function _dailyNaturalAutoInfo(){
     label='자동 운영';
     hint=phase==='run'
       ? `${courts}코트 기준 자동 흐름`
-      : `${pool}명 시작 · ${courts}코트 기준`;
+      : `${pool}명 참가 · ${courts}코트 기준`;
   }else if(pool>=DAILY_AUTO_MIN_START){
     graceLeftMs=_dailyAutoGraceLeftMs(started);
     if(graceLeftMs<=0){
@@ -1271,12 +1271,12 @@ function _dailyNaturalAutoInfo(){
     }else{
       phase='grace';
       label='몸풀기 대기';
-      hint=`${pool}명 시작 · ${_dailyAutoGraceLabel(graceLeftMs)} 뒤 자연 시작`;
+      hint=`${pool}명 참가 · ${_dailyAutoGraceLabel(graceLeftMs)} 뒤 자연 시작`;
     }
   }else if(pool>=4){
     phase='warmup';
     label='몸풀기';
-    hint=`${pool}명 시작 · ${Math.max(0,DAILY_AUTO_MIN_START-pool)}명 더 필요`;
+    hint=`${pool}명 참가 · ${Math.max(0,DAILY_AUTO_MIN_START-pool)}명 더 필요`;
   }
   return {courts,pool,eligible,active,auto,operatingCourts,phase,label,hint,min:DAILY_AUTO_MIN_START,fullStart:DAILY_AUTO_FULL_START,graceLeftMs,operating};
 }
@@ -1934,13 +1934,13 @@ function dailyImportDirect(){
   let added=0;
   _directPlayers.forEach(p=>{
     if(!p.name||_dailyPlayers.some(x=>x.name===p.name))return;
-    _dailyPlayers.push(_dailyNormalize({...p,status:'invited'}));
+    _dailyPlayers.push(_dailyNormalize({...p,status:'wait'}));
     added++;
   });
   if(added)_dailyNext=null;
   dailySave();dailyRender();
   dailyMaybeAutoAssign();
-  alert(added?`${added}명을 민턴LIVE 출석링크 대상자로 가져왔습니다.`:'기존 참가자에서 새로 가져올 선수가 없습니다.');
+  alert(added?`${added}명을 오늘 현장 참가자로 등록했습니다.`:'기존 참가자에서 새로 등록할 선수가 없습니다.');
 }
 function dailyImportRoster(){
   if(!_dailyCanChangeRoster())return;
@@ -1949,6 +1949,8 @@ function dailyImportRoster(){
   if(!clubs.length){alert('명부에 등록된 회원이 없습니다.');return;}
   _dailyImportClubIdx=Math.max(0,(rosters.clubs||[]).findIndex(c=>(c.members||[]).length));
   _dailyImportSort='reg';
+  const memberList=document.getElementById('dailyImportMemberList');
+  if(memberList)memberList.innerHTML='';
   renderDailyImportTabs();
   renderDailyImportMembers();
   document.getElementById('dailyImportModal').classList.remove('hidden');
@@ -2127,7 +2129,7 @@ function dailyPromoteReservation(id){
   locked.forEach(q=>_dailyQueueIds(q).forEach(pid=>lockedIds.add(pid)));
   const q=_dailyBuildReservationQueueItem(lockedIds,id);
   if(!q){
-    alert('아직 게임신청을 반영할 수 없습니다. 신청 선수가 모두 시작 상태인지 확인해 주세요.');
+    alert('아직 게임신청을 반영할 수 없습니다. 신청 선수가 모두 참가 상태인지 확인해 주세요.');
     return;
   }
   const ids=new Set(_dailyQueueIds(q));
@@ -2501,7 +2503,7 @@ function dailyRunAutoAssign(){
     const free=_dailyAvailableCourt(_dailyAutoCourtLimit()||_dailyCourtCount());
     const eligible=_dailyEligible().length;
     const info=_dailyNaturalAutoInfo();
-    alert(!free?'빈 코트가 없습니다.':`시작 인원 ${info.pool}명입니다. ${info.hint}. 현재 대기선수는 ${eligible}명입니다.`);
+    alert(!free?'빈 코트가 없습니다.':`참가 인원 ${info.pool}명입니다. ${info.hint}. 현재 대기선수는 ${eligible}명입니다.`);
   }
 }
 function dailyMaybeAutoRecommend(){
@@ -3015,16 +3017,10 @@ function _dailyManualActiveCandidates(mode){
     .filter(p=>{
       if(!p||p.currentMatchId||activeIds.has(p.id))return false;
       const st=_dailyNormalizeStatus(p.status);
-      if(mode==='transition')return !['playing','done'].includes(st);
+      if(mode==='transition')return st==='wait';
       return st==='wait';
     })
     .sort((a,b)=>{
-      if(mode==='transition'){
-        const rank={wait:0,invited:1,planned:1,rest:2};
-        const ar=rank[_dailyNormalizeStatus(a.status)]??9;
-        const br=rank[_dailyNormalizeStatus(b.status)]??9;
-        if(ar!==br)return ar-br;
-      }
       if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
       if((a.waitFrom||0)!==(b.waitFrom||0))return (a.waitFrom||0)-(b.waitFrom||0);
       return a.name.localeCompare(b.name,'ko');
@@ -3094,7 +3090,7 @@ function _dailyManualActiveSelectionBoard(selected){
 function dailyCreateActiveMatch(){
   const candidates=_dailyManualActiveCandidates('manual');
   if(candidates.length<4){
-    alert('수동 등록은 시작 상태 선수가 4명 이상일 때 가능합니다.');
+    alert('수동 등록은 참가 상태 선수가 4명 이상일 때 가능합니다.');
     return;
   }
   const court=_dailyManualActiveDefaultCourt();
@@ -3108,21 +3104,21 @@ function dailyCreateActiveMatch(){
   if(modal)modal.classList.remove('hidden');
 }
 function dailyBeginLiveTransition(){
-  if(!_dailyPlayers.length){
-    alert('먼저 민턴LIVE 명단을 추가하거나 명부를 불러오세요.');
+  if(!_dailyStartedPoolCount()){
+    alert('먼저 현장에서 확인한 선수를 참가 등록하세요.');
     dailyOpenFold('dailySetupDetails','dailySetupDetails');
     return;
   }
   const candidates=_dailyManualActiveCandidates('transition');
   const court=_dailyManualActiveDefaultCourt();
   if(!court){
-    if(confirm('설정된 코트를 모두 등록했습니다. 이제 민턴LIVE 운영을 시작할까요?')){
+    if(confirm('설정된 코트를 모두 등록했습니다. 이제 나머지 대진을 게시할까요?')){
       dailyFinishLiveTransition();
     }
     return;
   }
   if(candidates.length<4){
-    if(confirm('현재 등록할 진행 중 게임이 없다면 바로 운영을 시작할까요?')){
+    if(confirm('계속 진행할 경기가 없다면 참가자 대진을 바로 게시할까요?')){
       dailyFinishLiveTransition();
     }
     return;
@@ -3137,8 +3133,8 @@ function closeDailyManualActiveModal(){
   if(modal)modal.classList.add('hidden');
 }
 function dailyFinishLiveTransition(skipEmptyConfirm){
-  if(!_dailyPlayers.length){
-    alert('먼저 민턴LIVE 명단을 추가하거나 명부를 불러오세요.');
+  if(!_dailyStartedPoolCount()&&!_dailyActiveMatches().length){
+    alert('먼저 현장에서 확인한 선수를 참가 등록하세요.');
     return;
   }
   const modal=document.getElementById('dailyManualActiveModal');
@@ -3152,13 +3148,13 @@ function dailyFinishLiveTransition(skipEmptyConfirm){
     return;
   }
   if(transition&&!registeredCount&&!skipEmptyConfirm){
-    const ok=confirm('진행 중 경기 등록 없이 민턴LIVE를 시작할까요?\n현재 코트가 비어 있을 때만 선택하세요.');
+    const ok=confirm('계속 진행할 경기 등록 없이 대진을 게시할까요?\n현재 코트가 비어 있을 때만 선택하세요.');
     if(!ok)return;
   }
   const active=_dailyActiveMatches().length;
   const pool=_dailyStartedPoolPlayers().length;
   if(!active&&pool<4){
-    const ok=confirm(`시작 상태 선수가 ${pool}명입니다.\n4명 미만이면 아직 대진이 만들어지지 않습니다. 그래도 민턴LIVE 운영을 시작할까요?`);
+    const ok=confirm(`참가 선수가 ${pool}명입니다.\n4명 미만이면 아직 대진이 만들어지지 않습니다. 그래도 대진 게시를 시작할까요?`);
     if(!ok)return;
   }
   _dailyOperationStarted=true;
@@ -3181,7 +3177,7 @@ function dailySetManualActiveCourt(court){
 function dailyToggleManualActivePlayer(id){
   const candidates=new Map(_dailyManualActiveCandidates().map(p=>[p.id,p]));
   if(!candidates.has(id)){
-    alert(_dailyManualActiveMode()==='transition'?'현재 등록 가능한 선수만 선택할 수 있습니다.':'현재 시작 상태인 선수만 선택할 수 있습니다.');
+    alert(_dailyManualActiveMode()==='transition'?'현장 참가 상태인 선수만 선택할 수 있습니다.':'현재 참가 상태인 선수만 선택할 수 있습니다.');
     dailyRenderManualActiveModal();
     return;
   }
@@ -3211,15 +3207,17 @@ function dailyRenderManualActiveModal(){
   const registeredCount=Math.max(_dailyManualActiveDraft.registeredCount||0,registeredMatches.length);
   const registeredByCourt=new Map(registeredMatches.map(m=>[parseInt(m.court,10)||0,m]));
   const title=document.getElementById('dailyManualModalTitle');
-  if(title)title.textContent=transition?'민턴LIVE 시작':'수동 게임 등록';
+  if(title)title.textContent=transition?'대진 게시':'수동 게임 등록';
   const sub=document.getElementById('dailyManualModalSub');
-  if(sub)sub.textContent=transition?'진행 중인 경기 등록':'비상 수동 등록';
+  if(sub)sub.textContent=transition?'계속 진행할 경기 등록':'비상 수동 등록';
   const note=document.getElementById('dailyManualNote');
   if(note){
     note.textContent=transition
       ? (selectedIds.length===4
-        ? '코트 등록'
-        : (selectedIds.length?'4명 선택':'코트 선택'))
+        ? '선택한 4명이 계속 진행할 경기와 코트를 확인한 뒤 등록하세요.'
+        : (selectedIds.length
+          ? '현재 경기를 계속할 선수 4명을 선택하세요.'
+          : '계속 진행할 경기만 등록하세요. 나머지 참가자는 자동대진으로 게시됩니다.'))
       : '4명 선택';
   }
   const courtGrid=document.getElementById('dailyManualCourtGrid');
@@ -3263,7 +3261,7 @@ function dailyRenderManualActiveModal(){
         <span class="daily-manual-player-meta">${guest}${status}${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}게임</span>
         ${on?`<span class="daily-manual-pick">${idx+1}</span>`:''}
       </button>`;
-    }).join('') || `<div class="daily-empty">${transition?'등록 가능한 선수가 없습니다.':'시작 상태 선수가 없습니다.'}</div>`;
+    }).join('') || `<div class="daily-empty">${transition?'참가 등록된 선수가 없습니다.':'참가 상태 선수가 없습니다.'}</div>`;
   }
   const selected=_dailyManualActiveSelected();
   const summary=document.getElementById('dailyManualSummary');
@@ -3274,7 +3272,7 @@ function dailyRenderManualActiveModal(){
     let actionClass='';
     if(transition&&!selected.length){
       main=registeredCount
-        ? '운영 시작 가능'
+        ? '대진 게시 가능'
         : '코트 선택';
       actionClass=registeredCount?'go':'pick';
     }else{
@@ -3289,7 +3287,7 @@ function dailyRenderManualActiveModal(){
       : selected.length
         ? '4명 선택'
         : registeredCount
-          ? '운영 시작'
+          ? '대진 게시'
           : '4명 선택';
     const registeredHtml=registeredMatches.length
       ? `<div class="daily-manual-registered">${registeredMatches.map(m=>`<div class="daily-manual-registered-row"><b>${esc((m.court||'-')+'코트')}</b><span>${esc(_dailyManualActiveMatchShortLabel(m))}</span></div>`).join('')}</div>`
@@ -3311,7 +3309,7 @@ function dailyRenderManualActiveModal(){
   const finishBtn=document.getElementById('dailyTransitionFinishBtn');
   if(finishBtn){
     finishBtn.style.display=transition&&!selectedIds.length?'block':'none';
-    finishBtn.textContent=registeredCount?'등록 완료 · 운영 시작':'등록 없이 시작';
+    finishBtn.textContent=registeredCount?'등록 완료 · 대진 게시':'현재 경기 없이 대진 게시';
   }
   const footer=document.querySelector('.daily-manual-footer');
   if(footer){
@@ -3335,14 +3333,14 @@ function dailyConfirmManualActiveMatch(){
   const candidates=new Map(_dailyManualActiveCandidates(mode).map(p=>[p.id,p]));
   const ids=(_dailyManualActiveDraft.ids||[]).filter(id=>candidates.has(id));
   if(ids.length!==4||new Set(ids).size!==4){
-    alert(transition?'현재 코트에서 뛰는 선수 4명을 다시 선택해 주세요.':'시작 상태 선수 4명을 다시 선택해 주세요.');
+    alert(transition?'현재 코트에서 뛰는 참가자 4명을 다시 선택해 주세요.':'참가 상태 선수 4명을 다시 선택해 주세요.');
     _dailyManualActiveDraft.ids=ids;
     dailyRenderManualActiveModal();
     return;
   }
   const selected=ids.map(id=>candidates.get(id));
-  const reservationLabel=transition?'시작 등록':'자율게임';
-  const cancelLabel=transition?'민턴LIVE 시작 등록':'자율게임 등록';
+  const reservationLabel=transition?'계속 경기':'자율게임';
+  const cancelLabel=transition?'계속 경기 등록':'자율게임 등록';
   const idSet=new Set(ids);
   const removedQueues=_dailyQueue.filter(q=>_dailyQueueIds(q).some(id=>idSet.has(id)));
   removedQueues.forEach(q=>{
@@ -3890,7 +3888,7 @@ function dailyCompleteMatch(id,winnerSide,options){
 function dailyCancelMatch(id){
   const m=_dailyMatches.find(x=>x.id===id);
   if(!m||m.completedAt)return;
-  if(!confirm('이 진행중 경기를 취소하고 선수들을 시작 상태로 되돌릴까요?'))return;
+  if(!confirm('이 진행중 경기를 취소하고 선수들을 참가 상태로 되돌릴까요?'))return;
   [...m.team1,...m.team2].forEach(pid=>{
     const p=_dailyPlayer(pid);
     if(!p)return;
@@ -3949,22 +3947,15 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn danger" onclick="dailyUndoMemberComplete('${_dailyLastCompleteUndo.token}')">종료 취소</button><span class="daily-mini-chip" data-daily-undo-sec>${remain}초</span>`
     });
   }
-  if(!_dailyPlayers.length){
+  if(!_dailyStartedPoolCount()&&!_dailyOperationStarted){
     alerts.push({
       cls:'primary',
-      title:'명부 필요',
-      desc:'',
-      actions:`<button class="daily-mini-btn" onclick="dailyImportRoster()">명부 불러오기</button>`
-    });
-  }else if(!_dailyCheckinId){
-    alerts.push({
-      cls:'primary',
-      title:'링크 공유',
-      desc:'',
-      actions:`<button class="daily-mini-btn" onclick="dailyShareCheckinLink()">공유</button>`
+      title:'현장 참가 등록',
+      desc:'도착한 선수만 확인해 등록하세요.',
+      actions:`<button class="daily-mini-btn" onclick="dailyImportRoster()">참가자 등록</button>`
     });
   }
-  if(_dailyPlayers.length&&_dailyCheckinId&&endingMatches.length&&readyQueue){
+  if(_dailyPlayers.length&&endingMatches.length&&readyQueue){
     const courts=endingMatches.map(m=>`${m.court}코트`).join(', ');
     alerts.push({
       cls:'warn',
@@ -3994,9 +3985,9 @@ function dailyRenderAdminAlerts(){
   </div>`).join('');
 }
 function dailyCurrentStage(){
-  if(!_dailyPlayers.length||!_dailyCheckinId)return 'notice';
+  if(!_dailyStartedPoolCount()&&!_dailyOperationStarted)return 'notice';
   if(_dailyActiveMatches().length||_dailyQueue.length)return 'auto';
-  return 'checkin';
+  return 'ready';
 }
 function dailyOpenBoardTarget(target){
   const map={
@@ -4032,22 +4023,20 @@ function dailyRenderStartGuide(){
     return;
   }
   const courts=_dailyCourtCount();
-  const playerCount=_dailyPlayers.length;
-  const linkReady=!!_dailyCheckinId;
-  const nextIndex=!playerCount?2:(!linkReady?3:0);
+  const playerCount=_dailyStartedPoolCount();
+  const nextIndex=!playerCount?2:0;
   const steps=[
     {n:1,title:'코트',value:`${courts}코트`,done:true,current:false,action:"dailyOpenFold('dailySetupDetails','dailySetupDetails')"},
-    {n:2,title:'명부',value:playerCount?`${playerCount}명`:'불러오기',done:!!playerCount,current:nextIndex===2,action:playerCount?"dailyOpenBoardTarget('players')":"dailyImportRoster()"},
-    {n:3,title:'링크',value:linkReady?'공유됨':'공유',done:linkReady,current:nextIndex===3,action:'dailyShareCheckinLink()'}
+    {n:2,title:'현장 참가',value:playerCount?`${playerCount}명`:'등록',done:!!playerCount,current:nextIndex===2,action:playerCount?"dailyOpenBoardTarget('players')":"dailyImportRoster()"}
   ];
-  const requiredDone=1+(playerCount?1:0)+(linkReady?1:0);
+  const requiredDone=1+(playerCount?1:0);
   el.hidden=false;
   el.innerHTML=`<div class="daily-start-guide-head">
     <div>
       <div class="daily-start-guide-title">운영 준비</div>
-      <div class="daily-start-guide-sub">명부와 링크만 준비하면 됩니다. 이미 경기 중이면 시작할 때 등록하세요.</div>
+      <div class="daily-start-guide-sub">참가 등록 후 자유게임을 진행하세요. 게시할 때 계속 뛰는 경기만 먼저 등록합니다.</div>
     </div>
-    <div class="daily-start-guide-count">${requiredDone}/3</div>
+    <div class="daily-start-guide-count">${requiredDone}/2</div>
   </div>
   <div class="daily-start-guide-list">
     ${steps.map(s=>`<button type="button" class="daily-start-step ${s.done?'done':''} ${s.current?'current':''}" onclick="${s.action}">
@@ -4092,7 +4081,7 @@ function dailyRenderOpsStats(){
     ? `${endingSoon}코트 종료임박`
     : active
       ? `${courts}코트 기준`
-      : '시작 전';
+      : '게시 전';
   const queueValue=expectedCount?`${locked}+${expectedCount}`:String(locked||0);
   const queueHint=locked||expectedCount
     ? (_dailyFinishMode?`${finishPlan.label}`:`다음 ${locked} · 예상 ${expectedCount}`)
@@ -4106,7 +4095,7 @@ function dailyRenderOpsStats(){
       : flow.label;
   const cards=[
     {label:'진행',value:`${active}/${courts}`,hint:courtHint,cls:'primary',target:'active'},
-    {label:'대진',value:_dailyFinishMode?(locked||0):(flow.auto?queueValue:(_dailyOperationStarted?'대기':'시작 전')),hint:_dailyFinishMode?(finishComplete?'자율게임':(locked?finishPlan.label:'새 대진 없음')):queueHint,cls:'primary',target:'queue'},
+    {label:'대진',value:_dailyFinishMode?(locked||0):(flow.auto?queueValue:(_dailyOperationStarted?'대기':'게시 전')),hint:_dailyFinishMode?(finishComplete?'자율게임':(locked?finishPlan.label:'새 대진 없음')):queueHint,cls:'primary',target:'queue'},
     {label:'라이브',value:flow.pool,hint:liveHint,cls:flow.auto?'primary':'warn',target:'players'}
   ];
   el.innerHTML=cards.map(x=>`<button type="button" class="daily-op ${x.cls||''} is-link" onclick="dailyOpenBoardTarget('${esc(x.target)}')" aria-label="${esc(x.label)} 보기"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></button>`).join('');
@@ -4118,7 +4107,7 @@ function dailyRenderStatusBar(){
   const todo=dailyCountActionItems();
   const flowInfo=_dailyNaturalAutoInfo();
   const stage=dailyCurrentStage();
-  const stageLabel=_dailyFinishMode?'마무리':(!_dailyOperationStarted?'자율 운영':({notice:'링크 공유',checkin:'시작 대기',auto:'자동대진',finish:'자동종료'}[stage]||'운영'));
+  const stageLabel=_dailyFinishMode?'마무리':(!_dailyOperationStarted?'자유게임':({notice:'참가 등록',ready:'게시 준비',auto:'자동대진',finish:'자동종료'}[stage]||'운영'));
   const entryReady=_dailyActiveMatches().some(m=>['soon','due'].includes(_dailyTimerState(m)))&&_dailyQueue.some(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q));
   const chips=[];
   const flow=document.getElementById('dailyFlowState');
@@ -4136,7 +4125,7 @@ function dailyRenderStatusBar(){
   chips.push(`<span class="daily-sb-chip live">${stageLabel}</span>`);
   chips.push(`<span class="daily-sb-chip ${flowInfo.auto?'on':flowInfo.phase==='warmup'?'warn':'off'}">${flowInfo.label}</span>`);
   chips.push(`<span class="daily-sb-chip balance">${_dailyBalancePolicyText(flowInfo)}</span>`);
-  chips.push(`<span class="daily-sb-chip">시작 ${flowInfo.pool}명</span>`);
+  chips.push(`<span class="daily-sb-chip">참가 ${flowInfo.pool}명</span>`);
   chips.push(`<span class="daily-sb-chip">${flowInfo.auto?`${flowInfo.operatingCourts}/${courts}`:courts}코트</span>`);
   const stateChip=todo
     ? `<span class="daily-sb-state need">${entryReady?'입장 준비':`처리 필요 ${todo}건`}</span>`
@@ -4145,8 +4134,7 @@ function dailyRenderStatusBar(){
   el.innerHTML=`<div class="daily-sb-chips">${chips.join('')}</div>${stateChip}`;
 }
 function dailyCountActionItems(){
-  if(!_dailyPlayers.length)return 1;
-  if(!_dailyCheckinId)return 1;
+  if(!_dailyStartedPoolCount()&&!_dailyOperationStarted)return 1;
   const endingMatches=_dailyActiveMatches().filter(m=>['soon','due'].includes(_dailyTimerState(m)));
   const readyQueue=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q)).length;
   return endingMatches.length&&readyQueue?1:0;
@@ -4224,7 +4212,7 @@ function _dailyCheckinPath(){
 }
 function _dailyCheckinPayload(){
   return {
-    title:'콕매치 민턴LIVE 시작',
+    title:'콕매치 민턴LIVE 내 경기',
     updatedAt:_dailyNow(),
     createdAt:_dailyCheckinCreatedAt||_dailyNow(),
     matchStartedAt:_dailyFirstMatchStartedAt(),
@@ -4242,6 +4230,7 @@ function _dailyCheckinPayload(){
         name:p.name,
         status:_dailyNormalizeStatus(p.status),
         statusLabel:_dailyCheckinStatusLabel(p.status),
+        lastStatusAt:p.lastStatusAt||0,
         isGuest:!!p.isGuest,
         games:p.games||0,
         voteLocked:false,
@@ -4263,7 +4252,7 @@ function _dailyCheckinPayload(){
       };
     }),
     statuses:[
-      {key:'wait',label:'시작',desc:''},
+      {key:'wait',label:'복귀',desc:''},
       {key:'rest',label:'휴식',desc:''},
       {key:'done',label:'종료',desc:''}
     ]
@@ -4300,7 +4289,7 @@ async function dailyPublishCheckinSession(silent){
     return null;
   }
   if(!_fbInit()){
-    if(!silent)alert('출석 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
+    if(!silent)alert('회원용 경기 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
     return null;
   }
   const id=dailyEnsureCheckinId();
@@ -4316,16 +4305,16 @@ async function dailyShareCheckinLink(){
   const id=await dailyPublishCheckinSession(false);
   if(!id)return;
   const url=_dailyCheckinUrl();
-  const text=`🏸 민턴LIVE\n체육관에 도착해 준비되면 시작을 눌러주세요.\n쉴 때는 휴식, 마치면 종료를 눌러주세요.\n\n`+url;
+  const text=`🏸 민턴LIVE 내 경기\n관리자가 현장 참가 등록을 완료했습니다.\n내 이름을 선택해 현재·다음 경기를 확인하세요.\n쉴 때는 휴식, 다시 뛸 때는 복귀, 마치면 종료를 눌러주세요.\n\n`+url;
   try{
     if(navigator.share){
-      await navigator.share({title:'콕매치 민턴LIVE 출석',text});
+      await navigator.share({title:'콕매치 민턴LIVE 내 경기',text});
       return;
     }
   }catch(e){}
   try{
     await navigator.clipboard.writeText(text);
-    alert('출석 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url);
+    alert('회원용 경기 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url);
   }catch(e){
     console.warn('민턴LIVE 공유 문구 복사 실패', e);
   }
@@ -4687,12 +4676,12 @@ function dailyRenderCheckinRequests(){
   if(!box)return;
   if(!_dailyCheckinId){
     box.className='daily-empty';
-    box.textContent='아직 민턴LIVE 링크가 만들어지지 않았습니다.';
+    box.textContent='필요할 때 회원용 경기 링크를 공유하세요. 링크 없이도 관리자 운영은 진행됩니다.';
     return;
   }
   const url=_dailyCheckinUrl();
   const pending=_dailyCheckinPendingRequests();
-  const linkHtml=`<div class="daily-checkin-link">공유 링크<br><strong>${esc(url)}</strong><br>시작·휴식·종료와 게임신청은 같은 링크에 자동 반영됩니다.</div>`;
+  const linkHtml=`<div class="daily-checkin-link">회원용 경기 링크<br><strong>${esc(url)}</strong><br>경기 확인과 휴식·복귀·종료 요청이 같은 링크에 반영됩니다.</div>`;
   if(!pending.length){
     box.className='daily-checkin-panel';
     box.innerHTML=linkHtml+`<div class="daily-checkin-req applied">
@@ -4743,10 +4732,10 @@ function dailyRender(){
       counts[st]=(counts[st]||0)+1;
     });
     const active=_dailyActiveMatches().length;
-    const notStarted=(counts.invited||0)+(counts.planned||0);
+    const notRegistered=(counts.invited||0)+(counts.planned||0);
     stats.innerHTML=[
-      ['미응답',notStarted],
-      ['대기',counts.wait],
+      ['등록 전',notRegistered],
+      ['참가',counts.wait],
       ['경기중',counts.playing],
       ['휴식',counts.rest],
       ['완료경기',_dailyMatches.filter(m=>m.completedAt).length]
@@ -5355,6 +5344,7 @@ function renderDailyImportTabs(){
   ).join('')}</div>`;
 }
 function selectDailyImportClub(idx){
+  document.querySelectorAll('.daily-import-chk').forEach(c=>{c.checked=false;});
   _dailyImportClubIdx=idx;
   _dailyImportSort='reg';
   ['reg','name','gender'].forEach(m=>{
@@ -5380,12 +5370,16 @@ function renderDailyImportMembers(){
     el.innerHTML='<div class="dir-empty">이 클럽에 등록된 회원이 없습니다</div>';
     return;
   }
-  const alreadyIn=new Set(_dailyPlayers.map(p=>p.name));
+  const existingByName=new Map(_dailyPlayers.map(p=>[p.name,p]));
+  const canRegister=m=>{
+    const existing=existingByName.get(m.name);
+    if(!existing)return true;
+    return ['invited','planned'].includes(_dailyNormalizeStatus(existing.status));
+  };
   const prevChecked=new Set();
   document.querySelectorAll('.daily-import-chk:not(:disabled)').forEach(c=>{
     if(c.checked)prevChecked.add(parseInt(c.value));
   });
-  const firstRender=prevChecked.size===0&&!el.querySelector('.daily-import-chk');
   const indexed=(club.members||[]).map((m,i)=>({...m,_origIdx:i}));
   if(_dailyImportSort==='name'){
     indexed.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
@@ -5396,23 +5390,24 @@ function renderDailyImportMembers(){
     });
   }
   indexed.sort((a,b)=>{
-    const aIn=alreadyIn.has(a.name)?1:0;
-    const bIn=alreadyIn.has(b.name)?1:0;
+    const aIn=canRegister(a)?0:1;
+    const bIn=canRegister(b)?0:1;
     return aIn-bIn;
   });
-  const available=indexed.filter(m=>!alreadyIn.has(m.name)).length;
+  const available=indexed.filter(canRegister).length;
   const total=indexed.length;
   const GC={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
   el.innerHTML=`<div style="padding:7px 12px;font-size:.72rem;color:var(--dim);border-bottom:1px solid var(--bdr);background:var(--sur2);">
     오늘 추가 가능 <b style="color:var(--bl)">${available}명</b> · 이미 있음 <b>${total-available}명</b>
   </div>`+indexed.map(m=>{
-    const isDup=alreadyIn.has(m.name);
-    const checked=isDup?false:(firstRender||prevChecked.has(m._origIdx));
+    const existing=existingByName.get(m.name);
+    const isDup=!!existing&&!canRegister(m);
+    const checked=!isDup&&prevChecked.has(m._origIdx);
     if(isDup){
       return `<label class="import-member-row" style="opacity:.45;cursor:default;background:#f8f8f8;">
         <input type="checkbox" class="daily-import-chk" value="${m._origIdx}" disabled>
         <span style="flex:1;font-size:.84rem;font-weight:700;color:#999;">${esc(m.name)}</span>
-        <span style="font-size:.65rem;color:#bbb;margin-right:6px;">이미 민턴LIVE에 있음</span>
+        <span style="font-size:.65rem;color:#bbb;margin-right:6px;">이미 참가 등록</span>
         <span style="font-size:.68rem;color:#ccc;"><span class="lv-badge" style="background:#f0f0f0;color:#bbb;border-color:#e0e0e0;">${esc(m.grade||'')}</span> ${esc(m.gender||'')}</span>
       </label>`;
     }
@@ -5420,6 +5415,7 @@ function renderDailyImportMembers(){
       <input type="checkbox" class="daily-import-chk" value="${m._origIdx}" ${checked?'checked':''}>
       <span style="flex:1;font-size:.84rem;font-weight:700;">${esc(m.name)}</span>
       <span style="font-size:.68rem;color:var(--dim);">
+        ${existing?'<span style="color:var(--warn);margin-right:5px;">등록 전</span>':''}
         <span class="lv-badge ${GC[m.level]||'lv3'}">${esc(m.grade||'C')}</span> ${esc(m.gender||'남')}
       </span>
     </label>`;
@@ -5432,8 +5428,7 @@ function toggleDailySelectAll(){
 }
 async function importDailySelected(status){
   if(!_dailyCanChangeRoster())return;
-  status=_dailyNormalizeStatus(status||'invited');
-  if(!['invited','wait'].includes(status))status='invited';
+  status='wait';
   const club=(rosters.clubs||[])[_dailyImportClubIdx];
   if(!club)return;
   const sel=[...document.querySelectorAll('.daily-import-chk:not(:disabled)')]
@@ -5441,24 +5436,36 @@ async function importDailySelected(status){
     .map(c=>club.members[parseInt(c.value)])
     .filter(Boolean);
   if(!sel.length){alert('선수를 1명 이상 선택해주세요.');return;}
-  let added=0,skipped=0;
+  let added=0,reactivated=0,skipped=0;
   sel.forEach(m=>{
-    if(!_dailyPlayers.some(p=>p.name===m.name)){
+    const existing=_dailyPlayers.find(p=>p.name===m.name);
+    if(!existing){
       _dailyPlayers.push(_dailyNormalize({...m,status}));
       added++;
-    }else skipped++;
+      return;
+    }
+    if(['invited','planned'].includes(_dailyNormalizeStatus(existing.status))){
+      const refreshed=_dailyNormalize({...m,id:existing.id,status:'wait'});
+      existing.grade=refreshed.grade;
+      existing.level=refreshed.level;
+      existing.gender=refreshed.gender;
+      existing.ageGroup=refreshed.ageGroup;
+      _dailyApplyPlayerStatus(existing,'wait');
+      added++;
+      reactivated++;
+      return;
+    }
+    skipped++;
   });
   if(added)_dailyNext=null;
   closeDailyImportModal();
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
-  const label=status==='wait'?'바로 시작 상태로 추가':'민턴LIVE 출석링크 대상자로 추가';
   if(added){
-    alert(`${added}명을 ${label}했습니다.${skipped?` (중복 ${skipped}명 제외)`:''}\n\n이어서 단톡방에 보낼 링크를 준비합니다.`);
-    await dailyShareCheckinLink();
+    alert(`${added}명을 오늘 현장 참가자로 등록했습니다.${reactivated?` (등록 전 명단 ${reactivated}명 포함)`:''}${skipped?` (중복 ${skipped}명 제외)`:''}\n\n자유게임을 진행한 뒤 대진 게시를 눌러주세요.`);
   }else{
-    alert('새로 추가된 선수가 없습니다.');
+    alert('새로 참가 등록된 선수가 없습니다.');
   }
 }
 
@@ -5569,7 +5576,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.418&from=daily';
+  location.href='team.html?v=1.10.419&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -10345,7 +10352,7 @@ function importDirectFromDaily(){
     return;
   }
   if(!_dailyPlayers.length){
-    alert('민턴LIVE 명단이 비어 있습니다. 민턴LIVE에서 출석자나 대기자를 먼저 추가하세요.');
+    alert('민턴LIVE 명단이 비어 있습니다. 민턴LIVE에서 현장 참가자를 먼저 등록하세요.');
     return;
   }
   const candidates=_dailyPlayers.filter(p=>p.status!=='done');

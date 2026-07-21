@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#5b8def">
-<title>콕매치 민턴LIVE 출석</title>
+<title>콕매치 민턴LIVE 내 경기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -655,7 +655,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .badge.selected{background:#eaf1fe;color:#315fb2}
 .buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.main-actions{margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.main-actions{margin-top:10px;grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
 .my-action-panel .main-actions{margin-top:0;gap:8px}
 .status-section{
   margin-top:9px;
@@ -1407,11 +1407,11 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 <body>
 <main class="wrap">
   <section class="hero">
-    <div class="eyebrow">KOKMATCH CHECK-IN</div>
-    <h1 id="pageTitle">내 이름 찾기</h1>
+    <div class="eyebrow">KOKMATCH MINTON LIVE</div>
+    <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
-    <div class="notice" id="quickNotice">체육관에 도착해 준비되면 <strong>시작</strong>을 누르세요.</div>
-    <span class="version-chip" id="appVersion">v1.10.418</span>
+    <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
+    <span class="version-chip" id="appVersion">v1.10.419</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1455,7 +1455,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],eventTimer=null,completePickerQueueId='',identityLookupOpen=false;
-const APP_VERSION='1.10.418';
+const APP_VERSION='1.10.419';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1523,7 +1523,7 @@ function statusInfo(key){
   return (session?.statuses||[]).find(x=>x.key===key)||{key,label:statusLabel(key),desc:''};
 }
 function compactLabel(key){
-  const map={planned:'미응답',wait:'시작',playing:'경기중',lesson:'휴식',rest:'휴식',last:'종료',leaving:'종료',done:'종료'};
+  const map={planned:'등록 전',invited:'등록 전',wait:'참가 중',playing:'경기중',lesson:'휴식 중',rest:'휴식 중',last:'운동 종료',leaving:'운동 종료',done:'운동 종료'};
   return map[key]||statusLabel(key);
 }
 function normalizeText(s){
@@ -1555,7 +1555,7 @@ function showEndedLink(){
   renderVoteSummary();
   const fold=document.getElementById('playerListFold');
   if(fold)fold.open=true;
-  document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';
+  document.getElementById('sessionSub').textContent='종료된 민턴LIVE 링크입니다.';
   document.getElementById('players').className='empty';
   document.getElementById('players').textContent='이 링크는 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 확인해 주세요.';
 }
@@ -1570,7 +1570,7 @@ function sampleSession(){
     gender:genders[i],
     grade:grades[i],
     status:i<12?'playing':(i<24?'wait':'invited'),
-    statusLabel:i<12?'경기중':(i<24?'시작':'미응답'),
+    statusLabel:i<12?'경기중':(i<24?'참가 중':'등록 전'),
     isGuest:i>=22,
     games:i%5,
     locked:i<12,
@@ -1614,7 +1614,7 @@ function sampleSession(){
     expected:true
   });
   return {
-    title:'콕매치 민턴LIVE 출석',
+    title:'콕매치 민턴LIVE 내 경기',
     updatedAt:now,
     createdAt:now-2*60*60*1000,
     matchStartedAt:now-35*60*1000,
@@ -1622,7 +1622,7 @@ function sampleSession(){
     version:'sample',
     players,
     statuses:[
-      {key:'wait',label:'시작',desc:''},
+      {key:'wait',label:'복귀',desc:''},
       {key:'rest',label:'휴식',desc:''},
       {key:'done',label:'종료',desc:''}
     ],
@@ -1688,7 +1688,7 @@ function setLastSent(req){
 }
 function latestStatusRequest(playerId){
   return statusRequests
-    .filter(r=>r.playerId===playerId&&r.status&&!r.ignoredAt&&r.type!=='reservation')
+    .filter(r=>r.playerId===playerId&&r.status&&!r.appliedAt&&!r.ignoredAt&&r.type!=='reservation')
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0]||null;
 }
 function getSelectedStatus(p){
@@ -1700,7 +1700,7 @@ function getSelectedStatus(p){
     selected=req.status;
     ts=req.createdAt||0;
   }
-  if(last&&last.playerId===p.id&&(last.savedAt||0)>=ts){
+  if(last&&last.playerId===p.id&&Date.now()-(last.savedAt||0)<10000&&(last.savedAt||0)>=ts){
     selected=last.status;
   }
   return selected;
@@ -1716,7 +1716,9 @@ function renderLastSent(){
   }
   const when=last.savedAt?new Date(last.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   el.className='last-sent';
-  el.innerHTML=`최근 전송: <b>${esc(last.playerName)} · ${esc(compactLabel(last.status))}</b> (${esc(when)})`;
+  el.innerHTML=last.source==='member-identity'
+    ? `내 이름: <b>${esc(last.playerName)}</b>`
+    : `최근 요청: <b>${esc(last.playerName)} · ${esc(compactLabel(last.status))}</b> (${esc(when)})`;
 }
 function eventCoveredPlayerIds(){
   const ids=new Set();
@@ -2064,6 +2066,12 @@ function pickCourtComplete(matchId){
 function renderEvent(){
   const el=document.getElementById('eventPanel');
   if(!el)return;
+  const viewer=getLastSent();
+  if(!viewer||!viewer.playerId){
+    el.className='panel event-panel hidden';
+    el.innerHTML='';
+    return;
+  }
   const ev=session?.event;
   const nextList=eventNextList();
   const finishComplete=!!(ev?.finishMode&&(ev.queuePolicy?.finishComplete||!nextList.length));
@@ -2076,8 +2084,7 @@ function renderEvent(){
   el.className='panel event-panel';
   const updated=ev.updatedAt?new Date(ev.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>`;
-  const last=getLastSent();
-  const selectedId=last&&last.playerId;
+  const selectedId=viewer.playerId;
   const active=(ev.active||[]).slice(0,4).map(m=>{
     const remain=remainMinutes(m);
     const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
@@ -2182,7 +2189,7 @@ function render(){
     }
     if(pageTitle)pageTitle.textContent='내 이름 찾기';
     if(quickNotice)quickNotice.hidden=false;
-    sub.textContent='출석 링크를 확인하고 있습니다.';
+    sub.textContent='민턴LIVE 경기 정보를 확인하고 있습니다.';
     box.className='empty';box.textContent='명단을 불러오는 중입니다.';count.textContent='0명';
     renderLastSent();
     renderEvent();
@@ -2214,7 +2221,7 @@ function render(){
   const updated=session.updatedAt?new Date(session.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const summary=voteSummary();
   sub.textContent=selectedPlayer
-    ? `${session.title||'민턴LIVE'} · 시작 ${summary?.started||0}명`
+    ? `${session.title||'민턴LIVE'} · 참가 ${summary?.started||0}명`
     : `이름을 검색하고 카드를 눌러주세요`;
   count.textContent=`${query?matchedPlayers.length:allPlayers.length}명`;
   if(!players.length){
@@ -2225,18 +2232,26 @@ function render(){
   box.innerHTML=players.map(p=>playerCardHtml(p,sendingKey?'disabled':'',{readonly:hasSelected&&p.id!==selectedId,selectOnly:!hasSelected})).join('');
 }
 function statusButtonSpec(p,key){
-  const selected=getSelectedStatus(p);
   if(key==='toggle'){
+    const selected=getSelectedStatus(p);
     if(selected==='wait')return {key:'wait',label:'종료',action:'done'};
-    if(selected==='done')return {key:'done',label:'다시 시작',action:'wait'};
-    return {key:'wait',label:'시작',action:'wait'};
+    if(selected==='done')return {key:'done',label:'복귀',action:'wait'};
+    return {key:'wait',label:'복귀',action:'wait'};
   }
-  return {key,label:compactLabel(key),action:key};
+  const labels={wait:'복귀',rest:'휴식',done:'종료'};
+  return {key,label:labels[key]||compactLabel(key),action:key};
+}
+function statusActionKeys(p,keys){
+  const selected=getSelectedStatus(p);
+  if(selected==='wait')return keys.filter(key=>key==='rest'||key==='done');
+  if(selected==='rest')return keys.filter(key=>key==='wait'||key==='done');
+  if(selected==='done')return keys.filter(key=>key==='wait');
+  return keys.filter(key=>key==='rest'||key==='done');
 }
 function statusButtons(p,keys,disabled){
   const existing=new Set((session?.statuses||[]).map(s=>s.key));
   const selected=getSelectedStatus(p);
-  return keys.filter(k=>k==='toggle'||existing.has(k)).map(k=>{
+  return statusActionKeys(p,keys.filter(k=>k==='toggle'||existing.has(k))).map(k=>{
     const spec=statusButtonSpec(p,k);
     const last=getLastSent();
     const applied=p.status===spec.key;
@@ -2264,7 +2279,7 @@ function confirmPlayerIdentity(p){
   const last=getLastSent();
   if(last&&last.playerId===p.id)return true;
   const saved=last&&last.playerName?`현재 이 휴대폰은 ${last.playerName}님으로 저장되어 있습니다.\n`:'';
-  return confirm(`${saved}${p.name}님 본인이 맞나요?\n확인 후 이 이름으로 출석과 상태가 반영됩니다.\n다른 분 이름을 선택하면 현장 운영에 혼선이 생길 수 있어요.`);
+  return confirm(`${saved}${p.name}님 본인이 맞나요?\n이 기기에서 ${p.name}님의 경기 정보와 상태 버튼을 표시합니다.\n다른 분 이름을 선택하면 현장 운영에 혼선이 생길 수 있어요.`);
 }
 function confirmStatusChange(p,status){
   const current=getSelectedStatus(p);
@@ -2277,14 +2292,14 @@ function confirmStatusChange(p,status){
       : `\n\n현재 다음 대진 ${nextOrder||''}순위에 포함되어 있어요.\n이 버튼을 누르면 준비된 대진이 조정될 수 있습니다.`
     : '';
   if(status==='wait'){
-    return confirm(`${p.name}님, 지금부터 대진 대기 상태로 전환할까요?\n운동 준비가 끝난 경우에만 시작을 눌러주세요.`);
+    return confirm(`${p.name}님, 대진에 복귀할까요?\n복귀하면 다시 자동대진 후보에 포함됩니다.`);
   }
   if(status==='rest'){
     const extra=nextOrder===1?'\n정말 쉬어야 할 때만 확인해 주세요.':p.locked?'\n현재 대기표나 경기에서 빠질 수 있습니다.':'\n휴식 중에는 새 대진에 배정되지 않습니다.';
     return confirm(`${p.name}님, 잠시 휴식으로 전환할까요?${nextWarn}${extra}`);
   }
   if(status==='done'){
-    return confirm(`${p.name}님, 오늘 운동을 종료할까요?${nextWarn}\n종료하면 새 대진에 배정되지 않습니다. 필요하면 다시 시작할 수 있어요.`);
+    return confirm(`${p.name}님, 오늘 운동을 종료할까요?${nextWarn}\n종료하면 새 대진에 배정되지 않습니다. 필요하면 다시 복귀할 수 있어요.`);
   }
   return true;
 }
@@ -2354,7 +2369,7 @@ function playerCardHtml(p,disabled,opts={}){
         <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}</div>
         <div class="meta">현재 ${esc(compactLabel(selected))} · ${p.games||0}게임${locked?' · 경기중 예약 반영':''}</div>
       </div>
-      <div class="badge ${highlighted?'selected':''}">${selectOnly?'선택':(highlighted?'전송완료':(locked?'경기중':compactLabel(selected)))}</div>
+      <div class="badge ${highlighted?'selected':''}">${selectOnly?'선택':(requested?'요청 접수':(locked?'경기중':compactLabel(selected)))}</div>
     </div>
     ${selectHint}
     ${mainButtons?`<div class="buttons main-actions">${mainButtons}</div>`:''}
@@ -2385,11 +2400,11 @@ function renderMyCard(last,players){
   const currentMatch=myCurrentMatchHtml(selected.id);
   const nextNotice=nextQueueNoticeHtml(selected.id);
   const restGuide=selected.locked
-    ? (currentMatch?'':`<div class="rest-guide">경기중이에요<small>경기 종료 후 시작·휴식·종료를 선택할 수 있어요.</small></div>`)
+    ? (currentMatch?'':`<div class="rest-guide">경기중이에요<small>경기 종료 후 휴식·종료를 선택할 수 있어요.</small></div>`)
     : getSelectedStatus(selected)==='rest'
-    ? `<div class="rest-guide">휴식 중이에요<small>계속 운동하려면 시작을 눌러주세요.</small></div>`
+    ? `<div class="rest-guide">휴식 중이에요<small>다시 뛸 준비가 되면 복귀를 눌러주세요.</small></div>`
     : '';
-  const stateChipClass=['휴식','종료'].includes(selectedState)?'warn':'on';
+  const stateChipClass=['rest','done'].includes(getSelectedStatus(selected))?'warn':'on';
   const statusChips=[
     `<span class="my-status-chip ${stateChipClass}">${esc(selectedState)}</span>`,
     `<span class="my-status-chip">${selected.games||0}게임</span>`,
@@ -2559,7 +2574,7 @@ async function sendStatus(playerId,status){
       source:'sample-checkin'
     };
     setLastSent(req);
-    toast(`${p.name} · ${compactLabel(status)} 반영 완료`);
+    toast(`${p.name} · ${compactLabel(status)} 요청 완료`);
     render();
     return;
   }
@@ -2588,7 +2603,7 @@ async function sendStatus(playerId,status){
   try{
     await db.ref(checkinPath()+'/requests').push(req);
     setLastSent(req);
-    toast(`${p.name} · ${compactLabel(status)} 전송 완료`);
+    toast(`${p.name} · ${compactLabel(status)} 요청 접수`);
     if(p.locked&&['rest','done'].includes(status)){
       setTimeout(()=>location.reload(),900);
     }
@@ -2773,7 +2788,7 @@ async function sendCourtComplete(queueId,matchId,court,mode){
   if(!db||!checkinId||!session||sendingKey)return;
   if(sessionExpired())return showEndedLink();
   const last=getLastSent();
-  if(!last||!last.playerId)return toast('먼저 본인 이름에서 시작 버튼을 눌러 주세요.');
+  if(!last||!last.playerId)return toast('먼저 본인 이름을 선택해 주세요.');
   const activeMatch=activeMatchById(matchId);
   if(!activeMatch)return toast('진행 중 경기를 다시 확인해 주세요.');
   const q=queueId?queueById(queueId):null;
@@ -2942,13 +2957,25 @@ async function sendReservationCancel(reqKey,playerId){
 function boot(){
   const vEl=document.getElementById('appVersion');
   if(vEl)vEl.textContent='v'+APP_VERSION;
-  checkinId=qs('id');
+  const sampleMode=new URLSearchParams(location.search).has('sample');
+  checkinId=qs('id')||(sampleMode?'SAMPLE':'');
   if(!checkinId){
-    document.getElementById('players').textContent='출석 링크가 올바르지 않습니다.';
+    document.getElementById('players').textContent='민턴LIVE 링크가 올바르지 않습니다.';
     return;
   }
-  if(new URLSearchParams(location.search).has('sample')){
+  if(sampleMode){
     session=sampleSession();
+    const samplePlayerId=qs('player');
+    const samplePlayer=(session.players||[]).find(p=>p.id===samplePlayerId);
+    if(samplePlayer){
+      setLastSent({
+        playerId:samplePlayer.id,
+        playerName:samplePlayer.name,
+        status:samplePlayer.status,
+        statusLabel:compactLabel(samplePlayer.status),
+        source:'member-identity'
+      });
+    }
     render();
     if(eventTimer)clearInterval(eventTimer);
     eventTimer=setInterval(refreshLiveTimers,1000);
@@ -2967,7 +2994,7 @@ function boot(){
       renderEvent();
       const fold=document.getElementById('playerListFold');
       if(fold)fold.open=true;
-      document.getElementById('sessionSub').textContent='종료된 출석 링크입니다.';
+      document.getElementById('sessionSub').textContent='종료된 민턴LIVE 링크입니다.';
       document.getElementById('players').className='empty';
       document.getElementById('players').textContent='관리자가 링크를 종료했거나 아직 명단을 공유하지 않았습니다.';
       return;

@@ -20,15 +20,16 @@ function extractFunction(name, nextName) {
 
 const startGuide = extractFunction('dailyRenderStartGuide', 'dailyRenderOpsStats');
 const stepNumbers = [...startGuide.matchAll(/\{n:(\d+)/g)].map(match => Number(match[1]));
-assert.deepStrictEqual(stepNumbers, [1, 2, 3], '운영 준비는 실제 필수 단계 3개만 보여야 합니다.');
-assert(startGuide.includes('${requiredDone}/3'), '준비 진행률의 분모도 3이어야 합니다.');
+assert.deepStrictEqual(stepNumbers, [1, 2], '운영 준비는 코트와 현장 참가 등록 2개만 필수로 보여야 합니다.');
+assert(startGuide.includes('${requiredDone}/2'), '준비 진행률의 분모도 2여야 합니다.');
+assert(!startGuide.includes('dailyShareCheckinLink'), '회원용 경기 링크는 운영 시작 필수 단계가 아니어야 합니다.');
 assert(!startGuide.includes("action:'dailyBeginLiveTransition()'"), '준비 단계 안에 중복 운영 시작 동작이 있으면 안 됩니다.');
 
 const finishTransition = extractFunction('dailyFinishLiveTransition', 'dailySetManualActiveCourt');
-assert(finishTransition.includes('skipEmptyConfirm'), '명시적인 등록 없이 시작 동작은 중복 확인을 생략할 수 있어야 합니다.');
+assert(finishTransition.includes('skipEmptyConfirm'), '명시적인 현재 경기 없음 동작은 중복 확인을 생략할 수 있어야 합니다.');
 assert(
   indexHtml.includes('id="dailyTransitionFinishBtn" onclick="dailyFinishLiveTransition(true)"'),
-  '등록 없이 시작 버튼은 명시적인 바로 시작 경로를 사용해야 합니다.'
+  '현재 경기 없이 대진 게시 버튼은 명시적인 바로 게시 경로를 사용해야 합니다.'
 );
 
 const crossDayResume = extractFunction('_dailyCanResumeCrossDay', '_dailySavedDateLabel');
