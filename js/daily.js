@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.425';
+const APP_VERSION = '1.10.427';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -372,7 +372,12 @@ function _dailyNormalize(raw){
     team:raw.team||'',
     club:raw.club||'',
     isGuest:!!raw.isGuest,
-    isClubOfficial:!!raw.isClubOfficial
+    isClubOfficial:!!raw.isClubOfficial,
+    arrivalConfirmedBy:raw.arrivalConfirmedBy||'',
+    arrivalConfirmedByName:raw.arrivalConfirmedByName||'',
+    arrivalConfirmedAt:Number(raw.arrivalConfirmedAt||0),
+    arrivalConfirmedSource:raw.arrivalConfirmedSource||'',
+    arrivalRequestKey:raw.arrivalRequestKey||''
   };
 }
 function _dailyRebuildLiveTypeCounts(){
@@ -1996,7 +2001,14 @@ function _dailyApplyPlayerStatus(p,status){
   const previous=_dailyNormalizeStatus(p.status);
   const newlyArrived=status==='wait'&&(previous==='invited'||previous==='planned');
   const now=_dailyNow();
-  if(newlyArrived)p.joinedAt=now;
+  if(newlyArrived){
+    p.joinedAt=now;
+    p.arrivalConfirmedBy='';
+    p.arrivalConfirmedByName='';
+    p.arrivalConfirmedAt=0;
+    p.arrivalConfirmedSource='';
+    p.arrivalRequestKey='';
+  }
   p.status=status;
   p.afterMatchStatus=null;
   p.deferUntil=0;
@@ -2027,15 +2039,25 @@ function _dailyApplyQueueYield(playerId,queueId,source,options){
   let idx=_dailyQueue.findIndex(q=>String(q.id||'')===String(queueId||'')&&_dailyQueueIds(q).includes(playerId));
   if(idx<0&&!options?.strict)idx=_dailyQueue.findIndex(q=>_dailyQueueIds(q).includes(playerId));
   if(idx<0)return {ok:false,reason:'뒤로 보낼 다음 대진을 찾지 못했습니다.'};
-  if(idx>=_dailyQueue.length-1)return {ok:false,reason:'뒤에 보낼 다음 대진이 없습니다.'};
+  const requestedTarget=Number(options?.targetQueueIndex||idx+2);
+  if(!Number.isInteger(requestedTarget)||requestedTarget<=idx+1||requestedTarget>_dailyQueue.length)return {ok:false,reason:'이동할 다음 대진 순번이 올바르지 않습니다.'};
+  const targetIdx=requestedTarget-1;
   const item=_dailyQueue.splice(idx,1)[0];
   item.yieldedAt=_dailyNow();
   item.yieldedBy=options?.yieldedBy||playerId;
   item.yieldedSource=source||'member';
   item.yieldedCount=Number(item.yieldedCount||0)+1;
-  _dailyQueue.splice(idx+1,0,item);
+  item.yieldedSteps=targetIdx-idx;
+  item.yieldedFromIndex=idx+1;
+  item.yieldedToIndex=targetIdx+1;
+  if(options?.clearRestPass&&item.restPass){
+    item.restPassClearedAt=_dailyNow();
+    item.restPassClearReason='club-official-queue-yield';
+    delete item.restPass;
+  }
+  _dailyQueue.splice(targetIdx,0,item);
   _dailyNext=null;
-  return {ok:true};
+  return {ok:true,fromIndex:idx+1,toIndex:targetIdx+1,moveBy:targetIdx-idx};
 }
 function _dailyApplyQueueDefer(playerId,source,queueId){
   return _dailyApplyQueueYield(playerId,queueId,source).ok;
@@ -4426,6 +4448,77 @@ function _dailyStartOperatorHeartbeat(){
   _dailyRequestOperatorWakeLock();
   _dailyOperatorHeartbeatId=setInterval(_dailyPushOperatorHeartbeat,DAILY_OPERATOR_HEARTBEAT_MS);
 }
+function _dailyOfficialArrivalRoster(){
+  const clubs=(rosters.clubs||[]).filter(club=>(club.members||[]).some(member=>member&&member.name));
+  if(!clubs.length)return null;
+  const players=_dailyPlayers.filter(player=>player&&player.name&&!player.isGuest);
+  const ranked=clubs.map(club=>{
+    const clubName=String(club.name||'');
+    const memberIds=new Set();
+    const memberNames=new Set();
+    (club.members||[]).forEach(member=>{
+      if(!member?.name)return;
+      const profile={...member,club:clubName||member.club||''};
+      memberIds.add(member.memberId||_rsvpMemberId(profile));
+      memberNames.add(_rsvpNameKey(member.name));
+    });
+    let score=0;
+    players.forEach(player=>{
+      if(clubName&&String(player.club||'')===clubName)score+=8;
+      if(player.memberId&&memberIds.has(player.memberId))score+=5;
+      else if(memberNames.has(_rsvpNameKey(player.name)))score+=1;
+    });
+    return {club,score};
+  }).sort((a,b)=>b.score-a.score);
+  if(ranked[0].score>0&&(!ranked[1]||ranked[0].score>ranked[1].score))return ranked[0].club;
+  return clubs.length===1?clubs[0]:null;
+}
+function _dailyOfficialArrivalRosterProfile(memberId){
+  const club=_dailyOfficialArrivalRoster();
+  if(!club||!memberId)return null;
+  const clubName=club.name||'';
+  const member=(club.members||[]).find(item=>{
+    if(!item?.name)return false;
+    const profile={...item,club:clubName||item.club||''};
+    return String(item.memberId||_rsvpMemberId(profile))===String(memberId);
+  });
+  if(!member)return null;
+  return {...member,club:clubName||member.club||'',memberId:member.memberId||_rsvpMemberId({...member,club:clubName||member.club||''})};
+}
+function _dailyHasRosterPlayer(profile){
+  if(!profile)return false;
+  const memberId=String(profile.memberId||'');
+  const nameKey=_rsvpNameKey(profile.name);
+  return _dailyPlayers.some(player=>{
+    if(!player)return false;
+    if(memberId&&String(player.memberId||'')===memberId)return true;
+    return _rsvpNameKey(player.name)===nameKey&&(!profile.club||!player.club||String(player.club)===String(profile.club));
+  });
+}
+function _dailyOfficialArrivalCandidates(){
+  const candidates=_dailyPlayers
+    .filter(player=>player?.name&&['invited','planned'].includes(String(player.status||'')))
+    .map(player=>({
+      candidateKey:`player:${player.id}`,
+      kind:'existing',
+      playerId:player.id,
+      name:player.name,
+      status:String(player.status||''),
+      lastStatusAt:player.lastStatusAt||0
+    }));
+  const club=_dailyOfficialArrivalRoster();
+  if(club){
+    const clubName=club.name||'';
+    (club.members||[]).forEach(member=>{
+      if(!member?.name)return;
+      const profile={...member,club:clubName||member.club||''};
+      profile.memberId=member.memberId||_rsvpMemberId(profile);
+      if(_dailyHasRosterPlayer(profile))return;
+      candidates.push({candidateKey:`roster:${profile.memberId}`,kind:'roster',memberId:profile.memberId,name:profile.name});
+    });
+  }
+  return candidates.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+}
 function _dailyCheckinPayload(){
   return {
     title:'콕매치 민턴LIVE 내 경기',
@@ -4437,8 +4530,9 @@ function _dailyCheckinPayload(){
     voteDeadlineAt:'',
     voteDeadlineTs:null,
     voteClosed:false,
-    capabilities:{officialOpsV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldV2:true,afterPartyV1:true},
     event:_dailyPublicEvent(),
+    arrivalCandidates:_dailyOfficialArrivalCandidates(),
     players:_dailyPlayers
       .filter(p=>p.name)
       .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
@@ -4725,11 +4819,34 @@ function _dailyOfficialRequestError(req){
   if(!actor||!actor.isClubOfficial)return '현재 참가 중인 클럽 임원만 운영 지원을 사용할 수 있습니다.';
   const now=_dailyNow();
   if((req.expiresAt&&now>Number(req.expiresAt))||now-Number(req.createdAt||0)>DAILY_OFFICIAL_REQUEST_TTL_MS)return '운영 요청 시간이 지나 현재 상태를 다시 확인해야 합니다.';
+  if(req.type==='official-player-arrival'){
+    if(_dailyFinishMode)return '마무리 전환 후에는 자동대진 참가자를 추가할 수 없습니다.';
+    const p=_dailyPlayer(req.playerId);
+    if(!p)return '참가 등록할 선수를 찾지 못했습니다.';
+    const currentStatus=String(p.status||'');
+    if(!['invited','planned'].includes(currentStatus))return '이미 참가 상태가 바뀐 선수입니다.';
+    if(req.status!=='wait')return '참가 등록 상태가 올바르지 않습니다.';
+    if(!Object.prototype.hasOwnProperty.call(req,'expectedStatus')||!['invited','planned'].includes(String(req.expectedStatus||'')))return '선수의 등록 전 상태를 다시 확인해야 합니다.';
+    if(String(req.expectedStatus)!==currentStatus)return '선수 상태가 이미 바뀌었습니다.';
+    if(p.currentMatchId)return '이미 경기에 배정된 선수입니다.';
+    if(!Object.prototype.hasOwnProperty.call(req,'expectedLastStatusAt'))return '선수의 최신 상태를 다시 확인해야 합니다.';
+    if(Number(req.expectedLastStatusAt)!==Number(p.lastStatusAt||0))return '선수 상태가 이미 바뀌었습니다.';
+    return '';
+  }
+  if(req.type==='official-player-add'){
+    if(_dailyFinishMode)return '마무리 전환 후에는 자동대진 참가자를 추가할 수 없습니다.';
+    const profile=_dailyOfficialArrivalRosterProfile(req.memberId);
+    if(!profile)return '현재 클럽 명부에서 참가 등록할 선수를 찾지 못했습니다.';
+    if(!req.expectedName||String(req.expectedName).trim()!==String(profile.name||'').trim())return '클럽 명부 정보가 이미 바뀌었습니다.';
+    if(_dailyHasRosterPlayer(profile))return '이미 오늘 명단에 있는 선수입니다.';
+    return '';
+  }
   if(req.type==='official-player-status'){
     const p=_dailyPlayer(req.playerId);
     if(!p)return '상태를 바꿀 선수를 찾지 못했습니다.';
     const nextStatus=_dailyNormalizeStatus(req.status);
     if(!['wait','rest','done'].includes(nextStatus))return '알 수 없는 선수 상태입니다.';
+    if(['invited','planned'].includes(String(p.status||'')))return '지각 선수는 참가 등록에서 처리해 주세요.';
     if((p.status==='playing'||p.currentMatchId)&&!['rest','done'].includes(nextStatus))return '경기중에는 경기 후 휴식 또는 종료만 표시할 수 있습니다.';
     if(!Object.prototype.hasOwnProperty.call(req,'expectedLastStatusAt'))return '선수의 최신 상태를 다시 확인해야 합니다.';
     const delayedMatch=req.expectedStatus==='playing'&&req.expectedCurrentMatchId
@@ -4767,11 +4884,9 @@ function _dailyOfficialRequestError(req){
     if(_dailyOfficialFingerprint(req.expectedPlayerIds)!==_dailyOfficialFingerprint(ids))return '다음 대진 선수가 이미 바뀌었습니다.';
     if(!Array.isArray(req.expectedTeam1Ids)||req.expectedTeam1Ids.length!==2||!Array.isArray(req.expectedTeam2Ids)||req.expectedTeam2Ids.length!==2)return '다음 대진 팀 구성을 다시 확인해야 합니다.';
     if(_dailyOfficialTeamFingerprint(req.expectedTeam1Ids,req.expectedTeam2Ids)!==_dailyOfficialTeamFingerprint(q.team1,q.team2))return '다음 대진 팀 구성이 이미 바뀌었습니다.';
-    if(_dailyQueueRestPassActive(q))return '이미 조금 쉬고 처리된 대진입니다.';
-    if(idx>=_dailyQueue.length-1)return '뒤에 대진이 없어 이동할 수 없습니다.';
+    const targetQueueIndex=Object.prototype.hasOwnProperty.call(req,'targetQueueIndex')?Number(req.targetQueueIndex):idx+2;
+    if(!Number.isInteger(targetQueueIndex)||targetQueueIndex<=idx+1||targetQueueIndex>_dailyQueue.length)return '이동할 다음 대진 순번이 올바르지 않습니다.';
     if(!_dailyQueueItemValid(q,null))return '다음 대진 선수 상태가 바뀌었습니다.';
-    const info=_dailyQueueStartInfo(idx);
-    if(info.state==='free'&&info.court)return '빈 코트 입장 단계에서는 조금 쉬고 처리를 이용해야 합니다.';
     return '';
   }
   if(req.type==='official-partner-reservation'){
@@ -4789,6 +4904,30 @@ function _dailyOfficialRequestError(req){
   }
   if(req.type==='official-court-complete-undo')return req.token?'':'되돌릴 종료 기록을 다시 확인해야 합니다.';
   return '지원하지 않는 임원 운영 요청입니다.';
+}
+function _dailyRecordOfficialArrival(p,req){
+  const actor=_dailyPlayer(req.actorPlayerId);
+  p.arrivalConfirmedBy=actor?.id||req.actorPlayerId||'';
+  p.arrivalConfirmedByName=actor?.name||req.actorPlayerName||'';
+  p.arrivalConfirmedAt=p.lastStatusAt||_dailyNow();
+  p.arrivalConfirmedSource='club-official-arrival';
+  p.arrivalRequestKey=req.key||'';
+}
+function _dailyApplyOfficialArrival(req){
+  const p=_dailyPlayer(req.playerId);
+  if(!p||!['invited','planned'].includes(String(p.status||'')))return false;
+  _dailyApplyPlayerStatus(p,'wait');
+  _dailyRecordOfficialArrival(p,req);
+  return true;
+}
+function _dailyApplyOfficialPlayerAdd(req){
+  const profile=_dailyOfficialArrivalRosterProfile(req.memberId);
+  if(!profile||_dailyHasRosterPlayer(profile))return false;
+  const p=_dailyNormalize({...profile,status:'invited'});
+  _dailyPlayers.push(p);
+  _dailyApplyPlayerStatus(p,'wait');
+  _dailyRecordOfficialArrival(p,req);
+  return true;
 }
 function _dailyApplyOfficialStatus(req){
   const p=_dailyPlayer(req.playerId);
@@ -4822,6 +4961,18 @@ function dailyProcessCheckinRequests(){
           autoRejected.push({...req,_completeRejectReason:reason});
           return;
         }
+        if(req.type==='official-player-arrival'){
+          const ok=_dailyApplyOfficialArrival(req);
+          (ok?autoApplied:autoRejected).push(ok?req:{...req,_completeRejectReason:'지각 선수 참가 등록을 반영하지 못했습니다.'});
+          if(ok)changed=true;
+          return;
+        }
+        if(req.type==='official-player-add'){
+          const ok=_dailyApplyOfficialPlayerAdd(req);
+          (ok?autoApplied:autoRejected).push(ok?req:{...req,_completeRejectReason:'클럽 명부 선수를 참가 명단에 추가하지 못했습니다.'});
+          if(ok)changed=true;
+          return;
+        }
         if(req.type==='official-player-status'){
           const ok=_dailyApplyOfficialStatus(req);
           (ok?autoApplied:autoRejected).push(ok?req:{...req,_completeRejectReason:'선수 상태를 반영하지 못했습니다.'});
@@ -4841,7 +4992,7 @@ function dailyProcessCheckinRequests(){
         }
         if(req.type==='official-queue-yield'){
           const playerId=(req.expectedPlayerIds||[])[0]||'';
-          const result=_dailyApplyQueueYield(playerId,req.queueId,'club-official-queue-yield',{strict:true,yieldedBy:req.actorPlayerId});
+          const result=_dailyApplyQueueYield(playerId,req.queueId,'club-official-queue-yield',{strict:true,yieldedBy:req.actorPlayerId,targetQueueIndex:req.targetQueueIndex,clearRestPass:true});
           (result.ok?autoApplied:autoRejected).push(result.ok?req:{...req,_completeRejectReason:result.reason||'다음 대진을 뒤로 보내지 못했습니다.'});
           if(result.ok)changed=true;
           return;
@@ -4952,7 +5103,7 @@ function dailyProcessCheckinRequests(){
       const isOfficial=String(req.type||'').startsWith('official-');
       const isQueueYield=req.type==='queue-yield'||req.type==='queue-defer';
       const isQueueCourt=req.type==='queue-enter-free'||req.type==='queue-rest-pass';
-      const appliedBy=isOfficial?'club-official-support':req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':isQueueCourt?'member-queue-court':'member-auto-reservation';
+      const appliedBy=['official-player-arrival','official-player-add'].includes(req.type)?'club-official-arrival':isOfficial?'club-official-support':req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':isQueueCourt?'member-queue-court':'member-auto-reservation';
       if(ref)ref.update({appliedAt:now,appliedBy}).catch(()=>{});
     });
     autoRejected.forEach(req=>{
@@ -4961,7 +5112,7 @@ function dailyProcessCheckinRequests(){
       const isQueueYield=req.type==='queue-yield'||req.type==='queue-defer';
       const isQueueCourt=req.type==='queue-enter-free'||req.type==='queue-rest-pass';
       const reason=req._completeRejectReason||(!isQueueYield&&!isQueueCourt?_dailyReservationRequestError(req):'자동 처리 조건 불충족')||'자동 등록 조건 불충족';
-      const ignoredBy=isOfficial?'club-official-support':req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':isQueueCourt?'member-queue-court':'member-auto-reservation';
+      const ignoredBy=['official-player-arrival','official-player-add'].includes(req.type)?'club-official-arrival':isOfficial?'club-official-support':req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':isQueueCourt?'member-queue-court':'member-auto-reservation';
       if(ref)ref.update({ignoredAt:now,ignoredBy,reason}).catch(()=>{});
     });
     if(superseded.length||autoApplied.length||autoRejected.length){
@@ -6002,7 +6153,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.425&from=daily';
+  location.href='team.html?v=1.10.427&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
