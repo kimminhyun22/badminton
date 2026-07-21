@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.428';
+const APP_VERSION = '1.10.429';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8693,6 +8693,7 @@ function switchMobileTab(tab){
   // 명부 탭은 페이지 전환
   if(tab === 'roster'){
     switchNav('roster');
+    window.scrollTo({top:0,behavior:'auto'});
     return;
   }
 
@@ -8736,6 +8737,7 @@ function syncBottomNav(page){
 // 스크롤 위치에 따라 하단 탭 자동 활성화
 function updateActiveBnavByScroll(){
   if(!isMobile()) return;
+  if(!document.getElementById('pageMain')?.classList.contains('active'))return;
   const sections = [
     {id:'scoreboardSec', tab:'result'},
     {id:'sec-bracket',   tab:'bracket'},
@@ -8743,15 +8745,16 @@ function updateActiveBnavByScroll(){
     {id:'autoFlowCard',  tab:'dashboard'},
   ];
   const scrollY = window.scrollY + 120;
-  for(const s of sections){
-    const el = document.getElementById(s.id);
-    if(el && el.getBoundingClientRect().top + window.scrollY <= scrollY){
-      document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
-      const btn = document.getElementById('bnav-' + s.tab);
-      if(btn) btn.classList.add('active');
-      break;
-    }
-  }
+  const active=sections
+    .map(s=>({s,el:document.getElementById(s.id)}))
+    .filter(x=>x.el&&x.el.offsetParent!==null)
+    .map(x=>({tab:x.s.tab,top:x.el.getBoundingClientRect().top+window.scrollY}))
+    .filter(x=>x.top<=scrollY)
+    .sort((a,b)=>b.top-a.top)[0];
+  if(!active)return;
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('bnav-' + active.tab);
+  if(btn) btn.classList.add('active');
 }
 
 let _scrollTimer;

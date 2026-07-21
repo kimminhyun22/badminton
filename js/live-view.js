@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.428';
+const APP_VERSION='1.10.429';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1307,6 +1307,7 @@ async function submitLiveWin(matchIdx,side){
   try{
     let conflictExisting='';
     let missingMatch=false;
+    let notCurrentMatch=false;
     const liveRef=liveDb.ref('live/'+liveId);
     const result=await liveRef.transaction(data=>{
       if(!data||!Array.isArray(data.matches)||!data.matches[matchIdx]){
@@ -1314,6 +1315,12 @@ async function submitLiveWin(matchIdx,side){
         return;
       }
       const liveMatch=data.matches[matchIdx];
+      const rounds=[...new Set(data.matches.map(x=>x&&x.round).filter(Boolean))].sort((a,b)=>a-b);
+      const currentRound=Number(data.currentRound)||rounds.find(r=>data.matches.filter(x=>x&&x.round===r).some(x=>!x.win))||0;
+      if(Number(liveMatch.round)!==Number(currentRound)){
+        notCurrentMatch=true;
+        return;
+      }
       const existing=liveMatch.win||null;
       if(existing&&existing!==side){
         conflictExisting=existing;
@@ -1341,13 +1348,16 @@ async function submitLiveWin(matchIdx,side){
           else if(x&&x.win==='t2')whiteWins++;
         });
       }
-      const rounds=[...new Set(data.matches.map(x=>x&&x.round).filter(Boolean))].sort((a,b)=>a-b);
       data.blueWins=blueWins;
       data.whiteWins=whiteWins;
       data.currentRound=rounds.find(r=>data.matches.filter(x=>x&&x.round===r).some(x=>!x.win))||0;
       data.updatedAt=now;
       return data;
     });
+    if(!result.committed&&notCurrentMatch){
+      alert('현재 진행 중인 경기만 승패를 입력할 수 있어요. 화면을 새로 확인해주세요.');
+      return;
+    }
     if(!result.committed&&conflictExisting){
       await liveDb.ref('live/'+liveId+'/resultConflicts/'+key+'/'+nameKey).set({
         matchKey:key,matchIdx,requested:side,existing:conflictExisting,
@@ -1371,7 +1381,7 @@ function _resultSideLabel(d,side){
 }
 
 function buildResultInputControls(m,d,opts){
-  if(!opts || !(opts.current||opts.next)) return '';
+  if(!opts || !opts.current) return '';
   if(m.win){
     const winner=_resultSideLabel(d,m.win);
     return '<div class="result-entry-done">입력 완료 · '+esc(winner)+'</div>';

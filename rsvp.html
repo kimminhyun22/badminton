@@ -11,6 +11,7 @@
   --bg:#f6f8fc;--card:#fff;--line:#e3e9f3;--txt:#18202d;--mut:#6f7a8a;
   --blue:#5b8def;--blue2:#eaf1fe;--green:#35a56a;--red:#e35b55;--amber:#f0a73a;
   --shadow:0 18px 45px rgba(35,55,90,.12);
+  --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:'Noto Sans KR',system-ui,-apple-system,sans-serif;background:linear-gradient(180deg,#edf4ff 0%,#f8fafc 48%,#fff 100%);color:var(--txt);}
@@ -479,6 +480,22 @@ button.decline:before,
   .actions{grid-template-columns:minmax(0,1fr) minmax(88px,.45fr);}
   .plan-chip{min-width:88px;}
 }
+
+/* Mobile safe areas, long-name wrapping, and field-size touch targets. */
+.wrap{
+  padding-top:max(18px,var(--safe-top));
+  padding-bottom:max(34px,calc(var(--safe-bottom) + 18px));
+}
+.mhead>div:first-child{min-width:0;}
+.name{letter-spacing:0;overflow-wrap:anywhere;}
+.event-panel.live .event-btn{letter-spacing:0;}
+.identity-change,
+.select-badge,
+.summary-toggle,
+.guest-remove,
+.member-fold summary,
+.optional-actions summary{min-height:44px;}
+.toast{bottom:max(16px,calc(var(--safe-bottom) + 8px));}
 </style>
 </head>
 <body>
@@ -505,10 +522,10 @@ button.decline:before,
     <div class="event-panel hidden" id="eventPanel"></div>
     <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">늦음 현황</button></div>
     <div class="summary-panel hidden" id="summaryPanel"></div>
-    <span class="version-chip" id="appVersion">v1.10.428</span>
+    <span class="version-chip" id="appVersion">v1.10.429</span>
   </section>
 </main>
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -523,7 +540,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,identityLookupOpen=false;
-const APP_VERSION='1.10.428';
+const APP_VERSION='1.10.429';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -597,7 +614,7 @@ function sampleSession(){
     rsvpId:rsvpId||'TFAKE201',createdAt:Date.now()-3600000,updatedAt:Date.now(),
     clubName:'미르클럽',gamesPerPlayer:4,guestLimit:null,
     phase:liveSample?'live':'bracket',bracketReady:true,matchCount:32,roundCount:8,
-    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.428':'',
+    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.429':'',
     members:sampleMembers()
   };
 }

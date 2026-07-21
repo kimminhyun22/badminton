@@ -14,6 +14,9 @@
   --wtbg:rgba(216,79,74,.06);--wtc:#c0453f;
   --shadow:0 1px 3px rgba(45,55,75,.06),0 1px 2px rgba(45,55,75,.04);
   --shadow-md:0 4px 16px rgba(45,55,75,.08);
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --mobile-nav-height:56px;
 }
 /* 다크: 흰 배경 하드코딩 요소 보정 */
 /* 추가 보정 */
@@ -2876,4 +2879,56 @@ body.monthly-team-mode .team-partner-help{display:block;}
   background:var(--ml-amber-soft);
   border-color:#ead2a8;
   color:#8c672b;
+}
+
+/* Mobile field readability and safe-area alignment. */
+@media(max-width:768px){
+  html{scroll-padding-bottom:calc(var(--mobile-nav-height) + var(--safe-bottom) + 24px);}
+  header{padding-top:max(10px,var(--safe-top));}
+  .header-help-btn,
+  .live-mode-pill{min-height:44px;}
+  .bottom-nav{padding-bottom:var(--safe-bottom)!important;}
+  .bnav-spacer{height:calc(var(--mobile-nav-height) + var(--safe-bottom))!important;}
+  .bnav-label{font-size:.68rem!important;letter-spacing:0!important;}
+  .goto-current-btn{
+    right:10px!important;
+    bottom:calc(var(--mobile-nav-height) + var(--safe-bottom) + 10px)!important;
+    width:44px!important;
+    min-width:44px;
+    max-width:44px;
+    min-height:44px;
+    padding:0!important;
+    border-radius:50%!important;
+  }
+  .goto-current-btn .gcb-text{display:none;}
+  .daily-mini-btn{min-height:44px;}
+  .daily-card-sub,
+  .daily-court-title,
+  .daily-court-team-name,
+  .daily-next-line,
+  .daily-next-player{letter-spacing:0!important;}
+}
+@media(max-width:480px){
+  .daily-start-guide-list{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(max-width:430px){
+  .daily-court-grid{grid-template-columns:1fr;}
+  .daily-court-card{border-radius:20px;}
+  .daily-court-head{padding:15px 16px 5px;}
+  .daily-court-body{padding:8px 14px 16px;}
+  .daily-court-stack .daily-court-team-name{font-size:1.04rem;line-height:1.3;}
+  .daily-active-player{min-height:32px;padding:6px 0;}
+  .daily-next-line{font-size:.98rem;white-space:normal;}
+  .daily-next-player{
+    min-height:36px;
+    display:flex;
+    align-items:center;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+  .daily-next-pair.a .daily-next-player{justify-content:flex-end;}
+  .daily-queue-player{min-height:44px;}
+}
+@media(max-width:370px){
+  .daily-ops-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
 }

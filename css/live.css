@@ -5,6 +5,7 @@
   --bl:#5b8def;--bl-deep:#4270cc;--bl-soft:#e8f0fd;--bl-softbdr:#c8d9f8;
   --red:#e05a58;--amber:#c48a20;
   --women-soft:#fdeef4;--men-soft:#e8f0fd;--mixed-soft:#ede9f8;--adjust-soft:#fff7e6;
+  --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);
@@ -1927,4 +1928,39 @@ body{
   .team-live-view .now,
   .team-live-view .viewer-next-card.is-current,
   .team-live-view .result-entry.needs-result{animation:none!important;}
+}
+
+/* Mobile safe areas, long-name wrapping, and field-size touch targets. */
+body{
+  padding-top:max(16px,var(--safe-top));
+  padding-bottom:max(24px,calc(var(--safe-bottom) + 16px));
+}
+@media(max-width:430px){
+  .current-panel .live-team-label,
+  .next-panel .live-team-label{
+    display:block!important;
+    margin-bottom:3px!important;
+    color:#718096!important;
+    font-size:.64rem!important;
+    font-weight:1000!important;
+    line-height:1.2!important;
+  }
+  .current-panel .live-player,
+  .next-panel .live-player,
+  .viewer-pair,
+  .viewer-member-name{
+    letter-spacing:0!important;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+  .current-panel .result-entry button,
+  .next-panel .result-entry button,
+  .viewer-state-btn,
+  .viewer-state-btn.ready{min-height:44px!important;}
+}
+@media(max-width:375px){
+  .current-grid,
+  .next-list{grid-template-columns:1fr!important;}
+  .current-panel .live-match,
+  .next-panel .live-match{min-height:auto!important;}
 }
