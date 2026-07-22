@@ -20,6 +20,10 @@ function applyCommandTransaction(current, input){
   if(!claim || now >= Number(claim.expiresAt || 0)){
     return {action:'abort',failureCode:'permission-denied',failureMessage:'임원 운영 연결 시간이 끝났습니다. 임원 운영 링크로 다시 열어 주세요.'};
   }
+  const currentInviteHash=String(current.session.officialInvite?.tokenHash || '');
+  if(claim.inviteHash && claim.inviteHash !== currentInviteHash){
+    return {action:'abort',failureCode:'permission-denied',failureMessage:'새 임원 운영 링크로 다시 연결해 주세요.'};
+  }
   current.serverCommands = current.serverCommands || {};
   const previous = current.serverCommands[operationId];
   if(previous){

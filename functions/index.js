@@ -62,6 +62,20 @@ function publicCommand(raw, operationId){
   return command;
 }
 
+async function runExistingSessionTransaction(ref, update){
+  for(let attempt=0;attempt<2;attempt+=1){
+    const snapshot=await ref.get();
+    if(!snapshot.child('session').exists())return {missing:true,result:null};
+    let sawEmptyCache=false;
+    const result=await ref.transaction(current=>{
+      if(current==null){sawEmptyCache=true;return;}
+      return update(current);
+    }, undefined, false);
+    if(!sawEmptyCache||result.committed)return {missing:false,result};
+  }
+  throw new HttpsError('aborted', '서버 상태를 다시 확인한 뒤 한 번 더 눌러 주세요.');
+}
+
 exports.claimDailyOfficialInvite = onCall(FUNCTION_OPTIONS, async request=>{
   const checkinId = cleanCheckinId(request.data?.checkinId);
   const inviteToken = String(request.data?.inviteToken || '');
@@ -71,40 +85,43 @@ exports.claimDailyOfficialInvite = onCall(FUNCTION_OPTIONS, async request=>{
   const now = Date.now();
   const ref = admin.database().ref(`live/checkin_${checkinId}`);
   let failure = '';
+  let failureCode = 'permission-denied';
   let grantExpiresAt = 0;
-  const result = await ref.transaction(current=>{
+  const transaction = await runExistingSessionTransaction(ref,current=>{
     failure = '';
-    if(!current?.session){failure='종료되었거나 아직 게시되지 않은 민턴LIVE입니다.';return;}
-    const session = current.session;
+    failureCode = 'permission-denied';
+    if(!current?.session){failureCode='not-found';failure='종료되었거나 아직 게시되지 않은 민턴LIVE입니다.';return;}
+    const session=current.session;
     if(session.capabilities?.officialOpsServerV2 !== true || Number(session.commandProtocol || 0) < 2){
-      failure='아직 서버 운영이 준비되지 않은 민턴LIVE입니다.';
-      return;
+      failureCode='failed-precondition';failure='아직 서버 운영이 준비되지 않은 민턴LIVE입니다.';return;
     }
-    const invite = session.officialInvite || {};
-    if(!sameHex(invite.tokenHash, sha256(inviteToken))){failure='임원 운영 링크가 올바르지 않습니다.';return;}
-    const inviteExpiresAt = Number(invite.expiresAt || session.expiresAt || 0);
-    if(!inviteExpiresAt || now >= inviteExpiresAt){failure='임원 운영 링크 시간이 끝났습니다.';return;}
-    current.officialClaims = current.officialClaims || {};
+    const invite=session.officialInvite||{};
+    if(!sameHex(invite.tokenHash,sha256(inviteToken))){failure='임원 운영 링크가 올바르지 않습니다.';return;}
+    const inviteExpiresAt=Number(invite.expiresAt||session.expiresAt||0);
+    if(!inviteExpiresAt||now>=inviteExpiresAt){failure='임원 운영 링크 시간이 끝났습니다.';return;}
+    current.officialClaims=current.officialClaims||{};
     Object.keys(current.officialClaims).forEach(key=>{
-      if(now >= Number(current.officialClaims[key]?.expiresAt || 0))delete current.officialClaims[key];
+      if(now>=Number(current.officialClaims[key]?.expiresAt||0))delete current.officialClaims[key];
     });
-    const existing = current.officialClaims[clientId];
+    const existing=current.officialClaims[clientId];
     const maxClaims = Math.max(1, Math.min(20, Number(invite.maxClaims || 4)));
-    if(!existing && Object.keys(current.officialClaims).length >= maxClaims){
+    if(!existing&&Object.keys(current.officialClaims).length>=maxClaims){
       failure='임원 운영 연결 가능 인원을 초과했습니다. 관리자에게 임원 링크를 다시 요청해 주세요.';
       return;
     }
-    grantExpiresAt = Math.min(inviteExpiresAt, now + MAX_GRANT_MS);
-    current.officialClaims[clientId] = {
+    grantExpiresAt=Math.min(inviteExpiresAt,now+MAX_GRANT_MS);
+    current.officialClaims[clientId]={
       clientId,
       claimedAt:existing?.claimedAt || now,
       refreshedAt:now,
-      expiresAt:grantExpiresAt
+      expiresAt:grantExpiresAt,
+      inviteHash:String(invite.tokenHash || '')
     };
     return current;
-  }, undefined, false);
+  });
 
-  if(!result.committed)throw new HttpsError('permission-denied', failure || '임원 운영 연결을 만들지 못했습니다.');
+  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
+  if(!transaction.result.committed)throw new HttpsError(failureCode, failure || '임원 운영 연결을 만들지 못했습니다.');
   const secret = OFFICIAL_GRANT_SECRET.value();
   const grantToken = issueOfficialGrant({v:1,sid:checkinId,cid:clientId,iat:now,exp:grantExpiresAt}, secret);
   return {ok:true,grantToken,expiresAt:grantExpiresAt};
@@ -127,7 +144,7 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
   let failureMessage = '';
   let terminal = null;
 
-  const result = await ref.transaction(current=>{
+  const transaction = await runExistingSessionTransaction(ref,current=>{
     const outcome = applyCommandTransaction(current, {
       storedCommand,engineCommand,operationId,payloadHash,clientId,now,checkinId,grantSecret:secret
     });
@@ -135,9 +152,10 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
     failureMessage = outcome.failureMessage || '';
     terminal = outcome.terminal || null;
     return outcome.action === 'commit' ? outcome.current : undefined;
-  }, undefined, false);
+  });
 
-  if(!result.committed){
+  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
+  if(!transaction.result.committed){
     if(terminal)return {ok:terminal.status==='applied',requestId:operationId,...terminal};
     throw new HttpsError(failureCode || 'aborted', failureMessage || '운영 요청을 처리하지 못했습니다.');
   }
@@ -158,6 +176,9 @@ exports.getDailyOfficialReconcile = onCall(FUNCTION_OPTIONS, async request=>{
   const claim = current.officialClaims?.[clientId];
   if(!claim || now >= Number(claim.expiresAt || 0)){
     throw new HttpsError('permission-denied', '임원 운영 연결 시간이 끝났습니다. 임원 운영 링크로 다시 열어 주세요.');
+  }
+  if(claim.inviteHash && claim.inviteHash !== String(current.session.officialInvite?.tokenHash || '')){
+    throw new HttpsError('permission-denied', '새 임원 운영 링크로 다시 연결해 주세요.');
   }
   const serverRevision = Math.max(0, Number(current.session.serverRevision || 0));
   const commands = Object.entries(current.requests || {})

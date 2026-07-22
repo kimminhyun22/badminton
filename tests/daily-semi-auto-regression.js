@@ -79,7 +79,7 @@ assert.deepStrictEqual(Array.from(actionSandbox.keys('done')), ['wait'], '운동
 
 const renderEvent = extractFunction(checkinSrc, 'renderEvent', 'statusButtonSpec');
 assert(renderEvent.includes('if(!viewer||!viewer.playerId)'), '본인 이름 선택 전에는 전체 경기판을 기본 노출하면 안 됩니다.');
-assert(checkinSrc.includes("checkinId=qs('id')||(sampleMode?'SAMPLE':'')"), '회원 샘플 화면은 별도 링크 ID 없이도 열려야 합니다.');
+assert(checkinSrc.includes("checkinId=officialLink.checkinId||qs('id')||(sampleMode?'SAMPLE':'')"), '회원 샘플 화면은 별도 링크 ID 없이도 열려야 합니다.');
 const payload = extractFunction(dailySrc, '_dailyCheckinPayload', 'dailyEnsureCheckinId');
 assert(payload.includes('lastStatusAt:p.lastStatusAt||0'), '회원 화면은 관리자 상태 변경 시각을 받아 오래된 요청 표시를 덮어써야 합니다.');
 

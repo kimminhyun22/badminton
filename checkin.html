@@ -1472,6 +1472,11 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-connection{flex-shrink:0;padding:5px 9px;border-radius:999px;background:#eef9f3;color:#16724c;font-size:12px;font-weight:1000;}
 .official-connection.offline{background:#fff8e8;color:#8a5a00;}
 .official-support-note{font-size:12px;line-height:1.5;color:var(--mut);margin-bottom:10px;}
+.official-connect-recovery{margin:10px 0;padding:12px;border:1.5px solid #e3a7aa;border-radius:8px;background:#fff4f4;color:#8f1d24;}
+.official-connect-recovery b{display:block;font-size:14px;}
+.official-connect-recovery small{display:block;margin-top:4px;font-size:11px;font-weight:800;line-height:1.5;}
+.official-connect-recovery button{width:100%;min-height:44px;margin-top:10px;border:1.5px solid #c9363e;border-radius:8px;background:#c9363e;color:#fff;font:inherit;font-weight:1000;}
+.official-connect-recovery button:disabled{opacity:.5;cursor:not-allowed;}
 .official-request-state{margin:0 0 10px;padding:8px 10px;border-radius:7px;background:#f4f7fb;color:#526177;font-size:12px;font-weight:900;}
 .official-request-state.done{background:#eef9f3;color:#16724c;}
 .official-request-state.error{background:#fff2f2;color:#b42318;}
@@ -1585,7 +1590,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.432</span>
+    <span class="version-chip" id="appVersion">v1.10.433</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1629,8 +1634,8 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',pendingOfficialInvite='',claimingOfficial=false;
-const APP_VERSION='1.10.432';
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialGrantError='';
+const APP_VERSION='1.10.433';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -1858,16 +1863,25 @@ function loadOfficialGrant(){
     return saved.token;
   }catch(e){return '';}
 }
+function clearOfficialGrant(message){
+  officialGrantToken='';
+  officialGrantError=message||'';
+  try{localStorage.removeItem(officialGrantKey());}catch(e){}
+}
 function officialClientId(){
+  const key=officialClientKey();
+  let id='';
+  try{id=localStorage.getItem(key)||'';}catch(e){}
+  if(!id)try{id=sessionStorage.getItem(key)||'';}catch(e){}
+  if(id)return id;
   try{
-    let id=localStorage.getItem(officialClientKey())||'';
-    if(id)return id;
     const bytes=new Uint8Array(18);
     crypto.getRandomValues(bytes);
     id='oc_'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
-    localStorage.setItem(officialClientKey(),id);
-    return id;
-  }catch(e){return 'oc_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);}
+  }catch(e){id='oc_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);}
+  try{localStorage.setItem(key,id);}catch(e){}
+  try{sessionStorage.setItem(key,id);}catch(e){}
+  return id;
 }
 function officialServerCapable(){
   return !!(session?.capabilities?.officialOpsServerV2===true&&Number(session?.commandProtocol||0)>=2);
@@ -1875,25 +1889,60 @@ function officialServerCapable(){
 function officialServerReady(){
   return !!(officialGrantToken&&officialServerCapable());
 }
-async function claimOfficialInvite(){
-  if(claimingOfficial||!pendingOfficialInvite||!session||isSampleMode())return false;
-  claimingOfficial=true;
+function officialInviteFromSearch(search){
+  const params=new URLSearchParams(search||'');
+  const bundled=String(params.get('official')||'').trim();
+  const match=/^(D[A-Z2-9]{7})\.([a-f0-9]{48})$/i.exec(bundled);
+  return match
+    ? {checkinId:match[1].toUpperCase(),token:match[2],bundled:true}
+    : {checkinId:'',token:String(params.get('op')||''),bundled:false};
+}
+function clearOfficialInviteFromAddress(){
   try{
-    const callable=firebase.functions().httpsCallable('claimDailyOfficialInvite');
-    const result=await callable({checkinId,inviteToken:pendingOfficialInvite,clientId:officialClientId()});
-    const grant=result?.data||{};
-    if(!grant.grantToken||!grant.expiresAt)throw new Error('grant-missing');
-    officialGrantToken=grant.grantToken;
-    localStorage.setItem(officialGrantKey(),JSON.stringify({token:grant.grantToken,expiresAt:grant.expiresAt}));
-    pendingOfficialInvite='';
-    try{sessionStorage.removeItem('kokmatch_pending_official_invite_'+checkinId);}catch(e){}
-    toast('임원 운영 연결 완료 · 관리자 앱이 꺼져도 운영 작업은 바로 반영됩니다.');
+    const cleaned=new URL(location.href);
+    cleaned.searchParams.delete('op');
+    cleaned.searchParams.delete('official');
+    cleaned.searchParams.set('id',checkinId);
+    history.replaceState(null,'',cleaned.toString());
+  }catch(e){}
+}
+async function claimOfficialInvite(){
+  if(!pendingOfficialInvite||!session||isSampleMode())return false;
+  if(officialClaimPromise)return officialClaimPromise;
+  officialClaimPromise=(async()=>{
+    claimingOfficial=true;
+    officialGrantError='';
     render();
-    return true;
-  }catch(e){
-    toast(e?.message?.includes('초과')?e.message:'임원 운영 연결에 실패했습니다. 임원 링크를 다시 열어 주세요.');
+    try{
+      const callable=firebase.functions().httpsCallable('claimDailyOfficialInvite');
+      const result=await callable({checkinId,inviteToken:pendingOfficialInvite,clientId:officialClientId()});
+      const grant=result?.data||{};
+      if(!grant.grantToken||!grant.expiresAt)throw new Error('grant-missing');
+      officialGrantToken=grant.grantToken;
+      try{localStorage.setItem(officialGrantKey(),JSON.stringify({token:grant.grantToken,expiresAt:grant.expiresAt}));}catch(e){}
+      pendingOfficialInvite='';
+      try{sessionStorage.removeItem('kokmatch_pending_official_invite_'+checkinId);}catch(e){}
+      clearOfficialInviteFromAddress();
+      toast('임원 운영 연결 완료 · 관리자 앱이 꺼져도 운영 작업은 바로 반영됩니다.');
+      return true;
+    }catch(e){
+      officialGrantError=officialCallableError(e);
+      toast(officialGrantError);
+      return false;
+    }finally{
+      claimingOfficial=false;
+      render();
+    }
+  })();
+  try{return await officialClaimPromise;}
+  finally{officialClaimPromise=null;}
+}
+async function retryOfficialInvite(){
+  if(!pendingOfficialInvite){
+    toast('현재 링크에는 임원 권한이 없습니다. 시스템 관리자에게 임원 운영 링크를 다시 받아 주세요.');
     return false;
-  }finally{claimingOfficial=false;}
+  }
+  return claimOfficialInvite();
 }
 function lastKey(){
   return 'kokmatch_checkin_last_'+checkinId;
@@ -2828,9 +2877,16 @@ function officialSupportHtml(p){
     <button type="button" class="start" data-official-action ${disabled} onclick="sendOfficialQueueEnter('${esc(p.id)}','${esc(q.queueId)}')">입장 처리</button>
   </div>`).join('');
   const playerOptions=officialPlayerOptions();
+  const needsGrant=officialServerCapable()&&!serverReady;
+  const grantRecovery=needsGrant?`<div class="official-connect-recovery">
+    <b>${pendingOfficialInvite?(claimingOfficial?'임원 권한 연결 중':'임원 권한 연결 필요'):'현재 링크는 회원용입니다.'}</b>
+    <small>${officialGrantError?esc(officialGrantError):(pendingOfficialInvite?'아래 버튼으로 서버 운영 권한을 다시 연결해 주세요.':'시스템 관리자에게 임원 운영 링크를 새로 받아 이 화면에서 열어 주세요.')}</small>
+    ${pendingOfficialInvite?`<button type="button" ${claimingOfficial?'disabled':''} onclick="retryOfficialInvite()">${claimingOfficial?'연결 중':'임원 권한 다시 연결'}</button>`:''}
+  </div>`:'';
   return `<section class="official-support">
     <div class="official-support-head"><b>클럽 임원 운영</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
     <div id="officialSupportNote" class="official-support-note">${serverReady?(cardOps?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어지며, 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.'):(connected?'현재 관리자 앱에서 별도 승인 없이 바로 반영됩니다.':'누른 작업은 안전하게 저장됩니다. 앱이 꺼진 상태에서도 즉시 처리하려면 임원 운영 링크로 다시 열어 주세요.')}</div>
+    ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
     ${officialArrivalToolsHtml(p,disabled)}
     ${freeRows?`<div class="official-action-list">${freeRows}</div>`:''}
@@ -3080,7 +3136,10 @@ async function pushOfficialRequest(req,successText){
   if(!db||!checkinId||!session||sendingKey)return false;
   if(sessionExpired()){showEndedLink();return false;}
   req={...req,operationId:req.operationId||createOfficialOperationId(req.type)};
-  if(!officialServerReady()&&pendingOfficialInvite)await claimOfficialInvite();
+  if(!officialServerReady()&&pendingOfficialInvite){
+    const claimed=await claimOfficialInvite();
+    if(!claimed&&!officialServerReady())return false;
+  }
   const serverReady=officialServerReady();
   const serverCapable=officialServerCapable();
   const connected=operatorConnected();
@@ -3123,6 +3182,12 @@ async function pushOfficialRequest(req,successText){
     toast(`${successText} · 관리자 앱에서 자동 적용 중`);
     return true;
   }catch(e){
+    if(serverReady&&e?.code==='functions/permission-denied'){
+      clearOfficialGrant('임원 운영 연결이 만료되었습니다. 시스템 관리자에게 새 임원 운영 링크를 받아 주세요.');
+      toast(officialGrantError);
+      render();
+      return false;
+    }
     toast(serverReady?officialCallableError(e):'운영 요청 전송에 실패했습니다. 다시 눌러 주세요.');
     return false;
   }finally{
@@ -3772,20 +3837,16 @@ function boot(){
   const vEl=document.getElementById('appVersion');
   if(vEl)vEl.textContent='v'+APP_VERSION;
   const sampleMode=new URLSearchParams(location.search).has('sample');
-  checkinId=qs('id')||(sampleMode?'SAMPLE':'');
+  const officialLink=officialInviteFromSearch(location.search);
+  checkinId=officialLink.checkinId||qs('id')||(sampleMode?'SAMPLE':'');
   if(!checkinId){
     document.getElementById('players').textContent='민턴LIVE 링크가 올바르지 않습니다.';
     return;
   }
-  const inviteFromLink=qs('op');
+  const inviteFromLink=officialLink.token;
   if(inviteFromLink&&/^[a-f0-9]{48}$/i.test(inviteFromLink)){
     pendingOfficialInvite=inviteFromLink;
     try{sessionStorage.setItem('kokmatch_pending_official_invite_'+checkinId,pendingOfficialInvite);}catch(e){}
-    try{
-      const cleaned=new URL(location.href);
-      cleaned.searchParams.delete('op');
-      history.replaceState(null,'',cleaned.toString());
-    }catch(e){}
   }else{
     try{pendingOfficialInvite=sessionStorage.getItem('kokmatch_pending_official_invite_'+checkinId)||'';}catch(e){}
   }

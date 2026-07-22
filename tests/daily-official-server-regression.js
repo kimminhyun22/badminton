@@ -16,6 +16,7 @@ const CHECKIN_ID = 'DTEST222';
 const CLIENT_ID = 'oc_1234567890abcdef1234567890abcdef';
 const SECRET = 'test-secret-should-be-at-least-32-bytes-long';
 const BASE_NOW = 1_800_000_000_000;
+const INVITE_HASH = 'f'.repeat(64);
 
 function clone(value){return JSON.parse(JSON.stringify(value));}
 function hash(value){return crypto.createHash('sha256').update(canonicalJson(value)).digest('hex');}
@@ -54,6 +55,7 @@ function baseRoot(){
     session:{
       serverSessionId:CHECKIN_ID,commandProtocol:2,serverRevision:0,
       expiresAt:BASE_NOW+48*60*60_000,
+      officialInvite:{tokenHash:INVITE_HASH,expiresAt:BASE_NOW+48*60*60_000},
       capabilities:{officialOpsServerV2:true},
       players,reservations:[],arrivalCandidates:[],serverRuntime:{holds:{},nextSeq:3},
       event:{
@@ -68,7 +70,7 @@ function baseRoot(){
         serverStandby:[queue('q4',['p5','p6','p7','p8'])]
       }
     },
-    officialClaims:{[CLIENT_ID]:{clientId:CLIENT_ID,claimedAt:BASE_NOW-1000,expiresAt:BASE_NOW+60*60_000}}
+    officialClaims:{[CLIENT_ID]:{clientId:CLIENT_ID,claimedAt:BASE_NOW-1000,expiresAt:BASE_NOW+60*60_000,inviteHash:INVITE_HASH}}
   };
 }
 
@@ -198,6 +200,13 @@ const staleResult=submit(raceRoot,'official-queue-yield','race_yield_000001',BAS
 assert.strictEqual(staleResult.outcome.terminal.status,'rejected','두 임원이 같은 대진을 동시에 처리하면 먼저 반영된 한 건만 성공해야 합니다.');
 assert.strictEqual(staleResult.outcome.current.session.event.active.filter(match=>match.court===1).length,1,'동시 요청으로 한 코트에 경기가 중복 생성되면 안 됩니다.');
 
+let rotatedInvite=baseRoot();
+rotatedInvite.session.officialInvite.tokenHash='a'.repeat(64);
+const rotatedDenied=submit(rotatedInvite,'official-player-status','operation_rotated_001',BASE_NOW,{
+  playerId:'p9',status:'rest',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(rotatedDenied.outcome.failureCode,'permission-denied','새 임원 링크가 게시되면 이전 연결 권한을 거절해야 합니다.');
+
 let unauthorized=baseRoot();
 unauthorized.session.players.find(item=>item.id==='official').isClubOfficial=false;
 const denied=submit(unauthorized,'official-player-status','operation_denied_001',BASE_NOW,{
@@ -210,13 +219,15 @@ const checkinSource=fs.readFileSync(path.join(__dirname,'..','checkin.html'),'ut
 const dailySource=fs.readFileSync(path.join(__dirname,'..','js','daily.js'),'utf8');
 const functionSource=fs.readFileSync(path.join(__dirname,'..','functions','index.js'),'utf8');
 assert(checkinSource.includes("httpsCallable('claimDailyOfficialInvite')")&&checkinSource.includes("httpsCallable('submitDailyOfficialRequest')"),'임원 링크 권한 교환과 서버 명령 함수를 모두 호출해야 합니다.');
-assert(checkinSource.includes("history.replaceState(null,'',cleaned.toString())"),'임원 초대 토큰은 교환 전에 주소창에서 제거해야 합니다.');
+assert(checkinSource.includes('clearOfficialInviteFromAddress();')&&checkinSource.includes("history.replaceState(null,'',cleaned.toString())"),'임원 초대 토큰은 권한 교환에 성공한 뒤 주소창에서 제거해야 합니다.');
 assert(checkinSource.includes('newMatchId:`dmv2_${operationId}`')&&checkinSource.includes('playerId:`dpv2_${operationId}`'),'재시도와 관리자 재동기화에 같은 경기·선수 ID를 사용해야 합니다.');
 assert(dailySource.includes('serverRevision!==_dailyServerRevision+1'),'관리자 재실행 시 서버 명령을 리비전 순서대로만 원본에 합쳐야 합니다.');
 assert(dailySource.includes('_dailyPrepareServerQueueRequest(req)'),'서버에서 승격된 예상 대진도 팀 구성으로 관리자 원본에 복원해야 합니다.');
 assert(dailySource.includes("httpsCallable('getDailyOfficialReconcile')"),'관리자 재실행은 공개 요청 표시가 아니라 서버 함수의 검증된 운영 기록을 받아야 합니다.');
 assert(dailySource.includes('.filter(r=>!r.appliedAt&&!r.ignoredAt&&!r.serverAppliedAt&&!r.serverRejectedAt)'),'공개 데이터베이스에서 임의로 붙인 서버 처리 표시는 관리자 원본이 신뢰하면 안 됩니다.');
 assert(functionSource.includes('exports.getDailyOfficialReconcile'),'서버는 관리자 재동기화용 검증된 명령 조회 함수를 제공해야 합니다.');
+assert(functionSource.includes('async function runExistingSessionTransaction'),'권한 교환과 운영 명령이 같은 안전한 서버 트랜잭션 래퍼를 사용해야 합니다.');
+assert((functionSource.match(/runExistingSessionTransaction\(ref/g)||[]).length>=3,'권한 교환·경기 처리 모두 빈 로컬 캐시 보호를 적용해야 합니다.');
 
 const queueHelperStart=dailySource.indexOf('function _dailyOfficialQueueRequestFingerprint');
 const queueHelperEnd=dailySource.indexOf('function _dailyOfficialRequestError',queueHelperStart);

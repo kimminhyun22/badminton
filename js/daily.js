@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.432';
+const APP_VERSION = '1.10.433';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4591,9 +4591,14 @@ function _dailyLoadAdminGrant(){
     return true;
   }catch(e){return false;}
 }
-async function _dailyEnsureAdminGrant(){
-  if(_dailyAdminGrantToken&&_dailyNow()<_dailyAdminGrantExpiresAt)return true;
-  if(_dailyLoadAdminGrant())return true;
+async function _dailyEnsureAdminGrant(forceRefresh){
+  if(!forceRefresh&&_dailyAdminGrantToken&&_dailyNow()<_dailyAdminGrantExpiresAt)return true;
+  if(!forceRefresh&&_dailyLoadAdminGrant())return true;
+  if(forceRefresh){
+    _dailyAdminGrantToken='';
+    _dailyAdminGrantExpiresAt=0;
+    try{localStorage.removeItem(_dailyAdminGrantKey());}catch(e){}
+  }
   if(!_dailyCheckinId||!_dailyOfficialInviteToken||typeof firebase==='undefined'||typeof firebase.functions!=='function')return false;
   try{
     const callable=firebase.functions().httpsCallable('claimDailyOfficialInvite');
@@ -4706,9 +4711,10 @@ function _dailyCheckinUrl(){
   return base+'checkin.html?id='+_dailyCheckinId;
 }
 function _dailyOfficialCheckinUrl(){
-  const url=_dailyCheckinUrl();
-  if(!url||!_dailyOfficialInviteToken)return '';
-  return `${url}&op=${encodeURIComponent(_dailyOfficialInviteToken)}`;
+  if(!_dailyCheckinId||!_dailyOfficialInviteToken)return '';
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  const capability=`${_dailyCheckinId}.${_dailyOfficialInviteToken}`;
+  return base+'checkin.html?official='+encodeURIComponent(capability);
 }
 function _dailyCheckinPath(){
   return _dailyCheckinId?'live/checkin_'+_dailyCheckinId:'';
@@ -4991,10 +4997,14 @@ async function dailyShareOfficialLink(){
     alert('임원 운영 연결을 만들지 못했습니다. 보안 연결을 지원하는 브라우저에서 다시 시도해 주세요.');
     return;
   }
+  if(!await _dailyEnsureAdminGrant(true)){
+    alert('서버 임원 운영 연결을 확인하지 못했습니다. 네트워크를 확인한 뒤 임원 링크 공유를 다시 눌러 주세요.');
+    return;
+  }
   const url=_dailyOfficialCheckinUrl();
   const text=`🏸 민턴LIVE 임원 운영 링크\n클럽 임원에게만 전달해 주세요. 한 번 열면 이 기기에서 안전하게 연결됩니다. 관리자 앱이 꺼져도 운영 작업은 바로 반영되고, 새 대진은 미리 준비된 범위까지 이어집니다.\n\n`+url;
   try{
-    if(navigator.share){await navigator.share({title:'콕매치 민턴LIVE 임원 운영',text});return;}
+    if(navigator.share){await navigator.share({title:'콕매치 민턴LIVE 임원 운영',text,url});return;}
   }catch(e){}
   try{
     await navigator.clipboard.writeText(text);
@@ -6702,7 +6712,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.432&from=daily';
+  location.href='team.html?v=1.10.433&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
