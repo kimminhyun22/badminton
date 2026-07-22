@@ -87,6 +87,7 @@ const localStorage={
 const _fbDb={ref(){ return {remove:async()=>{ calls.push('remove'); }}; }};
 function _dailyCheckinPath(){ return 'live/checkin_'+_dailyCheckinId; }
 function _dailyStopCheckinListener(){ _dailyCheckinListening=false;_dailyCheckinListeningPath='';calls.push('listener-stop'); }
+function _dailyClearAdminGrant(){ calls.push('grant-clear'); }
 function dailySave(){ calls.push('save'); }
 function dailyRender(){ calls.push('render'); }
 function confirm(){ return true; }
@@ -113,6 +114,7 @@ vm.runInContext(code, sandbox);
   assert.strictEqual(state.values.daily_checkin, undefined, '종료한 링크 ID는 별도 저장소에서도 제거되어야 합니다.');
   assert.strictEqual(Object.keys(state.party).length, 0, '종료한 링크의 뒷풀이 응답도 메모리에서 제거되어야 합니다.');
   assert(state.calls.includes('listener-stop'), '종료한 링크의 실시간 구독을 먼저 해제해야 합니다.');
+  assert(state.calls.includes('grant-clear'), '종료한 링크의 관리자 서버 권한도 함께 폐기해야 합니다.');
   assert(state.calls.includes('save'), '종료 상태를 일일 저장본에 즉시 저장해야 합니다.');
   assert(state.calls.includes('render'), '종료 직후 전체 상황판을 다시 그려야 합니다.');
   assert(state.calls.indexOf('save') < state.calls.indexOf('render'), '종료 상태 저장 후 화면을 갱신해야 합니다.');
