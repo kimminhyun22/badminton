@@ -62,16 +62,37 @@ function publicCommand(raw, operationId){
   return command;
 }
 
+function holdReferenceValue(ref){
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+    const onValue=snapshot=>{
+      if(settled)return;
+      settled=true;
+      resolve({snapshot,release:()=>ref.off('value',onValue)});
+    };
+    const onCancel=error=>{
+      if(settled)return;
+      settled=true;
+      reject(error);
+    };
+    ref.on('value',onValue,onCancel);
+  });
+}
+
 async function runExistingSessionTransaction(ref, update){
   for(let attempt=0;attempt<2;attempt+=1){
-    const snapshot=await ref.get();
-    if(!snapshot.child('session').exists())return {missing:true,result:null};
-    let sawEmptyCache=false;
-    const result=await ref.transaction(current=>{
-      if(current==null){sawEmptyCache=true;return;}
-      return update(current);
-    }, undefined, false);
-    if(!sawEmptyCache||result.committed)return {missing:false,result};
+    const observed=await holdReferenceValue(ref);
+    try{
+      if(!observed.snapshot.child('session').exists())return {missing:true,result:null};
+      let sawEmptyCache=false;
+      const result=await ref.transaction(current=>{
+        if(current==null){sawEmptyCache=true;return;}
+        return update(current);
+      }, undefined, false);
+      if(!sawEmptyCache||result.committed)return {missing:false,result};
+    }finally{
+      observed.release();
+    }
   }
   throw new HttpsError('aborted', '서버 상태를 다시 확인한 뒤 한 번 더 눌러 주세요.');
 }

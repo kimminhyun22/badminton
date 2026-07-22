@@ -2,7 +2,7 @@
   "name": "콕매치 - 배드민턴 대진표",
   "short_name": "🏸 콕매치",
   "description": "배드민턴 팀 배정 & 자동 대진표 생성기",
-  "start_url": "/badminton/team.html?v=1.10.433&from=app",
+  "start_url": "/badminton/team.html?v=1.10.434&from=app",
   "display": "standalone",
   "background_color": "#f5f7fa",
   "theme_color": "#2563eb",
