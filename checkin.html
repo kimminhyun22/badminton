@@ -1509,17 +1509,32 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-partner-submit{width:100%;min-height:44px;border:1.5px solid #9ccfb7;border-radius:8px;background:#eef9f3;color:#16724c;font:inherit;font-weight:1000;}
 .official-partner-list{margin-top:9px;border-top:1px solid var(--line);}
 .official-partner-list .official-action-row button{border-color:#e3a7aa;background:#fff4f4;color:#b42318;}
-.party-request{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
-.party-request b{display:block;font-size:14px;color:var(--txt);}
-.party-request small{display:block;margin-top:3px;color:var(--mut);font-size:11px;font-weight:800;line-height:1.45;}
-.party-request button{min-width:96px;min-height:44px;border:1.5px solid #edc987;border-radius:8px;background:#fff9ed;color:#8a5a00;font:inherit;font-weight:1000;}
-.party-request button.selected{border-color:#df9a2d;background:#df9a2d;color:#fff;}
-.official-party-summary{margin-top:12px;padding-top:11px;border-top:1px solid var(--line);color:#40506a;font-size:12px;font-weight:900;line-height:1.55;overflow-wrap:anywhere;}
-.official-party-summary b{color:#8a5a00;}
+.after-party-summary{margin:12px -10px 0;border-top:1.5px solid #edc987;border-bottom:1.5px solid #edc987;background:#fffaf0;}
+.after-party-main{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px;}
+.after-party-heading{display:flex;align-items:center;gap:9px;min-width:0;}
+.after-party-count{display:flex;align-items:baseline;gap:2px;flex:0 0 auto;color:#8a5a00;line-height:1;}
+.after-party-count strong{font-size:24px;}
+.after-party-count span{font-size:12px;font-weight:1000;}
+.after-party-copy{min-width:0;}
+.after-party-copy b{display:block;font-size:14px;color:var(--txt);}
+.after-party-copy small{display:block;margin-top:3px;color:var(--mut);font-size:11px;font-weight:800;line-height:1.45;}
+.after-party-summary button{min-width:96px;min-height:44px;border:1.5px solid #df9a2d;border-radius:8px;background:#fff;color:#8a5a00;font:inherit;font-weight:1000;}
+.after-party-summary button.selected{background:#df9a2d;color:#fff;}
+.after-party-names{padding:10px 12px;border-top:1px solid #f0d9ad;color:#40506a;font-size:12px;font-weight:900;line-height:1.55;overflow-wrap:anywhere;}
+.after-party-names b{color:#8a5a00;}
+.after-party-names summary{cursor:pointer;list-style:none;}
+.after-party-names summary::-webkit-details-marker{display:none;}
+.after-party-names summary::after{content:'보기';float:right;margin-left:8px;color:#8a5a00;}
+.after-party-names[open] summary::after{content:'닫기';}
+.after-party-name-list{margin-top:8px;padding-top:8px;border-top:1px solid #f0d9ad;color:#40506a;}
 @media(max-width:520px){
   .official-action-row.yield-row{grid-template-columns:minmax(0,1fr);gap:8px;}
   .official-arrival-actions{grid-template-columns:minmax(0,1fr);}
   .official-arrival-actions button{width:100%;}
+}
+@media(max-width:360px){
+  .after-party-main{grid-template-columns:minmax(0,1fr);}
+  .after-party-summary button{width:100%;}
 }
 
 /* Mobile safe areas, touch targets, and bottom-sheet containment. */
@@ -1570,7 +1585,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.431</span>
+    <span class="version-chip" id="appVersion">v1.10.432</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1615,7 +1630,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',pendingOfficialInvite='',claimingOfficial=false;
-const APP_VERSION='1.10.431';
+const APP_VERSION='1.10.432';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -1714,8 +1729,7 @@ function sessionExpired(){
 }
 function showEndedLink(){
   session=null;
-  renderEvent();
-  renderVoteSummary();
+  render();
   const fold=document.getElementById('playerListFold');
   if(fold)fold.open=true;
   document.getElementById('sessionSub').textContent='종료된 민턴LIVE 링크입니다.';
@@ -1873,7 +1887,7 @@ async function claimOfficialInvite(){
     localStorage.setItem(officialGrantKey(),JSON.stringify({token:grant.grantToken,expiresAt:grant.expiresAt}));
     pendingOfficialInvite='';
     try{sessionStorage.removeItem('kokmatch_pending_official_invite_'+checkinId);}catch(e){}
-    toast('임원 운영 연결 완료 · 관리자 앱이 꺼져도 바로 처리됩니다.');
+    toast('임원 운영 연결 완료 · 관리자 앱이 꺼져도 운영 작업은 바로 반영됩니다.');
     render();
     return true;
   }catch(e){
@@ -2353,10 +2367,10 @@ function renderEvent(){
   }
   el.className='panel event-panel';
   const updated=ev.updatedAt?new Date(ev.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
-  const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>`;
   const selectedId=viewer.playerId;
   const selectedPlayer=(session?.players||[]).find(p=>String(p.id||'')===String(selectedId||''));
   const canOfficialOperate=!!(selectedPlayer?.isClubOfficial&&session?.capabilities?.officialOpsV1===true);
+  const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span>${canOfficialOperate?`<span class="event-chip gold">뒷풀이 ${afterPartyNames().length}명</span>`:''}`;
   placeEventPanelForViewer(canOfficialOperate);
   const active=(ev.active||[]).slice(0,4).map(m=>{
     const remain=remainMinutes(m);
@@ -2668,17 +2682,28 @@ function afterPartyNames(){
     .filter(Boolean)
     .sort((a,b)=>String(a).localeCompare(String(b),'ko'));
 }
-function afterPartyBox(p,disabled){
+function afterPartyCardHtml(p,disabled){
   if(!p||session?.capabilities?.afterPartyV1!==true)return '';
   const attending=!!afterPartyEntry(p.id);
-  return `<div class="party-request">
-    <div><b>뒷풀이</b><small>${attending?'참석으로 신청되어 있습니다.':'참석하는 경우 신청해 주세요.'}</small></div>
-    <button type="button" class="${attending?'selected':''}" ${disabled||''} onclick="toggleAfterParty('${esc(p.id)}')">${attending?'신청 취소':'참석 신청'}</button>
-  </div>`;
-}
-function officialPartySummaryHtml(){
   const names=afterPartyNames();
-  return `<div class="official-party-summary"><b>뒷풀이 ${names.length}명</b>${names.length?` · ${names.map(esc).join(', ')}`:' · 신청 없음'}</div>`;
+  const canViewNames=p.isClubOfficial&&(officialServerReady()||isSampleMode());
+  const previewNames=names.slice(0,4);
+  const remainingNames=Math.max(0,names.length-previewNames.length);
+  const officialNames=canViewNames
+    ? names.length>4
+      ? `<details class="after-party-names"><summary><b>신청자 ${names.length}명</b> · ${previewNames.map(esc).join(', ')} 외 ${remainingNames}명</summary><div class="after-party-name-list">${names.map(esc).join(', ')}</div></details>`
+      : `<div class="after-party-names"><b>신청자</b> · ${names.length?names.map(esc).join(', '):'아직 없습니다.'}</div>`
+    : '';
+  return `<section class="after-party-summary" aria-label="뒷풀이 신청 현황">
+    <div class="after-party-main">
+      <div class="after-party-heading">
+        <div class="after-party-count"><strong>${names.length}</strong><span>명</span></div>
+        <div class="after-party-copy"><b>뒷풀이 신청</b><small>${attending?'내 신청 · 참석':'내 신청 · 미신청'}</small></div>
+      </div>
+      <button type="button" class="${attending?'selected':''}" ${disabled||''} onclick="toggleAfterParty('${esc(p.id)}')">${attending?'신청 취소':'참석 신청'}</button>
+    </div>
+    ${officialNames}
+  </section>`;
 }
 function latestOfficialRequest(actorId){
   return officialRequests
@@ -2805,7 +2830,7 @@ function officialSupportHtml(p){
   const playerOptions=officialPlayerOptions();
   return `<section class="official-support">
     <div class="official-support-head"><b>클럽 임원 운영</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
-    <div id="officialSupportNote" class="official-support-note">${serverReady?(cardOps?'관리자 앱이 꺼져도 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태가 바로 반영됩니다.'):(connected?'현재 관리자 앱에서 별도 승인 없이 바로 반영됩니다.':'누른 작업은 안전하게 저장됩니다. 앱이 꺼진 상태에서도 즉시 처리하려면 임원 운영 링크로 다시 열어 주세요.')}</div>
+    <div id="officialSupportNote" class="official-support-note">${serverReady?(cardOps?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어지며, 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.'):(connected?'현재 관리자 앱에서 별도 승인 없이 바로 반영됩니다.':'누른 작업은 안전하게 저장됩니다. 앱이 꺼진 상태에서도 즉시 처리하려면 임원 운영 링크로 다시 열어 주세요.')}</div>
     ${officialRequestStateHtml(p.id)}
     ${officialArrivalToolsHtml(p,disabled)}
     ${freeRows?`<div class="official-action-list">${freeRows}</div>`:''}
@@ -2819,7 +2844,6 @@ function officialSupportHtml(p){
       </div>
     </details>`:''}
     ${officialPartnerToolsHtml(p,disabled)}
-    ${officialPartySummaryHtml()}
   </section>`;
 }
 function refreshOfficialConnection(){
@@ -2832,7 +2856,7 @@ function refreshOfficialConnection(){
   const note=document.getElementById('officialSupportNote');
   const cardOps=session?.capabilities?.officialQueueCardOpsV1===true;
   if(note)note.textContent=serverReady
-    ? (cardOps?'관리자 앱이 꺼져도 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태가 바로 반영됩니다.')
+    ? (cardOps?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어지며, 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.')
     : connected
       ? (cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'현재 관리자 앱에서 바로 반영됩니다. 지각 참가·대진 순서·선수 상태는 여기에서 처리하세요.')
       : '관리자 앱이 꺼진 동안 바로 처리하려면 관리자가 보낸 임원 운영 링크로 다시 열어 주세요.';
@@ -2882,11 +2906,11 @@ function renderMyCard(last,players){
     </div>
     <div class="my-action-panel">
       ${currentMatch}
+      ${nextNotice}
       <div class="buttons main-actions">${mainButtons}</div>
       ${restGuide}
-      ${nextNotice}
+      ${afterPartyCardHtml(selected,requestDisabledAttr)}
       ${subSection}
-      ${afterPartyBox(selected,requestDisabledAttr)}
       ${gameRequestBox(selected,requestDisabledAttr)}
       ${officialSupportHtml(selected)}
     </div>
@@ -3061,7 +3085,7 @@ async function pushOfficialRequest(req,successText){
   const serverCapable=officialServerCapable();
   const connected=operatorConnected();
   if(serverCapable&&!serverReady){
-    toast('관리자가 보낸 임원 운영 링크로 다시 열어 주세요. 연결 후에는 관리자 앱이 꺼져도 바로 처리됩니다.');
+    toast('관리자가 보낸 임원 운영 링크로 다시 열어 주세요. 연결 후에는 관리자 앱이 꺼져도 운영 작업이 바로 처리됩니다.');
     refreshOfficialConnection();
     return false;
   }

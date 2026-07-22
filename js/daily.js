@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.431';
+const APP_VERSION = '1.10.432';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4992,7 +4992,7 @@ async function dailyShareOfficialLink(){
     return;
   }
   const url=_dailyOfficialCheckinUrl();
-  const text=`🏸 민턴LIVE 임원 운영 링크\n클럽 임원에게만 전달해 주세요. 한 번 열면 이 기기에서 안전하게 연결되고, 관리자 앱이 꺼져도 경기 종료·입장·이번만 뒤로가 바로 반영됩니다.\n\n`+url;
+  const text=`🏸 민턴LIVE 임원 운영 링크\n클럽 임원에게만 전달해 주세요. 한 번 열면 이 기기에서 안전하게 연결됩니다. 관리자 앱이 꺼져도 운영 작업은 바로 반영되고, 새 대진은 미리 준비된 범위까지 이어집니다.\n\n`+url;
   try{
     if(navigator.share){await navigator.share({title:'콕매치 민턴LIVE 임원 운영',text});return;}
   }catch(e){}
@@ -6702,7 +6702,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.431&from=daily';
+  location.href='team.html?v=1.10.432&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
