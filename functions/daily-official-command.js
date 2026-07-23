@@ -9,6 +9,7 @@ function applyCommandTransaction(current, input){
     operationId,
     payloadHash,
     clientId,
+    grantPlayerId,
     now,
     checkinId,
     grantSecret
@@ -18,11 +19,19 @@ function applyCommandTransaction(current, input){
   }
   const claim = current.officialClaims?.[clientId];
   if(!claim || now >= Number(claim.expiresAt || 0)){
-    return {action:'abort',failureCode:'permission-denied',failureMessage:'임원 운영 연결 시간이 끝났습니다. 임원 운영 링크로 다시 열어 주세요.'};
+    return {action:'abort',failureCode:'permission-denied',failureMessage:'임원 운영 연결 시간이 끝났습니다. 본인 이름을 다시 선택해 주세요.'};
   }
   const currentInviteHash=String(current.session.officialInvite?.tokenHash || '');
   if(claim.inviteHash && claim.inviteHash !== currentInviteHash){
-    return {action:'abort',failureCode:'permission-denied',failureMessage:'새 임원 운영 링크로 다시 연결해 주세요.'};
+    return {action:'abort',failureCode:'permission-denied',failureMessage:'임원 본인 이름을 다시 선택해 운영 권한을 연결해 주세요.'};
+  }
+  const claimPlayerId=String(claim.officialPlayerId || '');
+  const signedPlayerId=String(grantPlayerId || '');
+  if(Boolean(claimPlayerId) !== Boolean(signedPlayerId) || (signedPlayerId && claimPlayerId !== signedPlayerId)){
+    return {action:'abort',failureCode:'permission-denied',failureMessage:'선택한 임원 본인 정보를 다시 확인해 주세요.'};
+  }
+  if(signedPlayerId && String(storedCommand.actorPlayerId || '') !== signedPlayerId){
+    return {action:'abort',failureCode:'permission-denied',failureMessage:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
   current.serverCommands = current.serverCommands || {};
   const previous = current.serverCommands[operationId];

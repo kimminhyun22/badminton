@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.434';
+const APP_VERSION = '1.10.435';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4560,13 +4560,15 @@ async function _dailyEnsureOfficialCapability(){
 function _dailyAdminGrantKey(){
   return _dailyCheckinId?`kokmatch_daily_admin_grant_${_dailyCheckinId}`:'';
 }
-function _dailyClearAdminGrant(){
+function _dailyClearAdminGrant(preserveSyncState){
   const key=_dailyAdminGrantKey();
   if(key)try{localStorage.removeItem(key);}catch(e){}
   _dailyAdminGrantToken='';
   _dailyAdminGrantExpiresAt=0;
-  _dailyServerSyncBusy=false;
-  _dailyServerSyncQueued=false;
+  if(!preserveSyncState){
+    _dailyServerSyncBusy=false;
+    _dailyServerSyncQueued=false;
+  }
 }
 function _dailyAdminClientId(){
   const key='kokmatch_daily_admin_client_v1';
@@ -4614,10 +4616,11 @@ async function _dailyEnsureAdminGrant(forceRefresh){
     return false;
   }
 }
-async function _dailyPullServerReconcile(){
+async function _dailyPullServerReconcile(retriedGrant){
   if(_dailyServerSyncBusy){_dailyServerSyncQueued=true;return false;}
   if(!_dailyCheckinId||!_dailyOfficialInviteHash)return false;
   _dailyServerSyncBusy=true;
+  let retryWithFreshGrant=false;
   try{
     if(!await _dailyEnsureAdminGrant())return false;
     const callable=firebase.functions().httpsCallable('getDailyOfficialReconcile');
@@ -4645,12 +4648,21 @@ async function _dailyPullServerReconcile(){
     dailyRenderCheckinRequests();
     return true;
   }catch(e){
-    _dailyServerReconcileError='서버 운영 결과를 가져오지 못했습니다.';
-    dailyRenderCheckinRequests();
+    if(!retriedGrant&&e?.code==='functions/permission-denied'){
+      _dailyClearAdminGrant(true);
+      retryWithFreshGrant=await _dailyEnsureAdminGrant(true);
+    }
+    if(!retryWithFreshGrant){
+      _dailyServerReconcileError='서버 운영 결과를 가져오지 못했습니다.';
+      dailyRenderCheckinRequests();
+    }
     return false;
   }finally{
     _dailyServerSyncBusy=false;
-    if(_dailyServerSyncQueued){
+    if(retryWithFreshGrant){
+      _dailyServerSyncQueued=false;
+      setTimeout(()=>_dailyPullServerReconcile(true).catch(()=>{}),0);
+    }else if(_dailyServerSyncQueued){
       _dailyServerSyncQueued=false;
       setTimeout(()=>_dailyPullServerReconcile().catch(()=>{}),0);
     }
@@ -4846,7 +4858,7 @@ function _dailyCheckinPayload(){
     officialInvite:_dailyOfficialInviteHash?{
       tokenHash:_dailyOfficialInviteHash,
       expiresAt:_dailyCheckinExpiresAt()||(_dailyNow()+DAILY_CHECKIN_TTL_MS),
-      maxClaims:Math.max(4,_dailyPlayers.filter(player=>player.isClubOfficial).length+2)
+      maxClaims:Math.min(20,Math.max(8,_dailyPlayers.filter(player=>player.isClubOfficial).length*2+2))
     }:null,
     serverRuntime:_dailyServerRuntimePayload(),
     voteDeadlineAt:'',
@@ -4957,7 +4969,7 @@ async function dailyPublishCheckinSession(silent){
     return null;
   }
   if(!_fbInit()){
-    if(!silent)alert('회원용 경기 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
+    if(!silent)alert('민턴LIVE 공용 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
     return null;
   }
   const id=dailyEnsureCheckinId();
@@ -4975,16 +4987,17 @@ async function dailyShareCheckinLink(){
   const id=await dailyPublishCheckinSession(false);
   if(!id)return;
   const url=_dailyCheckinUrl();
-  const text=`🏸 민턴LIVE 내 경기\n클럽 임원이 현장 참가 등록을 완료했습니다.\n내 이름을 선택해 현재·다음 경기를 확인하세요.\n쉴 때는 휴식, 다시 뛸 때는 복귀, 마치면 종료를 눌러주세요. 뒷풀이 참석도 같은 화면에서 신청할 수 있습니다.\n\n`+url;
+  const text='🏸 민턴LIVE 공용 링크\n내 이름을 선택해 현재·다음 경기를 확인하세요.\n클럽 임원은 명부에 등록된 본인 이름을 선택하면 같은 화면에서 경기 운영을 바로 처리할 수 있습니다.\n쉴 때는 휴식, 다시 뛸 때는 복귀, 마치면 종료를 눌러주세요. 뒷풀이 참석도 같은 화면에서 신청할 수 있습니다.';
+  const clipboardText=`${text}\n\n${url}`;
   try{
     if(navigator.share){
-      await navigator.share({title:'콕매치 민턴LIVE 내 경기',text});
+      await navigator.share({title:'콕매치 민턴LIVE 공용 링크',text,url});
       return;
     }
   }catch(e){}
   try{
-    await navigator.clipboard.writeText(text);
-    alert('회원용 경기 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url);
+    await navigator.clipboard.writeText(clipboardText);
+    alert('회원·임원 공용 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url);
   }catch(e){
     console.warn('민턴LIVE 공유 문구 복사 실패', e);
   }
@@ -5459,7 +5472,7 @@ function dailyProcessCheckinRequests(){
       if(String(req.type||'').startsWith('official-')){
         const serverRevision=Number(req.serverRevision||0);
         if(!req.serverAppliedAt&&_dailyOfficialInviteHash){
-          autoRejected.push({...req,_completeRejectReason:'임원 운영 링크에서 서버 확인 후 다시 처리해 주세요.'});
+          autoRejected.push({...req,_completeRejectReason:'임원 본인 화면에서 현재 상태를 확인한 뒤 다시 처리해 주세요.'});
           return;
         }
         if(req.serverAppliedAt&&serverRevision&&serverRevision<=_dailyServerRevision){
@@ -5791,7 +5804,7 @@ function dailyRenderCheckinRequests(){
   if(!box)return;
   if(!_dailyCheckinId){
     box.className='daily-empty';
-    box.textContent='필요할 때 회원용 경기 링크를 공유하세요. 링크 없이도 관리자 운영은 진행됩니다.';
+    box.textContent='준비가 끝나면 회원·임원 공용 링크 하나만 카톡방에 공유하세요.';
     return;
   }
   const url=_dailyCheckinUrl();
@@ -5802,7 +5815,7 @@ function dailyRenderCheckinRequests(){
     .sort((a,b)=>a.localeCompare(b,'ko'));
   const partyHtml=`<div class="daily-checkin-req applied"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">뒷풀이 ${partyNames.length}명</div><div class="daily-checkin-req-meta">${partyNames.length?partyNames.map(esc).join(', '):'신청 없음'}</div></div></div></div>`;
   const reconcileHtml=_dailyServerReconcileError?`<div class="daily-checkin-req pending"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">서버 운영 동기화 확인 필요</div><div class="daily-checkin-req-meta">${esc(_dailyServerReconcileError)} 네트워크를 확인한 뒤 이 화면을 다시 열어 주세요. 서버의 실중계 상태는 그대로 유지됩니다.</div></div></div></div>`:'';
-  const linkHtml=`<div class="daily-checkin-link">회원용 경기 링크<br><strong>${esc(url)}</strong><br>경기 확인과 휴식·복귀·종료·뒷풀이 신청이 같은 링크에 반영됩니다.</div>${reconcileHtml}${partyHtml}`;
+  const linkHtml=`<div class="daily-checkin-link">회원·임원 공용 링크<br><strong>${esc(url)}</strong><br>회원은 경기 확인과 상태·뒷풀이 신청을, 명부 임원은 같은 화면에서 경기 운영까지 처리합니다.</div>${reconcileHtml}${partyHtml}`;
   if(!pending.length){
     box.className='daily-checkin-panel';
     box.innerHTML=linkHtml+`<div class="daily-checkin-req applied">
@@ -6712,7 +6725,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.434&from=daily';
+  location.href='team.html?v=1.10.435&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

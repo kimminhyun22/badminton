@@ -70,11 +70,14 @@ function baseRoot(){
         serverStandby:[queue('q4',['p5','p6','p7','p8'])]
       }
     },
-    officialClaims:{[CLIENT_ID]:{clientId:CLIENT_ID,claimedAt:BASE_NOW-1000,expiresAt:BASE_NOW+60*60_000,inviteHash:INVITE_HASH}}
+    officialClaims:{[CLIENT_ID]:{clientId:CLIENT_ID,claimedAt:BASE_NOW-1000,expiresAt:BASE_NOW+60*60_000,claimMode:'roster',officialPlayerId:'official',officialPlayerName:'운영임원'}}
   };
 }
 
 const grantToken = issueOfficialGrant({
+  v:1,sid:CHECKIN_ID,cid:CLIENT_ID,pid:'official',iat:BASE_NOW-1000,exp:BASE_NOW+60*60_000
+}, SECRET);
+const legacyGrantToken = issueOfficialGrant({
   v:1,sid:CHECKIN_ID,cid:CLIENT_ID,iat:BASE_NOW-1000,exp:BASE_NOW+60*60_000
 }, SECRET);
 
@@ -86,12 +89,14 @@ function storedCommand(type, operationId, now, extra = {}){
     source:'club-official-support',...extra
   };
 }
-function submit(root, type, operationId, now, extra = {}){
+function submit(root, type, operationId, now, extra = {}, auth = {}){
   const stored = storedCommand(type, operationId, now, extra);
+  const requestGrantToken=auth.grantToken || grantToken;
+  const requestGrantPlayerId=Object.prototype.hasOwnProperty.call(auth,'grantPlayerId')?auth.grantPlayerId:'official';
   const outcome = applyCommandTransaction(root, {
     storedCommand:stored,
-    engineCommand:{...stored,officialGrantToken:grantToken},
-    operationId,payloadHash:hash(stored),clientId:CLIENT_ID,now,
+    engineCommand:{...stored,officialGrantToken:requestGrantToken},
+    operationId,payloadHash:hash(stored),clientId:CLIENT_ID,grantPlayerId:requestGrantPlayerId,now,
     checkinId:CHECKIN_ID,grantSecret:SECRET
   });
   return {outcome,stored};
@@ -107,7 +112,7 @@ function assertOperationalInvariants(session){
 }
 
 const validGrant = verifyOfficialGrant(grantToken,SECRET,CHECKIN_ID,BASE_NOW);
-assert(validGrant.ok&&validGrant.payload.cid===CLIENT_ID,'정상 임원 권한 토큰을 검증해야 합니다.');
+assert(validGrant.ok&&validGrant.payload.cid===CLIENT_ID&&validGrant.payload.pid==='official','정상 임원 본인 고정 권한 토큰을 검증해야 합니다.');
 assert(verifyOfficialGrant(grantToken,SECRET,'DOTHER22',BASE_NOW).reason.includes('다른 민턴LIVE'),'다른 세션의 임원 권한을 재사용하면 안 됩니다.');
 assert(verifyOfficialGrant(grantToken,SECRET,CHECKIN_ID,BASE_NOW+60*60_000).reason.includes('시간이 끝났습니다'),'만료된 임원 권한을 거절해야 합니다.');
 const tamperedGrant=grantToken.slice(0,-1)+(grantToken.endsWith('a')?'b':'a');
@@ -200,12 +205,51 @@ const staleResult=submit(raceRoot,'official-queue-yield','race_yield_000001',BAS
 assert.strictEqual(staleResult.outcome.terminal.status,'rejected','두 임원이 같은 대진을 동시에 처리하면 먼저 반영된 한 건만 성공해야 합니다.');
 assert.strictEqual(staleResult.outcome.current.session.event.active.filter(match=>match.court===1).length,1,'동시 요청으로 한 코트에 경기가 중복 생성되면 안 됩니다.');
 
+const otherActor=submit(baseRoot(),'official-player-status','operation_actor_switch_001',BASE_NOW,{
+  actorPlayerId:'p9',playerId:'p10',status:'rest',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(otherActor.outcome.failureCode,'permission-denied','한 임원에게 발급된 권한으로 다른 선수 이름을 가장하면 안 됩니다.');
+
+const mismatchedClaim=baseRoot();
+mismatchedClaim.officialClaims[CLIENT_ID].officialPlayerId='p9';
+const mismatchedResult=submit(mismatchedClaim,'official-player-status','operation_claim_mismatch_001',BASE_NOW,{
+  playerId:'p10',status:'rest',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(mismatchedResult.outcome.failureCode,'permission-denied','서버 claim과 서명된 임원 ID가 다르면 운영 명령을 거절해야 합니다.');
+
 let rotatedInvite=baseRoot();
 rotatedInvite.session.officialInvite.tokenHash='a'.repeat(64);
-const rotatedDenied=submit(rotatedInvite,'official-player-status','operation_rotated_001',BASE_NOW,{
+const rotatedRosterResult=submit(rotatedInvite,'official-player-status','operation_rotated_001',BASE_NOW,{
   playerId:'p9',status:'rest',expectedLastStatusAt:BASE_NOW-1000
 });
-assert.strictEqual(rotatedDenied.outcome.failureCode,'permission-denied','새 임원 링크가 게시되면 이전 연결 권한을 거절해야 합니다.');
+assert.strictEqual(rotatedRosterResult.outcome.terminal.status,'applied','명부 임원 권한은 관리자용 초대 토큰이 바뀌어도 끊기면 안 됩니다.');
+
+let legacyRoot=baseRoot();
+legacyRoot.officialClaims[CLIENT_ID]={clientId:CLIENT_ID,claimedAt:BASE_NOW-1000,expiresAt:BASE_NOW+60*60_000,inviteHash:INVITE_HASH,claimMode:'invite'};
+const legacyResult=submit(legacyRoot,'official-player-status','operation_legacy_001',BASE_NOW,{
+  playerId:'p9',status:'rest',expectedLastStatusAt:BASE_NOW-1000
+},{grantToken:legacyGrantToken,grantPlayerId:''});
+assert.strictEqual(legacyResult.outcome.terminal.status,'applied','기존 관리자·임원 초대 토큰의 무기명 연결은 호환되어야 합니다.');
+
+let rotatedLegacy=baseRoot();
+rotatedLegacy.officialClaims[CLIENT_ID]={clientId:CLIENT_ID,claimedAt:BASE_NOW-1000,expiresAt:BASE_NOW+60*60_000,inviteHash:INVITE_HASH,claimMode:'invite'};
+rotatedLegacy.session.officialInvite.tokenHash='a'.repeat(64);
+const rotatedLegacyDenied=submit(rotatedLegacy,'official-player-status','operation_rotated_legacy_001',BASE_NOW,{
+  playerId:'p9',status:'rest',expectedLastStatusAt:BASE_NOW-1000
+},{grantToken:legacyGrantToken,grantPlayerId:''});
+assert.strictEqual(rotatedLegacyDenied.outcome.failureCode,'permission-denied','기존 무기명 초대 연결은 초대 토큰 교체 시 폐기해야 합니다.');
+
+const missingSignedIdentity=submit(baseRoot(),'official-player-status','operation_missing_signed_001',BASE_NOW,{
+  playerId:'p9',status:'rest',expectedLastStatusAt:BASE_NOW-1000
+},{grantToken:legacyGrantToken,grantPlayerId:''});
+assert.strictEqual(missingSignedIdentity.outcome.failureCode,'permission-denied','명부 임원 claim에 본인 ID가 없는 서명 토큰을 섞으면 안 됩니다.');
+
+const missingClaimIdentity=baseRoot();
+delete missingClaimIdentity.officialClaims[CLIENT_ID].officialPlayerId;
+const missingClaimResult=submit(missingClaimIdentity,'official-player-status','operation_missing_claim_001',BASE_NOW,{
+  playerId:'p9',status:'rest',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(missingClaimResult.outcome.failureCode,'permission-denied','본인 ID가 서명된 토큰을 무기명 claim과 섞으면 안 됩니다.');
 
 let unauthorized=baseRoot();
 unauthorized.session.players.find(item=>item.id==='official').isClubOfficial=false;
@@ -226,7 +270,10 @@ assert(dailySource.includes('_dailyPrepareServerQueueRequest(req)'),'서버에�
 assert(dailySource.includes("httpsCallable('getDailyOfficialReconcile')"),'관리자 재실행은 공개 요청 표시가 아니라 서버 함수의 검증된 운영 기록을 받아야 합니다.');
 assert(dailySource.includes('.filter(r=>!r.appliedAt&&!r.ignoredAt&&!r.serverAppliedAt&&!r.serverRejectedAt)'),'공개 데이터베이스에서 임의로 붙인 서버 처리 표시는 관리자 원본이 신뢰하면 안 됩니다.');
 assert(functionSource.includes('exports.getDailyOfficialReconcile'),'서버는 관리자 재동기화용 검증된 명령 조회 함수를 제공해야 합니다.');
+assert(functionSource.includes('...(officialPlayerId?{pid:officialPlayerId}:{})'),'명부 임원 권한 토큰에는 서버가 확인한 선수 ID를 서명해야 합니다.');
+assert(functionSource.includes('playerId:officialPlayerId'),'권한 연결 응답에도 서버가 확인한 임원 ID를 돌려줘야 합니다.');
 assert(functionSource.includes('async function runExistingSessionTransaction'),'권한 교환과 운영 명령이 같은 안전한 서버 트랜잭션 래퍼를 사용해야 합니다.');
+assert(dailySource.includes("!retriedGrant&&e?.code==='functions/permission-denied'")&&dailySource.includes('_dailyEnsureAdminGrant(true)'),'관리자 앱의 서버 권한이 만료되면 한 번만 자동 재연결해야 합니다.');
 assert((functionSource.match(/runExistingSessionTransaction\(ref/g)||[]).length>=3,'권한 교환·경기 처리 모두 빈 로컬 캐시 보호를 적용해야 합니다.');
 
 const queueHelperStart=dailySource.indexOf('function _dailyOfficialQueueRequestFingerprint');

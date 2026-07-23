@@ -73,7 +73,7 @@ function verifyOfficialGrant(token, secret, sessionId, now){
     }
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
     if(number(payload.v) !== 1 || text(payload.sid) !== text(sessionId))return {reason:'다른 민턴LIVE의 임원 운영 연결입니다.'};
-    if(!number(payload.exp) || now >= number(payload.exp))return {reason:'임원 운영 연결 시간이 끝났습니다. 임원용 운영 링크로 다시 열어 주세요.'};
+    if(!number(payload.exp) || now >= number(payload.exp))return {reason:'임원 운영 연결 시간이 끝났습니다. 본인 이름을 다시 선택해 주세요.'};
     return {ok:true,payload};
   }catch(e){
     return {reason:'임원 운영 연결이 올바르지 않습니다.'};
@@ -365,6 +365,9 @@ function validateCommon(session, request, now, options){
   const grant=verifyOfficialGrant(request.officialGrantToken,options?.grantSecret,sessionId,now);
   if(grant.skip)return {skip:true};
   if(grant.reason)return {reason:grant.reason};
+  if(grant.payload?.pid && text(grant.payload.pid) !== text(request.actorPlayerId)){
+    return {reason:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
+  }
   const actor = playerById(session, request.actorPlayerId);
   if(!actor || !actor.isClubOfficial)return {reason:'현재 참가 중인 클럽 임원만 운영 지원을 사용할 수 있습니다.'};
   const createdAt = number(request.createdAt);

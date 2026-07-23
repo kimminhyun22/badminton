@@ -1477,6 +1477,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-connect-recovery small{display:block;margin-top:4px;font-size:11px;font-weight:800;line-height:1.5;}
 .official-connect-recovery button{width:100%;min-height:44px;margin-top:10px;border:1.5px solid #c9363e;border-radius:8px;background:#c9363e;color:#fff;font:inherit;font-weight:1000;}
 .official-connect-recovery button:disabled{opacity:.5;cursor:not-allowed;}
+.official-connect-recovery.connecting{border-color:#b8d8ff;background:#f5f9ff;color:#245ca6;}
 .official-request-state{margin:0 0 10px;padding:8px 10px;border-radius:7px;background:#f4f7fb;color:#526177;font-size:12px;font-weight:900;}
 .official-request-state.done{background:#eef9f3;color:#16724c;}
 .official-request-state.error{background:#fff2f2;color:#b42318;}
@@ -1590,7 +1591,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.434</span>
+    <span class="version-chip" id="appVersion">v1.10.435</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1634,8 +1635,8 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialGrantError='';
-const APP_VERSION='1.10.434';
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
+const APP_VERSION='1.10.435';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -1860,11 +1861,13 @@ function loadOfficialGrant(){
   try{
     const saved=JSON.parse(localStorage.getItem(officialGrantKey())||'null');
     if(!saved?.token||Date.now()>=Number(saved.expiresAt||0)){localStorage.removeItem(officialGrantKey());return '';}
+    officialGrantPlayerId=String(saved.playerId||'');
     return saved.token;
   }catch(e){return '';}
 }
 function clearOfficialGrant(message){
   officialGrantToken='';
+  officialGrantPlayerId='';
   officialGrantError=message||'';
   try{localStorage.removeItem(officialGrantKey());}catch(e){}
 }
@@ -1886,8 +1889,15 @@ function officialClientId(){
 function officialServerCapable(){
   return !!(session?.capabilities?.officialOpsServerV2===true&&Number(session?.commandProtocol||0)>=2);
 }
+function selectedOfficialPlayer(){
+  const last=getLastSent();
+  const player=last?.playerId?(session?.players||[]).find(item=>String(item.id||'')===String(last.playerId)):null;
+  return player?.isClubOfficial?player:null;
+}
 function officialServerReady(){
-  return !!(officialGrantToken&&officialServerCapable());
+  if(!officialGrantToken||!officialServerCapable())return false;
+  const actor=selectedOfficialPlayer();
+  return !officialGrantPlayerId||officialGrantPlayerId===String(actor?.id||'');
 }
 function officialInviteFromSearch(search){
   const params=new URLSearchParams(search||'');
@@ -1906,24 +1916,42 @@ function clearOfficialInviteFromAddress(){
     history.replaceState(null,'',cleaned.toString());
   }catch(e){}
 }
-async function claimOfficialInvite(){
-  if(!pendingOfficialInvite||!session||isSampleMode())return false;
-  if(officialClaimPromise)return officialClaimPromise;
-  officialClaimPromise=(async()=>{
+async function claimOfficialInvite(actorOverride){
+  const actor=actorOverride?.isClubOfficial?actorOverride:selectedOfficialPlayer();
+  if(!actor||!session||isSampleMode())return false;
+  if(officialClaimPromise){
+    const activeClaim=officialClaimPromise;
+    if(officialClaimPlayerId===String(actor.id))return activeClaim;
+    await activeClaim;
+    if(String(selectedOfficialPlayer()?.id||'')!==String(actor.id))return false;
+    return claimOfficialInvite(actor);
+  }
+  officialClaimPlayerId=String(actor.id);
+  const currentClaim=(async()=>{
     claimingOfficial=true;
     officialGrantError='';
     render();
     try{
       const callable=firebase.functions().httpsCallable('claimDailyOfficialInvite');
-      const result=await callable({checkinId,inviteToken:pendingOfficialInvite,clientId:officialClientId()});
+      const result=await callable({
+        checkinId,
+        playerId:actor.id,
+        ...(pendingOfficialInvite?{inviteToken:pendingOfficialInvite}:{}),
+        clientId:officialClientId()
+      });
       const grant=result?.data||{};
       if(!grant.grantToken||!grant.expiresAt)throw new Error('grant-missing');
+      if(String(grant.playerId||'')!==String(actor.id))throw new Error('grant-player-mismatch');
+      if(String(selectedOfficialPlayer()?.id||'')!==String(actor.id))return false;
       officialGrantToken=grant.grantToken;
-      try{localStorage.setItem(officialGrantKey(),JSON.stringify({token:grant.grantToken,expiresAt:grant.expiresAt}));}catch(e){}
-      pendingOfficialInvite='';
-      try{sessionStorage.removeItem('kokmatch_pending_official_invite_'+checkinId);}catch(e){}
-      clearOfficialInviteFromAddress();
-      toast('임원 운영 연결 완료 · 관리자 앱이 꺼져도 운영 작업은 바로 반영됩니다.');
+      officialGrantPlayerId=String(grant.playerId);
+      try{localStorage.setItem(officialGrantKey(),JSON.stringify({token:grant.grantToken,expiresAt:grant.expiresAt,playerId:officialGrantPlayerId}));}catch(e){}
+      if(pendingOfficialInvite){
+        pendingOfficialInvite='';
+        try{sessionStorage.removeItem('kokmatch_pending_official_invite_'+checkinId);}catch(e){}
+        clearOfficialInviteFromAddress();
+      }
+      toast(`${actor.name} 임원 권한 연결 완료 · 운영 작업이 바로 반영됩니다.`);
       return true;
     }catch(e){
       officialGrantError=officialCallableError(e);
@@ -1934,15 +1962,23 @@ async function claimOfficialInvite(){
       render();
     }
   })();
-  try{return await officialClaimPromise;}
-  finally{officialClaimPromise=null;}
+  officialClaimPromise=currentClaim;
+  try{return await currentClaim;}
+  finally{
+    if(officialClaimPromise===currentClaim){
+      officialClaimPromise=null;
+      officialClaimPlayerId='';
+    }
+  }
 }
 async function retryOfficialInvite(){
-  if(!pendingOfficialInvite){
-    toast('현재 링크에는 임원 권한이 없습니다. 시스템 관리자에게 임원 운영 링크를 다시 받아 주세요.');
+  const actor=selectedOfficialPlayer();
+  if(!actor){
+    toast('명부에 등록된 클럽 임원 본인 이름을 먼저 선택해 주세요.');
     return false;
   }
-  return claimOfficialInvite();
+  officialGrantError='';
+  return claimOfficialInvite(actor);
 }
 function lastKey(){
   return 'kokmatch_checkin_last_'+checkinId;
@@ -2195,7 +2231,7 @@ function officialQueueCardActionsHtml(actor,q,index,list){
   const queuePending=pendingEnter||pendingYield;
   const canEnter=q.cueState==='free'&&q.targetCourt&&!q.restPass;
   const canYield=session?.capabilities?.officialQueueYieldV2===true&&index<(list||[]).length-1;
-  const disabled=!!sendingKey;
+  const disabled=!!sendingKey||claimingOfficial;
   const actions=[];
   if(canEnter){
     actions.push(`<button type="button" class="event-official-enter" data-official-action data-official-pending="${pendingEnter?'true':'false'}" ${disabled||queuePending?'disabled':''} onclick="sendOfficialQueueEnter('${esc(actor.id)}','${esc(queueId)}')">${pendingEnter?'입장 확인 중':'입장 처리'}</button>`);
@@ -2425,7 +2461,7 @@ function renderEvent(){
     const remain=remainMinutes(m);
     const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
     const pendingComplete=officialRequests.some(r=>r.type==='official-court-complete'&&officialRequestPending(r)&&String(r.matchId||'')===String(m.id||''));
-    const completeDisabled=(sendingKey||pendingComplete)?'disabled':'';
+    const completeDisabled=(sendingKey||claimingOfficial||pendingComplete)?'disabled':'';
     const completeButton=canOfficialOperate?`<button type="button" class="event-official-complete" data-official-action data-official-pending="${pendingComplete?'true':'false'}" ${completeDisabled} onclick="sendOfficialCourtComplete('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingComplete?'종료 확인 중':'경기 종료'}</button>`:'';
     return `<div class="event-row event-active ${state}">
     <div class="event-row-main">
@@ -2644,6 +2680,7 @@ function changeSelectedPlayer(){
   const last=getLastSent();
   const name=last&&last.playerName?last.playerName:'현재 선택한 이름';
   if(!confirm(`${name} 선택을 변경할까요?\n다른 분 이름을 대신 누르는 기능이 아니라, 본인 선택을 바로잡기 위한 기능입니다.`))return;
+  clearOfficialGrant('');
   try{localStorage.removeItem(lastKey());}catch(e){}
   try{localStorage.removeItem('kokmatch_live_viewer_last');}catch(e){}
   query='';
@@ -2676,6 +2713,7 @@ function selectPlayerIdentity(playerId){
   if(q)q.value='';
   toast(`${p.name}님으로 선택했어요.`);
   render();
+  if(p.isClubOfficial)claimOfficialInvite(p);
 }
 function isRapidStatusChange(p,status){
   const last=getLastSent();
@@ -2869,7 +2907,7 @@ function officialSupportHtml(p){
   if(!p?.isClubOfficial||!session?.capabilities?.officialOpsV1)return '';
   const serverReady=officialServerReady();
   const connected=serverReady||(!officialServerCapable()&&operatorConnected());
-  const disabled=sendingKey?'disabled':'';
+  const disabled=(sendingKey||claimingOfficial)?'disabled':'';
   const cardOps=session?.capabilities?.officialQueueCardOpsV1===true;
   const free=cardOps?[]:eventNextList().filter(q=>q.cueState==='free'&&q.targetCourt&&!q.restPass);
   const freeRows=free.map(q=>`<div class="official-action-row">
@@ -2878,14 +2916,15 @@ function officialSupportHtml(p){
   </div>`).join('');
   const playerOptions=officialPlayerOptions();
   const needsGrant=officialServerCapable()&&!serverReady;
-  const grantRecovery=needsGrant?`<div class="official-connect-recovery">
-    <b>${pendingOfficialInvite?(claimingOfficial?'임원 권한 연결 중':'임원 권한 연결 필요'):'현재 링크는 회원용입니다.'}</b>
-    <small>${officialGrantError?esc(officialGrantError):(pendingOfficialInvite?'아래 버튼으로 서버 운영 권한을 다시 연결해 주세요.':'시스템 관리자에게 임원 운영 링크를 새로 받아 이 화면에서 열어 주세요.')}</small>
-    ${pendingOfficialInvite?`<button type="button" ${claimingOfficial?'disabled':''} onclick="retryOfficialInvite()">${claimingOfficial?'연결 중':'임원 권한 다시 연결'}</button>`:''}
+  const connectingGrant=claimingOfficial||!officialGrantError;
+  const grantRecovery=needsGrant?`<div class="official-connect-recovery ${connectingGrant?'connecting':''}">
+    <b>${connectingGrant?'임원 운영 연결 중':'임원 권한을 연결하지 못했습니다'}</b>
+    <small>${officialGrantError?esc(officialGrantError):'현재 명부의 임원 등록을 확인하고 있습니다. 잠시만 기다려 주세요.'}</small>
+    ${connectingGrant?'':`<button type="button" onclick="retryOfficialInvite()">다시 연결</button>`}
   </div>`:'';
   return `<section class="official-support">
     <div class="official-support-head"><b>클럽 임원 운영</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
-    <div id="officialSupportNote" class="official-support-note">${serverReady?(cardOps?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어지며, 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.'):(connected?'현재 관리자 앱에서 별도 승인 없이 바로 반영됩니다.':'누른 작업은 안전하게 저장됩니다. 앱이 꺼진 상태에서도 즉시 처리하려면 임원 운영 링크로 다시 열어 주세요.')}</div>
+    <div id="officialSupportNote" class="official-support-note">${serverReady?(cardOps?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어지며, 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.'):(connected?'현재 관리자 앱에서 별도 승인 없이 바로 반영됩니다.':'명부의 임원 등록을 확인해 운영 권한을 연결하고 있습니다.')}</div>
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
     ${officialArrivalToolsHtml(p,disabled)}
@@ -2907,7 +2946,7 @@ function refreshOfficialConnection(){
   if(!el)return;
   const serverReady=officialServerReady();
   const connected=serverReady||(!officialServerCapable()&&operatorConnected());
-  el.textContent=serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'임원 링크 필요';
+  el.textContent=serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'권한 확인 필요';
   el.classList.toggle('offline',!connected);
   const note=document.getElementById('officialSupportNote');
   const cardOps=session?.capabilities?.officialQueueCardOpsV1===true;
@@ -2915,8 +2954,8 @@ function refreshOfficialConnection(){
     ? (cardOps?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어지며, 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.')
     : connected
       ? (cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'현재 관리자 앱에서 바로 반영됩니다. 지각 참가·대진 순서·선수 상태는 여기에서 처리하세요.')
-      : '관리자 앱이 꺼진 동안 바로 처리하려면 관리자가 보낸 임원 운영 링크로 다시 열어 주세요.';
-  document.querySelectorAll('[data-official-action]').forEach(btn=>{btn.disabled=!!sendingKey||btn.dataset.officialPending==='true'||btn.dataset.arrivalPending==='true';});
+      : '명부의 임원 등록을 확인해 운영 권한을 연결하고 있습니다.';
+  document.querySelectorAll('[data-official-action]').forEach(btn=>{btn.disabled=!!sendingKey||claimingOfficial||btn.dataset.officialPending==='true'||btn.dataset.arrivalPending==='true';});
 }
 function renderMyCard(last,players){
   const el=document.getElementById('myCard');
@@ -3123,7 +3162,7 @@ function createOfficialOperationId(prefix){
 function officialCallableError(error){
   const message=String(error?.message||'').replace(/^Firebase:\s*/,'').trim();
   if(message.includes('임원 운영')||message.includes('민턴LIVE')||message.includes('현재 상태'))return message;
-  if(error?.code==='functions/permission-denied')return '임원 운영 연결을 다시 확인해 주세요. 관리자가 보낸 임원 운영 링크로 다시 열면 됩니다.';
+  if(error?.code==='functions/permission-denied')return '명부의 임원 등록을 확인하지 못했습니다. 아래 다시 연결을 눌러 주세요.';
   if(error?.code==='functions/failed-precondition')return '경기 상태가 이미 바뀌었습니다. 현재 화면을 확인한 뒤 다시 처리해 주세요.';
   return '서버 즉시 처리 연결에 실패했습니다. 네트워크를 확인한 뒤 다시 눌러 주세요.';
 }
@@ -3133,23 +3172,24 @@ async function pushOfficialRequest(req,successText){
     toast(successText);
     return true;
   }
-  if(!db||!checkinId||!session||sendingKey)return false;
+  if(!db||!checkinId||!session||sendingKey||claimingOfficial)return false;
   if(sessionExpired()){showEndedLink();return false;}
   req={...req,operationId:req.operationId||createOfficialOperationId(req.type)};
-  if(!officialServerReady()&&pendingOfficialInvite){
-    const claimed=await claimOfficialInvite();
+  const actor=officialActor(req.actorPlayerId);
+  if(!officialServerReady()&&actor){
+    const claimed=await claimOfficialInvite(actor);
     if(!claimed&&!officialServerReady())return false;
   }
   const serverReady=officialServerReady();
   const serverCapable=officialServerCapable();
   const connected=operatorConnected();
   if(serverCapable&&!serverReady){
-    toast('관리자가 보낸 임원 운영 링크로 다시 열어 주세요. 연결 후에는 관리자 앱이 꺼져도 운영 작업이 바로 처리됩니다.');
+    toast('명부 임원 권한을 확인하지 못했습니다. 다시 연결을 눌러 주세요.');
     refreshOfficialConnection();
     return false;
   }
   if(!serverReady&&!connected){
-    toast('관리자 앱이 꺼져 있습니다. 임원 운영 링크로 다시 열면 바로 처리할 수 있습니다.');
+    toast('운영 권한 연결에 실패했습니다. 네트워크와 명부 임원 등록을 확인해 주세요.');
     refreshOfficialConnection();
     return false;
   }
@@ -3183,7 +3223,7 @@ async function pushOfficialRequest(req,successText){
     return true;
   }catch(e){
     if(serverReady&&e?.code==='functions/permission-denied'){
-      clearOfficialGrant('임원 운영 연결이 만료되었습니다. 시스템 관리자에게 새 임원 운영 링크를 받아 주세요.');
+      clearOfficialGrant('임원 운영 연결 시간이 끝났습니다. 다시 연결을 눌러 주세요.');
       toast(officialGrantError);
       render();
       return false;
@@ -3892,7 +3932,8 @@ function boot(){
       showEndedLink();
       return;
     }
-    if(pendingOfficialInvite)claimOfficialInvite();
+    const official=selectedOfficialPlayer();
+    if(official&&!officialServerReady()&&!officialGrantError)claimOfficialInvite(official);
     render();
   });
   db.ref(checkinPath()+'/requests').on('value',snap=>{

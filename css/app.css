@@ -1139,6 +1139,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-state-pill.need .daily-dot{background:#facc15;box-shadow:0 0 14px rgba(250,204,21,.55);}
 .daily-dashboard-tools{margin:12px 0 0;}
 .daily-dashboard-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;}
+.daily-dashboard-actions .daily-share-primary{grid-column:1/-1;}
 .daily-queue-list{display:flex;flex-direction:column;gap:9px;}
 .daily-urgent-list{display:flex;flex-direction:column;gap:8px;}
 .daily-urgent-list .daily-queue-item{border-color:#93c5fd;border-radius:16px;box-shadow:0 8px 20px rgba(91,141,239,.12);}
