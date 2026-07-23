@@ -29,6 +29,18 @@ const UNDOABLE_TYPES = new Set([
   'official-queue-yield'
 ]);
 
+const PAUSED_FLOW_TYPES = new Set([
+  'official-player-arrival',
+  'official-player-add',
+  'official-player-status',
+  'official-court-complete',
+  'official-active-yield',
+  'official-queue-enter-free',
+  'official-queue-yield',
+  'official-partner-reservation',
+  'official-partner-cancel'
+]);
+
 function clone(value){
   if(value == null)return value;
   return JSON.parse(JSON.stringify(value));
@@ -260,10 +272,11 @@ function promotePrepared(session){
 
 function refreshEvent(session, now){
   const event = session.event;
+  const timerNow = event.paused ? number(event.pausedAt, now) : now;
   const courts = Math.max(1, number(event.courts, 1));
   event.active = event.active.filter(match=>match && !match.completedAt && !match.cancelledAt);
   event.active.forEach(match=>{
-    const info = timerInfo(match, now);
+    const info = timerInfo(match, timerNow);
     match.endAt = info.endAt;
     match.remain = info.remain;
     match.timerState = info.state;
@@ -273,7 +286,7 @@ function refreshEvent(session, now){
   const activeSorted = event.active.slice().sort((a,b)=>{
     const transition = Number(!!a.transitionStarted) - Number(!!b.transitionStarted);
     if(transition)return transition;
-    return timerInfo(a, now).endAt - timerInfo(b, now).endAt || number(a.court) - number(b.court);
+    return timerInfo(a, timerNow).endAt - timerInfo(b, timerNow).endAt || number(a.court) - number(b.court);
   });
   const usedCourts = new Set(event.active.map(match=>number(match.court)).filter(Boolean));
   const freeCourts = [];
@@ -283,6 +296,15 @@ function refreshEvent(session, now){
   event.next.forEach((item, index)=>{
     item.idx = index + 1;
     item.expected = false;
+    if(event.paused){
+      item.cueState = 'paused';
+      item.cue = '진행 일시 정지';
+      item.cueDetail = '재개 후 순서 유지';
+      item.targetCourt = null;
+      item.targetMatchId = '';
+      item.targetHoldId = '';
+      return;
+    }
     const restPass = !!item.restPass;
     if(restPass && usable < freeCourts.length){
       item.cueState = 'hold';
@@ -315,7 +337,7 @@ function refreshEvent(session, now){
       item.targetHoldId = '';
       return;
     }
-    const info = timerInfo(match, now);
+    const info = timerInfo(match, timerNow);
     item.targetCourt = match.court;
     item.targetMatchId = match.id;
     item.targetHoldId = '';
@@ -385,6 +407,9 @@ function validateCommon(session, request, now, options){
     return {reason:'운영 요청 시간이 지나 현재 상태를 다시 확인해야 합니다.'};
   }
   if(number(session.expiresAt) && now >= number(session.expiresAt))return {reason:'종료된 민턴LIVE 링크입니다.'};
+  if(session.event?.paused && PAUSED_FLOW_TYPES.has(request.type)){
+    return {reason:'현재 진행이 일시 정지되어 있습니다. 재개 후 다시 처리해 주세요.'};
+  }
   return {actor};
 }
 
@@ -402,6 +427,7 @@ function applyArrival(session, request, now){
   player.joinedAt = now;
   player.waitFrom = now;
   player.lastStatusAt = now;
+  player.restPausedMs = 0;
   player.arrivalConfirmedBy = request.actorPlayerId;
   player.arrivalConfirmedByName = request.actorPlayerName || '';
   player.arrivalConfirmedAt = now;
@@ -439,6 +465,7 @@ function applyPlayerAdd(session, request, now){
     joinedAt: now,
     waitFrom: now,
     lastStatusAt: now,
+    restPausedMs: 0,
     arrivalConfirmedBy: request.actorPlayerId,
     arrivalConfirmedByName: request.actorPlayerName || '',
     arrivalConfirmedAt: now,
@@ -470,6 +497,7 @@ function applyPlayerStatus(session, request, now){
   player.currentMatchId = '';
   player.afterMatchStatus = '';
   player.lastStatusAt = now;
+  player.restPausedMs = 0;
   if(nextStatus === 'wait')player.waitFrom = now;
   if(nextStatus !== 'wait')removePlayerFromPrepared(session, player.id);
   promotePrepared(session);
@@ -569,6 +597,7 @@ function startPreparedItem(session, item, index, court, now, requestId, options 
     player.currentMatchId = matchId;
     player.afterMatchStatus = '';
     player.lastStatusAt = now;
+    player.restPausedMs = 0;
   });
   if(item.reservationId)session.reservations = session.reservations.filter(row=>text(row.id) !== text(item.reservationId));
   delete runtime.holds[text(court)];
@@ -865,7 +894,15 @@ function applyUndo(session, request, receipts, now){
   if(receipt.undoneAt)return {reason:'이미 되돌린 운영 기록입니다.'};
   if(now > number(receipt.expiresAt))return {reason:'되돌릴 수 있는 시간이 지났습니다.'};
   if(number(session.serverRevision) !== number(receipt.afterRevision))return {reason:'이후 운영 상태가 바뀌어 안전하게 되돌릴 수 없습니다.'};
+  const pauseControl = clone({
+    paused:!!session.event?.paused,
+    pausedAt:number(session.event?.pausedAt),
+    pauseReason:text(session.event?.pauseReason),
+    pauseRevision:number(session.event?.pauseRevision),
+    resumedAt:number(session.event?.resumedAt)
+  });
   session = restoreSnapshot(session, receipt.before);
+  Object.assign(session.event, pauseControl);
   receipt.undoneAt = now;
   receipt.undoneBy = request.actorPlayerId;
   return {session};

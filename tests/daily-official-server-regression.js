@@ -281,6 +281,7 @@ const queueHelperEnd=dailySource.indexOf('function _dailyOfficialRequestError',q
 assert(queueHelperStart>=0&&queueHelperEnd>queueHelperStart,'서버 대진 재결합 함수 범위를 찾을 수 있어야 합니다.');
 const queueHelperCode=`
 let _dailyQueue=[];
+let _dailyPaused=false;
 const players=new Map(Array.from({length:8},(_,i)=>['p'+(i+1),{id:'p'+(i+1),status:'wait'}]));
 let _dailyNext=null;
 function dailyEnsureQueue(){}

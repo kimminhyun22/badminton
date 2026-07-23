@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.436  (2026-07)
+     APP VERSION: 1.10.437  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.436">
+<meta name="app-version" content="1.10.437">
 <script id="defaultEntryRedirect">
 (function redirectDefaultEntryToTeamLive(){
   const params=new URLSearchParams(location.search);
@@ -21,7 +21,7 @@
   const standalone=(typeof matchMedia==='function'&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
   const rootEntry=location.pathname.endsWith('/');
   if((rootEntry||standalone)&&!explicitDaily){
-    location.replace('team.html?v=1.10.436&from=entry');
+    location.replace('team.html?v=1.10.437&from=entry');
   }
 })();
 </script>
@@ -64,8 +64,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.436&from=daily'">팀전LIVE</button>
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.436&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.437&from=daily'">팀전LIVE</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.437&from=daily'">민턴LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -98,7 +98,7 @@
         기본 시작 화면은 팀전LIVE입니다. 민턴LIVE는 클럽 임원이 현장 참가를 확인한 뒤 반자동으로 운영하는 평소 운동용입니다.
       </div>
       <div class="operation-grid">
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.436&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.437&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
           <small>기본 시작 화면</small>
@@ -487,10 +487,13 @@
           </div>
           <div class="daily-live-control-strip" aria-label="민턴LIVE 운영 제어">
             <button class="daily-live-control start" id="dailyTransitionBtn" type="button" onclick="dailyBeginLiveTransition()">대진 게시</button>
+            <button class="daily-live-control pause" id="dailyPauseBtn" type="button" onclick="dailyTogglePause()">진행 일시 정지</button>
             <button class="daily-live-control finish" id="dailyFinishBtn" type="button" onclick="dailyToggleFinishMode()">마무리</button>
           </div>
+          <div class="daily-pause-notice" id="dailyPauseNotice" hidden></div>
           <div class="daily-start-guide" id="dailyStartGuide" hidden></div>
           <div class="daily-ops-grid" id="dailyOpsStats"></div>
+          <div class="daily-party-spotlight" id="dailyAfterPartySpotlight" hidden></div>
           <div class="daily-alert-area" id="dailyAlertArea" hidden>
             <div class="daily-todo-head">중요 알림</div>
             <div class="daily-admin-alerts" id="dailyAdminAlerts"></div>
@@ -990,7 +993,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.436</span>
+  <span class="app-version" id="appVersion">v1.10.437</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

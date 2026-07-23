@@ -15,11 +15,12 @@ function functionSource(src,name,nextName){
 }
 
 assert(daily.includes('afterPartyV1:true'),'민턴LIVE 세션이 회원 뒷풀이 신청 기능을 명시해야 합니다.');
-assert(checkin.includes('${afterPartyCardHtml(selected,requestDisabledAttr)}'),'본인 카드에 뒷풀이 인원·내 상태·신청 버튼을 함께 제공해야 합니다.');
-assert(checkin.includes('const canViewNames=p.isClubOfficial&&(officialServerReady()||isSampleMode())'),'검증된 임원 운영 연결에서만 뒷풀이 신청자 이름을 제공해야 합니다.');
+assert(checkin.includes('${afterPartyCardHtml(selected,afterPartyDisabledAttr)}'),'본인 카드에 뒷풀이 인원·내 상태·신청 버튼을 함께 제공해야 합니다.');
 assert(checkin.includes('<strong>${names.length}</strong><span>명</span>'),'뒷풀이 신청 인원수를 주요 정보로 표시해야 합니다.');
-assert(checkin.includes('뒷풀이 ${afterPartyNames().length}명'),'임원에게는 LIVE 현황 상단에서도 뒷풀이 신청 수를 보여야 합니다.');
-assert(checkin.includes('names.length>4'),'신청자가 많으면 명단을 접어 운영 도구를 아래로 밀지 않아야 합니다.');
+assert(checkin.includes('뒷풀이 ${afterPartyNames().length}명'),'본인 확인 후 LIVE 현황 상단에서도 뒷풀이 신청 수를 보여야 합니다.');
+assert(checkin.includes('const previewNames=names.slice(0,8)'),'신청자가 많으면 주요 이름만 먼저 보여 경기 정보를 과도하게 밀지 않아야 합니다.');
+assert(checkin.includes('오늘 함께하는 이름'),'신청자 이름을 참여를 돕는 하이라이트 정보로 노출해야 합니다.');
+assert(checkin.includes('onclick="copyAfterPartyRoster()"'),'회원 화면에서 뒷풀이 명단을 간편히 복사할 수 있어야 합니다.');
 assert(!checkin.includes('${officialPartySummaryHtml()}'),'임원 운영 도구 아래에 뒷풀이 현황을 중복 배치하면 안 됩니다.');
 
 const endedLink=functionSource(checkin,'showEndedLink','sampleSession');
@@ -40,8 +41,11 @@ assert(listener.includes("_fbDb.ref(path+'/party').on"),'시스템 관리자 화
 assert(daily.includes("_fbDb.ref(_dailyCheckinListeningPath+'/party').off()"),'다른 민턴LIVE 링크로 바뀔 때 이전 뒷풀이 구독을 해제해야 합니다.');
 const managerSummary=functionSource(daily,'dailyRenderCheckinRequests','dailyRender');
 assert(managerSummary.includes('뒷풀이 ${partyNames.length}명'),'관리자 링크 패널에서 뒷풀이 신청 수를 확인할 수 있어야 합니다.');
-assert(managerSummary.includes("row.attending!==false&&_dailyPlayer(id)"),'취소됐거나 현재 참가자 명단에 없는 뒷풀이 응답을 집계하면 안 됩니다.');
+const managerRows=functionSource(daily,'_dailyAfterPartyRows','_dailyAfterPartyRosterText');
+assert(managerRows.includes("row.attending!==false&&_dailyPlayer(id)"),'취소됐거나 현재 참가자 명단에 없는 뒷풀이 응답을 집계하면 안 됩니다.');
 assert(!managerSummary.includes('row.name'),'공개 경로의 이름을 신뢰하지 말고 현재 참가자 명단에서 이름을 가져와야 합니다.');
+assert(daily.includes('dailyRenderAfterPartySpotlight'),'관리자 상황판에도 뒷풀이 신청자 이름을 눈에 띄게 보여야 합니다.');
+assert(daily.includes('dailyCopyAfterPartyRoster'),'관리자가 밴드·단톡방용 명단을 복사할 수 있어야 합니다.');
 assert(daily.includes('const base=startedAt||_dailyCheckinCreatedAt||0'),'첫 경기 전 링크도 생성 시각 기준으로 만료되어야 합니다.');
 
 const helperSource=functionSource(checkin,'afterPartyEntry','afterPartyCardHtml');
@@ -53,28 +57,25 @@ let session={players:[{id:'p1',name:'동명이인'},{id:'p2',name:'동명이인'
 let partyResponses={p1:{attending:true},p2:{attending:true},stale:{attending:true}};
 ${helperSource}
 this.names=afterPartyNames;
+this.rosterText=afterPartyRosterText;
 `,helperSandbox);
 assert.strictEqual(helperSandbox.names().length,2,'동명이인도 서로 다른 현재 선수 ID라면 두 명으로 집계해야 합니다.');
 assert.deepStrictEqual(Array.from(helperSandbox.names()),['동명이인','동명이인'],'삭제된 선수 ID는 집계하지 않고 현재 명단 이름만 사용해야 합니다.');
+assert(helperSandbox.rosterText().includes('뒷풀이 신청자 · 2명'),'복사 문구의 인원수도 화면 집계와 같아야 합니다.');
 
 const cardSandbox={};
 vm.createContext(cardSandbox);
 vm.runInContext(`
 let session={capabilities:{afterPartyV1:true},players:[{id:'p1',name:'신청자1'},{id:'p2',name:'신청자2'}]};
 let partyResponses={p1:{attending:true},p2:{attending:true}};
-let grantReady=false;
 function esc(value){return String(value||'');}
-function officialServerReady(){return grantReady;}
-function isSampleMode(){return false;}
 ${helperSource}
 ${cardSource}
 this.renderCard=afterPartyCardHtml;
-this.enableGrant=()=>{grantReady=true;};
 `,cardSandbox);
-assert(!cardSandbox.renderCard({id:'p1',isClubOfficial:false},'').includes('신청자1, 신청자2'),'일반 회원에게 뒷풀이 신청자 이름을 노출하면 안 됩니다.');
-assert(!cardSandbox.renderCard({id:'p1',isClubOfficial:true},'').includes('신청자1, 신청자2'),'임원 이름만 선택한 미검증 화면에 신청자 이름을 노출하면 안 됩니다.');
-cardSandbox.enableGrant();
-assert(cardSandbox.renderCard({id:'p1',isClubOfficial:true},'').includes('신청자1, 신청자2'),'검증된 임원 운영 연결에는 신청자 이름을 제공해야 합니다.');
+const memberCard=cardSandbox.renderCard({id:'p1',isClubOfficial:false},'');
+assert(memberCard.includes('신청자1')&&memberCard.includes('신청자2'),'본인 이름을 선택한 회원에게 뒷풀이 신청자 이름을 보여야 합니다.');
+assert(memberCard.includes('명단 복사'),'회원 카드에서 최종 신청자 명단 복사 동선을 제공해야 합니다.');
 
 const myCardRender=functionSource(checkin,'renderMyCard','requestPlayerOptions');
 assert(myCardRender.indexOf('${nextNotice}')<myCardRender.indexOf('<div class="buttons main-actions">'),'다음 대진 안내는 상태 버튼보다 먼저 보여야 합니다.');

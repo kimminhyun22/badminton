@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.436';
+const APP_VERSION = '1.10.437';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -252,6 +252,7 @@ const DAILY_OFFICIAL_REQUEST_TTL_MS=10*60*1000;
 const DAILY_OFFICIAL_OPERATION_TTL_MS=30*60*1000;
 const DAILY_COMPLETE_UNDO_MS=45*1000;
 const DAILY_OFFICIAL_COMMAND_PROTOCOL=2;
+const DAILY_PAUSE_REASON='생일축하·공지';
 const DAILY_STATUS={
   invited:{label:'등록 전',eligible:false},
   planned:{label:'등록 전',eligible:false},
@@ -275,6 +276,11 @@ let _dailyAutoAssign=false;
 let _dailyOperationStarted=false;
 let _dailyFinishMode=false;
 let _dailyFinishStartedAt=0;
+let _dailyPaused=false;
+let _dailyPausedAt=0;
+let _dailyPauseReason='';
+let _dailyPauseRevision=0;
+let _dailyResumedAt=0;
 let _dailyTeamMode=false;
 let _dailyTeamLocked=false;
 let _dailyAutoBusy=false;
@@ -313,8 +319,29 @@ let _dailyAdminGrantToken='';
 let _dailyAdminGrantExpiresAt=0;
 let _dailyServerSyncBusy=false;
 let _dailyServerSyncQueued=false;
+let _dailyPauseSyncBusy=false;
 
 function _dailyNow(){return Date.now();}
+function _dailyEffectiveNow(){return _dailyPaused&&_dailyPausedAt?_dailyPausedAt:_dailyNow();}
+function _dailyPauseLabel(){return _dailyPauseReason||DAILY_PAUSE_REASON;}
+function _dailyFlowOperationType(type){
+  return [
+    'official-player-arrival',
+    'official-player-add',
+    'official-player-status',
+    'official-court-complete',
+    'official-active-yield',
+    'official-queue-enter-free',
+    'official-queue-yield',
+    'official-partner-reservation',
+    'official-partner-cancel'
+  ].includes(String(type||''));
+}
+function _dailyBlockPaused(options){
+  if(!_dailyPaused||options?.allowWhilePaused)return false;
+  if(!options?.silent)alert(`현재 진행이 일시 정지되어 있습니다.\n재개한 뒤 ${options?.action||'처리'}해 주세요.`);
+  return true;
+}
 function _dailyId(){return 'dp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);}
 function _dailyPlayer(id){return _dailyPlayers.find(p=>p.id===id)||null;}
 function _dailyGender(g){return (g==='여'||g==='F')?'F':'M';}
@@ -369,6 +396,7 @@ function _dailyNormalize(raw){
     joinedAt:raw.joinedAt||now,
     waitFrom:raw.waitFrom||now,
     lastStatusAt:raw.lastStatusAt||now,
+    restPausedMs:Number(raw.restPausedMs||0),
     games:raw.games||0,
     mixedGames:Number(raw.mixedGames||0),
     typeTrackedGames:Number(raw.typeTrackedGames||0),
@@ -474,11 +502,11 @@ function dailySetCaptain(side,role,playerId){
   dailyRender();
 }
 function _dailyCanChangeRoster(){
-  return true;
+  return !_dailyBlockPaused({action:'참가 명단을 변경'});
 }
 function _dailyMinutes(ts){
   if(!ts)return 0;
-  return Math.max(0,Math.floor((_dailyNow()-ts)/60000));
+  return Math.max(0,Math.floor((_dailyEffectiveNow()-ts)/60000));
 }
 function _dailyNameHtml(p){
   if(!p)return '';
@@ -902,6 +930,7 @@ function dailyForceRebuildQueue(){
   dailyRender();
 }
 function dailyMoveQueueItem(queueId,dir){
+  if(_dailyBlockPaused({action:'대진 순서를 변경'}))return;
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0)return;
   const nextIdx=idx+(dir<0?-1:1);
@@ -913,6 +942,7 @@ function dailyMoveQueueItem(queueId,dir){
   dailyRender();
 }
 function dailyMoveQueueTo(sourceId,targetId){
+  if(_dailyBlockPaused({action:'대진 순서를 변경'}))return;
   if(!sourceId||!targetId||sourceId===targetId)return;
   const from=_dailyQueue.findIndex(q=>q.id===sourceId);
   const to=_dailyQueue.findIndex(q=>q.id===targetId);
@@ -994,6 +1024,7 @@ function dailyQueuePointerCancel(){
   dailyQueueDragEnd();
 }
 function dailyDeleteQueueItem(queueId){
+  if(_dailyBlockPaused({action:'대기 경기를 삭제'}))return;
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0)return;
   if(!confirm('이 대기 경기를 삭제하고 현재 대기자로 다시 채울까요?'))return;
@@ -1019,13 +1050,13 @@ function dailyToggleEmergencyQueueEdit(queueId){
   dailyRender();
 }
 function _dailyMatchEndAt(m){
-  return (m.startedAt||_dailyNow())+(m.expectedMinutes||DAILY_MATCH_MINUTES)*60000;
+  return Number(m?.endAt)||(m.startedAt||_dailyNow())+(m.expectedMinutes||DAILY_MATCH_MINUTES)*60000;
 }
 function _dailyClock(ts){
   return new Date(ts).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
 }
 function _dailyRemainingMinutes(m){
-  return Math.max(0,Math.ceil((_dailyMatchEndAt(m)-_dailyNow())/60000));
+  return Math.max(0,Math.ceil((_dailyMatchEndAt(m)-_dailyEffectiveNow())/60000));
 }
 function _dailyTimerState(m){
   if(m.completedAt)return 'done';
@@ -1037,6 +1068,7 @@ function _dailyTimerState(m){
 function _dailyTimerText(m){
   if(m.completedAt)return '완료';
   const remain=_dailyRemainingMinutes(m);
+  if(_dailyPaused)return `정지 · ${remain}분`;
   if(remain<=0)return '종료임박';
   if(remain<=5)return `${remain}분 남음`;
   return `${remain}분`;
@@ -1047,7 +1079,7 @@ function _dailyCompleteButtonText(m){
 function _dailyQueueRestPassActive(q){
   if(!q||!q.restPass)return false;
   const created=parseInt(q.restPass.createdAt,10)||0;
-  return created&&_dailyNow()-created<DAILY_QUEUE_REST_PASS_MS;
+  return created&&_dailyEffectiveNow()-created<DAILY_QUEUE_REST_PASS_MS;
 }
 function _dailyQueueRestPassLabel(q){
   if(!_dailyQueueRestPassActive(q))return '';
@@ -1071,6 +1103,7 @@ function _dailyFirstStartableQueueForCourt(court){
   return _dailyQueue.find(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q)&&(!court||_dailyCourtAvailable(court,null)))||null;
 }
 function _dailyQueueStartInfo(idx){
+  if(_dailyPaused)return {state:'paused',text:'진행 일시 정지',detail:'재개 후 순서 유지',court:null,matchId:''};
   const active=_dailyActiveMatches()
     .filter(m=>!m.cancelledAt)
     .sort((a,b)=>{
@@ -1105,7 +1138,7 @@ function _dailyQueueStartCueHtml(idx){
   return `<span class="daily-start-cue ${info.state}" data-daily-queue-cue="${idx}">${esc(label)}</span>`;
 }
 function dailyRefreshTimers(){
-  if(_dailyAutoEndIdleRestPlayers()){
+  if(!_dailyPaused&&_dailyAutoEndIdleRestPlayers()){
     dailyEnsureQueue();
     dailySave();
     dailyRender();
@@ -1144,6 +1177,7 @@ function dailyRefreshTimers(){
     el.textContent=`${info.text} · ${info.detail}`;
     el.className=`daily-start-cue ${info.state}`;
   });
+  if(_dailyPaused)return;
   if(_dailyQueueCapacity().target!==beforeTarget){
     dailyEnsureQueue();
     dailySave();
@@ -1173,12 +1207,13 @@ function _dailyAutoEndIdleRestPlayers(){
     if(_dailyNormalizeStatus(p.status)!=='rest')return;
     if(p.currentMatchId||_dailyIsQueued(p.id))return;
     const since=p.lastStatusAt||p.waitFrom||p.joinedAt||0;
-    if(!since||now-since<DAILY_REST_AUTO_DONE_MS)return;
+    if(!since||now-since-Number(p.restPausedMs||0)<DAILY_REST_AUTO_DONE_MS)return;
     _dailyCancelReservationsForPlayer(p.id,`${p.name} 선수가 60분 이상 휴식 상태라 게임신청이 자동 취소됐습니다.`,'auto-rest-done');
     p.status='done';
     p.afterMatchStatus=null;
     p.waitFrom=now;
     p.lastStatusAt=now;
+    p.restPausedMs=0;
     changed++;
   });
   if(changed){
@@ -1745,7 +1780,7 @@ function _dailyPersistedCompleteUndo(){
 function dailySave(){
   try{
     _dailyClearSimpleTeamState();
-    dailyEnsureQueue();
+    if(!_dailyPaused)dailyEnsureQueue();
     localStorage.setItem(DAILY_KEY,JSON.stringify({
       mode:'daily',
       appMode:'dailyLive',
@@ -1755,6 +1790,11 @@ function dailySave(){
       operationStarted:_dailyOperationStarted,
       finishMode:_dailyFinishMode,
       finishStartedAt:_dailyFinishStartedAt,
+      paused:_dailyPaused,
+      pausedAt:_dailyPausedAt,
+      pauseReason:_dailyPauseReason,
+      pauseRevision:_dailyPauseRevision,
+      resumedAt:_dailyResumedAt,
       teamMode:false,
       teamLocked:false,
       teamNames:{...teamNames},
@@ -1836,7 +1876,7 @@ function _dailyLoadAsNewDay(s){
     afterMatchStatus:null
   }));
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
-  _dailyAutoAssign=false;_dailyOperationStarted=false;_dailyFinishMode=false;_dailyFinishStartedAt=0;_dailyTeamMode=false;_dailyTeamLocked=false;
+  _dailyAutoAssign=false;_dailyOperationStarted=false;_dailyFinishMode=false;_dailyFinishStartedAt=0;_dailyPaused=false;_dailyPausedAt=0;_dailyPauseReason='';_dailyPauseRevision=0;_dailyResumedAt=0;_dailyTeamMode=false;_dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
   _dailyStartTime=s.operatingStart||_dailyStartTime||'19:00';
   _dailyEndTime=s.operatingEnd||_dailyEndTime||'22:00';
@@ -1880,6 +1920,11 @@ function dailyLoad(){
     _dailyOperationStarted=s.operationStarted!=null?!!s.operationStarted:!!((_dailyMatches||[]).length||(_dailyQueue||[]).length);
     _dailyFinishMode=!!s.finishMode;
     _dailyFinishStartedAt=parseInt(s.finishStartedAt||'0',10)||0;
+    _dailyPaused=!!s.paused;
+    _dailyPausedAt=_dailyPaused?(parseInt(s.pausedAt||'0',10)||now):0;
+    _dailyPauseReason=_dailyPaused?String(s.pauseReason||DAILY_PAUSE_REASON):'';
+    _dailyPauseRevision=Math.max(0,Number(s.pauseRevision||0));
+    _dailyResumedAt=Math.max(0,Number(s.resumedAt||0));
     _dailyTeamMode=false;
     _dailyTeamLocked=false;
     if(s.teamNames){
@@ -1969,6 +2014,11 @@ function dailyApplyReviewSample(){
   _dailyOperationStarted=true;
   _dailyFinishMode=false;
   _dailyFinishStartedAt=0;
+  _dailyPaused=false;
+  _dailyPausedAt=0;
+  _dailyPauseReason='';
+  _dailyPauseRevision=0;
+  _dailyResumedAt=0;
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -1991,6 +2041,7 @@ function dailyApplyReviewSample(){
   localStorage.setItem(DAILY_CHECKIN_CREATED_KEY,String(_dailyCheckinCreatedAt));
 }
 function dailyStepCourts(delta){
+  if(_dailyBlockPaused({action:'코트 설정을 변경'}))return;
   const el=document.getElementById('dailyCourts');
   if(!el)return;
   el.value=Math.max(1,Math.min(12,(parseInt(el.value)||3)+delta));
@@ -2001,6 +2052,7 @@ function dailyStepCourts(delta){
   dailyMaybeAutoAssign();
 }
 function dailyUpdateOperatingHours(){
+  if(_dailyBlockPaused({action:'운영 시간을 변경'}))return;
   const startEl=document.getElementById('dailyStartTime');
   const endEl=document.getElementById('dailyEndTime');
   _dailyStartTime=_dailyNormalizeTimeValue(startEl?.value,'19:00');
@@ -2080,6 +2132,7 @@ function _dailyApplyPlayerStatus(p,status,operationAt){
   p.deferUntil=0;
   p.deferReason='';
   p.lastStatusAt=now;
+  p.restPausedMs=0;
   if(status==='wait') p.waitFrom=now;
   if(status==='done'||status==='rest'||status==='planned'||status==='invited') p.currentMatchId=null;
   _dailyNext=null;
@@ -2205,6 +2258,7 @@ function _dailyFreeCourtRequestError(req){
   return '';
 }
 function dailySetStatus(id,status){
+  if(_dailyBlockPaused({action:'선수 상태를 변경'}))return;
   const p=_dailyPlayer(id);
   if(!p)return;
   const nextStatus=_dailyNormalizeStatus(status);
@@ -2228,6 +2282,7 @@ function dailySetStatus(id,status){
   dailyMaybeAutoAssign();
 }
 function dailyStartPair(id){
+  if(_dailyBlockPaused({action:'파트너를 지정'}))return;
   const p=_dailyPlayer(id);
   if(!p||p.status==='playing')return;
   if(p.partnerName){dailyClearPair(id);return;}
@@ -2239,6 +2294,7 @@ function dailyCancelPair(){
   dailyRender();
 }
 function dailyConfirmPair(id){
+  if(_dailyBlockPaused({action:'파트너를 지정'}))return;
   const a=_dailyPlayer(_dailyPairSelectId);
   const b=_dailyPlayer(id);
   if(!a||!b||a.id===b.id){dailyCancelPair();return;}
@@ -2258,6 +2314,7 @@ function dailyConfirmPair(id){
   dailySave();dailyRender();dailyRecommend();
 }
 function dailyClearPair(id){
+  if(_dailyBlockPaused({action:'파트너 지정을 해제'}))return;
   const p=_dailyPlayer(id);
   if(!p)return;
   const partner=_dailyPlayers.find(x=>(p.partnerId&&x.partnerId===p.partnerId)||x.name===p.partnerName);
@@ -2272,6 +2329,7 @@ function dailyClearPair(id){
   dailySave();dailyRender();dailyRecommend();
 }
 function dailyAddReservation(){
+  if(_dailyBlockPaused({action:'게임신청을 등록'}))return;
   const mode=document.getElementById('dailyReservationType')?.value||'pair';
   const a1=document.getElementById('dailyResA1')?.value||'';
   const a2=document.getElementById('dailyResA2')?.value||'';
@@ -2309,11 +2367,13 @@ function dailyAddReservation(){
   dailySave();dailyRender();
 }
 function dailyDeleteReservation(id){
+  if(_dailyBlockPaused({action:'게임신청을 취소'}))return;
   _dailyReservations=_dailyReservations.filter(r=>r.id!==id);
   _dailyQueue=_dailyQueue.filter(q=>q.reservationId!==id);
   dailySave();dailyRender();
 }
 function dailyPromoteReservation(id){
+  if(_dailyBlockPaused({action:'게임신청을 대진에 반영'}))return;
   const locked=_dailyQueue.filter(q=>q.reservationId&&q.reservationId!==id);
   const lockedIds=new Set();
   locked.forEach(q=>_dailyQueueIds(q).forEach(pid=>lockedIds.add(pid)));
@@ -2546,6 +2606,11 @@ function dailyReset(){
   _dailyOperationStarted=false;
   _dailyFinishMode=false;
   _dailyFinishStartedAt=0;
+  _dailyPaused=false;
+  _dailyPausedAt=0;
+  _dailyPauseReason='';
+  _dailyPauseRevision=0;
+  _dailyResumedAt=0;
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -2612,6 +2677,7 @@ function _dailyFinishEtaLabel(minutes){
   return `약 ${minutes}분 후 자율게임`;
 }
 function dailyToggleFinishMode(){
+  if(_dailyBlockPaused({action:'마무리를 변경'}))return;
   dailyEnsureQueue();
   if(!_dailyFinishMode){
     const plan=_dailyFinishPlanInfo();
@@ -2632,6 +2698,160 @@ function dailyToggleFinishMode(){
   dailySave();
   dailyRender();
   if(!_dailyFinishMode)dailyMaybeAutoAssign();
+}
+function _dailyShiftMatchTimes(match,duration){
+  if(!match||!duration)return;
+  if(Number(match.endAt))match.endAt=Number(match.endAt)+duration;
+  if(Number(match.autoHandoffExpiresAt))match.autoHandoffExpiresAt=Number(match.autoHandoffExpiresAt)+duration;
+}
+function _dailyFreezeActiveMatchDeadlines(){
+  _dailyMatches
+    .filter(match=>!match.completedAt&&!match.cancelledAt)
+    .forEach(match=>{
+      if(!Number(match.endAt))match.endAt=_dailyMatchEndAt(match);
+    });
+}
+function _dailyResumePausedClocks(pausedAt,resumedAt){
+  const duration=Math.max(0,Number(resumedAt||_dailyNow())-Number(pausedAt||0));
+  if(!duration)return 0;
+  _dailyMatches.filter(match=>!match.completedAt&&!match.cancelledAt).forEach(match=>_dailyShiftMatchTimes(match,duration));
+  _dailyPlayers.forEach(player=>{
+    if(_dailyNormalizeStatus(player.status)==='wait'&&Number(player.waitFrom))player.waitFrom=Number(player.waitFrom)+duration;
+    if(_dailyNormalizeStatus(player.status)==='rest')player.restPausedMs=Number(player.restPausedMs||0)+duration;
+    if(Number(player.deferUntil)>Number(pausedAt||0))player.deferUntil=Number(player.deferUntil)+duration;
+  });
+  _dailyQueue.forEach(item=>{
+    if(Number(item?.restPass?.createdAt))item.restPass.createdAt=Number(item.restPass.createdAt)+duration;
+  });
+  return duration;
+}
+function _dailyPersistPauseState(){
+  try{
+    const raw=localStorage.getItem(DAILY_KEY);
+    if(!raw)return;
+    const state=JSON.parse(raw);
+    if(state.mode&&state.mode!=='daily'&&state.appMode!=='dailyLive')return;
+    state.paused=_dailyPaused;
+    state.pausedAt=_dailyPausedAt;
+    state.pauseReason=_dailyPauseReason;
+    state.pauseRevision=_dailyPauseRevision;
+    state.resumedAt=_dailyResumedAt;
+    state.players=_dailyPlayers;
+    state.matches=_dailyMatches;
+    state.queue=_dailyQueue;
+    state.savedAt=_dailyNow();
+    localStorage.setItem(DAILY_KEY,JSON.stringify(state));
+  }catch(e){}
+}
+function _dailyAdoptRemotePauseEvent(event,options){
+  const remoteRevision=Math.max(0,Number(event?.pauseRevision||0));
+  if(remoteRevision<=_dailyPauseRevision)return false;
+  const wasPaused=_dailyPaused;
+  const localPausedAt=_dailyPausedAt;
+  if(wasPaused&&!event?.paused)_dailyResumePausedClocks(localPausedAt,Number(event?.resumedAt||_dailyNow()));
+  const activeById=new Map((event?.active||[]).map(match=>[String(match?.id||''),match]));
+  _dailyMatches
+    .filter(match=>!match.completedAt&&!match.cancelledAt)
+    .forEach(match=>{
+      const remote=activeById.get(String(match.id||''));
+      if(!remote)return;
+      if(Number(remote.endAt))match.endAt=Number(remote.endAt);
+      if(Number(remote.autoHandoffExpiresAt))match.autoHandoffExpiresAt=Number(remote.autoHandoffExpiresAt);
+    });
+  _dailyPaused=!!event?.paused;
+  _dailyPausedAt=_dailyPaused?Math.max(0,Number(event?.pausedAt||_dailyNow())):0;
+  _dailyPauseReason=_dailyPaused?String(event?.pauseReason||DAILY_PAUSE_REASON):'';
+  _dailyPauseRevision=remoteRevision;
+  _dailyResumedAt=Math.max(0,Number(event?.resumedAt||0));
+  _dailyPersistPauseState();
+  if(!options?.silent)dailyRender();
+  return true;
+}
+async function _dailySyncPauseState(paused,pausedAt,changedAt,reason){
+  if(!_dailyCheckinId||!_fbDb)return null;
+  const ref=_fbDb.ref(_dailyCheckinPath()+'/session');
+  const result=await ref.transaction(current=>{
+    if(!current||typeof current!=='object')return current;
+    const event=current.event&&typeof current.event==='object'?current.event:{};
+    if(Array.isArray(event.active)){
+      event.active.forEach(match=>{
+        if(!Number(match?.endAt)){
+          match.endAt=(Number(match?.startedAt)||Number(changedAt))+(Number(match?.expectedMinutes)||DAILY_MATCH_MINUTES)*60000;
+        }
+      });
+    }
+    if(paused){
+      event.paused=true;
+      event.pausedAt=Number(event.pausedAt||pausedAt||changedAt);
+      event.pauseReason=reason||DAILY_PAUSE_REASON;
+      event.resumedAt=0;
+    }else if(event.paused){
+      const remotePausedAt=Number(event.pausedAt||pausedAt||changedAt);
+      const duration=Math.max(0,Number(changedAt)-remotePausedAt);
+      if(duration&&Array.isArray(event.active))event.active.forEach(match=>_dailyShiftMatchTimes(match,duration));
+      if(duration&&Array.isArray(current.players)){
+        current.players.forEach(player=>{
+          if(String(player?.status||'')==='wait'&&Number(player.waitFrom))player.waitFrom=Number(player.waitFrom)+duration;
+          if(String(player?.status||'')==='rest')player.restPausedMs=Number(player.restPausedMs||0)+duration;
+          if(Number(player?.deferUntil)>remotePausedAt)player.deferUntil=Number(player.deferUntil)+duration;
+        });
+      }
+      event.paused=false;
+      event.pausedAt=0;
+      event.pauseReason='';
+      event.resumedAt=Number(changedAt);
+    }else{
+      event.paused=false;
+      event.pausedAt=0;
+      event.pauseReason='';
+      event.resumedAt=Number(changedAt);
+    }
+    event.pauseRevision=Math.max(0,Number(event.pauseRevision||current.pauseRevision||0))+1;
+    event.updatedAt=Number(changedAt);
+    current.event=event;
+    current.pauseRevision=event.pauseRevision;
+    current.updatedAt=Number(changedAt);
+    return current;
+  },undefined,false);
+  return result;
+}
+async function dailyTogglePause(){
+  if(_dailyPauseSyncBusy)return;
+  if(!_dailyOperationStarted){
+    alert('대진 게시 후 진행을 일시 정지할 수 있습니다.');
+    return;
+  }
+  const pausing=!_dailyPaused;
+  const changedAt=_dailyNow();
+  const previousPausedAt=_dailyPausedAt;
+  if(pausing){
+    _dailyFreezeActiveMatchDeadlines();
+    _dailyPaused=true;
+    _dailyPausedAt=changedAt;
+    _dailyPauseReason=DAILY_PAUSE_REASON;
+    _dailyResumedAt=0;
+  }else{
+    _dailyResumePausedClocks(previousPausedAt,changedAt);
+    _dailyPaused=false;
+    _dailyPausedAt=0;
+    _dailyPauseReason='';
+    _dailyResumedAt=changedAt;
+  }
+  _dailyPauseSyncBusy=true;
+  dailySave();
+  dailyRender();
+  try{
+    const result=await _dailySyncPauseState(pausing,pausing?changedAt:previousPausedAt,changedAt,pausing?DAILY_PAUSE_REASON:'');
+    const synced=!_dailyCheckinId||!!result?.committed;
+    if(result?.committed)_dailyAdoptRemotePauseEvent(result.snapshot?.val()?.event||{},{silent:true});
+    if(!synced&&_dailyCheckinId)alert(`이 기기에서는 ${pausing?'일시 정지':'진행 재개'}됐지만 회원 화면 동기화를 확인하지 못했습니다.\n네트워크를 확인해 주세요.`);
+    if(_dailyOfficialInviteHash)_dailyPullServerReconcile().catch(()=>{});
+  }catch(e){
+    if(_dailyCheckinId)alert(`이 기기에서는 ${pausing?'일시 정지':'진행 재개'}됐지만 회원 화면에 전달하지 못했습니다.\n네트워크를 확인해 주세요.`);
+  }finally{
+    _dailyPauseSyncBusy=false;
+    dailyRenderOpsStats();
+  }
 }
 function _dailyMinutesOfDay(hhmm){
   const m=String(hhmm||'').match(/^(\d{2}):(\d{2})$/);
@@ -2697,6 +2917,7 @@ function dailyRenderClosingSchedule(){
   }
 }
 function dailyRunAutoAssign(){
+  if(_dailyBlockPaused({action:'대진을 투입'}))return;
   const made=dailyMaybeAutoAssign(true);
   if(!made){
     const free=_dailyAvailableCourt(_dailyAutoCourtLimit()||_dailyCourtCount());
@@ -2706,10 +2927,11 @@ function dailyRunAutoAssign(){
   }
 }
 function dailyMaybeAutoRecommend(){
-  if(_dailyAutoBusy)return false;
+  if(_dailyPaused||_dailyAutoBusy)return false;
   return dailyEnsureQueue();
 }
 function dailyMaybeAutoAssign(force){
+  if(_dailyPaused)return 0;
   if(force)_dailyOperationStarted=true;
   const flow=_dailyNaturalAutoInfo();
   const allow=force||flow.auto;
@@ -3212,6 +3434,7 @@ function dailyEditQueuePlayer(queueId,side,pos,newId){
   dailySave();dailyRender();
 }
 function dailyPickQueueReplacement(queueId,side,pos){
+  if(_dailyBlockPaused({action:'대진 선수를 교체'}))return;
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0)return;
   const q=_dailyQueue[idx];
@@ -3238,6 +3461,7 @@ function dailyPickQueueReplacement(queueId,side,pos){
   dailyEditQueuePlayer(queueId,side,pos,candidates[pick-1].id);
 }
 function dailyPickActiveReplacement(matchId,side,pos){
+  if(_dailyBlockPaused({action:'진행 선수를 교체'}))return;
   const m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
   if(!m)return;
   const arr=side==='team2'?m.team2:m.team1;
@@ -3280,6 +3504,7 @@ function dailyPickActiveReplacement(matchId,side,pos){
   dailyMaybeAutoAssign();
 }
 function dailyEditActiveCourt(matchId){
+  if(_dailyBlockPaused({action:'코트를 변경'}))return;
   const m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
   if(!m)return;
   const current=parseInt(m.court,10)||1;
@@ -3383,6 +3608,7 @@ function _dailyManualActiveSelectionBoard(selected){
   </div>`;
 }
 function dailyCreateActiveMatch(){
+  if(_dailyBlockPaused({action:'진행 경기를 등록'}))return;
   const candidates=_dailyManualActiveCandidates('manual');
   if(candidates.length<4){
     alert('수동 등록은 참가 상태 선수가 4명 이상일 때 가능합니다.');
@@ -3613,6 +3839,7 @@ function dailyRenderManualActiveModal(){
   }
 }
 function dailyConfirmManualActiveMatch(){
+  if(_dailyBlockPaused({action:'진행 경기를 등록'}))return;
   const mode=_dailyManualActiveMode();
   const transition=mode==='transition';
   const court=parseInt(_dailyManualActiveDraft.court,10)||0;
@@ -3653,6 +3880,7 @@ function dailyConfirmManualActiveMatch(){
   });
   const seq=_dailySeq++;
   const matchId='dm_'+_dailyNow().toString(36)+'_'+seq+'_'+Math.random().toString(36).slice(2,5);
+  const startedAt=_dailyNow();
   const previousStatuses={};
   ids.forEach(pid=>{
     const p=_dailyPlayer(pid);
@@ -3662,7 +3890,8 @@ function dailyConfirmManualActiveMatch(){
     id:matchId,
     seq,
     court,
-    startedAt:_dailyNow(),
+    startedAt,
+    endAt:startedAt+DAILY_MATCH_MINUTES*60000,
     type:q.type||'자율',
     levelDiff:q.levelDiff||0,
     expectedMinutes:DAILY_MATCH_MINUTES,
@@ -3702,6 +3931,7 @@ function dailyConfirmManualActiveMatch(){
   dailyMaybeAutoAssign();
 }
 function dailyRegenerateQueueItem(queueId){
+  if(_dailyBlockPaused({action:'대진을 다시 생성'}))return;
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0)return;
   if(_dailyQueue[idx].reservationId){
@@ -3721,6 +3951,7 @@ function dailyRegenerateQueueItem(queueId){
 }
 function dailyStartQueueItem(queueId,options){
   options=options||{};
+  if(_dailyBlockPaused({...options,action:'대진을 투입'}))return false;
   const operationAt=Number(options.startedAt)||_dailyNow();
   dailyEnsureQueue();
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
@@ -3773,6 +4004,7 @@ function dailyStartQueueItem(queueId,options){
   _dailyMatches.push({
     id,seq,court,
     startedAt:operationAt,type:m.type,levelDiff:m.levelDiff,
+    endAt:operationAt+DAILY_MATCH_MINUTES*60000,
     expectedMinutes:DAILY_MATCH_MINUTES,
     team1:[m.team1A.id,m.team1B.id],team2:[m.team2C.id,m.team2D.id],
     teamMode:!!(q.teamMode||m.teamMode),
@@ -3842,11 +4074,11 @@ function _dailyRenderQueueItem(q,idx,mode){
   const next={match:m,score:q.score,strict:q.strict,label:`${idx+1}순위 대기`,queueIndex:idx};
   const isRestPass=_dailyQueueRestPassActive(q);
   const restPassBadge=isRestPass?`<span class="daily-queue-badge hold">조금 쉬고 입장</span>`:'';
-  const canStart=!expected&&!!_dailyAvailableCourt()&&!isRestPass;
+  const canStart=!_dailyPaused&&!expected&&!!_dailyAvailableCourt()&&!isRestPass;
   const badgeText=expected?'예상 대진':reserved?'게임신청':(urgent?'다음 대진':'대기');
   const compactTitle=`${orderLabel} · ${m.reservationLabel?'신청경기 · ':''}${esc(m.type)}${m.isFlexible?' · 예외':''} · 팀 실력차 ${esc(String(m.levelDiff))}`;
   const playerBtn=(side,pos,p)=>{
-    const locked=expected||(reserved&&!urgent);
+    const locked=_dailyPaused||expected||(reserved&&!urgent);
     const disabled=locked?'disabled':'';
     const title=expected?'진행 중 경기 종료 후 예상 대진입니다.':locked?'회원 신청 경기는 신청 삭제 후 변경':'이름을 눌러 대기선수로 교체';
     return `<button class="daily-queue-player" type="button" ${disabled} title="${esc(title)}" onclick="dailyPickQueueReplacement('${q.id}','${side}',${pos})">
@@ -3855,7 +4087,7 @@ function _dailyRenderQueueItem(q,idx,mode){
     </button>`;
   };
   const nextPlayerBtn=(side,pos,p)=>{
-    const locked=reserved&&!urgent;
+    const locked=_dailyPaused||(reserved&&!urgent);
     const disabled=locked?'disabled':'';
     const title=locked?'회원 신청 경기는 신청 삭제 후 변경':'이름을 눌러 대기선수로 교체';
     return `<button class="daily-next-player" type="button" ${disabled} title="${esc(title)}" onclick="dailyPickQueueReplacement('${q.id}','${side}',${pos})">${esc(p.name)}${p.isGuest?'<span class="guest-badge">G</span>':''}</button>`;
@@ -3919,7 +4151,7 @@ function _dailyRenderQueueItem(q,idx,mode){
 }
 function dailyRenderQueue(){
   const urgentBox=document.getElementById('dailyUrgentBox');
-  dailyEnsureQueue();
+  if(!_dailyPaused)dailyEnsureQueue();
   const lockCount=_dailyQueueLockCount();
   const urgent=_dailyQueue.slice(0,lockCount);
   const expected=_dailyProjectedQueue(_dailyExpectedQueueTarget(_dailyQueueCapacity()));
@@ -4111,6 +4343,11 @@ function _dailyPublicEvent(){
     teamMode:_dailyTeamMode,
     operationStarted:_dailyOperationStarted,
     finishMode:_dailyFinishMode,
+    paused:_dailyPaused,
+    pausedAt:_dailyPausedAt,
+    pauseReason:_dailyPaused?_dailyPauseLabel():'',
+    pauseRevision:_dailyPauseRevision,
+    resumedAt:_dailyResumedAt,
     teamBlue:teamNames.blue,
     teamWhite:teamNames.white,
     completed:st.completed.length,
@@ -4212,6 +4449,7 @@ function dailyUndoMemberComplete(token,skipConfirm){
 }
 function dailyCompleteMatch(id,winnerSide,options){
   options=options||{};
+  if(_dailyBlockPaused({...options,action:'경기를 종료'}))return false;
   const operationAt=Number(options.operationAt)||_dailyNow();
   const m=_dailyMatches.find(x=>x.id===id);
   if(!m||m.completedAt)return false;
@@ -4233,6 +4471,7 @@ function dailyCompleteMatch(id,winnerSide,options){
     p.currentMatchId=null;
     if(nextStatus==='wait')p.waitFrom=operationAt;
     p.lastStatusAt=operationAt;
+    p.restPausedMs=0;
   });
   if(t1.length===2){_dailyInc(t1[0].partnerCount,t1[1].name);_dailyInc(t1[1].partnerCount,t1[0].name);}
   if(t2.length===2){_dailyInc(t2[0].partnerCount,t2[1].name);_dailyInc(t2[1].partnerCount,t2[0].name);}
@@ -4263,6 +4502,7 @@ function dailyCompleteMatch(id,winnerSide,options){
   return true;
 }
 function dailyCancelMatch(id){
+  if(_dailyBlockPaused({action:'경기를 취소'}))return;
   const m=_dailyMatches.find(x=>x.id===id);
   if(!m||m.completedAt)return;
   if(!confirm('이 진행중 경기를 취소하고 선수들을 참가 상태로 되돌릴까요?'))return;
@@ -4277,6 +4517,7 @@ function dailyCancelMatch(id){
     p.currentMatchId=null;
     if(p.status==='wait')p.waitFrom=_dailyNow();
     p.lastStatusAt=_dailyNow();
+    p.restPausedMs=0;
   });
   m.cancelledAt=_dailyNow();
   _dailyWaveStarts=Math.max(0,_dailyWaveStarts-1);
@@ -4440,9 +4681,27 @@ function dailyRenderOpsStats(){
       ? `<span>마무리 취소</span><small>${finishPlan.queued?`남은 ${finishPlan.queued}경기 · ${finishPlan.label}`:'자율게임 전환'}</small>`
       : '<span>마무리</span><small>새 대진 중지</small>';
     finishBtn.classList.toggle('active',_dailyFinishMode);
+    finishBtn.disabled=_dailyPaused||_dailyPauseSyncBusy;
+  }
+  const pauseBtn=document.getElementById('dailyPauseBtn');
+  const showPause=!!_dailyOperationStarted;
+  if(pauseBtn){
+    pauseBtn.style.display=showPause?'flex':'none';
+    pauseBtn.innerHTML=_dailyPaused
+      ? '<span>진행 재개</span><small>멈춘 시간부터 이어가기</small>'
+      : '<span>진행 일시 정지</span><small>생일축하·공지</small>';
+    pauseBtn.classList.toggle('active',_dailyPaused);
+    pauseBtn.disabled=_dailyPauseSyncBusy;
   }
   const controlStrip=document.querySelector('.daily-live-control-strip');
-  if(controlStrip)controlStrip.classList.toggle('single',Number(showTransition)+Number(showFinish)===1);
+  if(controlStrip)controlStrip.classList.toggle('single',Number(showTransition)+Number(showPause)+Number(showFinish)===1);
+  const pauseNotice=document.getElementById('dailyPauseNotice');
+  if(pauseNotice){
+    pauseNotice.hidden=!_dailyPaused;
+    pauseNotice.innerHTML=_dailyPaused
+      ? `<strong>진행 일시 정지</strong><span>${esc(_dailyPauseLabel())} 중입니다. 경기 타이머와 다음 대진 순서는 그대로 멈춰 있습니다.</span>`
+      : '';
+  }
   dailyRenderStartGuide();
   const courts=_dailyCourtCount();
   const activeMatches=_dailyActiveMatches();
@@ -4456,18 +4715,24 @@ function dailyRenderOpsStats(){
   const flow=_dailyNaturalAutoInfo();
   const finishComplete=!!(_dailyFinishMode&&!locked);
   const finishPlan=_dailyFinishPlanInfo();
-  const courtHint=endingSoon
+  const courtHint=_dailyPaused
+    ? '타이머 정지'
+    : endingSoon
     ? `${endingSoon}코트 종료임박`
     : active
       ? `${courts}코트 기준`
       : '게시 전';
   const queueValue=expectedCount?`${locked}+${expectedCount}`:String(locked||0);
-  const queueHint=locked||expectedCount
+  const queueHint=_dailyPaused
+    ? '재개 후 순서 유지'
+    : locked||expectedCount
     ? (_dailyFinishMode?`${finishPlan.label}`:`다음 ${locked} · 예상 ${expectedCount}`)
     : flow.auto
       ? '자동 편성 대기'
       : flow.hint;
-  const liveHint=rest
+  const liveHint=_dailyPaused
+    ? _dailyPauseLabel()
+    : rest
     ? `휴식 ${rest}`
     : guestLive
       ? `게스트 ${guestLive}`
@@ -4486,13 +4751,14 @@ function dailyRenderStatusBar(){
   const todo=dailyCountActionItems();
   const flowInfo=_dailyNaturalAutoInfo();
   const stage=dailyCurrentStage();
-  const stageLabel=_dailyFinishMode?'마무리':(!_dailyOperationStarted?'자유게임':({notice:'참가 등록',ready:'게시 준비',auto:'자동대진',finish:'자동종료'}[stage]||'운영'));
+  const stageLabel=_dailyPaused?'일시 정지':(_dailyFinishMode?'마무리':(!_dailyOperationStarted?'자유게임':({notice:'참가 등록',ready:'게시 준비',auto:'자동대진',finish:'자동종료'}[stage]||'운영')));
   const entryReady=_dailyActiveMatches().some(m=>['soon','due'].includes(_dailyTimerState(m)))&&_dailyQueue.some(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q));
   const chips=[];
   const flow=document.getElementById('dailyFlowState');
   if(flow){
-    flow.classList.toggle('need',!!todo);
-    flow.innerHTML=`<span class="daily-dot"></span> ${todo?(entryReady?'입장 준비':`조치 ${todo}건`):flowInfo.label}`;
+    flow.classList.toggle('need',!_dailyPaused&&!!todo);
+    flow.classList.toggle('paused',_dailyPaused);
+    flow.innerHTML=`<span class="daily-dot"></span> ${_dailyPaused?'진행 일시 정지':todo?(entryReady?'입장 준비':`조치 ${todo}건`):flowInfo.label}`;
   }
   const autoHint=document.getElementById('dailyAutoFlowHint');
   if(autoHint){
@@ -4502,17 +4768,20 @@ function dailyRenderStatusBar(){
   const el=document.getElementById('dailyStatusBar');
   if(!el)return;
   chips.push(`<span class="daily-sb-chip live">${stageLabel}</span>`);
-  chips.push(`<span class="daily-sb-chip ${flowInfo.auto?'on':flowInfo.phase==='warmup'?'warn':'off'}">${flowInfo.label}</span>`);
+  chips.push(`<span class="daily-sb-chip ${_dailyPaused?'warn':flowInfo.auto?'on':flowInfo.phase==='warmup'?'warn':'off'}">${_dailyPaused?'타이머·투입 정지':flowInfo.label}</span>`);
   chips.push(`<span class="daily-sb-chip balance">${_dailyBalancePolicyText(flowInfo)}</span>`);
   chips.push(`<span class="daily-sb-chip">참가 ${flowInfo.pool}명</span>`);
   chips.push(`<span class="daily-sb-chip">${flowInfo.auto?`${flowInfo.operatingCourts}/${courts}`:courts}코트</span>`);
-  const stateChip=todo
+  const stateChip=_dailyPaused
+    ? `<span class="daily-sb-state need">${esc(_dailyPauseLabel())} 중</span>`
+    : todo
     ? `<span class="daily-sb-state need">${entryReady?'입장 준비':`처리 필요 ${todo}건`}</span>`
     : `<span class="daily-sb-state ok">특이사항 없음</span>`;
-  el.className='daily-statusbar'+(todo?' need':'');
+  el.className='daily-statusbar'+(_dailyPaused||todo?' need':'');
   el.innerHTML=`<div class="daily-sb-chips">${chips.join('')}</div>${stateChip}`;
 }
 function dailyCountActionItems(){
+  if(_dailyPaused)return 0;
   if(!_dailyStartedPoolCount()&&!_dailyOperationStarted)return 1;
   const endingMatches=_dailyActiveMatches().filter(m=>['soon','due'].includes(_dailyTimerState(m)));
   const readyQueue=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q)).length;
@@ -4893,6 +5162,7 @@ function _dailyCheckinPayload(){
     version:APP_VERSION,
     commandProtocol:_dailyOfficialInviteHash?DAILY_OFFICIAL_COMMAND_PROTOCOL:1,
     serverRevision:_dailyServerRevision,
+    pauseRevision:_dailyPauseRevision,
     officialInvite:_dailyOfficialInviteHash?{
       tokenHash:_dailyOfficialInviteHash,
       expiresAt:_dailyCheckinExpiresAt()||(_dailyNow()+DAILY_CHECKIN_TTL_MS),
@@ -4902,7 +5172,7 @@ function _dailyCheckinPayload(){
     voteDeadlineAt:'',
     voteDeadlineTs:null,
     voteClosed:false,
-    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldV2:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldV2:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
     event:_dailyPublicEvent(),
     arrivalCandidates:_dailyOfficialArrivalCandidates(),
     players:_dailyPlayers
@@ -4927,6 +5197,8 @@ function _dailyCheckinPayload(){
         typeTrackedGames:p.typeTrackedGames||0,
         joinedAt:p.joinedAt||0,
         waitFrom:p.waitFrom||0,
+        restPausedMs:Number(p.restPausedMs||0),
+        deferUntil:Number(p.deferUntil||0),
         afterMatchStatus:p.afterMatchStatus||'',
         currentMatchId:p.currentMatchId||'',
         voteLocked:false,
@@ -4974,13 +5246,23 @@ function dailyEnsureCheckinId(){
 }
 function _dailyWriteCheckinPayload(path){
   const payload=_dailyCheckinPayload();
+  const payloadServerRevision=Math.max(0,Number(payload.serverRevision||0));
+  const payloadPauseRevision=Math.max(0,Number(payload.event?.pauseRevision||payload.pauseRevision||0));
   return _fbDb.ref(path+'/session').transaction(current=>{
     const remoteRevision=Math.max(0,Number(current?.serverRevision||0));
-    if(remoteRevision>_dailyServerRevision)return;
+    const remotePauseRevision=Math.max(0,Number(current?.event?.pauseRevision||current?.pauseRevision||0));
+    if(remoteRevision>payloadServerRevision||remotePauseRevision>payloadPauseRevision)return;
     return payload;
   },undefined,false).then(result=>{
-    if(!result.committed&&Number(result.snapshot?.val()?.serverRevision||0)>_dailyServerRevision){
-      console.info('민턴LIVE 서버 상태가 더 최신이라 로컬 게시를 보류했습니다.');
+    if(!result.committed){
+      const remote=result.snapshot?.val()||{};
+      if(Number(remote.serverRevision||0)>_dailyServerRevision){
+        console.info('민턴LIVE 서버 상태가 더 최신이라 로컬 게시를 보류했습니다.');
+      }
+      if(Number(remote.event?.pauseRevision||remote.pauseRevision||0)>_dailyPauseRevision){
+        _dailyAdoptRemotePauseEvent(remote.event||{});
+        console.info('민턴LIVE 일시정지 상태가 더 최신이라 해당 상태를 유지했습니다.');
+      }
     }
     return result;
   });
@@ -5084,6 +5366,7 @@ function dailyStartCheckinListener(){
   if(_dailyCheckinListeningPath&&_dailyCheckinListeningPath!==path){
     _fbDb.ref(_dailyCheckinListeningPath+'/requests').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/party').off();
+    _fbDb.ref(_dailyCheckinListeningPath+'/session/event').off();
   }
   _dailyCheckinListening=true;
   _dailyCheckinListeningPath=path;
@@ -5104,18 +5387,24 @@ function dailyStartCheckinListener(){
   _fbDb.ref(path+'/party').on('value',snap=>{
     _dailyCheckinParty=snap.val()||{};
     dailyRenderCheckinRequests();
+    dailyRenderAfterPartySpotlight();
+  });
+  _fbDb.ref(path+'/session/event').on('value',snap=>{
+    _dailyAdoptRemotePauseEvent(snap.val()||{});
   });
 }
 function _dailyStopCheckinListener(){
   if(_fbDb&&_dailyCheckinListeningPath){
     _fbDb.ref(_dailyCheckinListeningPath+'/requests').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/party').off();
+    _fbDb.ref(_dailyCheckinListeningPath+'/session/event').off();
   }
   _dailyCheckinListening=false;
   _dailyCheckinListeningPath='';
 }
 function _dailyCheckinBlockReason(req,p){
   if(!p)return '민턴LIVE 명단에 없는 선수';
+  if(_dailyPaused)return '진행 일시 정지 중 · 재개 후 다시 처리';
   if(!_dailyCheckinAllowedStatus(req.status))return '알 수 없는 상태 요청';
   if(p.status==='playing'||p.currentMatchId)return '경기중이라 경기 완료/취소 후 반영 가능';
   const nextStatus=_dailyNormalizeStatus(req.status);
@@ -5281,7 +5570,7 @@ function _dailyPrepareServerQueueRequest(req){
     return !autoEnter||_dailyPrepareServerQueueRequest(_dailyServerQueueResultRequest(autoEnter,req.serverAppliedAt,autoEnter.queueIndex));
   }
   if(!['official-queue-enter-free','official-queue-yield'].includes(req.type))return true;
-  dailyEnsureQueue();
+  if(!_dailyPaused)dailyEnsureQueue();
   const queueId=String(req.queueId||'');
   const requestFingerprint=_dailyOfficialQueueRequestFingerprint(req);
   let idx=_dailyQueue.findIndex(q=>String(q.id||'')===queueId);
@@ -5367,6 +5656,7 @@ function _dailyOfficialRequestError(req){
   if(!actor||!actor.isClubOfficial)return '현재 참가 중인 클럽 임원만 운영 지원을 사용할 수 있습니다.';
   const now=_dailyNow();
   if((req.expiresAt&&now>Number(req.expiresAt))||now-Number(req.createdAt||0)>DAILY_OFFICIAL_OPERATION_TTL_MS)return '운영 요청 시간이 지나 현재 상태를 다시 확인해야 합니다.';
+  if(_dailyPaused&&_dailyFlowOperationType(req.type)&&!req.serverAppliedAt)return '현재 진행이 일시 정지되어 있습니다. 재개 후 다시 처리해 주세요.';
   if(req.type==='official-player-arrival'){
     if(_dailyFinishMode)return '마무리 전환 후에는 자동대진 참가자를 추가할 수 없습니다.';
     const p=_dailyPlayer(req.playerId);
@@ -5526,6 +5816,7 @@ function _dailyStartServerAutoEnter(req,options){
   if(!auto?.matchId||!auto?.queueId)return false;
   return dailyStartQueueItem(auto.queueId,{
     silent:true,
+    allowWhilePaused:true,
     court:parseInt(auto.court,10),
     ignoreRestPass:true,
     strictCourt:true,
@@ -5667,7 +5958,7 @@ function dailyProcessCheckinRequests(){
           return;
         }
         if(req.type==='official-court-complete'){
-          const ok=dailyCompleteMatch(req.matchId,null,{undoToken:req.token,source:'club-official-complete',awaitOfficialEntry:true,operationAt:req.serverAppliedAt||req.createdAt});
+          const ok=dailyCompleteMatch(req.matchId,null,{undoToken:req.token,source:'club-official-complete',awaitOfficialEntry:true,allowWhilePaused:!!req.serverAppliedAt,operationAt:req.serverAppliedAt||req.createdAt});
           const entered=ok&&req.serverResult?.autoEntered?_dailyStartServerAutoEnter(req,{source:'official-complete'}):true;
           if(ok&&!entered&&req.token&&_dailyLastCompleteUndo?.token===req.token)dailyUndoMemberComplete(req.token,true);
           if(ok&&entered&&req.token&&_dailyLastCompleteUndo?.token===req.token)_dailyLastCompleteUndo.guard=_dailyCompleteUndoGuard();
@@ -5682,7 +5973,7 @@ function dailyProcessCheckinRequests(){
         if(req.type==='official-queue-enter-free'){
           const previousUndo=_dailyLastCompleteUndo;
           if(req.token)_dailyCaptureCompleteUndo(req.token,'club-official-queue-enter');
-          const ok=dailyStartQueueItem(req.queueId,{silent:true,court:parseInt(req.court,10),ignoreRestPass:true,strictCourt:true,matchId:req.newMatchId||'',startedAt:req.serverAppliedAt||req.createdAt});
+          const ok=dailyStartQueueItem(req.queueId,{silent:true,allowWhilePaused:!!req.serverAppliedAt,court:parseInt(req.court,10),ignoreRestPass:true,strictCourt:true,matchId:req.newMatchId||'',startedAt:req.serverAppliedAt||req.createdAt});
           if(!ok&&req.token&&_dailyLastCompleteUndo?.token===req.token)_dailyLastCompleteUndo=previousUndo;
           if(ok&&req.token&&_dailyLastCompleteUndo?.token===req.token){
             dailyEnsureQueue();
@@ -5742,6 +6033,12 @@ function dailyProcessCheckinRequests(){
           finishOfficial(req,ok,'되돌릴 수 있는 최근 운영 기록이 없습니다.');
           return;
         }
+      }
+      if(_dailyPaused){
+        if(Number(req.createdAt||0)>=_dailyPausedAt){
+          autoRejected.push({...req,_completeRejectReason:'진행 일시 정지 중에는 운영 요청을 처리하지 않습니다. 재개 후 다시 눌러 주세요.'});
+        }
+        return;
       }
       const memberCourtReason=_dailyMemberCourtOperationError(req);
       if(memberCourtReason){
@@ -5861,8 +6158,10 @@ function dailyProcessCheckinRequests(){
     _dailyCheckinApplying=false;
   }
   if(changed){
-    dailyEnsureQueue();
-    _dailyPromoteReadyReservations(true);
+    if(!_dailyPaused){
+      dailyEnsureQueue();
+      _dailyPromoteReadyReservations(true);
+    }
     if(_dailyLastCompleteUndo&&!_dailyLastCompleteUndo.guard){
       _dailyLastCompleteUndo.guard=_dailyCompleteUndoGuard();
     }
@@ -5872,6 +6171,7 @@ function dailyProcessCheckinRequests(){
   }
 }
 function dailyApproveCheckinRequest(key){
+  if(_dailyBlockPaused({action:'회원 요청을 반영'}))return;
   const req=_dailyCheckinRequests.find(r=>r.key===key);
   if(!req)return;
   if(req.type==='reservation'){
@@ -5906,6 +6206,7 @@ function _dailyReservationRequestIds(req){
   return [...team1,...team2];
 }
 function dailyApproveReservationRequest(key){
+  if(_dailyBlockPaused({action:'게임신청을 반영'}))return;
   const req=_dailyCheckinRequests.find(r=>r.key===key);
   if(!req)return;
   const error=_dailyReservationRequestError(req);
@@ -5949,6 +6250,49 @@ async function dailyStopCheckinLink(){
   dailySave();
   dailyRender();
 }
+function _dailyAfterPartyRows(){
+  return Object.entries(_dailyCheckinParty||{})
+    .filter(([id,row])=>row&&row.attending!==false&&_dailyPlayer(id))
+    .map(([id])=>_dailyPlayer(id))
+    .filter(Boolean)
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ko'));
+}
+function _dailyAfterPartyRosterText(){
+  const rows=_dailyAfterPartyRows();
+  if(!rows.length)return '';
+  const names=rows.map(_dailyNameText);
+  const lines=[];
+  for(let i=0;i<names.length;i+=4)lines.push(names.slice(i,i+4).join(' · '));
+  return `민턴LIVE 뒷풀이 신청자 · ${names.length}명\n${lines.join('\n')}`;
+}
+async function dailyCopyAfterPartyRoster(){
+  const text=_dailyAfterPartyRosterText();
+  if(!text){
+    alert('복사할 뒷풀이 신청자가 없습니다.');
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(text);
+    alert('뒷풀이 신청자 명단을 복사했습니다.\n밴드나 단톡방 글에 붙여넣어 주세요.');
+  }catch(e){
+    prompt('아래 명단을 길게 눌러 복사해 주세요.',text);
+  }
+}
+function dailyRenderAfterPartySpotlight(){
+  const el=document.getElementById('dailyAfterPartySpotlight');
+  if(!el)return;
+  const rows=_dailyAfterPartyRows();
+  el.hidden=!rows.length;
+  if(!rows.length){
+    el.innerHTML='';
+    return;
+  }
+  el.innerHTML=`<div class="daily-party-spotlight-head">
+    <div><span>AFTER PARTY</span><strong>오늘 함께하는 ${rows.length}명</strong></div>
+    <button type="button" onclick="dailyCopyAfterPartyRoster()">명단 복사</button>
+  </div>
+  <div class="daily-party-name-cloud">${rows.map(player=>`<span>${esc(_dailyNameText(player))}</span>`).join('')}</div>`;
+}
 function dailyRenderCheckinRequests(){
   const box=document.getElementById('dailyCheckinBox');
   const summary=document.getElementById('dailyCheckinSummary');
@@ -5964,11 +6308,8 @@ function dailyRenderCheckinRequests(){
   }
   const url=_dailyCheckinUrl();
   const pending=_dailyCheckinPendingRequests();
-  const partyNames=Object.entries(_dailyCheckinParty||{})
-    .filter(([id,row])=>row&&row.attending!==false&&_dailyPlayer(id))
-    .map(([id])=>_dailyNameText(_dailyPlayer(id)))
-    .sort((a,b)=>a.localeCompare(b,'ko'));
-  const partyHtml=`<div class="daily-checkin-req applied"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">뒷풀이 ${partyNames.length}명</div><div class="daily-checkin-req-meta">${partyNames.length?partyNames.map(esc).join(', '):'신청 없음'}</div></div></div></div>`;
+  const partyNames=_dailyAfterPartyRows().map(_dailyNameText);
+  const partyHtml=`<div class="daily-checkin-req applied"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">뒷풀이 ${partyNames.length}명</div><div class="daily-checkin-req-meta">${partyNames.length?partyNames.map(esc).join(', '):'신청 없음'}</div></div><div class="daily-checkin-req-actions"><button class="daily-mini-btn" type="button" ${partyNames.length?'':'disabled'} onclick="dailyCopyAfterPartyRoster()">명단 복사</button></div></div></div>`;
   const reconcileHtml=_dailyServerReconcileError?`<div class="daily-checkin-req pending"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">서버 운영 동기화 확인 필요</div><div class="daily-checkin-req-meta">${esc(_dailyServerReconcileError)} 네트워크를 확인한 뒤 이 화면을 다시 열어 주세요. 서버의 실중계 상태는 그대로 유지됩니다.</div></div></div></div>`:'';
   const linkHtml=`<div class="daily-checkin-link">회원·임원 공용 링크<br><strong>${esc(url)}</strong><br>회원은 경기 확인과 상태·뒷풀이 신청을, 명부 임원은 같은 화면에서 경기 운영까지 처리합니다.</div>${reconcileHtml}${partyHtml}`;
   if(!pending.length){
@@ -5994,7 +6335,7 @@ function dailyRenderCheckinRequests(){
           <div class="daily-checkin-req-meta">${esc(reason)}${req.note?` · ${esc(req.note)}`:''}</div>
         </div>
         <div class="daily-checkin-req-actions">
-          <button class="daily-mini-btn" onclick="dailyApproveCheckinRequest('${req.key}')">반영</button>
+          <button class="daily-mini-btn" ${_dailyPaused?'disabled':''} onclick="dailyApproveCheckinRequest('${req.key}')">반영</button>
           <button class="daily-mini-btn danger" onclick="dailyIgnoreCheckinRequest('${req.key}')">무시</button>
         </div>
       </div>
@@ -6002,7 +6343,7 @@ function dailyRenderCheckinRequests(){
   }).join('');
 }
 function dailyRender(){
-  const queueChanged=dailyEnsureQueue();
+  const queueChanged=_dailyPaused?false:dailyEnsureQueue();
   if(queueChanged)dailySave();
   dailyRenderClosingSchedule();
   dailyRenderCourtSettings();
@@ -6011,6 +6352,7 @@ function dailyRender(){
   dailyRenderOpsStats();
   dailyRenderResults();
   dailyRenderCheckinRequests();
+  dailyRenderAfterPartySpotlight();
   dailyRenderReservations();
   dailyRenderUnscheduled();
   const stats=document.getElementById('dailyStats');
@@ -6555,6 +6897,7 @@ function dailyRenderMatches(){
   const el=document.getElementById('dailyMatchList');
   if(!el)return;
   const active=_dailyActiveMatches().filter(m=>!m.cancelledAt).sort((a,b)=>a.court-b.court);
+  const pausedAttr=_dailyPaused?'disabled':'';
   const recent=_dailyMatches.filter(m=>m.completedAt&&!m.cancelledAt).sort((a,b)=>b.seq-a.seq).slice(0,4);
   const summary=document.getElementById('dailyMatchSummary');
   if(summary)summary.textContent='';
@@ -6575,7 +6918,7 @@ function dailyRenderMatches(){
         <div class="daily-vs">VS</div>
         <div class="daily-team b"><div class="daily-team-label">${esc(labelB)}</div><div class="daily-team-name">${t2.map(_dailyNameHtml).join('<br>')}</div></div>
       </div>
-      ${done?'':`<div class="daily-win-actions"><button class="daily-mini-btn primary-action" data-daily-complete="${m.id}" onclick="dailyCompleteMatch('${m.id}')">${esc(_dailyCompleteButtonText(m))}</button></div>`}
+      ${done?'':`<div class="daily-win-actions"><button class="daily-mini-btn primary-action" data-daily-complete="${m.id}" ${pausedAttr} onclick="dailyCompleteMatch('${m.id}')">${esc(_dailyCompleteButtonText(m))}</button></div>`}
     </div>`;
   };
   const activeByCourt=new Map(active.map(m=>[m.court,m]));
@@ -6586,7 +6929,7 @@ function dailyRenderMatches(){
     if(!m){
       const startQueue=freeCourtStartMap.get(c)||null;
       const startIdx=startQueue?_dailyQueue.findIndex(q=>q.id===startQueue.id):-1;
-      const canStart=startQueue&&_dailyQueueItemValid(startQueue,null);
+      const canStart=!_dailyPaused&&startQueue&&_dailyQueueItemValid(startQueue,null);
       const startLabel=startIdx>0?`${startIdx+1}순위 경기 시작`:'1순위 경기 시작';
       return `<div class="daily-court-card free">
         <div class="daily-court-head">
@@ -6601,10 +6944,10 @@ function dailyRenderMatches(){
     }
     const t1=m.team1.map(_dailyPlayer).filter(Boolean),t2=m.team2.map(_dailyPlayer).filter(Boolean);
     const state=_dailyTimerState(m);
-    const playerButton=(side,p,i)=>`<button class="daily-active-player" type="button" title="이름을 눌러 대기선수로 교체" onclick="dailyPickActiveReplacement('${m.id}','${side}',${i})">${_dailyNameHtml(p)}</button>`;
+    const playerButton=(side,p,i)=>`<button class="daily-active-player" type="button" ${pausedAttr} title="이름을 눌러 대기선수로 교체" onclick="dailyPickActiveReplacement('${m.id}','${side}',${i})">${_dailyNameHtml(p)}</button>`;
     return `<div class="daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
       <div class="daily-court-head">
-        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button></div>
+        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" ${pausedAttr} title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button></div>
         <span class="daily-timer ${state==='soon'?'soon':''} ${state==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>
       </div>
       <div class="daily-court-body">
@@ -6614,7 +6957,7 @@ function dailyRenderMatches(){
           <div class="daily-court-team-name b">${t2.map((p,i)=>playerButton('team2',p,i)).join('')}</div>
         </div>
         <div class="daily-court-actions single">
-          <button class="daily-mini-btn danger" data-daily-complete="${m.id}" onclick="dailyCompleteMatch('${m.id}')">종료</button>
+          <button class="daily-mini-btn danger" data-daily-complete="${m.id}" ${pausedAttr} onclick="dailyCompleteMatch('${m.id}')">종료</button>
         </div>
       </div>
     </div>`;
@@ -6880,7 +7223,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.436&from=daily';
+  location.href='team.html?v=1.10.437&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
