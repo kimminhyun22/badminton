@@ -15,10 +15,20 @@ assert((html.match(/data-slot-count/g) || []).length >= 2, '상황판과 진행 
 assert(html.includes('<summary>백업·기타 관리</summary>'), '저빈도 백업 기능은 별도 보조 영역으로 구분해야 합니다.');
 assert(html.includes('현재 가대진을 별도 보관합니다.'), '저장 모달이 현재 가대진을 보관한다는 목적을 알려야 합니다.');
 assert(html.includes('id="slotListCount"'), '저장 목록에서 사용 중인 슬롯 수를 보여야 합니다.');
+assert(html.includes('auto-flow-quick-actions')&&html.includes('onclick="rsvpShareLink()">링크 공유</button>'), '팀전LIVE 링크 공유는 운영 보드 상단에 항상 보여야 합니다.');
+assert(html.includes('onclick="resetAll()" title="참가자·팀배정·대진·LIVE 전체 초기화">초기화</button>'), '팀전LIVE 초기화는 운영 보드 상단에서 바로 실행할 수 있어야 합니다.');
 
 assert(css.includes('.bracket-save-quick'), '상황판 빠른 저장 영역 스타일이 있어야 합니다.');
 assert(css.includes('.bracket-save-primary'), '진행 설정의 상시 저장 버튼 스타일이 있어야 합니다.');
 assert(css.includes('.bracket-save-action:disabled'), '대진 생성 전 저장 버튼은 비활성 상태가 보여야 합니다.');
+assert(css.includes('.team-share-top'), '상단 링크 공유 버튼은 초기화와 구분되는 전용 스타일이 있어야 합니다.');
+
+const shareStart = src.indexOf('async function rsvpCopyShareText');
+const shareEnd = src.indexOf('function rsvpLoad', shareStart);
+assert(shareStart >= 0 && shareEnd > shareStart, '팀전LIVE 공유 함수 범위를 찾을 수 있어야 합니다.');
+const shareBody = src.slice(shareStart, shareEnd);
+assert(shareBody.includes('내 이름을 눌러 실중계에 들어가세요.'), '팀전LIVE 카카오톡 공유 문구는 한 문장으로 안내해야 합니다.');
+assert(!shareBody.includes('늦는 경우에만')&&!shareBody.includes('대진표와 실시간 현황'), '팀전LIVE 공유 문구에 긴 사용 설명을 넣으면 안 됩니다.');
 
 const nameStart = src.indexOf('function _defaultBracketSlotName');
 const nameEnd = src.indexOf('function renderBracketSaveQuick', nameStart);

@@ -42,7 +42,9 @@ assert(!checkin.includes('관리자 앱 연결 필요'),'임원 화면이 시스
 assert(checkin.includes("serverReady?'서버 즉시 처리'"),'임원에게 관리자 앱 없이 서버에서 즉시 처리되는 상태를 명확히 보여야 합니다.');
 assert(checkin.includes('cardOps&&autoHandoff'),'서버 자동 투입 기능이 없는 구 세션에는 자동 투입 안내를 보여주면 안 됩니다.');
 assert(checkin.includes('새 대진은 미리 준비된 범위까지 이어집니다.'),'관리자 앱 종료 중 새 대진이 준비 큐 범위까지만 이어짐을 임원에게 알려야 합니다.');
-assert(dailySrc.includes('새 대진은 미리 준비된 범위까지 이어집니다.'),'임원 운영 링크를 공유할 때 준비 큐 한계를 함께 알려야 합니다.');
+const officialShare=functionSource(dailySrc,'dailyShareOfficialLink','dailyResumeCheckin');
+assert(officialShare.includes('링크를 열고 내 이름을 선택하세요.'),'임원 링크 공유 문구도 바로 행동할 한 문장만 제공해야 합니다.');
+assert(!officialShare.includes('새 대진은 미리 준비된 범위까지 이어집니다.'),'카카오톡 공유 문구에 상세 운영 설명을 다시 넣으면 안 됩니다.');
 const officialPush=functionSource(checkin,'pushOfficialRequest','sendOfficialPartnerReservation');
 assert(!officialPush.includes("if(!operatorConnected())"),'운영 연결이 잠시 끊겨도 임원 요청 저장을 막으면 안 됩니다.');
 assert(officialPush.includes("httpsCallable('submitDailyOfficialRequest')"),'임원 운영 링크에서는 관리자 앱을 기다리지 않고 서버 함수가 요청을 즉시 처리해야 합니다.');
@@ -66,6 +68,21 @@ assert(memberEventBoard.includes('officialActiveYieldAvailable(m)')&&memberEvent
 assert(checkin.includes('officialQueueReadyForHandoff(item)')&&checkin.includes("String(item.targetMatchId||'')===matchId"),'이번만 뒤로는 같은 코트에 실제 대체 가능한 다음 대진이 있을 때만 보여야 합니다.');
 assert(checkin.includes("type:'official-active-yield'")&&checkin.includes('expectedAutoHandoffAt:m.autoHandoffAt'),'이번만 뒤로 요청은 방금 자동 투입된 경기인지 비교할 지문을 함께 보내야 합니다.');
 assert(memberEventBoard.includes('placeEventPanelForViewer(canOfficialOperate)'),'임원은 개인 카드보다 진행 코트와 종료 버튼을 먼저 볼 수 있어야 합니다.');
+const officialQueueCue=functionSource(checkin,'officialQueueCueText','nextQueueNoticeHtml');
+assert(!officialQueueCue.includes('targetCourt')&&!officialQueueCue.includes('코트 ·'),'현장 변경 가능성이 있는 예상 코트는 임원 다음 대진에도 미리 표시하면 안 됩니다.');
+const cueSandbox={};
+vm.createContext(cueSandbox);
+vm.runInContext(`
+${functionSource(checkin,'stripExpectedCourtText','memberQueueCueText')}
+${functionSource(checkin,'memberQueueCueText','officialQueueCueText')}
+${officialQueueCue}
+this.memberCue=memberQueueCueText;
+this.officialCue=officialQueueCueText;
+`,cueSandbox);
+const predictedCue={cueState:'soon',targetCourt:2,cue:'2코트',cueDetail:'2코트 · 5분'};
+assert.strictEqual(cueSandbox.memberCue(predictedCue),'5분','일반 회원의 다음 대진에서 예상 코트 번호를 제거해야 합니다.');
+assert.strictEqual(cueSandbox.officialCue(predictedCue),'5분','클럽 임원의 다음 대진에서도 예상 코트 번호를 제거해야 합니다.');
+assert(!cueSandbox.officialCue({cueState:'free',targetCourt:2}).includes('2코트'),'입장 직전 카드도 코트 번호를 고정 노출하지 않고 처리 시점에 확인해야 합니다.');
 assert(checkin.includes("main:'입장 준비',detail:'클럽 임원 확인 중'"),'일반 회원에게 클럽 임원 처리 대기 상태를 명확히 보여야 합니다.');
 assert(checkin.includes("onclick=\"sendOfficialCourtComplete"),'클럽 임원의 경기 종료 기능은 유지해야 합니다.');
 assert(checkin.includes("onclick=\"sendOfficialQueueEnter"),'클럽 임원의 빈 코트 입장 처리 기능은 유지해야 합니다.');

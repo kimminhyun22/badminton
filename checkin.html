@@ -1624,7 +1624,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.437</span>
+    <span class="version-chip" id="appVersion">v1.10.438</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1669,7 +1669,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.437';
+const APP_VERSION='1.10.438';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -2396,11 +2396,10 @@ function memberQueueCueText(q){
 function officialQueueCueText(q){
   if(!q)return '';
   if(q.restPass)return q.restPassText||'조금 쉬고 입장 대기';
-  const court=q.targetCourt?`${q.targetCourt}코트 · `:'';
-  if(q.cueState==='free')return `${court}선수 확인 후 입장 처리`;
-  if(q.cueState==='handoff'||q.cueState==='due')return `${court}입장 준비`;
+  if(q.cueState==='free')return '선수 확인 후 입장 처리';
+  if(q.cueState==='handoff'||q.cueState==='due')return '입장 준비';
   const detail=stripExpectedCourtText(q.cueDetail)||stripExpectedCourtText(q.cue);
-  return `${court}${detail||'대기 중'}`;
+  return detail||'대기 중';
 }
 function nextQueueNoticeHtml(playerId){
   const q=nextQueueForPlayer(playerId);

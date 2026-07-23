@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.437';
+const APP_VERSION = '1.10.438';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6738,7 +6738,7 @@ async function rsvpCopySavedLink(id){
   const url=(item&&item.url)||_rsvpUrlFor(id);
   if(!url){alert('복사할 링크를 찾을 수 없습니다.');return;}
   const title=item?.title||'팀전LIVE';
-  const text=`🏸 ${title}\n\n내 이름 확인 후 실중계로 들어가세요.\n늦는 경우에만 늦음을 표시해 주세요.\n\n${url}`;
+  const text=`🏸 ${title}\n내 이름을 눌러 실중계에 들어가세요.\n\n${url}`;
   if(navigator.share){
     try{
       await navigator.share({title:`${title} 팀전LIVE`,text});
@@ -6901,7 +6901,7 @@ async function rsvpCopyShareText(auto){
   const url=_rsvpUrl();
   _rsvpApplyAutoTitle(false);
   const title=_rsvpTitle();
-  const text=`🏸 ${title}\n\n내 이름 확인 → 실중계 들어가기\n늦는 경우에만 [늦음]을 표시해 주세요.\n대진표와 실시간 현황도 같은 링크에서 확인합니다.\n\n${url}`;
+  const text=`🏸 ${title}\n내 이름을 눌러 실중계에 들어가세요.\n\n${url}`;
   const published=await rsvpPublishSession(true).catch(()=>null);
   if(!published){
     alert('팀전LIVE 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');

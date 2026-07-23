@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.437';
+const APP_VERSION = '1.10.438';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5307,14 +5307,16 @@ async function dailyShareCheckinLink(){
   const id=await dailyPublishCheckinSession(false);
   if(!id)return;
   const url=_dailyCheckinUrl();
-  const text='🏸 민턴LIVE 공용 링크\n내 이름을 선택해 현재·다음 경기를 확인하세요.\n클럽 임원은 명부에 등록된 본인 이름을 선택하면 같은 화면에서 경기 운영을 바로 처리할 수 있습니다.\n쉴 때는 휴식, 다시 뛸 때는 복귀, 마치면 종료를 눌러주세요. 뒷풀이 참석도 같은 화면에서 신청할 수 있습니다.';
+  const text='🏸 민턴LIVE\n내 이름을 눌러 오늘 경기를 확인하세요.';
   const clipboardText=`${text}\n\n${url}`;
   try{
     if(navigator.share){
-      await navigator.share({title:'콕매치 민턴LIVE 공용 링크',text,url});
+      await navigator.share({title:'민턴LIVE',text,url});
       return;
     }
-  }catch(e){}
+  }catch(e){
+    if(e&&e.name==='AbortError')return;
+  }
   try{
     await navigator.clipboard.writeText(clipboardText);
     alert('회원·임원 공용 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url);
@@ -5335,7 +5337,7 @@ async function dailyShareOfficialLink(){
     return;
   }
   const url=_dailyOfficialCheckinUrl();
-  const text=`🏸 민턴LIVE 임원 운영 링크\n클럽 임원에게만 전달해 주세요. 한 번 열면 이 기기에서 안전하게 연결됩니다. 관리자 앱이 꺼져도 운영 작업은 바로 반영됩니다. 경기 종료 시 다음 대진이 자동 투입되고, 선수가 없으면 2분 안에 이번만 뒤로 처리할 수 있습니다. 새 대진은 미리 준비된 범위까지 이어집니다.\n\n`+url;
+  const text=`🏸 민턴LIVE 임원 운영\n링크를 열고 내 이름을 선택하세요.\n\n`+url;
   try{
     if(navigator.share){await navigator.share({title:'콕매치 민턴LIVE 임원 운영',text,url});return;}
   }catch(e){}
@@ -6616,10 +6618,7 @@ async function rsvpShareLink(){
   if(!id)return;
   const url=_rsvpUrl();
   const title=_rsvpTitle();
-  const target=_rsvpSelectedLabel();
-  const guestLimit=_rsvpGuestLimit();
-  const guestLine=guestLimit?`\n게스트는 ${guestLimit}명까지 신청 가능하며 관리자가 확인합니다.`:'';
-  const text=`🏸 ${target} · ${title} 참석 확인\n\n본인 이름을 누르면 참석 확정, 불참, 게스트 신청을 바로 할 수 있습니다.${guestLine}\n나중에 대진표가 준비되면 콕매치에서 내 경기 확인도 이어서 안내할게요.\n\n10초 안에 확인해 주세요.\n${url}`;
+  const text=`🏸 ${title}\n참석 여부를 알려주세요.\n\n${url}`;
   try{
     if(navigator.share){
       await navigator.share({title:`${title} 참석 확인`,text});
@@ -7223,7 +7222,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.437&from=daily';
+  location.href='team.html?v=1.10.438&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

@@ -1463,6 +1463,20 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
 .auto-flow-badge.live{background:#fee2e2;color:#b91c1c;}
 .auto-flow-badge.resume{background:#fee2e2;color:#b91c1c;}
 .auto-flow-actions{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex-shrink:0;}
+.auto-flow-quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+.team-share-top{
+  min-height:36px;
+  border:1.5px solid #bfdbfe;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  padding:8px 12px;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:.72rem;
+  font-weight:1000;
+  cursor:pointer;
+  white-space:nowrap;
+}
 .auto-flow-reset-btn{
   border-width:1.5px;
   background:#fff7f7;
@@ -3132,6 +3146,7 @@ header,.nav-bar{
   .header-help-btn,
   .live-mode-pill,
   .team-reset-top,
+  .team-share-top,
   .auto-flow-reset-btn,
   .team-section-close,
   .rsvp-summary-close{min-height:44px;}

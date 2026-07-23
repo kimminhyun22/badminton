@@ -19,6 +19,7 @@ const teamJs = read('js/team.js');
 assert(appCss.includes('--safe-bottom:env(safe-area-inset-bottom,0px)'), '민턴LIVE 관리자에 safe-area 변수가 필요합니다.');
 assert(appCss.includes('.daily-court-grid{grid-template-columns:1fr;}'), '430px 이하 진행 코트는 한 열이어야 합니다.');
 assert(appCss.includes('.daily-queue-player{min-height:44px;}'), '대기 선수 조작 영역은 44px 이상이어야 합니다.');
+assert(appCss.includes('.daily-dashboard-quick-action{min-height:44px;}'), '모바일 상단 공유·초기화 버튼은 44px 터치 높이를 가져야 합니다.');
 assert(appCss.includes('.goto-current-btn .gcb-text{display:none;}'), '모바일 진행중 버튼은 화면을 가리지 않는 아이콘이어야 합니다.');
 assert(appCss.includes('.daily-ops-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}'), '360px 상황판 지표는 비대칭으로 남으면 안 됩니다.');
 
