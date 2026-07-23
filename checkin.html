@@ -316,6 +316,23 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   cursor:pointer;
 }
 .event-official-complete:disabled{opacity:.42;cursor:not-allowed;}
+.event-official-active-yield{
+  width:100%;
+  min-height:44px;
+  border:1.5px solid #f59e0b;
+  border-radius:8px;
+  background:#fff7e8;
+  color:#9a5800;
+  padding:5px 6px;
+  font:inherit;
+  font-size:11px;
+  font-weight:1000;
+  line-height:1.15;
+  word-break:keep-all;
+  cursor:pointer;
+}
+.event-official-active-yield small{display:block;margin-top:2px;color:#b46b00;font-size:9px;}
+.event-official-active-yield:disabled{opacity:.42;cursor:not-allowed;}
 .event-complete-action{
   margin-top:9px;
   display:flex;
@@ -374,7 +391,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   .event-row.event-active .event-active-meta{
     flex:1 1 100%;
     display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-columns:minmax(0,1fr);
   }
   .event-row.event-active .event-active-meta em:only-child{grid-column:1/-1}
 }
@@ -1568,12 +1585,13 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .complete-picker-close,
 .my-card-change,
 .event-official-complete,
+.event-official-active-yield,
 .official-action-row button,
 .official-status-actions button{min-height:44px;}
 @media(max-width:430px){
   .event-active-player,
   .event-next-player{letter-spacing:0;}
-  .event-official-complete{min-height:44px;padding:8px 6px;font-size:12px;}
+  .event-official-complete,.event-official-active-yield{min-height:44px;padding:8px 6px;font-size:12px;}
 }
 @media(max-width:340px){
   .event-next-line{grid-template-columns:1fr;gap:4px;white-space:normal}
@@ -1591,7 +1609,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.435</span>
+    <span class="version-chip" id="appVersion">v1.10.436</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1636,7 +1654,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.435';
+const APP_VERSION='1.10.436';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -1797,6 +1815,19 @@ function sampleSession(){
     cueState:'expected',
     expected:true
   });
+  const activeRows=[
+    active(1,['s1','s2','s3','s4'],5,'혼복'),
+    active(2,['s5','s6','s7','s8'],8,'혼복'),
+    active(3,['s9','s10','s11','s12'],11,'남복')
+  ];
+  const nextRows=[
+    next(1,['s13','s14','s15','s16'],'남복',{targetCourt:4,cue:'4코트 입장 가능',cueDetail:'빈 코트',cueState:'free'}),
+    next(2,['s17','s18','s19','s20'],'혼복',{targetCourt:1,targetMatchId:'dm1',cue:'1코트',cueDetail:'5분',cueState:'soon'})
+  ];
+  activeRows[0].autoHandoffAt=now-30000;
+  activeRows[0].autoHandoffExpiresAt=now+90000;
+  activeRows[0].autoHandoffSource='official-complete';
+  activeRows[0].autoHandoffQueue={queueId:'sample_started_q',id:'sample_started_q',type:'혼복',t1Ids:['s1','s2'],t2Ids:['s3','s4'],playerIds:['s1','s2','s3','s4']};
   return {
     title:'콕매치 민턴LIVE 내 경기',
     updatedAt:now,
@@ -1804,7 +1835,7 @@ function sampleSession(){
     matchStartedAt:now-35*60*1000,
     expiresAt:now+47*60*60*1000,
     version:'sample',
-    capabilities:{officialOpsV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldV2:true,officialQueueCardOpsV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldV2:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:true,afterPartyV1:true},
     arrivalCandidates:[
       ...players.filter(player=>['invited','planned'].includes(player.status)).map(player=>({candidateKey:`player:${player.id}`,kind:'existing',playerId:player.id,name:player.name,status:player.status,lastStatusAt:player.lastStatusAt||0})),
       {candidateKey:'roster:sample_late',kind:'roster',memberId:'sample_late',name:'강지각'}
@@ -1833,15 +1864,8 @@ function sampleSession(){
         detail:'다음 2경기 준비됨'
       },
       updatedAt:now,
-      active:[
-        active(1,['s1','s2','s3','s4'],5,'혼복'),
-        active(2,['s5','s6','s7','s8'],8,'혼복'),
-        active(3,['s9','s10','s11','s12'],11,'남복')
-      ],
-      next:[
-        next(1,['s13','s14','s15','s16'],'남복',{targetCourt:4,cue:'4코트 입장 가능',cueDetail:'빈 코트',cueState:'free'}),
-        next(2,['s17','s18','s19','s20'],'혼복')
-      ],
+      active:activeRows,
+      next:nextRows,
       expected:[
         expected(3,['s21','s22','s1','s2'],'혼복')
       ]
@@ -2105,6 +2129,26 @@ function remainText(row){
   const n=remainMinutes(row);
   if(typeof n==='string')return n;
   return n<=0?'종료임박':`약 ${n}분 남음`;
+}
+function officialActiveYieldSeconds(row){
+  const expiresAt=Number(row?.autoHandoffExpiresAt||0);
+  return expiresAt?Math.max(0,Math.ceil((expiresAt-Date.now())/1000)):0;
+}
+function officialQueueReadyForHandoff(item){
+  const ids=(item?.playerIds||[...(item?.t1Ids||[]),...(item?.t2Ids||[])]).map(String).filter(Boolean);
+  if(ids.length!==4||new Set(ids).size!==4)return false;
+  return ids.every(id=>{
+    const player=(session?.players||[]).find(row=>String(row.id||'')===id);
+    return !!player&&player.status==='wait'&&!player.currentMatchId;
+  });
+}
+function officialActiveYieldAvailable(row){
+  if(session?.capabilities?.officialAutoHandoffV1!==true||officialActiveYieldSeconds(row)<=0)return false;
+  const court=Number(row?.court||0),matchId=String(row?.id||'');
+  const nextReady=eventNextList().some(item=>item&&!item.restPass&&officialQueueReadyForHandoff(item)
+    &&(String(item.targetMatchId||'')===matchId||(item.cueState==='free'&&Number(item.targetCourt||0)===court)));
+  if(nextReady)return true;
+  return (session?.event?.expected||[]).some(item=>item&&!item.restPass&&officialQueueReadyForHandoff(item));
 }
 function clockText(ms){
   const t=Number(ms);
@@ -2461,8 +2505,11 @@ function renderEvent(){
     const remain=remainMinutes(m);
     const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
     const pendingComplete=officialRequests.some(r=>r.type==='official-court-complete'&&officialRequestPending(r)&&String(r.matchId||'')===String(m.id||''));
-    const completeDisabled=(sendingKey||claimingOfficial||pendingComplete)?'disabled':'';
+    const pendingActiveYield=officialRequests.some(r=>r.type==='official-active-yield'&&officialRequestPending(r)&&String(r.matchId||'')===String(m.id||''));
+    const completeDisabled=(sendingKey||claimingOfficial||pendingComplete||pendingActiveYield)?'disabled':'';
     const completeButton=canOfficialOperate?`<button type="button" class="event-official-complete" data-official-action data-official-pending="${pendingComplete?'true':'false'}" ${completeDisabled} onclick="sendOfficialCourtComplete('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingComplete?'종료 확인 중':'경기 종료'}</button>`:'';
+    const activeYieldSeconds=officialActiveYieldSeconds(m);
+    const activeYieldButton=canOfficialOperate&&officialActiveYieldAvailable(m)?`<button type="button" class="event-official-active-yield" data-official-action data-official-pending="${pendingActiveYield?'true':'false'}" ${completeDisabled} onclick="sendOfficialActiveYield('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingActiveYield?'처리 중':'이번만 뒤로'}<small>${activeYieldSeconds}초</small></button>`:`<em>${esc(remainText(m))}</em>`;
     return `<div class="event-row event-active ${state}">
     <div class="event-row-main">
       ${courtBadge(`${m.court}코트`)}
@@ -2471,7 +2518,7 @@ function renderEvent(){
         <div class="event-teams active-teams">${teamLines(m)}</div>
       </div>
     </div>
-    <div class="event-active-meta"><em>${esc(remainText(m))}</em>${completeButton}</div>
+    <div class="event-active-meta">${activeYieldButton}${completeButton}</div>
   </div>`;
   }).join('');
   const lastComplete=getLastComplete();
@@ -2511,7 +2558,7 @@ function renderEvent(){
       </div>
     </div>
   </div>`).join('');
-  const undoLabel=lastComplete?.operation==='queue-yield'?'이번만 뒤로':lastComplete?.operation==='queue-enter'?'입장 처리':'경기 종료';
+  const undoLabel=['queue-yield','active-yield'].includes(lastComplete?.operation)?'이번만 뒤로':lastComplete?.operation==='queue-enter'?'입장 처리':'경기 종료';
   const undo=lastComplete?`<div class="event-row">
     <div class="event-row-main full">
       <div>
@@ -2909,6 +2956,7 @@ function officialSupportHtml(p){
   const connected=serverReady||(!officialServerCapable()&&operatorConnected());
   const disabled=(sendingKey||claimingOfficial)?'disabled':'';
   const cardOps=session?.capabilities?.officialQueueCardOpsV1===true;
+  const autoHandoff=session?.capabilities?.officialAutoHandoffV1===true;
   const free=cardOps?[]:eventNextList().filter(q=>q.cueState==='free'&&q.targetCourt&&!q.restPass);
   const freeRows=free.map(q=>`<div class="official-action-row">
     <span>${esc(q.targetCourt?`${q.targetCourt}코트`:'빈 코트')}<small>${esc(teamNames(q))}</small></span>
@@ -2924,7 +2972,7 @@ function officialSupportHtml(p){
   </div>`:'';
   return `<section class="official-support">
     <div class="official-support-head"><b>클럽 임원 운영</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
-    <div id="officialSupportNote" class="official-support-note">${serverReady?(cardOps?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어지며, 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.'):(connected?'현재 관리자 앱에서 별도 승인 없이 바로 반영됩니다.':'명부의 임원 등록을 확인해 운영 권한을 연결하고 있습니다.')}</div>
+    <div id="officialSupportNote" class="official-support-note">${serverReady?(cardOps&&autoHandoff?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 경기 종료 시 다음 대진이 자동 투입되며, 선수가 없으면 새 경기 카드에서 2분 안에 이번만 뒤로를 누르세요. 새 대진은 미리 준비된 범위까지 이어집니다.':cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.'):(connected?'현재 관리자 앱에서 별도 승인 없이 바로 반영됩니다.':'명부의 임원 등록을 확인해 운영 권한을 연결하고 있습니다.')}</div>
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
     ${officialArrivalToolsHtml(p,disabled)}
@@ -2950,8 +2998,9 @@ function refreshOfficialConnection(){
   el.classList.toggle('offline',!connected);
   const note=document.getElementById('officialSupportNote');
   const cardOps=session?.capabilities?.officialQueueCardOpsV1===true;
+  const autoHandoff=session?.capabilities?.officialAutoHandoffV1===true;
   if(note)note.textContent=serverReady
-    ? (cardOps?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어지며, 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.')
+    ? (cardOps&&autoHandoff?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 경기 종료 시 다음 대진이 자동 투입되며, 선수가 없으면 새 경기 카드에서 2분 안에 이번만 뒤로를 누르세요. 새 대진은 미리 준비된 범위까지 이어집니다.':cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.')
     : connected
       ? (cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'현재 관리자 앱에서 바로 반영됩니다. 지각 참가·대진 순서·선수 상태는 여기에서 처리하세요.')
       : '명부의 임원 등록을 확인해 운영 권한을 연결하고 있습니다.';
@@ -3364,15 +3413,44 @@ async function sendOfficialPlayerStatus(actorId,status){
     render();
   }
 }
+function sampleAutoStartQueue(q,court,matchId,sourceMatchId,startedAt){
+  if(!q||!session?.event)return null;
+  const list=session.event.next||[];
+  const index=list.findIndex(item=>String(item.queueId||item.id||'')===String(q.queueId||q.id||''));
+  if(index>=0)list.splice(index,1);
+  const now=startedAt||Date.now();
+  const match={
+    id:matchId,court,seq:Math.max(0,...(session.event.active||[]).map(item=>Number(item.seq||0)))+1,
+    type:q.type||'예외',teamMode:!!q.teamMode,labelA:q.labelA||'A팀',labelB:q.labelB||'B팀',
+    t1:[...(q.t1||[])],t2:[...(q.t2||[])],t1Ids:[...(q.t1Ids||[])],t2Ids:[...(q.t2Ids||[])],playerIds:[...(q.playerIds||[])],
+    startedAt:now,expectedMinutes:15,endAt:now+15*60000,remain:15,timerState:'normal',transitionStarted:false,
+    autoHandoffAt:now,autoHandoffExpiresAt:now+2*60*1000,autoHandoffSource:'sample-auto-handoff',autoHandoffSourceMatchId:sourceMatchId||'',
+    autoHandoffQueue:JSON.parse(JSON.stringify(q))
+  };
+  (session.event.active||[]).push(match);
+  (match.playerIds||[]).forEach(id=>{
+    const player=(session.players||[]).find(item=>item.id===id);
+    if(player){player.status='playing';player.statusLabel='경기중';player.locked=true;player.currentMatchId=match.id;}
+  });
+  list.forEach((item,i)=>{item.idx=i+1;});
+  session.event.activeCount=session.event.active.length;
+  return match;
+}
 async function sendOfficialCourtComplete(actorId,matchId){
   const actor=officialActor(actorId);
   const m=activeMatchById(matchId);
   if(!actor||!m)return toast('진행 경기를 다시 확인해 주세요.');
-  if(!confirm(`${activeMatchLabel(m)}\n\n경기를 종료하고 다음 대진을 ${m.court||''}코트 입장 대기로 올릴까요?\n선수를 확인한 뒤 입장 처리 또는 이번만 뒤로를 선택할 수 있습니다.`))return;
+  const autoHandoff=session?.capabilities?.officialAutoHandoffV1===true;
+  const confirmText=autoHandoff
+    ? `${activeMatchLabel(m)}\n\n경기를 종료할까요?\n다음 대진은 ${m.court||''}코트에 바로 투입됩니다.`
+    : `${activeMatchLabel(m)}\n\n경기를 종료하고 다음 대진을 ${m.court||''}코트 입장 대기로 올릴까요?`;
+  if(!confirm(confirmText))return;
   const now=Date.now();
   const token='oct_'+now.toString(36)+'_'+Math.random().toString(36).slice(2,7);
+  const operationId=createOfficialOperationId('complete');
   const ok=await pushOfficialRequest({
     type:'official-court-complete',
+    operationId,
     actorPlayerId:actor.id,actorPlayerName:actor.name,
     matchId:m.id,court:m.court,token,
     expectedStartedAt:m.startedAt||0,
@@ -3384,10 +3462,61 @@ async function sendOfficialCourtComplete(actorId,matchId){
   if(ok){
     setLastComplete({token,matchId:m.id,court:m.court,operation:'court-complete',official:true,actorPlayerId:actor.id});
     if(isSampleMode()){
+      const handoff=(session.event.next||[]).find(item=>String(item.targetMatchId||'')===String(m.id));
       session.event.active=(session.event.active||[]).filter(x=>x.id!==m.id);
       session.event.activeCount=session.event.active.length;
       session.event.completed=Number(session.event.completed||0)+1;
+      (m.playerIds||[]).forEach(id=>{
+        const player=(session.players||[]).find(item=>item.id===id);
+        if(player){player.games=Number(player.games||0)+1;player.status='wait';player.statusLabel='참가 중';player.locked=false;player.currentMatchId='';}
+      });
+      if(handoff)sampleAutoStartQueue(handoff,m.court,`sm_${operationId}`,m.id,now);
     }
+    render();
+  }
+}
+async function sendOfficialActiveYield(actorId,matchId){
+  const actor=officialActor(actorId);
+  const m=activeMatchById(matchId);
+  if(!actor||!m||!officialActiveYieldAvailable(m))return toast('이번만 뒤로 처리할 수 있는 2분이 지났거나 다음 대진이 없습니다.');
+  const playerIds=[...(m.playerIds||[])];
+  const team1Ids=[...(m.t1Ids||[])],team2Ids=[...(m.t2Ids||[])];
+  if(playerIds.length!==4||team1Ids.length!==2||team2Ids.length!==2)return toast('진행 경기 선수 구성을 다시 확인해 주세요.');
+  const now=Date.now();
+  const token='oay_'+now.toString(36)+'_'+Math.random().toString(36).slice(2,7);
+  const operationId=createOfficialOperationId('active-yield');
+  const ok=await pushOfficialRequest({
+    type:'official-active-yield',
+    operationId,
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    matchId:m.id,court:m.court,token,
+    expectedStartedAt:m.startedAt||0,
+    expectedAutoHandoffAt:m.autoHandoffAt||0,
+    expectedPlayerIds:playerIds,
+    expectedTeam1Ids:team1Ids,
+    expectedTeam2Ids:team2Ids,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-active-yield'
+  },`${m.court||''}코트 대진 뒤로 이동`);
+  if(ok){
+    if(isSampleMode()){
+      const replacement=(session.event.next||[]).find(item=>item&&!item.restPass);
+      const deferred=JSON.parse(JSON.stringify(m.autoHandoffQueue||{}));
+      session.event.active=(session.event.active||[]).filter(item=>item.id!==m.id);
+      (m.playerIds||[]).forEach(id=>{
+        const player=(session.players||[]).find(item=>item.id===id);
+        if(player){player.status='wait';player.statusLabel='참가 중';player.locked=false;player.currentMatchId='';}
+      });
+      if(deferred.queueId||deferred.id){
+        const names=ids=>(ids||[]).map(id=>(session.players||[]).find(player=>player.id===id)?.name||'선수');
+        deferred.t1Ids=[...(deferred.t1Ids||deferred.team1||[])];deferred.t2Ids=[...(deferred.t2Ids||deferred.team2||[])];
+        deferred.playerIds=[...deferred.t1Ids,...deferred.t2Ids];deferred.t1=deferred.t1||names(deferred.t1Ids);deferred.t2=deferred.t2||names(deferred.t2Ids);
+        (session.event.next||[]).push(deferred);
+      }
+      if(replacement)sampleAutoStartQueue(replacement,m.court,`sm_${operationId}`,m.id,now);
+    }
+    setLastComplete({token,matchId:m.id,court:m.court,operation:'active-yield',official:true,actorPlayerId:actor.id});
     render();
   }
 }
@@ -3496,7 +3625,7 @@ async function sendOfficialCourtUndo(actorId,token,operation){
     actorPlayerId:actor.id,actorPlayerName:actor.name,token,operation:operation||'court-complete',
     createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
     source:'club-official-support'
-  },`${operation==='queue-yield'?'이번만 뒤로':operation==='queue-enter'?'입장 처리':'경기 종료'} 취소 요청`);
+  },`${['queue-yield','active-yield'].includes(operation)?'이번만 뒤로':operation==='queue-enter'?'입장 처리':'경기 종료'} 취소 요청`);
   if(ok)clearLastComplete();
 }
 async function sendStatus(playerId,status){

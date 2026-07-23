@@ -6,7 +6,7 @@
     "node": "22"
   },
   "scripts": {
-    "test": "node ../tests/daily-official-roster-claim-regression.js && node ../tests/daily-official-server-regression.js",
+    "test": "node ../tests/daily-official-roster-claim-regression.js && node ../tests/daily-official-server-regression.js && node ../tests/daily-official-transaction-regression.js && node ../tests/daily-official-auto-handoff-regression.js",
     "lint": "node --check index.js && node --check daily-official-engine.js && node --check daily-official-command.js && node --check daily-official-claim.js"
   },
   "dependencies": {

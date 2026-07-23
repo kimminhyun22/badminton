@@ -69,14 +69,17 @@ function applyCommandTransaction(current, input){
     };
   }else{
     current.session = applied.session;
+    const serverResult=applied.result&&typeof applied.result==='object'?applied.result:null;
     requestRow.serverAppliedAt = now;
     requestRow.serverRevision = applied.revision || 0;
     requestRow.serverProcessedBy = 'cloud-function-v2';
     requestRow.serverReconcilePending = true;
+    if(serverResult)requestRow.serverResult=serverResult;
     current.requests[operationId] = requestRow;
     terminal = current.serverCommands[operationId] = {
       status:'applied',payloadHash,observedRevision:Number(applied.revision || 1)-1,
-      resultRevision:Number(applied.revision || 0),createdAt:now
+      resultRevision:Number(applied.revision || 0),createdAt:now,
+      ...(serverResult?{serverResult}:{})
     };
     current.updatedAt = now;
   }

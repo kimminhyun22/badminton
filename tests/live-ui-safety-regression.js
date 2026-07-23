@@ -25,5 +25,10 @@ assert(
   checkin.includes('class="event-row event-active ${state}"'),
   '좁은 화면에서 진행 경기 전용 레이아웃을 적용할 수 있어야 합니다.'
 );
+assert(
+  checkin.includes('pendingComplete||pendingActiveYield') &&
+  checkin.includes('officialQueueReadyForHandoff(item)'),
+  '경기 종료와 자동 투입 취소는 중복 실행을 막고 실제 대체 가능한 대진을 확인해야 합니다.'
+);
 
 console.log('live ui safety regression: pass');

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const OFFICIAL_OPERATION_TTL_MS = 30 * 60 * 1000;
 const OFFICIAL_UNDO_MS = 45 * 1000;
 const RECEIPT_RETAIN_MS = 10 * 60 * 1000;
+const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
 const MATCH_MINUTES = 15;
 
 const SUPPORTED_TYPES = new Set([
@@ -12,6 +13,7 @@ const SUPPORTED_TYPES = new Set([
   'official-player-add',
   'official-player-status',
   'official-court-complete',
+  'official-active-yield',
   'official-queue-enter-free',
   'official-queue-yield',
   'official-partner-reservation',
@@ -22,6 +24,7 @@ const SUPPORTED_TYPES = new Set([
 
 const UNDOABLE_TYPES = new Set([
   'official-court-complete',
+  'official-active-yield',
   'official-queue-enter-free',
   'official-queue-yield'
 ]);
@@ -120,6 +123,12 @@ function activePlayerIds(match){
 
 function playerById(session, id){
   return (session.players || []).find(player=>text(player?.id) === text(id)) || null;
+}
+
+function incrementPlayerCount(player, key, name){
+  if(!player || !name)return;
+  if(!player[key] || typeof player[key] !== 'object' || Array.isArray(player[key]))player[key] = {};
+  player[key][name] = number(player[key][name]) + 1;
 }
 
 function ensureSession(raw){
@@ -467,7 +476,109 @@ function applyPlayerStatus(session, request, now){
   return '';
 }
 
-function applyComplete(session, request, now){
+function preparedQueueItem(raw){
+  const item = clone(raw || {});
+  ['idx','expected','cue','cueDetail','cueState','targetCourt','targetMatchId','targetHoldId','targetHoldAt'].forEach(key=>delete item[key]);
+  item.restPass = false;
+  item.restPassText = '';
+  return item;
+}
+
+function queueResult(item, queueIndex){
+  return {
+    queue:preparedQueueItem(item),
+    queueId:text(item?.queueId || item?.id),
+    queueIndex:number(queueIndex),
+    playerIds:queuePlayerIds(item),
+    team1Ids:queueTeam1Ids(item),
+    team2Ids:queueTeam2Ids(item)
+  };
+}
+
+function startPreparedItem(session, item, index, court, now, requestId, options = {}){
+  const event = session.event;
+  if(index < 0 || event.next[index] !== item || event.active.some(match=>number(match.court) === number(court)) || !queueReady(session, item))return null;
+  const runtime = session.serverRuntime;
+  const maxSeq = event.active.reduce((max, match)=>Math.max(max, number(match.seq)), number(event.completed));
+  runtime.nextSeq = Math.max(number(runtime.nextSeq), maxSeq + 1);
+  const matchId = options.autoHandoff
+    ? `sm_${safeId(requestId)}`
+    : text(options.matchId) || `sm_${safeId(requestId)}`;
+  const team1Ids = queueTeam1Ids(item);
+  const team2Ids = queueTeam2Ids(item);
+  const ids = queuePlayerIds(item);
+  const names = list=>list.map(id=>playerById(session, id)?.name || '선수');
+  const reservation = item.reservationId
+    ? session.reservations.find(row=>text(row?.id) === text(item.reservationId)) || null
+    : null;
+  const queueSnapshot = preparedQueueItem(item);
+  const playerStates = ids.map(id=>{
+    const player=playerById(session,id);
+    return player?clone({
+      id,
+      status:player.status,
+      statusLabel:player.statusLabel,
+      locked:player.locked,
+      currentMatchId:player.currentMatchId,
+      afterMatchStatus:player.afterMatchStatus,
+      waitFrom:player.waitFrom,
+      lastStatusAt:player.lastStatusAt
+    }):{id,status:'wait',statusLabel:statusLabel('wait'),locked:false,currentMatchId:'',afterMatchStatus:'',waitFrom:now,lastStatusAt:now};
+  });
+  event.next.splice(index, 1);
+  const match = {
+    id:matchId,
+    court:number(court),
+    seq:runtime.nextSeq++,
+    type:item.type || '예외',
+    teamMode:!!item.teamMode,
+    labelA:item.labelA || 'A팀',
+    labelB:item.labelB || 'B팀',
+    t1:item.t1 || names(team1Ids),
+    t2:item.t2 || names(team2Ids),
+    t1Ids:team1Ids,
+    t2Ids:team2Ids,
+    playerIds:ids,
+    startedAt:now,
+    expectedMinutes:MATCH_MINUTES,
+    endAt:now + MATCH_MINUTES * 60000,
+    remain:MATCH_MINUTES,
+    timerState:'normal',
+    transitionStarted:false,
+    reservationId:item.reservationId || null,
+    serverStartedBy:options.actorPlayerId || '',
+    serverRequestId:requestId
+  };
+  if(options.autoHandoff){
+    match.autoHandoffAt = now;
+    match.autoHandoffExpiresAt = now + AUTO_HANDOFF_WINDOW_MS;
+    match.autoHandoffSource = options.autoHandoffSource || 'official-complete';
+    match.autoHandoffSourceMatchId = options.sourceMatchId || '';
+    match.autoHandoffSourceRequestId = requestId;
+    match.autoHandoffQueueIndex = number(options.queueIndex, index + 1);
+    match.autoHandoffQueue = queueSnapshot;
+    match.autoHandoffPlayerStates = playerStates;
+    if(reservation)match.autoHandoffReservation = clone(reservation);
+  }
+  event.active.push(match);
+  ids.forEach(id=>{
+    const player = playerById(session, id);
+    player.status = 'playing';
+    player.statusLabel = statusLabel('playing');
+    player.locked = true;
+    player.currentMatchId = matchId;
+    player.afterMatchStatus = '';
+    player.lastStatusAt = now;
+  });
+  if(item.reservationId)session.reservations = session.reservations.filter(row=>text(row.id) !== text(item.reservationId));
+  delete runtime.holds[text(court)];
+  promotePrepared(session);
+  refreshEvent(session, now);
+  return match;
+}
+
+function applyComplete(session, request, now, requestId, operation){
+  refreshEvent(session, now);
   const event = session.event;
   const index = event.active.findIndex(match=>text(match.id) === text(request.matchId));
   if(index < 0)return '종료할 진행중 경기를 찾지 못했습니다.';
@@ -476,6 +587,9 @@ function applyComplete(session, request, now){
   if((request.expectedPlayerIds || []).length !== 4 || idsFingerprint(request.expectedPlayerIds) !== idsFingerprint(activePlayerIds(match))){
     return '코트의 선수 구성이 이미 바뀌었습니다.';
   }
+  const autoHandoffEnabled = session.capabilities?.officialAutoHandoffV1 === true;
+  const team1 = queueTeam1Ids(match).map(id=>playerById(session,id)).filter(Boolean);
+  const team2 = queueTeam2Ids(match).map(id=>playerById(session,id)).filter(Boolean);
   event.active.splice(index, 1);
   activePlayerIds(match).forEach(id=>{
     const player = playerById(session, id);
@@ -484,6 +598,9 @@ function applyComplete(session, request, now){
       ? normalizeStatus(player.afterMatchStatus)
       : 'wait';
     player.games = number(player.games) + 1;
+    player.typeTrackedGames = number(player.typeTrackedGames) + 1;
+    if(text(match.type) === '혼복')player.mixedGames = number(player.mixedGames) + 1;
+    player.lastPlayedSeq = number(match.seq);
     player.status = nextStatus;
     player.statusLabel = statusLabel(nextStatus);
     player.locked = false;
@@ -493,6 +610,18 @@ function applyComplete(session, request, now){
     if(nextStatus === 'wait')player.waitFrom = now;
     else removePlayerFromPrepared(session, player.id);
   });
+  if(team1.length === 2){
+    incrementPlayerCount(team1[0], 'partnerCount', team1[1].name);
+    incrementPlayerCount(team1[1], 'partnerCount', team1[0].name);
+  }
+  if(team2.length === 2){
+    incrementPlayerCount(team2[0], 'partnerCount', team2[1].name);
+    incrementPlayerCount(team2[1], 'partnerCount', team2[0].name);
+  }
+  team1.forEach(a=>team2.forEach(b=>{
+    incrementPlayerCount(a, 'opponentCount', b.name);
+    incrementPlayerCount(b, 'opponentCount', a.name);
+  }));
   event.completed = number(event.completed) + 1;
   const court = number(match.court || request.court);
   if(court){
@@ -506,6 +635,37 @@ function applyComplete(session, request, now){
   }
   promotePrepared(session);
   refreshEvent(session, now);
+  let autoEntered = null;
+  if(autoHandoffEnabled && court && !event.active.some(row=>number(row.court) === court)){
+    const nextIndex = event.next.findIndex(item=>number(item.targetCourt) === court && item.cueState === 'free' && queueReady(session, item) && !item.restPass);
+    const item = nextIndex >= 0 ? event.next[nextIndex] : null;
+    if(item){
+      autoEntered = startPreparedItem(session, item, nextIndex, court, now, requestId, {
+        actorPlayerId:request.actorPlayerId,
+        autoHandoff:true,
+        autoHandoffSource:'official-complete',
+        sourceMatchId:match.id,
+        queueIndex:nextIndex + 1
+      });
+    }
+  }
+  if(operation){
+    operation.result = {
+      completedMatchId:text(match.id),
+      court,
+      autoEntered:!!autoEntered,
+      ...(autoEntered?{autoEnter:{
+        ...queueResult(autoEntered.autoHandoffQueue, autoEntered.autoHandoffQueueIndex),
+        matchId:autoEntered.id,
+        court:autoEntered.court,
+        startedAt:autoEntered.startedAt,
+        expiresAt:autoEntered.autoHandoffExpiresAt,
+        sourceMatchId:text(match.id),
+        reservation:autoEntered.autoHandoffReservation || null,
+        playerStates:autoEntered.autoHandoffPlayerStates || []
+      }}:{})
+    };
+  }
   return '';
 }
 
@@ -523,51 +683,107 @@ function applyQueueEnter(session, request, now, requestId){
   if(event.active.some(match=>number(match.court) === court))return '선택한 코트에서 이미 다른 경기가 진행 중입니다.';
   if(!queueReady(session, item))return '다음 대진 선수 상태가 바뀌었습니다.';
 
-  event.next.splice(index, 1);
-  const runtime = session.serverRuntime;
-  const maxSeq = event.active.reduce((max, match)=>Math.max(max, number(match.seq)), number(event.completed));
-  runtime.nextSeq = Math.max(number(runtime.nextSeq), maxSeq + 1);
-  const matchId = text(request.newMatchId) || `sm_${safeId(requestId)}`;
-  const team1Ids = queueTeam1Ids(item);
-  const team2Ids = queueTeam2Ids(item);
-  const names = list=>list.map(id=>playerById(session, id)?.name || '선수');
-  const match = {
-    id: matchId,
-    court,
-    seq: runtime.nextSeq++,
-    type: item.type || '예외',
-    teamMode: !!item.teamMode,
-    labelA: item.labelA || 'A팀',
-    labelB: item.labelB || 'B팀',
-    t1: item.t1 || names(team1Ids),
-    t2: item.t2 || names(team2Ids),
-    t1Ids: team1Ids,
-    t2Ids: team2Ids,
-    playerIds: ids,
-    startedAt: now,
-    expectedMinutes: MATCH_MINUTES,
-    endAt: now + MATCH_MINUTES * 60000,
-    remain: MATCH_MINUTES,
-    timerState: 'normal',
-    transitionStarted: false,
-    reservationId: item.reservationId || null,
-    serverStartedBy: request.actorPlayerId,
-    serverRequestId: requestId
-  };
-  event.active.push(match);
-  ids.forEach(id=>{
-    const player = playerById(session, id);
-    player.status = 'playing';
-    player.statusLabel = statusLabel('playing');
-    player.locked = true;
-    player.currentMatchId = matchId;
-    player.afterMatchStatus = '';
-    player.lastStatusAt = now;
-  });
-  if(item.reservationId)session.reservations = session.reservations.filter(reservation=>text(reservation.id) !== text(item.reservationId));
-  delete runtime.holds[text(court)];
-  promotePrepared(session);
+  return startPreparedItem(session, item, index, court, now, requestId, {
+    matchId:request.newMatchId,
+    actorPlayerId:request.actorPlayerId
+  }) ? '' : '입장할 다음 대진 상태가 이미 바뀌었습니다.';
+}
+
+function applyActiveYield(session, request, now, requestId, operation){
   refreshEvent(session, now);
+  const event = session.event;
+  if(session.capabilities?.officialAutoHandoffV1 !== true)return '자동 투입된 경기만 이번만 뒤로 보낼 수 있습니다.';
+  const matchIndex = event.active.findIndex(match=>text(match.id) === text(request.matchId));
+  if(matchIndex < 0)return '뒤로 보낼 진행중 경기를 찾지 못했습니다.';
+  const match = event.active[matchIndex];
+  if(!number(match.autoHandoffAt) || !number(match.autoHandoffExpiresAt) || now >= number(match.autoHandoffExpiresAt)){
+    return '이번만 뒤로 처리할 수 있는 2분이 지났습니다.';
+  }
+  if(number(request.expectedStartedAt) !== number(match.startedAt) || number(request.expectedAutoHandoffAt) !== number(match.autoHandoffAt)){
+    return '코트의 진행 경기가 이미 바뀌었습니다.';
+  }
+  const ids = activePlayerIds(match);
+  if((request.expectedPlayerIds || []).length !== 4 || idsFingerprint(request.expectedPlayerIds) !== idsFingerprint(ids)){
+    return '코트의 선수 구성이 이미 바뀌었습니다.';
+  }
+  if(teamsFingerprint(request.expectedTeam1Ids, request.expectedTeam2Ids) !== teamsFingerprint(match.t1Ids, match.t2Ids)){
+    return '코트의 팀 구성이 이미 바뀌었습니다.';
+  }
+  if(ids.some(id=>{
+    const player=playerById(session,id);
+    return !player || text(player.currentMatchId) !== text(match.id) || !!player.afterMatchStatus;
+  }))return '선수 상태가 이미 바뀌어 대진을 그대로 뒤로 보낼 수 없습니다.';
+
+  const deferred = preparedQueueItem(match.autoHandoffQueue);
+  if(queuePlayerIds(deferred).length !== 4 || idsFingerprint(queuePlayerIds(deferred)) !== idsFingerprint(ids)){
+    return '방금 자동 투입된 대진 정보를 복원하지 못했습니다.';
+  }
+  const court = number(match.court || request.court);
+  const activeCount = event.active.length;
+  const freeCount = event.next.filter(item=>item && item.cueState === 'free' && item.targetCourt && !item.restPass).length;
+  const operationSlots = Math.max(1, activeCount + freeCount);
+  const savedStateRows = Array.isArray(match.autoHandoffPlayerStates) ? match.autoHandoffPlayerStates : [];
+  const savedStates = new Map(savedStateRows.map(row=>[text(row?.id),row]));
+  event.active.splice(matchIndex, 1);
+  ids.forEach(id=>{
+    const player=playerById(session,id);
+    const saved=savedStates.get(text(id))||{};
+    player.status=normalizeStatus(saved.status||'wait');
+    player.statusLabel=saved.statusLabel||statusLabel(player.status);
+    player.locked=!!saved.locked;
+    player.currentMatchId=text(saved.currentMatchId);
+    player.afterMatchStatus=text(saved.afterMatchStatus);
+    if(Object.prototype.hasOwnProperty.call(saved,'waitFrom'))player.waitFrom=saved.waitFrom;
+    if(Object.prototype.hasOwnProperty.call(saved,'lastStatusAt'))player.lastStatusAt=saved.lastStatusAt;
+  });
+  if(match.autoHandoffReservation && !session.reservations.some(row=>text(row.id) === text(match.autoHandoffReservation.id))){
+    session.reservations.push(clone(match.autoHandoffReservation));
+  }
+  deferred.yieldedAt=now;
+  deferred.yieldedBy=request.actorPlayerId;
+  deferred.yieldedSource='server-club-official-active-yield';
+  deferred.yieldedCount=number(deferred.yieldedCount)+1;
+  deferred.restPass=false;
+  deferred.restPassText='';
+  promotePrepared(session);
+  refreshEvent(session,now);
+  const replacementIndex = event.next.findIndex(item=>number(item.targetCourt) === court && item.cueState === 'free' && !item.restPass && queueReady(session,item));
+  if(replacementIndex < 0)return '바로 투입할 다음 대진이 없어 이번 경기를 뒤로 보낼 수 없습니다.';
+  const replacement = event.next[replacementIndex];
+  const replacementId = text(replacement.queueId || replacement.id);
+  const target=Math.min(event.next.length+1,Math.max(2,operationSlots+1));
+  deferred.yieldedToIndex=target;
+  event.next.splice(target-1,0,deferred);
+  const nextIndex=event.next.findIndex(item=>text(item.queueId || item.id) === replacementId);
+  const replacementItem=nextIndex>=0?event.next[nextIndex]:null;
+  const autoEntered=replacementItem?startPreparedItem(session,replacementItem,nextIndex,court,now,requestId,{
+    actorPlayerId:request.actorPlayerId,
+    autoHandoff:true,
+    autoHandoffSource:'official-active-yield',
+    sourceMatchId:match.id,
+    queueIndex:replacementIndex+1
+  }):null;
+  if(!autoEntered)return '대체할 다음 대진 상태가 이미 바뀌었습니다.';
+  const deferredIndex=event.next.findIndex(item=>text(item.queueId || item.id) === text(deferred.queueId || deferred.id));
+  if(operation){
+    operation.result={
+      cancelledMatchId:text(match.id),
+      court,
+      deferred:queueResult(deferred,deferredIndex+1),
+      deferredReservation:match.autoHandoffReservation || null,
+      autoEntered:true,
+      autoEnter:{
+        ...queueResult(autoEntered.autoHandoffQueue,autoEntered.autoHandoffQueueIndex),
+        matchId:autoEntered.id,
+        court:autoEntered.court,
+        startedAt:autoEntered.startedAt,
+        expiresAt:autoEntered.autoHandoffExpiresAt,
+        sourceMatchId:text(match.id),
+        reservation:autoEntered.autoHandoffReservation || null,
+        playerStates:autoEntered.autoHandoffPlayerStates || []
+      }
+    };
+  }
   return '';
 }
 
@@ -655,12 +871,13 @@ function applyUndo(session, request, receipts, now){
   return {session};
 }
 
-function applyByType(session, request, now, requestId){
+function applyByType(session, request, now, requestId, operation){
   switch(request.type){
     case 'official-player-arrival': return applyArrival(session, request, now);
     case 'official-player-add': return applyPlayerAdd(session, request, now);
     case 'official-player-status': return applyPlayerStatus(session, request, now);
-    case 'official-court-complete': return applyComplete(session, request, now);
+    case 'official-court-complete': return applyComplete(session, request, now, requestId, operation);
+    case 'official-active-yield': return applyActiveYield(session, request, now, requestId, operation);
     case 'official-queue-enter-free': return applyQueueEnter(session, request, now, requestId);
     case 'official-queue-yield': return applyQueueYield(session, request, now);
     case 'official-partner-reservation': return applyPartnerReservation(session, request, now, requestId);
@@ -693,7 +910,8 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
   }
 
   const before = UNDOABLE_TYPES.has(request.type) && request.token ? operationalSnapshot(session) : null;
-  const reason = applyByType(session, request, now, requestId);
+  const operation = {result:null};
+  const reason = applyByType(session, request, now, requestId, operation);
   if(reason)return {status:'rejected', reason, session:rawSession, serverOps:receipts};
   session.serverRevision = beforeRevision + 1;
   session.serverUpdatedAt = now;
@@ -712,12 +930,13 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
       before
     };
   }
-  return {status:'applied', session, serverOps:receipts, revision:session.serverRevision, operation:request.type};
+  return {status:'applied', session, serverOps:receipts, revision:session.serverRevision, operation:request.type, result:operation.result};
 }
 
 module.exports = {
   OFFICIAL_OPERATION_TTL_MS,
   OFFICIAL_UNDO_MS,
+  AUTO_HANDOFF_WINDOW_MS,
   applyOfficialRequest,
   refreshEvent,
   queuePlayerIds,
