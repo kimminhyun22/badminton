@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.440';
+const APP_VERSION = '1.10.441';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2158,8 +2158,10 @@ function _dailyApplyQueueYield(playerId,queueId,source,options){
   let idx=_dailyQueue.findIndex(q=>String(q.id||'')===String(queueId||'')&&_dailyQueueIds(q).includes(playerId));
   if(idx<0&&!options?.strict)idx=_dailyQueue.findIndex(q=>_dailyQueueIds(q).includes(playerId));
   if(idx<0)return {ok:false,reason:'뒤로 보낼 다음 대진을 찾지 못했습니다.'};
-  const requestedTarget=Number(options?.targetQueueIndex||idx+2);
-  if(!Number.isInteger(requestedTarget)||requestedTarget<=idx+1||requestedTarget>_dailyQueue.length)return {ok:false,reason:'이동할 다음 대진 순번이 올바르지 않습니다.'};
+  const requestedTarget=Object.prototype.hasOwnProperty.call(options||{},'targetQueueIndex')
+    ?Number(options.targetQueueIndex)
+    :idx+2;
+  if(!Number.isInteger(requestedTarget)||requestedTarget!==idx+2||requestedTarget>_dailyQueue.length)return {ok:false,reason:'이번만 뒤로는 한 순번만 이동할 수 있습니다.'};
   const targetIdx=requestedTarget-1;
   const item=_dailyQueue.splice(idx,1)[0];
   let promotedQueueId='';
@@ -5172,7 +5174,7 @@ function _dailyCheckinPayload(){
     voteDeadlineAt:'',
     voteDeadlineTs:null,
     voteClosed:false,
-    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldV2:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
     event:_dailyPublicEvent(),
     arrivalCandidates:_dailyOfficialArrivalCandidates(),
     players:_dailyPlayers
@@ -5756,7 +5758,7 @@ function _dailyOfficialRequestError(req){
       if(String(req.expectedHoldId||'')!==currentHoldId)return '입장할 코트의 종료 연결이 이미 바뀌었습니다.';
     }
     const targetQueueIndex=Object.prototype.hasOwnProperty.call(req,'targetQueueIndex')?Number(req.targetQueueIndex):idx+2;
-    if(!Number.isInteger(targetQueueIndex)||targetQueueIndex<=idx+1||targetQueueIndex>_dailyQueue.length)return '이동할 다음 대진 순번이 올바르지 않습니다.';
+    if(!Number.isInteger(targetQueueIndex)||targetQueueIndex!==idx+2||targetQueueIndex>_dailyQueue.length)return '이번만 뒤로는 한 순번만 이동할 수 있습니다.';
     if(!_dailyQueueItemValid(q,null))return '다음 대진 선수 상태가 바뀌었습니다.';
     return '';
   }
@@ -7226,7 +7228,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.440&from=daily';
+  location.href='team.html?v=1.10.441&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

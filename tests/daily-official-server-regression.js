@@ -150,6 +150,16 @@ const stalePlayingStatus=submit(baseRoot(),'official-player-status','operation_s
 });
 assert.strictEqual(stalePlayingStatus.outcome.terminal.status,'rejected','경기중 선수의 오래된 상태 화면에서 보낸 요청을 적용하면 안 됩니다.');
 
+let multiStepRoot=baseRoot();
+for(let i=17;i<=20;i++)multiStepRoot.session.players.push(player(`p${i}`,'wait'));
+multiStepRoot.session.event.next.push(queue('q5',['p17','p18','p19','p20']));
+const multiStepDenied=submit(multiStepRoot,'official-queue-yield','operation_multi_step_001',BASE_NOW,{
+  queueId:'q1',token:'undo_multi_step',expectedQueueIndex:1,targetQueueIndex:3,
+  expectedPlayerIds:['p9','p10','p11','p12'],expectedTeam1Ids:['p9','p10'],expectedTeam2Ids:['p11','p12']
+});
+assert.strictEqual(multiStepDenied.outcome.terminal.status,'rejected','대기 경기가 충분해도 한 번에 여러 순번 뒤로 보내면 안 됩니다.');
+assert.deepStrictEqual(multiStepDenied.outcome.current.session.event.next.map(item=>item.queueId),['q1','q2','q5'],'거절된 다중 이동 요청은 대기 순서를 바꾸면 안 됩니다.');
+
 let root=baseRoot();
 const completeExtra={
   matchId:'m1',court:1,token:'undo_complete_1',expectedStartedAt:BASE_NOW-14*60_000,

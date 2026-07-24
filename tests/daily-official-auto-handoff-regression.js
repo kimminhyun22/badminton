@@ -175,6 +175,48 @@ const freeCourtYield=activeYield(freeCourt,'sm_free_court_complete',NOW+10_000,'
 assert.strictEqual(freeCourtYield.terminal.status,'applied','다른 빈 코트가 있어도 자동 투입 경기의 이번만 뒤로는 처리되어야 합니다.');
 assert.deepStrictEqual(freeCourtYield.current.session.event.active.find(match=>match.id==='sm_free_court_yield')?.playerIds,['p1','p2','p3','p4'],'이번만 뒤로도 정확히 같은 코트 몫의 다음 대진을 대체 투입해야 합니다.');
 
+let threeCourt=root();
+for(let i=17;i<=24;i++)threeCourt.session.players.push(player(`p${i}`,i<=20?'playing':'wait'));
+for(let i=17;i<=20;i++)threeCourt.session.players.find(row=>row.id===`p${i}`).currentMatchId='m3';
+threeCourt.session.event.courts=3;
+threeCourt.session.event.nextTarget=3;
+threeCourt.session.event.queuePolicy.official=3;
+threeCourt.session.event.active.push(active('m3',3,['p17','p18','p19','p20'],NOW-8*60_000));
+threeCourt.session.event.next.push(queue('q3',['p21','p22','p23','p24']));
+threeCourt=complete(threeCourt,'three_court_complete','m1',NOW).current;
+const threeCourtYield=activeYield(threeCourt,'sm_three_court_complete',NOW+10_000,'three_court_yield');
+assert.strictEqual(threeCourtYield.terminal.status,'applied','세 코트 운영에서도 자동 투입 대진을 이번만 뒤로 처리할 수 있어야 합니다.');
+assert.deepStrictEqual(threeCourtYield.current.session.event.active.find(match=>match.id==='sm_three_court_yield')?.playerIds,['p13','p14','p15','p16'],'바로 다음 한 경기만 같은 코트에 대체 투입해야 합니다.');
+assert.strictEqual(threeCourtYield.current.session.event.next[0].queueId,'q1','진행 코트가 여러 개여도 빠진 대진을 맨 뒤가 아닌 대체 경기 바로 다음에 두어야 합니다.');
+assert.strictEqual(threeCourtYield.current.requests.three_court_yield.serverResult.deferred.queueIndex,1,'서버 재동기화 기록에도 한 경기 뒤 순번을 남겨야 합니다.');
+
+let fourCourt=root();
+for(let i=17;i<=36;i++)fourCourt.session.players.push(player(`p${i}`,i<=24?'playing':'wait'));
+for(let i=17;i<=20;i++)fourCourt.session.players.find(row=>row.id===`p${i}`).currentMatchId='m3';
+for(let i=21;i<=24;i++)fourCourt.session.players.find(row=>row.id===`p${i}`).currentMatchId='m4';
+fourCourt.session.event.courts=4;
+fourCourt.session.event.nextTarget=4;
+fourCourt.session.event.queuePolicy.official=4;
+fourCourt.session.event.active.push(active('m3',3,['p17','p18','p19','p20'],NOW-8*60_000));
+fourCourt.session.event.active.push(active('m4',4,['p21','p22','p23','p24'],NOW-7*60_000));
+fourCourt.session.event.next.push(queue('q3',['p25','p26','p27','p28']));
+fourCourt.session.event.next.push(queue('q4',['p29','p30','p31','p32']));
+fourCourt.session.event.next.push(queue('q5',['p33','p34','p35','p36']));
+fourCourt=complete(fourCourt,'four_court_complete','m3',NOW).current;
+for(const matchId of ['m1','m2']){
+  const match=fourCourt.session.event.active.find(row=>row.id===matchId);
+  fourCourt.session.event.active=fourCourt.session.event.active.filter(row=>row.id!==matchId);
+  for(const id of match.playerIds){
+    const row=fourCourt.session.players.find(playerRow=>playerRow.id===id);
+    row.status='wait';row.statusLabel='wait';row.locked=false;row.currentMatchId='';
+  }
+}
+const fourCourtYield=activeYield(fourCourt,'sm_four_court_complete',NOW+10_000,'four_court_yield');
+assert.strictEqual(fourCourtYield.terminal.status,'applied','여러 빈 코트가 섞여도 자동 투입 대진의 이번만 뒤로는 처리되어야 합니다.');
+assert.deepStrictEqual(fourCourtYield.current.session.event.active.find(match=>match.id==='sm_four_court_yield')?.playerIds,['p29','p30','p31','p32'],'다른 빈 코트 두 곳을 건너 같은 코트의 바로 다음 한 경기만 대체 투입해야 합니다.');
+assert.strictEqual(fourCourtYield.current.session.event.next[2].queueId,'q1','빠진 대진은 다른 빈 코트에 즉시 재투입되지 않고 같은 코트 대체 경기 바로 다음에 있어야 합니다.');
+assert.strictEqual(fourCourtYield.current.requests.four_court_yield.serverResult.deferred.queueIndex,3,'다중 코트의 전역 순번보다 같은 코트 한 경기 뒤라는 의미를 우선해야 합니다.');
+
 let simultaneous=root();
 simultaneous=complete(simultaneous,'multi_complete_01','m1',NOW,'multi_auto_1').current;
 simultaneous=complete(simultaneous,'multi_complete_02','m2',NOW+1,'multi_auto_2').current;

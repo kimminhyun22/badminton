@@ -1538,9 +1538,6 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-action-row button.start{border-color:#9ccfb7;background:#eef9f3;color:#16724c;}
 .official-action-row button.yield{border-color:#e8c784;background:#fff9ed;color:#8a5a00;}
 .official-action-row button:disabled,.official-status-actions button:disabled{opacity:.42;cursor:not-allowed;}
-.official-action-row.yield-row{grid-template-columns:minmax(0,1fr) minmax(190px,auto);}
-.official-yield-actions{display:grid;grid-template-columns:minmax(118px,1fr) auto;align-items:center;gap:7px;}
-.official-player-tools .official-yield-actions select{width:100%;min-width:0;min-height:42px;margin:0;border:1.5px solid #e8c784;border-radius:8px;background:#fffdf7;padding:7px 8px;font:inherit;font-size:12px;font-weight:900;color:#70501d;}
 .official-player-tools{margin-top:12px;}
 .official-player-tools summary{cursor:pointer;font-size:13px;font-weight:1000;color:#40506a;list-style:none;}
 .official-player-tools summary::-webkit-details-marker{display:none;}
@@ -1591,7 +1588,6 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .after-party-names[open] summary::after{content:'닫기';}
 .after-party-name-list{margin-top:8px;}
 @media(max-width:520px){
-  .official-action-row.yield-row{grid-template-columns:minmax(0,1fr);gap:8px;}
   .official-arrival-actions{grid-template-columns:minmax(0,1fr);}
   .official-arrival-actions button{width:100%;}
 }
@@ -1648,7 +1644,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.440</span>
+    <span class="version-chip" id="appVersion">v1.10.441</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1693,7 +1689,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.440';
+const APP_VERSION='1.10.441';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -1874,7 +1870,7 @@ function sampleSession(){
     matchStartedAt:now-35*60*1000,
     expiresAt:now+47*60*60*1000,
     version:'sample',
-    capabilities:{officialOpsV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldV2:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:true,pauseV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:true,pauseV1:true,afterPartyV1:true},
     arrivalCandidates:[
       ...players.filter(player=>['invited','planned'].includes(player.status)).map(player=>({candidateKey:`player:${player.id}`,kind:'existing',playerId:player.id,name:player.name,status:player.status,lastStatusAt:player.lastStatusAt||0})),
       {candidateKey:'roster:sample_late',kind:'roster',memberId:'sample_late',name:'강지각'}
@@ -2326,12 +2322,6 @@ function queueById(queueId){
 function officialRequestPending(request){
   return !!(request&&!request.appliedAt&&!request.ignoredAt&&!request.serverAppliedAt&&!request.serverRejectedAt);
 }
-function officialQueueYieldTarget(list,index){
-  const activeCount=(session?.event?.active||[]).length;
-  const freeCount=(list||[]).filter(q=>q&&q.cueState==='free'&&q.targetCourt&&!q.restPass).length;
-  const operationSlots=Math.max(1,activeCount+freeCount);
-  return Math.min((list||[]).length,Math.max(index+2,operationSlots+1));
-}
 function officialQueueCardActionsHtml(actor,q,index,list){
   if(!actor||session?.capabilities?.officialQueueCardOpsV1!==true)return '';
   const queueId=q?.queueId||q?.id||'';
@@ -2340,15 +2330,14 @@ function officialQueueCardActionsHtml(actor,q,index,list){
   const pendingYield=!!q.pendingYield||officialRequests.some(r=>r.type==='official-queue-yield'&&officialRequestPending(r)&&String(r.queueId||'')===String(queueId));
   const queuePending=pendingEnter||pendingYield;
   const canEnter=q.cueState==='free'&&q.targetCourt&&!q.restPass;
-  const canYield=session?.capabilities?.officialQueueYieldV2===true&&index<(list||[]).length-1;
+  const canYield=session?.capabilities?.officialQueueYieldOneStepV1===true&&index<(list||[]).length-1;
   const disabled=!!session?.event?.paused||!!sendingKey||claimingOfficial;
   const actions=[];
   if(canEnter){
     actions.push(`<button type="button" class="event-official-enter" data-official-action data-official-pending="${pendingEnter?'true':'false'}" ${disabled||queuePending?'disabled':''} onclick="sendOfficialQueueEnter('${esc(actor.id)}','${esc(queueId)}')">${pendingEnter?'입장 확인 중':'입장 처리'}</button>`);
   }
   if(canYield){
-    const targetQueueIndex=officialQueueYieldTarget(list,index);
-    actions.push(`<button type="button" class="event-official-yield" data-official-action data-official-pending="${pendingYield?'true':'false'}" ${disabled||queuePending?'disabled':''} onclick="sendOfficialQueueYield('${esc(actor.id)}','${esc(queueId)}','',${targetQueueIndex})">${pendingYield?'뒤로 이동 확인 중':'이번만 뒤로'}</button>`);
+    actions.push(`<button type="button" class="event-official-yield" data-official-action data-official-pending="${pendingYield?'true':'false'}" ${disabled||queuePending?'disabled':''} onclick="sendOfficialQueueYield('${esc(actor.id)}','${esc(queueId)}')">${pendingYield?'뒤로 이동 확인 중':'이번만 뒤로'}</button>`);
   }
   if(!actions.length)return '';
   return `<div class="event-official-queue-actions ${actions.length>1?'split':''}">${actions.join('')}</div>`;
@@ -3043,36 +3032,20 @@ function officialPartnerToolsHtml(p,disabled){
 function officialQueueYieldToolsHtml(p,disabled){
   if(session?.capabilities?.officialQueueYieldV1!==true)return '';
   const list=eventNextList();
-  const rangeMode=session?.capabilities?.officialQueueYieldV2===true;
-  const rows=list.slice(0,-1).filter(q=>q&&(rangeMode||(!q.restPass&&!(q.cueState==='free'&&q.targetCourt)))).map((q,index)=>{
+  const enhancedMode=session?.capabilities?.officialQueueYieldOneStepV1===true;
+  const rows=list.slice(0,-1).filter(q=>q&&(enhancedMode||(!q.restPass&&!(q.cueState==='free'&&q.targetCourt)))).map((q,index)=>{
     const queueId=q.queueId||q.id||'';
     if(!queueId)return '';
     const pending=officialRequests.some(r=>r.type==='official-queue-yield'&&officialRequestPending(r)&&String(r.queueId||'')===String(queueId));
     const buttonDisabled=(disabled||pending)?'disabled':'';
-    if(!rangeMode)return `<div class="official-action-row">
-      <span>${esc(q.idx||index+1)}순위 · ${esc(teamNames(q))}<small>${pending?'순서 변경 확인 중':'이번 대진을 한 칸 뒤로 이동'}</small></span>
+    return `<div class="official-action-row">
+      <span>${esc(q.idx||index+1)}순위 · ${esc(teamNames(q))}<small>${pending?'순서 변경 확인 중':'대진을 유지하고 한 경기만 뒤로 이동'}</small></span>
       <button type="button" class="yield" data-official-action data-official-pending="${pending?'true':'false'}" ${buttonDisabled} onclick="sendOfficialQueueYield('${esc(p.id)}','${esc(queueId)}')">${pending?'요청 중':'한 칸 뒤로'}</button>
-    </div>`;
-    const currentPosition=index+1;
-    const recommendedTarget=officialQueueYieldTarget(list,index);
-    const selectId=`officialQueueTarget_${index}`;
-    const options=[];
-    for(let target=currentPosition+1;target<=list.length;target+=1){
-      const step=target-currentPosition;
-      const label=target===recommendedTarget?`현재 코트 이후 · ${target}순위`:`${step}경기 뒤 · ${target}순위`;
-      options.push(`<option value="${target}" ${target===recommendedTarget?'selected':''}>${esc(label)}</option>`);
-    }
-    return `<div class="official-action-row yield-row">
-      <span>${esc(q.idx||currentPosition)}순위 · ${esc(teamNames(q))}<small>${pending?'순서 변경 확인 중':`대진 유지 · ${recommendedTarget}순위 이동 권장`}</small></span>
-      <div class="official-yield-actions">
-        <select id="${esc(selectId)}" aria-label="${esc(q.idx||currentPosition)}순위 대진 이동 위치" ${buttonDisabled}>${options.join('')}</select>
-        <button type="button" class="yield" data-official-action data-official-pending="${pending?'true':'false'}" ${buttonDisabled} onclick="sendOfficialQueueYield('${esc(p.id)}','${esc(queueId)}','${esc(selectId)}')">${pending?'요청 중':'미루기'}</button>
-      </div>
     </div>`;
   }).join('');
   if(!rows)return '';
   return `<details class="official-player-tools">
-    <summary>대진 순서 상세 조정</summary>
+    <summary>대진 순서 한 칸 조정</summary>
     <div class="official-action-list">${rows}</div>
   </details>`;
 }
@@ -3679,7 +3652,9 @@ async function sendOfficialActiveYield(actorId,matchId){
         const names=ids=>(ids||[]).map(id=>(session.players||[]).find(player=>player.id===id)?.name||'선수');
         deferred.t1Ids=[...(deferred.t1Ids||deferred.team1||[])];deferred.t2Ids=[...(deferred.t2Ids||deferred.team2||[])];
         deferred.playerIds=[...deferred.t1Ids,...deferred.t2Ids];deferred.t1=deferred.t1||names(deferred.t1Ids);deferred.t2=deferred.t2||names(deferred.t2Ids);
-        (session.event.next||[]).push(deferred);
+        const sourceList=session.event.next||[];
+        const replacementIndex=Math.max(0,sourceList.indexOf(replacement));
+        sourceList.splice(Math.min(sourceList.length,replacementIndex+1),0,deferred);
       }
       if(replacement)sampleAutoStartQueue(replacement,m.court,`sm_${operationId}`,m.id,now);
     }
@@ -3718,29 +3693,25 @@ async function sendOfficialQueueEnter(actorId,queueId){
     render();
   }
 }
-async function sendOfficialQueueYield(actorId,queueId,targetSelectId,targetQueueIndexValue){
+async function sendOfficialQueueYield(actorId,queueId){
   const actor=officialActor(actorId);
   const list=eventNextList();
   const index=list.findIndex(q=>String(q.queueId||q.id||'')===String(queueId||''));
   const q=index>=0?list[index]:null;
   if(!actor||!q)return toast('뒤로 보낼 다음 대진을 다시 확인해 주세요.');
-  const rangeMode=session?.capabilities?.officialQueueYieldV2===true;
-  if(!rangeMode&&q.restPass)return toast('이미 조금 쉬고 처리된 대진입니다.');
-  if(!rangeMode&&q.cueState==='free'&&q.targetCourt)return toast('빈 코트 입장 단계에서는 조금 쉬고 처리를 이용해 주세요.');
+  const oneStepMode=session?.capabilities?.officialQueueYieldOneStepV1===true;
+  if(!oneStepMode&&q.restPass)return toast('이미 조금 쉬고 처리된 대진입니다.');
+  if(!oneStepMode&&q.cueState==='free'&&q.targetCourt)return toast('빈 코트 입장 단계에서는 조금 쉬고 처리를 이용해 주세요.');
   if(index>=list.length-1)return toast('뒤에 대진이 없어 이동할 수 없습니다.');
   const playerIds=[...(q.playerIds||[])];
   const team1Ids=[...(q.t1Ids||[])],team2Ids=[...(q.t2Ids||[])];
   if(playerIds.length!==4||team1Ids.length!==2||team2Ids.length!==2)return toast('다음 대진 선수 구성을 다시 확인해 주세요.');
-  const directTarget=parseInt(targetQueueIndexValue,10);
-  const selectedTarget=Number.isInteger(directTarget)
-    ? directTarget
-    : targetSelectId?parseInt(document.getElementById(targetSelectId)?.value,10):index+2;
-  const targetQueueIndex=Number.isInteger(selectedTarget)?selectedTarget:index+2;
-  if(targetQueueIndex<=index+1||targetQueueIndex>list.length)return toast('이동할 순번을 다시 선택해 주세요.');
+  const targetQueueIndex=index+2;
+  if(targetQueueIndex>list.length)return toast('뒤에 대진이 없어 이동할 수 없습니다.');
   const freeStage=q.cueState==='free'&&q.targetCourt;
   const confirmMessage=freeStage
-    ? `${q.targetCourt}코트 입장 대기를 이번만 뒤로 보낼까요?\n${teamNames(q)}\n\n이 4명과 팀 구성은 그대로 ${targetQueueIndex}순위로 보내고, 다음 대진을 ${q.targetCourt}코트 입장 순서로 올립니다.`
-    : `${index+1}순위 → ${targetQueueIndex}순위\n${teamNames(q)}\n\n대진 구성은 그대로 유지하고 뒤로 미룰까요?`;
+    ? `${q.targetCourt}코트 입장 대기를 한 경기만 뒤로 보낼까요?\n${teamNames(q)}\n\n이 4명과 팀 구성은 그대로 두고, 바로 다음 대진과 순서만 바꿉니다.`
+    : `${index+1}순위 → ${targetQueueIndex}순위\n${teamNames(q)}\n\n대진 구성은 그대로 두고 한 경기만 뒤로 보낼까요?`;
   if(!confirm(confirmMessage))return;
   const now=Date.now();
   const token='oqy_'+now.toString(36)+'_'+Math.random().toString(36).slice(2,7);
@@ -3773,10 +3744,10 @@ async function sendOfficialQueueYield(actorId,queueId,targetSelectId,targetQueue
       item.yieldedBy=actor.id;
       item.yieldedSource='sample-club-official-queue-yield';
       item.yieldedCount=Number(item.yieldedCount||0)+1;
-      item.yieldedSteps=Math.max(1,targetQueueIndex-(sourceIndex+1));
+      item.yieldedSteps=1;
       item.restPass=false;
       item.restPassText='';
-      sourceList.splice(Math.min(sourceList.length,targetQueueIndex-1),0,item);
+      sourceList.splice(sourceIndex+1,0,item);
       sourceList.forEach((entry,i)=>{entry.idx=i+1;});
     }
   }

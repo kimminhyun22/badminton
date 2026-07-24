@@ -754,9 +754,6 @@ function applyActiveYield(session, request, now, requestId, operation){
     return '방금 자동 투입된 대진 정보를 복원하지 못했습니다.';
   }
   const court = number(match.court || request.court);
-  const activeCount = event.active.length;
-  const freeCount = event.next.filter(item=>item && item.cueState === 'free' && item.targetCourt && !item.restPass).length;
-  const operationSlots = Math.max(1, activeCount + freeCount);
   const savedStateRows = Array.isArray(match.autoHandoffPlayerStates) ? match.autoHandoffPlayerStates : [];
   const savedStates = new Map(savedStateRows.map(row=>[text(row?.id),row]));
   event.active.splice(matchIndex, 1);
@@ -786,7 +783,7 @@ function applyActiveYield(session, request, now, requestId, operation){
   if(replacementIndex < 0)return '바로 투입할 다음 대진이 없어 이번 경기를 뒤로 보낼 수 없습니다.';
   const replacement = event.next[replacementIndex];
   const replacementId = text(replacement.queueId || replacement.id);
-  const target=Math.min(event.next.length+1,Math.max(2,operationSlots+1));
+  const target=replacementIndex+2;
   deferred.yieldedToIndex=target;
   event.next.splice(target-1,0,deferred);
   const nextIndex=event.next.findIndex(item=>text(item.queueId || item.id) === replacementId);
@@ -833,8 +830,11 @@ function applyQueueYield(session, request, now){
   if(teamsFingerprint(request.expectedTeam1Ids, request.expectedTeam2Ids) !== teamsFingerprint(queueTeam1Ids(item), queueTeam2Ids(item))){
     return '다음 대진 팀 구성이 이미 바뀌었습니다.';
   }
-  const target = number(request.targetQueueIndex, index + 2);
-  if(!Number.isInteger(target) || target <= index + 1 || target > list.length)return '이동할 다음 대진 순번이 올바르지 않습니다.';
+  const target = index + 2;
+  if(target > list.length)return '뒤에 보낼 다음 대진이 없습니다.';
+  if(Object.prototype.hasOwnProperty.call(request, 'targetQueueIndex') && number(request.targetQueueIndex) !== target){
+    return '이번만 뒤로는 한 순번만 이동할 수 있습니다.';
+  }
   if(Object.prototype.hasOwnProperty.call(request, 'expectedCueState')){
     if(text(request.expectedCueState) !== text(item.cueState))return '빈 코트 입장 순서가 이미 바뀌었습니다.';
     if(item.cueState === 'free'){
@@ -849,7 +849,7 @@ function applyQueueYield(session, request, now){
   item.yieldedCount = number(item.yieldedCount) + 1;
   item.yieldedFromIndex = index + 1;
   item.yieldedToIndex = target;
-  item.yieldedSteps = target - (index + 1);
+  item.yieldedSteps = 1;
   item.restPass = false;
   item.restPassText = '';
   list.splice(target - 1, 0, item);
