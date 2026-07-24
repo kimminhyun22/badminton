@@ -118,6 +118,38 @@ assert(verifyOfficialGrant(grantToken,SECRET,CHECKIN_ID,BASE_NOW+60*60_000).reas
 const tamperedGrant=grantToken.slice(0,-1)+(grantToken.endsWith('a')?'b':'a');
 assert(verifyOfficialGrant(tamperedGrant,SECRET,CHECKIN_ID,BASE_NOW).reason.includes('올바르지 않습니다'),'변조된 임원 권한을 거절해야 합니다.');
 
+let deferredStatusRoot=baseRoot();
+const deferredStatus=submit(deferredStatusRoot,'official-player-status','operation_deferred_status_001',BASE_NOW,{
+  playerId:'p1',playerName:'P1',status:'rest',expectedStatus:'playing',
+  expectedCurrentMatchId:'m1',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(deferredStatus.outcome.terminal.status,'applied','임원이 경기중 선수의 경기 후 휴식을 바로 지정할 수 있어야 합니다.');
+deferredStatusRoot=deferredStatus.outcome.current;
+assert.strictEqual(deferredStatusRoot.session.players.find(item=>item.id==='p1').afterMatchStatus,'rest','진행 선수의 휴식은 현재 경기를 유지하고 경기 후 상태로 예약해야 합니다.');
+const deferredPrepared=['next','expected','serverStandby'].flatMap(key=>deferredStatusRoot.session.event[key]||[]);
+assert(!deferredPrepared.some(item=>(item.playerIds||[]).includes('p1')),'경기 후 휴식·종료 선수는 관리자 앱이 꺼져 있어도 준비된 다음 대진에서 즉시 빠져야 합니다.');
+assert(deferredStatusRoot.session.event.expected.some(item=>item.queueId==='q4'),'제외된 예상 대진 자리는 안전한 서버 대기 대진으로 보충해야 합니다.');
+assertOperationalInvariants(deferredStatusRoot.session);
+
+const invalidStatus=submit(baseRoot(),'official-player-status','operation_invalid_status_001',BASE_NOW,{
+  playerId:'p9',playerName:'P9',status:'bogus',expectedStatus:'wait',
+  expectedCurrentMatchId:'',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(invalidStatus.outcome.terminal.status,'rejected','알 수 없는 상태 문자열을 복귀로 해석하면 안 됩니다.');
+assert.strictEqual(invalidStatus.outcome.current.session.players.find(item=>item.id==='p9').status,'wait','잘못된 상태 요청은 선수 상태를 바꾸면 안 됩니다.');
+
+const missingMatchStatus=submit(baseRoot(),'official-player-status','operation_missing_match_001',BASE_NOW,{
+  playerId:'p1',playerName:'P1',status:'done',expectedStatus:'playing',
+  expectedCurrentMatchId:'',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(missingMatchStatus.outcome.terminal.status,'rejected','경기 식별값 없는 경기 후 종료 요청을 적용하면 안 됩니다.');
+
+const stalePlayingStatus=submit(baseRoot(),'official-player-status','operation_stale_status_001',BASE_NOW,{
+  playerId:'p1',playerName:'P1',status:'done',expectedStatus:'playing',
+  expectedCurrentMatchId:'m1',expectedLastStatusAt:BASE_NOW-2000
+});
+assert.strictEqual(stalePlayingStatus.outcome.terminal.status,'rejected','경기중 선수의 오래된 상태 화면에서 보낸 요청을 적용하면 안 됩니다.');
+
 let root=baseRoot();
 const completeExtra={
   matchId:'m1',court:1,token:'undo_complete_1',expectedStartedAt:BASE_NOW-14*60_000,

@@ -101,6 +101,19 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .event-title b{font-size:18px}
 .event-title span{font-size:12px;color:var(--mut);font-weight:900}
+.event-official-member-jump{
+  width:100%;
+  min-height:44px;
+  margin:0 0 10px;
+  border:1.5px solid #9ccfb7;
+  border-radius:8px;
+  background:#eef9f3;
+  color:#16724c;
+  font:inherit;
+  font-size:14px;
+  font-weight:1000;
+}
+.event-official-member-jump:active{background:#e1f4e9;}
 .event-score{
   display:grid;
   grid-template-columns:1fr auto 1fr;
@@ -1536,6 +1549,16 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-status-actions button{border-color:var(--line);background:#fff;color:#40506a;padding:8px 5px;}
 .official-status-actions button.rest{border-color:#e8c784;background:#fff9ed;color:#8a5a00;}
 .official-status-actions button.done{border-color:#e3a7aa;background:#fff4f4;color:#b42318;}
+.official-member-status{margin:12px 0 4px;padding:12px;border:1.5px solid #c9d8ea;border-radius:8px;background:#fbfdff;scroll-margin-top:12px;}
+.official-member-status-head{margin-bottom:9px;}
+.official-member-status-head b{display:block;color:#2f4668;font-size:14px;}
+.official-member-status-head small{display:block;margin-top:3px;color:var(--mut);font-size:11px;font-weight:800;line-height:1.45;}
+.official-member-status select{width:100%;min-height:44px;border:1.5px solid #b8cae1;border-radius:8px;background:#fff;padding:8px 10px;font:inherit;font-weight:900;color:var(--txt);}
+.official-member-status-note{min-height:32px;margin:7px 0 8px;padding:7px 9px;border-radius:7px;background:#f2f6fb;color:#526177;font-size:11px;font-weight:900;line-height:1.45;}
+.official-member-status-note.playing{background:#fff8e8;color:#8a5a00;}
+.official-member-status-note.rest{background:#fff8e8;color:#8a5a00;}
+.official-member-status-note.done{background:#fff2f2;color:#a2282f;}
+.official-member-status .official-status-actions button{min-height:46px;font-size:12px;line-height:1.25;}
 .official-partner-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px;}
 .official-partner-fields label{min-width:0;color:var(--mut);font-size:11px;font-weight:900;}
 .official-partner-fields select{margin:5px 0 0;}
@@ -1625,7 +1648,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.439</span>
+    <span class="version-chip" id="appVersion">v1.10.440</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1670,7 +1693,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.439';
+const APP_VERSION='1.10.440';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -2519,6 +2542,15 @@ function placeEventPanelForViewer(isOfficial){
   }
   if(lookup.nextElementSibling!==panel)main.insertBefore(panel,lookup.nextElementSibling);
 }
+function jumpToOfficialMemberStatus(actorId){
+  const select=document.getElementById('officialPlayerSelect_'+actorId);
+  const target=select?.closest('.official-member-status');
+  if(!select||!target)return toast('회원 요청 처리 화면을 다시 불러와 주세요.');
+  target.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(()=>{
+    try{select.focus({preventScroll:true});}catch(e){select.focus();}
+  },350);
+}
 function renderEvent(){
   const el=document.getElementById('eventPanel');
   if(!el)return;
@@ -2544,6 +2576,7 @@ function renderEvent(){
   const canOfficialOperate=!!(selectedPlayer?.isClubOfficial&&session?.capabilities?.officialOpsV1===true);
   const flowPaused=!!ev.paused;
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span><span class="event-chip gold">뒷풀이 ${afterPartyNames().length}명</span>`;
+  const memberStatusJump=canOfficialOperate?`<button type="button" class="event-official-member-jump" onclick="jumpToOfficialMemberStatus('${esc(selectedPlayer.id)}')">회원 요청 처리</button>`:'';
   placeEventPanelForViewer(canOfficialOperate);
   const active=(ev.active||[]).slice(0,4).map(m=>{
     const remain=remainMinutes(m);
@@ -2626,6 +2659,7 @@ function renderEvent(){
     <span>${esc(ev.pauseReason||'생일축하·공지')} 중입니다. 경기 시간과 다음 대진 순서는 멈춘 상태로 유지됩니다.</span>
   </div>`:'';
   el.innerHTML=`<div class="event-title"><b>민턴LIVE 현황</b><span>${esc(updated)} 업데이트</span></div>
+    ${memberStatusJump}
     <div>${summary}</div>
     ${pauseNotice}
     ${finishNotice}
@@ -2959,11 +2993,26 @@ function officialArrivalToolsHtml(p,disabled){
   </div>`;
 }
 function officialPlayerOptions(){
-  return (session?.players||[])
+  const options=(session?.players||[])
     .filter(p=>p&&p.name&&(session?.capabilities?.officialArrivalV1!==true||!['invited','planned'].includes(p.status)))
     .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'))
     .map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.status==='playing'?(p.afterMatchStatus?`경기 후 ${compactLabel(p.afterMatchStatus)} 예정`:'경기중 · 경기 후 반영'):compactLabel(p.status))}</option>`)
     .join('');
+  return options?`<option value="">회원 선택</option>${options}`:'';
+}
+function officialPlayerStatusToolsHtml(p,disabled){
+  const options=officialPlayerOptions();
+  if(!options)return '';
+  return `<div class="official-member-status">
+    <div class="official-member-status-head"><b>회원 요청 대신 처리</b><small>구두로 받은 휴식·복귀·귀가 요청을 임원이 바로 반영합니다.</small></div>
+    <select id="officialPlayerSelect_${esc(p.id)}" data-official-player-status-select data-actor-id="${esc(p.id)}" aria-label="상태를 바꿀 회원 선택" ${disabled} onchange="refreshOfficialPlayerStatusActions('${esc(p.id)}')">${options}</select>
+    <div id="officialPlayerStatusNote_${esc(p.id)}" class="official-member-status-note">회원을 선택하면 현재 상태에 맞는 버튼만 활성화됩니다.</div>
+    <div class="official-status-actions">
+      <button type="button" data-official-action data-official-status-action data-status="wait" disabled onclick="sendOfficialPlayerStatus('${esc(p.id)}','wait')">복귀</button>
+      <button type="button" class="rest" data-official-action data-official-status-action data-status="rest" disabled onclick="sendOfficialPlayerStatus('${esc(p.id)}','rest')">잠시 휴식</button>
+      <button type="button" class="done" data-official-action data-official-status-action data-status="done" disabled onclick="sendOfficialPlayerStatus('${esc(p.id)}','done')">운동 종료</button>
+    </div>
+  </div>`;
 }
 function officialPartnerOptions(selected){
   const players=(session?.players||[])
@@ -3040,7 +3089,6 @@ function officialSupportHtml(p){
     <span>${esc(q.targetCourt?`${q.targetCourt}코트`:'빈 코트')}<small>${esc(teamNames(q))}</small></span>
     <button type="button" class="start" data-official-action ${disabled} onclick="sendOfficialQueueEnter('${esc(p.id)}','${esc(q.queueId)}')">입장 처리</button>
   </div>`).join('');
-  const playerOptions=officialPlayerOptions();
   const needsGrant=officialServerCapable()&&!serverReady;
   const connectingGrant=claimingOfficial||!officialGrantError;
   const grantRecovery=needsGrant?`<div class="official-connect-recovery ${connectingGrant?'connecting':''}">
@@ -3056,16 +3104,49 @@ function officialSupportHtml(p){
     ${officialArrivalToolsHtml(p,disabled)}
     ${freeRows?`<div class="official-action-list">${freeRows}</div>`:''}
     ${officialQueueYieldToolsHtml(p,disabled)}
-    ${playerOptions?`<details class="official-player-tools"><summary>선수 휴식·복귀·종료 처리</summary>
-      <select id="officialPlayerSelect_${esc(p.id)}">${playerOptions}</select>
-      <div class="official-status-actions">
-        <button type="button" data-official-action ${disabled} onclick="sendOfficialPlayerStatus('${esc(p.id)}','wait')">복귀</button>
-        <button type="button" class="rest" data-official-action ${disabled} onclick="sendOfficialPlayerStatus('${esc(p.id)}','rest')">휴식</button>
-        <button type="button" class="done" data-official-action ${disabled} onclick="sendOfficialPlayerStatus('${esc(p.id)}','done')">종료</button>
-      </div>
-    </details>`:''}
+    ${officialPlayerStatusToolsHtml(p,disabled)}
     ${officialPartnerToolsHtml(p,disabled)}
   </section>`;
+}
+function refreshOfficialPlayerStatusActions(actorId){
+  const select=document.getElementById('officialPlayerSelect_'+actorId);
+  if(!select)return;
+  const target=(session?.players||[]).find(player=>String(player.id)===String(select.value||''));
+  const playing=!!target&&(target.status==='playing'||!!target.currentMatchId||!!target.locked);
+  const blocked=eventFlowPaused()||!!sendingKey||claimingOfficial;
+  select.disabled=blocked;
+  const note=document.getElementById('officialPlayerStatusNote_'+actorId);
+  if(note){
+    note.className='official-member-status-note';
+    if(!target)note.textContent='회원을 선택하면 현재 상태에 맞는 버튼만 활성화됩니다.';
+    else if(playing){
+      note.classList.add('playing');
+      note.textContent=target.afterMatchStatus
+        ? `${target.name} · 경기 후 ${compactLabel(target.afterMatchStatus)} 예정`
+        : `${target.name} · 경기 중 · 휴식·종료는 현재 경기 후 적용`;
+    }else{
+      const status=target.status||'wait';
+      note.classList.add(status);
+      note.textContent=status==='rest'
+        ? `${target.name} · 현재 휴식 중`
+        : status==='done'
+          ? `${target.name} · 오늘 운동 종료`
+          : `${target.name} · 현재 대기 중`;
+    }
+  }
+  select.closest('.official-member-status')?.querySelectorAll('[data-official-status-action]').forEach(button=>{
+    const status=button.dataset.status||'';
+    button.textContent=status==='rest'
+      ? (playing?'경기 후 휴식':'잠시 휴식')
+      : status==='done'
+        ? (playing?'경기 후 종료':'운동 종료')
+        : '복귀';
+    const sameStatus=!!target&&(playing
+      ? target.afterMatchStatus===status
+      : compactLabel(target.status)===compactLabel(status));
+    const invalidTransition=!!target&&!playing&&target.status==='done'&&status==='rest';
+    button.disabled=blocked||!target||(playing&&status==='wait')||sameStatus||invalidTransition;
+  });
 }
 function refreshOfficialConnection(){
   const el=document.getElementById('officialConnection');
@@ -3085,6 +3166,7 @@ function refreshOfficialConnection(){
       ? (cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'현재 관리자 앱에서 바로 반영됩니다. 지각 참가·대진 순서·선수 상태는 여기에서 처리하세요.')
       : '명부의 임원 등록을 확인해 운영 권한을 연결하고 있습니다.';
   document.querySelectorAll('[data-official-action]').forEach(btn=>{btn.disabled=eventFlowPaused()||!!sendingKey||claimingOfficial||btn.dataset.officialPending==='true'||btn.dataset.arrivalPending==='true';});
+  document.querySelectorAll('[data-official-player-status-select]').forEach(select=>refreshOfficialPlayerStatusActions(select.dataset.actorId||''));
 }
 function renderMyCard(last,players){
   const el=document.getElementById('myCard');

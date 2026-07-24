@@ -479,18 +479,24 @@ function applyPlayerAdd(session, request, now){
 function applyPlayerStatus(session, request, now){
   const player = playerById(session, request.playerId);
   if(!player)return '상태를 바꿀 선수를 찾지 못했습니다.';
-  const nextStatus = normalizeStatus(request.status);
-  if(!['wait', 'rest', 'done'].includes(nextStatus))return '알 수 없는 선수 상태입니다.';
+  const rawStatus = text(request.status);
+  if(!['wait', 'rest', 'done'].includes(rawStatus))return '알 수 없는 선수 상태입니다.';
+  const nextStatus = rawStatus;
   if(['invited', 'planned'].includes(normalizeStatus(player.status)))return '지각 선수는 참가 등록에서 처리해 주세요.';
   const playing = normalizeStatus(player.status) === 'playing' || !!player.currentMatchId;
   if(playing){
     if(!['rest', 'done'].includes(nextStatus))return '경기중에는 경기 후 휴식 또는 종료만 표시할 수 있습니다.';
-    if(text(request.expectedCurrentMatchId) && text(request.expectedCurrentMatchId) !== text(player.currentMatchId))return '선수의 진행 경기가 이미 바뀌었습니다.';
+    if(text(request.expectedStatus) !== 'playing')return '선수의 진행 상태를 다시 확인해 주세요.';
+    if(!text(request.expectedCurrentMatchId) || text(request.expectedCurrentMatchId) !== text(player.currentMatchId))return '선수의 진행 경기가 이미 바뀌었습니다.';
+    if(!Object.prototype.hasOwnProperty.call(request, 'expectedLastStatusAt') || number(request.expectedLastStatusAt) !== number(player.lastStatusAt))return '선수 상태가 이미 바뀌었습니다.';
     player.afterMatchStatus = nextStatus;
     player.lastStatusAt = now;
+    removePlayerFromPrepared(session, player.id);
+    promotePrepared(session);
     return '';
   }
-  if(number(request.expectedLastStatusAt) !== number(player.lastStatusAt))return '선수 상태가 이미 바뀌었습니다.';
+  if(!Object.prototype.hasOwnProperty.call(request, 'expectedLastStatusAt') || number(request.expectedLastStatusAt) !== number(player.lastStatusAt))return '선수 상태가 이미 바뀌었습니다.';
+  if(normalizeStatus(player.status) === 'done' && nextStatus === 'rest')return '운동 종료 선수는 먼저 복귀로 처리해 주세요.';
   player.status = nextStatus;
   player.statusLabel = statusLabel(nextStatus);
   player.locked = false;

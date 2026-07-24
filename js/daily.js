@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.439';
+const APP_VERSION = '1.10.440';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5684,10 +5684,14 @@ function _dailyOfficialRequestError(req){
   if(req.type==='official-player-status'){
     const p=_dailyPlayer(req.playerId);
     if(!p)return '상태를 바꿀 선수를 찾지 못했습니다.';
-    const nextStatus=_dailyNormalizeStatus(req.status);
-    if(!['wait','rest','done'].includes(nextStatus))return '알 수 없는 선수 상태입니다.';
+    const rawStatus=String(req.status||'');
+    if(!['wait','rest','done'].includes(rawStatus))return '알 수 없는 선수 상태입니다.';
+    const nextStatus=rawStatus;
     if(['invited','planned'].includes(String(p.status||'')))return '지각 선수는 참가 등록에서 처리해 주세요.';
-    if((p.status==='playing'||p.currentMatchId)&&!['rest','done'].includes(nextStatus))return '경기중에는 경기 후 휴식 또는 종료만 표시할 수 있습니다.';
+    const playing=p.status==='playing'||!!p.currentMatchId;
+    if(playing&&!['rest','done'].includes(nextStatus))return '경기중에는 경기 후 휴식 또는 종료만 표시할 수 있습니다.';
+    if(playing&&(req.expectedStatus!=='playing'||!req.expectedCurrentMatchId||String(req.expectedCurrentMatchId)!==String(p.currentMatchId||'')))return '선수의 진행 경기가 이미 바뀌었습니다.';
+    if(p.status==='done'&&!p.currentMatchId&&nextStatus==='rest')return '운동 종료 선수는 먼저 복귀로 처리해 주세요.';
     if(!Object.prototype.hasOwnProperty.call(req,'expectedLastStatusAt'))return '선수의 최신 상태를 다시 확인해야 합니다.';
     const delayedMatch=req.expectedStatus==='playing'&&req.expectedCurrentMatchId
       ?_dailyMatches.find(m=>String(m.id)===String(req.expectedCurrentMatchId)&&m.completedAt&&!m.cancelledAt&&[...(m.team1||[]),...(m.team2||[])].includes(p.id))
@@ -7222,7 +7226,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.439&from=daily';
+  location.href='team.html?v=1.10.440&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
