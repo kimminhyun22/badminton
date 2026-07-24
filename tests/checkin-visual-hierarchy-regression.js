@@ -35,6 +35,19 @@ assert(
   source.includes('.event-row.next.priority{'),
   'The first queued match needs a visible priority style.'
 );
+assert(
+  source.includes('class="event-partner-badge">파트너 지정</span>'),
+  'Partner-designated matches need a compact visible badge.'
+);
+assert(
+  renderEvent.includes('partnerMatchBadge(m)'),
+  'Partner badges need to appear in active and queued LIVE match cards.'
+);
+const currentMatch = functionSource('myCurrentMatchHtml', 'queueIdentity');
+assert(
+  currentMatch.includes('partnerMatchBadge(m)'),
+  'A member needs to see the partner badge in their current match card.'
+);
 
 const renderMyCard = functionSource('renderMyCard', 'requestPlayerOptions');
 assert(

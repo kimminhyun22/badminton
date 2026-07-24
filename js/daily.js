@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.444';
+const APP_VERSION = '1.10.445';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -624,6 +624,7 @@ function _dailyClearReservationQueueMeta(q){
   if(!q)return;
   q.reservationId=null;
   q.reservationLabel=null;
+  q.reservationMode=null;
   delete q.reservationAttachedExisting;
   delete q.reservationOriginalTeam1Ids;
   delete q.reservationOriginalTeam2Ids;
@@ -717,7 +718,8 @@ function _dailyReservationMatchFromTeams(r,t1,t2){
     levelDiff,team1Level,team2Level,
     isFlexible:_dailyQueueType(t1,t2)==='예외',
     reservationId:r.id,
-    reservationLabel:_dailyReservationLabel(r)
+    reservationLabel:_dailyReservationLabel(r),
+    reservationMode:r.mode||''
   };
 }
 function _dailyReservationToQueueItem(r,excludeIds){
@@ -785,6 +787,7 @@ function _dailyTryApplyReservationToExistingQueue(r){
   const mark=()=>{
     q.reservationId=r.id;
     q.reservationLabel=_dailyReservationLabel(r);
+    q.reservationMode=r.mode||'';
     q.reservationAttachedExisting=true;
     q.reservationOriginalTeam1Ids=[...(before.team1||before.t1Ids||[])];
     q.reservationOriginalTeam2Ids=[...(before.team2||before.t2Ids||[])];
@@ -1599,7 +1602,17 @@ function _dailyCompactPairNames(players){
 function _dailyQueueMatch(q){
   const t1=(q.team1||[]).map(_dailyPlayer),t2=(q.team2||[]).map(_dailyPlayer);
   if(t1.length!==2||t2.length!==2||t1.some(p=>!p)||t2.some(p=>!p))return null;
-  return {team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],type:q.type||'예외',levelDiff:q.levelDiff||0,team1Level:q.team1Level||0,team2Level:q.team2Level||0,isFlexible:!!q.flexible,teamMode:!!q.teamMode,reservationId:q.reservationId||null,reservationLabel:q.reservationLabel||null};
+  return {team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],type:q.type||'예외',levelDiff:q.levelDiff||0,team1Level:q.team1Level||0,team2Level:q.team2Level||0,isFlexible:!!q.flexible,teamMode:!!q.teamMode,reservationId:q.reservationId||null,reservationLabel:q.reservationLabel||null,reservationMode:q.reservationMode||null};
+}
+function _dailyIsPartnerReservation(item){
+  if(!item)return false;
+  if(['pair','partner'].includes(String(item.reservationMode||'').toLowerCase()))return true;
+  if(String(item.autoHandoffReservation?.mode||'').toLowerCase()==='pair')return true;
+  if(String(item.autoHandoffQueue?.reservationMode||'').toLowerCase()==='pair')return true;
+  return !!item.reservationId&&String(item.reservationLabel||'').includes('같은 편');
+}
+function _dailyPartnerReservationBadge(item){
+  return _dailyIsPartnerReservation(item)?'<span class="daily-partner-badge">파트너 지정</span>':'';
 }
 function _dailyIsQueued(id){
   return _dailyQueue.some(q=>_dailyQueueIds(q).includes(id));
@@ -1668,6 +1681,7 @@ function _dailyQueueFromMatch(m,score,strict){
     teamMode:!!m.teamMode||!!_dailyTeamMode,
     reservationId:m.reservationId||null,
     reservationLabel:m.reservationLabel||null,
+    reservationMode:m.reservationMode||null,
     score:Math.round(score||0),
     strict:!!strict
   };
@@ -4011,7 +4025,7 @@ function dailyStartQueueItem(queueId,options){
     t1Ids:[m.team1A.id,m.team1B.id],t2Ids:[m.team2C.id,m.team2D.id],
     playerIds:[m.team1A.id,m.team1B.id,m.team2C.id,m.team2D.id],
     levelDiff:Number(q.levelDiff||m.levelDiff||0),team1Level:Number(q.team1Level||m.team1Level||0),team2Level:Number(q.team2Level||m.team2Level||0),
-    flexible:!!(q.flexible||m.isFlexible),reservationId:q.reservationId||null,reservationLabel:q.reservationLabel||null
+    flexible:!!(q.flexible||m.isFlexible),reservationId:q.reservationId||null,reservationLabel:q.reservationLabel||null,reservationMode:q.reservationMode||null
   };
   const autoHandoffReservation=options.autoHandoffReservation||(q.reservationId?_dailyReservations.find(r=>r.id===q.reservationId)||null:null);
   _dailyQueue.splice(idx,1);
@@ -4044,6 +4058,7 @@ function dailyStartQueueItem(queueId,options){
     flexible:!!m.isFlexible,
     reservationId:q.reservationId||null,
     reservationLabel:q.reservationLabel||null,
+    reservationMode:q.reservationMode||null,
     previousStatuses,
     autoStarted:!!(options.auto||options.autoHandoffAt),
     ...(options.autoHandoffAt?{
@@ -4095,6 +4110,7 @@ function _dailyRenderQueueItem(q,idx,mode){
   if(!m)return '';
   const lockCount=_dailyQueueLockCount();
   const reserved=!!q.reservationId;
+  const partnerReserved=_dailyIsPartnerReservation(q);
   const expected=mode==='expected'||!!q.expectedOnly;
   const urgent=!expected&&idx<lockCount;
   const teamA=[m.team1A,m.team1B];
@@ -4107,8 +4123,8 @@ function _dailyRenderQueueItem(q,idx,mode){
   const isRestPass=_dailyQueueRestPassActive(q);
   const restPassBadge=isRestPass?`<span class="daily-queue-badge hold">조금 쉬고 입장</span>`:'';
   const canStart=!_dailyPaused&&!expected&&!!_dailyAvailableCourt()&&!isRestPass;
-  const badgeText=expected?'예상 대진':reserved?'게임신청':(urgent?'다음 대진':'대기');
-  const compactTitle=`${orderLabel} · ${m.reservationLabel?'신청경기 · ':''}${esc(m.type)}${m.isFlexible?' · 예외':''} · 팀 실력차 ${esc(String(m.levelDiff))}`;
+  const badgeText=partnerReserved?'파트너 지정':expected?'예상 대진':reserved?'게임신청':(urgent?'다음 대진':'대기');
+  const compactTitle=`${orderLabel} · ${reserved&&!partnerReserved?'신청경기 · ':''}${esc(m.type)}${m.isFlexible?' · 예외':''} · 팀 실력차 ${esc(String(m.levelDiff))}`;
   const playerBtn=(side,pos,p)=>{
     const locked=_dailyPaused||expected||(reserved&&!urgent);
     const disabled=locked?'disabled':'';
@@ -4146,6 +4162,7 @@ function _dailyRenderQueueItem(q,idx,mode){
           <em>vs</em>
           <span class="daily-next-pair b">${nextPlayerBtn('team2',0,m.team2C)}${nextPlayerBtn('team2',1,m.team2D)}</span>
         </div>
+        ${partnerReserved?`<div class="daily-next-note partner">${_dailyPartnerReservationBadge(q)}</div>`:''}
         ${isRestPass?`<div class="daily-next-note hold">${esc(_dailyQueueRestPassLabel(q))}</div>`:''}
       </div>
     </div>`;
@@ -4170,8 +4187,8 @@ function _dailyRenderQueueItem(q,idx,mode){
       <div class="daily-queue-head-main">
         ${urgent||expected?'':`<button class="daily-drag-handle" type="button" title="끌어서 대기 순서 변경" onpointerdown="dailyQueuePointerDown(event,'${q.id}')">☰</button>`}
         <div>
-          <div class="daily-queue-title">${compactTitle}${urgent&&reserved?`<span class="daily-queue-badge locked">신청</span>`:''}${restPassBadge}</div>
-          ${urgent?'':`<span class="daily-queue-badge ${expected?'expected':reserved?'locked':'flex'}">${badgeText}</span>`}
+          <div class="daily-queue-title">${compactTitle}${restPassBadge}</div>
+          ${urgent?'':`<span class="daily-queue-badge ${partnerReserved?'partner':expected?'expected':reserved?'locked':'flex'}">${badgeText}</span>`}
         </div>
       </div>
       ${canStart?`<div class="daily-queue-actions single"><button class="daily-mini-btn primary-action" onclick="dailyStartQueueItem('${q.id}')">${teamMode?'배정':'시작'}</button></div>`:''}
@@ -4307,7 +4324,10 @@ function _dailyPublicEvent(){
       autoHandoffQueueIndex:Number(m.autoHandoffQueueIndex||0),
       autoHandoffQueue:m.autoHandoffQueue||null,
       autoHandoffPlayerStates:m.autoHandoffPlayerStates||null,
-      autoHandoffReservation:m.autoHandoffReservation||null
+      autoHandoffReservation:m.autoHandoffReservation||null,
+      reservationId:m.reservationId||null,
+      reservationLabel:m.reservationLabel||null,
+      reservationMode:m.reservationMode||null
     };
   });
   const queuePayload=(q,idx,extra)=>{
@@ -4326,6 +4346,7 @@ function _dailyPublicEvent(){
       flexible:!!(q.flexible||m.isFlexible),
       reservationId:q.reservationId||null,
       reservationLabel:q.reservationLabel||null,
+      reservationMode:q.reservationMode||null,
       reservationAttachedExisting:!!q.reservationAttachedExisting,
       reservationOriginalTeam1Ids:[...(q.reservationOriginalTeam1Ids||[])],
       reservationOriginalTeam2Ids:[...(q.reservationOriginalTeam2Ids||[])],
@@ -5686,7 +5707,7 @@ function _dailyServerQueueResultRequest(result,serverAppliedAt,queueIndex){
     expectedTeam2Ids:team2,
     queueType:q.type||'',queueTeamMode:!!q.teamMode,
     queueLevelDiff:Number(q.levelDiff||0),queueTeam1Level:Number(q.team1Level||0),queueTeam2Level:Number(q.team2Level||0),
-    queueFlexible:!!q.flexible,queueReservationId:q.reservationId||null,queueReservationLabel:q.reservationLabel||null,
+    queueFlexible:!!q.flexible,queueReservationId:q.reservationId||null,queueReservationLabel:q.reservationLabel||null,queueReservationMode:q.reservationMode||null,
     createdAt:serverAppliedAt
   };
 }
@@ -5708,6 +5729,7 @@ function _dailyQueueFromServerSyncItem(item){
     teamMode:!!item?.teamMode,
     reservationId:item?.reservationId||null,
     reservationLabel:item?.reservationLabel||null,
+    reservationMode:item?.reservationMode||null,
     reservationAttachedExisting:!!item?.reservationAttachedExisting,
     reservationOriginalTeam1Ids:[...(item?.reservationOriginalTeam1Ids||[])],
     reservationOriginalTeam2Ids:[...(item?.reservationOriginalTeam2Ids||[])],
@@ -5777,6 +5799,7 @@ function _dailyPrepareServerQueueRequest(req){
       teamMode:!!req.queueTeamMode,
       reservationId:req.queueReservationId||null,
       reservationLabel:req.queueReservationLabel||null,
+      reservationMode:req.queueReservationMode||null,
       strict:!req.queueFlexible,
       score:0,
       serverRestored:true
@@ -7105,7 +7128,7 @@ function dailyRenderMatches(){
     const labelB=_dailyMatchSideLabel(m,'t2');
     return `<div class="daily-match">
       <div class="daily-match-top">
-        <div class="daily-match-title">${done?'최근 완료':'진행중'} · 투입 ${m.seq} · 코트 ${m.court} · ${m.reservationLabel?'신청경기 · ':''}${esc(m.type)}${m.flexible?' · 예외':''} · 25점</div>
+        <div class="daily-match-title">${done?'최근 완료':'진행중'} · 투입 ${m.seq} · 코트 ${m.court} · ${m.reservationLabel&&!_dailyIsPartnerReservation(m)?'신청경기 · ':''}${esc(m.type)}${m.flexible?' · 예외':''} · 25점 ${_dailyPartnerReservationBadge(m)}</div>
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
           ${done?`<span class="daily-status done">완료</span>`:`<span class="daily-timer ${_dailyTimerState(m)==='soon'?'soon':''} ${_dailyTimerState(m)==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>`}
         </div>
@@ -7144,7 +7167,7 @@ function dailyRenderMatches(){
     const playerButton=(side,p,i)=>`<button class="daily-active-player" type="button" ${pausedAttr} title="이름을 눌러 대기선수로 교체" onclick="dailyPickActiveReplacement('${m.id}','${side}',${i})">${_dailyNameHtml(p)}</button>`;
     return `<div class="daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
       <div class="daily-court-head">
-        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" ${pausedAttr} title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button></div>
+        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" ${pausedAttr} title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button>${_dailyPartnerReservationBadge(m)}</div>
         <span class="daily-timer ${state==='soon'?'soon':''} ${state==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>
       </div>
       <div class="daily-court-body">
@@ -7420,7 +7443,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.444&from=daily';
+  location.href='team.html?v=1.10.445&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

@@ -315,6 +315,18 @@ assert.strictEqual(reserved.outcome.terminal.status,'applied','임원 파트너 
 const pairQueue=reserved.outcome.current.session.event.next.find(item=>item.reservationId==='sr_rolling_partner_0001');
 assert(pairQueue,'접수한 파트너를 서버가 다음 대진에 편성해야 합니다.');
 assert(pairIds.every(id=>pairQueue.t1Ids.includes(id))||pairIds.every(id=>pairQueue.t2Ids.includes(id)),'접수한 두 선수는 같은 편이어야 합니다.');
+assert.strictEqual(pairQueue.reservationMode,'pair','파트너 지정 정보가 다음 대진 표시까지 유지되어야 합니다.');
+const pairQueueIndex=reserved.outcome.current.session.event.next.findIndex(item=>item.reservationId==='sr_rolling_partner_0001');
+if(pairQueueIndex>0){
+  const [partnerItem]=reserved.outcome.current.session.event.next.splice(pairQueueIndex,1);
+  reserved.outcome.current.session.event.next.unshift(partnerItem);
+}
+const pairStarted=complete(reserved.outcome.current,reserved.outcome.current.session.event.active[0],99,BASE_NOW+2000);
+assert.strictEqual(pairStarted.outcome.terminal.status,'applied','파트너 지정 대진도 코트에 정상 투입되어야 합니다.');
+const pairActive=pairStarted.outcome.current.session.event.active.find(item=>item.reservationId==='sr_rolling_partner_0001');
+assert(pairActive,'파트너 지정 대진이 진행 경기에서도 식별되어야 합니다.');
+assert.strictEqual(pairActive.reservationMode,'pair','파트너 지정 정보가 진행 경기 표시까지 유지되어야 합니다.');
+assert(String(pairActive.reservationLabel||'').includes('같은 편'),'진행 경기에도 파트너 지정 설명이 유지되어야 합니다.');
 
 const undoBase=JSON.parse(JSON.stringify(state));
 const undoMatch=state.session.event.active[0];

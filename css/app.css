@@ -1182,10 +1182,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-queue-title{font-size:.76rem;font-weight:900;color:var(--txt);line-height:1.4;}
 .daily-queue-badge{display:inline-flex;align-items:center;font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;white-space:nowrap;border:1px solid var(--bdr);}
 .daily-queue-badge.locked{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
+.daily-queue-badge.partner,.daily-partner-badge{display:inline-flex;align-items:center;width:max-content;border:1px solid #b8dec9;border-radius:999px;background:#eef8f3;color:#176347;font-size:.6rem;font-weight:1000;line-height:1.2;letter-spacing:0;padding:3px 8px;white-space:nowrap;}
 .daily-queue-badge.flex{background:#f8fafc;border-color:#dbe3ec;color:#64748b;}
 .daily-queue-badge.expected{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
 .daily-queue-badge.hold{margin-left:5px;background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
 .daily-next-note{margin-top:5px;font-size:.62rem;font-weight:900;color:#64748b;}
+.daily-next-note.partner{display:flex;align-items:center;}
 .daily-next-note.hold{color:#166534;}
 .daily-start-cue{display:inline-flex;align-items:center;margin-left:5px;margin-top:5px;font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;border:1px solid var(--bdr);background:#fff;color:var(--dim);white-space:nowrap;}
 .daily-start-cue.free{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
@@ -2630,12 +2632,17 @@ body.monthly-team-mode .team-partner-help{display:block;}
   padding:18px 20px 6px;
 }
 .daily-court-title{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
   color:var(--ml-blue-deep);
   font-size:1.22rem;
   font-weight:1000;
   line-height:1.1;
   letter-spacing:-.06em;
 }
+.daily-match-title .daily-partner-badge{margin-left:5px;vertical-align:middle;}
 .daily-court-title-btn{
   appearance:none;
   -webkit-appearance:none;

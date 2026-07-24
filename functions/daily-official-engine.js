@@ -223,6 +223,7 @@ function attachPartnerToPrepared(session, reservation){
       }
       item.reservationId = reservation.id;
       item.reservationLabel = reservation.label;
+      item.reservationMode = reservation.mode || 'pair';
       item.reservationAttachedExisting = true;
       item.reservationOriginalTeam1Ids = [...originalTeam1];
       item.reservationOriginalTeam2Ids = [...originalTeam2];
@@ -258,6 +259,7 @@ function detachPartnerFromPrepared(session, reservationId){
         if(originalTeam1.length === 2 && originalTeam2.length === 2)writePreparedTeams(session, item, originalTeam1, originalTeam2);
         delete item.reservationId;
         delete item.reservationLabel;
+        delete item.reservationMode;
         delete item.reservationAttachedExisting;
         delete item.reservationOriginalTeam1Ids;
         delete item.reservationOriginalTeam2Ids;
@@ -789,6 +791,8 @@ function startPreparedItem(session, item, index, court, now, requestId, options 
     timerState:'normal',
     transitionStarted:false,
     reservationId:item.reservationId || null,
+    reservationLabel:item.reservationLabel || reservation?.label || null,
+    reservationMode:item.reservationMode || reservation?.mode || null,
     serverStartedBy:options.actorPlayerId || '',
     serverRequestId:requestId
   };

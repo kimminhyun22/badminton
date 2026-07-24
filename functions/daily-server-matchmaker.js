@@ -462,6 +462,7 @@ function queueItem(session, pairing, now, requestId, index, reservation){
     score:Math.round(pairing.score),
     reservationId:reservation?.id || null,
     reservationLabel:reservation?.label || null,
+    reservationMode:reservation?.mode || null,
     restPass:false,
     restPassText:''
   };

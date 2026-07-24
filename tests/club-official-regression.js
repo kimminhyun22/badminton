@@ -90,6 +90,7 @@ function nextTeamLine(row){return '<span>'+row.t1.join(' ')+' vs '+row.t2.join('
 function memberQueueCueText(){return '';}
 function officialQueueCueText(){return '';}
 function officialQueueCardActionsHtml(){return '';}
+function partnerMatchBadge(){return '';}
 ${memberEventBoard}
 this.rendered=()=>{renderEvent();return eventPanel.innerHTML;};
 `,memberEventRenderSandbox);
