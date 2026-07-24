@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.443';
+const APP_VERSION = '1.10.444';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -311,6 +311,7 @@ let _dailyLastCompleteUndo=null;
 let _dailyOperatorHeartbeatId=null;
 let _dailyOperatorWakeLock=null;
 let _dailyServerRevision=0;
+let _dailyServerLastRequestId='';
 let _dailyOfficialInviteToken='';
 let _dailyOfficialInviteHash='';
 let _dailyCapabilityPromise=null;
@@ -1804,10 +1805,10 @@ function _dailyPersistedCompleteUndo(){
   if(!undo||!undo.token||!undo.state||_dailyNow()>=Number(undo.expiresAt||0))return null;
   return JSON.parse(JSON.stringify(undo));
 }
-function dailySave(){
+function dailySave(options){
   try{
     _dailyClearSimpleTeamState();
-    if(!_dailyPaused)dailyEnsureQueue();
+    if(!_dailyPaused&&!options?.preserveServerQueue)dailyEnsureQueue();
     localStorage.setItem(DAILY_KEY,JSON.stringify({
       mode:'daily',
       appMode:'dailyLive',
@@ -1841,6 +1842,7 @@ function dailySave(){
       checkinId:_dailyCheckinId,
       checkinCreatedAt:_dailyCheckinCreatedAt,
       serverRevision:_dailyServerRevision,
+      serverLastRequestId:_dailyServerLastRequestId,
       officialInviteToken:_dailyOfficialInviteToken,
       officialInviteHash:_dailyOfficialInviteHash,
       lastCompleteUndo:_dailyPersistedCompleteUndo()
@@ -1914,7 +1916,7 @@ function _dailyLoadAsNewDay(s){
   if(staleCheckinId&&_fbInit())_fbDb.ref('live/checkin_'+staleCheckinId).remove().catch(()=>{});
   _dailyClearAdminGrant();
   _dailyCheckinId=null;_dailyCheckinCreatedAt=0;_dailyCheckinRequests=[];_dailyCheckinParty={};
-  _dailyServerRevision=0;_dailyOfficialInviteToken='';_dailyOfficialInviteHash='';_dailyCapabilityPromise=null;_dailyServerReconcileError='';
+  _dailyServerRevision=0;_dailyServerLastRequestId='';_dailyOfficialInviteToken='';_dailyOfficialInviteHash='';_dailyCapabilityPromise=null;_dailyServerReconcileError='';
   localStorage.removeItem(DAILY_CHECKIN_KEY);
   localStorage.removeItem(DAILY_CHECKIN_CREATED_KEY);
   _dailyMarkFourCacheDirty();
@@ -1969,6 +1971,7 @@ function dailyLoad(){
     _dailyCheckinId=s.checkinId||localStorage.getItem(DAILY_CHECKIN_KEY)||null;
     _dailyCheckinCreatedAt=s.checkinCreatedAt||parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||(_dailyCheckinId?(s.savedAt||_dailyNow()):0);
     _dailyServerRevision=Math.max(0,Number(s.serverRevision||0));
+    _dailyServerLastRequestId=String(s.serverLastRequestId||'');
     _dailyOfficialInviteToken=String(s.officialInviteToken||'');
     _dailyOfficialInviteHash=String(s.officialInviteHash||'');
     _dailyServerReconcileError='';
@@ -2056,6 +2059,7 @@ function dailyApplyReviewSample(){
   _dailyCheckinId='DFAKE201';
   _dailyCheckinCreatedAt=now;
   _dailyServerRevision=0;
+  _dailyServerLastRequestId='';
   _dailyOfficialInviteToken='';
   _dailyOfficialInviteHash='';
   _dailyServerReconcileError='';
@@ -2648,6 +2652,7 @@ function dailyReset(){
   _dailyCheckinId=null;
   _dailyCheckinCreatedAt=0;
   _dailyServerRevision=0;
+  _dailyServerLastRequestId='';
   _dailyOfficialInviteToken='';
   _dailyOfficialInviteHash='';
   _dailyCapabilityPromise=null;
@@ -4337,7 +4342,7 @@ function _dailyPublicEvent(){
       playerIds:[m.team1A.id,m.team1B.id,m.team2C.id,m.team2D.id],
       cue:info.text,
       cueDetail:info.detail,
-      restPass:restPass&&!extra,
+      restPass:restPass&&!extra?JSON.parse(JSON.stringify(q.restPass)):null,
       restPassText:restPass?_dailyQueueRestPassLabel(q):'',
       cueState:extra?'expected':info.state,
       expected:!!extra
@@ -4862,6 +4867,7 @@ function _dailyPersistServerIdentity(){
     const state=JSON.parse(raw);
     if(state.mode&&state.mode!=='daily'&&state.appMode!=='dailyLive')return;
     state.serverRevision=_dailyServerRevision;
+    state.serverLastRequestId=_dailyServerLastRequestId;
     state.officialInviteToken=_dailyOfficialInviteToken;
     state.officialInviteHash=_dailyOfficialInviteHash;
     localStorage.setItem(DAILY_KEY,JSON.stringify(state));
@@ -4961,15 +4967,43 @@ async function _dailyPullServerReconcile(retriedGrant){
   try{
     if(!await _dailyEnsureAdminGrant())return false;
     const callable=firebase.functions().httpsCallable('getDailyOfficialReconcile');
-    const result=await callable({checkinId:_dailyCheckinId,grantToken:_dailyAdminGrantToken,sinceRevision:_dailyServerRevision});
+    const result=await callable({
+      checkinId:_dailyCheckinId,
+      grantToken:_dailyAdminGrantToken,
+      sinceRevision:_dailyServerRevision,
+      lastRequestId:_dailyServerLastRequestId
+    });
     const data=result?.data||{};
     const serverRevision=Math.max(0,Number(data.serverRevision||0));
-    if(serverRevision<=_dailyServerRevision){
+    const serverLastRequestId=String(data.serverLastRequestId||'');
+    if(serverRevision<_dailyServerRevision){
+      _dailyServerReconcileError='관리자 원본이 서버 운영 기록보다 앞서 있어 자동 게시를 멈췄습니다.';
+      return false;
+    }
+    const sameRevisionMismatch=serverRevision===_dailyServerRevision
+      &&serverLastRequestId
+      &&serverLastRequestId!==_dailyServerLastRequestId;
+    if(serverRevision===_dailyServerRevision&&!sameRevisionMismatch){
+      if(serverLastRequestId){
+        _dailyServerLastRequestId=serverLastRequestId;
+        _dailyPersistServerIdentity();
+      }
       _dailyServerReconcileError='';
       dailyProcessCheckinRequests();
       dailyPushCheckinSession();
       dailyRenderCheckinRequests();
       return true;
+    }
+    if(sameRevisionMismatch){
+      const latestIncluded=(data.commands||[]).some(req=>
+        req&&req.serverAppliedAt&&Number(req.serverRevision||0)===serverRevision
+        &&String(req.operationId||req.key||'')===serverLastRequestId
+      );
+      if(!latestIncluded){
+        _dailyServerReconcileError='서버의 최근 운영 기록을 다시 불러오지 못해 자동 게시를 멈췄습니다.';
+        return false;
+      }
+      _dailyServerRevision=Math.max(0,serverRevision-1);
     }
     const trusted=(data.commands||[])
       .filter(req=>req&&req.serverAppliedAt&&Number(req.serverRevision||0)>_dailyServerRevision)
@@ -4977,7 +5011,7 @@ async function _dailyPullServerReconcile(retriedGrant){
     const pending=_dailyCheckinRequests.filter(req=>!req.serverAppliedAt&&!req.serverRejectedAt);
     _dailyCheckinRequests=[...trusted,...pending];
     dailyProcessCheckinRequests();
-    if(_dailyServerRevision!==serverRevision){
+    if(_dailyServerRevision!==serverRevision||(serverLastRequestId&&_dailyServerLastRequestId!==serverLastRequestId)){
       _dailyServerReconcileError='서버 운영 기록 일부를 관리자 원본에 연결하지 못했습니다.';
       return false;
     }
@@ -5007,6 +5041,8 @@ async function _dailyPullServerReconcile(retriedGrant){
 }
 function _dailyServerRuntimePayload(){
   const holds={};
+  const fourCounts={};
+  const exactCounts={};
   _dailyMatches.forEach(match=>{
     if(!match?.completedAt||match.cancelledAt||!match.officialEntryPending)return;
     const court=parseInt(match.officialEntryCourt||match.court,10);
@@ -5018,7 +5054,36 @@ function _dailyServerRuntimePayload(){
       createdAt:Number(match.officialEntryPendingAt||match.completedAt||0)
     };
   });
-  return {holds,nextSeq:_dailySeq};
+  _dailyMatches.forEach(match=>{
+    if(!match?.completedAt||match.cancelledAt)return;
+    const fourKey=_dailyMatchFourKey(match);
+    const exactKey=_dailyMatchExactKey(match);
+    if(fourKey)fourCounts[fourKey]=(fourCounts[fourKey]||0)+1;
+    if(exactKey)exactCounts[exactKey]=(exactCounts[exactKey]||0)+1;
+  });
+  return {holds,nextSeq:_dailySeq,fourCounts,exactCounts};
+}
+function _dailyServerPlayerHistory(){
+  const history=new Map();
+  const row=id=>{
+    if(!history.has(id))history.set(id,{partnerCountById:{},opponentCountById:{}});
+    return history.get(id);
+  };
+  const inc=(map,id)=>{if(id)map[id]=(map[id]||0)+1;};
+  _dailyMatches.forEach(match=>{
+    if(!match?.completedAt||match.cancelledAt)return;
+    const teams=_dailyMatchTeams(match);
+    if(teams.t1.length!==2||teams.t2.length!==2)return;
+    inc(row(teams.t1[0].id).partnerCountById,teams.t1[1].id);
+    inc(row(teams.t1[1].id).partnerCountById,teams.t1[0].id);
+    inc(row(teams.t2[0].id).partnerCountById,teams.t2[1].id);
+    inc(row(teams.t2[1].id).partnerCountById,teams.t2[0].id);
+    teams.t1.forEach(first=>teams.t2.forEach(second=>{
+      inc(row(first.id).opponentCountById,second.id);
+      inc(row(second.id).opponentCountById,first.id);
+    }));
+  });
+  return history;
 }
 function _dailyFirstMatchStartedAt(){
   const starts=_dailyMatches.map(m=>m.startedAt||0).filter(Boolean);
@@ -5045,6 +5110,7 @@ function _dailyExpireCheckinLink(silent){
   _dailyCheckinRequests=[];
   _dailyCheckinParty={};
   _dailyServerRevision=0;
+  _dailyServerLastRequestId='';
   _dailyOfficialInviteToken='';
   _dailyOfficialInviteHash='';
   _dailyCapabilityPromise=null;
@@ -5182,6 +5248,7 @@ function _dailyOfficialArrivalCandidates(){
   return candidates.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
 }
 function _dailyCheckinPayload(){
+  const serverPlayerHistory=_dailyServerPlayerHistory();
   return {
     title:'콕매치 민턴LIVE 내 경기',
     serverSessionId:_dailyCheckinId||'',
@@ -5192,6 +5259,7 @@ function _dailyCheckinPayload(){
     version:APP_VERSION,
     commandProtocol:_dailyOfficialInviteHash?DAILY_OFFICIAL_COMMAND_PROTOCOL:1,
     serverRevision:_dailyServerRevision,
+    serverLastRequestId:_dailyServerLastRequestId,
     pauseRevision:_dailyPauseRevision,
     officialInvite:_dailyOfficialInviteHash?{
       tokenHash:_dailyOfficialInviteHash,
@@ -5208,7 +5276,9 @@ function _dailyCheckinPayload(){
     players:_dailyPlayers
       .filter(p=>p.name)
       .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
-      .map(p=>({
+      .map(p=>{
+        const history=serverPlayerHistory.get(p.id)||{partnerCountById:{},opponentCountById:{}};
+        return {
         id:p.id,
         memberId:p.memberId||'',
         name:p.name,
@@ -5225,6 +5295,12 @@ function _dailyCheckinPayload(){
         games:p.games||0,
         mixedGames:p.mixedGames||0,
         typeTrackedGames:p.typeTrackedGames||0,
+        lastPlayedSeq:p.lastPlayedSeq||0,
+        partnerName:p.partnerName||'',
+        partnerId:p.partnerId||'',
+        partnerCountById:{...history.partnerCountById},
+        opponentCountById:{...history.opponentCountById},
+        team:p.team||'',
         joinedAt:p.joinedAt||0,
         waitFrom:p.waitFrom||0,
         restPausedMs:Number(p.restPausedMs||0),
@@ -5233,7 +5309,8 @@ function _dailyCheckinPayload(){
         currentMatchId:p.currentMatchId||'',
         voteLocked:false,
         locked:p.status==='playing'||!!p.currentMatchId
-      })),
+        };
+      }),
     reservations:_dailyReservations.map(r=>{
       const status=_dailyReservationStatus(r);
       return {
@@ -5246,7 +5323,11 @@ function _dailyCheckinPayload(){
         statusDetail:status.detail||'',
         statusClass:status.cls||'',
         ready:!!status.ready,
-        createdAt:r.createdAt||0
+        createdAt:r.createdAt||0,
+        source:r.source||'',
+        preserveOrder:!!r.preserveOrder,
+        requestKey:r.requestKey||'',
+        note:r.note||''
       };
     }),
     statuses:[
@@ -5267,6 +5348,7 @@ function dailyEnsureCheckinId(){
     _dailyCheckinId=_dailyCheckinGenId();
     _dailyCheckinCreatedAt=_dailyNow();
     _dailyServerRevision=0;
+    _dailyServerLastRequestId='';
     _dailyOfficialInviteToken='';
     _dailyOfficialInviteHash='';
     localStorage.setItem(DAILY_CHECKIN_KEY,_dailyCheckinId);
@@ -5277,11 +5359,14 @@ function dailyEnsureCheckinId(){
 function _dailyWriteCheckinPayload(path){
   const payload=_dailyCheckinPayload();
   const payloadServerRevision=Math.max(0,Number(payload.serverRevision||0));
+  const payloadLastRequestId=String(payload.serverLastRequestId||'');
   const payloadPauseRevision=Math.max(0,Number(payload.event?.pauseRevision||payload.pauseRevision||0));
   return _fbDb.ref(path+'/session').transaction(current=>{
     const remoteRevision=Math.max(0,Number(current?.serverRevision||0));
+    const remoteLastRequestId=String(current?.serverLastRequestId||'');
     const remotePauseRevision=Math.max(0,Number(current?.event?.pauseRevision||current?.pauseRevision||0));
     if(remoteRevision>payloadServerRevision||remotePauseRevision>payloadPauseRevision)return;
+    if(remoteRevision===payloadServerRevision&&remoteLastRequestId&&remoteLastRequestId!==payloadLastRequestId)return;
     return payload;
   },undefined,false).then(result=>{
     if(!result.committed){
@@ -5292,6 +5377,12 @@ function _dailyWriteCheckinPayload(path){
       if(Number(remote.event?.pauseRevision||remote.pauseRevision||0)>_dailyPauseRevision){
         _dailyAdoptRemotePauseEvent(remote.event||{});
         console.info('민턴LIVE 일시정지 상태가 더 최신이라 해당 상태를 유지했습니다.');
+      }
+      if(Number(remote.serverRevision||0)===_dailyServerRevision
+        &&String(remote.serverLastRequestId||'')
+        &&String(remote.serverLastRequestId||'')!==_dailyServerLastRequestId){
+        console.info('민턴LIVE 같은 리비전의 서버 운영 식별자가 달라 로컬 게시를 보류했습니다.');
+        if(_dailyOfficialInviteHash)setTimeout(()=>_dailyPullServerReconcile().catch(()=>{}),0);
       }
     }
     return result;
@@ -5599,6 +5690,61 @@ function _dailyServerQueueResultRequest(result,serverAppliedAt,queueIndex){
     createdAt:serverAppliedAt
   };
 }
+function _dailyQueueFromServerSyncItem(item){
+  const team1=[...(item?.t1Ids||item?.team1||[])].map(String).filter(Boolean);
+  const team2=[...(item?.t2Ids||item?.team2||[])].map(String).filter(Boolean);
+  const ids=[...team1,...team2];
+  if(ids.length!==4||new Set(ids).size!==4||ids.some(id=>!_dailyPlayer(id)))return null;
+  const q={
+    id:String(item?.queueId||item?.id||('dq_server_'+_dailyNow())),
+    createdAt:Number(item?.createdAt||item?.serverGeneratedAt||_dailyNow()),
+    team1,
+    team2,
+    type:item?.type||'예외',
+    levelDiff:Number(item?.levelDiff||0),
+    team1Level:Number(item?.team1Level||0),
+    team2Level:Number(item?.team2Level||0),
+    flexible:!!item?.flexible,
+    teamMode:!!item?.teamMode,
+    reservationId:item?.reservationId||null,
+    reservationLabel:item?.reservationLabel||null,
+    reservationAttachedExisting:!!item?.reservationAttachedExisting,
+    reservationOriginalTeam1Ids:[...(item?.reservationOriginalTeam1Ids||[])],
+    reservationOriginalTeam2Ids:[...(item?.reservationOriginalTeam2Ids||[])],
+    yieldedAt:Number(item?.yieldedAt||0),
+    yieldedBy:item?.yieldedBy||'',
+    yieldedSource:item?.yieldedSource||'',
+    yieldedCount:Number(item?.yieldedCount||0),
+    yieldedFromIndex:Number(item?.yieldedFromIndex||0),
+    yieldedToIndex:Number(item?.yieldedToIndex||0),
+    yieldedSteps:Number(item?.yieldedSteps||0),
+    restPass:item?.restPass&&typeof item.restPass==='object'?JSON.parse(JSON.stringify(item.restPass)):null,
+    restPassText:item?.restPassText||'',
+    serverGenerated:!!item?.serverGenerated,
+    serverGeneratedAt:Number(item?.serverGeneratedAt||0),
+    serverGeneratedBy:item?.serverGeneratedBy||'',
+    strict:item?.strict!==false,
+    score:Number(item?.score||0),
+    serverRestored:true
+  };
+  _dailyRecalcQueueItem(q);
+  q.strict=item?.strict!==false&&!q.flexible;
+  return q;
+}
+function _dailyApplyServerQueueSync(req){
+  const sync=req?.serverResult?.queueSync;
+  if(!sync||!Array.isArray(sync.next))return true;
+  const next=[],used=new Set();
+  for(const item of sync.next){
+    const q=_dailyQueueFromServerSyncItem(item);
+    if(!q||!_dailyQueueItemValid(q,used))return false;
+    next.push(q);
+    _dailyQueueIds(q).forEach(id=>used.add(id));
+  }
+  _dailyQueue=next;
+  _dailyRefreshNextFromQueue();
+  return true;
+}
 function _dailyPrepareServerQueueRequest(req){
   if(!req?.serverAppliedAt)return true;
   if(['official-court-complete','official-active-yield'].includes(req.type)){
@@ -5759,7 +5905,10 @@ function _dailyOfficialRequestError(req){
     const q=_dailyQueue[idx];
     const ids=_dailyQueueIds(q);
     if(!Array.isArray(req.expectedPlayerIds)||req.expectedPlayerIds.length!==4)return '다음 대진 선수를 다시 확인해야 합니다.';
+    if(!Array.isArray(req.expectedTeam1Ids)||req.expectedTeam1Ids.length!==2||!Array.isArray(req.expectedTeam2Ids)||req.expectedTeam2Ids.length!==2)return '다음 대진 팀 구성을 다시 확인해야 합니다.';
+    if(!Object.prototype.hasOwnProperty.call(req,'expectedQueueIndex')||Number(req.expectedQueueIndex)!==idx+1)return '다음 대진 순서가 이미 바뀌었습니다.';
     if(_dailyOfficialFingerprint(req.expectedPlayerIds)!==_dailyOfficialFingerprint(ids))return '다음 대진 선수가 이미 바뀌었습니다.';
+    if(!_dailyOfficialTeamFingerprint(req.expectedTeam1Ids,req.expectedTeam2Ids)||_dailyOfficialTeamFingerprint(req.expectedTeam1Ids,req.expectedTeam2Ids)!==_dailyOfficialTeamFingerprint(q.team1,q.team2))return '다음 대진 팀 구성이 이미 바뀌었습니다.';
     const courtError=_dailyFreeCourtRequestError({...req,playerId:ids[0]||''});
     if(courtError)return courtError;
     const info=_dailyQueueStartInfo(idx);
@@ -5925,6 +6074,7 @@ function dailyProcessCheckinRequests(){
   if(_dailyCheckinApplying)return;
   _dailyCheckinApplying=true;
   let changed=false;
+  let serverQueueSynced=false;
   const now=_dailyNow();
   try{
     const latestByPlayer=new Map();
@@ -5933,6 +6083,11 @@ function dailyProcessCheckinRequests(){
     const autoRejected=[];
     let serverReconcileBlocked=false;
     const finishOfficial=(req,ok,reason,stateChanged)=>{
+      const hasQueueSync=!!(req.serverAppliedAt&&Array.isArray(req.serverResult?.queueSync?.next));
+      if(req.serverAppliedAt&&ok&&!_dailyApplyServerQueueSync(req)){
+        ok=false;
+        reason='서버에서 보충한 다음 대진을 관리자 원본에 연결하지 못했습니다.';
+      }
       if(req.serverAppliedAt){
         if(!ok){
           _dailyServerReconcileError=reason||'서버 운영 결과를 관리자 원본에 연결하지 못했습니다.';
@@ -5940,6 +6095,8 @@ function dailyProcessCheckinRequests(){
           return;
         }
         _dailyServerRevision=Number(req.serverRevision||_dailyServerRevision);
+        _dailyServerLastRequestId=String(req.operationId||req.key||_dailyServerLastRequestId);
+        if(hasQueueSync)serverQueueSynced=true;
         _dailyServerReconcileError='';
         autoApplied.push(req);
         changed=true;
@@ -6200,14 +6357,14 @@ function dailyProcessCheckinRequests(){
     _dailyCheckinApplying=false;
   }
   if(changed){
-    if(!_dailyPaused){
+    if(!_dailyPaused&&!serverQueueSynced){
       dailyEnsureQueue();
       _dailyPromoteReadyReservations(true);
     }
     if(_dailyLastCompleteUndo&&!_dailyLastCompleteUndo.guard){
       _dailyLastCompleteUndo.guard=_dailyCompleteUndoGuard();
     }
-    dailySave();
+    dailySave({preserveServerQueue:serverQueueSynced});
     dailyRender();
     dailyMaybeAutoAssign();
   }
@@ -6285,6 +6442,7 @@ async function dailyStopCheckinLink(){
   _dailyCheckinRequests=[];
   _dailyCheckinParty={};
   _dailyServerRevision=0;
+  _dailyServerLastRequestId='';
   _dailyOfficialInviteToken='';
   _dailyOfficialInviteHash='';
   _dailyCapabilityPromise=null;
@@ -7262,7 +7420,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.443&from=daily';
+  location.href='team.html?v=1.10.444&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

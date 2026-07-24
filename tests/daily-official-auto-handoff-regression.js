@@ -114,6 +114,13 @@ assert.strictEqual(expired.terminal.status,'rejected','자동 투입 후 2분이
 
 let noReplacementRoot=root();
 noReplacementRoot.session.event.next=[noReplacementRoot.session.event.next[0]];
+for(const id of ['p1','p2','p3','p4']){
+  noReplacementRoot.session.players.find(player=>player.id===id).afterMatchStatus='done';
+}
+for(const id of ['p13','p14','p15','p16','spare']){
+  const player=noReplacementRoot.session.players.find(row=>row.id===id);
+  player.status='done';player.statusLabel='done';player.currentMatchId='';
+}
 let noReplacement=complete(noReplacementRoot,'single_complete_1','m1',NOW,'single_auto').current;
 const noReplacementYield=activeYield(noReplacement,'sm_single_complete_1',NOW+10_000,'single_yield_01');
 assert.strictEqual(noReplacementYield.terminal.status,'rejected','대체할 다음 대진이 없으면 진행 경기를 빈 코트로 만들면 안 됩니다.');

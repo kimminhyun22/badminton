@@ -17,6 +17,7 @@ admin.initializeApp();
 const OFFICIAL_GRANT_SECRET = defineSecret('OFFICIAL_GRANT_SECRET');
 const REGION = 'us-central1';
 const MAX_GRANT_MS = 48 * 60 * 60 * 1000;
+const MAX_COMMAND_BYTES = 24 * 1024;
 const FUNCTION_OPTIONS = {
   region:REGION,
   secrets:[OFFICIAL_GRANT_SECRET],
@@ -142,7 +143,11 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
   const clientId = cleanClientId(verified.payload.cid);
   const grantPlayerId = cleanOptionalPlayerId(verified.payload.pid);
   const storedCommand = publicCommand(request.data?.command, operationId);
-  const payloadHash = sha256(canonicalJson(storedCommand));
+  const canonicalCommand = canonicalJson(storedCommand);
+  if(Buffer.byteLength(canonicalCommand, 'utf8') > MAX_COMMAND_BYTES){
+    throw new HttpsError('invalid-argument', '운영 명령 내용이 너무 큽니다. 화면을 새로 연 뒤 다시 처리해 주세요.');
+  }
+  const payloadHash = sha256(canonicalCommand);
   const engineCommand = {...storedCommand, officialGrantToken:grantToken};
   const ref = admin.database().ref(`live/checkin_${checkinId}`);
   let failureCode = '';
@@ -170,6 +175,7 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
 exports.getDailyOfficialReconcile = onCall(FUNCTION_OPTIONS, async request=>{
   const checkinId = cleanCheckinId(request.data?.checkinId);
   const sinceRevision = Math.max(0, Math.floor(Number(request.data?.sinceRevision || 0)));
+  const lastRequestId = String(request.data?.lastRequestId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
   const now = Date.now();
   const secret = OFFICIAL_GRANT_SECRET.value();
   const verified = verifyOfficialGrant(String(request.data?.grantToken || ''), secret, checkinId, now);
@@ -191,9 +197,14 @@ exports.getDailyOfficialReconcile = onCall(FUNCTION_OPTIONS, async request=>{
     throw new HttpsError('permission-denied', '선택한 임원 본인 정보를 다시 확인해 주세요.');
   }
   const serverRevision = Math.max(0, Number(current.session.serverRevision || 0));
+  const serverLastRequestId = String(current.session.serverLastRequestId || '');
+  const replayLatest = sinceRevision === serverRevision
+    && serverLastRequestId
+    && lastRequestId !== serverLastRequestId;
+  const revisionFloor = replayLatest ? Math.max(0, serverRevision - 1) : sinceRevision;
   const commands = Object.entries(current.requests || {})
     .map(([key,row])=>({key,...row}))
-    .filter(row=>row.serverAppliedAt && Number(row.serverRevision || 0) > sinceRevision)
+    .filter(row=>row.serverAppliedAt && Number(row.serverRevision || 0) > revisionFloor)
     .sort((a,b)=>Number(a.serverRevision || 0)-Number(b.serverRevision || 0));
-  return {ok:true,serverRevision,commands};
+  return {ok:true,serverRevision,serverLastRequestId,commands};
 });

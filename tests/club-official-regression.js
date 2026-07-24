@@ -583,7 +583,7 @@ const heldYield={...validYield,expectedCueState:'free',expectedTargetCourt:1,exp
 assert.strictEqual(validationSandbox.api.error(heldYield),'','현재 종료 건과 코트가 일치하는 임원 요청만 빈 코트 대진을 뒤로 보낼 수 있어야 합니다.');
 assert(validationSandbox.api.error({...heldYield,expectedHoldId:'old-match:90000'}).includes('종료 연결이 이미 바뀌었습니다'),'이전 종료 건에서 늦게 도착한 뒤로 미루기 요청을 적용하면 안 됩니다.');
 assert(validationSandbox.api.error(validYield).includes('최신 종료 연결'),'종료 연결 지문이 없는 구 화면 요청은 임원 확인 대기 코트에 적용하면 안 됩니다.');
-const heldEnter={...validBase,type:'official-queue-enter-free',queueId:'queue1',court:1,expectedPlayerIds:['e','f','g','h'],expectedHoldId:'match1:100000'};
+const heldEnter={...validBase,type:'official-queue-enter-free',queueId:'queue1',court:1,expectedQueueIndex:1,expectedPlayerIds:['e','f','g','h'],expectedTeam1Ids:['e','f'],expectedTeam2Ids:['g','h'],expectedHoldId:'match1:100000'};
 assert.strictEqual(validationSandbox.api.error(heldEnter),'','같은 종료 연결과 선수 지문의 입장 요청은 허용해야 합니다.');
 assert(validationSandbox.api.error({...heldEnter,expectedHoldId:'old-match:90000'}).includes('종료 연결이 이미 바뀌었습니다'),'이전 종료 건의 입장 요청을 나중의 같은 코트에 적용하면 안 됩니다.');
 const oneStepMove=validationSandbox.api.apply('e','queue1','club-official-queue-yield',{strict:true,yieldedBy:'official',targetQueueIndex:2,clearRestPass:true,expectedCueState:'free',expectedTargetCourt:1,expectedHoldId:'match1:100000'});
