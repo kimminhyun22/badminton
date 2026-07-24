@@ -32,6 +32,16 @@ assert(
   '현재 경기 없이 대진 게시 버튼은 명시적인 바로 게시 경로를 사용해야 합니다.'
 );
 
+const publicEvent = extractFunction('_dailyPublicEvent', 'dailyRenderResults');
+assert(
+  publicEvent.includes('queuePayload(q,next.length+idx,true)'),
+  '예상 대진 번호는 목표 큐 수가 아니라 실제 게시된 다음 대진 수 바로 뒤에서 시작해야 합니다.'
+);
+assert(
+  !publicEvent.includes('queuePayload(q,cap.target+idx,true)'),
+  '무효 대진이 빠진 경우 예상 대진 번호에 공백이 생기는 계산을 사용하면 안 됩니다.'
+);
+
 const crossDayResume = extractFunction('_dailyCanResumeCrossDay', '_dailySavedDateLabel');
 const resumeSandbox = {};
 vm.createContext(resumeSandbox);

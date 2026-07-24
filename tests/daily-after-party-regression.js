@@ -20,7 +20,8 @@ assert(checkin.includes('<strong>${names.length}</strong><span>명</span>'),'뒷
 assert(checkin.includes('뒷풀이 ${afterPartyNames().length}명'),'본인 확인 후 LIVE 현황 상단에서도 뒷풀이 신청 수를 보여야 합니다.');
 assert(checkin.includes('const previewNames=names.slice(0,8)'),'신청자가 많으면 주요 이름만 먼저 보여 경기 정보를 과도하게 밀지 않아야 합니다.');
 assert(checkin.includes('오늘 함께하는 이름'),'신청자 이름을 참여를 돕는 하이라이트 정보로 노출해야 합니다.');
-assert(checkin.includes('onclick="copyAfterPartyRoster()"'),'회원 화면에서 뒷풀이 명단을 간편히 복사할 수 있어야 합니다.');
+assert(checkin.includes('const canCopyRoster=!!p.isClubOfficial'),'뒷풀이 명단 복사는 명부에 등록된 클럽 임원에게만 제공해야 합니다.');
+assert(checkin.includes('.after-party-actions>button:only-child{grid-column:1/-1;}'),'일반회원의 참석 버튼은 복사 버튼이 없어도 전체 너비를 사용해야 합니다.');
 assert(!checkin.includes('${officialPartySummaryHtml()}'),'임원 운영 도구 아래에 뒷풀이 현황을 중복 배치하면 안 됩니다.');
 
 const endedLink=functionSource(checkin,'showEndedLink','sampleSession');
@@ -75,7 +76,10 @@ this.renderCard=afterPartyCardHtml;
 `,cardSandbox);
 const memberCard=cardSandbox.renderCard({id:'p1',isClubOfficial:false},'');
 assert(memberCard.includes('신청자1')&&memberCard.includes('신청자2'),'본인 이름을 선택한 회원에게 뒷풀이 신청자 이름을 보여야 합니다.');
-assert(memberCard.includes('명단 복사'),'회원 카드에서 최종 신청자 명단 복사 동선을 제공해야 합니다.');
+assert(memberCard.includes('신청 취소'),'일반회원은 명단 복사 없이도 본인의 뒷풀이 신청을 취소할 수 있어야 합니다.');
+assert(!memberCard.includes('명단 복사'),'일반회원 카드에는 운영용 뒷풀이 명단 복사를 노출하면 안 됩니다.');
+const officialCard=cardSandbox.renderCard({id:'p1',isClubOfficial:true},'');
+assert(officialCard.includes('명단 복사'),'클럽 임원 카드에는 밴드·단톡방용 뒷풀이 명단 복사를 제공해야 합니다.');
 
 const myCardRender=functionSource(checkin,'renderMyCard','requestPlayerOptions');
 assert(myCardRender.indexOf('${nextNotice}')<myCardRender.indexOf('<div class="buttons main-actions">'),'다음 대진 안내는 상태 버튼보다 먼저 보여야 합니다.');

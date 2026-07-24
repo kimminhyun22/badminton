@@ -1552,6 +1552,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .after-party-copy b{display:block;font-size:15px;color:var(--txt);}
 .after-party-copy small{display:block;margin-top:3px;color:var(--mut);font-size:11px;font-weight:800;line-height:1.45;}
 .after-party-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.after-party-actions>button:only-child{grid-column:1/-1;}
 .after-party-summary button{min-width:0;min-height:44px;border:1.5px solid #df9a2d;border-radius:8px;background:#fff;color:#8a5a00;font:inherit;font-weight:1000;}
 .after-party-summary button.selected{background:#df9a2d;color:#fff;}
 .after-party-summary button.copy{border-color:#d9c39b;background:#fffdf8;color:#5f4a25;}
@@ -1624,7 +1625,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.438</span>
+    <span class="version-chip" id="appVersion">v1.10.439</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -1669,7 +1670,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.438';
+const APP_VERSION='1.10.439';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -2565,7 +2566,7 @@ function renderEvent(){
   </div>`;
   }).join('');
   const lastComplete=getLastComplete();
-  const next=nextList.slice(0,4).map((m,index)=>{
+  const next=nextList.map((m,index)=>{
     const inQueue=selectedId&&m.queueId&&(m.playerIds||[]).includes(selectedId);
     const canRest=inQueue&&m.cueState==='free'&&m.targetCourt&&!m.restPass;
     const cueText=canOfficialOperate?officialQueueCueText(m):memberQueueCueText(m);
@@ -2890,6 +2891,7 @@ async function copyAfterPartyRoster(){
 function afterPartyCardHtml(p,disabled){
   if(!p||session?.capabilities?.afterPartyV1!==true)return '';
   const attending=!!afterPartyEntry(p.id);
+  const canCopyRoster=!!p.isClubOfficial;
   const names=afterPartyNames();
   const previewNames=names.slice(0,8);
   const remainingNames=Math.max(0,names.length-previewNames.length);
@@ -2908,7 +2910,7 @@ function afterPartyCardHtml(p,disabled){
       </div>
       <div class="after-party-actions">
         <button type="button" class="${attending?'selected':''}" ${disabled||''} onclick="toggleAfterParty('${esc(p.id)}')">${attending?'신청 취소':'참석 신청'}</button>
-        <button type="button" class="copy" ${names.length?'':'disabled'} onclick="copyAfterPartyRoster()">명단 복사</button>
+        ${canCopyRoster?`<button type="button" class="copy" ${names.length?'':'disabled'} onclick="copyAfterPartyRoster()">명단 복사</button>`:''}
       </div>
     </div>
     ${namesHtml}

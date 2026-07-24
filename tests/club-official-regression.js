@@ -57,9 +57,43 @@ assert(!memberQueueNotice.includes('openCourtCompletePicker'),'일반 회원의 
 assert(memberQueueNotice.includes('sendQueueRestPass'),'일반 회원은 입장 직전에도 조금 쉬고 요청을 보낼 수 있어야 합니다.');
 assert(memberQueueNotice.includes('sendQueueDefer'),'일반 회원의 기존 이번만 뒤로 기능은 유지해야 합니다.');
 const memberEventBoard=functionSource(checkin,'renderEvent','render');
+assert(memberEventBoard.includes('const next=nextList.map((m,index)=>'),'회원 LIVE 현황은 준비된 다음 대진을 잘라 번호를 건너뛰게 만들면 안 됩니다.');
+assert(!memberEventBoard.includes('nextList.slice(0,4)'),'다음 대진 5번 이후를 숨기면서 예상 대진 번호만 이어 표시하면 안 됩니다.');
 assert(!memberEventBoard.includes('sendQueueEnterFree'),'일반 회원 상황판에서도 직접 입장 처리를 제공하면 안 됩니다.');
 assert(!memberEventBoard.includes('openCourtCompletePicker'),'일반 회원 상황판에서도 코트 선택을 제공하면 안 됩니다.');
 assert(memberEventBoard.includes('sendQueueRestPass'),'일반 회원 상황판의 조금 쉬고 요청은 유지해야 합니다.');
+const memberEventRenderSandbox={};
+vm.createContext(memberEventRenderSandbox);
+vm.runInContext(`
+const eventPanel={className:'',innerHTML:''};
+const nextRows=Array.from({length:5},(_,index)=>({
+  idx:index+1,queueId:'q'+(index+1),cueState:index===4?'free':'ready',
+  t1:['A'+index,'B'+index],t2:['C'+index,'D'+index],playerIds:['a'+index,'b'+index,'c'+index,'d'+index]
+}));
+let session={players:[{id:'viewer',isClubOfficial:false}],event:{
+  updatedAt:Date.now(),completed:0,activeCount:0,active:[],next:nextRows,
+  expected:[
+    {idx:6,t1:['E1','E2'],t2:['E3','E4']},
+    {idx:7,t1:['F1','F2'],t2:['F3','F4']}
+  ]
+}};
+let officialRequests=[],sendingKey='',claimingOfficial=false;
+const document={getElementById:id=>id==='eventPanel'?eventPanel:null};
+function getLastSent(){return {playerId:'viewer'};}
+function eventNextList(){return session.event.next.map(item=>({...item}));}
+function getLastComplete(){return null;}
+function afterPartyNames(){return [];}
+function placeEventPanelForViewer(){}
+function esc(value){return String(value??'');}
+function nextTeamLine(row){return '<span>'+row.t1.join(' ')+' vs '+row.t2.join(' ')+'</span>';}
+function memberQueueCueText(){return '';}
+function officialQueueCueText(){return '';}
+function officialQueueCardActionsHtml(){return '';}
+${memberEventBoard}
+this.rendered=()=>{renderEvent();return eventPanel.innerHTML;};
+`,memberEventRenderSandbox);
+const renderedQueueRanks=[...memberEventRenderSandbox.rendered().matchAll(/event-rank-badge">(\d+)</g)].map(match=>Number(match[1]));
+assert.deepStrictEqual(renderedQueueRanks,[1,2,3,4,5,6,7],'회원 LIVE 현황은 다음 대진 1~5와 예상 대진 6~7을 빠짐없이 연속 표시해야 합니다.');
 assert(memberEventBoard.includes('canOfficialOperate')&&memberEventBoard.includes('event-official-complete'),'클럽 임원의 경기 종료 버튼은 진행 중 코트 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes('officialQueueCardActionsHtml'),'클럽 임원의 입장 처리와 이번만 뒤로 버튼은 해당 다음 대진 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes("['queue-yield','active-yield'].includes(lastComplete?.operation)")&&memberEventBoard.includes("lastComplete?.operation==='queue-enter'"),'최근 임원 입장·순서 작업도 해당 이름으로 바로 취소할 수 있어야 합니다.');
