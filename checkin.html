@@ -2246,7 +2246,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.445</span>
+    <span class="version-chip" id="appVersion">v1.10.446</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2293,7 +2293,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.445';
+const APP_VERSION='1.10.446';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -2474,7 +2474,7 @@ function sampleSession(){
     matchStartedAt:now-35*60*1000,
     expiresAt:now+47*60*60*1000,
     version:'sample',
-    capabilities:{officialOpsV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:true,pauseV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,memberStatusServerV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:true,pauseV1:true,afterPartyV1:true},
     arrivalCandidates:[
       ...players.filter(player=>['invited','planned'].includes(player.status)).map(player=>({candidateKey:`player:${player.id}`,kind:'existing',playerId:player.id,name:player.name,status:player.status,lastStatusAt:player.lastStatusAt||0})),
       {candidateKey:'roster:sample_late',kind:'roster',memberId:'sample_late',name:'강지각'}
@@ -2551,6 +2551,14 @@ function officialClientId(){
 }
 function officialServerCapable(){
   return !!(session?.capabilities?.officialOpsServerV2===true&&Number(session?.commandProtocol||0)>=2);
+}
+function memberStatusServerReady(){
+  return !!(
+    session?.capabilities?.memberStatusServerV1===true &&
+    Number(session?.commandProtocol||0)>=2 &&
+    typeof firebase!=='undefined' &&
+    typeof firebase.functions==='function'
+  );
 }
 function selectedOfficialPlayer(){
   const last=getLastSent();
@@ -2674,7 +2682,7 @@ function setLastSent(req){
 }
 function latestStatusRequest(playerId){
   return statusRequests
-    .filter(r=>r.playerId===playerId&&r.status&&!r.appliedAt&&!r.ignoredAt&&r.type!=='reservation')
+    .filter(r=>r.playerId===playerId&&r.status&&!r.appliedAt&&!r.ignoredAt&&!r.serverAppliedAt&&!r.serverRejectedAt&&r.type!=='reservation')
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0]||null;
 }
 function getSelectedStatus(p){
@@ -4064,6 +4072,26 @@ function createOfficialOperationId(prefix){
     return `dov2_${safePrefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,12)}`;
   }
 }
+function createMemberStatusOperationId(){
+  try{
+    const bytes=new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    return `mps_${Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('')}`;
+  }catch(e){
+    return `mps_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,12)}`;
+  }
+}
+function memberStatusCallableError(error){
+  const message=String(error?.message||'').replace(/^Firebase:\s*/,'').trim();
+  if(message&&(
+    message.includes('상태') ||
+    message.includes('민턴LIVE') ||
+    message.includes('본인') ||
+    message.includes('경기중') ||
+    message.includes('일시 정지')
+  ))return message;
+  return '상태를 바로 반영하지 못했습니다. 네트워크를 확인한 뒤 다시 눌러 주세요.';
+}
 function officialCallableError(error){
   const message=String(error?.message||'').replace(/^Firebase:\s*/,'').trim();
   if(message.includes('임원 운영')||message.includes('민턴LIVE')||message.includes('현재 상태'))return message;
@@ -4540,23 +4568,48 @@ async function sendStatus(playerId,status){
   }
   sendingKey=playerId+'_'+status;
   render();
+  const now=Date.now();
   const req={
+    type:'member-player-status',
+    operationId:createMemberStatusOperationId(),
+    actorPlayerId:p.id,
     playerId:p.id,
     playerName:p.name,
     status,
     statusLabel:compactLabel(status),
-    createdAt:Date.now(),
-    source:'member-checkin'
+    expectedStatus:p.status||'',
+    expectedCurrentMatchId:p.currentMatchId||'',
+    expectedLastStatusAt:Number(p.lastStatusAt||0),
+    createdAt:now,
+    expiresAt:now+5*60*1000,
+    source:'member-checkin-server'
   };
   try{
-    await db.ref(checkinPath()+'/requests').push(req);
-    setLastSent(req);
-    toast(`${p.name} · ${compactLabel(status)} 요청 접수`);
-    if(p.locked&&['rest','done'].includes(status)){
-      setTimeout(()=>location.reload(),900);
+    if(memberStatusServerReady()){
+      const callable=firebase.functions().httpsCallable('submitDailyMemberStatusRequest');
+      const result=await callable({checkinId,command:req});
+      const receipt=result?.data||{};
+      if(receipt.status!=='applied'){
+        toast(receipt.reason||'현재 상태에서 바로 처리할 수 없습니다.');
+        return;
+      }
+      setLastSent(req);
+      toast(`${p.name} · ${compactLabel(status)} 바로 반영`);
+    }else{
+      const legacyReq={
+        playerId:p.id,
+        playerName:p.name,
+        status,
+        statusLabel:compactLabel(status),
+        createdAt:now,
+        source:'member-checkin'
+      };
+      await db.ref(checkinPath()+'/requests').push(legacyReq);
+      setLastSent(legacyReq);
+      toast(`${p.name} · ${compactLabel(status)} 요청 접수`);
     }
   }catch(e){
-    toast('전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
+    toast(memberStatusServerReady()?memberStatusCallableError(e):'전송에 실패했습니다. 잠시 후 다시 눌러주세요.');
   }finally{
     sendingKey='';
     render();

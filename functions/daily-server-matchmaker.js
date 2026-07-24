@@ -346,6 +346,19 @@ function eligiblePlayers(session){
   );
 }
 
+function preparedPairing(session, team1Ids, team2Ids, options = {}){
+  const team1 = (team1Ids || []).map(id=>playerById(session, id)).filter(Boolean);
+  const team2 = (team2Ids || []).map(id=>playerById(session, id)).filter(Boolean);
+  if(team1.length !== 2 || team2.length !== 2 || new Set([...team1, ...team2].map(playerId)).size !== 4)return null;
+  if([...team1, ...team2].some(player=>status(player?.status) !== 'wait' || player?.currentMatchId))return null;
+  const reference = eligiblePlayers(session);
+  const now = number(options.now, Date.now());
+  const strict = !!strictMatchType(team1, team2);
+  if(strict)return pairingFor(session, team1, team2, reference, now, true, null);
+  if(options.allowFlexible === false)return null;
+  return pairingFor(session, team1, team2, reference, now, false, null);
+}
+
 function forEachFour(players, callback){
   for(let a=0;a<players.length-3;a++){
     for(let b=a+1;b<players.length-2;b++){
@@ -569,6 +582,7 @@ module.exports = {
   fourKeyFromIds,
   exactKeyFromTeams,
   queueIds,
+  preparedPairing,
   replenishPrepared,
   recordCompletedMatchHistory
 };

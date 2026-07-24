@@ -6,8 +6,8 @@
     "node": "22"
   },
   "scripts": {
-    "test": "node ../tests/daily-official-roster-claim-regression.js && node ../tests/daily-official-server-regression.js && node ../tests/daily-official-transaction-regression.js && node ../tests/daily-official-auto-handoff-regression.js && node ../tests/daily-server-replenish-regression.js",
-    "lint": "node --check index.js && node --check daily-official-engine.js && node --check daily-server-matchmaker.js && node --check daily-official-command.js && node --check daily-official-claim.js"
+    "test": "node ../tests/daily-official-roster-claim-regression.js && node ../tests/daily-official-server-regression.js && node ../tests/daily-official-transaction-regression.js && node ../tests/daily-official-auto-handoff-regression.js && node ../tests/daily-server-replenish-regression.js && node ../tests/daily-member-server-regression.js",
+    "lint": "node --check index.js && node --check daily-official-engine.js && node --check daily-server-matchmaker.js && node --check daily-official-command.js && node --check daily-member-command.js && node --check daily-official-claim.js"
   },
   "dependencies": {
     "firebase-admin": "13.10.0",

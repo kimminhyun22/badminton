@@ -2,11 +2,13 @@
 
 const crypto = require('crypto');
 const {
+  preparedPairing,
   replenishPrepared,
   recordCompletedMatchHistory
 } = require('./daily-server-matchmaker');
 
 const OFFICIAL_OPERATION_TTL_MS = 30 * 60 * 1000;
+const MEMBER_STATUS_TTL_MS = 5 * 60 * 1000;
 const OFFICIAL_UNDO_MS = 45 * 1000;
 const RECEIPT_RETAIN_MS = 10 * 60 * 1000;
 const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
@@ -194,7 +196,10 @@ function writePreparedTeams(session, item, team1Ids, team2Ids, metrics){
   item.team1Level = team1Level;
   item.team2Level = team2Level;
   item.levelDiff = metrics?.levelDiff ?? Math.round(Math.abs(team1Level - team2Level) * 10) / 10;
-  item.flexible = type === '예외';
+  item.flexible = metrics?.flexible ?? type === '예외';
+  item.strict = !item.flexible;
+  if(metrics?.score != null)item.score = Math.round(metrics.score);
+  if(metrics?.teamMode != null)item.teamMode = !!metrics.teamMode;
   return true;
 }
 
@@ -416,14 +421,176 @@ function removeInvalidPrepared(session){
   });
 }
 
-function removePlayerFromPrepared(session, playerId){
+function preparedLocations(session){
+  const rows = [];
   ['next', 'expected', 'serverStandby'].forEach(key=>{
-    session.event[key] = session.event[key].filter(item=>!queuePlayerIds(item).includes(text(playerId)));
+    (session.event[key] || []).forEach((item, index)=>rows.push({key, index, item}));
   });
+  return rows;
+}
+
+function clearPreparedReservation(session, item){
+  const reservationId = text(item?.reservationId);
+  if(reservationId){
+    session.reservations = session.reservations.filter(row=>text(row?.id) !== reservationId);
+  }
+  [
+    'reservationId',
+    'reservationLabel',
+    'reservationMode',
+    'reservationAttachedExisting',
+    'reservationOriginalTeam1Ids',
+    'reservationOriginalTeam2Ids'
+  ].forEach(key=>delete item[key]);
+}
+
+function removePlayerReservations(session, playerId){
+  const targetId = text(playerId);
   session.reservations = session.reservations.filter(item=>{
     const ids = [...(item?.team1 || []), ...(item?.team2 || [])].map(text);
-    return !ids.includes(text(playerId));
+    return !ids.includes(targetId);
   });
+}
+
+function replacementSourceRows(session, target){
+  const rows = preparedLocations(session);
+  const projected = rows.filter(row=>{
+    if(row.item === target.item || row.item?.reservationId || row.item?.restPass)return false;
+    if(target.key === 'next')return row.key === 'expected' || row.key === 'serverStandby';
+    if(target.key === 'expected'){
+      return (row.key === 'expected' && row.index > target.index) || row.key === 'serverStandby';
+    }
+    return row.key === 'serverStandby' && row.index > target.index;
+  }).map(row=>({...row, source:row.key === 'expected' ? 'expected' : 'standby', sourcePenalty:row.key === 'expected' ? 120 : 180}));
+  const tail = target.key === 'next'
+    ? rows.filter(row=>row.key === 'next' && row.index > target.index && !row.item?.reservationId && !row.item?.restPass)
+      .map(row=>({...row, source:'tail', sourcePenalty:240}))
+    : [];
+  return [...projected, ...tail];
+}
+
+function clearUnavailableRestPass(item, playerId){
+  if(!item?.restPass)return;
+  const ownerId = typeof item.restPass === 'object' ? text(item.restPass.playerId) : '';
+  if(ownerId && ownerId !== text(playerId))return;
+  item.restPass = false;
+  item.restPassText = '';
+}
+
+function repairPreparedForUnavailablePlayer(session, playerId, now){
+  const targetId = text(playerId);
+  const locations = preparedLocations(session);
+  const target = locations.find(row=>queuePlayerIds(row.item).includes(targetId));
+  if(!target){
+    removePlayerReservations(session, targetId);
+    return {found:false, keptThree:false, queueRemoved:false};
+  }
+
+  const originalTeam1 = queueTeam1Ids(target.item);
+  const originalTeam2 = queueTeam2Ids(target.item);
+  const targetIds = [...originalTeam1, ...originalTeam2];
+  const retainedIds = targetIds.filter(id=>id !== targetId);
+  const activeIds = new Set();
+  (session.event.active || []).forEach(match=>activePlayerIds(match).forEach(id=>activeIds.add(id)));
+  const preparedIds = new Set();
+  locations.forEach(row=>queuePlayerIds(row.item).forEach(id=>preparedIds.add(id)));
+  const reservedIds = new Set();
+  (session.reservations || []).forEach(row=>{
+    [...(row?.team1 || []), ...(row?.team2 || [])].map(text).forEach(id=>reservedIds.add(id));
+  });
+  const candidates = [];
+  (session.players || []).forEach(player=>{
+    const id = text(player?.id);
+    if(
+      !id || id === targetId || retainedIds.includes(id) ||
+      normalizeStatus(player?.status) !== 'wait' || player?.currentMatchId ||
+      activeIds.has(id) || preparedIds.has(id) || reservedIds.has(id)
+    )return;
+    candidates.push({player, source:'free', sourcePenalty:0, sourceRow:null});
+  });
+  replacementSourceRows(session, target).forEach(sourceRow=>{
+    const sourceIds = queuePlayerIds(sourceRow.item);
+    if(sourceIds.some(id=>retainedIds.includes(id)))return;
+    sourceIds.forEach(id=>{
+      const player = playerById(session, id);
+      if(!player || normalizeStatus(player.status) !== 'wait' || player.currentMatchId)return;
+      candidates.push({
+        player,
+        source:sourceRow.source,
+        sourcePenalty:sourceRow.sourcePenalty,
+        sourceRow
+      });
+    });
+  });
+
+  let best = null;
+  const seen = new Set();
+  candidates.forEach(candidate=>{
+    const candidateId = text(candidate.player?.id);
+    if(!candidateId || seen.has(candidateId))return;
+    seen.add(candidateId);
+    const team1 = originalTeam1.map(id=>id === targetId ? candidateId : id);
+    const team2 = originalTeam2.map(id=>id === targetId ? candidateId : id);
+    const pairing = preparedPairing(session, team1, team2, {now, allowFlexible:true});
+    if(!pairing)return;
+    const strictRank = pairing.flexible ? 1 : 0;
+    const score = number(pairing.score) + candidate.sourcePenalty;
+    const tieKey = `${candidateId}|${candidate.source}`;
+    if(
+      !best ||
+      strictRank < best.strictRank ||
+      (strictRank === best.strictRank && score < best.score) ||
+      (strictRank === best.strictRank && score === best.score && tieKey < best.tieKey)
+    ){
+      best = {...candidate, pairing, strictRank, score, tieKey};
+    }
+  });
+
+  locations.forEach(row=>{
+    if(row.item === target.item || !queuePlayerIds(row.item).includes(targetId))return;
+    clearPreparedReservation(session, row.item);
+    session.event[row.key] = session.event[row.key].filter(item=>item !== row.item);
+  });
+  clearPreparedReservation(session, target.item);
+  removePlayerReservations(session, targetId);
+
+  if(!best){
+    session.event[target.key] = session.event[target.key].filter(item=>item !== target.item);
+    return {
+      found:true,
+      keptThree:false,
+      queueRemoved:true,
+      queueId:text(target.item?.queueId || target.item?.id)
+    };
+  }
+
+  if(best.sourceRow){
+    session.event[best.sourceRow.key] = session.event[best.sourceRow.key].filter(item=>item !== best.sourceRow.item);
+  }
+  const team1Ids = best.pairing.team1.map(player=>text(player.id));
+  const team2Ids = best.pairing.team2.map(player=>text(player.id));
+  if(!writePreparedTeams(session, target.item, team1Ids, team2Ids, best.pairing)){
+    session.event[target.key] = session.event[target.key].filter(item=>item !== target.item);
+    return {
+      found:true,
+      keptThree:false,
+      queueRemoved:true,
+      queueId:text(target.item?.queueId || target.item?.id)
+    };
+  }
+  clearUnavailableRestPass(target.item, targetId);
+  target.item.replacementAt = now;
+  target.item.replacedPlayerId = targetId;
+  target.item.replacementPlayerId = text(best.player.id);
+  target.item.replacementSource = best.source;
+  return {
+    found:true,
+    keptThree:true,
+    queueRemoved:false,
+    queueId:text(target.item?.queueId || target.item?.id),
+    replacementPlayerId:text(best.player.id),
+    replacementSource:best.source
+  };
 }
 
 function promotePrepared(session){
@@ -670,7 +837,7 @@ function applyPlayerAdd(session, request, now){
   return '';
 }
 
-function applyPlayerStatus(session, request, now){
+function applyPlayerStatus(session, request, now, operation){
   const player = playerById(session, request.playerId);
   if(!player)return '상태를 바꿀 선수를 찾지 못했습니다.';
   const rawStatus = text(request.status);
@@ -685,8 +852,9 @@ function applyPlayerStatus(session, request, now){
     if(!Object.prototype.hasOwnProperty.call(request, 'expectedLastStatusAt') || number(request.expectedLastStatusAt) !== number(player.lastStatusAt))return '선수 상태가 이미 바뀌었습니다.';
     player.afterMatchStatus = nextStatus;
     player.lastStatusAt = now;
-    removePlayerFromPrepared(session, player.id);
+    const queueRepair = repairPreparedForUnavailablePlayer(session, player.id, now);
     promotePrepared(session);
+    if(operation)operation.result = {playerStatus:{playerId:text(player.id), status:nextStatus, afterMatch:true, queueRepair}};
     return '';
   }
   if(!Object.prototype.hasOwnProperty.call(request, 'expectedLastStatusAt') || number(request.expectedLastStatusAt) !== number(player.lastStatusAt))return '선수 상태가 이미 바뀌었습니다.';
@@ -699,8 +867,11 @@ function applyPlayerStatus(session, request, now){
   player.lastStatusAt = now;
   player.restPausedMs = 0;
   if(nextStatus === 'wait')player.waitFrom = now;
-  if(nextStatus !== 'wait')removePlayerFromPrepared(session, player.id);
+  const queueRepair = nextStatus !== 'wait'
+    ? repairPreparedForUnavailablePlayer(session, player.id, now)
+    : {found:false, keptThree:false, queueRemoved:false};
   promotePrepared(session);
+  if(operation)operation.result = {playerStatus:{playerId:text(player.id), status:nextStatus, afterMatch:false, queueRepair}};
   return '';
 }
 
@@ -856,7 +1027,7 @@ function applyComplete(session, request, now, requestId, operation){
     player.afterMatchStatus = '';
     player.lastStatusAt = now;
     if(nextStatus === 'wait')player.waitFrom = now;
-    else removePlayerFromPrepared(session, player.id);
+    else repairPreparedForUnavailablePlayer(session, player.id, now);
   });
   if(team1.length === 2){
     incrementPlayerRelationship(team1[0], 'partnerCount', team1[1]);
@@ -1170,7 +1341,7 @@ function applyByType(session, request, now, requestId, operation){
   switch(request.type){
     case 'official-player-arrival': return applyArrival(session, request, now);
     case 'official-player-add': return applyPlayerAdd(session, request, now);
-    case 'official-player-status': return applyPlayerStatus(session, request, now);
+    case 'official-player-status': return applyPlayerStatus(session, request, now, operation);
     case 'official-court-complete': return applyComplete(session, request, now, requestId, operation);
     case 'official-active-yield': return applyActiveYield(session, request, now, requestId, operation);
     case 'official-queue-enter-free': return applyQueueEnter(session, request, now, requestId);
@@ -1241,11 +1412,89 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
   return {status:'applied', session, serverOps:receipts, revision:session.serverRevision, operation:request.type, result:operation.result};
 }
 
+function applyMemberStatusRequest(rawSession, rawRequest, options = {}){
+  const session = ensureSession(rawSession);
+  const request = clone(rawRequest || {});
+  const now = number(options.now, Date.now());
+  const requestId = text(options.requestId || request.key || request.operationId || `member_${now}`);
+  if(session?.capabilities?.memberStatusServerV1 !== true || number(session.commandProtocol) < 2){
+    return {status:'skipped', session:rawSession};
+  }
+  if(request.type !== 'member-player-status'){
+    return {status:'rejected', reason:'지원하지 않는 회원 요청입니다.', session:rawSession};
+  }
+  if(!text(request.actorPlayerId) || text(request.actorPlayerId) !== text(request.playerId)){
+    return {status:'rejected', reason:'본인 상태만 변경할 수 있습니다.', session:rawSession};
+  }
+  const createdAt = number(request.createdAt);
+  const expiresAt = number(request.expiresAt, createdAt + MEMBER_STATUS_TTL_MS);
+  if(!createdAt || createdAt > now + 60 * 1000 || now > expiresAt || now - createdAt > MEMBER_STATUS_TTL_MS){
+    return {status:'rejected', reason:'요청 시간이 지나 현재 상태를 다시 확인해야 합니다.', session:rawSession};
+  }
+  if(number(session.expiresAt) && now >= number(session.expiresAt)){
+    return {status:'rejected', reason:'종료된 민턴LIVE 링크입니다.', session:rawSession};
+  }
+  if(session.event?.paused){
+    return {status:'rejected', reason:'현재 진행이 일시 정지되어 있습니다. 재개 후 다시 눌러 주세요.', session:rawSession};
+  }
+  const player = playerById(session, request.playerId);
+  if(!player)return {status:'rejected', reason:'상태를 바꿀 선수를 찾지 못했습니다.', session:rawSession};
+  if(request.playerName && text(request.playerName).trim() !== text(player.name).trim()){
+    return {status:'rejected', reason:'선택한 선수 정보가 이미 바뀌었습니다.', session:rawSession};
+  }
+  if(['invited', 'planned'].includes(normalizeStatus(player.status))){
+    return {status:'rejected', reason:'지각 선수는 클럽 임원이 참가 등록해 주세요.', session:rawSession};
+  }
+  if(normalizeStatus(player.status) === 'playing' || player.currentMatchId){
+    return {status:'rejected', reason:'경기중에는 경기 종료 후 상태를 변경해 주세요.', session:rawSession};
+  }
+  if(!['wait', 'rest', 'done'].includes(text(request.status))){
+    return {status:'rejected', reason:'알 수 없는 선수 상태입니다.', session:rawSession};
+  }
+  if(
+    !Object.prototype.hasOwnProperty.call(request, 'expectedStatus') ||
+    text(request.expectedStatus) !== text(player.status) ||
+    !Object.prototype.hasOwnProperty.call(request, 'expectedCurrentMatchId') ||
+    text(request.expectedCurrentMatchId) !== text(player.currentMatchId) ||
+    !Object.prototype.hasOwnProperty.call(request, 'expectedLastStatusAt') ||
+    number(request.expectedLastStatusAt) !== number(player.lastStatusAt)
+  ){
+    return {status:'rejected', reason:'선수 상태가 이미 바뀌었습니다. 화면을 확인한 뒤 다시 눌러 주세요.', session:rawSession};
+  }
+  if(normalizeStatus(player.status) === normalizeStatus(request.status)){
+    return {status:'rejected', reason:'이미 같은 상태입니다.', session:rawSession};
+  }
+
+  const beforeRevision = number(session.serverRevision);
+  const operation = {result:null};
+  const reason = applyPlayerStatus(session, request, now, operation);
+  if(reason)return {status:'rejected', reason, session:rawSession};
+  replenishPrepared(session, {now, requestId});
+  session.serverRevision = beforeRevision + 1;
+  session.serverUpdatedAt = now;
+  session.serverLastRequestId = requestId;
+  session.updatedAt = now;
+  refreshEvent(session, now);
+  const result = {
+    ...(operation.result || {}),
+    queueSync:preparedQueueSync(session)
+  };
+  return {
+    status:'applied',
+    session,
+    revision:session.serverRevision,
+    operation:request.type,
+    result
+  };
+}
+
 module.exports = {
   OFFICIAL_OPERATION_TTL_MS,
+  MEMBER_STATUS_TTL_MS,
   OFFICIAL_UNDO_MS,
   AUTO_HANDOFF_WINDOW_MS,
   applyOfficialRequest,
+  applyMemberStatusRequest,
   refreshEvent,
   queuePlayerIds,
   idsFingerprint,

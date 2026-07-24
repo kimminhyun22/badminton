@@ -10,6 +10,7 @@ const {
   verifyOfficialGrant
 } = require('./daily-official-engine');
 const {applyCommandTransaction} = require('./daily-official-command');
+const {applyMemberCommandTransaction} = require('./daily-member-command');
 const {applyOfficialClaimTransaction} = require('./daily-official-claim');
 
 admin.initializeApp();
@@ -21,6 +22,12 @@ const MAX_COMMAND_BYTES = 24 * 1024;
 const FUNCTION_OPTIONS = {
   region:REGION,
   secrets:[OFFICIAL_GRANT_SECRET],
+  maxInstances:10,
+  timeoutSeconds:20,
+  memory:'256MiB'
+};
+const MEMBER_FUNCTION_OPTIONS = {
+  region:REGION,
   maxInstances:10,
   timeoutSeconds:20,
   memory:'256MiB'
@@ -45,6 +52,12 @@ function cleanOptionalPlayerId(value){
   return id;
 }
 
+function cleanMemberPlayerId(value){
+  const id = String(value || '').trim();
+  if(!/^[a-zA-Z0-9_-]{1,100}$/.test(id))throw new HttpsError('invalid-argument', '선택한 선수 정보를 다시 확인해 주세요.');
+  return id;
+}
+
 function safeOperationId(value){
   const id = String(value || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
   if(id.length < 12)throw new HttpsError('invalid-argument', '운영 명령 번호를 다시 확인해 주세요.');
@@ -61,6 +74,25 @@ function publicCommand(raw, operationId){
   command.operationId = operationId;
   command.commandProtocol = 2;
   return command;
+}
+
+function publicMemberStatusCommand(raw, operationId){
+  const command = raw || {};
+  return {
+    type:String(command.type || ''),
+    operationId,
+    commandProtocol:2,
+    actorPlayerId:String(command.actorPlayerId || ''),
+    playerId:String(command.playerId || ''),
+    playerName:String(command.playerName || '').trim().slice(0, 80),
+    status:String(command.status || ''),
+    expectedStatus:String(command.expectedStatus || ''),
+    expectedCurrentMatchId:String(command.expectedCurrentMatchId || ''),
+    expectedLastStatusAt:Number(command.expectedLastStatusAt || 0),
+    createdAt:Number(command.createdAt || 0),
+    expiresAt:Number(command.expiresAt || 0),
+    source:'member-checkin-server'
+  };
 }
 
 function holdReferenceValue(ref){
@@ -168,6 +200,42 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
   if(!transaction.result.committed){
     if(terminal)return {ok:terminal.status==='applied',requestId:operationId,...terminal};
     throw new HttpsError(failureCode || 'aborted', failureMessage || '운영 요청을 처리하지 못했습니다.');
+  }
+  return {ok:terminal?.status==='applied',requestId:operationId,...terminal};
+});
+
+exports.submitDailyMemberStatusRequest = onCall(MEMBER_FUNCTION_OPTIONS, async request=>{
+  const checkinId = cleanCheckinId(request.data?.checkinId);
+  const operationId = safeOperationId(request.data?.command?.operationId);
+  const storedCommand = publicMemberStatusCommand(request.data?.command, operationId);
+  const playerId = cleanMemberPlayerId(storedCommand.playerId);
+  const actorPlayerId = cleanMemberPlayerId(storedCommand.actorPlayerId);
+  if(playerId !== actorPlayerId)throw new HttpsError('permission-denied', '본인 상태만 변경할 수 있습니다.');
+  const canonicalCommand = canonicalJson(storedCommand);
+  if(Buffer.byteLength(canonicalCommand, 'utf8') > MAX_COMMAND_BYTES){
+    throw new HttpsError('invalid-argument', '회원 요청 내용이 너무 큽니다. 화면을 새로 연 뒤 다시 처리해 주세요.');
+  }
+  const payloadHash = sha256(canonicalCommand);
+  const now = Date.now();
+  const ref = admin.database().ref(`live/checkin_${checkinId}`);
+  let failureCode = '';
+  let failureMessage = '';
+  let terminal = null;
+
+  const transaction = await runExistingSessionTransaction(ref,current=>{
+    const outcome = applyMemberCommandTransaction(current, {
+      storedCommand,operationId,payloadHash,now,checkinId
+    });
+    failureCode = outcome.failureCode || '';
+    failureMessage = outcome.failureMessage || '';
+    terminal = outcome.terminal || null;
+    return outcome.action === 'commit' ? outcome.current : undefined;
+  });
+
+  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
+  if(!transaction.result.committed){
+    if(terminal)return {ok:terminal.status==='applied',requestId:operationId,...terminal};
+    throw new HttpsError(failureCode || 'aborted', failureMessage || '회원 요청을 처리하지 못했습니다.');
   }
   return {ok:terminal?.status==='applied',requestId:operationId,...terminal};
 });
