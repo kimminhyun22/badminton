@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#5b8def">
-<title>콕매치 팀전LIVE</title>
+<title>콕매치 내 경기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -497,11 +497,20 @@ button.decline:before,
 .optional-actions summary{min-height:44px;}
 .toast{bottom:max(16px,calc(var(--safe-bottom) + 8px));}
 </style>
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.447">
 </head>
-<body>
+<body class="km-member-page km-rsvp-page">
+<header class="km-member-appbar" aria-label="콕매치">
+  <div class="km-member-appbar-inner">
+    <span class="km-member-brand">콕매치</span>
+    <span class="km-member-state" id="memberPageState">확인 중</span>
+  </div>
+</header>
 <main class="wrap">
   <section class="panel my-page-panel">
     <div id="identityPanel" class="identity-panel"></div>
+    <div class="summary-actions hidden" id="summaryActions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">늦음 현황</button></div>
+    <div class="summary-panel hidden" id="summaryPanel"></div>
     <div id="rsvpLookupArea" class="lookup-area">
       <div class="toolbar">
         <input id="search" class="search" placeholder="이름 또는 초성 검색" autocomplete="off">
@@ -513,16 +522,13 @@ button.decline:before,
       </details>
     </div>
   </section>
-  <section class="hero event-hero">
-    <div class="eyebrow">KOKMATCH TEAM LIVE</div>
-    <h1 id="title">팀전LIVE</h1>
-    <p class="sub" id="sessionSub">팀전LIVE 명부를 불러오는 중입니다.</p>
-    <div class="notice">내 이름을 확인하면 실중계로 바로 들어갈 수 있습니다. 늦는 경우에만 표시해 주세요.</div>
+  <section class="hero event-hero hidden" id="eventHero">
+    <h1 id="title">내 경기</h1>
+    <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
+    <div class="notice">내 이름을 선택하면 지금 경기로 바로 이동합니다.</div>
     <div class="my-state hidden" id="myState"></div>
     <div class="event-panel hidden" id="eventPanel"></div>
-    <div class="summary-actions"><button id="summaryToggle" class="summary-toggle" onclick="toggleSummary()">늦음 현황</button></div>
-    <div class="summary-panel hidden" id="summaryPanel"></div>
-    <span class="version-chip" id="appVersion">v1.10.446</span>
+    <span class="version-chip" id="appVersion">v1.10.447</span>
   </section>
 </main>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -540,7 +546,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,identityLookupOpen=false;
-const APP_VERSION='1.10.446';
+const APP_VERSION='1.10.447';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -614,7 +620,7 @@ function sampleSession(){
     rsvpId:rsvpId||'TFAKE201',createdAt:Date.now()-3600000,updatedAt:Date.now(),
     clubName:'미르클럽',gamesPerPlayer:4,guestLimit:null,
     phase:liveSample?'live':'bracket',bracketReady:true,matchCount:32,roundCount:8,
-    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.446':'',
+    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.447':'',
     members:sampleMembers()
   };
 }
@@ -823,6 +829,13 @@ function renderHeader(){
   const my=document.getElementById('myState');
   if(my){my.className='my-state hidden';my.textContent='';}
   if(last&&!selected)clearLast();
+  const state=document.getElementById('memberPageState');
+  if(state){
+    const live=!!(session?.phase==='live'&&session?.liveUrl);
+    const ready=!!(!live&&session?.bracketReady);
+    state.textContent=live?'LIVE':ready?'대진 준비':session?'준비 중':'확인 중';
+    state.className=`km-member-state ${live?'live':ready?'ready':session?'ready':''}`.trim();
+  }
 }
 function toggleSummary(){
   summaryOpen=!summaryOpen;
@@ -879,10 +892,8 @@ function renderEventPanel(){
     return;
   }
   if(session.bracketReady){
-    const detail=session.matchCount?`${session.matchCount}경기${session.roundCount?` · ${session.roundCount}라운드`:''}`:'대진표 준비 완료';
-    panel.className='event-panel';
-    panel.innerHTML=`<div class="event-title">대진표 준비됨</div>
-      <div class="event-desc">${esc(detail)}</div>`;
+    panel.className='event-panel hidden';
+    panel.innerHTML='';
     return;
   }
   panel.className='event-panel hidden';
@@ -909,6 +920,8 @@ function render(){
   const pill=document.getElementById('countPill');
   const fold=document.getElementById('rsvpMemberFold');
   const lookupArea=document.getElementById('rsvpLookupArea');
+  const eventHero=document.getElementById('eventHero');
+  const summaryActions=document.getElementById('summaryActions');
   if(!session){
     renderIdentityPanel(null);
     identityLookupOpen=false;
@@ -919,6 +932,9 @@ function render(){
   const list=filteredMembers();
   const showLookup=!selected||identityLookupOpen||!!query;
   if(lookupArea)lookupArea.classList.toggle('hidden',!showLookup);
+  const showEvent=!!(selected&&session.phase==='live'&&session.liveUrl);
+  if(eventHero)eventHero.classList.toggle('hidden',!showEvent);
+  if(summaryActions)summaryActions.classList.toggle('hidden',!showEvent);
   if(fold){
     const summary=fold.querySelector('summary');
     if(summary)summary.textContent=selected?'내 이름 다시 찾기':'내 이름 찾기';
@@ -940,7 +956,7 @@ function renderIdentityPanel(selected){
     panel.innerHTML='<div class="identity-prompt">내 이름을 선택하세요.</div>';
     return;
   }
-  panel.innerHTML=`<div class="identity-title"><span>MY PAGE</span><button type="button" class="identity-change" onclick="clearRsvpIdentity()">이름 변경</button></div>${memberCard(selected,true)}`;
+  panel.innerHTML=`<div class="identity-title"><span>내 정보</span><button type="button" class="identity-change" onclick="clearRsvpIdentity()">이름 변경</button></div>${memberCard(selected,true)}`;
 }
 function memberSelectCard(m,recent){
   const r=memberResponse(m.id);
@@ -976,12 +992,12 @@ function memberCard(m,recent){
       </div>
       ${badge?`<span class="badge ${esc(normalized)}">${esc(badge)}</span>`:''}
     </div>
-    <div class="member-note">참가 명단에 확정되어 있습니다. 늦는 경우에만 표시하세요.</div>
+    <div class="member-note">늦는 경우에만 알려주세요.</div>
     <div class="actions late-only">
       <button class="plan-chip attend${isLateStatus(normalized)?' selected':''}" ${disabled} onclick="toggleLateStatus('${esc(m.id)}')">${isLateStatus(normalized)?'늦음 취소':'늦음'}</button>
     </div>
     <details class="optional-actions"${optionOpen}>
-      <summary>${partyOn?'뒷풀이 신청됨':'추가 선택'}</summary>
+      <summary>${partyOn?'뒷풀이 참석 중':'뒷풀이'}</summary>
       <div class="option-row">
         <button class="party-toggle${partyOn?' selected':''}" ${disabled} onclick="toggleParty('${esc(m.id)}')">${partyOn?'뒷풀이 취소':'뒷풀이 신청'}</button>
       </div>

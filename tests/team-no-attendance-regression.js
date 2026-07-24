@@ -21,7 +21,7 @@ assert(!rsvpHtml.includes('출석'), '회원 화면에서 출석 버튼이나 �
 assert(!teamSrc.includes('출석'), '팀전 운영 로직의 사용자 문구에 출석 개념이 남으면 안 됩니다.');
 assert(!liveSrc.includes('출석'), '실중계 화면에 출석 버튼이 남으면 안 됩니다.');
 
-assert(rsvpHtml.includes('내 이름을 확인하면 실중계로 바로 들어갈 수 있습니다.'), '회원에게 본인 확인 다음 행동을 알려야 합니다.');
+assert(rsvpHtml.includes('내 이름을 선택하면 지금 경기로 바로 이동합니다.'), '회원에게 본인 확인 다음 행동을 짧게 알려야 합니다.');
 assert(rsvpHtml.includes('실중계 들어가기'), '본인 확인 후 실중계 진입 버튼이 있어야 합니다.');
 assert(rsvpHtml.includes('if(!selected)'), '본인 확인 전에는 실중계 링크를 열지 않아야 합니다.');
 const enterLiveSource = functionSource(rsvpHtml, 'enterActiveLive', 'selectRsvpIdentity');

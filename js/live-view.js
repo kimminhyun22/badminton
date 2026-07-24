@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.446';
+const APP_VERSION='1.10.447';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -851,16 +851,15 @@ function buildLiveScore(d,totalR,doneR){
   else if(wW>bW){ lead=redName+' 리드'; leadDetail=(wW-bW)+'승 차'; leadCls=' red'; }
   const pct=Math.max(0,Math.min(100,Math.round((doneR/Math.max(1,totalR))*100)));
   return '<section class="score-hero" id="scoreBoard">'
-    +'<div class="section-kicker"><b>현재 점수</b><span>'+esc(formatUpdatedAgo(d.updatedAt))+'</span></div>'
+    +'<div class="score-compact-head"><b>팀 점수</b><small>'+esc(formatUpdatedAgo(d.updatedAt))+'</small></div>'
     +'<div class="score-row">'
       +'<div class="score-team blue"><div class="score-name">'+blueName+'</div><div class="score-num">'+bW+'</div></div>'
       +'<div class="score-vs">VS</div>'
       +'<div class="score-team red"><div class="score-name">'+redName+'</div><div class="score-num">'+wW+'</div></div>'
     +'</div>'
-    +'<div class="score-lead'+leadCls+'"><span>'+lead+'</span><b>'+leadDetail+'</b></div>'
+    +'<div class="score-summary'+leadCls+'"><b>'+lead+'</b><span>'+leadDetail+' · '+doneR+'/'+totalR+'라운드'
+      +(d.pointSystem?' · '+esc(d.pointSystem)+'점':'')+'</span></div>'
     +'<div class="score-progress"><span style="width:'+pct+'%"></span></div>'
-    +'<div class="progress">📊 '+totalR+'라운드 중 '+doneR+'라운드 완료 · '+pct+'% 진행'
-      +(d.pointSystem?' · '+esc(d.pointSystem)+'점 경기':'')+'</div>'
     +'</section>';
 }
 
@@ -1222,15 +1221,15 @@ function buildViewerIdentity(d){
     return '<section class="viewer-identity">'
       +'<div class="viewer-identity-row">'
         +'<div class="viewer-identity-main">'
-          +'<div class="viewer-identity-k">MY PAGE</div>'
+          +'<div class="viewer-identity-k">내 경기</div>'
           +'<div class="viewer-identity-name">'+esc(current.n)+'님</div>'
           +'<div class="viewer-identity-role">'+esc(team)+' · '+esc(_viewerRoleText(current))+'</div>'
           +(partnerText?'<div class="viewer-identity-partner">'+esc(partnerText)+'</div>':'')
         +'</div>'
         +'<button type="button" onclick="setLiveViewerName(\'\')">변경</button>'
       +'</div>'
-      +_viewerStatusButtons(current)
       +_viewerNextHtml(d,current)
+      +_viewerStatusButtons(current)
       +_viewerRecordHtml(d,current.n)
       +_viewerScheduleHtml(d,current)
     +'</section>';
@@ -1655,15 +1654,13 @@ function render(d){
   if(d.members) window._rosterData=d.members;
 
   let html='<div class="live-board">';
-  html+='<div class="live-top"><span class="live-pill"><span class="live-dot-mini"></span>LIVE</span><span>선수용 라이브 보드</span></div>';
-  html+='<div class="title">'+esc(d.title||'대진표')+'</div>';
+  html+=buildViewerIdentity(d);
   if(_usesFixedTeams(d)){
     html+=buildLiveScore(d,totalR,doneR);
   } else {
-    html+='<div class="progress" id="scoreBoard">📊 '+totalR+'라운드 중 '+doneR+'라운드 완료'
-      +(d.pointSystem?' · '+esc(d.pointSystem)+'점 경기':'')+'</div>';
+    html+='<div class="round-progress-strip" id="scoreBoard"><b>경기 '+doneR+'/'+totalR+'라운드</b><span>'
+      +(d.pointSystem?esc(d.pointSystem)+'점 경기':'진행 현황')+'</span></div>';
   }
-  html+=buildViewerIdentity(d);
 
   if(allDone){
     html+=buildFinale(matches,d);

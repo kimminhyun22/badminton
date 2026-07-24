@@ -4,21 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta name="app-version" content="1.10.446">
-<title>🏸 콕매치 실시간 현황</title>
+<meta name="app-version" content="1.10.447">
+<title>콕매치 내 경기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="js/storage.js"></script>
 <link rel="stylesheet" href="css/live.css">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.447">
 </head>
-<body>
-<div class="head">
-  <span>🏸</span>
-  <h1>콕매치 실시간 현황</h1>
-  <span class="live-dot"></span>
-  <span class="live-label">LIVE</span>
-</div>
+<body class="km-member-page km-live-page">
+<header class="km-member-appbar" aria-label="콕매치">
+  <div class="km-member-appbar-inner">
+    <span class="km-member-brand">콕매치</span>
+    <span class="km-member-state live">LIVE</span>
+  </div>
+</header>
 <div id="content">
   <div class="status">현황을 불러오는 중…</div>
 </div>
@@ -28,9 +29,9 @@
   &nbsp;·&nbsp;
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener" style="color:var(--bl);text-decoration:none;">💬 카카오톡 문의</a>
   &nbsp;·&nbsp;
-  <span id="appVersion">v1.10.446</span>
+  <span id="appVersion">v1.10.447</span>
 </div>
 
-<script src="js/live-view.js?v=1.10.446"></script>
+<script src="js/live-view.js?v=1.10.447"></script>
 </body>
 </html>
