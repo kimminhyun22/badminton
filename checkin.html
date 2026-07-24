@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#5b8def">
+<meta name="theme-color" content="#f4f7f6">
 <title>콕매치 민턴LIVE 내 경기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -1642,20 +1642,593 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   .event-next-pair.a .event-next-player,
   .event-next-pair.b .event-next-player{text-align:center}
 }
+
+/* 민턴LIVE 회원페이지: 가볍고 일관된 현장 UX */
+:root{
+  --bg:#f4f7f6;
+  --card:#fff;
+  --line:#e3e9e7;
+  --txt:#202830;
+  --mut:#717b84;
+  --blue:#557fba;
+  --blue2:#f0f5fb;
+  --green:#5aa67d;
+  --red:#e3525a;
+  --amber:#cf9642;
+  --blue-deep:#3f679f;
+  --green-deep:#347454;
+  --red-deep:#ae343c;
+  --amber-soft:#fff8ec;
+  --shadow:0 6px 18px rgba(32,48,43,.055);
+}
+body{
+  background:#f4f7f6;
+  line-height:1.45;
+}
+body *{letter-spacing:0!important;}
+.wrap{
+  padding-left:12px;
+  padding-right:12px;
+}
+.hero,
+.panel,
+.my-card{
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+  box-shadow:var(--shadow);
+}
+.hero{
+  padding:18px 16px 16px;
+  border-top:3px solid #86b99c;
+}
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  color:var(--green-deep);
+  font-size:12px;
+  font-weight:900;
+}
+.eyebrow:before{
+  content:'🏸';
+  font-size:14px;
+  line-height:1;
+}
+h1{
+  margin:6px 0 5px;
+  font-size:26px;
+  line-height:1.2;
+}
+.sub{
+  font-size:14px;
+  line-height:1.5;
+}
+.notice{
+  margin-top:12px;
+  padding:10px 11px;
+  border:0;
+  border-left:3px solid #a8c8b5;
+  border-radius:6px;
+  background:#f5f8f7;
+  color:#4b5752;
+}
+.panel{
+  margin-top:12px;
+  padding:14px;
+}
+.vote-summary{margin-top:12px;gap:6px;}
+.vote-chip{
+  padding:9px 7px;
+  border:0;
+  border-radius:8px;
+  background:#f4f6f7;
+}
+.vote-chip.total{
+  border:0;
+  background:#eef4fb;
+}
+.vote-chip.ready{
+  border:0;
+  background:#eef7f2;
+}
+.vote-chip.warn{
+  border:0;
+  background:#fff7eb;
+}
+.toolbar{margin-bottom:10px;}
+.search{
+  height:46px;
+  border-color:#dce4e1;
+  border-radius:8px;
+  background:#fbfcfc;
+}
+.search:focus{
+  outline:3px solid rgba(85,127,186,.14);
+  border-color:#8eacd2;
+}
+.member-fold{
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  overflow:visible;
+}
+.member-fold summary{
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#f7f9f8;
+  color:#43504b;
+  font-weight:900;
+}
+.member-fold[open] summary{
+  border-bottom:1px solid var(--line);
+  border-radius:8px;
+}
+.member-fold summary:after{
+  padding:0;
+  border-radius:0;
+  background:transparent;
+  color:var(--blue-deep);
+}
+.member-fold #players{padding:2px 0 0;}
+.player{
+  margin-top:7px;
+  padding:13px;
+  border-color:#e0e7e5;
+  border-radius:8px;
+  background:#fff;
+}
+.player.selectable{
+  border-color:#d8e3df;
+  background:#fff;
+}
+.player.selectable:active{
+  transform:translateY(1px);
+  background:#f7faf8;
+}
+.player.selectable .phead{margin-bottom:0;}
+.player.selectable .select-hint{display:none;}
+.player.selectable .badge{
+  border:0;
+  background:#eef4fb;
+  color:var(--blue-deep);
+}
+.phead{align-items:center;}
+.name{font-size:17px;}
+.meta{font-size:12px;line-height:1.45;}
+.badge,
+.pill,
+.my-status-chip,
+.event-chip,
+.official-connection,
+.official-arrival-count,
+.official-partner-count,
+.after-party-name-chip{
+  border-radius:999px;
+}
+button,
+.my-card-change,
+.event-complete-btn,
+.event-undo-btn,
+.queue-defer-btn,
+.queue-enter-btn,
+.queue-rest-btn,
+.complete-picker-close{
+  border-radius:8px;
+  box-shadow:none;
+}
+button{
+  border-color:#dce4e1;
+  font-weight:900;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+summary:focus-visible{
+  outline:3px solid rgba(85,127,186,.18);
+  outline-offset:2px;
+}
+.event-title{
+  align-items:flex-end;
+  margin-bottom:10px;
+}
+.event-title b{font-size:19px;}
+.event-chip{
+  margin:0 4px 5px 0;
+  padding:6px 9px;
+  background:#f2f5f4;
+  color:#53605b;
+}
+.event-chip.gold{
+  background:#fff6e8;
+  color:#8a641f;
+}
+.event-section-title{
+  margin:15px 0 7px;
+  color:#64716c;
+  font-size:12px;
+  font-weight:900;
+}
+.event-list{gap:7px;}
+.event-row{
+  padding:11px;
+  border-color:#e0e7e5;
+  border-radius:8px;
+  background:#fff;
+}
+.event-row:not(.next){
+  border-color:#e0e7e5;
+  background:#fff;
+}
+.event-row.next,
+.event-row.next:first-child{
+  border-color:#cfe2d6;
+  border-radius:8px;
+  background:#f7fbf8;
+  box-shadow:none;
+}
+.event-row.next.priority{
+  border-color:#79ad8d;
+  background:#f0f8f3;
+  box-shadow:0 0 0 2px rgba(90,166,125,.12);
+}
+.event-row.next.soon,
+.event-row.next.due,
+.event-row.soon:not(.next),
+.event-row.due:not(.next){
+  border-color:#efc3c6;
+  background:#fff6f6;
+}
+.event-row.expected,
+.event-row.expected:first-child{
+  border-color:#dfe7e4;
+  background:#fafcfb;
+}
+.event-court-badge{
+  min-width:54px;
+  min-height:50px;
+  border:0;
+  border-radius:8px;
+  background:#eef4fb;
+}
+.event-active-pair{
+  padding:5px 3px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+}
+.event-active-pair.b{
+  border:0;
+  background:transparent;
+}
+.event-active-vs{
+  background:#f1f4f3;
+  color:#75807c;
+}
+.event-rank-badge{
+  border-color:#9bc5ab;
+  background:#f0f8f3;
+}
+.event-row em,
+.event-wait-pill{border-radius:999px;}
+.event-official-member-jump{
+  margin-bottom:10px;
+  border-color:#8fc3a7;
+  background:#eff8f3;
+  color:#2f7150;
+}
+.event-official-complete,
+.event-official-active-yield,
+.event-official-enter,
+.event-official-yield{
+  border-radius:8px;
+}
+.event-official-complete{
+  border-color:#efb7ba;
+  background:#fff6f6;
+  color:var(--red-deep);
+}
+.my-card-wrap{margin:12px 0;}
+.my-card{
+  padding:16px;
+  border-top:3px solid #86b99c;
+}
+.my-card-head{
+  gap:11px;
+  margin-bottom:13px;
+}
+.my-avatar{
+  width:46px;
+  height:46px;
+  border:0;
+  border-radius:50%;
+  background:#edf6f0;
+  color:var(--green-deep);
+  font-size:20px;
+}
+.my-card-name{
+  font-size:22px;
+  font-weight:900;
+}
+.my-card-change{
+  min-height:44px;
+  padding:0 12px;
+  border-color:#dce4e1;
+  color:var(--blue-deep);
+}
+.my-status-chips{gap:5px;margin-top:6px;}
+.my-status-chip{
+  min-height:26px;
+  padding:5px 8px;
+  border:0;
+  background:#f1f4f3;
+  color:#69736f;
+}
+.my-status-chip.on{
+  border:0;
+  background:#edf7f1;
+  color:var(--green-deep);
+  box-shadow:none;
+}
+.my-status-chip.warn{
+  border:0;
+  background:#fff6e8;
+  color:#87611f;
+}
+.my-action-panel{
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.my-current-match{
+  margin-bottom:9px;
+  padding:12px;
+  border:0;
+  border-left:4px solid var(--red);
+  border-radius:6px;
+  background:#fff5f5;
+}
+.my-current-match-team{
+  padding:7px 8px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+}
+.my-current-match-team+.my-current-match-team{
+  border-left:1px solid #efdfe0;
+}
+.next-queue-notice,
+.rest-guide,
+.pick-guide{
+  border-radius:8px;
+  box-shadow:none;
+}
+.next-queue-notice{
+  border-color:#d6e3f2;
+  background:#f5f8fc;
+}
+.rest-guide{
+  border-color:#d7e8de;
+  background:#f3f8f5;
+}
+.my-action-panel .status-btn{
+  min-height:64px;
+  border:1px solid #dce4e1;
+  border-radius:8px;
+  background:#fff;
+  color:#53605b;
+  box-shadow:none;
+}
+.my-action-panel .status-btn.active{
+  border-color:#76b390;
+  background:#4f9d73;
+  color:#fff;
+  box-shadow:none;
+}
+.status-section,
+.game-request{
+  border-color:#e0e7e5;
+  border-radius:8px;
+  background:#f8faf9;
+}
+.status-section.active{
+  border-color:#b8d1c2;
+  background:#f1f7f3;
+  box-shadow:none;
+}
+.request-body select,
+.request-body input,
+.request-status,
+.request-consent-actions button{
+  border-radius:8px;
+}
+.after-party-summary{
+  margin:12px 0 0;
+  border:0;
+  border-left:4px solid #dfa84d;
+  border-radius:6px;
+  background:#fff8ec;
+}
+.after-party-panel{
+  margin-top:12px;
+}
+.after-party-panel.hidden{display:none;}
+.after-party-panel .after-party-summary{
+  margin:0;
+  border-top:1px solid #f0dfbd;
+  border-right:1px solid #f0dfbd;
+  border-bottom:1px solid #f0dfbd;
+  border-radius:8px;
+  box-shadow:var(--shadow);
+}
+.after-party-main{
+  gap:10px;
+  padding:13px 12px 12px;
+}
+.after-party-count strong{font-size:28px;}
+.after-party-summary button{
+  border-radius:8px;
+  background:rgba(255,255,255,.82);
+}
+.after-party-names{
+  padding:11px 12px 12px;
+  border-top-color:#efddb9;
+}
+.after-party-name-cloud{gap:5px;}
+.after-party-name-chip{
+  min-height:30px;
+  padding:5px 8px;
+  border:0;
+  background:#fff;
+}
+.official-panel{
+  padding:16px;
+  border-top:3px solid #7fa1ca;
+}
+.official-support{
+  margin:0;
+  padding:0;
+  border:0;
+}
+.official-support-head{margin-bottom:5px;}
+.official-support-head b{font-size:18px;}
+.official-support-note{
+  margin-bottom:12px;
+  color:#69736f;
+  font-size:12px;
+}
+.official-connection{
+  padding:5px 8px;
+  background:#edf7f1;
+  color:var(--green-deep);
+}
+.official-arrival,
+.official-member-status,
+.official-partner,
+.official-player-tools{
+  margin:10px 0 0;
+  padding:13px;
+  border:1px solid #dfe7e4;
+  border-radius:8px;
+  background:#fafcfb;
+}
+.official-arrival{border-left:3px solid #86a9d1;}
+.official-member-status{border-left:3px solid #d6ad62;}
+.official-partner{border-left:3px solid #80b696;}
+.official-arrival-head b,
+.official-member-status-head b,
+.official-partner-head b{
+  color:#34433d;
+  font-size:14px;
+}
+.official-arrival-count,
+.official-partner-count{
+  padding:4px 7px;
+  background:#eef4f1;
+  color:#557066;
+}
+.official-arrival-actions select,
+.official-player-tools select,
+.official-member-status select,
+.official-partner-fields select{
+  border:1px solid #d5dfdb;
+  border-radius:8px;
+  background:#fff;
+}
+.official-arrival-actions button,
+.official-partner-submit{
+  border-radius:8px;
+  box-shadow:none;
+}
+.official-arrival-actions button{
+  border-color:#557fba;
+  background:#557fba;
+}
+.official-partner-submit{
+  border-color:#4f9d73;
+  background:#4f9d73;
+}
+.official-member-status-note,
+.official-partner-note,
+.official-request-state{
+  border-radius:6px;
+  background:#f1f4f3;
+}
+.official-status-actions{gap:6px;}
+.official-status-actions button,
+.official-action-row button{
+  border-radius:8px;
+}
+.official-action-list{border-top-color:#e0e7e5;}
+.official-action-row{border-bottom-color:#e0e7e5;}
+.complete-picker{
+  border-radius:8px;
+}
+.complete-picker-card{
+  border-radius:8px;
+}
+.toast{
+  border-radius:8px;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateY(calc(100% + 48px + var(--safe-bottom)));
+}
+.toast.show{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateY(0);
+}
+.event-title span,
+.event-chip,
+.event-section-title,
+.event-row small,
+.event-row em,
+.my-status-chip,
+.my-current-match-time,
+.next-queue-notice small,
+.rest-guide small,
+.after-party-copy small,
+.after-party-names b,
+.official-support-note,
+.official-arrival-head small,
+.official-member-status-head small,
+.official-action-row small,
+.official-partner-fields label{
+  font-weight:700;
+}
+@media(max-width:370px){
+  .wrap{padding-left:9px;padding-right:9px;}
+  .hero,.panel,.my-card{padding-left:12px;padding-right:12px;}
+  .my-card-head{align-items:flex-start;}
+  .my-card-change{padding:0 9px;font-size:12px;}
+  .event-active-meta{flex-basis:78px;}
+  .event-row.event-active .event-active-meta em:only-child{
+    width:auto;
+    align-self:auto;
+    justify-self:end;
+  }
+}
 </style>
 </head>
 <body>
 <main class="wrap">
   <section class="hero">
-    <div class="eyebrow">KOKMATCH MINTON LIVE</div>
+    <div class="eyebrow">민턴LIVE</div>
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.442</span>
+    <span class="version-chip" id="appVersion">v1.10.443</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
   <div id="myCard" class="my-card-wrap hidden"></div>
+  <div id="afterPartyPanel" class="after-party-panel hidden"></div>
+  <div id="officialPanel" class="panel official-panel hidden"></div>
   <section class="panel" id="lookupPanel">
     <div class="toolbar">
       <input id="search" class="search" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ" autocomplete="off">
@@ -1696,7 +2269,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.442';
+const APP_VERSION='1.10.443';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -2529,6 +3102,7 @@ function pickCourtComplete(matchId){
 function placeEventPanelForViewer(isOfficial){
   const panel=document.getElementById('eventPanel');
   const myCard=document.getElementById('myCard');
+  const afterPartyPanel=document.getElementById('afterPartyPanel');
   const lookup=document.getElementById('lookupPanel');
   const main=panel?.parentElement;
   if(!panel||!myCard||!lookup||!main)return;
@@ -2536,7 +3110,8 @@ function placeEventPanelForViewer(isOfficial){
     if(panel.nextElementSibling!==myCard)main.insertBefore(panel,myCard);
     return;
   }
-  if(lookup.nextElementSibling!==panel)main.insertBefore(panel,lookup.nextElementSibling);
+  const nextTarget=afterPartyPanel||lookup;
+  if(myCard.nextElementSibling!==panel)main.insertBefore(panel,nextTarget);
 }
 function jumpToOfficialMemberStatus(actorId){
   const select=document.getElementById('officialPlayerSelect_'+actorId);
@@ -2611,7 +3186,7 @@ function renderEvent(){
     }
     const officialActions=officialQueueCardActionsHtml(canOfficialOperate?selectedPlayer:null,m,index,nextList);
     if(officialActions)actionParts.push(officialActions);
-    return `<div class="event-row next ${esc(m.cueState||'')}">
+    return `<div class="event-row next ${index===0?'priority ':''}${esc(m.cueState||'')}">
     <div class="event-row-main">
       <div class="event-rank-badge">${esc(String(m.idx||''))}</div>
       <div>
@@ -2671,6 +3246,8 @@ function render(){
   const box=document.getElementById('players');
   const count=document.getElementById('countPill');
   const myCard=document.getElementById('myCard');
+  const afterPartyPanel=document.getElementById('afterPartyPanel');
+  const officialPanel=document.getElementById('officialPanel');
   const rosterSummary=document.querySelector('#playerListFold summary');
   const searchInput=document.getElementById('search');
   const lookupPanel=document.getElementById('lookupPanel');
@@ -2685,6 +3262,14 @@ function render(){
     if(myCard){
       myCard.classList.add('hidden');
       myCard.innerHTML='';
+    }
+    if(officialPanel){
+      officialPanel.classList.add('hidden');
+      officialPanel.innerHTML='';
+    }
+    if(afterPartyPanel){
+      afterPartyPanel.classList.add('hidden');
+      afterPartyPanel.innerHTML='';
     }
     if(pageTitle)pageTitle.textContent='내 이름 찾기';
     if(quickNotice)quickNotice.hidden=false;
@@ -3219,12 +3804,22 @@ function refreshOfficialConnection(){
 }
 function renderMyCard(last,players){
   const el=document.getElementById('myCard');
+  const afterPartyPanel=document.getElementById('afterPartyPanel');
+  const officialPanel=document.getElementById('officialPanel');
   if(!el)return;
   const fold=document.getElementById('playerListFold');
   const selected=last&&last.playerId?players.find(p=>p.id===last.playerId):null;
   if(!selected){
     el.classList.add('hidden');
     el.innerHTML='';
+    if(officialPanel){
+      officialPanel.classList.add('hidden');
+      officialPanel.innerHTML='';
+    }
+    if(afterPartyPanel){
+      afterPartyPanel.classList.add('hidden');
+      afterPartyPanel.innerHTML='';
+    }
     if(fold&&!query)fold.open=true;
     return;
   }
@@ -3265,12 +3860,20 @@ function renderMyCard(last,players){
       ${nextNotice}
       <div class="buttons main-actions">${mainButtons}</div>
       ${restGuide}
-      ${afterPartyCardHtml(selected,afterPartyDisabledAttr)}
       ${subSection}
       ${gameRequestBox(selected,requestDisabledAttr)}
-      ${officialSupportHtml(selected)}
     </div>
   </section>`;
+  if(afterPartyPanel){
+    const afterPartyHtml=`${afterPartyCardHtml(selected,afterPartyDisabledAttr)}`;
+    afterPartyPanel.classList.toggle('hidden',!afterPartyHtml);
+    afterPartyPanel.innerHTML=afterPartyHtml;
+  }
+  if(officialPanel){
+    const officialHtml=officialSupportHtml(selected);
+    officialPanel.classList.toggle('hidden',!officialHtml);
+    officialPanel.innerHTML=officialHtml;
+  }
   if(selected.isClubOfficial){
     refreshOfficialPlayerStatusActions(selected.id);
     refreshOfficialPartnerSelection(selected.id);
