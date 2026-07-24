@@ -150,6 +150,87 @@ const stalePlayingStatus=submit(baseRoot(),'official-player-status','operation_s
 });
 assert.strictEqual(stalePlayingStatus.outcome.terminal.status,'rejected','경기중 선수의 오래된 상태 화면에서 보낸 요청을 적용하면 안 됩니다.');
 
+let partnerRoot=baseRoot();
+const partnerReservation=submit(partnerRoot,'official-partner-reservation','operation_partner_001',BASE_NOW,{
+  playerIds:['p9','p10'],playerNames:['P9','P10']
+});
+assert.strictEqual(partnerReservation.outcome.terminal.status,'applied','클럽 임원이 선택한 두 선수를 같은 편 요청으로 즉시 접수해야 합니다.');
+partnerRoot=partnerReservation.outcome.current;
+const partnerRow=partnerRoot.session.reservations.find(item=>item.id==='sr_operation_partner_001');
+assert(partnerRow&&partnerRow.preserveOrder===true,'임원 파트너 접수는 기존 다음 대진 순서를 밀지 않아야 합니다.');
+assert.strictEqual(partnerRow.statusText,'다음 대진 1순위 반영','같은 예정 경기에 이미 있는 두 선수는 관리자 앱 없이 바로 같은 편으로 반영해야 합니다.');
+assert.strictEqual(partnerReservation.outcome.terminal.serverResult.queueApplied,true,'서버 응답은 실제 대진 반영 여부를 회원 화면에 알려야 합니다.');
+assert.strictEqual(partnerRoot.session.event.next[0].reservationId,partnerRow.id,'기존 다음 대진에 파트너 접수 식별값을 연결해야 합니다.');
+const partnerCancel=submit(partnerRoot,'official-partner-cancel','operation_partner_cancel_001',BASE_NOW+1000,{
+  reservationId:partnerRow.id,expectedPlayerIds:['p9','p10']
+});
+assert.strictEqual(partnerCancel.outcome.terminal.status,'applied','클럽 임원은 자신이 확인한 파트너 접수를 즉시 취소할 수 있어야 합니다.');
+assert(!partnerCancel.outcome.current.session.reservations.some(item=>item.id===partnerRow.id),'취소한 파트너 접수는 서버 명단에서 즉시 제거되어야 합니다.');
+assert(partnerCancel.outcome.current.session.event.next.some(item=>item.queueId==='q1'),'기존 순서에 붙인 파트너 접수를 취소해도 원래 대진 자체를 없애면 안 됩니다.');
+assert(!partnerCancel.outcome.current.session.event.next.some(item=>item.reservationId===partnerRow.id),'취소한 파트너 표시만 기존 대진에서 제거해야 합니다.');
+
+let oppositePartnerRoot=baseRoot();
+const oppositePartner=submit(oppositePartnerRoot,'official-partner-reservation','operation_partner_opposite_001',BASE_NOW,{
+  playerIds:['p9','p11'],playerNames:['P9','P11']
+});
+assert.strictEqual(oppositePartner.outcome.terminal.status,'applied','같은 예정 경기에서 상대편인 두 선수도 안전 조건 안에서는 접수해야 합니다.');
+oppositePartnerRoot=oppositePartner.outcome.current;
+const rearrangedQueue=oppositePartnerRoot.session.event.next.find(item=>item.queueId==='q1');
+assert(rearrangedQueue.t1Ids.includes('p9')&&rearrangedQueue.t1Ids.includes('p11'),'같은 예정 경기의 요청 선수는 관리자 앱 없이 같은 편으로 재정렬해야 합니다.');
+assert.strictEqual(oppositePartner.outcome.terminal.serverResult.rearranged,true,'서버 응답은 팀 재정렬 여부를 기록해야 합니다.');
+const oppositeReservation=oppositePartnerRoot.session.reservations.find(item=>item.id==='sr_operation_partner_opposite_001');
+const oppositeCancel=submit(oppositePartnerRoot,'official-partner-cancel','operation_partner_opposite_cancel_001',BASE_NOW+1000,{
+  reservationId:oppositeReservation.id,expectedPlayerIds:['p9','p11']
+});
+const restoredQueue=oppositeCancel.outcome.current.session.event.next.find(item=>item.queueId==='q1');
+assert.deepStrictEqual(restoredQueue.t1Ids,['p9','p10'],'재정렬한 파트너 접수를 취소하면 원래 1팀 구성을 복원해야 합니다.');
+assert.deepStrictEqual(restoredQueue.t2Ids,['p11','p12'],'재정렬한 파트너 접수를 취소하면 원래 2팀 구성을 복원해야 합니다.');
+
+let flexibleRestoreRoot=baseRoot();
+flexibleRestoreRoot.session.players.find(item=>item.id==='p9').gender='F';
+flexibleRestoreRoot.session.players.find(item=>item.id==='p10').gender='F';
+const flexiblePartner=submit(flexibleRestoreRoot,'official-partner-reservation','operation_partner_flexible_001',BASE_NOW,{
+  playerIds:['p9','p11'],playerNames:['P9','P11']
+});
+flexibleRestoreRoot=flexiblePartner.outcome.current;
+const flexibleReservation=flexibleRestoreRoot.session.reservations.find(item=>item.id==='sr_operation_partner_flexible_001');
+const flexibleCancel=submit(flexibleRestoreRoot,'official-partner-cancel','operation_partner_flexible_cancel_001',BASE_NOW+1000,{
+  reservationId:flexibleReservation.id,expectedPlayerIds:['p9','p11']
+});
+const restoredFlexibleQueue=flexibleCancel.outcome.current.session.event.next.find(item=>item.queueId==='q1');
+assert.deepStrictEqual(restoredFlexibleQueue.t1Ids,['p9','p10'],'예외 성비였던 기존 대진도 파트너 취소 시 원래 1팀으로 복원해야 합니다.');
+assert.deepStrictEqual(restoredFlexibleQueue.t2Ids,['p11','p12'],'예외 성비였던 기존 대진도 파트너 취소 시 원래 2팀으로 복원해야 합니다.');
+assert.strictEqual(restoredFlexibleQueue.type,'예외','원래 성비 예외 대진의 유형도 취소 후 복원해야 합니다.');
+
+const waitingPartner=submit(baseRoot(),'official-partner-reservation','operation_partner_waiting_001',BASE_NOW,{
+  playerIds:['p9','p13'],playerNames:['P9','P13']
+});
+assert.strictEqual(waitingPartner.outcome.terminal.status,'applied','서로 다른 예정 경기의 파트너 요청도 접수 자체는 유지해야 합니다.');
+assert.strictEqual(waitingPartner.outcome.terminal.serverResult.queueApplied,false,'서로 다른 순서의 선수를 당겨 합치지 말고 대진 반영 대기로 남겨야 합니다.');
+assert.strictEqual(waitingPartner.outcome.current.session.reservations[0].statusText,'대진 반영 대기','기존 순서를 보존할 수 없는 요청은 반영 대기 상태를 명확히 보여야 합니다.');
+
+let wideGapRoot=baseRoot();
+wideGapRoot.session.players.find(item=>item.id==='p9').level=5;
+wideGapRoot.session.players.find(item=>item.id==='p10').level=2;
+const wideGapPartner=submit(wideGapRoot,'official-partner-reservation','operation_partner_gap_001',BASE_NOW,{
+  playerIds:['p9','p10'],playerNames:['P9','P10']
+});
+assert.strictEqual(wideGapPartner.outcome.terminal.status,'rejected','자동 편성이 불가능한 큰 실력차 파트너는 장기 대기시키지 말고 접수 단계에서 막아야 합니다.');
+
+let finishPartnerRoot=baseRoot();
+finishPartnerRoot.session.event.finishMode=true;
+const finishPartner=submit(finishPartnerRoot,'official-partner-reservation','operation_partner_finish_001',BASE_NOW,{
+  playerIds:['p9','p10'],playerNames:['P9','P10']
+});
+assert.strictEqual(finishPartner.outcome.terminal.status,'rejected','마무리 전환 뒤 새 파트너 대진을 서버에서 접수하면 안 됩니다.');
+
+let endedPartnerRoot=baseRoot();
+endedPartnerRoot.session.players.find(item=>item.id==='p9').status='done';
+const endedPartner=submit(endedPartnerRoot,'official-partner-reservation','operation_partner_done_001',BASE_NOW,{
+  playerIds:['p9','p10'],playerNames:['P9','P10']
+});
+assert.strictEqual(endedPartner.outcome.terminal.status,'rejected','운동 종료 선수를 오래된 화면에서 파트너로 접수하면 안 됩니다.');
+
 let multiStepRoot=baseRoot();
 for(let i=17;i<=20;i++)multiStepRoot.session.players.push(player(`p${i}`,'wait'));
 multiStepRoot.session.event.next.push(queue('q5',['p17','p18','p19','p20']));

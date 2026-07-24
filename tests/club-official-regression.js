@@ -394,14 +394,37 @@ assert.deepStrictEqual(Array.from(approvedCandidates,c=>c.name),['명부지각',
 assert(!approvedCandidates.some(c=>c.name==='타클럽회원'),'다른 클럽 명부 회원을 임원 참가 등록 후보로 노출하면 안 됩니다.');
 assert.strictEqual(arrivalCandidateSandbox.api.profile('m_late').grade,'B','추가 선수 프로필은 관리자 클럽 명부 원본에서 찾아야 합니다.');
 
-assert(checkin.includes('파트너 접수·취소')&&checkin.includes("type:'official-partner-reservation'"),'파트너 요청은 회원이 아닌 임원이 두 선수를 접수하고 취소할 수 있어야 합니다.');
+assert(checkin.includes('파트너 지정')&&checkin.includes("type:'official-partner-reservation'"),'파트너 요청은 회원이 아닌 임원이 두 선수를 접수하고 취소할 수 있어야 합니다.');
 assert(checkin.includes("officialPartnerOpsV1!==true"),'구 관리자 세션과 섞이면 지원 여부가 확인된 경우에만 임원 파트너 도구를 보여야 합니다.');
+assert(!functionSource(checkin,'officialPartnerToolsHtml','refreshOfficialPartnerSelection').includes('<details'),'임원 파트너 지정은 접힌 상세 메뉴 안에 숨기면 안 됩니다.');
+assert(checkin.includes('data-official-partner-submit')&&checkin.includes('refreshOfficialPartnerSelection'),'같은 선수·접수된 선수 중복은 파트너 접수 버튼 단계에서 차단해야 합니다.');
+assert(checkin.includes('officialPartnerGap')&&checkin.includes('공정한 자동 대진으로 편성하기 어렵습니다.'),'편성 불가능한 큰 실력차 파트너는 회원 화면에서 접수 전에 알려야 합니다.');
 assert(dailySrc.includes("req.type==='official-partner-reservation'")&&dailySrc.includes("req.type==='official-partner-cancel'"),'관리자 대진 엔진은 임원 파트너 접수와 취소를 검증해 반영해야 합니다.');
+assert(dailySrc.includes('reservationAttachedExisting')&&dailySrc.includes('_dailyRemoveReservationQueue'),'기존 순서에 붙인 파트너 접수를 취소해도 원래 대진은 복원해야 합니다.');
 const memberRequestBox=functionSource(checkin,'gameRequestBox','toggleAfterParty');
 assert(!memberRequestBox.includes('파트너 신청 보내기'),'일반 회원 화면에서 새 파트너 신청 버튼을 제공하면 안 됩니다.');
 assert(!memberRequestBox.includes('sendReservationConsent')&&!memberRequestBox.includes('sendReservationCancel'),'구버전 파트너 요청도 회원이 동의하거나 취소하는 운영 UI를 다시 노출하면 안 됩니다.');
 assert(functionSource(dailySrc,'_dailyReservationRequestError','_dailyReleaseTemporaryQueueForReservationIds').includes('파트너 요청은 클럽 임원이 현장에서 접수합니다.'),'구버전 회원의 직접 파트너 요청도 관리자 원본에서 거절해야 합니다.');
 assert(functionSource(dailySrc,'_dailyReservationPreservesOrder','_dailyReservationPlayerConflict').includes("r.source==='club-official-request'"),'임원이 접수한 파트너도 앞선 대진 순서를 밀면 안 됩니다.');
+
+const partnerQueueCancelCode=`
+let _dailyQueue=[
+  {id:'existing',team1:['a','c'],team2:['b','d'],reservationId:'pair1',reservationLabel:'a·c 같은 편',reservationAttachedExisting:true,reservationOriginalTeam1Ids:['a','b'],reservationOriginalTeam2Ids:['c','d']},
+  {id:'dedicated',team1:['e','f'],team2:['g','h'],reservationId:'pair2',reservationLabel:'e·f 같은 편'}
+];
+function _dailyRecalcQueueItem(q){q.recalculated=true;}
+${functionSource(dailySrc,'_dailyClearReservationQueueMeta','_dailyCancelReservationsForPlayer')}
+this.api={remove:_dailyRemoveReservationQueue,queue:()=>_dailyQueue};`;
+const partnerQueueCancelSandbox={};
+vm.createContext(partnerQueueCancelSandbox);
+vm.runInContext(partnerQueueCancelCode,partnerQueueCancelSandbox);
+partnerQueueCancelSandbox.api.remove('pair1');
+assert.deepStrictEqual(Array.from(partnerQueueCancelSandbox.api.queue()[0].team1),['a','b'],'기존 대진에 붙인 파트너 접수를 취소하면 원래 1팀을 복원해야 합니다.');
+assert.deepStrictEqual(Array.from(partnerQueueCancelSandbox.api.queue()[0].team2),['c','d'],'기존 대진에 붙인 파트너 접수를 취소하면 원래 2팀을 복원해야 합니다.');
+assert.strictEqual(partnerQueueCancelSandbox.api.queue()[0].reservationId,null,'복원한 기존 대진에는 파트너 접수 표시를 남기면 안 됩니다.');
+partnerQueueCancelSandbox.api.remove('pair2');
+assert.strictEqual(partnerQueueCancelSandbox.api.queue().length,1,'파트너 요청으로 새로 만든 전용 대진은 접수 취소 시 함께 제거해야 합니다.');
+
 assert(checkin.includes("'경기중 · 경기 후 반영'"),'임원 선수 선택에서 경기중 선수의 경기 후 상태도 처리할 수 있어야 합니다.');
 assert(checkin.includes('회원 요청 대신 처리')&&checkin.includes('구두로 받은 휴식·복귀·귀가 요청'),'연세가 많은 회원의 구두 요청도 임원이 찾기 쉬운 위치에서 대신 처리할 수 있어야 합니다.');
 assert(checkin.includes('event-official-member-jump')&&checkin.includes('jumpToOfficialMemberStatus'),'임원은 긴 경기 현황을 지나지 않고 상단에서 회원 요청 처리로 바로 이동할 수 있어야 합니다.');
@@ -447,6 +470,7 @@ const players={
   invited:{id:'invited',isClubOfficial:false,status:'invited',lastStatusAt:40},
   planned:{id:'planned',isClubOfficial:false,status:'planned',lastStatusAt:50},
   playing:{id:'playing',isClubOfficial:false,status:'playing',currentMatchId:'played1',lastStatusAt:30},
+  done:{id:'done',isClubOfficial:false,status:'done',lastStatusAt:60},
   fake:{id:'fake',isClubOfficial:false,status:'wait',lastStatusAt:10}
 };
 let _dailyMatches=[
@@ -575,6 +599,7 @@ assert.strictEqual(movedQueue.yieldedHeldCourt,1,'뒤로 미루기 감사 기록
 assert(validationSandbox.api.error(validYield).includes('순서가 이미 바뀌었습니다'),'같은 임원 요청을 다시 처리해 대진을 추가 이동하면 안 됩니다.');
 assert.strictEqual(validationSandbox.api.error({...validBase,type:'official-partner-reservation',playerIds:['member','playing']}),'','임원은 현재 참가자 두 명의 파트너 요청을 접수할 수 있어야 합니다.');
 assert(validationSandbox.api.error({...validBase,type:'official-partner-reservation',playerIds:['member','member']}).includes('두 명'),'같은 선수를 중복 접수하면 안 됩니다.');
+assert(validationSandbox.api.error({...validBase,type:'official-partner-reservation',playerIds:['member','done']}).includes('현재 운동 중'),'운동 종료 선수를 파트너로 접수하면 안 됩니다.');
 assert.strictEqual(validationSandbox.api.error({...validBase,type:'official-partner-cancel',reservationId:'pair1',expectedPlayerIds:['playing','member']}),'','같은 선수 지문의 파트너 접수는 취소할 수 있어야 합니다.');
 assert(validationSandbox.api.error({...validBase,type:'official-partner-cancel',reservationId:'pair1',expectedPlayerIds:['member','fake']}).includes('바뀌었습니다'),'다른 파트너 접수를 오래된 화면에서 취소하면 안 됩니다.');
 assert(validationSandbox.api.error({...validBase,type:'official-court-complete-undo'}).includes('운영 기록'),'토큰이 없는 구 버전 종료 취소 요청을 적용하면 안 됩니다.');

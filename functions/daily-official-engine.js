@@ -7,6 +7,9 @@ const OFFICIAL_UNDO_MS = 45 * 1000;
 const RECEIPT_RETAIN_MS = 10 * 60 * 1000;
 const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
 const MATCH_MINUTES = 15;
+const PARTNER_GAP_HARD = 3;
+const TEAM_DIFF_LIMIT = 2;
+const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
 const SUPPORTED_TYPES = new Set([
   'official-player-arrival',
@@ -135,6 +138,130 @@ function activePlayerIds(match){
 
 function playerById(session, id){
   return (session.players || []).find(player=>text(player?.id) === text(id)) || null;
+}
+
+function effectiveLevel(player){
+  const level = number(player?.level, 4);
+  const female = player?.gender === 'F' || player?.gender === '여';
+  const age = AGE_BONUS[player?.ageGroup] || 0;
+  return Math.round((level - (female ? 0.5 : 0) + age) * 10) / 10;
+}
+
+function teamLevel(players){
+  return players.reduce((sum, player)=>sum + effectiveLevel(player), 0);
+}
+
+function teamShape(players){
+  const female = players.filter(player=>player?.gender === 'F' || player?.gender === '여').length;
+  return female === 0 ? '남복' : female === 2 ? '여복' : '혼복';
+}
+
+function partnerGap(players){
+  return players.length === 2 ? Math.abs(effectiveLevel(players[0]) - effectiveLevel(players[1])) : Infinity;
+}
+
+function queuePairingMetrics(session, team1Ids, team2Ids){
+  const team1 = team1Ids.map(id=>playerById(session, id)).filter(Boolean);
+  const team2 = team2Ids.map(id=>playerById(session, id)).filter(Boolean);
+  if(team1.length !== 2 || team2.length !== 2 || teamShape(team1) !== teamShape(team2))return null;
+  if(partnerGap(team1) >= PARTNER_GAP_HARD || partnerGap(team2) >= PARTNER_GAP_HARD)return null;
+  const team1Level = Math.round(teamLevel(team1) * 10) / 10;
+  const team2Level = Math.round(teamLevel(team2) * 10) / 10;
+  const levelDiff = Math.round(Math.abs(team1Level - team2Level) * 10) / 10;
+  if(levelDiff > TEAM_DIFF_LIMIT)return null;
+  return {team1, team2, team1Level, team2Level, levelDiff, type:teamShape(team1)};
+}
+
+function writePreparedTeams(session, item, team1Ids, team2Ids, metrics){
+  const team1 = team1Ids.map(id=>playerById(session, id)).filter(Boolean);
+  const team2 = team2Ids.map(id=>playerById(session, id)).filter(Boolean);
+  if(team1.length !== 2 || team2.length !== 2)return false;
+  const team1Level = metrics?.team1Level ?? Math.round(teamLevel(team1) * 10) / 10;
+  const team2Level = metrics?.team2Level ?? Math.round(teamLevel(team2) * 10) / 10;
+  const type = metrics?.type || (teamShape(team1) === teamShape(team2) ? teamShape(team1) : '예외');
+  item.t1Ids = [...team1Ids];
+  item.t2Ids = [...team2Ids];
+  item.team1 = [...team1Ids];
+  item.team2 = [...team2Ids];
+  item.playerIds = [...team1Ids, ...team2Ids];
+  item.t1 = team1.map(player=>player.name || '선수');
+  item.t2 = team2.map(player=>player.name || '선수');
+  item.type = type;
+  item.team1Level = team1Level;
+  item.team2Level = team2Level;
+  item.levelDiff = metrics?.levelDiff ?? Math.round(Math.abs(team1Level - team2Level) * 10) / 10;
+  item.flexible = type === '예외';
+  return true;
+}
+
+function setPreparedTeams(session, item, team1Ids, team2Ids){
+  const metrics = queuePairingMetrics(session, team1Ids, team2Ids);
+  return metrics ? writePreparedTeams(session, item, team1Ids, team2Ids, metrics) : false;
+}
+
+function attachPartnerToPrepared(session, reservation){
+  const pair = (reservation.team1 || []).map(text).filter(Boolean);
+  if(pair.length !== 2)return null;
+  let offset = 0;
+  for(const key of ['next','expected','serverStandby']){
+    const list = session.event[key];
+    for(let index = 0; index < list.length; index += 1){
+      const item = list[index];
+      const ids = queuePlayerIds(item);
+      if(!pair.every(id=>ids.includes(id)))continue;
+      const originalTeam1 = queueTeam1Ids(item);
+      const originalTeam2 = queueTeam2Ids(item);
+      const sameSide = pair.every(id=>originalTeam1.includes(id)) || pair.every(id=>originalTeam2.includes(id));
+      if(!sameSide){
+        if(item.teamMode)return null;
+        const others = ids.filter(id=>!pair.includes(id));
+        if(others.length !== 2 || !setPreparedTeams(session, item, pair, others))return null;
+      }
+      item.reservationId = reservation.id;
+      item.reservationLabel = reservation.label;
+      item.reservationAttachedExisting = true;
+      item.reservationOriginalTeam1Ids = [...originalTeam1];
+      item.reservationOriginalTeam2Ids = [...originalTeam2];
+      const queueIndex = offset + index + 1;
+      reservation.statusText = key === 'next'
+        ? `다음 대진 ${queueIndex}순위 반영`
+        : key === 'expected'
+          ? `예상 대진 ${queueIndex}순위 반영`
+          : '예비 대진 반영';
+      reservation.statusDetail = '기존 대진 순서 유지';
+      reservation.statusClass = 'queued';
+      reservation.ready = false;
+      return {
+        queueApplied:true,
+        queueId:text(item.queueId || item.id),
+        queueIndex,
+        queueGroup:key,
+        rearranged:!sameSide
+      };
+    }
+    offset += list.length;
+  }
+  return null;
+}
+
+function detachPartnerFromPrepared(session, reservationId){
+  ['next','expected','serverStandby'].forEach(key=>{
+    session.event[key] = session.event[key].filter(item=>{
+      if(text(item?.reservationId) !== reservationId)return true;
+      if(item.reservationAttachedExisting){
+        const originalTeam1 = (item.reservationOriginalTeam1Ids || []).map(text).filter(Boolean);
+        const originalTeam2 = (item.reservationOriginalTeam2Ids || []).map(text).filter(Boolean);
+        if(originalTeam1.length === 2 && originalTeam2.length === 2)writePreparedTeams(session, item, originalTeam1, originalTeam2);
+        delete item.reservationId;
+        delete item.reservationLabel;
+        delete item.reservationAttachedExisting;
+        delete item.reservationOriginalTeam1Ids;
+        delete item.reservationOriginalTeam2Ids;
+        return true;
+      }
+      return false;
+    });
+  });
 }
 
 function incrementPlayerCount(player, key, name){
@@ -861,35 +988,57 @@ function reservationIds(reservation){
   return [...(reservation?.team1 || []), ...(reservation?.team2 || [])].map(text).filter(Boolean);
 }
 
-function applyPartnerReservation(session, request, now, requestId){
+function applyPartnerReservation(session, request, now, requestId, operation){
   const ids = (request.playerIds || []).map(text).filter(Boolean);
   if(ids.length !== 2 || new Set(ids).size !== 2)return '파트너 접수 선수 두 명을 다시 확인해야 합니다.';
-  if(ids.some(id=>!playerById(session, id)))return '파트너 접수 선수가 현재 명단에 없습니다.';
+  if(session.event.finishMode)return '마무리 중에는 새 파트너 요청을 받지 않습니다.';
+  const players = ids.map(id=>playerById(session, id));
+  if(players.some(player=>!player))return '파트너 접수 선수가 현재 명단에 없습니다.';
+  if(players.some(player=>['invited','planned','done'].includes(normalizeStatus(player.status))))return '현재 운동 중인 선수만 파트너로 접수할 수 있습니다.';
+  if(partnerGap(players) >= PARTNER_GAP_HARD)return '두 선수의 실력 차가 커서 공정한 자동 대진으로 편성하기 어렵습니다.';
   if(ids.some(id=>session.reservations.some(reservation=>reservationIds(reservation).includes(id))))return '이미 다른 게임신청에 포함된 선수가 있습니다.';
-  const names = ids.map(id=>playerById(session, id)?.name || '선수');
-  session.reservations.push({
+  const names = players.map(player=>player.name || '선수');
+  const statusText = players.some(player=>normalizeStatus(player.status) === 'playing')
+    ? '현재 경기 후 반영 대기'
+    : players.some(player=>normalizeStatus(player.status) === 'rest')
+      ? '복귀 후 반영 대기'
+      : '대진 반영 대기';
+  const reservation = {
     id:`sr_${safeId(requestId)}`,
     mode:'pair',
     team1:ids,
     team2:[],
     label:`${names.join('·')} 같은 편`,
-    statusText:'대진 반영 대기',
-    statusDetail:'클럽 임원 접수',
+    statusText,
+    statusDetail:'기존 대진 순서 유지',
     statusClass:'queued',
     ready:true,
     createdAt:request.createdAt || now,
     source:'club-official-request',
+    preserveOrder:true,
+    createdByPlayerId:text(request.actorPlayerId),
     serverRequestId:requestId
-  });
+  };
+  session.reservations.push(reservation);
+  const prepared = attachPartnerToPrepared(session, reservation);
+  if(operation)operation.result = {
+    reservationId:reservation.id,
+    queueApplied:!!prepared,
+    ...(prepared || {})
+  };
   return '';
 }
 
-function applyPartnerCancel(session, request){
+function applyPartnerCancel(session, request, now){
   const index = session.reservations.findIndex(item=>text(item.id) === text(request.reservationId) && item.mode !== 'match');
   if(index < 0)return '취소할 파트너 접수를 찾지 못했습니다.';
   const reservation = session.reservations[index];
   if(idsFingerprint(request.expectedPlayerIds) !== idsFingerprint(reservation.team1 || []))return '파트너 접수 선수가 이미 바뀌었습니다.';
+  const reservationId = text(reservation.id);
   session.reservations.splice(index, 1);
+  detachPartnerFromPrepared(session, reservationId);
+  promotePrepared(session);
+  refreshEvent(session, now);
   return '';
 }
 
@@ -923,8 +1072,8 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-active-yield': return applyActiveYield(session, request, now, requestId, operation);
     case 'official-queue-enter-free': return applyQueueEnter(session, request, now, requestId);
     case 'official-queue-yield': return applyQueueYield(session, request, now);
-    case 'official-partner-reservation': return applyPartnerReservation(session, request, now, requestId);
-    case 'official-partner-cancel': return applyPartnerCancel(session, request);
+    case 'official-partner-reservation': return applyPartnerReservation(session, request, now, requestId, operation);
+    case 'official-partner-cancel': return applyPartnerCancel(session, request, now);
     default: return '지원하지 않는 임원 운영 요청입니다.';
   }
 }
