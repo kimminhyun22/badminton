@@ -16,9 +16,12 @@ function sourceBetween(startName,endName){
 }
 
 const publishSource=sourceBetween('_dailyScheduleServerReconcile','dailyPublishCheckinSession');
+const ownershipSource=sourceBetween('_dailyRemoteCheckinOwnership','_dailyAdminClientId');
 assert(publishSource.includes('_dailyScheduleServerReconcile()'),'서버가 더 최신이면 관리자 원본과 다시 맞춰야 합니다.');
 assert(publishSource.includes('_dailyScheduleCheckinPublishRetry(0)'),'일시정지 리비전만 앞서도 최신 상태로 회원 화면을 다시 게시해야 합니다.');
 assert(!publishSource.includes('_dailyWriteCheckinPayload(path).catch(()=>{})'),'관리자 게시 오류를 조용히 버리면 안 됩니다.');
+assert(publishSource.includes('remoteInviteHash!==payloadInviteHash'),'다른 운영 링크의 세션을 같은 ID로 덮어쓰면 안 됩니다.');
+assert(publishSource.includes('remoteSessionId!==_dailyCheckinId'),'다른 세션 ID의 내용을 현재 링크로 덮어쓰면 안 됩니다.');
 const listenerSource=sourceBetween('dailyStartCheckinListener','_dailyStopCheckinListener');
 assert(listenerSource.includes("'/session/serverRevision'")&&listenerSource.includes("'/session/serverLastRequestId'"),'관리자 앱은 회원 서버의 최신 대진 리비전을 직접 감지해야 합니다.');
 assert(listenerSource.includes('_dailyObserveRemoteServerHead'),'서버 대진이 바뀌면 관리자 원본 재동기화를 즉시 예약해야 합니다.');
@@ -62,7 +65,11 @@ const sandbox={};
 vm.createContext(sandbox);
 vm.runInContext(`
 let _dailyCheckinId='DADMINSYNC';
+let _dailyOfficialInviteToken='official-token';
 let _dailyOfficialInviteHash='official-hash';
+let _dailyCheckinIdentityPending=false;
+let _dailyCheckinOwnershipVerified=true;
+let _dailyRemoteCheckinExpiresAt=0;
 let _dailyServerRevision=1;
 let _dailyServerLastRequestId='op1';
 let _dailyPauseRevision=0;
@@ -91,9 +98,11 @@ function setTimeout(fn,delay){
 function clearTimeout(timer){if(timer)timer.cancelled=true;}
 function _dailyCheckinPayload(){
   return {
+    serverSessionId:_dailyCheckinId,
     serverRevision:_dailyServerRevision,
     serverLastRequestId:_dailyServerLastRequestId,
     event:{pauseRevision:_dailyPauseRevision},
+    officialInvite:{tokenHash:_dailyOfficialInviteHash},
     matchCompleted:localMatchCompleted
   };
 }
@@ -134,6 +143,7 @@ const _fbDb={
     };
   }
 };
+${ownershipSource}
 ${publishSource}
 function reset(options){
   _dailyServerRevision=Number(options.localRevision||0);
@@ -147,6 +157,8 @@ function reset(options){
   _dailyCheckinPublishRetryDelay=1200;
   localMatchCompleted=true;
   currentSession=clone(options.remote);
+  if(!currentSession.serverSessionId)currentSession.serverSessionId=_dailyCheckinId;
+  if(!currentSession.officialInvite)currentSession.officialInvite={tokenHash:_dailyOfficialInviteHash};
   transactionFailures=Number(options.failures||0);
   transactionCount=0;
   reconcileCalls=0;

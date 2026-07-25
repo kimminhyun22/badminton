@@ -85,8 +85,8 @@ assert.strictEqual(
 );
 
 const loadAsNewDay = extractFunction('_dailyLoadAsNewDay', 'dailyLoad');
-assert(loadAsNewDay.includes('staleCheckinId'), '새날 전환 전에 이전 회원 링크 ID를 확보해야 합니다.');
-assert(loadAsNewDay.includes("_fbDb.ref('live/checkin_'+staleCheckinId).remove()"), '새날 전환 시 이전 원격 회원 링크도 종료해야 합니다.');
+assert(!loadAsNewDay.includes(".remove()"), '새날 전환만으로 소유권을 확인하지 않은 원격 회원 링크를 삭제하면 안 됩니다.');
+assert(loadAsNewDay.includes('localStorage.removeItem(DAILY_CHECKIN_KEY)'), '새날 전환 시 이전 회원 링크의 로컬 연결은 해제해야 합니다.');
 
 const stopCheckin = extractFunction('dailyStopCheckinLink', 'dailyRenderCheckinRequests');
 const code = `
@@ -96,6 +96,16 @@ let _dailyCheckinRequests=[{key:'a'}];
 let _dailyCheckinParty={p1:{attending:true}};
 let _dailyCheckinListening=true;
 let _dailyCheckinListeningPath='live/checkin_DTEST123';
+let _dailyCheckinOwnershipVerified=true;
+let _dailyCheckinIdentityPending=false;
+let _dailyRemoteCheckinExpiresAt=0;
+let _dailyCapabilityEpoch=0;
+let _dailyCapabilityPromise=null;
+let _dailyServerRevision=0;
+let _dailyServerLastRequestId='';
+let _dailyOfficialInviteToken='token';
+let _dailyOfficialInviteHash='hash';
+let _dailyServerReconcileError='';
 const DAILY_CHECKIN_KEY='daily_checkin';
 const DAILY_CHECKIN_CREATED_KEY='daily_checkin_created';
 const calls=[];

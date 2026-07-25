@@ -258,7 +258,8 @@ assert(dailySaveSource.includes('lastCompleteUndo:_dailyPersistedCompleteUndo()'
 const dailyLoadSource=functionSource(dailySrc,'dailyLoad','dailyApplyReviewSample');
 assert(dailyLoadSource.includes('s.lastCompleteUndo')&&dailyLoadSource.includes('savedUndo.expiresAt'),'유효한 45초 종료 취소 상태만 재실행 시 복원해야 합니다.');
 const resumeSource=functionSource(dailySrc,'dailyResumeCheckin','dailyStartCheckinListener');
-assert(!resumeSource.includes('dailyPushCheckinSession()'),'재실행 직후 오래된 로컬 화면을 대기 명령보다 먼저 게시하면 안 됩니다.');
+assert(resumeSource.indexOf('_dailyReadCheckinOwnership()')<resumeSource.indexOf('dailyPushCheckinSession()'),'재실행 직후 서버 링크 소유권을 확인하기 전에 로컬 화면을 게시하면 안 됩니다.');
+assert(resumeSource.includes("ownership==='missing'"),'서버 세션이 실제로 없을 때만 재실행 화면을 복구 게시해야 합니다.');
 const listenerSource=functionSource(dailySrc,'dailyStartCheckinListener','_dailyStopCheckinListener');
 assert(listenerSource.indexOf('dailyProcessCheckinRequests()')<listenerSource.indexOf('dailyPushCheckinSession()'),'재접속 시 임원 명령을 처리한 뒤 최신 공개 화면을 게시해야 합니다.');
 const heartbeatSource=functionSource(dailySrc,'_dailyStartOperatorHeartbeat','_dailyOfficialArrivalRoster');
