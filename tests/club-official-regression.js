@@ -40,9 +40,8 @@ assert(functionSource(dailySrc,'dailyReset','dailyToggleAutoAssign').includes('_
 assert(checkin.includes('클럽 임원 운영'),'회원 페이지에서 임원 중심 운영 화면을 제공해야 합니다.');
 assert(indexHtml.includes('임원이 두 선수를 접수합니다.')&&indexHtml.includes('뒷풀이 참석은 내 카드에서 직접 신청하거나 취소합니다.'),'사용 안내도 임원 파트너 접수와 회원 뒷풀이 신청 정책을 따라야 합니다.');
 assert(!checkin.includes('관리자 앱 연결 필요'),'임원 화면이 시스템 관리자 호출을 일상 운영의 전제로 보여주면 안 됩니다.');
-assert(checkin.includes("serverReady?'서버 즉시 처리'"),'임원에게 관리자 앱 없이 서버에서 즉시 처리되는 상태를 명확히 보여야 합니다.');
-assert(checkin.includes('cardOps&&autoHandoff'),'서버 자동 투입 기능이 없는 구 세션에는 자동 투입 안내를 보여주면 안 됩니다.');
-assert(checkin.includes('새 대진은 미리 준비된 범위까지 이어집니다.'),'관리자 앱 종료 중 새 대진이 준비 큐 범위까지만 이어짐을 임원에게 알려야 합니다.');
+assert(checkin.includes("serverReady?'서버 즉시 처리'"),'임원에게 현재 운영 연결 상태를 짧게 보여줘야 합니다.');
+assert(!checkin.includes('id="officialSupportNote"'),'클럽 임원 도구에 일상 운영 설명을 길게 노출하면 안 됩니다.');
 const officialShare=functionSource(dailySrc,'dailyShareOfficialLink','dailyResumeCheckin');
 assert(officialShare.includes('링크를 열고 내 이름을 선택하세요.'),'임원 링크 공유 문구도 바로 행동할 한 문장만 제공해야 합니다.');
 assert(!officialShare.includes('새 대진은 미리 준비된 범위까지 이어집니다.'),'카카오톡 공유 문구에 상세 운영 설명을 다시 넣으면 안 됩니다.');
@@ -95,7 +94,8 @@ ${memberEventBoard}
 this.rendered=()=>{renderEvent();return eventPanel.innerHTML;};
 `,memberEventRenderSandbox);
 const renderedQueueRanks=[...memberEventRenderSandbox.rendered().matchAll(/event-rank-badge">(\d+)</g)].map(match=>Number(match[1]));
-assert.deepStrictEqual(renderedQueueRanks,[1,2,3,4,5,6,7],'회원 LIVE 현황은 다음 대진 1~5와 예상 대진 6~7을 빠짐없이 연속 표시해야 합니다.');
+assert.deepStrictEqual(renderedQueueRanks,[1,2,3,4,5],'회원 LIVE 현황에는 확정된 다음 대진만 표시하고 예상 대진은 노출하지 않아야 합니다.');
+assert(!memberEventBoard.includes('ev.expected'),'회원 LIVE 현황은 변경 가능한 예상 대진을 렌더링하면 안 됩니다.');
 assert(memberEventBoard.includes('canOfficialOperate')&&memberEventBoard.includes('event-official-complete'),'클럽 임원의 경기 종료 버튼은 진행 중 코트 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes('officialQueueCardActionsHtml'),'클럽 임원의 입장 처리와 이번만 뒤로 버튼은 해당 다음 대진 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes("['queue-yield','active-yield'].includes(lastComplete?.operation)")&&memberEventBoard.includes("lastComplete?.operation==='queue-enter'"),'최근 임원 입장·순서 작업도 해당 이름으로 바로 취소할 수 있어야 합니다.');
@@ -109,20 +109,22 @@ assert(!officialQueueCue.includes('targetCourt')&&!officialQueueCue.includes('�
 const cueSandbox={};
 vm.createContext(cueSandbox);
 vm.runInContext(`
-${functionSource(checkin,'stripExpectedCourtText','memberQueueCueText')}
 ${functionSource(checkin,'memberQueueCueText','officialQueueCueText')}
 ${officialQueueCue}
 this.memberCue=memberQueueCueText;
 this.officialCue=officialQueueCueText;
 `,cueSandbox);
 const predictedCue={cueState:'soon',targetCourt:2,cue:'2코트',cueDetail:'2코트 · 5분'};
-assert.strictEqual(cueSandbox.memberCue(predictedCue),'5분','일반 회원의 다음 대진에서 예상 코트 번호를 제거해야 합니다.');
-assert.strictEqual(cueSandbox.officialCue(predictedCue),'5분','클럽 임원의 다음 대진에서도 예상 코트 번호를 제거해야 합니다.');
+assert.strictEqual(cueSandbox.memberCue(predictedCue),'대기','일반 회원의 다음 대진 상태는 대기로 간결하게 표시해야 합니다.');
+assert.strictEqual(cueSandbox.officialCue(predictedCue),'대기','클럽 임원의 다음 대진 상태도 대기로 간결하게 표시해야 합니다.');
+assert.strictEqual(cueSandbox.memberCue({cueState:'normal',cueDetail:'경기 후'}),'대기','경기 후 같은 불확실한 설명은 회원 화면에 노출하면 안 됩니다.');
+assert.strictEqual(cueSandbox.memberCue({cueState:'normal',cueDetail:'진행중 경기 없음'}),'대기','진행 중 경기 없음 같은 내부 설명은 회원 화면에 노출하면 안 됩니다.');
 assert(!cueSandbox.officialCue({cueState:'free',targetCourt:2}).includes('2코트'),'입장 직전 카드도 코트 번호를 고정 노출하지 않고 처리 시점에 확인해야 합니다.');
-assert(checkin.includes("main:'입장 준비',detail:'클럽 임원 확인 중'"),'일반 회원에게 클럽 임원 처리 대기 상태를 명확히 보여야 합니다.');
+assert(checkin.includes("return {main:'대기',detail:''}"),'내 카드의 다음 대진도 불확실한 시간 설명 없이 대기로 표시해야 합니다.');
 assert(checkin.includes("onclick=\"sendOfficialCourtComplete"),'클럽 임원의 경기 종료 기능은 유지해야 합니다.');
 assert(checkin.includes("onclick=\"sendOfficialQueueEnter"),'클럽 임원의 빈 코트 입장 처리 기능은 유지해야 합니다.');
 assert(checkin.includes('지각 선수 참가 등록')&&checkin.includes("type:'official-player-arrival'"),'클럽 임원은 등록 전 선수를 현장에서 바로 참가 등록할 수 있어야 합니다.');
+assert(!checkin.includes('현장 도착을 확인하면 대기열에 바로 반영됩니다.'),'지각 선수 등록 도구에 자명한 설명을 반복하면 안 됩니다.');
 assert(checkin.includes("officialArrivalV1!==true"),'구 관리자 세션에서는 지원되지 않는 지각 참가 등록 도구를 숨겨야 합니다.');
 assert(checkin.includes('대진 순서 한 칸 조정')&&checkin.includes("type:'official-queue-yield'"),'클럽 임원은 특정 다음 대진을 한 경기만 뒤로 보낼 수 있어야 합니다.');
 assert(checkin.includes("officialQueueYieldV1!==true"),'구 관리자 세션에서는 지원되지 않는 임원 순서 조정 버튼을 숨겨야 합니다.');
@@ -427,8 +429,8 @@ partnerQueueCancelSandbox.api.remove('pair2');
 assert.strictEqual(partnerQueueCancelSandbox.api.queue().length,1,'파트너 요청으로 새로 만든 전용 대진은 접수 취소 시 함께 제거해야 합니다.');
 
 assert(checkin.includes("'경기중 · 경기 후 반영'"),'임원 선수 선택에서 경기중 선수의 경기 후 상태도 처리할 수 있어야 합니다.');
-assert(checkin.includes('회원 요청 대신 처리')&&checkin.includes('구두로 받은 휴식·복귀·귀가 요청'),'연세가 많은 회원의 구두 요청도 임원이 찾기 쉬운 위치에서 대신 처리할 수 있어야 합니다.');
-assert(checkin.includes('event-official-member-jump')&&checkin.includes('jumpToOfficialMemberStatus'),'임원은 긴 경기 현황을 지나지 않고 상단에서 회원 요청 처리로 바로 이동할 수 있어야 합니다.');
+assert(checkin.includes('회원 상태 수정')&&!checkin.includes('회원 요청 대신 처리')&&!checkin.includes('구두로 받은 휴식·복귀·귀가 요청'),'임원 회원 상태 도구는 설명 없이 짧은 명칭으로 보여야 합니다.');
+assert(checkin.includes('event-official-member-jump')&&checkin.includes('jumpToOfficialMemberStatus'),'임원은 긴 경기 현황을 지나지 않고 상단에서 회원 상태 수정으로 바로 이동할 수 있어야 합니다.');
 assert(!checkin.includes('<summary>선수 휴식·복귀·종료 처리</summary>'),'현장 핵심 상태 처리를 접힌 상세 메뉴 안에 숨기면 안 됩니다.');
 assert(checkin.includes("playing?'경기 후 휴식':'잠시 휴식'")&&checkin.includes("playing?'경기 후 종료':'운동 종료'"),'경기중 선수는 현재 경기 종료 후 적용된다는 버튼 문구를 보여야 합니다.');
 assert(checkin.includes("(playing&&status==='wait')||sameStatus"),'경기중 복귀와 같은 상태의 중복 처리는 버튼 단계에서 차단해야 합니다.');

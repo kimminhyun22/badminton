@@ -1535,7 +1535,6 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-support-head b{font-size:16px;color:var(--txt);}
 .official-connection{flex-shrink:0;padding:5px 9px;border-radius:999px;background:#eef9f3;color:#16724c;font-size:12px;font-weight:1000;}
 .official-connection.offline{background:#fff8e8;color:#8a5a00;}
-.official-support-note{font-size:12px;line-height:1.5;color:var(--mut);margin-bottom:10px;}
 .official-connect-recovery{margin:10px 0;padding:12px;border:1.5px solid #e3a7aa;border-radius:8px;background:#fff4f4;color:#8f1d24;}
 .official-connect-recovery b{display:block;font-size:14px;}
 .official-connect-recovery small{display:block;margin-top:4px;font-size:11px;font-weight:800;line-height:1.5;}
@@ -2119,11 +2118,6 @@ summary:focus-visible{
 }
 .official-support-head{margin-bottom:5px;}
 .official-support-head b{font-size:18px;}
-.official-support-note{
-  margin-bottom:12px;
-  color:#69736f;
-  font-size:12px;
-}
 .official-connection{
   padding:5px 8px;
   background:#edf7f1;
@@ -2218,9 +2212,6 @@ summary:focus-visible{
 .rest-guide small,
 .after-party-copy small,
 .after-party-names b,
-.official-support-note,
-.official-arrival-head small,
-.official-member-status-head small,
 .official-action-row small,
 .official-partner-fields label{
   font-weight:700;
@@ -2238,7 +2229,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.447">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.448">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="콕매치">
@@ -2253,7 +2244,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.447</span>
+    <span class="version-chip" id="appVersion">v1.10.448</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2300,7 +2291,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],queueYieldRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.447';
+const APP_VERSION='1.10.448';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_REQUEST_TTL_MS=10*60*1000;
@@ -2456,8 +2447,8 @@ function sampleSession(){
   const expected=(idx,ids,type)=>({
     ...next(idx,ids,type),
     queueId:'expect'+idx,
-    cue:'예상 대진',
-    cueDetail:'예상 · 바뀔 수 있어요',
+    cue:'대기',
+    cueDetail:'',
     cueState:'expected',
     expected:true
   });
@@ -2985,64 +2976,19 @@ function nextQueueForPlayer(playerId){
   if(!playerId)return null;
   return eventNextList().find(q=>(q.playerIds||[]).map(String).includes(String(playerId)))||null;
 }
-function queueTargetMatch(q){
-  const direct=activeMatchById(q?.targetMatchId);
-  if(direct)return direct;
-  const active=(session?.event?.active||[])
-    .filter(m=>m&&m.endAt)
-    .slice()
-    .sort((a,b)=>(Number(a.endAt)-Number(b.endAt))||((a.court||0)-(b.court||0)));
-  const idx=Math.max(0,(Number(q?.idx)||1)-1);
-  return active[idx]||null;
-}
 function nextQueueTimeInfo(q){
-  if(!q)return {main:'대기 중',detail:''};
-  if(eventFlowPaused())return {main:'진행 일시 정지',detail:'재개 후 순서 유지'};
-  if(q.restPass)return {main:'조금 쉬고 대기',detail:''};
-  if(q.cueState==='free'){
-    return {main:'입장 준비',detail:'클럽 임원 확인 중'};
-  }
-  if(q.cueState==='handoff')return {main:'입장 준비',detail:'클럽 임원 확인 중'};
-  if(q.cueState==='due'){
-    return {main:'입장 준비',detail:'클럽 임원 확인 중'};
-  }
-  const m=queueTargetMatch(q);
-  const endAt=Number(m?.endAt||0);
-  if(endAt){
-    const remain=Math.max(0,Math.ceil((endAt-Date.now())/60000));
-    const time=clockText(endAt);
-    const remainText=remain<=0?'종료임박':`약 ${remain}분 후`;
-    return {
-      main:time?`${time} 전후`:'진행 중 경기 종료 후',
-      detail:remainText
-    };
-  }
-  return {
-    main:memberQueueCueText(q)||'대기 중',
-    detail:''
-  };
-}
-function stripExpectedCourtText(text){
-  return String(text||'').replace(/^\s*\d+\s*코트\s*(?:[·ㆍ-]\s*)?/,'').trim();
+  if(q?.restPass)return {main:'조금 쉬고',detail:''};
+  return {main:'대기',detail:''};
 }
 function memberQueueCueText(q){
   if(!q)return '';
   if(q.restPass)return q.restPassText||'조금 쉬고';
-  if(q.cueState==='free'){
-    return '입장 준비 · 클럽 임원 확인 중';
-  }
-  if(q.cueState==='handoff')return '입장 준비 · 클럽 임원 확인 중';
-  const detail=stripExpectedCourtText(q.cueDetail);
-  if(detail)return detail;
-  return stripExpectedCourtText(q.cue);
+  return '대기';
 }
 function officialQueueCueText(q){
   if(!q)return '';
   if(q.restPass)return q.restPassText||'조금 쉬고 입장 대기';
-  if(q.cueState==='free')return '선수 확인 후 입장 처리';
-  if(q.cueState==='handoff'||q.cueState==='due')return '입장 준비';
-  const detail=stripExpectedCourtText(q.cueDetail)||stripExpectedCourtText(q.cue);
-  return detail||'대기 중';
+  return '대기';
 }
 function nextQueueNoticeHtml(playerId){
   const q=nextQueueForPlayer(playerId);
@@ -3166,7 +3112,7 @@ function placeEventPanelForViewer(isOfficial){
 function jumpToOfficialMemberStatus(actorId){
   const select=document.getElementById('officialPlayerSelect_'+actorId);
   const target=select?.closest('.official-member-status');
-  if(!select||!target)return toast('회원 요청 처리 화면을 다시 불러와 주세요.');
+  if(!select||!target)return toast('회원 상태 수정 화면을 다시 불러와 주세요.');
   target.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(()=>{
     try{select.focus({preventScroll:true});}catch(e){select.focus();}
@@ -3197,7 +3143,7 @@ function renderEvent(){
   const canOfficialOperate=!!(selectedPlayer?.isClubOfficial&&session?.capabilities?.officialOpsV1===true);
   const flowPaused=!!ev.paused;
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span><span class="event-chip gold">뒷풀이 ${afterPartyNames().length}명</span>`;
-  const memberStatusJump=canOfficialOperate?`<button type="button" class="event-official-member-jump" onclick="jumpToOfficialMemberStatus('${esc(selectedPlayer.id)}')">회원 요청 처리</button>`:'';
+  const memberStatusJump=canOfficialOperate?`<button type="button" class="event-official-member-jump" onclick="jumpToOfficialMemberStatus('${esc(selectedPlayer.id)}')">회원 상태 수정</button>`:'';
   placeEventPanelForViewer(canOfficialOperate);
   const active=(ev.active||[]).slice(0,4).map(m=>{
     const remain=remainMinutes(m);
@@ -3248,16 +3194,6 @@ function renderEvent(){
     </div>
   </div>`;
   }).join('');
-  const expected=(ev.expected||[]).slice(0,2).map(m=>`<div class="event-row next expected">
-    <div class="event-row-main">
-      <div class="event-rank-badge">${esc(String(m.idx||''))}</div>
-      <div>
-        ${partnerMatchBadge(m)}
-        <div class="event-teams next-teams">${nextTeamLine(m)}</div>
-        <small class="event-cue">${esc(m.cueDetail||'예상 · 바뀔 수 있어요')}</small>
-      </div>
-    </div>
-  </div>`).join('');
   const undoLabel=['queue-yield','active-yield'].includes(lastComplete?.operation)?'이번만 뒤로':lastComplete?.operation==='queue-enter'?'입장 처리':'경기 종료';
   const undo=lastComplete?`<div class="event-row">
     <div class="event-row-main full">
@@ -3287,8 +3223,7 @@ function renderEvent(){
     ${pauseNotice}
     ${finishNotice}
     ${active?`<div class="event-section-title">진행 중 코트</div><div class="event-list">${active}</div>`:''}
-    ${next||undo?`<div class="event-section-title">다음 대진</div><div class="event-list">${undo}${next}</div>`:''}
-    ${expected?`<div class="event-section-title">예상 대진</div><div class="event-list">${expected}</div>`:''}`;
+    ${next||undo?`<div class="event-section-title">다음 대진</div><div class="event-list">${undo}${next}</div>`:''}`;
 }
 function renderMemberPageState(){
   const el=document.getElementById('memberPageState');
@@ -3628,7 +3563,7 @@ function officialArrivalToolsHtml(p,disabled){
   const allPending=players.every(player=>pendingIds.has(String(player.candidateKey)));
   const actionDisabled=disabled||allPending?'disabled':'';
   return `<div class="official-arrival">
-    <div class="official-arrival-head"><span><b>지각 선수 참가 등록</b><small>현장 도착을 확인하면 대기열에 바로 반영됩니다.</small></span><span class="official-arrival-count">참가 후보 ${players.length}명</span></div>
+    <div class="official-arrival-head"><span><b>지각 선수 참가 등록</b></span><span class="official-arrival-count">참가 후보 ${players.length}명</span></div>
     <div class="official-arrival-actions">
       <select id="officialArrivalSelect_${esc(p.id)}" aria-label="도착한 선수 선택">${options}</select>
       <button type="button" data-official-action data-arrival-pending="${allPending?'true':'false'}" ${actionDisabled} onclick="sendOfficialArrival('${esc(p.id)}')">참가 등록</button>
@@ -3647,7 +3582,7 @@ function officialPlayerStatusToolsHtml(p,disabled){
   const options=officialPlayerOptions();
   if(!options)return '';
   return `<div class="official-member-status">
-    <div class="official-member-status-head"><b>회원 요청 대신 처리</b><small>구두로 받은 휴식·복귀·귀가 요청을 임원이 바로 반영합니다.</small></div>
+    <div class="official-member-status-head"><b>회원 상태 수정</b></div>
     <select id="officialPlayerSelect_${esc(p.id)}" data-official-player-status-select data-actor-id="${esc(p.id)}" aria-label="상태를 바꿀 회원 선택" ${disabled} onchange="refreshOfficialPlayerStatusActions('${esc(p.id)}')">${options}</select>
     <div id="officialPlayerStatusNote_${esc(p.id)}" class="official-member-status-note">회원을 선택하면 현재 상태에 맞는 버튼만 활성화됩니다.</div>
     <div class="official-status-actions">
@@ -3775,10 +3710,8 @@ function officialSupportHtml(p){
   if(!p?.isClubOfficial||!session?.capabilities?.officialOpsV1)return '';
   const serverReady=officialServerReady();
   const connected=serverReady||(!officialServerCapable()&&operatorConnected());
-  const paused=eventFlowPaused();
-  const disabled=(paused||sendingKey||claimingOfficial)?'disabled':'';
+  const disabled=(eventFlowPaused()||sendingKey||claimingOfficial)?'disabled':'';
   const cardOps=session?.capabilities?.officialQueueCardOpsV1===true;
-  const autoHandoff=session?.capabilities?.officialAutoHandoffV1===true;
   const free=cardOps?[]:eventNextList().filter(q=>q.cueState==='free'&&q.targetCourt&&!q.restPass);
   const freeRows=free.map(q=>`<div class="official-action-row">
     <span>${esc(q.targetCourt?`${q.targetCourt}코트`:'빈 코트')}<small>${esc(teamNames(q))}</small></span>
@@ -3793,7 +3726,6 @@ function officialSupportHtml(p){
   </div>`:'';
   return `<section class="official-support">
     <div class="official-support-head"><b>클럽 임원 운영</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
-    <div id="officialSupportNote" class="official-support-note">${paused?'진행이 일시 정지되어 있습니다. 재개되면 운영 버튼을 다시 사용할 수 있습니다.':serverReady?(cardOps&&autoHandoff?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 경기 종료 시 다음 대진이 자동 투입되며, 선수가 없으면 새 경기 카드에서 2분 안에 이번만 뒤로를 누르세요. 새 대진은 미리 준비된 범위까지 이어집니다.':cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.'):(connected?'현재 관리자 앱에서 별도 승인 없이 바로 반영됩니다.':'명부의 임원 등록을 확인해 운영 권한을 연결하고 있습니다.')}</div>
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
     ${officialArrivalToolsHtml(p,disabled)}
@@ -3850,16 +3782,6 @@ function refreshOfficialConnection(){
   const connected=serverReady||(!officialServerCapable()&&operatorConnected());
   el.textContent=serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'권한 확인 필요';
   el.classList.toggle('offline',!connected);
-  const note=document.getElementById('officialSupportNote');
-  const cardOps=session?.capabilities?.officialQueueCardOpsV1===true;
-  const autoHandoff=session?.capabilities?.officialAutoHandoffV1===true;
-  if(note)note.textContent=eventFlowPaused()
-    ? '진행이 일시 정지되어 있습니다. 재개되면 운영 버튼을 다시 사용할 수 있습니다.'
-    : serverReady
-    ? (cardOps&&autoHandoff?'관리자 앱이 꺼져도 운영 작업은 즉시 반영됩니다. 경기 종료 시 다음 대진이 자동 투입되며, 선수가 없으면 새 경기 카드에서 2분 안에 이번만 뒤로를 누르세요. 새 대진은 미리 준비된 범위까지 이어집니다.':cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'관리자 앱이 꺼져도 지각 참가·대진 순서·선수 상태는 즉시 반영됩니다. 새 대진은 미리 준비된 범위까지 이어집니다.')
-    : connected
-      ? (cardOps?'현재 관리자 앱에서 바로 반영됩니다. 코트 종료·입장·이번만 뒤로는 해당 경기 카드에서 처리하세요.':'현재 관리자 앱에서 바로 반영됩니다. 지각 참가·대진 순서·선수 상태는 여기에서 처리하세요.')
-      : '명부의 임원 등록을 확인해 운영 권한을 연결하고 있습니다.';
   document.querySelectorAll('[data-official-action]').forEach(btn=>{btn.disabled=eventFlowPaused()||!!sendingKey||claimingOfficial||btn.dataset.officialPending==='true'||btn.dataset.arrivalPending==='true';});
   document.querySelectorAll('[data-official-player-status-select]').forEach(select=>refreshOfficialPlayerStatusActions(select.dataset.actorId||''));
   document.querySelectorAll('[data-official-partner-panel]').forEach(panel=>refreshOfficialPartnerSelection(panel.dataset.actorId||''));
