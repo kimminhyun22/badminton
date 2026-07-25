@@ -300,6 +300,11 @@ assert(
 );
 assert(Math.max(...completedGames)-Math.min(...completedGames)<=3,'지각자를 포함해도 출전 격차가 과도하게 벌어지면 안 됩니다.');
 assert(lateGames.length===6&&Math.min(...lateGames)>=3,'순차 도착한 지각자도 남은 시간에 최소 세 경기 기회를 받아야 합니다.');
+const fairGaps=participants
+  .filter(row=>['wait','playing'].includes(row.status))
+  .map(row=>Number(row.fairExpected||0)-row.games-(activePlayers.has(row.id)?1:0));
+assert(Math.max(...fairGaps)<=1.25,'실전 순환 후 참여 기회가 한 경기 이상 과도하게 뒤처진 선수가 남으면 안 됩니다.');
+assert(fairGaps.filter(gap=>gap>=0.75).length<=2,'임원 화면의 공정 보정 대상이 한꺼번에 과도하게 늘어나면 안 됩니다.');
 assert(Object.keys(state.session.serverRuntime.fourCounts).length>5,'같은 네 명 반복 회피용 서버 이력이 누적되어야 합니다.');
 assert(Object.keys(state.session.serverRuntime.exactCounts).length>5,'동일 팀 대결 반복 회피용 서버 이력이 누적되어야 합니다.');
 

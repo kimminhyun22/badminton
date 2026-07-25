@@ -290,6 +290,7 @@ function incrementPlayerRelationship(player, key, other){
 function ensureSession(raw){
   const session = clone(raw || {});
   session.players = Array.isArray(session.players) ? session.players : [];
+  session.players.forEach(ensureFairExpected);
   session.reservations = Array.isArray(session.reservations) ? session.reservations : [];
   session.arrivalCandidates = Array.isArray(session.arrivalCandidates) ? session.arrivalCandidates : [];
   session.event = session.event && typeof session.event === 'object' ? session.event : {};
@@ -309,6 +310,42 @@ function ensureSession(raw){
   return session;
 }
 
+function fairActual(player){
+  return number(player?.games) + ((normalizeStatus(player?.status) === 'playing' || text(player?.currentMatchId)) ? 1 : 0);
+}
+
+function ensureFairExpected(player){
+  if(!player)return 0;
+  if(!Object.prototype.hasOwnProperty.call(player, 'fairExpected') || !Number.isFinite(Number(player.fairExpected))){
+    player.fairExpected = fairActual(player);
+  }else{
+    player.fairExpected = Math.max(0, Number(player.fairExpected));
+  }
+  return player.fairExpected;
+}
+
+function applyFairOpportunity(session, match){
+  if(!session || !match)return;
+  const pool = session.players.filter(player=>normalizeStatus(player?.status) === 'wait' && !text(player?.currentMatchId));
+  if(!pool.length)return;
+  const slots = Math.max(1, activePlayerIds(match).length || 4);
+  const amount = slots / pool.length;
+  match.fairExpectedDeltas = pool.map(player=>{
+    player.fairExpected = ensureFairExpected(player) + amount;
+    return {id:text(player.id), amount};
+  });
+}
+
+function rollbackFairOpportunity(session, match, now){
+  if(!session || !match || !Array.isArray(match.fairExpectedDeltas) || match.fairExpectedRolledBackAt)return;
+  match.fairExpectedDeltas.forEach(row=>{
+    const player = playerById(session, row?.id);
+    if(!player)return;
+    player.fairExpected = Math.max(0, ensureFairExpected(player) - Math.max(0, number(row?.amount)));
+  });
+  match.fairExpectedRolledBackAt = now;
+}
+
 function operationalSnapshot(session){
   return clone({
     players: session.players,
@@ -326,6 +363,7 @@ function operationalFingerprint(session){
     currentMatchId:text(player?.currentMatchId),
     afterMatchStatus:text(player?.afterMatchStatus),
     games:number(player?.games),
+    fairExpected:ensureFairExpected(player),
     mixedGames:number(player?.mixedGames),
     typeTrackedGames:number(player?.typeTrackedGames),
     lastPlayedSeq:number(player?.lastPlayedSeq),
@@ -814,6 +852,7 @@ function applyPlayerAdd(session, request, now){
     status: 'wait',
     statusLabel: statusLabel('wait'),
     games: 0,
+    fairExpected: 0,
     mixedGames: 0,
     typeTrackedGames: 0,
     partnerCountById: {},
@@ -979,6 +1018,7 @@ function startPreparedItem(session, item, index, court, now, requestId, options 
     if(reservation)match.autoHandoffReservation = clone(reservation);
   }
   event.active.push(match);
+  applyFairOpportunity(session, match);
   ids.forEach(id=>{
     const player = playerById(session, id);
     player.status = 'playing';
@@ -1153,6 +1193,7 @@ function applyActiveYield(session, request, now, requestId, operation){
   const court = number(match.court || request.court);
   const savedStateRows = Array.isArray(match.autoHandoffPlayerStates) ? match.autoHandoffPlayerStates : [];
   const savedStates = new Map(savedStateRows.map(row=>[text(row?.id),row]));
+  rollbackFairOpportunity(session, match, now);
   event.active.splice(matchIndex, 1);
   ids.forEach(id=>{
     const player=playerById(session,id);

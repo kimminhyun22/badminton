@@ -85,6 +85,8 @@ assert(state.session.players.filter(p=>['p1','p2','p3','p4'].includes(p.id)).eve
 assert.strictEqual(state.session.players.find(p=>p.id==='p1').partnerCount.P2,1,'서버 종료도 파트너 출전 통계를 기록해야 합니다.');
 assert.strictEqual(state.session.players.find(p=>p.id==='p1').opponentCount.P3,1,'서버 종료도 상대 출전 통계를 기록해야 합니다.');
 assert(state.session.players.filter(p=>['p9','p10','p11','p12'].includes(p.id)).every(p=>p.games===0&&p.status==='playing'),'자동 투입 선수의 게임 수는 시작 시점에 올리면 안 됩니다.');
+const fairExpectedAfterAuto=state.session.players.reduce((sum,p)=>sum+Number(p.fairExpected||0),0);
+assert(Math.abs(fairExpectedAfterAuto-12)<1e-9,'서버 자동 투입은 당시 참가 가능한 선수에게 네 자리의 공정 기회를 나눠 기록해야 합니다.');
 assert.strictEqual(state.requests.auto_complete_001.serverResult.autoEnter.matchId,'sm_auto_complete_001','관리자 재실행을 위해 서버가 결정한 자동 투입 결과를 명령 기록에 남겨야 합니다.');
 assert(!state.session.event.active.some(match=>match.id==='client_suggested_match'),'클라이언트가 제안한 경기 ID를 서버 상태에 그대로 사용하면 안 됩니다.');
 assert.strictEqual(state.session.serverRuntime.holds['1'],undefined,'자동 투입된 코트를 수동 입장 대기로 남기면 안 됩니다.');
@@ -100,6 +102,8 @@ assert.deepStrictEqual(state.session.event.next[0].playerIds,['p9','p10','p11','
 assert.deepStrictEqual(state.session.players.filter(p=>['p9','p10','p11','p12'].includes(p.id)).map(p=>p.games),beforeYieldGames,'이번만 뒤로는 취소된 경기의 게임 수를 올리면 안 됩니다.');
 assert(state.session.players.filter(p=>['p9','p10','p11','p12'].includes(p.id)).every(p=>p.status==='wait'),'뒤로 보낸 네 명은 다시 대기 상태여야 합니다.');
 assert(state.session.players.filter(p=>['p9','p10','p11','p12'].includes(p.id)).every(p=>p.waitFrom===NOW-60_000&&p.lastStatusAt===NOW-1000),'이번만 뒤로는 자동 투입 전 대기시간을 복원해 공정성을 지켜야 합니다.');
+const fairExpectedAfterYield=state.session.players.reduce((sum,p)=>sum+Number(p.fairExpected||0),0);
+assert(Math.abs(fairExpectedAfterYield-fairExpectedAfterAuto)<1e-9,'이번만 뒤로는 취소 경기의 공정 기회를 회수하고 대체 경기 네 자리만 다시 기록해야 합니다.');
 assert.strictEqual(state.requests.auto_yield_0001.serverResult.deferred.queueId,'q1','관리자 재실행을 위해 뒤로 보낸 대진 정보를 기록해야 합니다.');
 assert.strictEqual(replacement.autoHandoffExpiresAt-replacement.autoHandoffAt,AUTO_HANDOFF_WINDOW_MS,'대체 투입 경기에도 새 2분 대응 창을 제공해야 합니다.');
 

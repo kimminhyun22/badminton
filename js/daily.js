@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.448';
+const APP_VERSION = '1.10.449';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -385,6 +385,11 @@ function _dailyNormalize(raw){
   const g=_dailyGender(raw.gender||'남');
   const grade=raw.grade||levelToGrade(raw.level||4,g)||'C';
   const now=_dailyNow();
+  const status=_dailyNormalizeStatus(raw.status||'wait');
+  const games=Math.max(0,Number(raw.games||0));
+  const fairExpected=Object.prototype.hasOwnProperty.call(raw,'fairExpected')&&Number.isFinite(Number(raw.fairExpected))
+    ?Math.max(0,Number(raw.fairExpected))
+    :games+((status==='playing'||raw.currentMatchId)?1:0);
   return {
     id:raw.id||_dailyId(),
     memberId:raw.memberId||'',
@@ -393,12 +398,13 @@ function _dailyNormalize(raw){
     level:raw.level||gradeToLevel(grade,_dailyGenderLabel(g))||4,
     gender:g,
     ageGroup:raw.ageGroup||'40대',
-    status:_dailyNormalizeStatus(raw.status||'wait'),
+    status,
     joinedAt:raw.joinedAt||now,
     waitFrom:raw.waitFrom||now,
     lastStatusAt:raw.lastStatusAt||now,
     restPausedMs:Number(raw.restPausedMs||0),
-    games:raw.games||0,
+    games,
+    fairExpected,
     mixedGames:Number(raw.mixedGames||0),
     typeTrackedGames:Number(raw.typeTrackedGames||0),
     lastPlayedSeq:raw.lastPlayedSeq||0,
@@ -1449,6 +1455,45 @@ function _dailyEligible(){
   let list=_dailyPlayers.filter(p=>DAILY_STATUS[p.status]?.eligible&&!p.currentMatchId);
   if(_dailyTeamMode)list=list.filter(p=>!!_dailyTeamSide(p));
   return list;
+}
+const DAILY_FAIR_PRIORITY_GAP=0.75;
+function _dailyFairActual(p){
+  if(!p)return 0;
+  return Number(p.games||0)+((p.status==='playing'||p.currentMatchId)?1:0);
+}
+function _dailyFairExpected(p){
+  if(!p)return 0;
+  return Number.isFinite(Number(p.fairExpected))?Math.max(0,Number(p.fairExpected)):_dailyFairActual(p);
+}
+function _dailyFairGap(p){
+  return _dailyFairExpected(p)-_dailyFairActual(p);
+}
+function _dailyFairSummary(){
+  const players=_dailyPlayers.filter(p=>['wait','playing'].includes(_dailyNormalizeStatus(p.status)));
+  const priority=players.filter(p=>_dailyFairGap(p)>=DAILY_FAIR_PRIORITY_GAP);
+  return {players,priority,count:priority.length,normal:priority.length===0};
+}
+function _dailyApplyFairOpportunity(match){
+  if(!match)return;
+  const pool=_dailyEligible();
+  if(!pool.length)return;
+  const slots=Math.max(1,[...(match.team1||[]),...(match.team2||[])].length||4);
+  const amount=slots/pool.length;
+  const deltas=[];
+  pool.forEach(p=>{
+    p.fairExpected=_dailyFairExpected(p)+amount;
+    deltas.push({id:p.id,amount});
+  });
+  match.fairExpectedDeltas=deltas;
+}
+function _dailyRollbackFairOpportunity(match){
+  if(!match||!Array.isArray(match.fairExpectedDeltas)||match.fairExpectedRolledBackAt)return;
+  match.fairExpectedDeltas.forEach(row=>{
+    const p=_dailyPlayer(row?.id);
+    if(!p)return;
+    p.fairExpected=Math.max(0,_dailyFairExpected(p)-Math.max(0,Number(row?.amount||0)));
+  });
+  match.fairExpectedRolledBackAt=_dailyNow();
 }
 function _dailyIsDeferred(p){
   return false;
@@ -3939,7 +3984,7 @@ function dailyConfirmManualActiveMatch(){
     const p=_dailyPlayer(pid);
     if(p)previousStatuses[pid]=p.status;
   });
-  _dailyMatches.push({
+  const match={
     id:matchId,
     seq,
     court,
@@ -3959,7 +4004,9 @@ function dailyConfirmManualActiveMatch(){
     previousStatuses,
     manualStarted:true,
     transitionStarted:transition
-  });
+  };
+  _dailyMatches.push(match);
+  _dailyApplyFairOpportunity(match);
   selected.forEach(p=>{
     p.status='playing';
     p.currentMatchId=matchId;
@@ -4054,7 +4101,7 @@ function dailyStartQueueItem(queueId,options){
     const p=_dailyPlayer(pid);
     if(p)previousStatuses[pid]=p.status;
   });
-  _dailyMatches.push({
+  const startedMatch={
     id,seq,court,
     startedAt:operationAt,type:m.type,levelDiff:m.levelDiff,
     endAt:operationAt+DAILY_MATCH_MINUTES*60000,
@@ -4079,7 +4126,9 @@ function dailyStartQueueItem(queueId,options){
       autoHandoffPlayerStates:JSON.parse(JSON.stringify(autoHandoffPlayerStates)),
       autoHandoffReservation:autoHandoffReservation?JSON.parse(JSON.stringify(autoHandoffReservation)):null
     }:{})
-  });
+  };
+  _dailyMatches.push(startedMatch);
+  _dailyApplyFairOpportunity(startedMatch);
   ids.forEach(pid=>{
     const p=_dailyPlayer(pid);
     p.afterMatchStatus=null;
@@ -4295,7 +4344,9 @@ function _dailyResultStats(){
 }
 function _dailyResultQualityChips(st){
   const chips=[];
+  const fair=_dailyFairSummary();
   chips.push({label:`완료 ${st.completed.length}경기`,cls:'ok'});
+  chips.push({label:fair.count?`공정 보정 ${fair.count}명`:'공정 배정 정상',cls:fair.count?'warn':'ok'});
   chips.push({label:`평균 실력차 ${st.avgLD.toFixed(1)}`,cls:st.avgLD<=1.5?'ok':st.avgLD<=2.5?'warn':'bad'});
   chips.push({label:st.sameFourRepeat?`같은 4명 반복 ${st.sameFourRepeat}`:'같은 4명 반복 없음',cls:st.sameFourRepeat?'warn':'ok'});
   chips.push({label:st.partnerRepeat?`파트너 2회+ ${st.partnerRepeat}쌍`:'파트너 반복 양호',cls:st.partnerRepeat?'warn':'ok'});
@@ -4472,7 +4523,7 @@ function _dailyCloneStateForUndo(){
 }
 function _dailyCompleteUndoGuard(){
   return JSON.stringify({
-    players:_dailyPlayers.map(p=>[p.id,p.status,p.currentMatchId||'',p.afterMatchStatus||'',p.games||0,p.lastStatusAt||0]),
+    players:_dailyPlayers.map(p=>[p.id,p.status,p.currentMatchId||'',p.afterMatchStatus||'',p.games||0,Number(p.fairExpected||0),p.lastStatusAt||0]),
     matches:_dailyMatches.map(m=>[m.id,m.court,m.completedAt||0,m.cancelledAt||0,!!m.officialEntryPending,m.officialEntryQueueId||'',...(m.team1||[]),...(m.team2||[])]),
     queue:_dailyQueue.map(q=>[q.id,q.reservationId||'',q.yieldedAt||0,..._dailyQueueIds(q)]),
     reservations:_dailyReservations.map(r=>[r.id,r.mode||'',...(r.team1||[]),...(r.team2||[])])
@@ -4569,6 +4620,7 @@ function dailyCancelMatch(id){
   const m=_dailyMatches.find(x=>x.id===id);
   if(!m||m.completedAt)return;
   if(!confirm('이 진행중 경기를 취소하고 선수들을 참가 상태로 되돌릴까요?'))return;
+  _dailyRollbackFairOpportunity(m);
   [...m.team1,...m.team2].forEach(pid=>{
     const p=_dailyPlayer(pid);
     if(!p)return;
@@ -4833,6 +4885,8 @@ function dailyRenderStatusBar(){
   chips.push(`<span class="daily-sb-chip live">${stageLabel}</span>`);
   chips.push(`<span class="daily-sb-chip ${_dailyPaused?'warn':flowInfo.auto?'on':flowInfo.phase==='warmup'?'warn':'off'}">${_dailyPaused?'타이머·투입 정지':flowInfo.label}</span>`);
   chips.push(`<span class="daily-sb-chip balance">${_dailyBalancePolicyText(flowInfo)}</span>`);
+  const fair=_dailyFairSummary();
+  chips.push(`<span class="daily-sb-chip ${fair.count?'warn':'on'}">${fair.count?`공정 보정 ${fair.count}명`:'공정 배정 정상'}</span>`);
   chips.push(`<span class="daily-sb-chip">참가 ${flowInfo.pool}명</span>`);
   chips.push(`<span class="daily-sb-chip">${flowInfo.auto?`${flowInfo.operatingCourts}/${courts}`:courts}코트</span>`);
   const stateChip=_dailyPaused
@@ -5321,6 +5375,7 @@ function _dailyCheckinPayload(){
         isGuest:!!p.isGuest,
         isClubOfficial:!!p.isClubOfficial,
         games:p.games||0,
+        fairExpected:_dailyFairExpected(p),
         mixedGames:p.mixedGames||0,
         typeTrackedGames:p.typeTrackedGames||0,
         lastPlayedSeq:p.lastPlayedSeq||0,
@@ -6080,6 +6135,7 @@ function _dailyApplyOfficialActiveYield(req){
     p.deferReason=saved.deferReason||'';
     if(Object.prototype.hasOwnProperty.call(saved,'locked'))p.locked=!!saved.locked;
   });
+  _dailyRollbackFairOpportunity(m);
   m.cancelledAt=operationAt;
   m.cancelReason='club-official-active-yield';
   if(result.deferredReservation&&!_dailyReservations.some(r=>String(r.id)===String(result.deferredReservation.id))){
@@ -7462,7 +7518,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.448&from=daily';
+  location.href='team.html?v=1.10.449&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
