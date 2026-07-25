@@ -46,6 +46,10 @@ assert(queueTarget.includes('return _dailyFinishMode?Math.min(base,_dailyQueue.l
 assert(!queueTarget.includes('boost')&&!queueTarget.includes('extra'),'종료 임박이나 여유 인원 때문에 다음 대진 수를 늘리면 안 됩니다.');
 const expectedTarget=extractFunction('_dailyExpectedQueueTarget','_dailyProjectedCandidatePlayers');
 assert(expectedTarget.includes('return 0;'),'별도 예상 대진 목표는 항상 0이어야 합니다.');
+const renderQueue=extractFunction('dailyRenderQueue','dailyRenderRecommend');
+assert(!renderQueue.includes('dailyEnsureQueue()'),'대진 화면을 그리는 함수가 게시되지 않은 새 대진을 따로 만들면 안 됩니다.');
+const renderAll=extractFunction('dailyRender','_rsvpDefaultTitle');
+assert(renderAll.includes('const queueChanged=_dailyPaused?false:dailyEnsureQueue();')&&renderAll.includes('if(queueChanged)dailySave();'),'관리자 화면에서 대진이 정리되면 같은 배열을 회원 화면에도 즉시 게시해야 합니다.');
 
 const crossDayResume = extractFunction('_dailyCanResumeCrossDay', '_dailySavedDateLabel');
 const resumeSandbox = {};

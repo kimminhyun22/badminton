@@ -70,7 +70,7 @@ const nextRows=Array.from({length:5},(_,index)=>({
   t1:['A'+index,'B'+index],t2:['C'+index,'D'+index],playerIds:['a'+index,'b'+index,'c'+index,'d'+index]
 }));
 let session={players:[{id:'viewer',isClubOfficial:false}],event:{
-  updatedAt:Date.now(),completed:0,activeCount:0,courts:3,active:[],next:nextRows,
+  updatedAt:Date.now(),completed:0,activeCount:0,courts:3,nextTarget:3,active:[],next:nextRows,
   expected:[
     {idx:6,t1:['E1','E2'],t2:['E3','E4']},
     {idx:7,t1:['F1','F2'],t2:['F3','F4']}
@@ -79,7 +79,7 @@ let session={players:[{id:'viewer',isClubOfficial:false}],event:{
 let officialRequests=[],sendingKey='',claimingOfficial=false;
 const document={getElementById:id=>id==='eventPanel'?eventPanel:null};
 function getLastSent(){return {playerId:'viewer'};}
-function eventNextList(){return session.event.next.slice(0,session.event.courts).map((item,index)=>({...item,idx:index+1}));}
+function eventNextList(){return session.event.next.slice(0,session.event.nextTarget).map((item,index)=>({...item,idx:index+1}));}
 function getLastComplete(){return null;}
 function afterPartyNames(){return [];}
 function placeEventPanelForViewer(){}
@@ -98,13 +98,17 @@ assert(!memberEventBoard.includes('ev.expected'),'회원 LIVE 현황은 변경 �
 const eventNextListSandbox={};
 vm.createContext(eventNextListSandbox);
 vm.runInContext(`
-let session={event:{courts:3,next:Array.from({length:5},(_,index)=>({queueId:'q'+(index+1),playerIds:['p'+index]}))}};
+let session={event:{courts:3,nextTarget:3,next:Array.from({length:5},(_,index)=>({queueId:'q'+(index+1),playerIds:['p'+index]}))}};
 let queueYieldRequests=[];
 function queueIdentity(q){return String(q?.queueId||q?.id||'');}
 ${functionSource(checkin,'eventNextList','queueById')}
 this.list=eventNextList;
+this.setTarget=value=>{session.event.nextTarget=value;};
 `,eventNextListSandbox);
 assert.deepStrictEqual(Array.from(eventNextListSandbox.list(),item=>item.queueId),['q1','q2','q3'],'기존 세션에 초과 대진이 남아 있어도 회원 화면은 코트 수만큼만 노출해야 합니다.');
+eventNextListSandbox.setTarget(5);
+assert.deepStrictEqual(Array.from(eventNextListSandbox.list(),item=>item.queueId),['q1','q2','q3','q4','q5'],'회원 화면은 구버전 관리자 세션도 자체 재계산하지 않고 게시된 다음 대진 목표와 일치해야 합니다.');
+assert(!functionSource(checkin,'eventNextList','queueById').includes('queueYieldRequests'),'확정 전 요청으로 회원 화면만 먼저 재정렬하면 관리자 대진과 어긋날 수 있습니다.');
 assert(memberEventBoard.includes('canOfficialOperate')&&memberEventBoard.includes('event-official-complete'),'클럽 임원의 경기 종료 버튼은 진행 중 코트 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes('officialQueueCardActionsHtml'),'클럽 임원의 입장 처리와 이번만 뒤로 버튼은 해당 다음 대진 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes("['queue-yield','active-yield'].includes(lastComplete?.operation)")&&memberEventBoard.includes("lastComplete?.operation==='queue-enter'"),'최근 임원 입장·순서 작업도 해당 이름으로 바로 취소할 수 있어야 합니다.');
