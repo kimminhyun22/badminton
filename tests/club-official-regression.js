@@ -55,7 +55,7 @@ const memberQueueNotice=functionSource(checkin,'nextQueueNoticeHtml','refreshMyQ
 assert(!memberQueueNotice.includes('sendQueueEnterFree'),'일반 회원의 다음 대진 카드에서 직접 입장 처리를 제공하면 안 됩니다.');
 assert(!memberQueueNotice.includes('openCourtCompletePicker'),'일반 회원의 다음 대진 카드에서 코트 선택을 제공하면 안 됩니다.');
 assert(memberQueueNotice.includes('sendQueueRestPass'),'일반 회원은 입장 직전에도 조금 쉬고 요청을 보낼 수 있어야 합니다.');
-assert(memberQueueNotice.includes('sendQueueDefer'),'일반 회원의 기존 이번만 뒤로 기능은 유지해야 합니다.');
+assert(!memberQueueNotice.includes('sendQueueDefer')&&!memberQueueNotice.includes('이번만 뒤로'),'일반 회원의 다음 대진 카드에는 이번만 뒤로 권한을 노출하면 안 됩니다.');
 const memberEventBoard=functionSource(checkin,'renderEvent','render');
 assert(memberEventBoard.includes('const next=nextList.map((m,index)=>'),'회원 LIVE 현황은 코트 수로 정리된 다음 대진 순서를 그대로 표시해야 합니다.');
 assert(!memberEventBoard.includes('sendQueueEnterFree'),'일반 회원 상황판에서도 직접 입장 처리를 제공하면 안 됩니다.');
@@ -80,7 +80,7 @@ let officialRequests=[],sendingKey='',claimingOfficial=false;
 const document={getElementById:id=>id==='eventPanel'?eventPanel:null};
 function getLastSent(){return {playerId:'viewer'};}
 function eventNextList(){return session.event.next.slice(0,session.event.nextTarget).map((item,index)=>({...item,idx:index+1}));}
-function getLastComplete(){return null;}
+function getLastComplete(){return {operation:'queue-yield',token:'old-official-action',remainingSec:30};}
 function afterPartyNames(){return [];}
 function placeEventPanelForViewer(){}
 function esc(value){return String(value??'');}
@@ -94,6 +94,7 @@ this.rendered=()=>{renderEvent();return eventPanel.innerHTML;};
 `,memberEventRenderSandbox);
 const renderedQueueRanks=[...memberEventRenderSandbox.rendered().matchAll(/event-rank-badge">(\d+)</g)].map(match=>Number(match[1]));
 assert.deepStrictEqual(renderedQueueRanks,[1,2,3],'회원 LIVE 현황에는 코트 수만큼의 다음 대진만 표시해야 합니다.');
+assert(!memberEventRenderSandbox.rendered().includes('이번만 뒤로'),'같은 기기의 이전 임원 작업 기록이 남아도 일반 회원에게 이번만 뒤로 또는 취소를 보여주면 안 됩니다.');
 assert(!memberEventBoard.includes('ev.expected'),'회원 LIVE 현황은 변경 가능한 예상 대진을 렌더링하면 안 됩니다.');
 const eventNextListSandbox={};
 vm.createContext(eventNextListSandbox);
@@ -112,6 +113,7 @@ assert(!functionSource(checkin,'eventNextList','queueById').includes('queueYield
 assert(memberEventBoard.includes('canOfficialOperate')&&memberEventBoard.includes('event-official-complete'),'클럽 임원의 경기 종료 버튼은 진행 중 코트 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes('officialQueueCardActionsHtml'),'클럽 임원의 입장 처리와 이번만 뒤로 버튼은 해당 다음 대진 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes("['queue-yield','active-yield'].includes(lastComplete?.operation)")&&memberEventBoard.includes("lastComplete?.operation==='queue-enter'"),'최근 임원 입장·순서 작업도 해당 이름으로 바로 취소할 수 있어야 합니다.');
+assert(memberEventBoard.includes('const undo=canOfficialOperate&&lastComplete'),'임원 작업의 되돌리기 카드가 일반 회원에게 노출되면 안 됩니다.');
 assert(checkin.includes('event-official-enter')&&checkin.includes('event-official-yield')&&checkin.includes('event-official-active-yield'),'대진 카드에서 입장 처리와 두 종류의 이번만 뒤로를 한눈에 구분해야 합니다.');
 assert(memberEventBoard.includes('officialActiveYieldAvailable(m)')&&memberEventBoard.includes('officialActiveYieldSeconds(m)'),'자동 투입 뒤 2분 동안 남은 시간 위치에 이번만 뒤로를 표시해야 합니다.');
 assert(checkin.includes('officialQueueReadyForHandoff(item)')&&checkin.includes("String(item.targetMatchId||'')===matchId"),'이번만 뒤로는 같은 코트에 실제 대체 가능한 다음 대진이 있을 때만 보여야 합니다.');
@@ -145,7 +147,7 @@ assert(checkin.includes('expectedTeam1Ids:team1Ids')&&checkin.includes('expected
 assert(!functionSource(checkin,'officialSupportHtml','refreshOfficialConnection').includes('sendOfficialCourtComplete'),'클럽 임원 운영 도구에 진행 코트 종료 목록을 중복 표시하면 안 됩니다.');
 assert(functionSource(checkin,'refreshOfficialConnection','renderMyCard').includes("btn.dataset.officialPending==='true'"),'연결 상태가 갱신되어도 처리 중인 임원 순서 조정 버튼이 다시 활성화되면 안 됩니다.');
 const memberQueueSend=functionSource(checkin,'sendQueueDefer','sendQueueEnterFree');
-assert(memberQueueSend.includes('expectedPlayerIds')&&memberQueueSend.includes('expectedTeam1Ids')&&memberQueueSend.includes('expiresAt'),'회원의 기존 뒤로 미루기도 오래된 다른 대진에 적용되지 않도록 지문과 만료시간을 보내야 합니다.');
+assert(memberQueueSend.includes('이번만 뒤로는 클럽 임원이 처리합니다.')&&!memberQueueSend.includes("type:'queue-yield'"),'이전 캐시 화면이 일반회원 함수를 직접 호출해도 뒤로 미루기 요청을 전송하면 안 됩니다.');
 const officialQueueUiCode=`
 let session={capabilities:{officialQueueYieldV1:true,officialQueueYieldOneStepV1:true},event:{active:[{id:'m1'},{id:'m2'},{id:'m3'}]}};
 let officialRequests=[];
@@ -745,40 +747,12 @@ assert.strictEqual(officialQueueProcessSandbox.api.updates()[0].appliedBy,'club-
 assert.strictEqual(officialQueueProcessSandbox.api.pending().length,0,'반영된 임원 순서 변경 요청은 대기 목록에서 제거해야 합니다.');
 assert.strictEqual(officialQueueProcessSandbox.api.undo().guard,'queue-guard','이번만 뒤로 직후 상태 지문을 저장해 다른 변경이 없을 때만 취소해야 합니다.');
 
-const memberQueueValidationCode=`
-const DAILY_OFFICIAL_REQUEST_TTL_MS=10*60*1000;
-let now=100000;
-let queueState='soon';
-let restPassActive=false;
-let _dailyQueue=[
-  {id:'q1',team1:['a','b'],team2:['c','d']},
-  {id:'q2',team1:['e','f'],team2:['g','h']}
-];
-function _dailyNow(){return now;}
-function _dailyQueueIds(q){return [...q.team1,...q.team2];}
-function _dailyOfficialFingerprint(ids){return (ids||[]).map(String).sort().join('|');}
-function _dailyOfficialTeamFingerprint(team1,team2){const key=t=>(t||[]).map(String).sort().join('|');return [key(team1),key(team2)].sort().join(' VS ');}
-function _dailyQueueRestPassActive(){return restPassActive;}
-function _dailyQueueItemValid(){return true;}
-function _dailyQueueStartInfo(){return {state:queueState,court:queueState==='free'?1:null};}
-${functionSource(dailySrc,'_dailyMemberQueueYieldError','_dailyApplyQueueRestPass')}
-this.api={error:_dailyMemberQueueYieldError,setNow:v=>now=v,setState:v=>queueState=v,setRest:v=>restPassActive=v};`;
-const memberQueueValidationSandbox={};
-vm.createContext(memberQueueValidationSandbox);
-vm.runInContext(memberQueueValidationCode,memberQueueValidationSandbox);
-const validMemberYield={type:'queue-yield',queueId:'q1',playerId:'a',queueIndex:1,expectedPlayerIds:['a','b','c','d'],expectedTeam1Ids:['a','b'],expectedTeam2Ids:['c','d'],createdAt:99990,expiresAt:100100};
-assert.strictEqual(memberQueueValidationSandbox.api.error(validMemberYield),'','회원의 최신 본인 대진 뒤로 미루기는 그대로 허용해야 합니다.');
-assert(memberQueueValidationSandbox.api.error({...validMemberYield,queueId:'missing'}).includes('찾지 못했습니다'),'오래된 queueId가 사라져도 같은 선수가 든 다른 대진으로 fallback하면 안 됩니다.');
-assert(memberQueueValidationSandbox.api.error({...validMemberYield,queueIndex:2}).includes('순서가 이미 바뀌었습니다'),'회원 요청도 화면에서 본 순번이 달라졌으면 거절해야 합니다.');
-assert(memberQueueValidationSandbox.api.error({...validMemberYield,expectedTeam1Ids:['a','c'],expectedTeam2Ids:['b','d']}).includes('팀 구성이 이미 바뀌었습니다'),'회원 요청도 같은 4명의 팀 조합이 바뀌었으면 거절해야 합니다.');
-memberQueueValidationSandbox.api.setRest(true);
-assert(memberQueueValidationSandbox.api.error(validMemberYield).includes('조금 쉬고'),'회원 요청도 조금 쉬고 처리된 대진을 중복 이동하면 안 됩니다.');
-memberQueueValidationSandbox.api.setRest(false);
-memberQueueValidationSandbox.api.setState('free');
-assert(memberQueueValidationSandbox.api.error(validMemberYield).includes('빈 코트'),'회원 요청을 변조해 빈 코트 입장 대진을 뒤로 보내면 안 됩니다.');
-memberQueueValidationSandbox.api.setState('soon');
-memberQueueValidationSandbox.api.setNow(800001);
-assert(memberQueueValidationSandbox.api.error(validMemberYield).includes('시간이 지나'),'오래된 회원 뒤로 미루기 요청을 다른 대진 흐름에 적용하면 안 됩니다.');
+const checkinProcessSource=functionSource(dailySrc,'dailyProcessCheckinRequests','dailyStopCheckinLink');
+assert(
+  checkinProcessSource.includes("if(req.type==='queue-yield'||req.type==='queue-defer')")
+  &&checkinProcessSource.includes("autoRejected.push({...req,_completeRejectReason:'이번만 뒤로는 클럽 임원이 처리합니다.'})"),
+  '이전 캐시 화면이 보낸 일반회원 뒤로 미루기 요청도 관리자 원본에서 거절해야 합니다.'
+);
 
 const roleSyncCode=`
 function _teamGenderCode(g){return g==='F'||g==='여'?'F':'M';}

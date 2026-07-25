@@ -22,9 +22,18 @@ assert(publishSource.includes('_dailyScheduleCheckinPublishRetry(0)'),'일시정
 assert(!publishSource.includes('_dailyWriteCheckinPayload(path).catch(()=>{})'),'관리자 게시 오류를 조용히 버리면 안 됩니다.');
 assert(publishSource.includes('remoteInviteHash!==payloadInviteHash'),'다른 운영 링크의 세션을 같은 ID로 덮어쓰면 안 됩니다.');
 assert(publishSource.includes('remoteSessionId!==identity.id'),'다른 세션 ID의 내용을 현재 링크로 덮어쓰면 안 됩니다.');
+assert(publishSource.includes('_dailyCheckinPublishPromise'),'연속 상태 변경은 한 번에 하나씩 게시해 이전 상태가 최신 상태를 덮지 못하게 해야 합니다.');
+assert(publishSource.includes('clientStateRevision'),'같은 관리자 화면의 게시 순서를 서버에서도 비교할 수 있어야 합니다.');
 const listenerSource=sourceBetween('dailyStartCheckinListener','_dailyStopCheckinListener');
 assert(listenerSource.includes("'/session/serverRevision'")&&listenerSource.includes("'/session/serverLastRequestId'"),'관리자 앱은 회원 서버의 최신 대진 리비전을 직접 감지해야 합니다.');
 assert(listenerSource.includes('_dailyObserveRemoteServerHead'),'서버 대진이 바뀌면 관리자 원본 재동기화를 즉시 예약해야 합니다.');
+const resumeSource=sourceBetween('dailyResumeCheckin','_dailyObserveRemoteServerHead');
+assert(resumeSource.includes('_fbDb.goOnline()'),'관리자 앱이 다시 활성화되면 Firebase 실시간 연결을 즉시 깨워야 합니다.');
+assert(
+  resumeSource.includes('if(_dailyCheckinNeedsPublish||_dailyCheckinPublishQueued)')
+  &&resumeSource.includes('await dailyPushCheckinSession()'),
+  '앱 복귀 중 발생한 첫 경기 종료도 소실하지 않고 연결 확인 직후 게시해야 합니다.'
+);
 const queueSyncSource=sourceBetween('_dailyApplyServerQueueSync','_dailyPrepareServerQueueRequest');
 assert(queueSyncSource.includes('_dailyQueueCapacity().target')&&queueSyncSource.includes('sync.next.slice(0,syncLimit)'),'구버전 서버의 초과 대진을 복원해도 관리자 표시 코트 수로 정리해야 합니다.');
 
@@ -81,6 +90,10 @@ let _dailyServerSyncQueued=false;
 let _dailyServerSyncRetryId=null;
 let _dailyCheckinPublishRetryId=null;
 let _dailyCheckinPublishRetryDelay=1200;
+let _dailyCheckinPublishPromise=null;
+let _dailyCheckinPublishQueued=false;
+let _dailyCheckinNeedsPublish=false;
+let _dailyClientStateRevision=1;
 let localMatchCompleted=true;
 let currentSession={serverRevision:2,serverLastRequestId:'op2',event:{pauseRevision:0},matchCompleted:false};
 let transactionFailures=0;
@@ -90,6 +103,8 @@ let pauseAdoptions=0;
 let renderCalls=0;
 let heartbeatCalls=0;
 let timers=[];
+let heldTransactionCount=0;
+let heldTransactions=[];
 
 function clone(value){return JSON.parse(JSON.stringify(value));}
 function _dailyIdentitySnapshot(){
@@ -115,6 +130,8 @@ function _dailyCheckinPayload(){
     matchCompleted:localMatchCompleted
   };
 }
+function _dailyAdminClientId(){return 'admin-client';}
+function _dailyPersistServerIdentity(){}
 function _dailyAdoptRemotePauseEvent(event){
   pauseAdoptions++;
   _dailyPauseRevision=Math.max(_dailyPauseRevision,Number(event?.pauseRevision||0));
@@ -139,6 +156,20 @@ const _fbDb={
       update(){return Promise.resolve();},
       transaction(handler){
         transactionCount++;
+        if(heldTransactionCount>0){
+          heldTransactionCount--;
+          return new Promise((resolve,reject)=>{
+            heldTransactions.push(()=>{
+              runTransaction(handler).then(resolve,reject);
+            });
+          });
+        }
+        return runTransaction(handler);
+      }
+    };
+  }
+};
+function runTransaction(handler){
         if(transactionFailures>0){
           transactionFailures--;
           return Promise.reject(new Error('offline'));
@@ -149,10 +180,7 @@ const _fbDb={
         }
         currentSession=clone(next);
         return Promise.resolve({committed:true,snapshot:{val:()=>clone(currentSession)}});
-      }
-    };
-  }
-};
+}
 ${ownershipSource}
 ${publishSource}
 function reset(options){
@@ -165,6 +193,10 @@ function reset(options){
   _dailyServerSyncRetryId=null;
   _dailyCheckinPublishRetryId=null;
   _dailyCheckinPublishRetryDelay=1200;
+  _dailyCheckinPublishPromise=null;
+  _dailyCheckinPublishQueued=false;
+  _dailyCheckinNeedsPublish=false;
+  _dailyClientStateRevision=Math.max(1,Number(options.clientRevision||1));
   localMatchCompleted=true;
   currentSession=clone(options.remote);
   if(!currentSession.serverSessionId)currentSession.serverSessionId=_dailyCheckinId;
@@ -176,10 +208,23 @@ function reset(options){
   renderCalls=0;
   heartbeatCalls=0;
   timers=[];
+  heldTransactionCount=0;
+  heldTransactions=[];
 }
 this.api={
   reset,
   push:dailyPushCheckinSession,
+  setIdentityPending(value){_dailyCheckinIdentityPending=!!value;},
+  setLocal(completed,revision){
+    localMatchCompleted=!!completed;
+    _dailyClientStateRevision=Math.max(0,Number(revision||0));
+  },
+  holdTransactions(count){heldTransactionCount=Math.max(0,Number(count||0));},
+  releaseTransaction(){
+    const release=heldTransactions.shift();
+    if(release)release();
+    return !!release;
+  },
   runTimers(){
     const batch=timers.splice(0);
     batch.forEach(timer=>{if(!timer.cancelled)timer.fn();});
@@ -193,6 +238,9 @@ this.api={
     renderCalls,
     heartbeatCalls,
     pendingTimers:timers.filter(timer=>!timer.cancelled).length,
+    heldTransactions:heldTransactions.length,
+    needsPublish:_dailyCheckinNeedsPublish,
+    publishQueued:_dailyCheckinPublishQueued,
     error:_dailyServerReconcileError,
     retryDelay:_dailyCheckinPublishRetryDelay
   })
@@ -254,6 +302,46 @@ async function settle(){
   assert.strictEqual(state.transactionCount,2,'네트워크 복구 후 게시를 자동으로 다시 시도해야 합니다.');
   assert.strictEqual(state.currentSession.matchCompleted,true,'재시도한 관리자 종료 결과가 회원 화면 세션에 반영되어야 합니다.');
   assert.strictEqual(state.error,'','게시 성공 후 오류 안내를 자동으로 해제해야 합니다.');
+
+  sandbox.api.reset({
+    localRevision:9,
+    localLastRequestId:'op9',
+    localPauseRevision:3,
+    clientRevision:10,
+    remote:{serverRevision:9,serverLastRequestId:'op9',event:{pauseRevision:3},clientWriterId:'admin-client',clientStateRevision:9,matchCompleted:false}
+  });
+  sandbox.api.setIdentityPending(true);
+  assert.strictEqual(await sandbox.api.push(),false,'앱 복귀 인증 중에는 확인되지 않은 링크에 바로 게시하면 안 됩니다.');
+  state=sandbox.api.state();
+  assert.strictEqual(state.transactionCount,0,'링크 확인 전에는 원격 상태를 건드리지 않아야 합니다.');
+  assert.strictEqual(state.needsPublish,true,'복귀 중 발생한 첫 변경은 게시 대기로 반드시 남겨야 합니다.');
+  sandbox.api.setIdentityPending(false);
+  assert.strictEqual(await sandbox.api.push(),true,'링크 확인 직후 대기 중이던 첫 변경을 게시해야 합니다.');
+  state=sandbox.api.state();
+  assert.strictEqual(state.currentSession.matchCompleted,true,'앱 복귀 직후 첫 경기 종료가 회원 화면 세션에 남아야 합니다.');
+  assert.strictEqual(state.needsPublish,false,'최신 상태 게시 후 대기 플래그를 정리해야 합니다.');
+
+  sandbox.api.reset({
+    localRevision:11,
+    localLastRequestId:'op11',
+    localPauseRevision:4,
+    clientRevision:20,
+    remote:{serverRevision:11,serverLastRequestId:'op11',event:{pauseRevision:4},clientWriterId:'admin-client',clientStateRevision:19,matchCompleted:false}
+  });
+  sandbox.api.setLocal(false,20);
+  sandbox.api.holdTransactions(1);
+  const firstPublish=sandbox.api.push();
+  await settle();
+  assert.strictEqual(sandbox.api.state().heldTransactions,1,'첫 게시를 지연해 연속 동작 경쟁을 재현해야 합니다.');
+  sandbox.api.setLocal(true,21);
+  const latestPublish=sandbox.api.push();
+  sandbox.api.releaseTransaction();
+  assert.strictEqual(await firstPublish,true,'첫 게시 작업은 최신 상태까지 연속으로 비워야 합니다.');
+  assert.strictEqual(await latestPublish,true,'진행 중 들어온 최신 게시 요청도 같은 완료 신호를 받아야 합니다.');
+  state=sandbox.api.state();
+  assert.strictEqual(state.transactionCount,2,'진행 중 상태가 바뀌면 최신 스냅샷을 한 번 더 게시해야 합니다.');
+  assert.strictEqual(state.currentSession.clientStateRevision,21,'늦게 끝난 이전 게시가 최신 리비전을 덮어쓰면 안 됩니다.');
+  assert.strictEqual(state.currentSession.matchCompleted,true,'연속 종료 처리의 최종 상태가 회원 화면에 남아야 합니다.');
 
   console.log('daily admin member sync regression ok');
 })().catch(error=>{
