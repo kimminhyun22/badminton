@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.449';
+const APP_VERSION = '1.10.450';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -320,6 +320,9 @@ let _dailyAdminGrantToken='';
 let _dailyAdminGrantExpiresAt=0;
 let _dailyServerSyncBusy=false;
 let _dailyServerSyncQueued=false;
+let _dailyServerSyncRetryId=null;
+let _dailyCheckinPublishRetryId=null;
+let _dailyCheckinPublishRetryDelay=1200;
 let _dailyPauseSyncBusy=false;
 
 function _dailyNow(){return Date.now();}
@@ -4991,8 +4994,13 @@ function _dailyClearAdminGrant(preserveSyncState){
   _dailyAdminGrantToken='';
   _dailyAdminGrantExpiresAt=0;
   if(!preserveSyncState){
+    if(_dailyServerSyncRetryId)clearTimeout(_dailyServerSyncRetryId);
+    if(_dailyCheckinPublishRetryId)clearTimeout(_dailyCheckinPublishRetryId);
     _dailyServerSyncBusy=false;
     _dailyServerSyncQueued=false;
+    _dailyServerSyncRetryId=null;
+    _dailyCheckinPublishRetryId=null;
+    _dailyCheckinPublishRetryDelay=1200;
   }
 }
 function _dailyAdminClientId(){
@@ -5439,6 +5447,36 @@ function dailyEnsureCheckinId(){
   }
   return _dailyCheckinId;
 }
+function _dailyScheduleServerReconcile(){
+  if(!_dailyCheckinId||!_dailyOfficialInviteHash)return false;
+  if(_dailyServerSyncBusy){
+    _dailyServerSyncQueued=true;
+    return true;
+  }
+  if(_dailyServerSyncRetryId)return true;
+  _dailyServerSyncRetryId=setTimeout(()=>{
+    _dailyServerSyncRetryId=null;
+    _dailyPullServerReconcile().catch(()=>{});
+  },0);
+  return true;
+}
+function _dailyScheduleCheckinPublishRetry(delay){
+  if(!_dailyCheckinId||!_fbDb||_dailyCheckinPublishRetryId)return false;
+  const useBackoff=delay===undefined;
+  const wait=useBackoff?_dailyCheckinPublishRetryDelay:Math.max(0,Number(delay)||0);
+  if(useBackoff)_dailyCheckinPublishRetryDelay=Math.min(15000,_dailyCheckinPublishRetryDelay*2);
+  _dailyCheckinPublishRetryId=setTimeout(()=>{
+    _dailyCheckinPublishRetryId=null;
+    dailyPushCheckinSession();
+  },wait);
+  return true;
+}
+function _dailyMarkCheckinPublishConnected(){
+  if(_dailyCheckinPublishRetryId)clearTimeout(_dailyCheckinPublishRetryId);
+  _dailyCheckinPublishRetryId=null;
+  _dailyCheckinPublishRetryDelay=1200;
+  _dailyServerReconcileError='';
+}
 function _dailyWriteCheckinPayload(path){
   const payload=_dailyCheckinPayload();
   const payloadServerRevision=Math.max(0,Number(payload.serverRevision||0));
@@ -5452,40 +5490,59 @@ function _dailyWriteCheckinPayload(path){
     if(remoteRevision===payloadServerRevision&&remoteLastRequestId&&remoteLastRequestId!==payloadLastRequestId)return;
     return payload;
   },undefined,false).then(result=>{
-    if(!result.committed){
-      const remote=result.snapshot?.val()||{};
-      if(Number(remote.serverRevision||0)>_dailyServerRevision){
-        console.info('민턴LIVE 서버 상태가 더 최신이라 로컬 게시를 보류했습니다.');
-      }
-      if(Number(remote.event?.pauseRevision||remote.pauseRevision||0)>_dailyPauseRevision){
-        _dailyAdoptRemotePauseEvent(remote.event||{});
-        console.info('민턴LIVE 일시정지 상태가 더 최신이라 해당 상태를 유지했습니다.');
-      }
-      if(Number(remote.serverRevision||0)===_dailyServerRevision
-        &&String(remote.serverLastRequestId||'')
-        &&String(remote.serverLastRequestId||'')!==_dailyServerLastRequestId){
-        console.info('민턴LIVE 같은 리비전의 서버 운영 식별자가 달라 로컬 게시를 보류했습니다.');
-        if(_dailyOfficialInviteHash)setTimeout(()=>_dailyPullServerReconcile().catch(()=>{}),0);
-      }
+    if(result.committed){
+      _dailyMarkCheckinPublishConnected();
+      return result;
+    }
+    const remote=result.snapshot?.val()||{};
+    const remoteRevision=Math.max(0,Number(remote.serverRevision||0));
+    const remoteLastRequestId=String(remote.serverLastRequestId||'');
+    const remotePauseRevision=Math.max(0,Number(remote.event?.pauseRevision||remote.pauseRevision||0));
+    const serverAhead=remoteRevision>_dailyServerRevision;
+    const sameRevisionMismatch=remoteRevision===_dailyServerRevision
+      &&remoteLastRequestId
+      &&remoteLastRequestId!==_dailyServerLastRequestId;
+    const pauseAhead=remotePauseRevision>_dailyPauseRevision;
+    if(pauseAhead){
+      _dailyAdoptRemotePauseEvent(remote.event||{});
+      console.info('민턴LIVE 일시정지 상태가 더 최신이라 해당 상태를 유지했습니다.');
+    }
+    if(serverAhead||sameRevisionMismatch){
+      console.info(serverAhead?'민턴LIVE 서버 상태를 합친 뒤 회원 화면을 다시 게시합니다.':'민턴LIVE 같은 리비전의 운영 기록을 확인한 뒤 다시 게시합니다.');
+      if(!_dailyScheduleServerReconcile())_dailyScheduleCheckinPublishRetry(0);
+    }else if(pauseAhead){
+      _dailyScheduleCheckinPublishRetry(0);
+    }else{
+      _dailyScheduleCheckinPublishRetry();
     }
     return result;
   });
 }
 function dailyPushCheckinSession(){
-  if(!_dailyCheckinId||!_fbDb)return;
+  if(!_dailyCheckinId||!_fbDb)return Promise.resolve(false);
   if(_dailyCheckinExpired()){
     _dailyExpireCheckinLink(true);
     dailyRenderCheckinRequests();
-    return;
+    return Promise.resolve(false);
   }
   if(!_dailyOfficialInviteHash){
-    _dailyEnsureOfficialCapability().then(ok=>{if(ok&&_dailyCheckinId)dailyPushCheckinSession();}).catch(()=>{});
-    return;
+    return _dailyEnsureOfficialCapability()
+      .then(ok=>ok&&_dailyCheckinId?dailyPushCheckinSession():false)
+      .catch(()=>false);
   }
   const path=_dailyCheckinPath();
   _fbDb.ref(path).update({kind:'dailyCheckin',updatedAt:_dailyNow()}).catch(()=>{});
-  _dailyWriteCheckinPayload(path).catch(()=>{});
+  const publishing=_dailyWriteCheckinPayload(path)
+    .then(result=>!!result?.committed)
+    .catch(error=>{
+      _dailyServerReconcileError='회원 화면 게시 연결을 확인하지 못했습니다.';
+      _dailyScheduleCheckinPublishRetry();
+      dailyRenderCheckinRequests();
+      console.warn('민턴LIVE 회원 화면 게시 재시도',error);
+      return false;
+    });
   _dailyPushOperatorHeartbeat();
+  return publishing;
 }
 async function dailyPublishCheckinSession(silent){
   if(!_dailyPlayers.length){
@@ -7518,7 +7575,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.449&from=daily';
+  location.href='team.html?v=1.10.450&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
