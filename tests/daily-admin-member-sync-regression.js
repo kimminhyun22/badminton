@@ -23,7 +23,8 @@ assert(!publishSource.includes('_dailyWriteCheckinPayload(path).catch(()=>{})'),
 assert(publishSource.includes('remoteInviteHash!==payloadInviteHash'),'다른 운영 링크의 세션을 같은 ID로 덮어쓰면 안 됩니다.');
 assert(publishSource.includes('remoteSessionId!==identity.id'),'다른 세션 ID의 내용을 현재 링크로 덮어쓰면 안 됩니다.');
 assert(publishSource.includes('_dailyCheckinPublishPromise'),'연속 상태 변경은 한 번에 하나씩 게시해 이전 상태가 최신 상태를 덮지 못하게 해야 합니다.');
-assert(publishSource.includes('clientStateRevision'),'같은 관리자 화면의 게시 순서를 서버에서도 비교할 수 있어야 합니다.');
+assert(publishSource.includes('localPublishRevision'),'게시 완료 시점에 해당 스냅샷의 로컬 순번을 비교해야 합니다.');
+assert(!publishSource.includes('payload.clientStateRevision')&&!publishSource.includes('payload.clientWriterId'),'Firebase 기존 세션 스키마에 없는 게시 메타 필드를 원격 payload에 추가하면 안 됩니다.');
 const listenerSource=sourceBetween('dailyStartCheckinListener','_dailyStopCheckinListener');
 assert(listenerSource.includes("'/session/serverRevision'")&&listenerSource.includes("'/session/serverLastRequestId'"),'관리자 앱은 회원 서버의 최신 대진 리비전을 직접 감지해야 합니다.');
 assert(listenerSource.includes('_dailyObserveRemoteServerHead'),'서버 대진이 바뀌면 관리자 원본 재동기화를 즉시 예약해야 합니다.');
@@ -130,7 +131,6 @@ function _dailyCheckinPayload(){
     matchCompleted:localMatchCompleted
   };
 }
-function _dailyAdminClientId(){return 'admin-client';}
 function _dailyPersistServerIdentity(){}
 function _dailyAdoptRemotePauseEvent(event){
   pauseAdoptions++;
@@ -308,7 +308,7 @@ async function settle(){
     localLastRequestId:'op9',
     localPauseRevision:3,
     clientRevision:10,
-    remote:{serverRevision:9,serverLastRequestId:'op9',event:{pauseRevision:3},clientWriterId:'admin-client',clientStateRevision:9,matchCompleted:false}
+    remote:{serverRevision:9,serverLastRequestId:'op9',event:{pauseRevision:3},matchCompleted:false}
   });
   sandbox.api.setIdentityPending(true);
   assert.strictEqual(await sandbox.api.push(),false,'앱 복귀 인증 중에는 확인되지 않은 링크에 바로 게시하면 안 됩니다.');
@@ -326,7 +326,7 @@ async function settle(){
     localLastRequestId:'op11',
     localPauseRevision:4,
     clientRevision:20,
-    remote:{serverRevision:11,serverLastRequestId:'op11',event:{pauseRevision:4},clientWriterId:'admin-client',clientStateRevision:19,matchCompleted:false}
+    remote:{serverRevision:11,serverLastRequestId:'op11',event:{pauseRevision:4},matchCompleted:false}
   });
   sandbox.api.setLocal(false,20);
   sandbox.api.holdTransactions(1);
@@ -340,7 +340,6 @@ async function settle(){
   assert.strictEqual(await latestPublish,true,'진행 중 들어온 최신 게시 요청도 같은 완료 신호를 받아야 합니다.');
   state=sandbox.api.state();
   assert.strictEqual(state.transactionCount,2,'진행 중 상태가 바뀌면 최신 스냅샷을 한 번 더 게시해야 합니다.');
-  assert.strictEqual(state.currentSession.clientStateRevision,21,'늦게 끝난 이전 게시가 최신 리비전을 덮어쓰면 안 됩니다.');
   assert.strictEqual(state.currentSession.matchCompleted,true,'연속 종료 처리의 최종 상태가 회원 화면에 남아야 합니다.');
 
   console.log('daily admin member sync regression ok');
