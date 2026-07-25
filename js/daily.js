@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.450';
+const APP_VERSION = '1.10.451';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1948,24 +1948,55 @@ function _dailySyncControls(courts){
 function dailyRenderCourtSettings(){
   _dailyCourtOrder=_dailyDefaultCourtOrder(_dailyCourtCount());
 }
+function _dailyPruneForeignDormantCarryover(){
+  const clubCounts=new Map();
+  _dailyPlayers.forEach(player=>{
+    if(!player?.club||player.isGuest||['invited','planned'].includes(_dailyNormalizeStatus(player.status)))return;
+    const club=String(player.club);
+    clubCounts.set(club,(clubCounts.get(club)||0)+1);
+  });
+  const ranked=[...clubCounts.entries()].sort((a,b)=>b[1]-a[1]);
+  if(!ranked.length||ranked[0][1]<4||(ranked[1]&&ranked[0][1]===ranked[1][1]))return 0;
+  const activeClub=ranked[0][0];
+  const referenced=new Set();
+  const addIds=row=>{
+    [...(row?.team1||[]),...(row?.team2||[])].forEach(id=>referenced.add(String(id)));
+    ['team1A','team1B','team2C','team2D'].forEach(key=>{
+      const value=row?.[key];
+      const id=value&&typeof value==='object'?value.id:value;
+      if(id)referenced.add(String(id));
+    });
+  };
+  _dailyMatches.forEach(addIds);
+  _dailyQueue.forEach(addIds);
+  _dailyReservations.forEach(addIds);
+  const groups=new Map();
+  _dailyPlayers.forEach(player=>{
+    const status=_dailyNormalizeStatus(player?.status);
+    const club=String(player?.club||'');
+    const untouched=player&&!player.isGuest&&club&&club!==activeClub
+      &&['invited','planned'].includes(status)
+      &&!Number(player.games||0)&&!Number(player.mixedGames||0)&&!Number(player.typeTrackedGames||0)
+      &&!player.currentMatchId&&!referenced.has(String(player.id||''))
+      &&Number(player.joinedAt||0)>0
+      &&Number(player.joinedAt||0)===Number(player.lastStatusAt||0)
+      &&Number(player.joinedAt||0)===Number(player.waitFrom||0);
+    if(!untouched)return;
+    if(!groups.has(club))groups.set(club,[]);
+    groups.get(club).push(player);
+  });
+  const removeIds=new Set();
+  groups.forEach(players=>{
+    const stamps=new Set(players.map(player=>Number(player.joinedAt||0)));
+    if(players.length>=4&&stamps.size===1)players.forEach(player=>removeIds.add(String(player.id)));
+  });
+  if(!removeIds.size)return 0;
+  _dailyPlayers=_dailyPlayers.filter(player=>!removeIds.has(String(player.id)));
+  return removeIds.size;
+}
 function _dailyLoadAsNewDay(s){
-  const now=_dailyNow();
   const staleCheckinId=s.checkinId||localStorage.getItem(DAILY_CHECKIN_KEY)||'';
-  _dailyPlayers=(s.players||[]).map(_dailyNormalize).filter(p=>p.name).map(p=>({
-    ...p,
-    status:'invited',
-    joinedAt:now,
-    waitFrom:now,
-    lastStatusAt:now,
-    games:0,
-    mixedGames:0,
-    typeTrackedGames:0,
-    lastPlayedSeq:0,
-    partnerCount:{},
-    opponentCount:{},
-    currentMatchId:null,
-    afterMatchStatus:null
-  }));
+  _dailyPlayers=[];
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
   _dailyAutoAssign=false;_dailyOperationStarted=false;_dailyFinishMode=false;_dailyFinishStartedAt=0;_dailyPaused=false;_dailyPausedAt=0;_dailyPauseReason='';_dailyPauseRevision=0;_dailyResumedAt=0;_dailyTeamMode=false;_dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -2046,8 +2077,10 @@ function dailyLoad(){
       if(_dailyCheckinCreatedAt)localStorage.setItem(DAILY_CHECKIN_CREATED_KEY,String(_dailyCheckinCreatedAt));
     }
     if(_dailyCheckinExpired())_dailyExpireCheckinLink(true);
+    const prunedCarryover=_dailyPruneForeignDormantCarryover();
     _dailyMarkFourCacheDirty();
     _dailySyncControls(s.courts||3);
+    if(prunedCarryover)dailySave({preserveServerQueue:true});
   }catch(e){console.warn('daily load 실패',e);}
 }
 function dailyApplyReviewSample(){
@@ -5303,8 +5336,12 @@ function _dailyHasRosterPlayer(profile){
   });
 }
 function _dailyOfficialArrivalCandidates(){
+  const club=_dailyOfficialArrivalRoster();
+  const clubName=String(club?.name||'');
   const candidates=_dailyPlayers
-    .filter(player=>player?.name&&['invited','planned'].includes(String(player.status||'')))
+    .filter(player=>player?.name
+      &&['invited','planned'].includes(String(player.status||''))
+      &&(!clubName||player.isGuest||!player.club||String(player.club)===clubName))
     .map(player=>({
       candidateKey:`player:${player.id}`,
       kind:'existing',
@@ -5313,9 +5350,7 @@ function _dailyOfficialArrivalCandidates(){
       status:String(player.status||''),
       lastStatusAt:player.lastStatusAt||0
     }));
-  const club=_dailyOfficialArrivalRoster();
   if(club){
-    const clubName=club.name||'';
     (club.members||[]).forEach(member=>{
       if(!member?.name)return;
       const profile={...member,club:clubName||member.club||''};
@@ -7456,13 +7491,14 @@ async function importDailySelected(status){
     }
     skipped++;
   });
-  if(added)_dailyNext=null;
+  const prunedCarryover=added?_dailyPruneForeignDormantCarryover():0;
+  if(added||prunedCarryover)_dailyNext=null;
   closeDailyImportModal();
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
   if(added){
-    alert(`${added}명을 오늘 현장 참가자로 등록했습니다.${reactivated?` (등록 전 명단 ${reactivated}명 포함)`:''}${skipped?` (중복 ${skipped}명 제외)`:''}\n\n자유게임을 진행한 뒤 대진 게시를 눌러주세요.`);
+    alert(`${added}명을 오늘 현장 참가자로 등록했습니다.${reactivated?` (등록 전 명단 ${reactivated}명 포함)`:''}${prunedCarryover?` (이전 클럽 명단 ${prunedCarryover}명 정리)`:''}${skipped?` (중복 ${skipped}명 제외)`:''}\n\n자유게임을 진행한 뒤 대진 게시를 눌러주세요.`);
   }else{
     alert('새로 참가 등록된 선수가 없습니다.');
   }
@@ -7575,7 +7611,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.450&from=daily';
+  location.href='team.html?v=1.10.451&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
