@@ -107,7 +107,7 @@ this.setTarget=value=>{session.event.nextTarget=value;};
 `,eventNextListSandbox);
 assert.deepStrictEqual(Array.from(eventNextListSandbox.list(),item=>item.queueId),['q1','q2','q3'],'기존 세션에 초과 대진이 남아 있어도 회원 화면은 코트 수만큼만 노출해야 합니다.');
 eventNextListSandbox.setTarget(5);
-assert.deepStrictEqual(Array.from(eventNextListSandbox.list(),item=>item.queueId),['q1','q2','q3','q4','q5'],'회원 화면은 구버전 관리자 세션도 자체 재계산하지 않고 게시된 다음 대진 목표와 일치해야 합니다.');
+assert.deepStrictEqual(Array.from(eventNextListSandbox.list(),item=>item.queueId),['q1','q2','q3'],'구버전 세션의 초과 목표가 남아 있어도 회원 화면은 관리자 화면과 같은 코트 수만 보여야 합니다.');
 assert(!functionSource(checkin,'eventNextList','queueById').includes('queueYieldRequests'),'확정 전 요청으로 회원 화면만 먼저 재정렬하면 관리자 대진과 어긋날 수 있습니다.');
 assert(memberEventBoard.includes('canOfficialOperate')&&memberEventBoard.includes('event-official-complete'),'클럽 임원의 경기 종료 버튼은 진행 중 코트 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes('officialQueueCardActionsHtml'),'클럽 임원의 입장 처리와 이번만 뒤로 버튼은 해당 다음 대진 카드 안에 있어야 합니다.');

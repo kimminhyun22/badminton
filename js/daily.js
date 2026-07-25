@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.453';
+const APP_VERSION = '1.10.454';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -324,6 +324,8 @@ let _dailyServerSyncRetryId=null;
 let _dailyCheckinPublishRetryId=null;
 let _dailyCheckinPublishRetryDelay=1200;
 let _dailyPauseSyncBusy=false;
+let _dailyObservedServerRevision=0;
+let _dailyObservedServerLastRequestId='';
 
 function _dailyNow(){return Date.now();}
 function _dailyEffectiveNow(){return _dailyPaused&&_dailyPausedAt?_dailyPausedAt:_dailyNow();}
@@ -5611,6 +5613,21 @@ function dailyResumeCheckin(){
     _dailyEnsureOfficialCapability().catch(()=>{});
   }
 }
+function _dailyObserveRemoteServerHead(update){
+  if(Object.prototype.hasOwnProperty.call(update||{},'revision')){
+    _dailyObservedServerRevision=Math.max(0,Number(update.revision||0));
+  }
+  if(Object.prototype.hasOwnProperty.call(update||{},'lastRequestId')){
+    _dailyObservedServerLastRequestId=String(update.lastRequestId||'');
+  }
+  const serverAhead=_dailyObservedServerRevision>_dailyServerRevision;
+  const sameRevisionMismatch=_dailyObservedServerRevision===_dailyServerRevision
+    &&_dailyObservedServerLastRequestId
+    &&_dailyObservedServerLastRequestId!==_dailyServerLastRequestId;
+  if((serverAhead||sameRevisionMismatch)&&_dailyOfficialInviteHash){
+    _dailyScheduleServerReconcile();
+  }
+}
 function dailyStartCheckinListener(){
   if(!_dailyCheckinId||!_fbDb)return;
   const path=_dailyCheckinPath();
@@ -5619,9 +5636,13 @@ function dailyStartCheckinListener(){
     _fbDb.ref(_dailyCheckinListeningPath+'/requests').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/party').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/session/event').off();
+    _fbDb.ref(_dailyCheckinListeningPath+'/session/serverRevision').off();
+    _fbDb.ref(_dailyCheckinListeningPath+'/session/serverLastRequestId').off();
   }
   _dailyCheckinListening=true;
   _dailyCheckinListeningPath=path;
+  _dailyObservedServerRevision=_dailyServerRevision;
+  _dailyObservedServerLastRequestId=_dailyServerLastRequestId;
   _fbDb.ref(path+'/requests').on('value',snap=>{
     const raw=snap.val()||{};
     _dailyCheckinRequests=Object.keys(raw).map(key=>({key,...raw[key]}))
@@ -5644,15 +5665,25 @@ function dailyStartCheckinListener(){
   _fbDb.ref(path+'/session/event').on('value',snap=>{
     _dailyAdoptRemotePauseEvent(snap.val()||{});
   });
+  _fbDb.ref(path+'/session/serverRevision').on('value',snap=>{
+    _dailyObserveRemoteServerHead({revision:snap.val()});
+  });
+  _fbDb.ref(path+'/session/serverLastRequestId').on('value',snap=>{
+    _dailyObserveRemoteServerHead({lastRequestId:snap.val()});
+  });
 }
 function _dailyStopCheckinListener(){
   if(_fbDb&&_dailyCheckinListeningPath){
     _fbDb.ref(_dailyCheckinListeningPath+'/requests').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/party').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/session/event').off();
+    _fbDb.ref(_dailyCheckinListeningPath+'/session/serverRevision').off();
+    _fbDb.ref(_dailyCheckinListeningPath+'/session/serverLastRequestId').off();
   }
   _dailyCheckinListening=false;
   _dailyCheckinListeningPath='';
+  _dailyObservedServerRevision=0;
+  _dailyObservedServerLastRequestId='';
 }
 function _dailyCheckinBlockReason(req,p){
   if(!p)return '민턴LIVE 명단에 없는 선수';
@@ -5864,8 +5895,12 @@ function _dailyQueueFromServerSyncItem(item){
 function _dailyApplyServerQueueSync(req){
   const sync=req?.serverResult?.queueSync;
   if(!sync||!Array.isArray(sync.next))return true;
+  const localTarget=Math.max(0,_dailyQueueCapacity().target);
+  const hasRemoteTarget=Number.isFinite(Number(sync.nextTarget));
+  const remoteTarget=hasRemoteTarget?Math.max(0,Number(sync.nextTarget)):sync.next.length;
+  const syncLimit=Math.min(localTarget,remoteTarget);
   const next=[],used=new Set();
-  for(const item of sync.next){
+  for(const item of sync.next.slice(0,syncLimit)){
     const q=_dailyQueueFromServerSyncItem(item);
     if(!q||!_dailyQueueItemValid(q,used))return false;
     next.push(q);
@@ -7565,7 +7600,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.453&from=daily';
+  location.href='team.html?v=1.10.454&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -13542,7 +13577,13 @@ window.addEventListener('DOMContentLoaded', () => {
   if(!_dailyTimerId)_dailyTimerId=setInterval(dailyRefreshTimers,10000);
   setInterval(dailyRefreshUndoCountdown,1000);
   document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden&&_dailyCheckinId)_dailyStartOperatorHeartbeat();
+    if(!document.hidden&&_dailyCheckinId){
+      _dailyStartOperatorHeartbeat();
+      if(_dailyOfficialInviteHash)_dailyScheduleServerReconcile();
+    }
+  });
+  window.addEventListener('online',()=>{
+    if(_dailyCheckinId&&_dailyOfficialInviteHash)_dailyScheduleServerReconcile();
   });
   updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
   setOperationPreset(_operationPreset);

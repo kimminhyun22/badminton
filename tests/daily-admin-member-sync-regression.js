@@ -19,6 +19,44 @@ const publishSource=sourceBetween('_dailyScheduleServerReconcile','dailyPublishC
 assert(publishSource.includes('_dailyScheduleServerReconcile()'),'서버가 더 최신이면 관리자 원본과 다시 맞춰야 합니다.');
 assert(publishSource.includes('_dailyScheduleCheckinPublishRetry(0)'),'일시정지 리비전만 앞서도 최신 상태로 회원 화면을 다시 게시해야 합니다.');
 assert(!publishSource.includes('_dailyWriteCheckinPayload(path).catch(()=>{})'),'관리자 게시 오류를 조용히 버리면 안 됩니다.');
+const listenerSource=sourceBetween('dailyStartCheckinListener','_dailyStopCheckinListener');
+assert(listenerSource.includes("'/session/serverRevision'")&&listenerSource.includes("'/session/serverLastRequestId'"),'관리자 앱은 회원 서버의 최신 대진 리비전을 직접 감지해야 합니다.');
+assert(listenerSource.includes('_dailyObserveRemoteServerHead'),'서버 대진이 바뀌면 관리자 원본 재동기화를 즉시 예약해야 합니다.');
+const queueSyncSource=sourceBetween('_dailyApplyServerQueueSync','_dailyPrepareServerQueueRequest');
+assert(queueSyncSource.includes('_dailyQueueCapacity().target')&&queueSyncSource.includes('sync.next.slice(0,syncLimit)'),'구버전 서버의 초과 대진을 복원해도 관리자 표시 코트 수로 정리해야 합니다.');
+
+const headSandbox={};
+vm.createContext(headSandbox);
+vm.runInContext(`
+let _dailyObservedServerRevision=0;
+let _dailyObservedServerLastRequestId='';
+let _dailyServerRevision=1;
+let _dailyServerLastRequestId='op1';
+let _dailyOfficialInviteHash='official-hash';
+let reconcileCalls=0;
+function _dailyScheduleServerReconcile(){reconcileCalls++;}
+${sourceBetween('_dailyObserveRemoteServerHead','dailyStartCheckinListener')}
+this.api={
+  observe:_dailyObserveRemoteServerHead,
+  reset(localRevision,lastRequestId,hash){
+    _dailyObservedServerRevision=localRevision;
+    _dailyObservedServerLastRequestId=lastRequestId;
+    _dailyServerRevision=localRevision;
+    _dailyServerLastRequestId=lastRequestId;
+    _dailyOfficialInviteHash=hash;
+    reconcileCalls=0;
+  },
+  calls:()=>reconcileCalls
+};
+`,headSandbox);
+headSandbox.api.observe({revision:2});
+assert.strictEqual(headSandbox.api.calls(),1,'서버 리비전이 앞서면 관리자 앱이 즉시 재동기화해야 합니다.');
+headSandbox.api.reset(2,'op1','official-hash');
+headSandbox.api.observe({lastRequestId:'op2'});
+assert.strictEqual(headSandbox.api.calls(),1,'같은 리비전이라도 최근 명령이 다르면 관리자 앱이 다시 확인해야 합니다.');
+headSandbox.api.reset(2,'op2','');
+headSandbox.api.observe({revision:3,lastRequestId:'op3'});
+assert.strictEqual(headSandbox.api.calls(),0,'운영 연결이 없는 화면은 서버 원본을 임의로 덮어쓰면 안 됩니다.');
 
 const sandbox={};
 vm.createContext(sandbox);

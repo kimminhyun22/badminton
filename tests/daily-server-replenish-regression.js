@@ -10,7 +10,8 @@ const {
 const {
   TEAM_DIFF_LIMIT,
   PARTNER_GAP_HARD,
-  effectiveLevel
+  effectiveLevel,
+  replenishPrepared
 } = require('../functions/daily-server-matchmaker');
 const {applyCommandTransaction} = require('../functions/daily-official-command');
 
@@ -205,6 +206,18 @@ function operationalEvent(event){
 
 let state = root();
 let now = BASE_NOW;
+
+const legacyOverflow = root().session;
+legacyOverflow.event.nextTarget = 5;
+legacyOverflow.event.next = Array.from({length:5},(_,index)=>({
+  queueId:`legacy_queue_${index+1}`,
+  playerIds:['p13','p14','p15','p16'],
+  t1Ids:['p13','p14'],
+  t2Ids:['p15','p16']
+}));
+replenishPrepared(legacyOverflow,{now:BASE_NOW,requestId:'legacy_queue_trim'});
+assert.strictEqual(legacyOverflow.event.nextTarget,3,'구버전의 초과 목표는 현재 코트 수로 즉시 정리해야 합니다.');
+assert.strictEqual(legacyOverflow.event.next.slice(0,legacyOverflow.event.nextTarget).length,3,'관리자·회원 화면에 공개되는 다음 대진은 코트 수와 같아야 합니다.');
 
 const first = complete(state,state.session.event.active[0],1,now);
 assert.strictEqual(first.outcome.terminal.status,'applied','예비 대진이 비어 있어도 서버가 종료 요청을 처리해야 합니다.');
