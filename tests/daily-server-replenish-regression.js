@@ -161,6 +161,7 @@ function complete(current, match, index, now){
 }
 
 function assertPreparedValid(session){
+  assert(session.event.next.length<=session.event.courts,'서버가 코트 수보다 많은 다음 대진을 생성하면 안 됩니다.');
   const occupied = new Set();
   session.event.active.forEach(match=>match.playerIds.forEach(id=>{
     assert(!occupied.has(id),'진행 경기 사이에 같은 선수가 중복되면 안 됩니다.');

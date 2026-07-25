@@ -57,8 +57,7 @@ assert(!memberQueueNotice.includes('openCourtCompletePicker'),'일반 회원의 
 assert(memberQueueNotice.includes('sendQueueRestPass'),'일반 회원은 입장 직전에도 조금 쉬고 요청을 보낼 수 있어야 합니다.');
 assert(memberQueueNotice.includes('sendQueueDefer'),'일반 회원의 기존 이번만 뒤로 기능은 유지해야 합니다.');
 const memberEventBoard=functionSource(checkin,'renderEvent','render');
-assert(memberEventBoard.includes('const next=nextList.map((m,index)=>'),'회원 LIVE 현황은 준비된 다음 대진을 잘라 번호를 건너뛰게 만들면 안 됩니다.');
-assert(!memberEventBoard.includes('nextList.slice(0,4)'),'다음 대진 5번 이후를 숨기면서 예상 대진 번호만 이어 표시하면 안 됩니다.');
+assert(memberEventBoard.includes('const next=nextList.map((m,index)=>'),'회원 LIVE 현황은 코트 수로 정리된 다음 대진 순서를 그대로 표시해야 합니다.');
 assert(!memberEventBoard.includes('sendQueueEnterFree'),'일반 회원 상황판에서도 직접 입장 처리를 제공하면 안 됩니다.');
 assert(!memberEventBoard.includes('openCourtCompletePicker'),'일반 회원 상황판에서도 코트 선택을 제공하면 안 됩니다.');
 assert(memberEventBoard.includes('sendQueueRestPass'),'일반 회원 상황판의 조금 쉬고 요청은 유지해야 합니다.');
@@ -71,7 +70,7 @@ const nextRows=Array.from({length:5},(_,index)=>({
   t1:['A'+index,'B'+index],t2:['C'+index,'D'+index],playerIds:['a'+index,'b'+index,'c'+index,'d'+index]
 }));
 let session={players:[{id:'viewer',isClubOfficial:false}],event:{
-  updatedAt:Date.now(),completed:0,activeCount:0,active:[],next:nextRows,
+  updatedAt:Date.now(),completed:0,activeCount:0,courts:3,active:[],next:nextRows,
   expected:[
     {idx:6,t1:['E1','E2'],t2:['E3','E4']},
     {idx:7,t1:['F1','F2'],t2:['F3','F4']}
@@ -80,7 +79,7 @@ let session={players:[{id:'viewer',isClubOfficial:false}],event:{
 let officialRequests=[],sendingKey='',claimingOfficial=false;
 const document={getElementById:id=>id==='eventPanel'?eventPanel:null};
 function getLastSent(){return {playerId:'viewer'};}
-function eventNextList(){return session.event.next.map(item=>({...item}));}
+function eventNextList(){return session.event.next.slice(0,session.event.courts).map((item,index)=>({...item,idx:index+1}));}
 function getLastComplete(){return null;}
 function afterPartyNames(){return [];}
 function placeEventPanelForViewer(){}
@@ -94,8 +93,18 @@ ${memberEventBoard}
 this.rendered=()=>{renderEvent();return eventPanel.innerHTML;};
 `,memberEventRenderSandbox);
 const renderedQueueRanks=[...memberEventRenderSandbox.rendered().matchAll(/event-rank-badge">(\d+)</g)].map(match=>Number(match[1]));
-assert.deepStrictEqual(renderedQueueRanks,[1,2,3,4,5],'회원 LIVE 현황에는 확정된 다음 대진만 표시하고 예상 대진은 노출하지 않아야 합니다.');
+assert.deepStrictEqual(renderedQueueRanks,[1,2,3],'회원 LIVE 현황에는 코트 수만큼의 다음 대진만 표시해야 합니다.');
 assert(!memberEventBoard.includes('ev.expected'),'회원 LIVE 현황은 변경 가능한 예상 대진을 렌더링하면 안 됩니다.');
+const eventNextListSandbox={};
+vm.createContext(eventNextListSandbox);
+vm.runInContext(`
+let session={event:{courts:3,next:Array.from({length:5},(_,index)=>({queueId:'q'+(index+1),playerIds:['p'+index]}))}};
+let queueYieldRequests=[];
+function queueIdentity(q){return String(q?.queueId||q?.id||'');}
+${functionSource(checkin,'eventNextList','queueById')}
+this.list=eventNextList;
+`,eventNextListSandbox);
+assert.deepStrictEqual(Array.from(eventNextListSandbox.list(),item=>item.queueId),['q1','q2','q3'],'기존 세션에 초과 대진이 남아 있어도 회원 화면은 코트 수만큼만 노출해야 합니다.');
 assert(memberEventBoard.includes('canOfficialOperate')&&memberEventBoard.includes('event-official-complete'),'클럽 임원의 경기 종료 버튼은 진행 중 코트 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes('officialQueueCardActionsHtml'),'클럽 임원의 입장 처리와 이번만 뒤로 버튼은 해당 다음 대진 카드 안에 있어야 합니다.');
 assert(memberEventBoard.includes("['queue-yield','active-yield'].includes(lastComplete?.operation)")&&memberEventBoard.includes("lastComplete?.operation==='queue-enter'"),'최근 임원 입장·순서 작업도 해당 이름으로 바로 취소할 수 있어야 합니다.');
@@ -115,12 +124,12 @@ this.memberCue=memberQueueCueText;
 this.officialCue=officialQueueCueText;
 `,cueSandbox);
 const predictedCue={cueState:'soon',targetCourt:2,cue:'2코트',cueDetail:'2코트 · 5분'};
-assert.strictEqual(cueSandbox.memberCue(predictedCue),'대기','일반 회원의 다음 대진 상태는 대기로 간결하게 표시해야 합니다.');
-assert.strictEqual(cueSandbox.officialCue(predictedCue),'대기','클럽 임원의 다음 대진 상태도 대기로 간결하게 표시해야 합니다.');
-assert.strictEqual(cueSandbox.memberCue({cueState:'normal',cueDetail:'경기 후'}),'대기','경기 후 같은 불확실한 설명은 회원 화면에 노출하면 안 됩니다.');
-assert.strictEqual(cueSandbox.memberCue({cueState:'normal',cueDetail:'진행중 경기 없음'}),'대기','진행 중 경기 없음 같은 내부 설명은 회원 화면에 노출하면 안 됩니다.');
+assert.strictEqual(cueSandbox.memberCue(predictedCue),'','일반 회원의 다음 대진 카드에 중복 대기 문구를 표시하면 안 됩니다.');
+assert.strictEqual(cueSandbox.officialCue(predictedCue),'','클럽 임원의 다음 대진 카드에도 중복 대기 문구를 표시하면 안 됩니다.');
+assert.strictEqual(cueSandbox.memberCue({cueState:'normal',cueDetail:'경기 후'}),'','경기 후 같은 불확실한 설명은 회원 화면에 노출하면 안 됩니다.');
+assert.strictEqual(cueSandbox.memberCue({cueState:'normal',cueDetail:'진행중 경기 없음'}),'','진행 중 경기 없음 같은 내부 설명은 회원 화면에 노출하면 안 됩니다.');
 assert(!cueSandbox.officialCue({cueState:'free',targetCourt:2}).includes('2코트'),'입장 직전 카드도 코트 번호를 고정 노출하지 않고 처리 시점에 확인해야 합니다.');
-assert(checkin.includes("return {main:'대기',detail:''}"),'내 카드의 다음 대진도 불확실한 시간 설명 없이 대기로 표시해야 합니다.');
+assert(checkin.includes("return {main:'',detail:''}"),'내 카드의 다음 대진에도 중복 대기 문구를 표시하면 안 됩니다.');
 assert(checkin.includes("onclick=\"sendOfficialCourtComplete"),'클럽 임원의 경기 종료 기능은 유지해야 합니다.');
 assert(checkin.includes("onclick=\"sendOfficialQueueEnter"),'클럽 임원의 빈 코트 입장 처리 기능은 유지해야 합니다.');
 assert(checkin.includes('지각 선수 참가 등록')&&checkin.includes("type:'official-player-arrival'"),'클럽 임원은 등록 전 선수를 현장에서 바로 참가 등록할 수 있어야 합니다.');

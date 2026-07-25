@@ -34,13 +34,18 @@ assert(
 
 const publicEvent = extractFunction('_dailyPublicEvent', 'dailyRenderResults');
 assert(
-  publicEvent.includes('queuePayload(q,next.length+idx,true)'),
-  '예상 대진 번호는 목표 큐 수가 아니라 실제 게시된 다음 대진 수 바로 뒤에서 시작해야 합니다.'
+  publicEvent.includes('const expected=[]')&&publicEvent.includes('const serverStandby=[]'),
+  '민턴LIVE는 코트 수를 넘는 예상·서버 대기 대진을 미리 생성하면 안 됩니다.'
 );
 assert(
-  !publicEvent.includes('queuePayload(q,cap.target+idx,true)'),
-  '무효 대진이 빠진 경우 예상 대진 번호에 공백이 생기는 계산을 사용하면 안 됩니다.'
+  !publicEvent.includes('_dailyProjectedQueue('),
+  '회원 세션 게시 과정에서 코트 수 밖의 예상 대진을 만들면 안 됩니다.'
 );
+const queueTarget=extractFunction('_dailyQueueTarget','_dailyQueueCapacity');
+assert(queueTarget.includes('return _dailyFinishMode?Math.min(base,_dailyQueue.length):base;'),'다음 대진 목표는 사용 코트 수를 넘지 않아야 합니다.');
+assert(!queueTarget.includes('boost')&&!queueTarget.includes('extra'),'종료 임박이나 여유 인원 때문에 다음 대진 수를 늘리면 안 됩니다.');
+const expectedTarget=extractFunction('_dailyExpectedQueueTarget','_dailyProjectedCandidatePlayers');
+assert(expectedTarget.includes('return 0;'),'별도 예상 대진 목표는 항상 0이어야 합니다.');
 
 const crossDayResume = extractFunction('_dailyCanResumeCrossDay', '_dailySavedDateLabel');
 const resumeSandbox = {};

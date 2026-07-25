@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.451';
+const APP_VERSION = '1.10.452';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1517,54 +1517,19 @@ function _dailyQueueBaseTarget(){
   if(!info.auto)return 0;
   return Math.max(1,info.operatingCourts);
 }
-function _dailyQueueBoostNeeded(){
-  if(!_dailyNaturalAutoInfo().auto)return false;
-  const urgent=_dailyActiveMatches().filter(m=>{
-    const state=_dailyTimerState(m);
-    return state==='soon'||state==='due';
-  }).length;
-  return urgent>=2;
-}
-function _dailyQueueBoostAmount(){
-  return _dailyQueueBoostNeeded()?1:0;
-}
-function _dailyQueueExtraTarget(base,flowInfo){
-  const info=flowInfo||_dailyNaturalAutoInfo();
-  if(!info.auto||_dailyTeamLocked)return 0;
-  const baseTarget=Math.max(0,Number(base)||0);
-  const maxGames=Math.floor(_dailyEligible().length/4);
-  const spareGames=Math.max(0,maxGames-baseTarget);
-  if(spareGames>=4)return 2;
-  if(spareGames>=2)return 1;
-  return 0;
-}
 function _dailyQueueTarget(){
   const info=_dailyNaturalAutoInfo();
   if(!info.auto)return 0;
-  if(_dailyFinishMode)return _dailyQueue.length;
   const base=_dailyQueueBaseTarget();
-  const boost=_dailyQueueBoostAmount();
-  const extra=_dailyQueueExtraTarget(base,info);
-  return Math.min((info.operatingCourts||0)+2,base+boost+extra);
+  return _dailyFinishMode?Math.min(base,_dailyQueue.length):base;
 }
 function _dailyQueueCapacity(){
   const maxGames=Math.floor(_dailyEligible().length/4);
   const goal=_dailyQueueTarget();
-  const baseGoal=_dailyQueueBaseTarget();
-  const boostGoal=_dailyQueueBoostAmount();
-  const extraGoal=Math.max(0,goal-baseGoal-boostGoal);
   const target=Math.min(goal,maxGames);
-  return {target,maxGames,goal,baseGoal,boostGoal,extraGoal,boosted:boostGoal>0,short:maxGames<goal};
+  return {target,maxGames,goal,baseGoal:goal,boostGoal:0,extraGoal:0,boosted:false,short:maxGames<goal};
 }
-function _dailyExpectedQueueTarget(cap){
-  const info=_dailyNaturalAutoInfo();
-  if(_dailyFinishMode)return 0;
-  if(!info.auto||_dailyTeamLocked)return 0;
-  const c=cap||_dailyQueueCapacity();
-  const projectedMaxGames=Math.floor(_dailyProjectedCandidatePlayers().length/4);
-  const spare=Math.max(0,projectedMaxGames-(c.target||0));
-  if(spare>=4)return 2;
-  if(spare>=2)return 1;
+function _dailyExpectedQueueTarget(){
   return 0;
 }
 function _dailyProjectedCandidatePlayers(){
@@ -1672,8 +1637,8 @@ function _dailyQueueLabelForPlayer(id){
   const idx=_dailyQueue.findIndex(q=>_dailyQueueIds(q).includes(id));
   if(idx<0)return '';
   const q=_dailyQueue[idx];
-  if(q.reservationId)return `<span class="daily-pair-badge">신청대기 ${idx+1}</span>`;
-  return idx<_dailyQueueLockCount()?`<span class="daily-pair-badge">다음대진 ${idx+1}</span>`:`<span class="daily-pair-badge">대기 ${idx+1}</span>`;
+  if(q.reservationId)return `<span class="daily-pair-badge">신청대진 ${idx+1}</span>`;
+  return `<span class="daily-pair-badge">다음대진 ${idx+1}</span>`;
 }
 function _dailyQueueType(t1,t2){
   const all=[...t1,...t2];
@@ -1807,7 +1772,7 @@ function _dailyBuildQueueItem(excludeIds,options){
   return q;
 }
 function _dailyRefreshNextFromQueue(){
-  _dailyNext=_dailyQueue[0]?{queueId:_dailyQueue[0].id,match:_dailyQueueMatch(_dailyQueue[0]),score:_dailyQueue[0].score,strict:_dailyQueue[0].strict,createdAt:_dailyQueue[0].createdAt,label:'1순위 대기'}:null;
+  _dailyNext=_dailyQueue[0]?{queueId:_dailyQueue[0].id,match:_dailyQueueMatch(_dailyQueue[0]),score:_dailyQueue[0].score,strict:_dailyQueue[0].strict,createdAt:_dailyQueue[0].createdAt,label:'1순위'}:null;
 }
 function dailyRebuildQueue(options){
   options=options||{};
@@ -4104,7 +4069,7 @@ function dailyStartQueueItem(queueId,options){
     dailyEnsureQueue();dailySave();dailyRender();return false;
   }
   if(_dailyQueueRestPassActive(q)&&!options.ignoreRestPass){
-    if(!options.silent)alert('이 대진은 조금 쉬고 입장 대기 중입니다. 다음 코트 종료 후 다시 입장할 수 있습니다.');
+    if(!options.silent)alert('이 대진은 잠시 쉬는 순서입니다. 다음 코트 종료 후 다시 입장할 수 있습니다.');
     return false;
   }
   if(q.restPass)delete q.restPass;
@@ -4211,11 +4176,11 @@ function _dailyRenderQueueItem(q,idx,mode){
   const labelA=teamMode?teamNames.blue:'A팀';
   const labelB=teamMode?teamNames.white:'B팀';
   const orderLabel=teamMode?`투입순서 ${idx+1}`:`#${idx+1}`;
-  const next={match:m,score:q.score,strict:q.strict,label:`${idx+1}순위 대기`,queueIndex:idx};
+  const next={match:m,score:q.score,strict:q.strict,label:`${idx+1}순위`,queueIndex:idx};
   const isRestPass=_dailyQueueRestPassActive(q);
   const restPassBadge=isRestPass?`<span class="daily-queue-badge hold">조금 쉬고 입장</span>`:'';
   const canStart=!_dailyPaused&&!expected&&!!_dailyAvailableCourt()&&!isRestPass;
-  const badgeText=partnerReserved?'파트너 지정':expected?'예상 대진':reserved?'게임신청':(urgent?'다음 대진':'대기');
+  const badgeText=partnerReserved?'파트너 지정':expected?'예상 대진':reserved?'게임신청':'다음 대진';
   const compactTitle=`${orderLabel} · ${reserved&&!partnerReserved?'신청경기 · ':''}${esc(m.type)}${m.isFlexible?' · 예외':''} · 팀 실력차 ${esc(String(m.levelDiff))}`;
   const playerBtn=(side,pos,p)=>{
     const locked=_dailyPaused||expected||(reserved&&!urgent);
@@ -4295,16 +4260,13 @@ function dailyRenderQueue(){
   if(!_dailyPaused)dailyEnsureQueue();
   const lockCount=_dailyQueueLockCount();
   const urgent=_dailyQueue.slice(0,lockCount);
-  const expected=_dailyProjectedQueue(_dailyExpectedQueueTarget(_dailyQueueCapacity()));
   if(urgentBox){
-    if(!urgent.length&&!expected.length){
+    if(!urgent.length){
       urgentBox.className='daily-empty';
       urgentBox.textContent='4명부터 자동';
     }else{
       urgentBox.className='daily-urgent-list';
-      const urgentHtml=urgent.map((q,i)=>_dailyRenderQueueItem(q,i,'urgent')).join('');
-      const expectedHtml=expected.map((q,i)=>_dailyRenderQueueItem(q,lockCount+i,'expected')).join('');
-      urgentBox.innerHTML=urgentHtml+expectedHtml;
+      urgentBox.innerHTML=urgent.map((q,i)=>_dailyRenderQueueItem(q,i,'urgent')).join('');
     }
   }
 }
@@ -4465,13 +4427,8 @@ function _dailyPublicEvent(){
   };
   const next=_dailyQueue.slice(0,cap.target).map((q,idx)=>queuePayload(q,idx,false)).filter(Boolean);
   const expectedGoal=_dailyExpectedQueueTarget(cap);
-  const projectedSpare=Math.max(0,Math.floor(_dailyProjectedCandidatePlayers().length/4)-cap.target);
-  const preparedGoal=Math.max(expectedGoal,Math.min(6,projectedSpare));
-  const prepared=_dailyProjectedQueue(preparedGoal)
-    .map((q,idx)=>queuePayload(q,next.length+idx,true))
-    .filter(Boolean);
-  const expected=prepared.slice(0,expectedGoal);
-  const serverStandby=prepared.slice(expectedGoal);
+  const expected=[];
+  const serverStandby=[];
   const readyCount=_dailyEligible().length;
   const visibleReadyCount=_dailyStartedWaitingPlayers().length;
   const assignedReadyIds=new Set();
@@ -4861,8 +4818,6 @@ function dailyRenderOpsStats(){
   const locked=Math.min(_dailyQueueLockCount(),_dailyQueue.length);
   const rest=_dailyPlayers.filter(p=>p.status==='rest').length;
   const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited'&&p.isGuest).length;
-  const cap=_dailyQueueCapacity();
-  const expectedCount=_dailyProjectedQueue(_dailyExpectedQueueTarget(cap)).length;
   const flow=_dailyNaturalAutoInfo();
   const finishComplete=!!(_dailyFinishMode&&!locked);
   const finishPlan=_dailyFinishPlanInfo();
@@ -4873,11 +4828,11 @@ function dailyRenderOpsStats(){
     : active
       ? `${courts}코트 기준`
       : '게시 전';
-  const queueValue=expectedCount?`${locked}+${expectedCount}`:String(locked||0);
+  const queueValue=String(locked||0);
   const queueHint=_dailyPaused
     ? '재개 후 순서 유지'
-    : locked||expectedCount
-    ? (_dailyFinishMode?`${finishPlan.label}`:`다음 ${locked} · 예상 ${expectedCount}`)
+    : locked
+    ? (_dailyFinishMode?`${finishPlan.label}`:`다음 ${locked}`)
     : flow.auto
       ? '자동 편성 대기'
       : flow.hint;
@@ -7324,7 +7279,7 @@ function dailyRenderMatches(){
           <span class="daily-court-state free">빈 코트</span>
         </div>
         <div class="daily-court-body">
-          <div class="daily-court-empty">${canStart?`${startIdx+1}순위 대기 시작 가능`:'대기 없음'}</div>
+          <div class="daily-court-empty">${canStart?`${startIdx+1}순위 시작 가능`:'다음 대진 없음'}</div>
           ${canStart?`<div class="daily-court-actions single"><button class="daily-mini-btn primary-action" onclick="dailyStartQueueItem('${startQueue.id}',{court:${c}})">${startLabel}</button></div>`:''}
         </div>
       </div>`;
@@ -7611,7 +7566,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.451&from=daily';
+  location.href='team.html?v=1.10.452&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

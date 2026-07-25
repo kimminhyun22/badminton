@@ -487,13 +487,11 @@ function desiredNextTarget(session, waitingCount){
   const official = Math.max(0, Math.min(courts, number(event.queuePolicy?.official, courts)));
   if(!official)return 0;
   const maxGames = Math.floor(waitingCount / 4);
-  const spare = Math.max(0, maxGames - official);
-  const extra = spare >= 4 ? 2 : spare >= 2 ? 1 : 0;
-  const goal = Math.min(courts + 2, official + extra);
-  const target = Math.min(goal, maxGames);
+  const target = Math.min(official, maxGames);
   event.nextTarget = target;
   event.queuePolicy = event.queuePolicy && typeof event.queuePolicy === 'object' ? event.queuePolicy : {};
   event.queuePolicy.official = official;
+  event.queuePolicy.extra = 0;
   return target;
 }
 
