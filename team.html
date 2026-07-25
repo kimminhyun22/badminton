@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.461  (2026-07)
+     APP VERSION: 1.10.462  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.461">
+<meta name="app-version" content="1.10.462">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.461&from=team'">팀전LIVE</button>
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.461&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.462&from=team'">팀전LIVE</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.462&from=team'">민턴LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -190,6 +190,10 @@
                 style="width:100%;justify-content:center;padding:10px;font-size:.84rem;
                 color:var(--bll);border-color:rgba(96,165,250,.35);margin-top:7px;border-radius:9px;min-height:44px;">
                 📂 명부에서 불러오기
+              </button>
+              <button class="roster-transfer-btn" id="teamImportDailyRosterBtn" type="button"
+                onclick="teamImportDailyRoster()" disabled>
+                민턴LIVE 선수 없음
               </button>
             </div>
 
@@ -607,6 +611,10 @@
       <button onclick="closeImportModal()">✕</button>
     </div>
     <div class="modal-body">
+      <button class="roster-transfer-btn" id="teamImportDailyRosterModalBtn" type="button"
+        onclick="teamImportDailyRoster()" disabled style="margin-top:0;margin-bottom:11px;">
+        민턴LIVE 선수 없음
+      </button>
       <div id="importClubTabs"></div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;">
         <span style="font-size:.62rem;color:var(--dim);font-weight:600;">정렬</span>
@@ -799,7 +807,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.461</span>
+  <span class="app-version" id="appVersion">v1.10.462</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

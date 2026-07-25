@@ -55,3 +55,122 @@ window.KokMatchStorage = {
     return meta ? meta.content : '';
   }
 };
+
+const LIVE_ROSTER_BRIDGE_VERSION = 1;
+const LIVE_ROSTER_BRIDGE_KEYS = Object.freeze({
+  daily:'kokmatch_live_roster_daily_v1',
+  team:'kokmatch_live_roster_team_v1'
+});
+const LIVE_ROSTER_STATE_KEYS = Object.freeze({
+  daily:'kokmatch_daily_v1',
+  team:'badminton_team_bracket_v7'
+});
+
+function _liveRosterBridgeMode(mode){
+  return mode === 'team' ? 'team' : mode === 'daily' ? 'daily' : '';
+}
+
+function _liveRosterBridgeProfile(raw){
+  if(!raw || typeof raw !== 'object')return null;
+  const name = String(raw.name || '').trim();
+  if(!name)return null;
+  const gender = raw.gender === 'F' || raw.gender === '여' ? '여' : '남';
+  const grade = String(raw.grade || '').trim().toUpperCase();
+  const level = Number(raw.level);
+  return {
+    memberId:String(raw.memberId || '').trim(),
+    name,
+    grade,
+    level:Number.isFinite(level) ? level : 0,
+    gender,
+    ageGroup:String(raw.ageGroup || '40대'),
+    club:String(raw.club || ''),
+    isGuest:!!raw.isGuest,
+    isClubOfficial:!!raw.isClubOfficial
+  };
+}
+
+function _liveRosterBridgePlayers(rows){
+  const seen = new Set();
+  const players = [];
+  (Array.isArray(rows) ? rows : []).forEach(raw=>{
+    const player = _liveRosterBridgeProfile(raw);
+    if(!player)return;
+    const key = player.name.replace(/\s+/g,'').toLocaleLowerCase('ko-KR');
+    if(seen.has(key))return;
+    seen.add(key);
+    players.push(player);
+  });
+  return players;
+}
+
+function _liveRosterBridgeRead(key){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){
+    return null;
+  }
+}
+
+function _liveRosterBridgeLegacy(mode){
+  const state = _liveRosterBridgeRead(LIVE_ROSTER_STATE_KEYS[mode]);
+  if(!state || typeof state !== 'object')return null;
+  if(mode === 'daily' && state.mode && state.mode !== 'daily' && state.appMode !== 'dailyLive')return null;
+  if(mode === 'team' && state.mode && state.mode !== 'team' && state.appMode !== 'teamLive')return null;
+  const rows = mode === 'daily'
+    ? state.players
+    : (state.directPlayers && state.directPlayers.length ? state.directPlayers : state.participants);
+  if(!Array.isArray(rows))return null;
+  return {
+    version:LIVE_ROSTER_BRIDGE_VERSION,
+    mode,
+    savedAt:Math.max(0,Number(state.savedAt || 0)),
+    players:_liveRosterBridgePlayers(rows),
+    source:'state'
+  };
+}
+
+window.KokMatchRosterBridge = Object.freeze({
+  version:LIVE_ROSTER_BRIDGE_VERSION,
+  keys:LIVE_ROSTER_BRIDGE_KEYS,
+  normalizePlayer:_liveRosterBridgeProfile,
+  normalizePlayers:_liveRosterBridgePlayers,
+  save(mode, rows){
+    mode = _liveRosterBridgeMode(mode);
+    if(!mode)return null;
+    const snapshot = {
+      version:LIVE_ROSTER_BRIDGE_VERSION,
+      mode,
+      savedAt:Date.now(),
+      players:_liveRosterBridgePlayers(rows),
+      source:'snapshot'
+    };
+    try{
+      localStorage.setItem(LIVE_ROSTER_BRIDGE_KEYS[mode], JSON.stringify(snapshot));
+      return snapshot;
+    }catch(e){
+      return null;
+    }
+  },
+  clear(mode){
+    return this.save(mode, []);
+  },
+  load(mode){
+    mode = _liveRosterBridgeMode(mode);
+    if(!mode)return {version:LIVE_ROSTER_BRIDGE_VERSION,mode:'',savedAt:0,players:[],source:'none'};
+    const raw = _liveRosterBridgeRead(LIVE_ROSTER_BRIDGE_KEYS[mode]);
+    const snapshot = raw && raw.mode === mode
+      ? {
+          version:LIVE_ROSTER_BRIDGE_VERSION,
+          mode,
+          savedAt:Math.max(0,Number(raw.savedAt || 0)),
+          players:_liveRosterBridgePlayers(raw.players),
+          source:'snapshot'
+        }
+      : null;
+    const legacy = _liveRosterBridgeLegacy(mode);
+    const latest = legacy && (!snapshot || legacy.savedAt > snapshot.savedAt) ? legacy : snapshot;
+    return latest || {version:LIVE_ROSTER_BRIDGE_VERSION,mode,savedAt:0,players:[],source:'none'};
+  }
+});

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.461';
+const APP_VERSION = '1.10.462';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4274,6 +4274,7 @@ function _teamSyncGeneratedProfilesFromDirectPlayers(){
 }
 
 function saveState(){
+  _teamSaveRosterBridge();
   if(!currentMatches.length)return;
   const scores=currentMatches.map((m,i)=>{
     const s1=document.getElementById('s1_'+i);
@@ -4550,6 +4551,7 @@ function restoreState(opts={}){
 
     if(profileChanged&&teamAssignment)renderTeamList();
     renderResults(currentMatches,currentParticipants,currentSettings);
+    _teamSaveRosterBridge();
     if(profileChanged)showWarn(currentSettings?.teamMode
       ?'명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 단, 청/홍팀 구성은 기존 그대로입니다. 팀 밸런스까지 다시 맞추려면 운영 전 "다시 배정하기"를 눌러 새 팀과 대진표를 다시 만들어 주세요.'
       :'명부의 급수 수정이 현재 자유 대진표에 반영됐습니다. 기존 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 "대진표 생성"을 눌러 새 균형으로 다시 만들어 주세요.');
@@ -5605,6 +5607,7 @@ async function resetAll(){
   window.scrollTo({top:0,behavior:'smooth'});
   // 직접입력 초기화
   _directPlayers=[];
+  _teamSaveRosterBridge();
   renderDirectPlayerList();
   _ptParticipants=[];
   _resetScoreboard();
@@ -5869,6 +5872,81 @@ function toggleGuestMode(){
     btn.title = '게스트로 추가';
     document.getElementById('dirName').placeholder = '이름 입력';
   }
+}
+
+function _teamRosterBridge(){
+  return typeof window!=='undefined' ? window.KokMatchRosterBridge || null : null;
+}
+function _teamSaveRosterBridge(){
+  const bridge=_teamRosterBridge();
+  return bridge?bridge.save('team',_directPlayers):null;
+}
+function _teamDailyRosterSnapshot(){
+  const bridge=_teamRosterBridge();
+  return bridge?bridge.load('daily'):{players:[],savedAt:0};
+}
+function renderTeamRosterTransferButton(){
+  const count=_teamDailyRosterSnapshot().players.length;
+  ['teamImportDailyRosterBtn','teamImportDailyRosterModalBtn'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn)return;
+    btn.disabled=!count;
+    btn.textContent=count?`민턴LIVE 선수 ${count}명 가져오기`:'민턴LIVE 선수 없음';
+  });
+}
+function teamImportDailyRoster(){
+  if(isTeamSampleMode()){
+    alert('샘플 모드에서는 선수 명단을 바꿀 수 없습니다.');
+    return;
+  }
+  if(currentMatches.length||teamAssignment||_liveOn||_liveId||_teamStoredLiveId()||_teamSavedBracketRestoreInfo()){
+    alert('대진 또는 팀전LIVE가 시작된 뒤에는 선수 명단을 바꿀 수 없습니다.\n필요하면 현재 운영을 종료하고 전체 초기화한 뒤 가져와 주세요.');
+    return;
+  }
+  const snapshot=_teamDailyRosterSnapshot();
+  const source=snapshot.players||[];
+  if(!source.length){
+    alert('가져올 민턴LIVE 선수 명단이 없습니다.');
+    renderTeamRosterTransferButton();
+    return;
+  }
+  if(_directPlayers.length&&!confirm(`현재 팀전LIVE 선수 ${_directPlayers.length}명을 지우고\n민턴LIVE 선수 ${source.length}명을 가져올까요?`))return;
+  if(_directPlayers.length)_captureUndoSnapshot('민턴LIVE 선수 명단 가져오기 전');
+  _directPlayers=source.map(raw=>{
+    const gender=raw.gender==='여'?'여':'남';
+    const grade=raw.grade||levelToGrade(raw.level||4,gender)||'C';
+    const player={
+      memberId:raw.memberId||'',
+      name:raw.name,
+      grade,
+      level:Number(raw.level)||gradeToLevel(grade,gender)||4,
+      gender,
+      ageGroup:raw.ageGroup||'40대',
+      club:raw.club||'',
+      isGuest:!!raw.isGuest,
+      isClubOfficial:!!raw.isClubOfficial
+    };
+    _teamEnsureMemberId(player);
+    return player;
+  });
+  _partners=[];
+  _partnerSelectMode=false;
+  _partnerSelectName=null;
+  teamAssignment=null;
+  captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
+  matchDirectors=_teamEmptyMatchDirectors();
+  currentParticipants=[];
+  currentSettings={};
+  _teamParticipantSourceRsvpId=null;
+  _lastRsvpImportSummary=null;
+  renderDirectPlayerList();
+  syncDirectToPaste();
+  updateTeamModeBadge();
+  rsvpSyncRosterChange();
+  renderAutoFlowDashboard();
+  _autoFlowSetSection('sec-players',true,true);
+  closeImportModal();
+  alert(`민턴LIVE 선수 ${_directPlayers.length}명을 팀전LIVE 명단으로 가져왔습니다.`);
 }
 
 function addDirectPlayer(){
@@ -6849,6 +6927,7 @@ function rsvpPushSession(){
 function rsvpSyncRosterChange(){
   const adminView=_rsvpAdminViewSnapshot();
   const changed=_rsvpSyncImportedPlayersFromRoster();
+  _teamSaveRosterBridge();
   if(adminView.open){
     _rsvpAdminPanelOpen=true;
     if(!rsvpRefreshAdminContext(adminView))rsvpRenderPreservingAdmin(adminView);
@@ -8877,6 +8956,11 @@ window.addEventListener('DOMContentLoaded', () => {
     updateTeamModeBadge(); // 팀전LIVE 기본 상태 반영
     updateSettingsMiniSummary();
   }
+  renderTeamRosterTransferButton();
+  window.addEventListener('storage',event=>{
+    const bridge=_teamRosterBridge();
+    if(event.key==='kokmatch_daily_v1'||event.key===bridge?.keys?.daily)renderTeamRosterTransferButton();
+  });
   // 버전 표시 반영
   const vEl=document.getElementById('appVersion');
   if(vEl) vEl.textContent='v'+APP_VERSION;
