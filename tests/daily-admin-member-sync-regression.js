@@ -71,6 +71,7 @@ let _dailyCapabilityEpoch=1;
 let _dailyCheckinIdentityPending=false;
 let _dailyCheckinOwnershipVerified=true;
 let _dailyRemoteCheckinExpiresAt=0;
+let _dailyCrossTabIdentityPending=false;
 let _dailyServerRevision=1;
 let _dailyServerLastRequestId='op1';
 let _dailyPauseRevision=0;
@@ -130,6 +131,7 @@ function dailyRenderCheckinRequests(){renderCalls++;}
 function _dailyEnsureOfficialCapability(){return Promise.resolve(true);}
 function _dailyCheckinPath(){return 'live/checkin_'+_dailyCheckinId;}
 function _dailyNow(){return 123456;}
+function _dailyLocalCheckinExpiresAt(){return 0;}
 function _dailyPushOperatorHeartbeat(){heartbeatCalls++;}
 const _fbDb={
   ref(path){

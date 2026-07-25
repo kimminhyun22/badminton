@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.456';
+const APP_VERSION = '1.10.457';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -319,6 +319,7 @@ let _dailyCapabilityEpoch=0;
 let _dailyCheckinIdentityPending=false;
 let _dailyCheckinOwnershipVerified=false;
 let _dailyRemoteCheckinExpiresAt=0;
+let _dailyCrossTabIdentityPending=false;
 let _dailyServerReconcileError='';
 let _dailyAdminGrantToken='';
 let _dailyAdminGrantExpiresAt=0;
@@ -1983,6 +1984,7 @@ function _dailyLoadAsNewDay(s){
   _dailyCheckinIdentityPending=false;
   _dailyCheckinOwnershipVerified=false;
   _dailyRemoteCheckinExpiresAt=0;
+  _dailyCrossTabIdentityPending=false;
   localStorage.removeItem(DAILY_CHECKIN_KEY);
   localStorage.removeItem(DAILY_CHECKIN_CREATED_KEY);
   _dailyMarkFourCacheDirty();
@@ -2047,6 +2049,8 @@ function dailyLoad(){
     _dailyCheckinIdentityPending=!!_dailyCheckinId;
     _dailyCheckinOwnershipVerified=false;
     _dailyRemoteCheckinExpiresAt=0;
+    _dailyCrossTabIdentityPending=false;
+    _dailyCrossTabIdentityPending=false;
     _dailyServerReconcileError='';
     const savedUndo=s.lastCompleteUndo;
     _dailyLastCompleteUndo=savedUndo&&savedUndo.token&&savedUndo.state&&Number(savedUndo.expiresAt||0)>now
@@ -2136,6 +2140,7 @@ function dailyApplyReviewSample(){
   _dailyCheckinIdentityPending=false;
   _dailyCheckinOwnershipVerified=false;
   _dailyRemoteCheckinExpiresAt=0;
+  _dailyCrossTabIdentityPending=false;
   _dailyServerReconcileError='';
   _dailyCheckinRequests=[];
   _dailyCheckinParty={};
@@ -2736,6 +2741,7 @@ function dailyReset(){
   _dailyCheckinIdentityPending=false;
   _dailyCheckinOwnershipVerified=false;
   _dailyRemoteCheckinExpiresAt=0;
+  _dailyCrossTabIdentityPending=false;
   _dailyServerReconcileError='';
   _dailyCheckinRequests=[];
   _dailyCheckinParty={};
@@ -5100,6 +5106,7 @@ function _dailyDetachStaleCheckinIdentity(){
   _dailyCheckinIdentityPending=false;
   _dailyCheckinOwnershipVerified=false;
   _dailyRemoteCheckinExpiresAt=0;
+  _dailyCrossTabIdentityPending=false;
   _dailyServerReconcileError='';
   let clearSharedIdentity=true;
   try{
@@ -5121,13 +5128,14 @@ function _dailyRemoteCheckinOwnership(session,localCapabilityValid,identity){
   const remoteHash=String(session.officialInvite?.tokenHash||'');
   const remoteSessionId=String(session.serverSessionId||'');
   const remoteExpiresAt=Math.max(0,Number(session.expiresAt||0));
+  const effectiveExpiresAt=Math.max(remoteExpiresAt,_dailyLocalCheckinExpiresAt());
   if(
     remoteHash
     &&remoteSessionId===expected.id
     &&expected.token
     &&expected.hash
     &&remoteHash===expected.hash
-  )return remoteExpiresAt&&_dailyNow()>=remoteExpiresAt?'expired':'owned';
+  )return effectiveExpiresAt&&_dailyNow()>=effectiveExpiresAt?'expired':'owned';
   return 'mismatch';
 }
 async function _dailyReadCheckinOwnership(){
@@ -5328,17 +5336,22 @@ function _dailyFirstMatchStartedAt(){
   const starts=_dailyMatches.map(m=>m.startedAt||0).filter(Boolean);
   return starts.length?Math.min(...starts):0;
 }
-function _dailyCheckinExpiresAt(){
-  if(_dailyCheckinOwnershipVerified&&_dailyRemoteCheckinExpiresAt)return _dailyRemoteCheckinExpiresAt;
+function _dailyLocalCheckinExpiresAt(){
   const startedAt=_dailyFirstMatchStartedAt();
   const base=Math.max(startedAt||0,_dailyCheckinCreatedAt||0);
   return base?base+DAILY_CHECKIN_TTL_MS:0;
+}
+function _dailyCheckinExpiresAt(){
+  const localExpiresAt=_dailyLocalCheckinExpiresAt();
+  return _dailyCheckinOwnershipVerified
+    ?Math.max(_dailyRemoteCheckinExpiresAt||0,localExpiresAt)
+    :localExpiresAt;
 }
 function _dailyCheckinExpired(){
   const expiresAt=_dailyCheckinExpiresAt();
   return !!(_dailyCheckinId&&expiresAt&&_dailyNow()>=expiresAt);
 }
-function _dailyRemoveOwnedCheckin(path,identity,requireExpired){
+function _dailyRemoveOwnedCheckin(path,identity,requireExpired,expectedPublishId){
   if(!_fbDb||!path||!identity?.id||!identity.hash)return Promise.resolve(false);
   return _fbDb.ref(path).transaction(root=>{
     const session=root&&typeof root==='object'?root.session:null;
@@ -5347,6 +5360,7 @@ function _dailyRemoveOwnedCheckin(path,identity,requireExpired){
       String(session.serverSessionId||'')!==identity.id
       ||String(session.officialInvite?.tokenHash||'')!==identity.hash
     )return;
+    if(expectedPublishId&&String(session.clientPublishId||'')!==expectedPublishId)return;
     const remoteExpiresAt=Math.max(0,Number(session.expiresAt||0));
     if(requireExpired&&(!remoteExpiresAt||_dailyNow()<remoteExpiresAt))return;
     return null;
@@ -5373,6 +5387,7 @@ function _dailyExpireCheckinLink(silent){
   _dailyCheckinIdentityPending=false;
   _dailyCheckinOwnershipVerified=false;
   _dailyRemoteCheckinExpiresAt=0;
+  _dailyCrossTabIdentityPending=false;
   _dailyServerReconcileError='';
   _dailyPersistCheckinIdentity();
   if(!silent)alert('민턴LIVE 링크가 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 만들어 공유해 주세요.');
@@ -5621,6 +5636,7 @@ function dailyEnsureCheckinId(forceNew){
     _dailyCheckinIdentityPending=false;
     _dailyCheckinOwnershipVerified=false;
     _dailyRemoteCheckinExpiresAt=0;
+    _dailyCrossTabIdentityPending=false;
     _dailyServerReconcileError='';
     _dailyPersistCheckinIdentity();
   }
@@ -5659,6 +5675,8 @@ function _dailyMarkCheckinPublishConnected(){
 function _dailyWriteCheckinPayload(path){
   const identity=_dailyIdentitySnapshot();
   const payload=_dailyCheckinPayload();
+  const publishId='dpub_'+identity.id+'_'+_dailyNow().toString(36)+'_'+Math.random().toString(36).slice(2,9);
+  payload.clientPublishId=publishId;
   const payloadServerRevision=Math.max(0,Number(payload.serverRevision||0));
   const payloadLastRequestId=String(payload.serverLastRequestId||'');
   const payloadPauseRevision=Math.max(0,Number(payload.event?.pauseRevision||payload.pauseRevision||0));
@@ -5689,13 +5707,18 @@ function _dailyWriteCheckinPayload(path){
       committed:!!result?.committed,
       snapshot:result?.snapshot,
       identity,
+      publishId,
       identityStale:!_dailyIdentityCurrent(identity)
     };
-    if(wrapped.identityStale)return wrapped;
+    if(wrapped.identityStale){
+      if(wrapped.committed)_dailyRemoveOwnedCheckin(path,identity,false,publishId);
+      return wrapped;
+    }
     if(wrapped.committed){
       _dailyCheckinIdentityPending=false;
       _dailyCheckinOwnershipVerified=true;
       _dailyRemoteCheckinExpiresAt=Math.max(0,Number(payload.expiresAt||0));
+      _dailyCrossTabIdentityPending=false;
       _dailyMarkCheckinPublishConnected();
       return wrapped;
     }
@@ -5792,6 +5815,12 @@ async function dailyPublishCheckinSession(silent){
       return null;
     }
     if(ownership==='mismatch'){
+      if(_dailyCrossTabIdentityPending){
+        _dailyServerReconcileError='다른 화면의 회원 링크 게시를 기다리는 중입니다.';
+        dailyRenderCheckinRequests();
+        if(!silent)alert('다른 화면에서 회원 링크를 게시 중입니다. 잠시 후 다시 눌러 주세요.');
+        return null;
+      }
       dailyEnsureCheckinId(true);
       continue;
     }
@@ -5806,11 +5835,18 @@ async function dailyPublishCheckinSession(silent){
       dailyEnsureCheckinId(true);
       continue;
     }
+    if(ownership==='missing'&&_dailyCrossTabIdentityPending){
+      _dailyServerReconcileError='다른 화면의 회원 링크 게시를 기다리는 중입니다.';
+      dailyRenderCheckinRequests();
+      if(!silent)alert('다른 화면에서 회원 링크를 게시 중입니다. 잠시 후 다시 눌러 주세요.');
+      return null;
+    }
     _dailyCheckinIdentityPending=false;
     _dailyCheckinOwnershipVerified=ownership==='owned';
     _dailyRemoteCheckinExpiresAt=ownership==='owned'
       ?Math.max(0,Number(ownershipResult.session?.expiresAt||0))
       :0;
+    if(ownership==='owned')_dailyCrossTabIdentityPending=false;
     if(ownership==='owned'&&!_dailyCheckinCreatedAt){
       _dailyCheckinCreatedAt=Math.max(0,Number(ownershipResult.session?.createdAt||0));
     }
@@ -5922,6 +5958,7 @@ async function dailyShareOfficialLink(){
   }
 }
 async function dailyResumeCheckin(){
+  let adoptedStoredIdentity=false;
   const storedCheckinId=localStorage.getItem(DAILY_CHECKIN_KEY)||null;
   if(!storedCheckinId&&_dailyCheckinId&&!_dailyStoredIdentity(_dailyCheckinId)){
     _dailyDetachStaleCheckinIdentity();
@@ -5950,13 +5987,43 @@ async function dailyResumeCheckin(){
     _dailyOfficialInviteToken=storedIdentity.token;
     _dailyOfficialInviteHash=storedIdentity.hash;
     _dailyServerReconcileError='';
+    adoptedStoredIdentity=true;
+    _dailyCrossTabIdentityPending=true;
   }else if(storedCheckinId){
     _dailyCheckinCreatedAt=parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||_dailyCheckinCreatedAt||0;
+    const storedIdentity=_dailyStoredIdentity(storedCheckinId);
+    const capabilityChanged=!!storedIdentity?.token&&!!storedIdentity.hash&&(
+      storedIdentity.token!==_dailyOfficialInviteToken
+      ||storedIdentity.hash!==_dailyOfficialInviteHash
+    );
+    if(capabilityChanged){
+      if(typeof _dailyStopOperatorHeartbeat==='function')_dailyStopOperatorHeartbeat();
+      _dailyStopCheckinListener();
+      _dailyClearAdminGrant();
+      _dailyCapabilityPromise=null;
+      _dailyCapabilityEpoch++;
+      _dailyCheckinIdentityPending=true;
+      _dailyCheckinOwnershipVerified=false;
+      _dailyRemoteCheckinExpiresAt=0;
+      _dailyCheckinCreatedAt=parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||storedIdentity.createdAt||_dailyCheckinCreatedAt||0;
+      _dailyServerRevision=storedIdentity.serverRevision;
+      _dailyServerLastRequestId=storedIdentity.serverLastRequestId;
+      _dailyOfficialInviteToken=storedIdentity.token;
+      _dailyOfficialInviteHash=storedIdentity.hash;
+      _dailyServerReconcileError='';
+      adoptedStoredIdentity=true;
+      _dailyCrossTabIdentityPending=true;
+    }
   }
   if(!_dailyCheckinId||!_fbInit())return false;
   const ownershipResult=await _dailyReadCheckinOwnership();
   const ownership=ownershipResult.status;
   if(ownership==='mismatch'){
+    if(_dailyCrossTabIdentityPending){
+      _dailyServerReconcileError='다른 화면의 회원 링크 게시를 기다리는 중입니다.';
+      dailyRenderCheckinRequests();
+      return false;
+    }
     const staleId=_dailyDetachStaleCheckinIdentity();
     console.info('민턴LIVE 이전 회원 링크를 분리했습니다.',staleId||'');
     dailyRenderCheckinRequests();
@@ -5986,11 +6053,13 @@ async function dailyResumeCheckin(){
     _dailyRemoteCheckinExpiresAt=0;
     if(!await _dailyEnsureOfficialCapability())return false;
     _dailyPersistCheckinIdentity();
+    if(adoptedStoredIdentity||_dailyCrossTabIdentityPending)return false;
     if(!_dailyPlayers.length||!await dailyPushCheckinSession())return false;
   }else{
     _dailyCheckinIdentityPending=false;
     _dailyCheckinOwnershipVerified=true;
     _dailyRemoteCheckinExpiresAt=Math.max(0,Number(ownershipResult.session?.expiresAt||0));
+    _dailyCrossTabIdentityPending=false;
     if(!_dailyCheckinCreatedAt)_dailyCheckinCreatedAt=Math.max(0,Number(ownershipResult.session?.createdAt||0));
     _dailyPersistCheckinIdentity();
   }
@@ -7015,6 +7084,7 @@ async function dailyStopCheckinLink(){
   _dailyCheckinIdentityPending=false;
   _dailyCheckinOwnershipVerified=false;
   _dailyRemoteCheckinExpiresAt=0;
+  _dailyCrossTabIdentityPending=false;
   _dailyServerReconcileError='';
   dailySave();
   dailyRender();
@@ -7990,7 +8060,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.456&from=daily';
+  location.href='team.html?v=1.10.457&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

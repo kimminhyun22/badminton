@@ -99,6 +99,7 @@ let _dailyCheckinListeningPath='live/checkin_DTEST123';
 let _dailyCheckinOwnershipVerified=true;
 let _dailyCheckinIdentityPending=false;
 let _dailyRemoteCheckinExpiresAt=0;
+let _dailyCrossTabIdentityPending=false;
 let _dailyCapabilityEpoch=0;
 let _dailyCapabilityPromise=null;
 let _dailyServerRevision=0;

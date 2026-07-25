@@ -21,8 +21,8 @@ const writeSource=between('function _dailyWriteCheckinPayload(path)','function d
 const publishSource=between('async function dailyPublishCheckinSession(silent)','async function dailyShareCheckinLink');
 const resumeSource=between('async function dailyResumeCheckin()','function _dailyObserveRemoteServerHead');
 const expireSource=between('function _dailyExpireCheckinLink(silent)','function _dailyCheckinUrl');
-const expirySource=between('function _dailyCheckinExpiresAt()','function _dailyCheckinExpired');
-const safeRemoveSource=between('function _dailyRemoveOwnedCheckin(path,identity,requireExpired)','function _dailyExpireCheckinLink');
+const expirySource=between('function _dailyLocalCheckinExpiresAt()','function _dailyCheckinExpired');
+const safeRemoveSource=between('function _dailyRemoveOwnedCheckin(path,identity,requireExpired,expectedPublishId)','function _dailyExpireCheckinLink');
 
 assert(!loadSource.includes('_dailyCheckinId=s.checkinId||'),'저장 본문의 오래된 ID가 현재 회원 링크로 되살아나면 안 됩니다.');
 assert(loadSource.includes("localStorage.getItem(DAILY_CHECKIN_KEY)"),'별도 회원 링크 키를 현재 ID의 기준으로 사용해야 합니다.');
@@ -36,11 +36,13 @@ assert(capabilitySource.includes('_dailyCapabilityPromise===promise'),'이전 �
 assert(writeSource.includes('remoteInviteHash!==payloadInviteHash'),'다른 운영 토큰의 세션을 같은 ID로 덮어쓰면 안 됩니다.');
 assert(writeSource.includes('remoteSessionId!==identity.id'),'다른 세션 ID를 현재 회원 링크에 덮어쓰면 안 됩니다.');
 assert(writeSource.includes('identityStale:!_dailyIdentityCurrent(identity)'),'완료가 늦은 이전 ID 게시가 현재 ID 상태를 바꾸면 안 됩니다.');
+assert(writeSource.includes('_dailyRemoveOwnedCheckin(path,identity,false,publishId)'),'이미 완료된 이전 ID 게시도 자기 쓰기 표식이 일치할 때만 정리해야 합니다.');
 assert(writeSource.includes('payloadExpiresAt&&_dailyNow()>=payloadExpiresAt'),'이미 만료된 새 세션을 저장 성공으로 처리하면 안 됩니다.');
 assert(publishSource.includes("ownership==='mismatch'"),'공유 전에 이전 ID 소유권 불일치를 검사해야 합니다.');
 assert(publishSource.includes('if(result?.committed)'),'Firebase 세션 저장 성공 뒤에만 링크를 열어야 합니다.');
 assert(resumeSource.includes('_dailyDetachStaleCheckinIdentity()'),'앱 재실행 시 이전 ID가 감지되면 자동 분리해야 합니다.');
 assert(resumeSource.includes('_dailyStoredIdentity(storedCheckinId)'),'다른 탭의 새 ID를 채택할 때 그 ID의 토큰 묶음도 함께 복원해야 합니다.');
+assert(resumeSource.includes('const capabilityChanged=')&&resumeSource.includes('_dailyCrossTabIdentityPending=true'),'같은 ID의 토큰 묶음이 다른 탭에서 갱신돼도 함께 복원해야 합니다.');
 assert(resumeSource.indexOf('_dailyReadCheckinOwnership()')<resumeSource.indexOf('_dailyCheckinExpired()'),'만료 판단보다 서버 소유권을 먼저 확인해야 합니다.');
 assert(expireSource.includes('_dailyRemoveOwnedCheckin(path,identity,true)'),'만료 삭제도 토큰과 세션 ID를 다시 확인해야 합니다.');
 assert(expirySource.includes('Math.max(startedAt||0,_dailyCheckinCreatedAt||0)'),'늦게 새 링크를 만든 진행 기록에 이미 만료된 시각을 쓰면 안 됩니다.');
@@ -54,6 +56,7 @@ let _dailyOfficialInviteToken='local-token';
 let _dailyOfficialInviteHash='local-hash';
 let _dailyCapabilityEpoch=1;
 function _dailyNow(){return 100;}
+function _dailyLocalCheckinExpiresAt(){return 0;}
 function _dailyIdentitySnapshot(){
   return {id:_dailyCheckinId,token:_dailyOfficialInviteToken,hash:_dailyOfficialInviteHash,epoch:_dailyCapabilityEpoch};
 }
@@ -106,7 +109,7 @@ const _fbDb={
 ${safeRemoveSource}
 this.api={
   set(value){root=JSON.parse(JSON.stringify(value));},
-  remove:(identity,expired)=>_dailyRemoveOwnedCheckin('live/checkin_'+identity.id,identity,expired),
+  remove:(identity,expired,publishId)=>_dailyRemoveOwnedCheckin('live/checkin_'+identity.id,identity,expired,publishId),
   root:()=>root===null?null:JSON.parse(JSON.stringify(root)),
   count:()=>transactionCount
 };
@@ -167,6 +170,7 @@ let _dailyCapabilityEpoch=1;
 let _dailyCheckinIdentityPending=true;
 let _dailyCheckinOwnershipVerified=false;
 let _dailyRemoteCheckinExpiresAt=0;
+let _dailyCrossTabIdentityPending=false;
 let _dailyServerReconcileError='';
 let mode='stale';
 let rotations=0;
@@ -306,6 +310,8 @@ this.api={
   safeRemoveSandbox.api.set({session:{serverSessionId:'DOWNED',expiresAt:90,officialInvite:{tokenHash:'owned-hash'}},party:{p1:{}}});
   assert.strictEqual(await safeRemoveSandbox.api.remove({id:'DOWNED',hash:'owned-hash'},true),true,'같은 토큰의 실제 만료 세션만 삭제해야 합니다.');
   assert.strictEqual(safeRemoveSandbox.api.root(),null,'안전한 만료 삭제는 해당 링크 루트 전체를 정리해야 합니다.');
+  safeRemoveSandbox.api.set({session:{serverSessionId:'DOWNED',expiresAt:200,clientPublishId:'newer-write',officialInvite:{tokenHash:'owned-hash'}}});
+  assert.strictEqual(await safeRemoveSandbox.api.remove({id:'DOWNED',hash:'owned-hash'},false,'stale-write'),false,'더 최신 게시 표식이 있는 세션을 이전 트랜잭션 정리로 삭제하면 안 됩니다.');
 
   const oldCapability=capabilitySandbox.api.ensure();
   capabilitySandbox.api.rotate();
