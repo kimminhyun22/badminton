@@ -115,6 +115,8 @@ const localStorage={
 };
 const _fbDb={ref(){ return {remove:async()=>{ calls.push('remove'); }}; }};
 function _dailyCheckinPath(){ return 'live/checkin_'+_dailyCheckinId; }
+function _dailyIdentitySnapshot(){ return {id:_dailyCheckinId,hash:_dailyOfficialInviteHash}; }
+async function _dailyRemoveOwnedCheckin(){ calls.push('remove');return true; }
 function _dailyStopCheckinListener(){ _dailyCheckinListening=false;_dailyCheckinListeningPath='';calls.push('listener-stop'); }
 function _dailyClearAdminGrant(){ calls.push('grant-clear'); }
 function dailySave(){ calls.push('save'); }

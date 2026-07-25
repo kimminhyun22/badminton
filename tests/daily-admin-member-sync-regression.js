@@ -21,7 +21,7 @@ assert(publishSource.includes('_dailyScheduleServerReconcile()'),'서버가 더 
 assert(publishSource.includes('_dailyScheduleCheckinPublishRetry(0)'),'일시정지 리비전만 앞서도 최신 상태로 회원 화면을 다시 게시해야 합니다.');
 assert(!publishSource.includes('_dailyWriteCheckinPayload(path).catch(()=>{})'),'관리자 게시 오류를 조용히 버리면 안 됩니다.');
 assert(publishSource.includes('remoteInviteHash!==payloadInviteHash'),'다른 운영 링크의 세션을 같은 ID로 덮어쓰면 안 됩니다.');
-assert(publishSource.includes('remoteSessionId!==_dailyCheckinId'),'다른 세션 ID의 내용을 현재 링크로 덮어쓰면 안 됩니다.');
+assert(publishSource.includes('remoteSessionId!==identity.id'),'다른 세션 ID의 내용을 현재 링크로 덮어쓰면 안 됩니다.');
 const listenerSource=sourceBetween('dailyStartCheckinListener','_dailyStopCheckinListener');
 assert(listenerSource.includes("'/session/serverRevision'")&&listenerSource.includes("'/session/serverLastRequestId'"),'관리자 앱은 회원 서버의 최신 대진 리비전을 직접 감지해야 합니다.');
 assert(listenerSource.includes('_dailyObserveRemoteServerHead'),'서버 대진이 바뀌면 관리자 원본 재동기화를 즉시 예약해야 합니다.');
@@ -67,6 +67,7 @@ vm.runInContext(`
 let _dailyCheckinId='DADMINSYNC';
 let _dailyOfficialInviteToken='official-token';
 let _dailyOfficialInviteHash='official-hash';
+let _dailyCapabilityEpoch=1;
 let _dailyCheckinIdentityPending=false;
 let _dailyCheckinOwnershipVerified=true;
 let _dailyRemoteCheckinExpiresAt=0;
@@ -90,6 +91,13 @@ let heartbeatCalls=0;
 let timers=[];
 
 function clone(value){return JSON.parse(JSON.stringify(value));}
+function _dailyIdentitySnapshot(){
+  return {id:_dailyCheckinId,token:_dailyOfficialInviteToken,hash:_dailyOfficialInviteHash,epoch:_dailyCapabilityEpoch};
+}
+function _dailyIdentityCurrent(identity){
+  return !!identity&&identity.id===_dailyCheckinId&&identity.token===_dailyOfficialInviteToken
+    &&identity.hash===_dailyOfficialInviteHash&&identity.epoch===_dailyCapabilityEpoch;
+}
 function setTimeout(fn,delay){
   const timer={fn,delay:Number(delay)||0,cancelled:false};
   timers.push(timer);

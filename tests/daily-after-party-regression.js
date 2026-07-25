@@ -47,7 +47,7 @@ assert(managerRows.includes("row.attending!==false&&_dailyPlayer(id)"),'취소�
 assert(!managerSummary.includes('row.name'),'공개 경로의 이름을 신뢰하지 말고 현재 참가자 명단에서 이름을 가져와야 합니다.');
 assert(daily.includes('dailyRenderAfterPartySpotlight'),'관리자 상황판에도 뒷풀이 신청자 이름을 눈에 띄게 보여야 합니다.');
 assert(daily.includes('dailyCopyAfterPartyRoster'),'관리자가 밴드·단톡방용 명단을 복사할 수 있어야 합니다.');
-assert(daily.includes('const base=startedAt||_dailyCheckinCreatedAt||0'),'첫 경기 전 링크도 생성 시각 기준으로 만료되어야 합니다.');
+assert(daily.includes('const base=Math.max(startedAt||0,_dailyCheckinCreatedAt||0)'),'링크는 첫 경기와 실제 생성 시각 중 늦은 시점을 기준으로 만료되어야 합니다.');
 
 const helperSource=functionSource(checkin,'afterPartyEntry','afterPartyCardHtml');
 const cardSource=functionSource(checkin,'afterPartyCardHtml','latestOfficialRequest');
