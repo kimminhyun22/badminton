@@ -218,6 +218,7 @@ function attachPartnerToPrepared(session, reservation){
       const item = list[index];
       const ids = queuePlayerIds(item);
       if(!pair.every(id=>ids.includes(id)))continue;
+      if(item.reservationId && text(item.reservationId) !== text(reservation.id))continue;
       const originalTeam1 = queueTeam1Ids(item);
       const originalTeam2 = queueTeam2Ids(item);
       const sameSide = pair.every(id=>originalTeam1.includes(id)) || pair.every(id=>originalTeam2.includes(id));
@@ -467,9 +468,9 @@ function preparedLocations(session){
   return rows;
 }
 
-function clearPreparedReservation(session, item){
+function clearPreparedReservation(session, item, options = {}){
   const reservationId = text(item?.reservationId);
-  if(reservationId){
+  if(reservationId && !options.preserveReservation){
     session.reservations = session.reservations.filter(row=>text(row?.id) !== reservationId);
   }
   [
@@ -586,10 +587,14 @@ function repairPreparedForUnavailablePlayer(session, playerId, now){
 
   locations.forEach(row=>{
     if(row.item === target.item || !queuePlayerIds(row.item).includes(targetId))return;
-    clearPreparedReservation(session, row.item);
+    const rowReservation = session.reservations.find(item=>text(item?.id) === text(row.item?.reservationId));
+    const preserveReservation = !!(rowReservation && !reservationIds(rowReservation).includes(targetId));
+    clearPreparedReservation(session, row.item, {preserveReservation});
     session.event[row.key] = session.event[row.key].filter(item=>item !== row.item);
   });
-  clearPreparedReservation(session, target.item);
+  const targetReservation = session.reservations.find(item=>text(item?.id) === text(target.item?.reservationId));
+  const preserveTargetReservation = !!(targetReservation && !reservationIds(targetReservation).includes(targetId));
+  if(!preserveTargetReservation)clearPreparedReservation(session, target.item);
   removePlayerReservations(session, targetId);
 
   if(!best){
@@ -615,6 +620,12 @@ function repairPreparedForUnavailablePlayer(session, playerId, now){
       queueRemoved:true,
       queueId:text(target.item?.queueId || target.item?.id)
     };
+  }
+  if(preserveTargetReservation && target.item.reservationAttachedExisting){
+    target.item.reservationOriginalTeam1Ids = (target.item.reservationOriginalTeam1Ids || [])
+      .map(id=>text(id) === targetId ? text(best.player.id) : id);
+    target.item.reservationOriginalTeam2Ids = (target.item.reservationOriginalTeam2Ids || [])
+      .map(id=>text(id) === targetId ? text(best.player.id) : id);
   }
   clearUnavailableRestPass(target.item, targetId);
   target.item.replacementAt = now;
@@ -811,6 +822,7 @@ function validateCommon(session, request, now, options){
 }
 
 function applyArrival(session, request, now){
+  if(session.event?.finishMode)return '마무리 전환 후에는 자동대진 참가자를 추가할 수 없습니다.';
   const player = playerById(session, request.playerId);
   if(!player)return '참가 등록할 선수를 찾지 못했습니다.';
   if(!['invited', 'planned'].includes(text(player.status)))return '이미 참가 상태가 바뀐 선수입니다.';
@@ -834,6 +846,7 @@ function applyArrival(session, request, now){
 }
 
 function applyPlayerAdd(session, request, now){
+  if(session.event?.finishMode)return '마무리 전환 후에는 자동대진 참가자를 추가할 수 없습니다.';
   const candidate = session.arrivalCandidates.find(item=>text(item.candidateKey) === text(request.candidateKey) && item.kind === 'roster');
   if(!candidate || text(candidate.memberId) !== text(request.memberId))return '현재 클럽 명부에서 참가 등록할 선수를 찾지 못했습니다.';
   if(text(candidate.name).trim() !== text(request.expectedName).trim())return '클럽 명부 정보가 이미 바뀌었습니다.';
@@ -1309,6 +1322,25 @@ function applyPartnerReservation(session, request, now, requestId, operation){
   if(players.some(player=>['invited','planned','done'].includes(normalizeStatus(player.status))))return '현재 운동 중인 선수만 파트너로 접수할 수 있습니다.';
   if(partnerGap(players) >= PARTNER_GAP_HARD)return '두 선수의 실력 차가 커서 공정한 자동 대진으로 편성하기 어렵습니다.';
   if(ids.some(id=>session.reservations.some(reservation=>reservationIds(reservation).includes(id))))return '이미 다른 게임신청에 포함된 선수가 있습니다.';
+  const preparedRows = preparedLocations(session);
+  const covered = preparedRows.find(row=>{
+    if(!row.item?.reservationId || !ids.every(id=>queuePlayerIds(row.item).includes(id)))return false;
+    const first = queueTeam1Ids(row.item);
+    const second = queueTeam2Ids(row.item);
+    return ids.every(id=>first.includes(id)) || ids.every(id=>second.includes(id));
+  });
+  if(covered){
+    if(operation)operation.result = {
+      reservationId:text(covered.item.reservationId),
+      queueApplied:true,
+      queueId:text(covered.item.queueId || covered.item.id),
+      queueIndex:preparedRows.findIndex(row=>row.item === covered.item) + 1,
+      queueGroup:covered.key,
+      rearranged:false,
+      alreadyCovered:true
+    };
+    return '';
+  }
   const names = players.map(player=>player.name || '선수');
   const statusText = players.some(player=>normalizeStatus(player.status) === 'playing')
     ? '현재 경기 후 반영 대기'

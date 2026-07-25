@@ -42,6 +42,52 @@ assert(completeSource.includes('_dailyCheckinIdentityPending||_dailyServerSyncBu
 assert(completeSource.includes('!options.syncReplay'),'서버 명령을 관리자 원본에 재생할 때는 동기화 잠금을 통과해야 합니다.');
 const queueSyncSource=sourceBetween('_dailyApplyServerQueueSync','_dailyPrepareServerQueueRequest');
 assert(queueSyncSource.includes('_dailyQueueCapacity().target')&&queueSyncSource.includes('sync.next.slice(0,syncLimit)'),'구버전 서버의 초과 대진을 복원해도 관리자 표시 코트 수로 정리해야 합니다.');
+const officialErrorSource=sourceBetween('_dailyOfficialRequestError','_dailyRecordOfficialArrival');
+assert(officialErrorSource.includes('!req.serverAppliedAt&&'),'서버가 이미 승인한 임원 요청은 관리자 재접속이 늦어도 TTL 만료로 거절하면 안 됩니다.');
+const processSource=sourceBetween('dailyProcessCheckinRequests','dailyApproveCheckinRequest');
+assert(processSource.includes('preserveLocalQueue')&&processSource.includes('_dailyCheckinNeedsPublish'),'임원 상태 처리와 겹친 최신 관리자 대진 편집을 서버 대진 전체로 덮어쓰면 안 됩니다.');
+assert(processSource.includes('req.serverResult?.alreadyCovered'),'같은 경기에서 이미 충족된 두 번째 파트너 요청을 중복 예약으로 재생하면 안 됩니다.');
+const serverHeadSource=sourceBetween('_dailyServerHeadPending','_dailyBlockServerSync');
+assert(serverHeadSource.includes('_dailyObservedServerRevision>_dailyServerRevision'),'관찰된 임원 서버 리비전이 앞설 때 관리자 편집을 잠시 잠가야 합니다.');
+[
+  'dailyDeleteQueueItem',
+  'dailyAddPlayer',
+  'dailyImportDirect',
+  'dailyConfirmPair',
+  'dailyClearPair',
+  'dailyAddReservation',
+  'dailyDeleteReservation',
+  'dailyPromoteReservation',
+  'dailyRemovePlayer',
+  'dailyToggleAutoAssign',
+  'dailyFinishLiveTransition',
+  'dailyRegenerateQueueItem',
+  'dailyApproveReservationRequest',
+  'importDailySelected'
+].forEach(name=>{
+  const guarded=new RegExp(`(?:async\\s+)?function\\s+${name}\\([^)]*\\)\\s*\\{[\\s\\S]{0,180}_dailyBlockServerSync\\(`);
+  assert(guarded.test(src),`${name} 관리자 변경은 최신 임원 처리를 먼저 동기화해야 합니다.`);
+});
+
+const ttlSandbox={
+  DAILY_OFFICIAL_OPERATION_TTL_MS:1000,
+  _dailyPaused:false,
+  _dailyNow:()=>10_000,
+  _dailyPlayer:id=>id==='official'?{id,isClubOfficial:true}:null,
+  _dailyFlowOperationType:()=>false
+};
+vm.createContext(ttlSandbox);
+vm.runInContext(`${officialErrorSource};this.check=_dailyOfficialRequestError;`,ttlSandbox);
+assert.strictEqual(
+  ttlSandbox.check({type:'unsupported',actorPlayerId:'official',createdAt:1,expiresAt:2,serverAppliedAt:5000}),
+  '지원하지 않는 임원 운영 요청입니다.',
+  '서버 적용 완료 요청은 오래됐다는 이유만으로 관리자 병합을 막으면 안 됩니다.'
+);
+assert.strictEqual(
+  ttlSandbox.check({type:'unsupported',actorPlayerId:'official',createdAt:1,expiresAt:2}),
+  '운영 요청 시간이 지나 현재 상태를 다시 확인해야 합니다.',
+  '아직 서버가 승인하지 않은 오래된 요청은 계속 거절해야 합니다.'
+);
 
 const headSandbox={};
 vm.createContext(headSandbox);

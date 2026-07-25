@@ -179,6 +179,47 @@ const rearrangedQueue=oppositePartnerRoot.session.event.next.find(item=>item.que
 assert(rearrangedQueue.t1Ids.includes('p9')&&rearrangedQueue.t1Ids.includes('p11'),'같은 예정 경기의 요청 선수는 관리자 앱 없이 같은 편으로 재정렬해야 합니다.');
 assert.strictEqual(oppositePartner.outcome.terminal.serverResult.rearranged,true,'서버 응답은 팀 재정렬 여부를 기록해야 합니다.');
 const oppositeReservation=oppositePartnerRoot.session.reservations.find(item=>item.id==='sr_operation_partner_opposite_001');
+
+let partnerRepairRoot=baseRoot();
+partnerRepairRoot.session.players.push(player('spare','wait'));
+partnerRepairRoot=submit(partnerRepairRoot,'official-partner-reservation','operation_partner_repair_001',BASE_NOW,{
+  playerIds:['p9','p11'],playerNames:['P9','P11']
+}).outcome.current;
+const repairOpponent=partnerRepairRoot.session.players.find(item=>item.id==='p10');
+partnerRepairRoot=submit(partnerRepairRoot,'official-player-status','operation_partner_opponent_done_001',BASE_NOW+500,{
+  playerId:repairOpponent.id,playerName:repairOpponent.name,status:'done',
+  expectedStatus:repairOpponent.status,expectedCurrentMatchId:'',expectedLastStatusAt:repairOpponent.lastStatusAt
+}).outcome.current;
+const repairedReservation=partnerRepairRoot.session.reservations.find(item=>item.id==='sr_operation_partner_repair_001');
+const repairedPartnerQueue=partnerRepairRoot.session.event.next.find(item=>item.reservationId===repairedReservation?.id);
+assert(repairedReservation&&repairedPartnerQueue,'파트너 당사자가 아닌 상대가 종료해도 지정 예약과 배지를 유지해야 합니다.');
+assert(
+  ['p9','p11'].every(id=>repairedPartnerQueue.t1Ids.includes(id))
+  ||['p9','p11'].every(id=>repairedPartnerQueue.t2Ids.includes(id)),
+  '상대 선수 교체 뒤에도 지정한 두 선수는 같은 편이어야 합니다.'
+);
+assert(!repairedPartnerQueue.playerIds.includes('p10'),'조기 종료한 상대 선수는 파트너 지정 대진에서 빠져야 합니다.');
+assert(
+  ![...(repairedPartnerQueue.reservationOriginalTeam1Ids||[]),...(repairedPartnerQueue.reservationOriginalTeam2Ids||[])].includes('p10'),
+  '파트너 취소용 원래 팀에도 종료 선수를 남기면 안 됩니다.'
+);
+
+let coveredPartnerRoot=baseRoot();
+coveredPartnerRoot=submit(coveredPartnerRoot,'official-partner-reservation','operation_partner_first_001',BASE_NOW,{
+  playerIds:['p9','p11'],playerNames:['P9','P11']
+}).outcome.current;
+const coveredSecond=submit(coveredPartnerRoot,'official-partner-reservation','operation_partner_second_001',BASE_NOW+500,{
+  playerIds:['p10','p12'],playerNames:['P10','P12']
+});
+assert.strictEqual(coveredSecond.outcome.terminal.status,'applied','이미 같은 경기에서 충족된 반대편 파트너 요청은 안전하게 완료 처리해야 합니다.');
+assert.strictEqual(coveredSecond.outcome.terminal.serverResult.alreadyCovered,true,'중복 예약 대신 기존 파트너 지정 경기로 처리했음을 기록해야 합니다.');
+assert.strictEqual(coveredSecond.outcome.current.session.reservations.length,1,'같은 한 경기에 중복 파트너 예약을 남기면 안 됩니다.');
+assert.strictEqual(
+  coveredSecond.outcome.current.session.event.next.find(item=>item.queueId==='q1').reservationId,
+  'sr_operation_partner_first_001',
+  '두 번째 요청이 첫 파트너 예약 연결을 덮어쓰면 안 됩니다.'
+);
+
 const oppositeCancel=submit(oppositePartnerRoot,'official-partner-cancel','operation_partner_opposite_cancel_001',BASE_NOW+1000,{
   reservationId:oppositeReservation.id,expectedPlayerIds:['p9','p11']
 });
@@ -223,6 +264,28 @@ const finishPartner=submit(finishPartnerRoot,'official-partner-reservation','ope
   playerIds:['p9','p10'],playerNames:['P9','P10']
 });
 assert.strictEqual(finishPartner.outcome.terminal.status,'rejected','마무리 전환 뒤 새 파트너 대진을 서버에서 접수하면 안 됩니다.');
+
+let finishArrivalRoot=baseRoot();
+finishArrivalRoot.session.event.finishMode=true;
+finishArrivalRoot.session.players.push(player('late','invited'));
+const finishArrival=submit(finishArrivalRoot,'official-player-arrival','operation_arrival_finish_001',BASE_NOW,{
+  playerId:'late',playerName:'LATE',status:'wait',expectedStatus:'invited',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(finishArrival.outcome.terminal.status,'rejected','마무리 전환 뒤 지각 참가를 서버와 관리자 모두 거절해야 합니다.');
+assert.strictEqual(finishArrival.outcome.current.session.players.find(item=>item.id==='late').status,'invited','거절된 지각 참가가 서버 선수 상태를 바꾸면 안 됩니다.');
+
+let finishAddRoot=baseRoot();
+finishAddRoot.session.event.finishMode=true;
+finishAddRoot.session.arrivalCandidates=[{
+  candidateKey:'roster:late-member',kind:'roster',memberId:'late-member',
+  name:'명부지각',grade:'C',level:4,gender:'M',ageGroup:'40대'
+}];
+const finishAdd=submit(finishAddRoot,'official-player-add','operation_add_finish_001',BASE_NOW,{
+  candidateKey:'roster:late-member',memberId:'late-member',playerId:'late-added',
+  playerName:'명부지각',expectedName:'명부지각'
+});
+assert.strictEqual(finishAdd.outcome.terminal.status,'rejected','마무리 전환 뒤 명부 지각 추가도 서버와 관리자 모두 거절해야 합니다.');
+assert(!finishAdd.outcome.current.session.players.some(item=>item.id==='late-added'),'거절된 명부 추가가 서버 선수 명단을 바꾸면 안 됩니다.');
 
 let endedPartnerRoot=baseRoot();
 endedPartnerRoot.session.players.find(item=>item.id==='p9').status='done';

@@ -103,6 +103,43 @@ const replaceAt=statusSource.indexOf('_dailyTryReplaceQueuedPlayer');
 const applyAt=statusSource.indexOf('_dailyApplyPlayerStatus');
 assert(replaceAt>=0&&applyAt>replaceAt,'귀가 처리는 상태를 닫기 전에 예비 대진 교체를 먼저 시도해야 합니다.');
 assert(sourceBetween('_dailyTryReplaceQueuedPlayer','_dailyRemoveQueuedPlayer').includes('_dailyRecalcQueueItem'),'귀가자 교체 뒤 팀 밸런스와 종목을 다시 계산해야 합니다.');
+assert(sourceBetween('_dailyTryReplaceQueuedPlayer','_dailyRemoveQueuedPlayer').includes('preserveReservation'),'파트너 당사자가 아닌 상대 교체는 파트너 지정과 배지를 유지해야 합니다.');
 assert(sourceBetween('_dailyRemoveQueuedPlayer','dailyEditQueuePlayer').includes('_dailyQueue.filter'),'교체가 불가능하면 귀가자가 든 예비 대진을 제거해야 합니다.');
+
+const partnerRepairSandbox={
+  _dailyReservations:[{id:'pair-request',mode:'pair',team1:['pair-a','pair-b'],team2:[]}],
+  _dailyQueue:[],
+  cancelCalls:0,
+  _dailyReservationIds:r=>[...(r.team1||[]),...(r.team2||[])],
+  _dailyFindQueueReplacement:()=>null,
+  _dailyCancelReservationById(){this.cancelCalls++;},
+  _dailyClearReservationQueueMeta(q){q.reservationId=null;},
+  _dailyRecalcQueueItem:q=>q
+};
+const localPartnerQueue={
+  id:'q-partner',
+  team1:['pair-a','pair-b'],
+  team2:['leaving-opponent','other-opponent'],
+  reservationId:'pair-request',
+  reservationLabel:'지정 파트너',
+  reservationMode:'pair',
+  reservationAttachedExisting:true,
+  reservationOriginalTeam1Ids:['pair-a','leaving-opponent'],
+  reservationOriginalTeam2Ids:['pair-b','other-opponent']
+};
+partnerRepairSandbox._dailyQueue=[localPartnerQueue];
+partnerRepairSandbox._dailyFindQueueReplacement=()=>({
+  loc:{q:localPartnerQueue,side:'team2',pos:0},
+  candidate:{id:'replacement-opponent'},
+  source:'free'
+});
+vm.createContext(partnerRepairSandbox);
+vm.runInContext(`${sourceBetween('_dailyTryReplaceQueuedPlayer','_dailyRemoveQueuedPlayer')};this.replace=_dailyTryReplaceQueuedPlayer;`,partnerRepairSandbox);
+assert.strictEqual(partnerRepairSandbox.replace('leaving-opponent','조기 종료'),true,'관리자 원본에서도 파트너 대진 상대를 교체할 수 있어야 합니다.');
+assert.strictEqual(localPartnerQueue.reservationId,'pair-request','상대 교체가 파트너 지정 배지를 없애면 안 됩니다.');
+assert.deepStrictEqual(localPartnerQueue.team1,['pair-a','pair-b'],'상대 교체 뒤 지정 파트너 같은 편을 유지해야 합니다.');
+assert(localPartnerQueue.reservationOriginalTeam1Ids.includes('replacement-opponent'),'파트너 취소용 원래 팀도 교체 선수로 갱신해야 합니다.');
+assert(!localPartnerQueue.reservationOriginalTeam1Ids.includes('leaving-opponent'),'파트너 취소 시 종료 선수를 되살리면 안 됩니다.');
+assert.strictEqual(partnerRepairSandbox.cancelCalls,0,'예약 당사자가 아닌 상대 교체는 파트너 예약을 취소하면 안 됩니다.');
 
 console.log('daily real-world regression ok');
