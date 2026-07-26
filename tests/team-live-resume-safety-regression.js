@@ -18,7 +18,9 @@ const LEGACY_SHARED_SAVE_KEY='badminton_bracket_v7';
 const SAVE_KEY='badminton_team_bracket_v7';
 var currentMatches=[];
 var _liveOn=false;
+var savedLiveCalls=0;
 function migrateStateIfNeeded(state){ return state; }
+function isTeamSampleMode(){ return false; }
 function _teamIsDailyBracketState(state){
   if(!state)return false;
   if(state.mode==='daily'||state.appMode==='dailyLive')return true;
@@ -26,17 +28,21 @@ function _teamIsDailyBracketState(state){
   return !!(state.settings&&state.settings.operationPreset==='daily');
 }
 function _teamStoredLiveId(){ return localStorage.getItem('badminton_team_liveId')||''; }
+function _teamSaveLiveId(id){ savedLiveCalls++; if(id)localStorage.setItem('badminton_team_liveId',id); }
 ${extractFunction('_teamLiveSigName', '_teamLiveSignatureFromMatches')}
 ${extractFunction('_teamLiveSignatureFromMatches', '_teamLiveSignatureFromData')}
 function _teamLiveSignature(){ return currentMatches.length?_teamLiveSignatureFromMatches(currentMatches):''; }
 ${extractFunction('_teamMigrateLegacySaveKey', '_restoreJoinerGoals')}
+${extractFunction('_teamSavedBracketRestoreInfo', '_teamSavedLiveRestoreInfo')}
 ${extractFunction('_teamStoredLiveMatchesCurrentBracket', '_teamHasResumeLiveHint')}
 ${extractFunction('_teamHasResumeLiveHint', '_teamLiveResumeLabel')}
 this.api={
   setMatches(v){ currentMatches=v; },
   _teamHasResumeLiveHint,
   _teamStoredLiveMatchesCurrentBracket,
-  _teamMigrateLegacySaveKey
+  _teamMigrateLegacySaveKey,
+  _teamSavedBracketRestoreInfo,
+  savedLiveCalls(){ return savedLiveCalls; }
 };
 `;
 
@@ -100,6 +106,21 @@ localStorage.setItem(teamKey, JSON.stringify({
   matches: [match(1, 1, '다른A', '다른B', '다른C', '다른D')]
 }));
 assert.strictEqual(api._teamHasResumeLiveHint(), false, '저장 대진 서명이 다르면 이어가기 힌트가 뜨면 안 됩니다.');
+
+localStorage.clear();
+localStorage.setItem(teamKey, JSON.stringify({
+  mode:'team',
+  appMode:'teamLive',
+  liveOn:true,
+  liveId:'savedOnlyLive',
+  savedAt:Date.now(),
+  participants:[],
+  matches:current
+}));
+const savedOnlyInfo=api._teamSavedBracketRestoreInfo();
+assert.strictEqual(savedOnlyInfo.liveId,'savedOnlyLive','저장 대진의 LIVE ID는 이어가기 안내에 사용할 수 있어야 합니다.');
+assert.strictEqual(api.savedLiveCalls(),0,'이어가기 가능 여부 확인만으로 종료한 LIVE ID를 로컬 활성 상태로 되살리면 안 됩니다.');
+assert.strictEqual(localStorage.getItem(liveKey),null,'저장 대진 조회는 LIVE 저장 키를 만들면 안 됩니다.');
 
 localStorage.clear();
 localStorage.setItem(legacyKey, JSON.stringify({

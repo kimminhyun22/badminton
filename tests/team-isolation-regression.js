@@ -136,7 +136,8 @@ assert(teamJs.includes('restoreState({resumeLive:true})'), '바로 이어가기�
 assert(teamJs.includes("stage==='restoreLive'||stage==='resume'"), '복구 단계에서는 다음 행동을 단일 CTA 중심으로 단순화해야 합니다.');
 assert(teamJs.includes('auto-flow-resume-note'), '복구 단계에는 기존 링크와 결과를 유지한다는 짧은 확인 문구가 있어야 합니다.');
 assert(teamJs.includes('liveId:_liveOn?'), 'LIVE ID를 대진 저장본에도 남겨 앱 재실행 시 복구해야 합니다.');
-assert(teamJs.includes('if(!liveId&&state.liveOn&&state.liveId)'), '별도 LIVE 키가 없어도 저장본의 LIVE ID를 복구해야 합니다.');
+assert(teamJs.includes("const liveId=_teamStoredLiveId()||(state.liveOn&&state.liveId?state.liveId:'')"), '별도 LIVE 키가 없어도 저장본의 LIVE ID를 복구 대상으로 찾아야 합니다.');
+assert(teamJs.includes('if(state.liveOn&&state.liveId)_teamSaveLiveId(state.liveId);'), '저장본 LIVE ID는 사용자가 실제 대진을 복원할 때만 활성 상태로 연결해야 합니다.');
 
 const teamHtml = fs.readFileSync(path.join(__dirname, '..', 'team.html'), 'utf8');
 assert(teamHtml.includes('id="liveStopTopBtn"'), '운영 보드에 팀전LIVE 종료 버튼이 있어야 합니다.');

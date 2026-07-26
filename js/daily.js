@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.462';
+const APP_VERSION = '1.10.463';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -325,6 +325,7 @@ let _dailyAdminGrantToken='';
 let _dailyAdminGrantExpiresAt=0;
 let _dailyServerSyncBusy=false;
 let _dailyServerSyncQueued=false;
+let _dailyServerSyncPromise=null;
 let _dailyServerSyncRetryId=null;
 let _dailyCheckinPublishRetryId=null;
 let _dailyCheckinPublishRetryDelay=1200;
@@ -332,7 +333,6 @@ let _dailyCheckinPublishPromise=null;
 let _dailyCheckinPublishQueued=false;
 let _dailyCheckinNeedsPublish=false;
 let _dailyClientStateRevision=0;
-let _dailyRecoveryPromptKey='';
 let _dailyPauseSyncBusy=false;
 let _dailyObservedServerRevision=0;
 let _dailyObservedServerLastRequestId='';
@@ -1499,6 +1499,11 @@ function _dailyFairExpected(p){
 }
 function _dailyFairGap(p){
   return _dailyFairExpected(p)-_dailyFairActual(p);
+}
+function _dailyFairPriorityBonus(p){
+  const gap=Math.max(0,_dailyFairGap(p));
+  if(gap<DAILY_FAIR_PRIORITY_GAP)return 0;
+  return Math.min(2800,Math.round((gap-0.5)*700));
 }
 function _dailyFairSummary(){
   const players=_dailyPlayers.filter(p=>['wait','playing'].includes(_dailyNormalizeStatus(p.status)));
@@ -3383,7 +3388,7 @@ function _dailyLatePriorityBonus(p){
 }
 function _dailyQueuePriorityScore(p){
   const wait=_dailyMinutes(p.waitFrom||p.joinedAt);
-  return Number(p.games||0)*170-Math.min(wait,60)*4-_dailyLatePriorityBonus(p);
+  return Number(p.games||0)*170-Math.min(wait,60)*4-_dailyLatePriorityBonus(p)-_dailyFairPriorityBonus(p);
 }
 function _dailyMixedTargetRange(games){
   const total=Math.max(0,Number(games||0));
@@ -3434,6 +3439,7 @@ function _dailyScoreMatch(m,strict){
   const maxGames=ref.length?Math.max(...ref.map(p=>p.games||0)):0;
   let score=_dailyTeamDiffPenalty(_dailyMatchTeamLevelDiff(m));
   let latePriorityTotal=0;
+  let fairPriorityTotal=0;
   let mixedQuotaTotal=0;
   all.forEach(p=>{
     const wait=_dailyMinutes(p.waitFrom||p.joinedAt);
@@ -3441,9 +3447,11 @@ function _dailyScoreMatch(m,strict){
     score-=Math.min(wait,60)*4;
     score+=_dailyRecentRecoveryPenalty(p,ref);
     latePriorityTotal+=_dailyLatePriorityBonus(p);
+    fairPriorityTotal+=_dailyFairPriorityBonus(p);
     mixedQuotaTotal+=_dailyMixedQuotaPenalty(p,isMixed);
   });
   score-=Math.min(360,latePriorityTotal);
+  score-=Math.min(5600,fairPriorityTotal);
   score+=Math.min(1200,mixedQuotaTotal);
   const teams=[[m.team1A,m.team1B],[m.team2C,m.team2D]];
   teams.forEach(t=>{if(t[0].partnerName!==t[1].name)score+=_dailyPartnerRepeatPenalty(t[0].partnerCount[t[1].name]||0);});
@@ -5367,85 +5375,96 @@ async function _dailyEnsureAdminGrant(forceRefresh){
     return false;
   }
 }
-async function _dailyPullServerReconcile(retriedGrant){
-  if(_dailyServerSyncBusy){_dailyServerSyncQueued=true;return false;}
-  if(!_dailyCheckinId||!_dailyOfficialInviteHash)return false;
-  _dailyServerSyncBusy=true;
-  let retryWithFreshGrant=false;
-  try{
-    if(!await _dailyEnsureAdminGrant())return false;
-    const callable=firebase.functions().httpsCallable('getDailyOfficialReconcile');
-    const result=await callable({
-      checkinId:_dailyCheckinId,
-      grantToken:_dailyAdminGrantToken,
-      sinceRevision:_dailyServerRevision,
-      lastRequestId:_dailyServerLastRequestId
-    });
-    const data=result?.data||{};
-    const serverRevision=Math.max(0,Number(data.serverRevision||0));
-    const serverLastRequestId=String(data.serverLastRequestId||'');
-    if(serverRevision<_dailyServerRevision){
-      _dailyServerReconcileError='관리자 원본이 서버 운영 기록보다 앞서 있어 자동 게시를 멈췄습니다.';
-      return false;
-    }
-    const sameRevisionMismatch=serverRevision===_dailyServerRevision
-      &&serverLastRequestId
-      &&serverLastRequestId!==_dailyServerLastRequestId;
-    if(serverRevision===_dailyServerRevision&&!sameRevisionMismatch){
-      if(serverLastRequestId){
-        _dailyServerLastRequestId=serverLastRequestId;
-        _dailyPersistServerIdentity();
+function _dailyPullServerReconcile(retriedGrant){
+  if(_dailyServerSyncPromise){
+    _dailyServerSyncQueued=true;
+    return _dailyServerSyncPromise;
+  }
+  if(!_dailyCheckinId||!_dailyOfficialInviteHash)return Promise.resolve(false);
+  let task;
+  task=(async()=>{
+    _dailyServerSyncBusy=true;
+    let retryWithFreshGrant=false;
+    try{
+      if(!await _dailyEnsureAdminGrant())return false;
+      const callable=firebase.functions().httpsCallable('getDailyOfficialReconcile');
+      const result=await callable({
+        checkinId:_dailyCheckinId,
+        grantToken:_dailyAdminGrantToken,
+        sinceRevision:_dailyServerRevision,
+        lastRequestId:_dailyServerLastRequestId
+      });
+      const data=result?.data||{};
+      const serverRevision=Math.max(0,Number(data.serverRevision||0));
+      const serverLastRequestId=String(data.serverLastRequestId||'');
+      if(serverRevision<_dailyServerRevision){
+        _dailyServerReconcileError='관리자 원본이 서버 운영 기록보다 앞서 있어 자동 게시를 멈췄습니다.';
+        return false;
       }
-      _dailyServerReconcileError='';
+      const sameRevisionMismatch=serverRevision===_dailyServerRevision
+        &&serverLastRequestId
+        &&serverLastRequestId!==_dailyServerLastRequestId;
+      if(serverRevision===_dailyServerRevision&&!sameRevisionMismatch){
+        if(serverLastRequestId){
+          _dailyServerLastRequestId=serverLastRequestId;
+          _dailyPersistServerIdentity();
+        }
+        _dailyServerReconcileError='';
+        dailyProcessCheckinRequests();
+        dailyPushCheckinSession();
+        dailyRenderCheckinRequests();
+        return true;
+      }
+      if(sameRevisionMismatch){
+        const latestIncluded=(data.commands||[]).some(req=>
+          req&&req.serverAppliedAt&&Number(req.serverRevision||0)===serverRevision
+          &&String(req.operationId||req.key||'')===serverLastRequestId
+        );
+        if(!latestIncluded){
+          _dailyServerReconcileError='서버의 최근 운영 기록을 다시 불러오지 못해 자동 게시를 멈췄습니다.';
+          return false;
+        }
+        _dailyServerRevision=Math.max(0,serverRevision-1);
+      }
+      const trusted=(data.commands||[])
+        .filter(req=>req&&req.serverAppliedAt&&Number(req.serverRevision||0)>_dailyServerRevision)
+        .sort((a,b)=>Number(a.serverRevision||0)-Number(b.serverRevision||0));
+      const pending=_dailyCheckinRequests.filter(req=>!req.serverAppliedAt&&!req.serverRejectedAt);
+      _dailyCheckinRequests=[...trusted,...pending];
       dailyProcessCheckinRequests();
+      if(_dailyServerRevision!==serverRevision||(serverLastRequestId&&_dailyServerLastRequestId!==serverLastRequestId)){
+        _dailyServerReconcileError='서버 운영 기록 일부를 관리자 원본에 연결하지 못했습니다.';
+        return false;
+      }
       dailyPushCheckinSession();
       dailyRenderCheckinRequests();
       return true;
-    }
-    if(sameRevisionMismatch){
-      const latestIncluded=(data.commands||[]).some(req=>
-        req&&req.serverAppliedAt&&Number(req.serverRevision||0)===serverRevision
-        &&String(req.operationId||req.key||'')===serverLastRequestId
-      );
-      if(!latestIncluded){
-        _dailyServerReconcileError='서버의 최근 운영 기록을 다시 불러오지 못해 자동 게시를 멈췄습니다.';
-        return false;
+    }catch(e){
+      if(!retriedGrant&&e?.code==='functions/permission-denied'){
+        _dailyClearAdminGrant(true);
+        retryWithFreshGrant=await _dailyEnsureAdminGrant(true);
       }
-      _dailyServerRevision=Math.max(0,serverRevision-1);
-    }
-    const trusted=(data.commands||[])
-      .filter(req=>req&&req.serverAppliedAt&&Number(req.serverRevision||0)>_dailyServerRevision)
-      .sort((a,b)=>Number(a.serverRevision||0)-Number(b.serverRevision||0));
-    const pending=_dailyCheckinRequests.filter(req=>!req.serverAppliedAt&&!req.serverRejectedAt);
-    _dailyCheckinRequests=[...trusted,...pending];
-    dailyProcessCheckinRequests();
-    if(_dailyServerRevision!==serverRevision||(serverLastRequestId&&_dailyServerLastRequestId!==serverLastRequestId)){
-      _dailyServerReconcileError='서버 운영 기록 일부를 관리자 원본에 연결하지 못했습니다.';
+      if(!retryWithFreshGrant){
+        _dailyServerReconcileError='서버 운영 결과를 가져오지 못했습니다.';
+        dailyRenderCheckinRequests();
+      }
       return false;
+    }finally{
+      _dailyServerSyncBusy=false;
+      if(retryWithFreshGrant){
+        _dailyServerSyncQueued=false;
+        setTimeout(()=>_dailyPullServerReconcile(true).catch(()=>{}),0);
+      }else if(_dailyServerSyncQueued){
+        _dailyServerSyncQueued=false;
+        setTimeout(()=>_dailyPullServerReconcile().catch(()=>{}),0);
+      }
     }
-    dailyPushCheckinSession();
-    dailyRenderCheckinRequests();
-    return true;
-  }catch(e){
-    if(!retriedGrant&&e?.code==='functions/permission-denied'){
-      _dailyClearAdminGrant(true);
-      retryWithFreshGrant=await _dailyEnsureAdminGrant(true);
-    }
-    if(!retryWithFreshGrant){
-      _dailyServerReconcileError='서버 운영 결과를 가져오지 못했습니다.';
-      dailyRenderCheckinRequests();
-    }
-    return false;
-  }finally{
-    _dailyServerSyncBusy=false;
-    if(retryWithFreshGrant){
-      _dailyServerSyncQueued=false;
-      setTimeout(()=>_dailyPullServerReconcile(true).catch(()=>{}),0);
-    }else if(_dailyServerSyncQueued){
-      _dailyServerSyncQueued=false;
-      setTimeout(()=>_dailyPullServerReconcile().catch(()=>{}),0);
-    }
-  }
+  })();
+  const wrapped=task.finally(()=>{
+    if(_dailyServerSyncPromise===wrapped)_dailyServerSyncPromise=null;
+  });
+  _dailyServerSyncPromise=wrapped;
+  return wrapped;
 }
 function _dailyServerRuntimePayload(){
   const holds={};
@@ -5853,30 +5872,6 @@ function _dailyRemoteHeadNeedsReconcile(remote){
   return remoteRevision>_dailyServerRevision
     ||(remoteRevision===_dailyServerRevision&&remoteLastRequestId&&remoteLastRequestId!==_dailyServerLastRequestId);
 }
-async function _dailyRecoverCurrentAdminPublish(remote,path,forcePrompt){
-  const identity=_dailyIdentitySnapshot();
-  if(!_dailyCheckinNeedsPublish||!remote||_dailyRemoteCheckinOwnership(remote,true,identity)!=='owned')return null;
-  const promptKey=[
-    identity.id,
-    Math.max(0,Number(remote.serverRevision||0)),
-    String(remote.serverLastRequestId||''),
-    _dailyClientStateRevision
-  ].join('|');
-  if(!forcePrompt&&_dailyRecoveryPromptKey===promptKey)return null;
-  _dailyRecoveryPromptKey=promptKey;
-  if(!confirm('임원 처리 기록과 현재 관리자 화면이 달라 자동으로 합치지 못했습니다.\n\n지금 보이는 관리자 대진을 기준으로 회원 화면을 복구할까요?'))return null;
-  if(_dailyCheckinPublishPromise)await _dailyCheckinPublishPromise.catch(()=>false);
-  if(!_dailyIdentityCurrent(identity))return null;
-  const remotePauseRevision=Math.max(0,Number(remote.event?.pauseRevision||remote.pauseRevision||0));
-  if(remotePauseRevision>_dailyPauseRevision)_dailyAdoptRemotePauseEvent(remote.event||{});
-  _dailyServerRevision=Math.max(0,Number(remote.serverRevision||0));
-  _dailyServerLastRequestId=String(remote.serverLastRequestId||'');
-  _dailyCheckinIdentityPending=false;
-  _dailyCheckinOwnershipVerified=true;
-  _dailyRemoteCheckinExpiresAt=Math.max(0,Number(remote.expiresAt||0));
-  _dailyPersistServerIdentity();
-  return _dailyWriteCheckinPayload(path||_dailyCheckinPath());
-}
 function _dailyWriteCheckinPayload(path){
   const identity=_dailyIdentitySnapshot();
   const payload=_dailyCheckinPayload();
@@ -6104,12 +6099,9 @@ async function dailyPublishCheckinSession(silent){
         if(!_dailyIdentityCurrent(resultIdentity))continue;
         if(reconciled)result=await _dailyWriteCheckinPayload(path);
       }
-      if(!result?.committed){
-        const recoverRemote=result?.snapshot?.val()||ownershipResult.session;
-        if(_dailyRemoteCheckinOwnership(recoverRemote,true,resultIdentity)==='owned'){
-          const recovered=await _dailyRecoverCurrentAdminPublish(recoverRemote,path,true);
-          if(recovered)result=recovered;
-        }
+      if(!result?.committed&&_dailyRemoteCheckinOwnership(result?.snapshot?.val()||ownershipResult.session,true,resultIdentity)==='owned'){
+        _dailyServerReconcileError='임원 운영 상태를 다시 불러오는 중입니다.';
+        _dailyScheduleServerReconcile();
       }
     }catch(error){
       if(!_dailyIdentityCurrent(publishIdentity))continue;
@@ -6314,16 +6306,10 @@ async function dailyResumeCheckin(){
   if(ownership==='owned'&&_dailyOfficialInviteHash&&_dailyRemoteHeadNeedsReconcile(ownershipResult.session)){
     const reconciled=await _dailyPullServerReconcile();
     if(!reconciled&&_dailyRemoteHeadNeedsReconcile(ownershipResult.session)){
-      const recovered=await _dailyRecoverCurrentAdminPublish(
-        ownershipResult.session,
-        _dailyCheckinPath(),
-        false
-      );
-      if(!recovered?.committed){
-        _dailyCheckinIdentityPending=true;
-        dailyRenderCheckinRequests();
-        return false;
-      }
+      _dailyServerReconcileError='임원 운영 상태를 다시 불러오는 중입니다.';
+      _dailyScheduleServerReconcile();
+      dailyRenderCheckinRequests();
+      return false;
     }
   }
   dailyStartCheckinListener();
@@ -6639,10 +6625,13 @@ function _dailyPrepareServerQueueRequest(req){
     return !autoEnter||_dailyPrepareServerQueueRequest(_dailyServerQueueResultRequest(autoEnter,req.serverAppliedAt,autoEnter.queueIndex));
   }
   if(!['official-queue-enter-free','official-queue-yield'].includes(req.type))return true;
-  if(!_dailyPaused)dailyEnsureQueue();
   const queueId=String(req.queueId||'');
   const requestFingerprint=_dailyOfficialQueueRequestFingerprint(req);
   let idx=_dailyQueue.findIndex(q=>String(q.id||'')===queueId);
+  if(idx>=0&&requestFingerprint&&_dailyOfficialTeamFingerprint(_dailyQueue[idx].team1,_dailyQueue[idx].team2)!==requestFingerprint){
+    _dailyQueue.splice(idx,1);
+    idx=-1;
+  }
   if(idx<0&&requestFingerprint){
     idx=_dailyQueue.findIndex(q=>_dailyOfficialTeamFingerprint(q.team1,q.team2)===requestFingerprint);
   }
@@ -8331,7 +8320,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.462&from=daily';
+  location.href='team.html?v=1.10.463&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

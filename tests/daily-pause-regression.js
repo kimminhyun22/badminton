@@ -29,7 +29,7 @@ assert(index.includes('id="dailyPauseNotice"'),'정지 상태를 관리자에게
 assert(daily.includes('paused:_dailyPaused'),'일시정지 상태를 로컬 저장과 공용 이벤트에 기록해야 합니다.');
 assert(daily.includes('pausedAt:_dailyPausedAt'),'앱 재실행 후에도 정지 기준 시각을 복구할 수 있어야 합니다.');
 assert(daily.includes('pauseRevision:_dailyPauseRevision'),'여러 관리자 화면이 정지 상태를 덮어쓰지 않도록 별도 버전을 기록해야 합니다.');
-assert(daily.includes('if(!_dailyPaused)dailyEnsureQueue()'),'일시정지 중 저장으로 대진 순서를 다시 만들면 안 됩니다.');
+assert(daily.includes('if(!_dailyPaused&&!options?.preserveServerQueue)dailyEnsureQueue()'),'일시정지 중 저장으로 대진 순서를 다시 만들면 안 됩니다.');
 assert(!functionSource(daily,'dailyRenderQueue','dailyRenderRecommend').includes('dailyEnsureQueue()'),'화면을 다시 그리는 것만으로 정지 중 대진을 재계산하면 안 됩니다.');
 assert(daily.includes('if(_dailyPaused)return 0;'),'일시정지 중 자동 코트 투입을 막아야 합니다.');
 assert(daily.includes('now-since-Number(p.restPausedMs||0)<DAILY_REST_AUTO_DONE_MS'),'전체 정지 시간 때문에 휴식 선수가 재개 직후 자동 종료되면 안 됩니다.');

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.462';
+const APP_VERSION = '1.10.463';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2860,8 +2860,8 @@ function _teamDiscardLiveForNewBracket(){
   _teamResetLocalLiveState(liveId);
 }
 
-async function _teamClearLiveBroadcastData(){
-  const liveId=_liveId;
+async function _teamClearLiveBroadcastData(explicitLiveId){
+  const liveId=explicitLiveId||_liveId||_teamStoredLiveId();
   const db=_fbDb;
   _teamResetLocalLiveState(liveId);
   if(db&&liveId){
@@ -4383,11 +4383,7 @@ function _teamSavedBracketRestoreInfo(){
     const state=migrateStateIfNeeded(JSON.parse(raw));
     if(_teamIsDailyBracketState(state))return null;
     if(!state.matches||!state.matches.length)return null;
-    let liveId=_teamStoredLiveId();
-    if(!liveId&&state.liveOn&&state.liveId){
-      liveId=state.liveId;
-      _teamSaveLiveId(liveId);
-    }
+    const liveId=_teamStoredLiveId()||(state.liveOn&&state.liveId?state.liveId:'');
     const age=Date.now()-(state.savedAt||Date.now());
     const h=Math.floor(age/3600000),m=Math.floor((age%3600000)/60000);
     const ageStr=h>0?`${h}시간 ${m}분 전`:`${m}분 전`;
@@ -5580,6 +5576,17 @@ function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.t
 function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.remove('on');}
 async function resetAll(){
   if(!confirm('팀전LIVE를 전체 초기화할까요?\n팀전 링크, 늦음, 참가자, 팀 배정, 대진표, 승패 입력, 진행 중 LIVE가 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
+  const resetLiveId=_liveId||_teamStoredLiveId()||_teamSavedBracketRestoreInfo()?.liveId||'';
+  if(saveTimer)clearTimeout(saveTimer);
+  saveTimer=null;
+  try{
+    localStorage.removeItem(SAVE_KEY);
+    const legacyRaw=localStorage.getItem(LEGACY_SHARED_SAVE_KEY);
+    if(legacyRaw){
+      const legacyState=migrateStateIfNeeded(JSON.parse(legacyRaw));
+      if(!_teamIsDailyBracketState(legacyState))localStorage.removeItem(LEGACY_SHARED_SAVE_KEY);
+    }
+  }catch(e){}
   if(currentMatches.length || _directPlayers.length) _captureUndoSnapshot('전체 초기화 전');
   _lastRsvpImportSummary=null;
   const _ps=document.getElementById('parseStatus');if(_ps)_ps.textContent='';
@@ -5611,12 +5618,15 @@ async function resetAll(){
   renderDirectPlayerList();
   _ptParticipants=[];
   _resetScoreboard();
-  await _teamClearLiveBroadcastData();
+  await _teamClearLiveBroadcastData(resetLiveId);
   await _rsvpClearActiveLinkData();
   rsvpRenderClubSelect();
   rsvpRender();
   renderAutoFlowDashboard();
-  scheduleSave();
+  ['restoreBtn','mobRestoreBtn'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(btn)btn.classList.add('hidden');
+  });
   // (직접입력 전용 모드 — 별도 전환 불필요)
 }
 

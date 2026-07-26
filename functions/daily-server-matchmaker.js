@@ -11,6 +11,7 @@ const RECENT_SOFT_MIN = 6;
 const RECENT_RECOVERY_MIN = 12;
 const LATE_GRACE_MIN = 5;
 const LATE_PRIORITY_GAMES = 2;
+const FAIR_PRIORITY_GAP = 0.75;
 const MAX_CANDIDATES = 22;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
@@ -214,9 +215,31 @@ function latePriorityBonus(session, player, now){
   return Math.min(raw, games === 0 ? 240 : 150);
 }
 
+function fairActual(player){
+  return number(player?.games) + ((status(player?.status) === 'playing' || player?.currentMatchId) ? 1 : 0);
+}
+
+function fairExpected(player){
+  const expected = Number(player?.fairExpected);
+  return Number.isFinite(expected) ? Math.max(0, expected) : fairActual(player);
+}
+
+function fairGap(player){
+  return fairExpected(player) - fairActual(player);
+}
+
+function fairPriorityBonus(player){
+  const gap = Math.max(0, fairGap(player));
+  if(gap < FAIR_PRIORITY_GAP)return 0;
+  return Math.min(2800, Math.round((gap - 0.5) * 700));
+}
+
 function priorityScore(session, player, now){
   const wait = minutesSince(player?.waitFrom || player?.joinedAt, now);
-  return number(player?.games) * 170 - Math.min(wait, 60) * 4 - latePriorityBonus(session, player, now);
+  return number(player?.games) * 170
+    - Math.min(wait, 60) * 4
+    - latePriorityBonus(session, player, now)
+    - fairPriorityBonus(player);
 }
 
 function mixedTargetRange(games){
@@ -261,15 +284,18 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
   const maxGames = reference.length ? Math.max(...reference.map(player=>number(player.games))) : 0;
   let score = teamDiffPenalty(pairing.levelDiff);
   let lateTotal = 0;
+  let fairTotal = 0;
   let mixedTotal = 0;
   all.forEach(player=>{
     score += (number(player.games) - minGames) * 170;
     score -= Math.min(minutesSince(player.waitFrom || player.joinedAt, now), 60) * 4;
     score += recentRecoveryPenalty(session, player, reference, now);
     lateTotal += latePriorityBonus(session, player, now);
+    fairTotal += fairPriorityBonus(player);
     mixedTotal += mixedQuotaPenalty(player, pairing.type === '혼복');
   });
   score -= Math.min(360, lateTotal);
+  score -= Math.min(5600, fairTotal);
   score += Math.min(1200, mixedTotal);
   [pairing.team1, pairing.team2].forEach(team=>{
     if(team[0].partnerName !== team[1].name)score += partnerRepeatPenalty(countAgainst(team[0], 'partnerCount', team[1]));

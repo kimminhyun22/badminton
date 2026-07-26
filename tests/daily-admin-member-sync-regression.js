@@ -36,12 +36,52 @@ assert(
   '앱 복귀 중 발생한 첫 경기 종료도 소실하지 않고 연결 확인 직후 게시해야 합니다.'
 );
 assert(resumeSource.includes('_dailyRemoteHeadNeedsReconcile(ownershipResult.session)'),'앱 복귀 시 서버 운영 기록을 먼저 확인한 뒤 관리자 조작을 열어야 합니다.');
-assert(resumeSource.includes('_dailyRecoverCurrentAdminPublish'),'이미 생긴 관리자·임원 상태 충돌은 현재 관리자 화면 기준 복구 경로를 제공해야 합니다.');
+assert(!src.includes('_dailyRecoverCurrentAdminPublish'),'관리자 화면이 오래됐을 때 최신 임원 운영 상태를 덮어쓰는 복구 경로가 남으면 안 됩니다.');
+assert(!src.includes('지금 보이는 관리자 대진을 기준으로 회원 화면을 복구할까요?'),'임원 운영 중 관리자 화면을 열어도 위험한 덮어쓰기 확인창을 띄우면 안 됩니다.');
+assert(
+  resumeSource.includes("임원 운영 상태를 다시 불러오는 중입니다.")
+  &&resumeSource.includes('_dailyScheduleServerReconcile()'),
+  '관리자 복귀 시 서버 상태가 앞서면 임원 기록을 보존하고 자동 재동기화해야 합니다.'
+);
+const reconcileSource=sourceBetween('_dailyPullServerReconcile','_dailyServerRuntimePayload');
+assert(
+  reconcileSource.includes('if(_dailyServerSyncPromise)')
+  &&reconcileSource.includes('return _dailyServerSyncPromise'),
+  '동시에 시작된 서버 동기화는 실패로 오인하지 말고 같은 완료 결과를 기다려야 합니다.'
+);
 const completeSource=sourceBetween('dailyCompleteMatch','dailyCancelMatch');
 assert(completeSource.includes('_dailyCheckinIdentityPending||_dailyServerSyncBusy'),'복귀 동기화 중에는 관리자 경기 종료를 먼저 실행하면 안 됩니다.');
 assert(completeSource.includes('!options.syncReplay'),'서버 명령을 관리자 원본에 재생할 때는 동기화 잠금을 통과해야 합니다.');
 const queueSyncSource=sourceBetween('_dailyApplyServerQueueSync','_dailyPrepareServerQueueRequest');
 assert(queueSyncSource.includes('_dailyQueueCapacity().target')&&queueSyncSource.includes('sync.next.slice(0,syncLimit)'),'구버전 서버의 초과 대진을 복원해도 관리자 표시 코트 수로 정리해야 합니다.');
+const queueReplaySource=sourceBetween('_dailyPrepareServerQueueRequest','_dailyServerOperationAlreadyApplied');
+assert(!queueReplaySource.includes('dailyEnsureQueue()'),'서버 대진을 재생하기 전에 로컬 대진을 새로 만들어 충돌시키면 안 됩니다.');
+assert(queueReplaySource.includes('_dailyOfficialTeamFingerprint(_dailyQueue[idx].team1,_dailyQueue[idx].team2)!==requestFingerprint'),'같은 대진 ID에 다른 선수가 있으면 서버 조합으로 교체해야 합니다.');
+const queueReplaySandbox={
+  _dailyQueue:[{id:'same-id',team1:['old1','old2'],team2:['old3','old4']}],
+  _dailyServerQueueResultRequest:()=>null,
+  _dailyOfficialTeamFingerprint:(first,second)=>[...first,...second].sort().join('|'),
+  _dailyOfficialQueueRequestFingerprint:req=>[...(req.expectedTeam1Ids||[]),...(req.expectedTeam2Ids||[])].sort().join('|'),
+  _dailyPlayer:id=>({id,name:id}),
+  _dailyRecalcQueueItem:()=>{},
+  _dailyRefreshNextFromQueue:()=>{},
+  _dailyNow:()=>1234
+};
+vm.createContext(queueReplaySandbox);
+vm.runInContext(`${queueReplaySource};this.run=_dailyPrepareServerQueueRequest;`,queueReplaySandbox);
+assert.strictEqual(queueReplaySandbox.run({
+  type:'official-queue-enter-free',
+  serverAppliedAt:1234,
+  queueId:'same-id',
+  expectedTeam1Ids:['new1','new2'],
+  expectedTeam2Ids:['new3','new4'],
+  expectedQueueIndex:1
+}),true,'서버 대진 조합을 관리자 원본에 복원할 수 있어야 합니다.');
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(queueReplaySandbox._dailyQueue[0].team1.concat(queueReplaySandbox._dailyQueue[0].team2))),
+  ['new1','new2','new3','new4'],
+  '같은 ID의 오래된 로컬 조합은 최신 서버 선수 조합으로 교체해야 합니다.'
+);
 const officialErrorSource=sourceBetween('_dailyOfficialRequestError','_dailyRecordOfficialArrival');
 assert(officialErrorSource.includes('!req.serverAppliedAt&&'),'서버가 이미 승인한 임원 요청은 관리자 재접속이 늦어도 TTL 만료로 거절하면 안 됩니다.');
 const processSource=sourceBetween('dailyProcessCheckinRequests','dailyApproveCheckinRequest');
@@ -157,9 +197,6 @@ let heartbeatCalls=0;
 let timers=[];
 let heldTransactionCount=0;
 let heldTransactions=[];
-let _dailyRecoveryPromptKey='';
-let confirmResult=true;
-let confirmCalls=0;
 
 function clone(value){return JSON.parse(JSON.stringify(value));}
 function _dailyIdentitySnapshot(){
@@ -186,7 +223,6 @@ function _dailyCheckinPayload(){
   };
 }
 function _dailyPersistServerIdentity(){}
-function confirm(){confirmCalls++;return confirmResult;}
 function _dailyAdoptRemotePauseEvent(event){
   pauseAdoptions++;
   _dailyPauseRevision=Math.max(_dailyPauseRevision,Number(event?.pauseRevision||0));
@@ -265,9 +301,6 @@ function reset(options){
   timers=[];
   heldTransactionCount=0;
   heldTransactions=[];
-  _dailyRecoveryPromptKey='';
-  confirmResult=true;
-  confirmCalls=0;
 }
 this.api={
   reset,
@@ -278,7 +311,6 @@ this.api={
     _dailyClientStateRevision=Math.max(0,Number(revision||0));
   },
   setNeedsPublish(value){_dailyCheckinNeedsPublish=!!value;},
-  recover:(remote,forcePrompt)=>_dailyRecoverCurrentAdminPublish(remote,'live/checkin_'+_dailyCheckinId,forcePrompt),
   holdTransactions(count){heldTransactionCount=Math.max(0,Number(count||0));},
   releaseTransaction(){
     const release=heldTransactions.shift();
@@ -301,7 +333,6 @@ this.api={
     heldTransactions:heldTransactions.length,
     needsPublish:_dailyCheckinNeedsPublish,
     publishQueued:_dailyCheckinPublishQueued,
-    confirmCalls,
     localServerRevision:_dailyServerRevision,
     localLastRequestId:_dailyServerLastRequestId,
     error:_dailyServerReconcileError,
@@ -404,23 +435,6 @@ async function settle(){
   state=sandbox.api.state();
   assert.strictEqual(state.transactionCount,2,'진행 중 상태가 바뀌면 최신 스냅샷을 한 번 더 게시해야 합니다.');
   assert.strictEqual(state.currentSession.matchCompleted,true,'연속 종료 처리의 최종 상태가 회원 화면에 남아야 합니다.');
-
-  sandbox.api.reset({
-    localRevision:3,
-    localLastRequestId:'op3',
-    localPauseRevision:0,
-    clientRevision:30,
-    remote:{serverRevision:7,serverLastRequestId:'op7',event:{pauseRevision:0},matchCompleted:false}
-  });
-  sandbox.api.setLocal(true,30);
-  sandbox.api.setNeedsPublish(true);
-  const recovered=await sandbox.api.recover(sandbox.api.state().currentSession,true);
-  assert.strictEqual(recovered?.committed,true,'자동 병합이 막힌 경우 확인 후 현재 관리자 상태를 회원 세션에 복구할 수 있어야 합니다.');
-  state=sandbox.api.state();
-  assert.strictEqual(state.confirmCalls,1,'관리자 기준 강제 복구는 명시적 확인을 한 번 받아야 합니다.');
-  assert.strictEqual(state.localServerRevision,7,'복구한 관리자 원본은 서버 명령 리비전을 보존해야 합니다.');
-  assert.strictEqual(state.localLastRequestId,'op7','복구한 관리자 원본은 마지막 서버 명령 ID를 보존해야 합니다.');
-  assert.strictEqual(state.currentSession.matchCompleted,true,'복구 시 로컬에 저장된 경기 종료 결과가 회원 세션에 반영되어야 합니다.');
 
   console.log('daily admin member sync regression ok');
 })().catch(error=>{

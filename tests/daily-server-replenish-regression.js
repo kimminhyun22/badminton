@@ -386,11 +386,34 @@ const beforeStartArrival=submit(beforeStart,{
 assert.strictEqual(beforeStartArrival.outcome.terminal.status,'applied','운영 시작 전 지각 선수 등록 자체는 처리할 수 있어야 합니다.');
 assert.strictEqual(beforeStartArrival.outcome.current.session.event.next.length,0,'운영 시작 전에는 서버가 대진을 미리 생성하면 안 됩니다.');
 
+const starved=root().session;
+starved.event.courts=1;
+starved.event.queuePolicy={official:1,auto:true};
+starved.event.active=[];
+starved.event.next=[];
+starved.event.expected=[];
+starved.event.serverStandby=[];
+starved.players=[
+  {id:'starved-s',name:'장기대기S',level:7,grade:'S',gender:'M',ageGroup:'20대',status:'wait',currentMatchId:'',games:1,fairExpected:4.9,mixedGames:0,typeTrackedGames:1,lastPlayedSeq:1,partnerCount:{},opponentCount:{},waitFrom:BASE_NOW-70*60_000,joinedAt:BASE_NOW-70*60_000},
+  ...[6,6,5,5,5,4,4].map((level,index)=>({
+    id:`balanced-${index+1}`,name:`일반선수${index+1}`,level,grade:level===6?'A':level===5?'B':'C',
+    gender:'M',ageGroup:'20대',status:'wait',currentMatchId:'',games:4,fairExpected:4,
+    mixedGames:0,typeTrackedGames:4,lastPlayedSeq:index+2,partnerCount:{},opponentCount:{},
+    waitFrom:BASE_NOW-(35-index)*60_000,joinedAt:BASE_NOW-90*60_000
+  }))
+];
+replenishPrepared(starved,{now:BASE_NOW,requestId:'starved_s_recovery'});
+assert.strictEqual(starved.event.next.length,1,'공정 보정 대진을 한 경기 생성해야 합니다.');
+assert(starved.event.next[0].playerIds.includes('starved-s'),'누적 기회가 세 경기 이상 부족한 S급도 실력 하드 제한 안에서 우선 배정해야 합니다.');
+assertPreparedValid(starved);
+
 const dailySource=fs.readFileSync(require.resolve('../js/daily.js'),'utf8');
 assert(dailySource.includes('function _dailyApplyServerQueueSync(req)'),'관리자 재실행 시 서버 생성 대진을 복원하는 동기화 함수가 있어야 합니다.');
 assert(dailySource.includes('partnerCountById:{...history.partnerCountById}')&&dailySource.includes('opponentCountById:{...history.opponentCountById}'),'서버 대진 다양성 판단에 기존 파트너·상대 이력을 안전한 선수 ID로 게시해야 합니다.');
 assert(dailySource.includes('fourCounts')&&dailySource.includes('exactCounts'),'같은 네 명과 동일 팀 반복 이력을 서버에 게시해야 합니다.');
 assert(dailySource.includes('dailySave({preserveServerQueue:serverQueueSynced})'),'서버 대진을 복원한 직후 브라우저가 다시 생성해 순서를 바꾸면 안 됩니다.');
 assert(dailySource.includes("restPass:item?.restPass&&typeof item.restPass==='object'"),'서버 대진 복원 시 잠시 쉬기 상태를 함께 복원해야 합니다.');
+assert(dailySource.includes('-_dailyFairPriorityBonus(p)'),'관리자 앱의 후보 우선순위에도 누적 공정성 부족분을 반영해야 합니다.');
+assert(dailySource.includes('fairPriorityTotal+=_dailyFairPriorityBonus(p)'),'관리자 앱의 최종 대진 점수에도 누적 공정성 부족분을 반영해야 합니다.');
 
 console.log('daily server replenish regression ok');

@@ -105,6 +105,14 @@ const teamImportSource=sourceBetween(teamSrc,'_teamRosterBridge','addDirectPlaye
 assert(teamImportSource.includes('currentMatches.length||teamAssignment||_liveOn||_liveId||_teamStoredLiveId()||_teamSavedBracketRestoreInfo()'),'팀 배정·저장 대진·LIVE 시작 후 명단 덮어쓰기를 막아야 합니다.');
 assert(teamImportSource.includes('_partners=[]'),'민턴LIVE에서 팀전LIVE로 파트너 지정을 복사하면 안 됩니다.');
 assert(teamImportSource.includes('isClubOfficial:!!raw.isClubOfficial'),'민턴LIVE 임원 프로필을 팀전LIVE에 보존해야 합니다.');
+const savedRestoreSource=sourceBetween(teamSrc,'_teamSavedBracketRestoreInfo','_teamSavedLiveRestoreInfo');
+assert(!savedRestoreSource.includes('_teamSaveLiveId('),'저장 여부를 확인하는 것만으로 종료한 LIVE ID를 되살리면 안 됩니다.');
+const clearLiveSource=sourceBetween(teamSrc,'_teamClearLiveBroadcastData','stopLiveBroadcast');
+assert(clearLiveSource.includes('explicitLiveId||_liveId||_teamStoredLiveId()'),'앱 재실행 뒤 전체 초기화해도 저장된 LIVE 노드를 정확히 지워야 합니다.');
+const resetSource=sourceBetween(teamSrc,'resetAll','_teamEnsureMemberId');
+assert(resetSource.includes('localStorage.removeItem(SAVE_KEY)'),'전체 초기화는 저장 대진도 즉시 지워야 합니다.');
+assert(resetSource.includes('localStorage.removeItem(LEGACY_SHARED_SAVE_KEY)'),'구버전 팀전 저장본도 전체 초기화 뒤 다시 살아나면 안 됩니다.');
+assert(!resetSource.includes('scheduleSave()'),'전체 초기화 직후 빈 상태 저장이 생략되어 이전 저장 대진을 남기면 안 됩니다.');
 
 const teamSandbox={window:{KokMatchRosterBridge:{
   load:()=>({players:[
