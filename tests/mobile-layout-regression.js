@@ -25,7 +25,9 @@ assert(appCss.includes('.daily-ops-grid{grid-template-columns:repeat(3,minmax(0,
 
 assert(teamCss.includes('@media(max-width:480px)'), '팀전 대진표의 모바일 경계 규칙이 필요합니다.');
 assert(teamCss.includes('#tabBracket .match-grid{grid-template-columns:1fr!important;}'), '480px 이하 팀전 대진표는 한 열이어야 합니다.');
-assert(teamCss.includes('.team-list-wrap.show{grid-template-columns:1fr!important;'), '모바일 청홍팀 명단은 이름을 읽을 수 있는 한 열이어야 합니다.');
+assert(teamCss.includes('.team-list-wrap.show{\n    grid-template-columns:repeat(2,minmax(0,1fr))!important;'), '모바일 청홍팀 명단은 좌우 비교가 가능한 두 열이어야 합니다.');
+assert(!teamCss.includes('.team-list-wrap.show{grid-template-columns:1fr!important;'), '모바일 청홍팀 명단을 한 열로 덮어쓰면 안 됩니다.');
+assert(teamCss.includes('.team-list-box{min-width:0;}'), '좁은 화면에서 청홍팀 카드가 그리드 밖으로 넘치면 안 됩니다.');
 assert(teamCss.includes('.qd-row-detail{font-size:.75rem!important;line-height:1.45!important;}'), '모바일 품질 점검 설명은 12px 수준으로 읽혀야 합니다.');
 assert(teamCss.includes('.bottom-nav{padding-bottom:var(--safe-bottom)!important;}'), '팀전 하단 내비는 홈 인디케이터를 피해야 합니다.');
 
