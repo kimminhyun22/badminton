@@ -143,43 +143,17 @@ assert(checkin.includes("onclick=\"sendOfficialQueueEnter"),'클럽 임원의 �
 assert(checkin.includes('지각 선수 참가 등록')&&checkin.includes("type:'official-player-arrival'"),'클럽 임원은 등록 전 선수를 현장에서 바로 참가 등록할 수 있어야 합니다.');
 assert(!checkin.includes('현장 도착을 확인하면 대기열에 바로 반영됩니다.'),'지각 선수 등록 도구에 자명한 설명을 반복하면 안 됩니다.');
 assert(checkin.includes("officialArrivalV1!==true"),'구 관리자 세션에서는 지원되지 않는 지각 참가 등록 도구를 숨겨야 합니다.');
-assert(checkin.includes('대진 순서 한 칸 조정')&&checkin.includes("type:'official-queue-yield'"),'클럽 임원은 특정 다음 대진을 한 경기만 뒤로 보낼 수 있어야 합니다.');
-assert(checkin.includes("officialQueueYieldV1!==true"),'구 관리자 세션에서는 지원되지 않는 임원 순서 조정 버튼을 숨겨야 합니다.');
+assert(!checkin.includes('대진 순서 한 칸 조정')&&checkin.includes("type:'official-queue-yield'"),'중복 순서 조정 패널은 제거하되 카드의 이번만 뒤로 명령은 유지해야 합니다.');
+assert(checkin.includes("officialQueueYieldOneStepV1===true"),'구 관리자 세션에서는 지원되지 않는 카드 내 이번만 뒤로 버튼을 숨겨야 합니다.');
 assert(checkin.includes('expectedTeam1Ids:team1Ids')&&checkin.includes('expectedTeam2Ids:team2Ids')&&checkin.includes('targetQueueIndex'),'임원 순서 조정 요청은 화면에서 확인한 두 팀 구성과 바로 다음 순번을 전달해야 합니다.');
 assert(!functionSource(checkin,'officialSupportHtml','refreshOfficialConnection').includes('sendOfficialCourtComplete'),'클럽 임원 운영 도구에 진행 코트 종료 목록을 중복 표시하면 안 됩니다.');
 assert(functionSource(checkin,'refreshOfficialConnection','renderMyCard').includes("btn.dataset.officialPending==='true'"),'연결 상태가 갱신되어도 처리 중인 임원 순서 조정 버튼이 다시 활성화되면 안 됩니다.');
 const memberQueueSend=functionSource(checkin,'sendQueueDefer','sendQueueEnterFree');
 assert(memberQueueSend.includes('이번만 뒤로는 클럽 임원이 처리합니다.')&&!memberQueueSend.includes("type:'queue-yield'"),'이전 캐시 화면이 일반회원 함수를 직접 호출해도 뒤로 미루기 요청을 전송하면 안 됩니다.');
-const officialQueueUiCode=`
-let session={capabilities:{officialQueueYieldV1:true,officialQueueYieldOneStepV1:true},event:{active:[{id:'m1'},{id:'m2'},{id:'m3'}]}};
-let officialRequests=[];
-let list=[];
-function officialRequestPending(r){return !!(r&&!r.appliedAt&&!r.ignoredAt&&!r.serverAppliedAt&&!r.serverRejectedAt);}
-function eventNextList(){return list;}
-function teamNames(q){return (q.t1||[]).join(' ')+' vs '+(q.t2||[]).join(' ');}
-function esc(v){return String(v||'');}
-${functionSource(checkin,'officialQueueYieldToolsHtml','officialSupportHtml')}
-this.api={render:()=>officialQueueYieldToolsHtml({id:'official'},''),setList:v=>list=v,setRequests:v=>officialRequests=v,setCapabilities:v=>session.capabilities=v};`;
-const officialQueueUiSandbox={};
-vm.createContext(officialQueueUiSandbox);
-vm.runInContext(officialQueueUiCode,officialQueueUiSandbox);
 const uiQ1={idx:1,queueId:'q1',cueState:'soon',t1:['A','B'],t2:['C','D']};
 const uiQ2={idx:2,queueId:'q2',cueState:'ready',t1:['E','F'],t2:['G','H']};
 const uiQ3={idx:3,queueId:'q3',cueState:'ready',t1:['I','J'],t2:['K','L']};
 const uiQ4={idx:4,queueId:'q4',cueState:'ready',t1:['M','N'],t2:['O','P']};
-officialQueueUiSandbox.api.setList([uiQ1,uiQ2,uiQ3,uiQ4]);
-const rangeQueueHtml=officialQueueUiSandbox.api.render();
-assert(rangeQueueHtml.includes('대진을 유지하고 한 경기만 뒤로 이동')&&rangeQueueHtml.includes('>한 칸 뒤로</button>'),'임원 순서 조정은 선수·팀을 유지한 한 칸 이동으로만 안내해야 합니다.');
-assert(!rangeQueueHtml.includes('officialQueueTarget_')&&!rangeQueueHtml.includes('<select'),'맨 뒤나 여러 순번을 고르는 선택기를 제공하면 안 됩니다.');
-officialQueueUiSandbox.api.setRequests([{type:'official-queue-yield',queueId:'q1'}]);
-const pendingQueueHtml=officialQueueUiSandbox.api.render();
-assert(pendingQueueHtml.includes('data-official-pending="true"')&&pendingQueueHtml.includes('요청 중'),'같은 대진의 임원 요청 처리 중에는 중복 버튼을 비활성화해야 합니다.');
-officialQueueUiSandbox.api.setRequests([]);
-officialQueueUiSandbox.api.setList([{...uiQ1,cueState:'free',targetCourt:1},uiQ2,uiQ3,uiQ4]);
-assert(officialQueueUiSandbox.api.render().includes('한 칸 뒤로'),'빈 코트 입장 직전에도 임원이 대진을 그대로 한 경기만 뒤로 보낼 수 있어야 합니다.');
-officialQueueUiSandbox.api.setCapabilities({officialQueueYieldV1:true});
-officialQueueUiSandbox.api.setList([{...uiQ1,cueState:'free',targetCourt:1},uiQ2]);
-assert.strictEqual(officialQueueUiSandbox.api.render(),'','구 관리자 세션의 한 칸 이동 UI는 기존 빈 코트 안전 규칙을 유지해야 합니다.');
 
 const officialQueueCardCode=`
 let session={capabilities:{officialQueueCardOpsV1:true,officialQueueYieldOneStepV1:true},event:{active:[{id:'m1'},{id:'m2'},{id:'m3'}]}};
