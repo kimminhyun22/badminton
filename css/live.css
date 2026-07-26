@@ -1915,6 +1915,170 @@ body{
 .team-live-view .result-entry.needs-result .result-entry-label{
   color:#8f1d18!important;
 }
+.team-official-overview{
+  margin:0 0 12px;
+  padding:13px;
+  border:1px solid #d8e8df;
+  border-radius:20px;
+  background:#f8fcfa;
+  box-shadow:0 6px 18px rgba(31,41,55,.05);
+}
+.team-official-overview-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.team-official-overview-head>div{min-width:0;}
+.team-official-overview-head b{
+  display:block;
+  color:#273f35;
+  font-size:.96rem;
+  font-weight:1000;
+}
+.team-official-overview-head span{
+  display:block;
+  margin-top:2px;
+  color:#718078;
+  font-size:.7rem;
+  font-weight:900;
+}
+.team-official-overview-head em{
+  flex:0 0 auto;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#e4f3ea;
+  color:#24724d;
+  font-size:.68rem;
+  font-style:normal;
+  font-weight:1000;
+  white-space:nowrap;
+}
+.team-official-overview-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.team-official-overview-stat{
+  min-width:0;
+  min-height:54px;
+  padding:8px 4px;
+  border:1px solid #dfe7f3;
+  border-radius:14px;
+  background:#fff;
+  color:#64748b;
+  font-family:'Noto Sans KR',sans-serif;
+  text-align:center;
+}
+.team-official-overview-stat b{
+  display:block;
+  color:#315f9d;
+  font-size:1.02rem;
+  font-weight:1000;
+  line-height:1;
+}
+.team-official-overview-stat span{
+  display:block;
+  margin-top:5px;
+  font-size:.66rem;
+  font-weight:900;
+  white-space:nowrap;
+}
+.team-official-overview-stat.current{
+  border-color:#cfe6d9;
+  background:#edf8f2;
+}
+.team-official-overview-stat.current b,
+.team-official-overview-stat.operator b{color:#24724d;}
+.team-official-overview-stat.alert{
+  border-color:#f1c9c7;
+  background:#fff3f2;
+}
+.team-official-overview-stat.alert b{color:#b42318;}
+.team-official-overview-stat.party{
+  border-color:#efdbb6;
+  background:#fffaf1;
+}
+.team-official-overview-stat.party b{color:#9a650c;}
+.team-official-overview-stat.active{
+  border-color:#5b8def;
+  box-shadow:0 0 0 3px rgba(91,141,239,.13);
+  transform:translateY(-1px);
+}
+.team-official-overview-conflict{
+  margin-top:8px;
+  padding:9px 10px;
+  border:1px solid #f1c9c7;
+  border-radius:12px;
+  background:#fff3f2;
+  color:#a52a22;
+  font-size:.74rem;
+  font-weight:1000;
+  text-align:center;
+}
+.team-official-overview-detail{
+  margin-top:9px;
+  padding:10px;
+  border:1px solid #dfe7f3;
+  border-radius:14px;
+  background:#fff;
+}
+.team-official-overview-detail-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+.team-official-overview-detail-head b{
+  color:#34433d;
+  font-size:.78rem;
+  font-weight:1000;
+}
+.team-official-overview-detail-head button{
+  width:30px;
+  height:30px;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:#f2f5f8;
+  color:#6f7a8a;
+  font-size:1rem;
+  font-weight:900;
+}
+.team-official-overview-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  max-height:210px;
+  overflow:auto;
+}
+.team-official-overview-player{
+  min-width:0;
+  padding:8px 9px;
+  border-radius:11px;
+  background:#f7f9fc;
+}
+.team-official-overview-player b{
+  display:block;
+  overflow:hidden;
+  color:#273246;
+  font-size:.78rem;
+  font-weight:1000;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.team-official-overview-player small{
+  display:block;
+  overflow:hidden;
+  margin-top:2px;
+  color:#788597;
+  font-size:.64rem;
+  font-weight:800;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 @keyframes teamLiveAlertPulse{
   0%,100%{box-shadow:0 0 0 5px rgba(180,35,24,.16);transform:scale(1);}
   50%{box-shadow:0 0 0 9px rgba(217,45,32,.28);transform:scale(1.03);}
@@ -1957,6 +2121,10 @@ body{
   .next-panel .result-entry button,
   .viewer-state-btn,
   .viewer-state-btn.ready{min-height:44px!important;}
+}
+@media(max-width:360px){
+  .team-official-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .team-official-overview-list{grid-template-columns:1fr;}
 }
 @media(max-width:375px){
   .current-grid,

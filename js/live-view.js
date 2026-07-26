@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.471';
+const APP_VERSION='1.10.472';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -88,6 +88,7 @@ let _viewerName='';
 let _viewerMemberId='';
 let _viewerNameCleared=false;
 let _viewerSearchTerm='';
+let _teamOfficialOverviewFilter='';
 
 function _isTeamLiveData(d){
   if(!d)return false;
@@ -1166,6 +1167,103 @@ function _viewerRecordHtml(d,name){
   +'</div>';
 }
 
+function _teamOfficialOverviewData(d){
+  const members=_allLiveMembers(d);
+  const lateMap=_lateMapFromData(d);
+  const partyMap=d&&d.party||{};
+  const matches=(d&&Array.isArray(d.matches)?d.matches:[]).map((m,i)=>({...m,_idx:i}));
+  const rounds=[...new Set(matches.map(m=>Number(m.round)||0).filter(Boolean))].sort((a,b)=>a-b);
+  const firstOpenRound=rounds.find(round=>matches.some(m=>Number(m.round)===round&&!m.win))||0;
+  let currentRound=Number(d&&d.currentRound)||firstOpenRound;
+  if(!matches.some(m=>Number(m.round)===currentRound&&!m.win))currentRound=firstOpenRound;
+  const currentMatches=currentRound
+    ?matches.filter(m=>Number(m.round)===currentRound&&!m.win)
+    :[];
+  const currentNames=new Set();
+  currentMatches.forEach(m=>[...(m.t1||[]),...(m.t2||[])].forEach(name=>{
+    if(name)currentNames.add(String(name));
+  }));
+  const isLate=player=>!!lateMap[_attKey(player.n)];
+  const isParty=player=>!!partyMap[_attKey(player.n)];
+  const onSite=members.filter(player=>!isLate(player));
+  const playing=onSite.filter(player=>currentNames.has(String(player.n)));
+  const waiting=onSite.filter(player=>!currentNames.has(String(player.n)));
+  const late=members.filter(isLate);
+  const operators=members.filter(player=>player.isClubOfficial||(!_usesFixedTeams(d)&&player.isTemporaryOperator));
+  const party=members.filter(isParty);
+  const conflictCount=Object.values(d&&d.resultConflicts||{}).reduce((sum,row)=>{
+    return sum+Object.keys(row&&typeof row==='object'?row:{}).length;
+  },0);
+  return {
+    members,onSite,playing,waiting,late,operators,party,currentMatches,currentRound,
+    completedMatches:matches.filter(m=>m.win).length,
+    totalMatches:matches.length,
+    conflictCount
+  };
+}
+
+function _teamOfficialOverviewMembers(data,key){
+  const map={
+    total:data.members,
+    current:data.onSite,
+    playing:data.playing,
+    waiting:data.waiting,
+    late:data.late,
+    operators:data.operators,
+    party:data.party
+  };
+  return [...(map[key]||[])].sort((a,b)=>String(a.n||'').localeCompare(String(b.n||''),'ko'));
+}
+
+function _teamOfficialOverviewMemberMeta(player,data,d,key){
+  if(key==='operators')return _viewerRoleText(player);
+  if(key==='playing'){
+    const match=data.currentMatches.find(m=>[...(m.t1||[]),...(m.t2||[])].includes(player.n));
+    if(match)return `${match.court||'-'}코트 · 경기중`;
+  }
+  if(key==='late')return '늦음';
+  if(key==='party')return '뒷풀이 참석';
+  const team=player.team==='blue'?liveTeamLabel(d,'blue'):player.team==='red'?liveTeamLabel(d,'red'):'참가자';
+  const matches=_viewerMatches(d,player.n);
+  return `${team} · ${matches.filter(m=>m.win).length}/${matches.length}경기`;
+}
+
+function setTeamOfficialOverviewFilter(key){
+  _teamOfficialOverviewFilter=_teamOfficialOverviewFilter===key?'':key;
+  if(window._lastLiveData)render(window._lastLiveData);
+}
+
+function buildTeamOfficialOverview(d){
+  const viewer=_viewerInfo(d);
+  const canOperate=!!(viewer&&(viewer.isClubOfficial||(!_usesFixedTeams(d)&&viewer.isTemporaryOperator)));
+  if(!canOperate)return '';
+  const data=_teamOfficialOverviewData(d);
+  const cards=[
+    {key:'total',label:'등록',value:data.members.length},
+    {key:'current',label:'현장',value:data.onSite.length,cls:'current'},
+    {key:'playing',label:'경기중',value:data.playing.length},
+    {key:'waiting',label:'대기',value:data.waiting.length},
+    {key:'late',label:'늦음',value:data.late.length,cls:data.late.length?'alert':''},
+    {key:'operators',label:'운영진',value:data.operators.length,cls:'operator'},
+    {key:'party',label:'뒷풀이',value:data.party.length,cls:'party'}
+  ];
+  const selected=cards.find(card=>card.key===_teamOfficialOverviewFilter);
+  const detailMembers=selected?_teamOfficialOverviewMembers(data,selected.key):[];
+  const detail=selected?`<div class="team-official-overview-detail">
+    <div class="team-official-overview-detail-head"><b>${esc(selected.label)} ${detailMembers.length}명</b><button type="button" onclick="setTeamOfficialOverviewFilter('${selected.key}')" aria-label="${esc(selected.label)} 명단 닫기">×</button></div>
+    <div class="team-official-overview-list">${detailMembers.length?detailMembers.map(player=>`<span class="team-official-overview-player"><b>${esc(player.n)}</b><small>${esc(_teamOfficialOverviewMemberMeta(player,data,d,selected.key))}</small></span>`).join(''):'<span class="team-official-overview-player"><b>해당 선수 없음</b></span>'}</div>
+  </div>`:'';
+  const progress=data.totalMatches
+    ?`${data.currentRound?`R${data.currentRound}`:'완료'} · ${data.completedMatches}/${data.totalMatches}경기`
+    :'대진 준비';
+  return `<section class="team-official-overview" aria-label="팀전LIVE 운영 현황">
+    <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
+    <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
+    ${data.conflictCount?`<div class="team-official-overview-conflict">승패 확인 ${data.conflictCount}건</div>`:''}
+    ${detail}
+  </section>`;
+}
+
 function _viewerNextHtml(d,current){
   const next=_viewerNextMatch(d,current.n);
   if(!next){
@@ -1413,6 +1511,7 @@ window.selectLiveViewer=selectLiveViewer;
 window.setLiveViewerSearch=setLiveViewerSearch;
 window.submitLiveWin=submitLiveWin;
 window.setViewerDetailsOpen=setViewerDetailsOpen;
+window.setTeamOfficialOverviewFilter=setTeamOfficialOverviewFilter;
 
 function setTeamRosterSort(sort){
   _teamRosterSort=sort||'name';
@@ -1664,6 +1763,7 @@ function render(d){
 
   let html='<div class="live-board">';
   html+=buildViewerIdentity(d);
+  html+=buildTeamOfficialOverview(d);
   if(_usesFixedTeams(d)){
     html+=buildLiveScore(d,totalR,doneR);
   } else {
