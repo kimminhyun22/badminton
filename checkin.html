@@ -1593,6 +1593,15 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-partner-submit:disabled{opacity:.42;cursor:not-allowed;}
 .official-partner-list{margin-top:9px;border-top:1px solid var(--line);}
 .official-partner-list .official-action-row button{border-color:#e3a7aa;background:#fff4f4;color:#b42318;}
+.official-temporary-tools{margin:12px 0 4px;padding:12px;border:1.5px solid #a9cbbc;border-radius:8px;background:#f6fbf8;}
+.official-temporary-tools summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;color:#285843;font-size:14px;font-weight:1000;}
+.official-temporary-tools summary::-webkit-details-marker{display:none;}
+.official-temporary-tools summary span{font-size:11px;color:#648073;}
+.official-temporary-add{display:grid;grid-template-columns:minmax(0,1fr) 70px;gap:7px;margin-top:10px;}
+.official-temporary-add select,.official-temporary-add button{min-width:0;min-height:44px;border:1.5px solid #b9d5c8;border-radius:8px;background:#fff;padding:8px 10px;font:inherit;font-weight:900;color:var(--txt);}
+.official-temporary-add button{background:#347c5b;color:#fff;}
+.official-temporary-add button:disabled,.official-temporary-add select:disabled{opacity:.42;cursor:not-allowed;}
+.official-temporary-note{display:block;margin-top:9px;color:#6b7e75;font-size:11px;font-weight:800;line-height:1.45;}
 .after-party-summary{margin:12px -10px 0;border-top:1.5px solid #edc987;border-bottom:1.5px solid #edc987;background:#fffaf0;}
 .after-party-main{display:flex;flex-direction:column;align-items:stretch;gap:12px;padding:14px 12px 12px;}
 .after-party-heading{display:flex;align-items:center;gap:9px;min-width:0;}
@@ -2128,6 +2137,7 @@ summary:focus-visible{
 .official-arrival,
 .official-member-status,
 .official-partner,
+.official-temporary-tools,
 .official-player-tools{
   margin:10px 0 0;
   padding:13px;
@@ -2138,6 +2148,7 @@ summary:focus-visible{
 .official-arrival{border-left:3px solid #86a9d1;}
 .official-member-status{border-left:3px solid #d6ad62;}
 .official-partner{border-left:3px solid #80b696;}
+.official-temporary-tools{border-left:3px solid #65977e;}
 .official-arrival-head b,
 .official-member-status-head b,
 .official-partner-head b{
@@ -2231,7 +2242,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.464">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.465">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="콕매치">
@@ -2246,7 +2257,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.464</span>
+    <span class="version-chip" id="appVersion">v1.10.465</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2293,7 +2304,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.464';
+const APP_VERSION='1.10.465';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -2486,7 +2497,7 @@ function sampleSession(){
     matchStartedAt:now-35*60*1000,
     expiresAt:now+47*60*60*1000,
     version:'sample',
-    capabilities:{officialOpsV1:true,memberStatusServerV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:true,pauseV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,memberStatusServerV1:true,temporaryOfficialV1:true,officialArrivalV1:true,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueCardOpsV1:true,officialAutoHandoffV1:true,pauseV1:true,afterPartyV1:true},
     arrivalCandidates:[
       ...players.filter(player=>['invited','planned'].includes(player.status)).map(player=>({candidateKey:`player:${player.id}`,kind:'existing',playerId:player.id,name:player.name,status:player.status,lastStatusAt:player.lastStatusAt||0})),
       {candidateKey:'roster:sample_late',kind:'roster',memberId:'sample_late',name:'강지각'}
@@ -2572,10 +2583,13 @@ function memberStatusServerReady(){
     typeof firebase.functions==='function'
   );
 }
+function isLiveOperatorPlayer(player){
+  return !!(player&&(player.isClubOfficial||player.isTemporaryOfficial));
+}
 function selectedOfficialPlayer(){
   const last=getLastSent();
   const player=last?.playerId?(session?.players||[]).find(item=>String(item.id||'')===String(last.playerId)):null;
-  return player?.isClubOfficial?player:null;
+  return isLiveOperatorPlayer(player)?player:null;
 }
 function officialServerReady(){
   if(!officialGrantToken||!officialServerCapable())return false;
@@ -2600,7 +2614,7 @@ function clearOfficialInviteFromAddress(){
   }catch(e){}
 }
 async function claimOfficialInvite(actorOverride){
-  const actor=actorOverride?.isClubOfficial?actorOverride:selectedOfficialPlayer();
+  const actor=isLiveOperatorPlayer(actorOverride)?actorOverride:selectedOfficialPlayer();
   if(!actor||!session||isSampleMode())return false;
   if(officialClaimPromise){
     const activeClaim=officialClaimPromise;
@@ -2634,7 +2648,7 @@ async function claimOfficialInvite(actorOverride){
         try{sessionStorage.removeItem('kokmatch_pending_official_invite_'+checkinId);}catch(e){}
         clearOfficialInviteFromAddress();
       }
-      toast(`${actor.name} 임원 권한 연결 완료 · 운영 작업이 바로 반영됩니다.`);
+      toast(`${actor.name}님 운영 권한 연결 완료 · 바로 처리할 수 있습니다.`);
       return true;
     }catch(e){
       officialGrantError=officialCallableError(e);
@@ -2657,7 +2671,7 @@ async function claimOfficialInvite(actorOverride){
 async function retryOfficialInvite(){
   const actor=selectedOfficialPlayer();
   if(!actor){
-    toast('명부에 등록된 클럽 임원 본인 이름을 먼저 선택해 주세요.');
+    toast('운영 권한이 지정된 본인 이름을 먼저 선택해 주세요.');
     return false;
   }
   officialGrantError='';
@@ -3143,7 +3157,7 @@ function renderEvent(){
   const updated=ev.updatedAt?new Date(ev.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'방금';
   const selectedId=viewer.playerId;
   const selectedPlayer=(session?.players||[]).find(p=>String(p.id||'')===String(selectedId||''));
-  const canOfficialOperate=!!(selectedPlayer?.isClubOfficial&&session?.capabilities?.officialOpsV1===true);
+  const canOfficialOperate=!!(isLiveOperatorPlayer(selectedPlayer)&&session?.capabilities?.officialOpsV1===true);
   const flowPaused=!!ev.paused;
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span><span class="event-chip gold">뒷풀이 ${afterPartyNames().length}명</span>`;
   const memberStatusJump=canOfficialOperate?`<button type="button" class="event-official-member-jump" onclick="jumpToOfficialMemberStatus('${esc(selectedPlayer.id)}')">회원 상태 수정</button>`:'';
@@ -3425,7 +3439,7 @@ function selectPlayerIdentity(playerId){
   if(q)q.value='';
   toast(`${p.name}님으로 선택했어요.`);
   render();
-  if(p.isClubOfficial)claimOfficialInvite(p);
+  if(isLiveOperatorPlayer(p))claimOfficialInvite(p);
 }
 function isRapidStatusChange(p,status){
   const last=getLastSent();
@@ -3453,7 +3467,7 @@ function playerCardHtml(p,disabled,opts={}){
   return `<article class="player ${locked?'locked':''} ${highlighted?'recent':''} ${selectOnly?'selectable':''}"${selectAttr}>
     <div class="phead">
       <div>
-        <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}${p.isClubOfficial?' <span class="meta">클럽 임원</span>':''}</div>
+        <div class="name">${esc(p.name)}${p.isGuest?' <span class="meta">게스트</span>':''}${p.isClubOfficial?' <span class="meta">클럽 임원</span>':p.isTemporaryOfficial?' <span class="meta">운영 도우미</span>':''}</div>
         <div class="meta">현재 ${esc(compactLabel(selected))} · ${p.games||0}게임${locked?' · 경기중 예약 반영':''}</div>
       </div>
       <div class="badge ${highlighted?'selected':''}">${selectOnly?'선택':(requested?'요청 접수':(locked?'경기중':compactLabel(selected)))}</div>
@@ -3690,6 +3704,47 @@ function refreshOfficialPartnerSelection(actorId){
             : '같은 편으로 경기할 두 선수를 선택하세요.';
   }
 }
+function officialTemporaryCandidates(){
+  return (session?.players||[])
+    .filter(player=>player?.name
+      &&!player.isGuest
+      &&!player.isClubOfficial
+      &&!player.isTemporaryOfficial
+      &&!['invited','planned','done'].includes(player.status))
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+}
+function officialTemporaryToolsHtml(p,disabled){
+  if(!p?.isClubOfficial||session?.capabilities?.temporaryOfficialV1!==true)return '';
+  const helpers=(session?.players||[])
+    .filter(player=>player?.isTemporaryOfficial&&!player.isClubOfficial)
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+  const candidates=officialTemporaryCandidates();
+  const pending=officialRequests.some(request=>
+    ['official-temporary-grant','official-temporary-revoke'].includes(request.type)
+    &&officialRequestPending(request)
+  );
+  const actionDisabled=disabled||pending;
+  const options=candidates.map(player=>`<option value="${esc(player.id)}">${esc(player.name)} · ${esc(compactLabel(player.status))}</option>`).join('');
+  const rows=helpers.map(player=>{
+    const revoking=officialRequests.some(request=>request.type==='official-temporary-revoke'
+      &&officialRequestPending(request)&&String(request.playerId||'')===String(player.id));
+    return `<div class="official-action-row">
+      <span>${esc(player.name)}<small>오늘만 경기 처리 가능</small></span>
+      <button type="button" data-official-action data-official-pending="${revoking?'true':'false'}" ${actionDisabled||revoking?'disabled':''} onclick="sendOfficialTemporaryRevoke('${esc(p.id)}','${esc(player.id)}')">${revoking?'해제 중':'해제'}</button>
+    </div>`;
+  }).join('');
+  return `<details class="official-temporary-tools" ${helpers.length?'open':''}>
+    <summary>운영 도우미 <span>${helpers.length}/4명</span></summary>
+    <div class="official-temporary-add">
+      <select id="officialTemporarySelect_${esc(p.id)}" ${actionDisabled||!options?'disabled':''} aria-label="운영 도우미 회원 선택">
+        <option value="">회원 선택</option>${options}
+      </select>
+      <button type="button" data-official-action data-official-pending="${pending?'true':'false'}" ${actionDisabled||!options?'disabled':''} onclick="sendOfficialTemporaryGrant('${esc(p.id)}')">지정</button>
+    </div>
+    ${rows?`<div class="official-action-list">${rows}</div>`:''}
+    <small class="official-temporary-note">임시 권한은 오늘 민턴LIVE가 끝나면 함께 종료됩니다.</small>
+  </details>`;
+}
 function officialQueueYieldToolsHtml(p,disabled){
   if(session?.capabilities?.officialQueueYieldV1!==true)return '';
   const list=eventNextList();
@@ -3711,10 +3766,10 @@ function officialQueueYieldToolsHtml(p,disabled){
   </details>`;
 }
 function officialSupportHtml(p){
-  if(!p?.isClubOfficial||!session?.capabilities?.officialOpsV1)return '';
+  if(!isLiveOperatorPlayer(p)||!session?.capabilities?.officialOpsV1)return '';
   const serverReady=officialServerReady();
   const connected=serverReady||(!officialServerCapable()&&operatorConnected());
-  const disabled=(eventFlowPaused()||sendingKey||claimingOfficial)?'disabled':'';
+  const disabled=(eventFlowPaused()||sendingKey||claimingOfficial||(officialServerCapable()&&!serverReady))?'disabled':'';
   const cardOps=session?.capabilities?.officialQueueCardOpsV1===true;
   const free=cardOps?[]:eventNextList().filter(q=>q.cueState==='free'&&q.targetCourt&&!q.restPass);
   const freeRows=free.map(q=>`<div class="official-action-row">
@@ -3725,12 +3780,13 @@ function officialSupportHtml(p){
   const fair=sessionFairnessSummary();
   const connectingGrant=claimingOfficial||!officialGrantError;
   const grantRecovery=needsGrant?`<div class="official-connect-recovery ${connectingGrant?'connecting':''}">
-    <b>${connectingGrant?'임원 운영 연결 중':'임원 권한을 연결하지 못했습니다'}</b>
-    <small>${officialGrantError?esc(officialGrantError):'현재 명부의 임원 등록을 확인하고 있습니다. 잠시만 기다려 주세요.'}</small>
+    <b>${connectingGrant?'운영 권한 연결 중':'운영 권한을 연결하지 못했습니다'}</b>
+    <small>${officialGrantError?esc(officialGrantError):'현재 운영 권한을 확인하고 있습니다. 잠시만 기다려 주세요.'}</small>
     ${connectingGrant?'':`<button type="button" onclick="retryOfficialInvite()">다시 연결</button>`}
   </div>`:'';
+  const roleLabel=p.isClubOfficial?'클럽 임원 운영':'운영 도우미';
   return `<section class="official-support">
-    <div class="official-support-head"><b>클럽 임원 운영</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
+    <div class="official-support-head"><b>${roleLabel}</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
     <span class="official-fairness ${fair.count?'warn':''}">${esc(fair.label)}</span>
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
@@ -3739,6 +3795,7 @@ function officialSupportHtml(p){
     ${officialQueueYieldToolsHtml(p,disabled)}
     ${officialPlayerStatusToolsHtml(p,disabled)}
     ${officialPartnerToolsHtml(p,disabled)}
+    ${officialTemporaryToolsHtml(p,disabled)}
   </section>`;
 }
 function refreshOfficialPlayerStatusActions(actorId){
@@ -3835,7 +3892,7 @@ function renderMyCard(last,players){
     `<span class="my-status-chip ${stateChipClass}">${esc(selectedState)}</span>`,
     `<span class="my-status-chip">${selected.games||0}게임</span>`,
     fair?`<span class="my-status-chip ${fair.priority?'warn':'on'}">${esc(fair.label)}</span>`:'',
-    selected.isClubOfficial?'<span class="my-status-chip on">클럽 임원</span>':'',
+    selected.isClubOfficial?'<span class="my-status-chip on">클럽 임원</span>':selected.isTemporaryOfficial?'<span class="my-status-chip on">운영 도우미</span>':'',
     selected.locked&&selectedState!=='경기중'?'<span class="my-status-chip warn">경기중</span>':'',
   ].filter(Boolean).join('');
   el.innerHTML=`<section class="my-card">
@@ -3866,7 +3923,7 @@ function renderMyCard(last,players){
     officialPanel.classList.toggle('hidden',!officialHtml);
     officialPanel.innerHTML=officialHtml;
   }
-  if(selected.isClubOfficial){
+  if(isLiveOperatorPlayer(selected)){
     refreshOfficialPlayerStatusActions(selected.id);
     refreshOfficialPartnerSelection(selected.id);
   }
@@ -4006,7 +4063,7 @@ async function toggleAfterParty(playerId){
 function officialActor(actorId){
   const last=getLastSent();
   const actor=(session?.players||[]).find(p=>p.id===actorId);
-  if(!actor||!actor.isClubOfficial||last?.playerId!==actorId)return null;
+  if(!isLiveOperatorPlayer(actor)||last?.playerId!==actorId)return null;
   return actor;
 }
 function createOfficialOperationId(prefix){
@@ -4041,8 +4098,8 @@ function memberStatusCallableError(error){
 }
 function officialCallableError(error){
   const message=String(error?.message||'').replace(/^Firebase:\s*/,'').trim();
-  if(message.includes('임원 운영')||message.includes('민턴LIVE')||message.includes('현재 상태'))return message;
-  if(error?.code==='functions/permission-denied')return '명부의 임원 등록을 확인하지 못했습니다. 아래 다시 연결을 눌러 주세요.';
+  if(message.includes('임원 운영')||message.includes('운영 권한')||message.includes('운영 도우미')||message.includes('민턴LIVE')||message.includes('현재 상태'))return message;
+  if(error?.code==='functions/permission-denied')return '현재 운영 권한을 확인하지 못했습니다. 아래 다시 연결을 눌러 주세요.';
   if(error?.code==='functions/failed-precondition')return '경기 상태가 이미 바뀌었습니다. 현재 화면을 확인한 뒤 다시 처리해 주세요.';
   return '서버 즉시 처리 연결에 실패했습니다. 네트워크를 확인한 뒤 다시 눌러 주세요.';
 }
@@ -4068,12 +4125,12 @@ async function pushOfficialRequest(req,successText){
   const serverCapable=officialServerCapable();
   const connected=operatorConnected();
   if(serverCapable&&!serverReady){
-    toast('명부 임원 권한을 확인하지 못했습니다. 다시 연결을 눌러 주세요.');
+    toast('현재 운영 권한을 확인하지 못했습니다. 다시 연결을 눌러 주세요.');
     refreshOfficialConnection();
     return false;
   }
   if(!serverReady&&!connected){
-    toast('운영 권한 연결에 실패했습니다. 네트워크와 명부 임원 등록을 확인해 주세요.');
+    toast('운영 권한 연결에 실패했습니다. 네트워크와 현재 권한을 확인해 주세요.');
     refreshOfficialConnection();
     return false;
   }
@@ -4114,7 +4171,7 @@ async function pushOfficialRequest(req,successText){
     return true;
   }catch(e){
     if(serverReady&&e?.code==='functions/permission-denied'){
-      clearOfficialGrant('임원 운영 연결 시간이 끝났습니다. 다시 연결을 눌러 주세요.');
+      clearOfficialGrant('운영 권한 연결 시간이 끝났습니다. 다시 연결을 눌러 주세요.');
       toast(officialGrantError);
       render();
       return false;
@@ -4125,6 +4182,45 @@ async function pushOfficialRequest(req,successText){
     sendingKey='';
     refreshOfficialConnection();
   }
+}
+async function sendOfficialTemporaryGrant(actorId){
+  const actor=officialActor(actorId);
+  if(!actor?.isClubOfficial)return toast('정식 클럽 임원만 운영 도우미를 지정할 수 있습니다.');
+  const playerId=document.getElementById('officialTemporarySelect_'+actorId)?.value||'';
+  const player=(session?.players||[]).find(item=>String(item.id||'')===String(playerId));
+  if(!player)return toast('운영을 도와줄 회원을 선택해 주세요.');
+  if(!confirm(`${player.name}님을 오늘 운영 도우미로 지정할까요?\n\n경기 종료·회원 상태·대진 처리를 임원처럼 도울 수 있습니다.`))return;
+  const now=Date.now();
+  const ok=await pushOfficialRequest({
+    type:'official-temporary-grant',
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    playerId:player.id,playerName:player.name,
+    expectedIsTemporaryOfficial:!!player.isTemporaryOfficial,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-temporary-grant'
+  },`${player.name} 운영 도우미 지정`);
+  if(ok&&isSampleMode())player.isTemporaryOfficial=true;
+  if(ok)render();
+}
+async function sendOfficialTemporaryRevoke(actorId,playerId){
+  const actor=officialActor(actorId);
+  if(!actor?.isClubOfficial)return toast('정식 클럽 임원만 운영 도우미 권한을 해제할 수 있습니다.');
+  const player=(session?.players||[]).find(item=>String(item.id||'')===String(playerId));
+  if(!player?.isTemporaryOfficial)return toast('해제할 운영 도우미를 다시 확인해 주세요.');
+  if(!confirm(`${player.name}님의 운영 도우미 권한을 바로 해제할까요?`))return;
+  const now=Date.now();
+  const ok=await pushOfficialRequest({
+    type:'official-temporary-revoke',
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    playerId:player.id,playerName:player.name,
+    expectedIsTemporaryOfficial:true,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-temporary-revoke'
+  },`${player.name} 운영 권한 해제`);
+  if(ok&&isSampleMode())player.isTemporaryOfficial=false;
+  if(ok)render();
 }
 async function sendOfficialPartnerReservation(actorId){
   const actor=officialActor(actorId);
@@ -4893,6 +4989,11 @@ function boot(){
     if(sessionExpired()){
       showEndedLink();
       return;
+    }
+    const selectedId=getLastSent()?.playerId||'';
+    const selectedPlayer=(session.players||[]).find(player=>String(player.id||'')===String(selectedId));
+    if(officialGrantPlayerId&&String(officialGrantPlayerId)===String(selectedId)&&selectedPlayer&&!isLiveOperatorPlayer(selectedPlayer)){
+      clearOfficialGrant('운영 도우미 권한이 해제되었습니다.');
     }
     const official=selectedOfficialPlayer();
     if(official&&!officialServerReady()&&!officialGrantError)claimOfficialInvite(official);

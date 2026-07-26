@@ -48,8 +48,8 @@ function applyOfficialClaimTransaction(current, input){
   if(requestedPlayerId){
     claimMode = 'roster';
     officialPlayer = (session.players || []).find(player=>text(player?.id) === text(requestedPlayerId)) || null;
-    if(!officialPlayer?.isClubOfficial){
-      return abort('permission-denied', '현재 명부에서 클럽 임원으로 등록된 본인 이름을 선택해 주세요.');
+    if(!officialPlayer || (!officialPlayer.isClubOfficial && !officialPlayer.isTemporaryOfficial)){
+      return abort('permission-denied', '현재 운영 권한이 있는 본인 이름을 선택해 주세요.');
     }
   }else if(!inviteToken || !sameHex(invite.tokenHash, sha256(inviteToken))){
     return abort('permission-denied', '임원 운영 연결이 올바르지 않습니다.');
@@ -79,11 +79,14 @@ function applyOfficialClaimTransaction(current, input){
 
   const sameActor = !officialPlayerId || text(existing?.officialPlayerId) === officialPlayerId;
   const grantExpiresAt = Math.min(inviteExpiresAt, now + maxGrantMs);
+  const requestedNonce = text(input.claimNonce).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+  const claimNonce = requestedNonce || sha256(`${clientId}|${officialPlayerId}|${now}`).slice(0, 24);
   current.officialClaims[clientId] = {
     clientId,
     claimedAt:sameActor && existing?.claimedAt ? existing.claimedAt : now,
     refreshedAt:now,
     expiresAt:grantExpiresAt,
+    claimNonce,
     claimMode,
     ...(claimMode === 'invite'?{inviteHash:text(invite.tokenHash)}:{}),
     ...(officialPlayerId?{
@@ -95,6 +98,7 @@ function applyOfficialClaimTransaction(current, input){
     action:'commit',
     current,
     grantExpiresAt,
+    claimNonce,
     officialPlayerId,
     officialPlayerName:text(officialPlayer?.name)
   };

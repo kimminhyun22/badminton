@@ -58,7 +58,7 @@ assert(bootSource.includes('officialInviteFromSearch(location.search)'),'회원 
 assert(!bootSource.includes('history.replaceState'),'서비스워커 재시작 전에 임원 토큰을 주소에서 지우면 안 됩니다.');
 assert(checkin.includes('onclick="retryOfficialInvite()"'),'권한 교환 실패 시 화면에서 바로 다시 연결할 수 있어야 합니다.');
 const selectSource=functionSource(checkin,'selectPlayerIdentity','isRapidStatusChange');
-assert(selectSource.includes('if(p.isClubOfficial)claimOfficialInvite(p)'),'명부 임원이 이름을 선택하면 같은 회원 링크에서 즉시 운영 권한을 연결해야 합니다.');
+assert(selectSource.includes('if(isLiveOperatorPlayer(p))claimOfficialInvite(p)'),'임원·운영 도우미가 이름을 선택하면 같은 회원 링크에서 즉시 운영 권한을 연결해야 합니다.');
 assert(bootSource.includes('selectedOfficialPlayer()')&&bootSource.includes('claimOfficialInvite(official)'),'앱을 다시 열어도 저장된 임원 본인 이름으로 권한을 자동 복원해야 합니다.');
 
 const commonShareSource=functionSource(daily,'dailyShareCheckinLink','dailyShareOfficialLink');
@@ -104,6 +104,7 @@ const firebase={functions:()=>({httpsCallable:()=>async payload=>{
   return {data:{grantToken:'grant',expiresAt:Date.now()+60000,playerId:'official'}};
 }})};
 function isSampleMode(){return false;}
+function isLiveOperatorPlayer(player){return !!(player&&(player.isClubOfficial||player.isTemporaryOfficial));}
 function render(){}
 function selectedOfficialPlayer(){return session.players[0];}
 function officialClientId(){return 'oc_1234567890abcdef';}
@@ -139,6 +140,7 @@ const localStorage={setItem(key,value){savedPlayerId=JSON.parse(value).playerId|
 const sessionStorage={removeItem(){}};
 const firebase={functions:()=>({httpsCallable:()=>payload=>new Promise(resolve=>calls.push({payload,resolve}))})};
 function isSampleMode(){return false;}
+function isLiveOperatorPlayer(player){return !!(player&&(player.isClubOfficial||player.isTemporaryOfficial));}
 function render(){}
 function selectedOfficialPlayer(){return session.players.find(player=>player.id===selectedId)||null;}
 function officialClientId(){return 'oc_1234567890abcdef';}

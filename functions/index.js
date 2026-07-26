@@ -139,16 +139,19 @@ exports.claimDailyOfficialInvite = onCall(FUNCTION_OPTIONS, async request=>{
   if(!inviteToken && !requestedPlayerId)throw new HttpsError('invalid-argument', '명부에서 임원 본인 이름을 선택해 주세요.');
 
   const now = Date.now();
+  const requestedClaimNonce = crypto.randomBytes(12).toString('hex');
   const ref = admin.database().ref(`live/checkin_${checkinId}`);
   let outcome = null;
   let grantExpiresAt = 0;
+  let claimNonce = '';
   let officialPlayerId = '';
   let officialPlayerName = '';
   const transaction = await runExistingSessionTransaction(ref,current=>{
     outcome = applyOfficialClaimTransaction(current, {
-      clientId,inviteToken,requestedPlayerId,now,maxGrantMs:MAX_GRANT_MS
+      clientId,inviteToken,requestedPlayerId,now,maxGrantMs:MAX_GRANT_MS,claimNonce:requestedClaimNonce
     });
     grantExpiresAt = Number(outcome.grantExpiresAt || 0);
+    claimNonce = String(outcome.claimNonce || '');
     officialPlayerId = String(outcome.officialPlayerId || '');
     officialPlayerName = String(outcome.officialPlayerName || '');
     return outcome.action === 'commit' ? outcome.current : undefined;
@@ -159,6 +162,7 @@ exports.claimDailyOfficialInvite = onCall(FUNCTION_OPTIONS, async request=>{
   const secret = OFFICIAL_GRANT_SECRET.value();
   const grantToken = issueOfficialGrant({
     v:1,sid:checkinId,cid:clientId,iat:now,exp:grantExpiresAt,
+    ...(claimNonce?{cn:claimNonce}:{}),
     ...(officialPlayerId?{pid:officialPlayerId}:{})
   }, secret);
   return {ok:true,grantToken,expiresAt:grantExpiresAt,playerId:officialPlayerId,playerName:officialPlayerName};
@@ -174,6 +178,7 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
   if(!verified.ok)throw new HttpsError('permission-denied', verified.reason || '임원 운영 연결을 확인하지 못했습니다.');
   const clientId = cleanClientId(verified.payload.cid);
   const grantPlayerId = cleanOptionalPlayerId(verified.payload.pid);
+  const grantClaimNonce = String(verified.payload.cn || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
   const storedCommand = publicCommand(request.data?.command, operationId);
   const canonicalCommand = canonicalJson(storedCommand);
   if(Buffer.byteLength(canonicalCommand, 'utf8') > MAX_COMMAND_BYTES){
@@ -188,7 +193,7 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
 
   const transaction = await runExistingSessionTransaction(ref,current=>{
     const outcome = applyCommandTransaction(current, {
-      storedCommand,engineCommand,operationId,payloadHash,clientId,grantPlayerId,now,checkinId,grantSecret:secret
+      storedCommand,engineCommand,operationId,payloadHash,clientId,grantPlayerId,grantClaimNonce,now,checkinId,grantSecret:secret
     });
     failureCode = outcome.failureCode || '';
     failureMessage = outcome.failureMessage || '';
@@ -263,6 +268,9 @@ exports.getDailyOfficialReconcile = onCall(FUNCTION_OPTIONS, async request=>{
   const claimPlayerId = cleanOptionalPlayerId(claim.officialPlayerId);
   if(Boolean(grantPlayerId) !== Boolean(claimPlayerId) || (grantPlayerId && claimPlayerId !== grantPlayerId)){
     throw new HttpsError('permission-denied', '선택한 임원 본인 정보를 다시 확인해 주세요.');
+  }
+  if(String(verified.payload.cn || '') !== String(claim.claimNonce || '')){
+    throw new HttpsError('permission-denied', '운영 권한 연결이 갱신되었습니다. 본인 이름을 다시 선택해 주세요.');
   }
   const serverRevision = Math.max(0, Number(current.session.serverRevision || 0));
   const serverLastRequestId = String(current.session.serverLastRequestId || '');

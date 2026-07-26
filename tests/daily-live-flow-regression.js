@@ -89,6 +89,7 @@ assert(!loadAsNewDay.includes(".remove()"), '새날 전환만으로 소유권을
 assert(loadAsNewDay.includes('localStorage.removeItem(DAILY_CHECKIN_KEY)'), '새날 전환 시 이전 회원 링크의 로컬 연결은 해제해야 합니다.');
 
 const stopCheckin = extractFunction('dailyStopCheckinLink', 'dailyRenderCheckinRequests');
+const clearTemporaryOfficials = extractFunction('_dailyClearTemporaryOfficials', '_dailyRebuildLiveTypeCounts');
 const code = `
 let _dailyCheckinId='DTEST123';
 let _dailyCheckinCreatedAt=123;
@@ -107,6 +108,7 @@ let _dailyServerLastRequestId='';
 let _dailyOfficialInviteToken='token';
 let _dailyOfficialInviteHash='hash';
 let _dailyServerReconcileError='';
+let _dailyPlayers=[{id:'helper',isTemporaryOfficial:true,temporaryOfficialGrantedAt:100,temporaryOfficialGrantedBy:'official',temporaryOfficialGrantedByName:'임원'}];
 const DAILY_CHECKIN_KEY='daily_checkin';
 const DAILY_CHECKIN_CREATED_KEY='daily_checkin_created';
 const calls=[];
@@ -123,12 +125,14 @@ function _dailyClearAdminGrant(){ calls.push('grant-clear'); }
 function dailySave(){ calls.push('save'); }
 function dailyRender(){ calls.push('render'); }
 function confirm(){ return true; }
+${clearTemporaryOfficials}
 ${stopCheckin}
 this.api={dailyStopCheckinLink,state:()=>({
   id:_dailyCheckinId,
   createdAt:_dailyCheckinCreatedAt,
   requests:_dailyCheckinRequests,
   party:_dailyCheckinParty,
+  players:_dailyPlayers,
   listening:_dailyCheckinListening,
   calls:[...calls],
   values:{...localStorage.values}
@@ -145,6 +149,7 @@ vm.runInContext(code, sandbox);
   assert.strictEqual(state.id, null, '종료한 링크 ID는 메모리에서 제거되어야 합니다.');
   assert.strictEqual(state.values.daily_checkin, undefined, '종료한 링크 ID는 별도 저장소에서도 제거되어야 합니다.');
   assert.strictEqual(Object.keys(state.party).length, 0, '종료한 링크의 뒷풀이 응답도 메모리에서 제거되어야 합니다.');
+  assert.strictEqual(state.players[0].isTemporaryOfficial, false, '종료한 링크의 임시 운영 권한도 함께 제거되어야 합니다.');
   assert(state.calls.includes('listener-stop'), '종료한 링크의 실시간 구독을 먼저 해제해야 합니다.');
   assert(state.calls.includes('grant-clear'), '종료한 링크의 관리자 서버 권한도 함께 폐기해야 합니다.');
   assert(state.calls.includes('save'), '종료 상태를 일일 저장본에 즉시 저장해야 합니다.');

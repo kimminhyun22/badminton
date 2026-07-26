@@ -33,7 +33,7 @@ assert(dailySrc.includes('officialQueueCardOpsV1:true'),'민턴LIVE 세션이 �
 assert(dailySrc.includes('officialAutoHandoffV1:!!_dailyOfficialInviteHash'),'민턴LIVE 세션은 서버 즉시 처리가 준비된 경우에만 다음 대진 자동 투입 기능을 명시해야 합니다.');
 assert(dailySrc.includes('officialOperationUndoV1:true'),'민턴LIVE 세션이 임원의 입장·순서 작업 취소 기능을 명시해야 합니다.');
 assert(dailySrc.includes('isClubOfficial:!!p.isClubOfficial'),'민턴LIVE 참가자 세션에 임원 역할을 전달해야 합니다.');
-assert(dailySrc.includes('maxClaims:Math.min(20,Math.max(8,_dailyPlayers.filter(player=>player.isClubOfficial).length*2+2))'),'카카오·Safari·PWA를 오가는 임원 기기를 충분히 연결할 수 있어야 합니다.');
+assert(dailySrc.includes('maxClaims:Math.min(20,Math.max(8,_dailyPlayers.filter(player=>player.isClubOfficial||player.isTemporaryOfficial).length*2+2))'),'카카오·Safari·PWA를 오가는 임원·운영 도우미 기기를 충분히 연결할 수 있어야 합니다.');
 assert(dailySrc.includes("source:'club-official-complete'"),'임원 경기 종료는 관리자 원본에서 별도 출처로 기록해야 합니다.');
 assert(functionSource(dailySrc,'importDirectFromDaily','openEditDirectPlayer').includes('isClubOfficial:!!p.isClubOfficial'),'민턴LIVE 참가자를 팀전으로 가져올 때 임원 역할을 보존해야 합니다.');
 assert(functionSource(dailySrc,'dailyReset','dailyToggleAutoAssign').includes('_dailyStopOperatorHeartbeat'),'민턴LIVE 초기화 시 운영 연결과 화면 켜짐 요청을 정리해야 합니다.');
@@ -79,6 +79,7 @@ let session={players:[{id:'viewer',isClubOfficial:false}],event:{
 let officialRequests=[],sendingKey='',claimingOfficial=false;
 const document={getElementById:id=>id==='eventPanel'?eventPanel:null};
 function getLastSent(){return {playerId:'viewer'};}
+function isLiveOperatorPlayer(player){return !!(player&&(player.isClubOfficial||player.isTemporaryOfficial));}
 function eventNextList(){return session.event.next.slice(0,session.event.nextTarget).map((item,index)=>({...item,idx:index+1}));}
 function getLastComplete(){return {operation:'queue-yield',token:'old-official-action',remainingSec:30};}
 function afterPartyNames(){return [];}
@@ -571,7 +572,7 @@ assert.strictEqual(validationSandbox.api.error({...validBase,type:'official-play
 assert(validationSandbox.api.error({...validBase,type:'official-player-status',playerId:'playing',status:'done',expectedStatus:'playing',expectedLastStatusAt:30}).includes('진행 경기'),'경기중 선수 요청에는 현재 경기 식별값이 반드시 있어야 합니다.');
 assert(validationSandbox.api.error({...validBase,type:'official-player-status',playerId:'playing',status:'wait',expectedLastStatusAt:30}).includes('경기 후'),'경기중 선수의 복귀 처리는 허용하면 안 됩니다.');
 assert(validationSandbox.api.error({...validBase,type:'official-player-status',playerId:'member',status:'rest'}).includes('최신 상태'),'선수 상태 비교값이 없는 임원 요청을 적용하면 안 됩니다.');
-assert(validationSandbox.api.error({...validBase,actorPlayerId:'fake',type:'official-player-status',playerId:'member',status:'rest'}).includes('클럽 임원'),'요청 본문의 임원 표시는 믿지 않고 관리자 참가자 원본을 확인해야 합니다.');
+assert(validationSandbox.api.error({...validBase,actorPlayerId:'fake',type:'official-player-status',playerId:'member',status:'rest'}).includes('운영 권한'),'요청 본문의 임원 표시는 믿지 않고 관리자 참가자 원본을 확인해야 합니다.');
 assert(validationSandbox.api.error({...validBase,type:'official-player-status',playerId:'member',status:'rest',expectedLastStatusAt:19}).includes('이미 바뀌었습니다'),'선수 상태가 바뀐 오래된 요청을 적용하면 안 됩니다.');
 validationSandbox.api.setMemberLast(0);
 assert.strictEqual(validationSandbox.api.error({...validBase,type:'official-player-status',playerId:'member',status:'rest',expectedLastStatusAt:0}),'','비교값 0도 유효한 최신 상태로 처리해야 합니다.');

@@ -15,6 +15,7 @@ const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
 const MATCH_MINUTES = 15;
 const PARTNER_GAP_HARD = 3;
 const TEAM_DIFF_LIMIT = 2;
+const TEMPORARY_OFFICIAL_LIMIT = 4;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
 const SUPPORTED_TYPES = new Set([
@@ -27,6 +28,8 @@ const SUPPORTED_TYPES = new Set([
   'official-queue-yield',
   'official-partner-reservation',
   'official-partner-cancel',
+  'official-temporary-grant',
+  'official-temporary-revoke',
   'official-court-complete-undo',
   'official-operation-undo'
 ]);
@@ -144,6 +147,10 @@ function activePlayerIds(match){
 
 function playerById(session, id){
   return (session.players || []).find(player=>text(player?.id) === text(id)) || null;
+}
+
+function isLiveOperator(player){
+  return !!(player && (player.isClubOfficial || player.isTemporaryOfficial));
 }
 
 function effectiveLevel(player){
@@ -811,8 +818,15 @@ function validateCommon(session, request, now, options){
   if(grant.payload?.pid && text(grant.payload.pid) !== text(request.actorPlayerId)){
     return {reason:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
+  const temporaryRoleCommand = ['official-temporary-grant','official-temporary-revoke'].includes(request.type);
   const actor = playerById(session, request.actorPlayerId);
-  if(!actor || !actor.isClubOfficial)return {reason:'현재 참가 중인 클럽 임원만 운영 지원을 사용할 수 있습니다.'};
+  const adminClaim = temporaryRoleCommand && options?.adminClaim === true && !grant.payload?.pid;
+  if(!adminClaim && !isLiveOperator(actor)){
+    return {reason:'현재 운영 권한이 있는 회원만 운영 지원을 사용할 수 있습니다.'};
+  }
+  if(temporaryRoleCommand && !adminClaim && !actor?.isClubOfficial){
+    return {reason:'운영 도우미 지정은 관리자 또는 정식 클럽 임원만 할 수 있습니다.'};
+  }
   const createdAt = number(request.createdAt);
   const expiresAt = number(request.expiresAt, createdAt + OFFICIAL_OPERATION_TTL_MS);
   if(!createdAt || createdAt > now + 5 * 60 * 1000 || now > expiresAt || now - createdAt > OFFICIAL_OPERATION_TTL_MS){
@@ -823,6 +837,47 @@ function validateCommon(session, request, now, options){
     return {reason:'현재 진행이 일시 정지되어 있습니다. 재개 후 다시 처리해 주세요.'};
   }
   return {actor};
+}
+
+function applyTemporaryOfficial(session, request, now, operation, enabled){
+  const player = playerById(session, request.playerId);
+  if(!player)return '운영 도우미로 지정할 회원을 찾지 못했습니다.';
+  if(player.isGuest)return '클럽 회원만 운영 도우미로 지정할 수 있습니다.';
+  if(player.isClubOfficial)return '정식 클럽 임원은 운영 도우미 지정이 필요하지 않습니다.';
+  if(enabled && ['invited','planned','done'].includes(normalizeStatus(player.status))){
+    return '현장 참가가 확인된 회원만 운영 도우미로 지정할 수 있습니다.';
+  }
+  if(Object.prototype.hasOwnProperty.call(request, 'expectedIsTemporaryOfficial')
+    && !!request.expectedIsTemporaryOfficial !== !!player.isTemporaryOfficial){
+    return '운영 도우미 상태가 이미 바뀌었습니다. 화면을 확인해 주세요.';
+  }
+  if(enabled){
+    if(player.isTemporaryOfficial)return '이미 운영 도우미로 지정된 회원입니다.';
+    const currentCount = session.players.filter(item=>item?.isTemporaryOfficial && !item.isClubOfficial).length;
+    if(currentCount >= TEMPORARY_OFFICIAL_LIMIT){
+      return `운영 도우미는 최대 ${TEMPORARY_OFFICIAL_LIMIT}명까지 지정할 수 있습니다.`;
+    }
+    player.isTemporaryOfficial = true;
+    player.temporaryOfficialGrantedAt = now;
+    player.temporaryOfficialGrantedBy = request.actorPlayerId || 'system-admin';
+    player.temporaryOfficialGrantedByName = request.actorPlayerName || '관리자';
+  }else{
+    if(!player.isTemporaryOfficial)return '이미 운영 도우미 권한이 해제된 회원입니다.';
+    player.isTemporaryOfficial = false;
+    delete player.temporaryOfficialGrantedAt;
+    delete player.temporaryOfficialGrantedBy;
+    delete player.temporaryOfficialGrantedByName;
+  }
+  if(operation){
+    operation.result = {
+      temporaryOfficial:{
+        playerId:text(player.id),
+        enabled:!!enabled,
+        updatedAt:now
+      }
+    };
+  }
+  return '';
 }
 
 function applyArrival(session, request, now){
@@ -1425,6 +1480,8 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-queue-yield': return applyQueueYield(session, request, now);
     case 'official-partner-reservation': return applyPartnerReservation(session, request, now, requestId, operation);
     case 'official-partner-cancel': return applyPartnerCancel(session, request, now);
+    case 'official-temporary-grant': return applyTemporaryOfficial(session, request, now, operation, true);
+    case 'official-temporary-revoke': return applyTemporaryOfficial(session, request, now, operation, false);
     default: return '지원하지 않는 임원 운영 요청입니다.';
   }
 }
@@ -1463,7 +1520,9 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
   const operation = {result:null};
   const reason = applyByType(session, request, now, requestId, operation);
   if(reason)return {status:'rejected', reason, session:rawSession, serverOps:receipts};
-  replenishPrepared(session, {now, requestId});
+  if(!['official-temporary-grant','official-temporary-revoke'].includes(request.type)){
+    replenishPrepared(session, {now, requestId});
+  }
   session.serverRevision = beforeRevision + 1;
   session.serverUpdatedAt = now;
   session.serverLastRequestId = requestId;
@@ -1570,6 +1629,7 @@ module.exports = {
   MEMBER_STATUS_TTL_MS,
   OFFICIAL_UNDO_MS,
   AUTO_HANDOFF_WINDOW_MS,
+  TEMPORARY_OFFICIAL_LIMIT,
   applyOfficialRequest,
   applyMemberStatusRequest,
   refreshEvent,

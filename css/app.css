@@ -2099,6 +2099,63 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-op.is-link b,
 .daily-op.is-link span,
 .daily-op.is-link small{pointer-events:none;}
+.daily-temporary-officials{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid #d9e7df;
+  border-radius:8px;
+  background:#f8fcfa;
+}
+.daily-temporary-official-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  color:#244136;
+}
+.daily-temporary-official-head div{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.daily-temporary-official-head b{font-size:.82rem;font-weight:1000;}
+.daily-temporary-official-head small{font-size:.64rem;color:#71847b;font-weight:800;line-height:1.35;}
+.daily-temporary-official-head>span{font-size:.68rem;color:#4f7363;font-weight:1000;white-space:nowrap;}
+.daily-temporary-official-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.daily-temporary-official-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:34px;
+  padding:4px 5px 4px 10px;
+  border:1px solid #b9dbc9;
+  border-radius:8px;
+  background:#fff;
+  color:#24533f;
+}
+.daily-temporary-official-chip b{font-size:.7rem;font-weight:1000;}
+.daily-temporary-official-chip button{
+  min-width:44px;
+  min-height:44px;
+  padding:0 8px;
+  border:0;
+  border-radius:6px;
+  background:#edf5f1;
+  color:#587268;
+  font:900 .62rem/1 inherit;
+}
+.daily-temporary-official-add{display:grid;grid-template-columns:minmax(0,1fr) 72px;gap:7px;margin-top:10px;}
+.daily-temporary-official-add select,
+.daily-temporary-official-add button{
+  min-width:0;
+  min-height:44px;
+  border:1px solid #cbded4;
+  border-radius:8px;
+  font-family:inherit;
+  font-size:.72rem;
+  font-weight:900;
+}
+.daily-temporary-official-add select{padding:0 10px;background:#fff;color:#283a33;}
+.daily-temporary-official-add button{background:#347c5b;color:#fff;}
+.daily-temporary-official-add button:disabled,
+.daily-temporary-official-add select:disabled,
+.daily-temporary-official-chip button:disabled{opacity:.45;cursor:not-allowed;}
 .daily-auto-row,
 .daily-admin-alert,
 .daily-checkin-req,

@@ -10,6 +10,7 @@ function applyCommandTransaction(current, input){
     payloadHash,
     clientId,
     grantPlayerId,
+    grantClaimNonce,
     now,
     checkinId,
     grantSecret
@@ -33,6 +34,11 @@ function applyCommandTransaction(current, input){
   if(signedPlayerId && String(storedCommand.actorPlayerId || '') !== signedPlayerId){
     return {action:'abort',failureCode:'permission-denied',failureMessage:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
+  const claimNonce=String(claim.claimNonce || '');
+  const signedClaimNonce=String(grantClaimNonce || '');
+  if(claimNonce !== signedClaimNonce){
+    return {action:'abort',failureCode:'permission-denied',failureMessage:'운영 권한 연결이 갱신되었습니다. 본인 이름을 다시 선택해 주세요.'};
+  }
   current.serverCommands = current.serverCommands || {};
   const previous = current.serverCommands[operationId];
   if(previous){
@@ -47,6 +53,7 @@ function applyCommandTransaction(current, input){
     requestId:operationId,
     checkinId,
     grantSecret,
+    adminClaim:!signedPlayerId && claim.claimMode === 'invite',
     serverOps:current.serverOps || {}
   });
   if(applied.status === 'skipped'){
@@ -70,6 +77,15 @@ function applyCommandTransaction(current, input){
   }else{
     current.session = applied.session;
     const serverResult=applied.result&&typeof applied.result==='object'?applied.result:null;
+    const temporaryOfficial=serverResult?.temporaryOfficial;
+    if(temporaryOfficial && temporaryOfficial.enabled === false){
+      const revokedPlayerId=String(temporaryOfficial.playerId || '');
+      Object.keys(current.officialClaims || {}).forEach(key=>{
+        if(String(current.officialClaims[key]?.officialPlayerId || '') === revokedPlayerId){
+          delete current.officialClaims[key];
+        }
+      });
+    }
     requestRow.serverAppliedAt = now;
     requestRow.serverRevision = applied.revision || 0;
     requestRow.serverProcessedBy = 'cloud-function-v2';
