@@ -2162,6 +2162,105 @@ summary:focus-visible{
   background:#edf7f1;
   color:var(--green-deep);
 }
+.official-overview{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid #dbe5e1;
+  border-left:3px solid #7fa1ca;
+  border-radius:8px;
+  background:#f8faf9;
+}
+.official-overview-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+}
+.official-overview-head b{font-size:15px;color:#34433d;}
+.official-overview-head span{font-size:12px;font-weight:800;color:#6d7c76;}
+.official-overview-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:5px;
+}
+.official-overview-stat{
+  min-width:0;
+  min-height:54px;
+  padding:7px 3px;
+  border:1px solid #e0e7e4;
+  border-radius:7px;
+  background:#fff;
+  color:#44514c;
+  text-align:center;
+}
+.official-overview-stat b{display:block;font-size:18px;line-height:1.1;color:#315f9d;}
+.official-overview-stat span{display:block;margin-top:4px;font-size:10px;font-weight:800;white-space:nowrap;}
+.official-overview-stat.current{background:#edf7f1;border-color:#cfe5d8;}
+.official-overview-stat.current b{color:#247a50;}
+.official-overview-stat.alert{background:#fff7eb;border-color:#f2dfbc;}
+.official-overview-stat.alert b{color:#936416;}
+.official-overview-stat.active{
+  border-color:#7096c7;
+  box-shadow:0 0 0 2px rgba(87,127,186,.13);
+}
+.official-overview-detail{
+  margin-top:9px;
+  border-top:1px solid #dfe7e4;
+  padding-top:9px;
+}
+.official-overview-detail-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:6px;
+}
+.official-overview-detail-head b{font-size:13px;color:#34433d;}
+.official-overview-detail-head button{
+  width:30px;
+  height:30px;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:#edf1ef;
+  color:#64716c;
+  font-size:19px;
+}
+.official-overview-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px;
+  max-height:230px;
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+.official-overview-player{
+  min-width:0;
+  padding:7px 8px;
+  border-radius:6px;
+  background:#fff;
+}
+.official-overview-player b{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:12px;
+  color:#26332e;
+}
+.official-overview-player small{
+  display:block;
+  margin-top:2px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:10px;
+  color:#7b8782;
+}
+@media(max-width:370px){
+  .official-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+}
 .official-arrival,
 .official-member-status,
 .official-partner,
@@ -2270,7 +2369,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.470">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.471">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="콕매치">
@@ -2285,13 +2384,13 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.470</span>
+    <span class="version-chip" id="appVersion">v1.10.471</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
   <div id="myCard" class="my-card-wrap hidden"></div>
-  <div id="afterPartyPanel" class="after-party-panel hidden"></div>
   <div id="officialPanel" class="panel official-panel hidden"></div>
+  <div id="afterPartyPanel" class="after-party-panel hidden"></div>
   <section class="panel" id="lookupPanel">
     <div class="toolbar">
       <input id="search" class="search" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ" autocomplete="off">
@@ -2331,8 +2430,8 @@ const FB_CONFIG={
   messagingSenderId:"57349245242",
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
-let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.470';
+let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
+const APP_VERSION='1.10.471';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -2841,6 +2940,53 @@ function renderVoteSummary(){
     [s.rest,'휴식','warn']
   ];
   el.innerHTML=cards.map(([value,label,cls])=>`<div class="vote-chip ${cls}"><b>${value}${official?'':'명'}</b><span>${label}</span></div>`).join('');
+}
+function officialOverviewPlayers(filter){
+  const players=(session?.players||[]).filter(player=>player?.name&&!player.registrationCancelled);
+  const statuses={
+    current:new Set(['wait','playing','rest']),
+    playing:new Set(['playing']),
+    wait:new Set(['wait']),
+    rest:new Set(['rest']),
+    done:new Set(['done']),
+    preArrival:new Set(['invited','planned'])
+  };
+  const allowed=statuses[filter];
+  const list=filter==='total'?players:players.filter(player=>allowed?.has(String(player.status||'')));
+  const order={playing:0,wait:1,rest:2,invited:3,planned:3,done:4};
+  return list.sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||String(a.name).localeCompare(String(b.name),'ko'));
+}
+function setOfficialOverviewFilter(filter){
+  const allowed=['total','current','playing','wait','rest','done','preArrival'];
+  if(!allowed.includes(filter))return;
+  officialOverviewFilter=officialOverviewFilter===filter?'':filter;
+  render();
+  setTimeout(()=>document.getElementById('officialOverviewDetail')?.scrollIntoView({block:'nearest'}),0);
+}
+function officialOperationsSummaryHtml(player){
+  if(!isLiveOperatorPlayer(player))return '';
+  const summary=voteSummary();
+  if(!summary)return '';
+  const cards=[
+    {key:'total',label:'등록',value:summary.total},
+    {key:'current',label:'현장',value:summary.current,cls:'current'},
+    {key:'playing',label:'경기중',value:summary.playing},
+    {key:'wait',label:'대기',value:summary.waitTotal},
+    {key:'rest',label:'휴식',value:summary.rest,cls:'alert'},
+    {key:'done',label:'종료',value:summary.done},
+    {key:'preArrival',label:'도착 전',value:summary.preArrival,cls:summary.preArrival?'alert':''}
+  ];
+  const selected=cards.find(card=>card.key===officialOverviewFilter);
+  const detailPlayers=selected?officialOverviewPlayers(selected.key):[];
+  const detail=selected?`<div class="official-overview-detail" id="officialOverviewDetail">
+    <div class="official-overview-detail-head"><b>${esc(selected.label)} ${detailPlayers.length}명</b><button type="button" onclick="setOfficialOverviewFilter('${selected.key}')" aria-label="${esc(selected.label)} 명단 닫기">×</button></div>
+    <div class="official-overview-list">${detailPlayers.length?detailPlayers.map(item=>`<span class="official-overview-player"><b>${esc(item.name)}</b><small>${esc(compactLabel(item.status))} · ${Number(item.games||0)}게임</small></span>`).join(''):'<span class="official-overview-player"><b>해당 회원 없음</b></span>'}</div>
+  </div>`:'';
+  return `<div class="official-overview">
+    <div class="official-overview-head"><b>운영 현황</b><span>현장 ${summary.current}명</span></div>
+    <div class="official-overview-grid">${cards.map(card=>`<button type="button" class="official-overview-stat ${card.cls||''} ${officialOverviewFilter===card.key?'active':''}" onclick="setOfficialOverviewFilter('${card.key}')" aria-pressed="${officialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
+    ${detail}
+  </div>`;
 }
 function renderBalancePolicy(){
   // 회원 화면에서는 관리자용 운영 정보를 노출하지 않는다.
@@ -3847,6 +3993,7 @@ function officialSupportHtml(p){
   return `<section class="official-support">
     <div class="official-support-head"><b>${roleLabel}</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
     <span class="official-fairness ${fair.count?'warn':''}">${esc(fair.label)}</span>
+    ${officialOperationsSummaryHtml(p)}
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
     ${officialArrivalToolsHtml(p,disabled)}

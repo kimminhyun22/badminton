@@ -38,6 +38,9 @@ assert(dailySrc.includes("source:'club-official-complete'"),'임원 경기 종�
 assert(functionSource(dailySrc,'importDirectFromDaily','openEditDirectPlayer').includes('isClubOfficial:!!p.isClubOfficial'),'민턴LIVE 참가자를 팀전으로 가져올 때 임원 역할을 보존해야 합니다.');
 assert(functionSource(dailySrc,'dailyReset','dailyToggleAutoAssign').includes('_dailyStopOperatorHeartbeat'),'민턴LIVE 초기화 시 운영 연결과 화면 켜짐 요청을 정리해야 합니다.');
 assert(checkin.includes('클럽 임원 운영'),'회원 페이지에서 임원 중심 운영 화면을 제공해야 합니다.');
+assert(checkin.indexOf('id="officialPanel"')<checkin.indexOf('id="afterPartyPanel"'),'임원 운영 현황은 개인 카드 다음, 뒷풀이 정보보다 먼저 보여야 합니다.');
+assert(checkin.includes('${officialOperationsSummaryHtml(p)}'),'임원이 이름을 선택한 뒤에도 운영 현황이 임원 패널 안에 표시되어야 합니다.');
+assert(['등록','현장','경기중','대기','휴식','종료','도착 전'].every(label=>checkin.includes(`label:'${label}'`)),'임원 운영 현황에는 관리자와 같은 7개 인원 상태가 있어야 합니다.');
 assert(indexHtml.includes('임원이 두 선수를 접수합니다.')&&indexHtml.includes('뒷풀이 참석은 내 카드에서 직접 신청하거나 취소합니다.'),'사용 안내도 임원 파트너 접수와 회원 뒷풀이 신청 정책을 따라야 합니다.');
 assert(!checkin.includes('관리자 앱 연결 필요'),'임원 화면이 시스템 관리자 호출을 일상 운영의 전제로 보여주면 안 됩니다.');
 assert(checkin.includes("serverReady?'서버 즉시 처리'"),'임원에게 현재 운영 연결 상태를 짧게 보여줘야 합니다.');
@@ -51,6 +54,44 @@ assert(officialPush.includes("httpsCallable('submitDailyOfficialRequest')"),'임
 assert(officialPush.includes("db.ref(checkinPath()+'/requests/'+req.operationId)"),'서버 권한이 없는 구 링크도 관리자 앱이 켜져 있으면 기존 자동 처리 방식으로 이어져야 합니다.');
 assert(checkin.includes('OFFICIAL_OPERATION_TTL_MS=30*60*1000')&&dailySrc.includes('DAILY_OFFICIAL_OPERATION_TTL_MS=30*60*1000'),'관리자가 한 경기 동안 자리를 비워도 임원 요청이 만료되지 않아야 합니다.');
 assert(checkin.includes("source:'club-official-support'"),'임원 요청을 일반 회원 요청과 구분해야 합니다.');
+const officialOverviewSandbox={};
+vm.createContext(officialOverviewSandbox);
+vm.runInContext(`
+let officialOverviewFilter='';
+let session={players:[
+  {id:'o',name:'운영임원',status:'wait',games:2,isClubOfficial:true},
+  {id:'p',name:'경기회원',status:'playing',games:1},
+  {id:'r',name:'휴식회원',status:'rest',games:3},
+  {id:'d',name:'종료회원',status:'done',games:4},
+  {id:'l1',name:'도착전1',status:'planned',games:0},
+  {id:'l2',name:'도착전2',status:'invited',games:0},
+  {id:'w',name:'대기회원',status:'wait',games:1},
+  {id:'x',name:'오등록취소',status:'planned',games:0,registrationCancelled:true}
+]};
+function visibleUnscheduledCount(){return session.players.filter(player=>player.status==='wait').length;}
+function esc(value){return String(value||'');}
+function compactLabel(status){return ({wait:'참가 중',playing:'경기중',rest:'휴식 중',done:'운동 종료',planned:'도착 전',invited:'도착 전'})[status]||status;}
+function render(){}
+const document={getElementById(){return null;}};
+${functionSource(checkin,'isLiveOperatorPlayer','selectedOfficialPlayer')}
+${functionSource(checkin,'voteSummary','renderVoteSummary')}
+${functionSource(checkin,'officialOverviewPlayers','renderBalancePolicy')}
+this.api={
+  players:officialOverviewPlayers,
+  html:officialOperationsSummaryHtml,
+  filter(value){officialOverviewFilter=value;}
+};
+`,officialOverviewSandbox);
+assert.strictEqual(officialOverviewSandbox.api.players('total').length,7,'임원 등록 집계는 오등록 취소 선수를 제외해야 합니다.');
+assert.strictEqual(officialOverviewSandbox.api.players('current').length,4,'현장 집계는 대기·경기중·휴식 회원을 모두 포함해야 합니다.');
+assert.strictEqual(officialOverviewSandbox.api.players('preArrival').length,2,'도착 전 명단은 planned와 invited를 함께 보여야 합니다.');
+const officialOverviewHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
+assert(officialOverviewHtml.includes('운영 현황')&&officialOverviewHtml.includes('현장 4명'),'임원 패널에서 현재 현장 인원을 바로 확인할 수 있어야 합니다.');
+assert.strictEqual((officialOverviewHtml.match(/official-overview-stat/g)||[]).length,7,'임원 현황에는 7개 상태 버튼이 정확히 한 번씩 있어야 합니다.');
+officialOverviewSandbox.api.filter('rest');
+const officialRestHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
+assert(officialRestHtml.includes('휴식회원')&&!officialRestHtml.includes('종료회원'),'상태 숫자를 누르면 해당 회원 명단만 펼쳐져야 합니다.');
+assert.strictEqual(officialOverviewSandbox.api.html({id:'w',name:'대기회원',status:'wait',isClubOfficial:false}),'','일반 회원에게 관리자용 운영 현황을 노출하면 안 됩니다.');
 const memberQueueNotice=functionSource(checkin,'nextQueueNoticeHtml','refreshMyQueueNotice');
 assert(!memberQueueNotice.includes('sendQueueEnterFree'),'일반 회원의 다음 대진 카드에서 직접 입장 처리를 제공하면 안 됩니다.');
 assert(!memberQueueNotice.includes('openCourtCompletePicker'),'일반 회원의 다음 대진 카드에서 코트 선택을 제공하면 안 됩니다.');
