@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.463';
+const APP_VERSION = '1.10.464';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1489,6 +1489,7 @@ function _dailyEligible(){
   return list;
 }
 const DAILY_FAIR_PRIORITY_GAP=0.75;
+const DAILY_FAIR_FORCE_GAP=1.5;
 function _dailyFairActual(p){
   if(!p)return 0;
   return Number(p.games||0)+((p.status==='playing'||p.currentMatchId)?1:0);
@@ -1755,6 +1756,9 @@ function _dailyBuildQueueItem(excludeIds,options){
     const w=eligible.filter(p=>p.team==='홍팀').length;
     if(b<2||w<2)return null;
   }
+  const urgent=[...eligible]
+    .sort((a,b)=>_dailyFairGap(b)-_dailyFairGap(a)||_dailyQueuePriorityScore(a)-_dailyQueuePriorityScore(b)||(a.waitFrom||0)-(b.waitFrom||0))
+    .find(p=>_dailyFairGap(p)>=DAILY_FAIR_FORCE_GAP)||null;
   const ranked=[...eligible].sort((a,b)=>{
     if(!!a.projectedActive!==!!b.projectedActive)return a.projectedActive?1:-1;
     if((a.projectedRank??999)!==(b.projectedRank??999))return (a.projectedRank??999)-(b.projectedRank??999);
@@ -1762,10 +1766,15 @@ function _dailyBuildQueueItem(excludeIds,options){
     if(priority)return priority;
     return (a.waitFrom||0)-(b.waitFrom||0);
   }).slice(0,22);
+  if(urgent&&!ranked.some(p=>p.id===urgent.id)){
+    ranked.splice(Math.max(0,ranked.length-1),1);
+    ranked.unshift(urgent);
+  }
   let best=null,bestScore=Infinity,strictBest=false;
-  const pick=(avoidExactRepeat)=>{
+  const pick=(avoidExactRepeat,requiredPlayerId)=>{
     best=null;bestScore=Infinity;strictBest=false;
     for(const four of _dailyCombos(ranked)){
+      if(requiredPlayerId&&!four.some(p=>p.id===requiredPlayerId))continue;
       if(!_dailyPartnerConstraintOk(four))continue;
       if(avoidExactRepeat&&_dailyFourRepeatCount(four)>0)continue;
       const m=_dailyTeamMode
@@ -1782,6 +1791,7 @@ function _dailyBuildQueueItem(excludeIds,options){
     if(best)return true;
     if(_dailyTeamMode)return false;
     for(const four of _dailyCombos(ranked)){
+      if(requiredPlayerId&&!four.some(p=>p.id===requiredPlayerId))continue;
       if(!_dailyPartnerConstraintOk(four))continue;
       if(avoidExactRepeat&&_dailyFourRepeatCount(four)>0)continue;
       const m=_dailyFlexibleMatch(four);
@@ -1792,7 +1802,10 @@ function _dailyBuildQueueItem(excludeIds,options){
     }
     return !!best;
   };
-  if(!pick(ranked.length>=8))pick(false);
+  if(urgent){
+    if(!pick(ranked.length>=8,urgent.id))pick(false,urgent.id);
+  }
+  if(!best&&!pick(ranked.length>=8))pick(false);
   if(!best)return null;
   const q=_dailyQueueFromMatch(best,bestScore,strictBest);
   if(options.expectedOnly){
@@ -8320,7 +8333,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.463&from=daily';
+  location.href='team.html?v=1.10.464&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

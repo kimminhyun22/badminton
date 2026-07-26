@@ -387,18 +387,22 @@ function operationalFingerprint(session){
     team1:queueTeam1Ids(match),
     team2:queueTeam2Ids(match)
   })).sort((a,b)=>a.court-b.court || a.id.localeCompare(b.id, 'ko'));
-  const next = (session.event?.next || []).map(item=>({
+  const prepared = items=>(items || []).map(item=>({
     id:text(item?.queueId || item?.id),
     team1:queueTeam1Ids(item),
     team2:queueTeam2Ids(item),
     reservationId:text(item?.reservationId),
     restPass:item?.restPass || null
   }));
+  const next = prepared(session.event?.next);
   const source = {
     players,
     reservations,
+    arrivalCandidates:session.arrivalCandidates || [],
     active,
     next,
+    expected:prepared(session.event?.expected),
+    serverStandby:prepared(session.event?.serverStandby),
     completed:number(session.event?.completed),
     finishMode:!!session.event?.finishMode,
     serverRuntime:{

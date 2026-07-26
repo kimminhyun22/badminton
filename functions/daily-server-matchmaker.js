@@ -12,6 +12,7 @@ const RECENT_RECOVERY_MIN = 12;
 const LATE_GRACE_MIN = 5;
 const LATE_PRIORITY_GAMES = 2;
 const FAIR_PRIORITY_GAP = 0.75;
+const FAIR_FORCE_GAP = 1.5;
 const MAX_CANDIDATES = 22;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
@@ -440,30 +441,51 @@ function bestReservationPairing(session, reservation, available, reference, now)
 }
 
 function bestGeneratedPairing(session, available, reference, now){
+  const urgent = available
+    .slice()
+    .sort((a,b)=>fairGap(b)-fairGap(a) ||
+      priorityScore(session, a, now)-priorityScore(session, b, now) ||
+      number(a.waitFrom)-number(b.waitFrom) ||
+      playerId(a).localeCompare(playerId(b), 'ko'))
+    .find(player=>fairGap(player) >= FAIR_FORCE_GAP) || null;
   const ranked = available
     .slice()
     .sort((a,b)=>priorityScore(session, a, now)-priorityScore(session, b, now) ||
       number(a.waitFrom)-number(b.waitFrom) ||
       playerId(a).localeCompare(playerId(b), 'ko'))
     .slice(0, MAX_CANDIDATES);
+  if(urgent && !ranked.some(player=>playerId(player) === playerId(urgent))){
+    ranked.splice(Math.max(0, ranked.length - 1), 1);
+    ranked.unshift(urgent);
+  }
   const passes = ranked.length >= 8 ? [true, false] : [false];
+  let fallback = null;
   for(const avoidFourRepeat of passes){
     let strictBest = null;
     let flexibleBest = null;
+    let urgentStrictBest = null;
+    let urgentFlexibleBest = null;
     forEachFour(ranked, four=>{
       if(!partnerSelectionValid(four))return;
       const fourCount = number(session.serverRuntime?.fourCounts?.[fourKeyFromIds(four.map(playerId))]);
       if(avoidFourRepeat && fourCount > 0)return;
+      const containsUrgent = !!urgent && four.some(player=>playerId(player) === playerId(urgent));
       const strict = bestPairingForFour(session, four, reference, now, true, null);
       if(strict && (!strictBest || strict.score < strictBest.score || (strict.score === strictBest.score && pairingKey(strict) < pairingKey(strictBest))))strictBest = strict;
+      if(strict && containsUrgent && (!urgentStrictBest || strict.score < urgentStrictBest.score || (strict.score === urgentStrictBest.score && pairingKey(strict) < pairingKey(urgentStrictBest))))urgentStrictBest = strict;
       if(!strict){
         const flexible = bestPairingForFour(session, four, reference, now, false, null);
         if(flexible && (!flexibleBest || flexible.score < flexibleBest.score || (flexible.score === flexibleBest.score && pairingKey(flexible) < pairingKey(flexibleBest))))flexibleBest = flexible;
+        if(flexible && containsUrgent && (!urgentFlexibleBest || flexible.score < urgentFlexibleBest.score || (flexible.score === urgentFlexibleBest.score && pairingKey(flexible) < pairingKey(urgentFlexibleBest))))urgentFlexibleBest = flexible;
       }
     });
-    if(strictBest || flexibleBest)return strictBest || flexibleBest;
+    const urgentBest = urgentStrictBest || urgentFlexibleBest;
+    if(urgentBest)return urgentBest;
+    const normalBest = strictBest || flexibleBest;
+    if(!fallback && normalBest)fallback = normalBest;
+    if(!urgent && normalBest)return normalBest;
   }
-  return null;
+  return fallback;
 }
 
 function queueId(requestId, pairing, index){
