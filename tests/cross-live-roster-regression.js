@@ -126,7 +126,7 @@ vm.runInContext(`
 let currentMatches=[],_liveOn=false,_liveId='',_directPlayers=[{name:'기존'}],_partners=[{id:'p1'}];
 let _partnerSelectMode=true,_partnerSelectName='기존',teamAssignment=null;
 let captains={blue:{leader:'기존',sub:''},white:{leader:'',sub:''}};
-let matchDirectors={primary:{name:'기존'},deputy:{name:''}};
+let temporaryOperators=[{memberId:'old',name:'기존'}];
 let currentParticipants=[{name:'기존'}],currentSettings={teamMode:true};
 let _teamParticipantSourceRsvpId='old',_lastRsvpImportSummary={attend:1};
 function _teamStoredLiveId(){return '';}
@@ -136,7 +136,6 @@ function _captureUndoSnapshot(){}
 function levelToGrade(){return 'C';}
 function gradeToLevel(){return 4;}
 function _teamEnsureMemberId(player){if(!player.memberId)player.memberId='generated-'+player.name;}
-function _teamEmptyMatchDirectors(){return {primary:{memberId:'',name:''},deputy:{memberId:'',name:''}};}
 function renderDirectPlayerList(){}
 function syncDirectToPaste(){}
 function updateTeamModeBadge(){}
@@ -147,7 +146,7 @@ function closeImportModal(){}
 ${teamImportSource}
 this.api={
   run:teamImportDailyRoster,
-  state:()=>({players:_directPlayers,partners:_partners,teamAssignment,matchDirectors,currentParticipants,currentSettings})
+  state:()=>({players:_directPlayers,partners:_partners,teamAssignment,temporaryOperators,currentParticipants,currentSettings})
 };
 `,teamSandbox);
 teamSandbox.api.run();
@@ -155,6 +154,7 @@ let teamState=JSON.parse(JSON.stringify(teamSandbox.api.state()));
 assert.deepStrictEqual(teamState.players.map(player=>player.name),['민턴하나','민턴둘'],'민턴LIVE 선수 명단이 팀전LIVE 참가자 목록을 정확히 교체해야 합니다.');
 assert.strictEqual(teamState.players[0].isClubOfficial,true,'양방향 복사 뒤에도 임원 정보를 유지해야 합니다.');
 assert.deepStrictEqual(teamState.partners,[],'팀전LIVE 기존 파트너 지정은 명단 교체와 함께 비워야 합니다.');
+assert.deepStrictEqual(teamState.temporaryOperators,[],'명단 교체 시 이전 자유대진 운영 도우미 권한을 남기면 안 됩니다.');
 assert.strictEqual(teamState.teamAssignment,null,'이전 청·홍팀 배정을 새 명단에 남기면 안 됩니다.');
 
 const dailyImportSource=sourceBetween(dailySrc,'_dailyRosterBridge','dailyAddPlayer');

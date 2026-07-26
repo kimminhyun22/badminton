@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.466';
+const APP_VERSION='1.10.467';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -901,7 +901,7 @@ function _normalizeMembers(list){
 function _sortMembers(list){
   const arr=_normalizeMembers(list);
   const sort=_teamRosterSort||'name';
-  const roleRank=p=>p.isLeader?0:p.isSub?1:p.isClubOfficial?2:p.directorRole==='primary'?3:p.directorRole==='deputy'?4:p.isDirector?5:6;
+  const roleRank=p=>p.isLeader?0:p.isSub?1:p.isClubOfficial?2:p.isTemporaryOperator?3:4;
   const genderRank=p=>p.g==='M'?0:p.g==='F'?1:2;
   return arr.sort((a,b)=>{
     if(sort==='late'||sort==='att'){
@@ -954,21 +954,19 @@ function _allLiveMembers(d){
   const members=d&&d.members?d.members:{};
   const rows=[];
   const officials=d&&d.officials?d.officials:{};
-  const directorSet=officials.matchDirectors||{};
-  const primary=directorSet.primary||officials.matchDirector||null;
-  const deputy=directorSet.deputy||officials.deputyMatchDirector||null;
-  const matchesOfficial=(p,official)=>{
-    if(!official)return false;
+  const rawTemporaryOperators=officials.temporaryOperators;
+  const temporaryOperators=Array.isArray(rawTemporaryOperators)
+    ?rawTemporaryOperators
+    :(rawTemporaryOperators&&typeof rawTemporaryOperators==='object'?Object.values(rawTemporaryOperators):[]);
+  const matchesTemporaryOperator=(p,operator)=>{
+    if(!operator)return false;
     const playerId=String(p.id||p.memberId||'');
-    const officialId=String(official.memberId||official.id||'');
-    if(playerId&&officialId)return playerId===officialId;
-    return !!(official.name&&p.n===official.name);
+    const operatorId=String(operator.memberId||operator.id||'');
+    return !!(playerId&&operatorId&&playerId===operatorId);
   };
   const add=(p,team)=>{
-    const directorRole=p.directorRole
-      ||(matchesOfficial(p,primary)?'primary':matchesOfficial(p,deputy)?'deputy':'');
-    const isDirector=!!(p.isDirector||directorRole);
-    rows.push({...p,team,isDirector,directorRole:directorRole||(p.isDirector?'primary':'')});
+    const isTemporaryOperator=temporaryOperators.some(operator=>matchesTemporaryOperator(p,operator));
+    rows.push({...p,team,isTemporaryOperator});
   };
   _normalizeMembers(members.blue||[]).forEach(p=>add(p,'blue'));
   _normalizeMembers(members.red||[]).forEach(p=>add(p,'red'));
@@ -1053,9 +1051,7 @@ function _viewerRoleText(p){
   if(p.isLeader) return p.isClubOfficial?'단장 · 클럽 임원':'단장';
   if(p.isSub) return p.isClubOfficial?'부단장 · 클럽 임원':'부단장';
   if(p.isClubOfficial) return '클럽 임원';
-  if(p.directorRole==='primary') return '경기이사(정)';
-  if(p.directorRole==='deputy') return '경기이사(부)';
-  if(p.isDirector) return '경기이사';
+  if(p.isTemporaryOperator) return '운영 도우미';
   return '선수';
 }
 function _viewerPartnerText(p){
@@ -1264,7 +1260,7 @@ function _canSubmitResult(m,d){
   const names=[...(m.t1||[]),...(m.t2||[])].filter(Boolean);
   if(names.includes(viewer.n)) return true;
   if(_isTeamLiveData(d)&&viewer.isClubOfficial)return true;
-  if(_isTeamLiveData(d)&&viewer.isDirector)return true;
+  if(_isTeamLiveData(d)&&!_usesFixedTeams(d)&&viewer.isTemporaryOperator)return true;
   return !!(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub));
 }
 
@@ -1272,8 +1268,8 @@ function _resultRoleForSubmit(d,m){
   const viewer=_viewerInfo(d);
   if(!viewer) return '';
   const names=[...(m&&m.t1||[]),...(m&&m.t2||[])].filter(Boolean);
-  if(viewer.isDirector) return 'director';
   if(viewer.isClubOfficial) return 'clubOfficial';
+  if(!_usesFixedTeams(d)&&viewer.isTemporaryOperator) return 'temporaryOperator';
   if(names.includes(viewer.n)) return 'player';
   if(viewer.isLeader) return 'leader';
   if(viewer.isSub) return 'sub';
@@ -1291,7 +1287,7 @@ async function submitLiveWin(matchIdx,side){
     return;
   }
   if(!_canSubmitResult(m,d)){
-    alert('이 경기의 선수 또는 단장/부단장·경기이사·클럽 임원만 승패를 입력할 수 있어요.');
+    alert('이 경기 선수·단장/부단장·클럽 임원·자유대진 운영 도우미만 승패를 입력할 수 있어요.');
     return;
   }
   if(!liveDb || !liveId){
@@ -1301,12 +1297,15 @@ async function submitLiveWin(matchIdx,side){
   const key=_matchKey(m);
   const nameKey=_attKey(viewer.n);
   const role=_resultRoleForSubmit(d,m);
-  const directorRole=viewer.isDirector?(viewer.directorRole||'primary'):'';
   const memberId=viewer.id||viewer.memberId||'';
   try{
     let conflictExisting='';
     let missingMatch=false;
     let notCurrentMatch=false;
+    let permissionRevoked=false;
+    let confirmedName=viewer.n;
+    let confirmedMemberId=memberId;
+    let confirmedRole=role;
     const liveRef=liveDb.ref('live/'+liveId);
     const result=await liveRef.transaction(data=>{
       if(!data||!Array.isArray(data.matches)||!data.matches[matchIdx]){
@@ -1314,6 +1313,17 @@ async function submitLiveWin(matchIdx,side){
         return;
       }
       const liveMatch=data.matches[matchIdx];
+      const freshViewer=_viewerInfo(data);
+      const freshMemberId=String(freshViewer?.id||freshViewer?.memberId||'');
+      if(!freshViewer
+        ||(memberId&&freshMemberId!==String(memberId))
+        ||!_canSubmitResult({...liveMatch,win:null},data)){
+        permissionRevoked=true;
+        return;
+      }
+      confirmedName=freshViewer.n;
+      confirmedMemberId=freshMemberId||memberId;
+      confirmedRole=_resultRoleForSubmit(data,{...liveMatch,win:null});
       const rounds=[...new Set(data.matches.map(x=>x&&x.round).filter(Boolean))].sort((a,b)=>a-b);
       const currentRound=Number(data.currentRound)||rounds.find(r=>data.matches.filter(x=>x&&x.round===r).some(x=>!x.win))||0;
       if(Number(liveMatch.round)!==Number(currentRound)){
@@ -1328,17 +1338,16 @@ async function submitLiveWin(matchIdx,side){
       const now=Date.now();
       if(!existing){
         liveMatch.win=side;
-        liveMatch.winBy=viewer.n;
-        liveMatch.winByMemberId=memberId;
-        liveMatch.winByRole=role;
-        liveMatch.winByDirectorRole=directorRole;
+        liveMatch.winBy=confirmedName;
+        liveMatch.winByMemberId=confirmedMemberId;
+        liveMatch.winByRole=confirmedRole;
         liveMatch.winAt=now;
       }
       data.resultInputs=data.resultInputs||{};
       data.resultInputs[key]=data.resultInputs[key]||{};
       data.resultInputs[key][nameKey]={
         matchKey:key,matchIdx,side,
-        byName:viewer.n,byMemberId:memberId,byRole:role,byDirectorRole:directorRole,ts:now
+        byName:confirmedName,byMemberId:confirmedMemberId,byRole:confirmedRole,ts:now
       };
       let blueWins=0,whiteWins=0;
       if(_usesFixedTeams(data)){
@@ -1353,6 +1362,10 @@ async function submitLiveWin(matchIdx,side){
       data.updatedAt=now;
       return data;
     });
+    if(!result.committed&&permissionRevoked){
+      alert('운영 권한이 변경되었습니다. 최신 화면을 확인해 주세요.');
+      return;
+    }
     if(!result.committed&&notCurrentMatch){
       alert('현재 진행 중인 경기만 승패를 입력할 수 있어요. 화면을 새로 확인해주세요.');
       return;
@@ -1360,7 +1373,7 @@ async function submitLiveWin(matchIdx,side){
     if(!result.committed&&conflictExisting){
       await liveDb.ref('live/'+liveId+'/resultConflicts/'+key+'/'+nameKey).set({
         matchKey:key,matchIdx,requested:side,existing:conflictExisting,
-        byName:viewer.n,byMemberId:memberId,byRole:role,byDirectorRole:directorRole,
+        byName:confirmedName,byMemberId:confirmedMemberId,byRole:confirmedRole,
         ts:firebase.database.ServerValue.TIMESTAMP
       });
       alert('이미 다른 결과가 입력되어 관리자 확인으로 보냈어요.');
@@ -1485,14 +1498,10 @@ function buildTeamRosterCard(d){
     const arr=_sortMembers(list);
     if(!arr.length) return '<div class="faq-note">명단이 없습니다.</div>';
     return arr.map(p=>{
-      const directorBadge=p.directorRole==='primary'
-        ?'<span class="team-member-badge director primary" title="정 경기이사">경정</span>'
-        :p.directorRole==='deputy'
-          ?'<span class="team-member-badge director deputy" title="부 경기이사">경부</span>'
-          :p.isDirector?'<span class="team-member-badge director" title="경기이사">경</span>':'';
       const officialBadge=p.isClubOfficial?'<span class="team-member-badge official" title="클럽 임원">임</span>':'';
+      const operatorBadge=p.isTemporaryOperator?'<span class="team-member-badge temporary-operator" title="운영 도우미">운</span>':'';
       const badge=(p.isLeader?'<span class="team-member-badge" title="단장">단</span>':p.isSub?'<span class="team-member-badge" title="부단장">부</span>':'')
-        +officialBadge+directorBadge;
+        +officialBadge+operatorBadge;
       const on=_lateOn(p.n);
       const partyOn=_partyOn(p.n);
       const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');

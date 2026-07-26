@@ -860,24 +860,25 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .dir-sort-btn.active{border-color:var(--bl);background:var(--bl-soft);color:var(--bl);}
 .dir-player-item{display:flex;align-items:center;gap:8px;background:#fff;
   border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;animation:fadeUp .2s ease both;}
-.match-director-panel{margin-top:10px;padding:12px;border:1px solid #cfe9dc;border-radius:8px;background:#f5fbf8;}
-.match-director-panel.hidden{display:none;}
-.match-director-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0;margin-bottom:9px;}
-.match-director-head b{font-size:.82rem;color:#215c45;}
-.match-director-head span{font-size:.66rem;font-weight:700;color:#6f8d80;white-space:nowrap;}
-.match-director-role-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
-.match-director-role-row{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:center;gap:8px;
-  min-width:0;padding:7px;border:1px solid #d7e9e0;border-radius:7px;background:#fff;}
-.match-director-role-row.primary{border-color:#b9d8f6;background:#f8fbff;}
-.match-director-role-row.deputy{border-color:#d7e9e0;background:#fbfdfc;}
-.match-director-role-mark{display:flex;align-items:center;gap:4px;white-space:nowrap;}
-.match-director-role-mark b{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;
-  border-radius:50%;background:#4d82cf;color:#fff;font-size:.7rem;}
-.match-director-role-row.deputy .match-director-role-mark b{background:#4c8b70;}
-.match-director-role-mark small{font-size:.58rem;font-weight:800;color:#718077;}
-.match-director-select{width:100%;min-height:38px;padding:7px 32px 7px 10px;border:1.5px solid #afd8c4;border-radius:7px;
-  background:#fff;color:#214c3c;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;font-weight:700;outline:none;}
-.match-director-select:focus{border-color:#4c9b75;box-shadow:0 0 0 3px rgba(76,155,117,.12);}
+.team-temporary-operator-panel{margin-top:10px;padding:12px;border:1px solid #cfe9dc;border-radius:8px;background:#f5fbf8;}
+.team-temporary-operator-panel.hidden{display:none;}
+.team-temporary-operator-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;color:#215c45;}
+.team-temporary-operator-head div{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.team-temporary-operator-head b{font-size:.82rem;}
+.team-temporary-operator-head small{font-size:.64rem;font-weight:700;color:#6f8d80;line-height:1.4;}
+.team-temporary-operator-head>span{font-size:.68rem;font-weight:900;color:#4f7363;white-space:nowrap;}
+.team-temporary-operator-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.team-temporary-operator-chip{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:4px 5px 4px 10px;
+  border:1px solid #b9dbc9;border-radius:8px;background:#fff;color:#24533f;}
+.team-temporary-operator-chip b{font-size:.7rem;font-weight:900;}
+.team-temporary-operator-chip button{min-width:44px;min-height:40px;padding:0 8px;border:0;border-radius:6px;
+  background:#edf5f1;color:#587268;font:900 .62rem/1 'Noto Sans KR',sans-serif;cursor:pointer;}
+.team-temporary-operator-add{display:grid;grid-template-columns:minmax(0,1fr) 72px;gap:7px;margin-top:10px;}
+.team-temporary-operator-add select,.team-temporary-operator-add button{min-width:0;min-height:44px;border:1px solid #cbded4;
+  border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:.72rem;font-weight:900;}
+.team-temporary-operator-add select{padding:0 10px;background:#fff;color:#283a33;}
+.team-temporary-operator-add button{background:#347c5b;color:#fff;cursor:pointer;}
+.team-temporary-operator-add select:disabled,.team-temporary-operator-add button:disabled{opacity:.45;cursor:not-allowed;}
 .dpi-name{flex:1;font-size:.84rem;font-weight:600;}
 .dpi-meta{font-size:.68rem;color:var(--dim);flex-shrink:0;}
 .dpi-del{width:26px;height:26px;border-radius:50%;border:1px solid #fecaca;
@@ -980,9 +981,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
   .lv-sel-label{font-size:.78rem;}
   .gender-sel-btn{font-size:.95rem;padding:9px 20px;min-height:44px;}
   .dir-player-item{padding:11px 13px;min-height:50px;}
-  .match-director-panel{padding:12px;}
-  .match-director-role-grid{grid-template-columns:1fr;}
-  .match-director-select{min-height:44px;font-size:.88rem;}
+  .team-temporary-operator-panel{padding:12px;}
+  .team-temporary-operator-add select{font-size:.82rem;}
   .dpi-name{font-size:.95rem;font-weight:700;}
   .dpi-meta{font-size:.75rem;}
   .dir-sort-btn{font-size:.74rem;padding:5px 12px;}

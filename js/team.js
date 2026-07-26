@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.466';
+const APP_VERSION = '1.10.467';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -113,7 +113,6 @@ function _captureUndoSnapshot(label){
     teamWanted: _teamWanted,
     partners: JSON.parse(JSON.stringify(_partners||[])),
     captains: JSON.parse(JSON.stringify(captains)),
-    officials: _teamSerializeOfficials(),
     matches: JSON.parse(JSON.stringify(currentMatches)),
     participants: JSON.parse(JSON.stringify(currentParticipants)),
     settings: JSON.parse(JSON.stringify(currentSettings)),
@@ -156,11 +155,6 @@ function undoAction(){
     _teamWanted=snap.teamWanted!=null?!!snap.teamWanted:_teamModeOverride!==false;
     if(Array.isArray(snap.partners))_partners=JSON.parse(JSON.stringify(snap.partners));
     if(snap.captains)captains=JSON.parse(JSON.stringify(snap.captains));
-    matchDirectors=_teamNormalizeMatchDirectors(
-      snap.officials?.matchDirectors,
-      snap.officials?.matchDirector,
-      snap.officials?.deputyMatchDirector
-    );
     currentMatches=JSON.parse(JSON.stringify(snap.matches||[]));
     currentParticipants=JSON.parse(JSON.stringify(snap.participants||[]));
     currentSettings=JSON.parse(JSON.stringify(snap.settings||{}));
@@ -577,11 +571,10 @@ let _teamModeOverride=null; // null=청·홍 팀전, false=자유 대진
 let _teamWanted=true; // 기본값은 청·홍 팀전
 // 단장/부단장 지정 { blue:{leader:'',sub:''}, white:{leader:'',sub:''} }
 let captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
-// 정·부 경기이사는 청·홍/자유 대진 모두에서 전체 경기 승패를 입력할 수 있다.
-let matchDirectors={
-  primary:{memberId:'',name:''},
-  deputy:{memberId:'',name:''}
-};
+const TEAM_TEMPORARY_OPERATOR_MAX=4;
+// 자유대진 운영 도우미는 현재 팀전LIVE에서만 전체 경기 승패를 입력할 수 있다.
+let temporaryOperators=[];
+let _teamTemporaryOperatorBusy=false;
 
 function stepVal(id, delta){
   const el=document.getElementById(id);
@@ -616,6 +609,7 @@ function setTeamMatchMode(mode){
   }
   _teamModeOverride=nextFree?false:null;
   _teamWanted=!nextFree;
+  if(!nextFree)temporaryOperators=[];
   if(currentMatches.length){
     if(!nextFree)teamAssignment=null;
     updateTeamModeBadge();
@@ -687,6 +681,7 @@ function updateTeamModeBadge(){
     if(wrap) wrap.classList.remove('show');
     if(reBtn) reBtn.classList.add('hidden');
   }
+  renderTeamTemporaryOperatorPanel();
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
   updateSettingsMiniSummary();
 }
@@ -2410,16 +2405,16 @@ function _buildLiveState(){
   const _subBlue=captains?.blue?.sub||null;
   const _leaderWhite=captains?.white?.leader||null;
   const _subWhite=captains?.white?.sub||null;
-  const resolvedOfficials=_teamResolveMatchDirectors(currentParticipants);
+  const resolvedTemporaryOperators=isTeam?[]:_teamResolveTemporaryOperators(currentParticipants);
+  const temporaryOperatorIds=new Set(resolvedTemporaryOperators.map(_teamEnsureMemberId).filter(Boolean));
   const liveMember=p=>{
-    const directorRole=_teamMatchDirectorRole(p,currentParticipants);
+    const memberId=_teamEnsureMemberId(p);
     return {
-      id:_teamEnsureMemberId(p),n:p.name||'',l:p.level||0,g:p.gender||'',
+      id:memberId,n:p.name||'',l:p.level||0,g:p.gender||'',
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial,
       partnerName:p.partnerName||getPartnerOf(p.name)||'',
-      isDirector:!!directorRole,
-      directorRole
+      isTemporaryOperator:!isTeam&&temporaryOperatorIds.has(memberId)
     };
   };
   const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>({
@@ -2432,8 +2427,6 @@ function _buildLiveState(){
   })):[];
   const membersAll=isTeam?[]:currentParticipants.map(liveMember);
   const liveOfficial=p=>p?{memberId:_teamEnsureMemberId(p),name:p.name}:null;
-  const primaryOfficial=liveOfficial(resolvedOfficials.primary);
-  const deputyOfficial=liveOfficial(resolvedOfficials.deputy);
   const ownerRsvpId=_currentBracketRsvpId();
   return {
     kind:'teamLive',
@@ -2444,9 +2437,7 @@ function _buildLiveState(){
     bracketKey:_teamLiveSignature(),
     members: {blue:membersBlue, red:membersRed, all:membersAll},
     officials:{
-      matchDirectors:{primary:primaryOfficial,deputy:deputyOfficial},
-      matchDirector:primaryOfficial||deputyOfficial,
-      deputyMatchDirector:deputyOfficial,
+      temporaryOperators:resolvedTemporaryOperators.map(liveOfficial).filter(Boolean),
       clubOfficials:currentParticipants.filter(p=>p&&p.isClubOfficial).map(liveOfficial)
     },
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
@@ -2637,8 +2628,11 @@ function _bindLiveAdminListener(){
     _liveParty=data.party||{};
     _liveResultInputs=data.resultInputs||{};
     _liveResultConflicts=data.resultConflicts||{};
+    temporaryOperators=_teamNormalizeTemporaryOperators(data.officials?.temporaryOperators);
+    _teamResolveTemporaryOperators(currentParticipants);
     _syncLiveWinsFromData(data);
     _renderLiveOpsSummary();
+    renderTeamTemporaryOperatorPanel();
     renderAutoFlowDashboard();
   };
   _liveAdminRef.on('value',_liveAdminHandler);
@@ -2660,6 +2654,8 @@ async function startLiveBroadcast(){
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
     if(!_teamValidateLiveDataForCurrent(prevData))return;
     _liveOn=true;
+    temporaryOperators=_teamNormalizeTemporaryOperators(prevData.officials?.temporaryOperators);
+    _teamResolveTemporaryOperators(currentParticipants);
     _liveMatchStartedAt=prevData.matchStartedAt||Date.now();
     const ownerRsvpId=_currentBracketRsvpId();
     const activeRsvpOwns=!!(_rsvpId && ownerRsvpId && _rsvpId===ownerRsvpId);
@@ -2761,8 +2757,11 @@ async function _tryResumeLive(opts={}){
       _liveParty=data.party||{};
       _liveResultInputs=data.resultInputs||{};
       _liveResultConflicts=data.resultConflicts||{};
+      temporaryOperators=_teamNormalizeTemporaryOperators(data.officials?.temporaryOperators);
+      _teamResolveTemporaryOperators(currentParticipants);
       _bindLiveAdminListener();
       _renderLiveOpsSummary();
+      renderTeamTemporaryOperatorPanel();
       _updateLiveUI();
 
       // Firebase의 win 데이터로 winOverride 복원 (앱 재시작으로 초기화됐어도 승패 유지)
@@ -2846,6 +2845,7 @@ function _teamResetLocalLiveState(liveId){
   _liveResultInputs={};
   _liveResultConflicts={};
   Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);
+  temporaryOperators=[];
   _liveOn=false;
   _liveId=null;
   _liveMatchStartedAt=null;
@@ -2910,6 +2910,7 @@ function _updateLiveUI(){
   }
   _teamSyncLiveStopShortcuts();
   _teamSyncLiveResumeShortcuts();
+  renderTeamTemporaryOperatorPanel();
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
 }
 
@@ -4293,7 +4294,6 @@ function saveState(){
     matchMode:_teamUsesFixedTeams()?'team':'free',
     teamModeOverride: _teamModeOverride,
     captains: JSON.parse(JSON.stringify(captains)),
-    officials: _teamSerializeOfficials(),
     partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
@@ -4472,11 +4472,7 @@ function restoreState(opts={}){
         gender:p.gender==='M'?'남':'여',team:p.team||''
       }));
     }
-    matchDirectors=_teamNormalizeMatchDirectors(
-      state.officials?.matchDirectors,
-      state.officials?.matchDirector||state.matchDirector,
-      state.officials?.deputyMatchDirector||state.deputyMatchDirector
-    );
+    temporaryOperators=[];
     renderDirectPlayerList();
     const parseStatus=document.getElementById('parseStatus');
     if(_directPlayers.length&&parseStatus){
@@ -5596,7 +5592,7 @@ async function resetAll(){
   const rbtn=document.getElementById('teamReassignBtn');
   if(rbtn) rbtn.classList.add('hidden');
   teamAssignment=null;_teamModeOverride=null;_teamWanted=true;captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
-  matchDirectors=_teamEmptyMatchDirectors();
+  temporaryOperators=[];
   _partners=[];_partnerSelectMode=false;_partnerSelectName=null;
   currentMatches=[];currentParticipants=[];currentSettings={};
   _teamParticipantSourceRsvpId=null;
@@ -5647,139 +5643,140 @@ function _teamEnsureMemberId(player){
   return String(player.memberId||'');
 }
 
-function _teamEmptyMatchDirectors(){
-  return {primary:{memberId:'',name:''},deputy:{memberId:'',name:''}};
-}
-
 function _teamNormalizeOfficial(value){
   if(!value)return {memberId:'',name:''};
   if(typeof value==='string')return {memberId:'',name:value};
   return {memberId:String(value.memberId||value.id||''),name:String(value.name||'')};
 }
 
-function _teamNormalizeMatchDirectors(raw,legacy,deputyLegacy){
-  const next=_teamEmptyMatchDirectors();
-  if(raw&&(raw.primary||raw.deputy)){
-    next.primary=_teamNormalizeOfficial(raw.primary);
-    next.deputy=_teamNormalizeOfficial(raw.deputy);
-  }else{
-    next.primary=_teamNormalizeOfficial(raw||legacy);
-    next.deputy=_teamNormalizeOfficial(deputyLegacy);
-  }
-  const p=next.primary,d=next.deputy;
-  if((p.memberId&&p.memberId===d.memberId)||(!p.memberId&&!d.memberId&&p.name&&p.name===d.name)){
-    next.deputy={memberId:'',name:''};
-  }
-  return next;
+function _teamNormalizeTemporaryOperators(raw){
+  const list=Array.isArray(raw)?raw:(raw&&typeof raw==='object'?Object.values(raw):[]);
+  const seen=new Set();
+  const out=[];
+  list.forEach(value=>{
+    const operator=_teamNormalizeOfficial(value);
+    const key=operator.memberId?`id:${operator.memberId}`:`name:${operator.name}`;
+    if((!operator.memberId&&!operator.name)||seen.has(key)||out.length>=TEAM_TEMPORARY_OPERATOR_MAX)return;
+    seen.add(key);
+    out.push(operator);
+  });
+  return out;
 }
 
-function _teamSerializeOfficials(){
-  const normalized=_teamNormalizeMatchDirectors(matchDirectors);
-  const primary={...normalized.primary};
-  const deputy={...normalized.deputy};
-  const legacyPrimary=(primary.memberId||primary.name)?primary:deputy;
-  return {
-    matchDirectors:{primary,deputy},
-    matchDirector:{...legacyPrimary},
-    deputyMatchDirector:{...deputy}
-  };
-}
-
-function _teamResolveMatchDirectors(players=_directPlayers){
+function _teamResolveTemporaryOperators(players=_directPlayers){
   const list=(players||[]).filter(p=>p&&p.name);
   list.forEach(_teamEnsureMemberId);
-  const next=_teamNormalizeMatchDirectors(matchDirectors);
-  const resolved={primary:null,deputy:null};
-  ['primary','deputy'].forEach(role=>{
-    const official=next[role];
-    if(!official.memberId&&!official.name)return;
-    const found=official.memberId
-      ?list.find(p=>_teamEnsureMemberId(p)===official.memberId)||null
-      :list.find(p=>official.name&&p.name===official.name)||null;
-    if(!found){
-      next[role]={memberId:'',name:''};
-      return;
-    }
-    next[role]={memberId:_teamEnsureMemberId(found),name:found.name};
-    resolved[role]=found;
+  const resolved=[];
+  _teamNormalizeTemporaryOperators(temporaryOperators).forEach(operator=>{
+    const found=operator.memberId
+      ?list.find(p=>_teamEnsureMemberId(p)===operator.memberId)||null
+      :null;
+    if(!found||found.isGuest||found.isClubOfficial)return;
+    if(resolved.some(p=>_teamEnsureMemberId(p)===_teamEnsureMemberId(found)))return;
+    resolved.push(found);
   });
-  if(next.primary.memberId&&next.primary.memberId===next.deputy.memberId){
-    next.deputy={memberId:'',name:''};
-    resolved.deputy=null;
-  }
-  matchDirectors=next;
+  temporaryOperators=resolved.slice(0,TEAM_TEMPORARY_OPERATOR_MAX).map(p=>({
+    memberId:_teamEnsureMemberId(p),
+    name:p.name
+  }));
   return resolved;
 }
 
-function _teamMatchDirectorRole(player,players=_directPlayers){
-  if(!player)return '';
-  _teamResolveMatchDirectors(players);
-  const playerId=_teamEnsureMemberId(player);
-  for(const role of ['primary','deputy']){
-    const official=matchDirectors[role];
-    if((playerId&&playerId===official.memberId)||(!official.memberId&&player.name===official.name))return role;
+async function setTeamTemporaryOperator(memberId,enabled){
+  if(_teamTemporaryOperatorBusy)return false;
+  if(_teamUsesFixedTeams()){
+    alert('운영 도우미는 자유대진에서만 지정할 수 있습니다.');
+    return false;
   }
-  return '';
-}
-
-function _teamIsMatchDirector(player){
-  return !!_teamMatchDirectorRole(player);
-}
-
-function setMatchDirector(role,memberId){
-  if(role!=='primary'&&role!=='deputy')return;
-  _teamResolveMatchDirectors();
+  if(!_liveOn||!_liveId){
+    alert('자유대진 LIVE를 시작한 뒤 운영 도우미를 지정해 주세요.');
+    return false;
+  }
+  _teamResolveTemporaryOperators();
   const next=String(memberId||'');
-  const current=String(matchDirectors[role]?.memberId||'');
-  if(next===current)return;
-  _captureUndoSnapshot('경기이사 변경 전');
-  if(!next){
-    matchDirectors[role]={memberId:'',name:''};
-  }else{
-    const player=_directPlayers.find(p=>_teamEnsureMemberId(p)===next);
-    if(!player)return;
-    const other=role==='primary'?'deputy':'primary';
-    const previous={...matchDirectors[role]};
-    if(matchDirectors[other]?.memberId===next)matchDirectors[other]=previous;
-    matchDirectors[role]={memberId:next,name:player.name};
+  const player=_directPlayers.find(p=>_teamEnsureMemberId(p)===next);
+  if(!player||player.isGuest)return false;
+  if(player.isClubOfficial){
+    alert('클럽 임원은 이미 모든 경기 승패를 입력할 수 있습니다.');
+    return false;
   }
-  _teamResolveMatchDirectors();
-  renderMatchDirectorPanel();
-  if(currentMatches.length)scheduleSave();
-  if(_liveOn)pushLiveState();
+  const exists=temporaryOperators.some(operator=>operator.memberId===next);
+  if(!!enabled===exists)return true;
+  if(enabled&&temporaryOperators.length>=TEAM_TEMPORARY_OPERATOR_MAX){
+    alert(`운영 도우미는 최대 ${TEAM_TEMPORARY_OPERATOR_MAX}명까지 지정할 수 있습니다.`);
+    return false;
+  }
+  const previous=temporaryOperators.map(operator=>({...operator}));
+  if(enabled){
+    temporaryOperators.push({memberId:next,name:player.name});
+  }else{
+    temporaryOperators=temporaryOperators.filter(operator=>operator.memberId!==next);
+  }
+  _teamResolveTemporaryOperators();
+  _teamTemporaryOperatorBusy=true;
+  renderTeamTemporaryOperatorPanel();
+  try{
+    if(!_fbDb&&!_fbInit())throw new Error('실시간 서버에 연결하지 못했습니다.');
+    const state=_buildLiveState();
+    await _fbDb.ref('live/'+_liveId).update({
+      officials:state.officials,
+      members:state.members,
+      updatedAt:Date.now()
+    });
+    _teamSyncMatchModeSession();
+    return true;
+  }catch(error){
+    temporaryOperators=previous;
+    alert('운영 도우미 변경을 저장하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+    return false;
+  }finally{
+    _teamTemporaryOperatorBusy=false;
+    renderTeamTemporaryOperatorPanel();
+  }
 }
 
-function renderMatchDirectorPanel(){
-  const panel=document.getElementById('matchDirectorPanel');
+function grantTeamTemporaryOperator(){
+  const memberId=document.getElementById('teamTemporaryOperatorSelect')?.value||'';
+  if(!memberId){
+    alert('운영을 도와줄 회원을 선택해 주세요.');
+    return false;
+  }
+  return setTeamTemporaryOperator(memberId,true);
+}
+
+function renderTeamTemporaryOperatorPanel(){
+  const panel=document.getElementById('teamTemporaryOperatorPanel');
   if(!panel)return;
   const players=(_directPlayers||[]).filter(p=>p&&p.name);
   players.forEach(_teamEnsureMemberId);
-  _teamResolveMatchDirectors(players);
-  if(!players.length){
+  _teamResolveTemporaryOperators(players);
+  if(!players.length||_teamUsesFixedTeams()||!_liveOn){
     panel.classList.add('hidden');
     panel.innerHTML='';
     return;
   }
   panel.classList.remove('hidden');
-  const sorted=players.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-  const roleRow=(role,mark,label)=>{
-    const selected=matchDirectors[role]?.memberId||'';
-    const options=sorted.map(p=>{
-      const id=_teamEnsureMemberId(p);
-      return `<option value="${esc(id)}"${id===selected?' selected':''}>${p.isClubOfficial?'[임원] ':''}${esc(p.name)}</option>`;
-    }).join('');
-    return `<label class="match-director-role-row ${role}">
-      <span class="match-director-role-mark"><b>${mark}</b><small>경기이사</small></span>
-      <select class="match-director-select" aria-label="${label} 경기이사 지정" onchange="setMatchDirector('${role}',this.value)">
-        <option value="">${label} 경기이사 지정</option>${options}
-      </select>
-    </label>`;
-  };
+  const activeIds=new Set(temporaryOperators.map(operator=>operator.memberId));
+  const candidates=players
+    .filter(p=>!p.isGuest&&!p.isClubOfficial&&!activeIds.has(_teamEnsureMemberId(p)))
+    .sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  const options=candidates.map(p=>`<option value="${esc(_teamEnsureMemberId(p))}">${esc(p.name)}</option>`).join('');
+  const disabled=_teamTemporaryOperatorBusy?'disabled':'';
+  const chips=temporaryOperators.map(operator=>`<span class="team-temporary-operator-chip">
+    <b>${esc(operator.name)}</b>
+    <button type="button" ${disabled} onclick="setTeamTemporaryOperator('${esc(operator.memberId)}',false)" aria-label="${esc(operator.name)} 운영 도우미 해제">해제</button>
+  </span>`).join('');
   const officialCount=players.filter(p=>p.isClubOfficial).length;
-  panel.innerHTML=`<div class="match-director-head"><b>LIVE 운영 권한</b><span>${officialCount?`클럽 임원 ${officialCount}명 자동 · `:''}경기이사 정·부 모두 승패 입력 가능</span></div>
-    <div class="match-director-role-grid">
-      ${roleRow('primary','정','정')}
-      ${roleRow('deputy','부','부')}
+  panel.innerHTML=`<div class="team-temporary-operator-head">
+      <div><b>자유대진 운영 도우미</b><small>${officialCount?`클럽 임원 ${officialCount}명은 자동 권한 · `:''}이번 LIVE에서만 모든 경기 승패 입력</small></div>
+      <span>${temporaryOperators.length}/${TEAM_TEMPORARY_OPERATOR_MAX}명</span>
+    </div>
+    ${chips?`<div class="team-temporary-operator-list">${chips}</div>`:''}
+    <div class="team-temporary-operator-add">
+      <select id="teamTemporaryOperatorSelect" ${disabled||!options||temporaryOperators.length>=TEAM_TEMPORARY_OPERATOR_MAX?'disabled':''} aria-label="자유대진 운영 도우미 선택">
+        <option value="">회원 선택</option>${options}
+      </select>
+      <button type="button" ${disabled||!options||temporaryOperators.length>=TEAM_TEMPORARY_OPERATOR_MAX?'disabled':''} onclick="grantTeamTemporaryOperator()">지정</button>
     </div>`;
 }
 
@@ -5944,7 +5941,7 @@ function teamImportDailyRoster(){
   _partnerSelectName=null;
   teamAssignment=null;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
-  matchDirectors=_teamEmptyMatchDirectors();
+  temporaryOperators=[];
   currentParticipants=[];
   currentSettings={};
   _teamParticipantSourceRsvpId=null;
@@ -6038,12 +6035,11 @@ function saveEditDirectPlayer(){
     gender:_editDirGender, ageGroup:_editDirAge
   };
   _teamEnsureMemberId(_directPlayers[_editDirIdx]);
-  ['primary','deputy'].forEach(role=>{
-    const official=matchDirectors[role];
-    if(official?.memberId===_directPlayers[_editDirIdx].memberId||(!official?.memberId&&official?.name===previous.name)){
-      matchDirectors[role]={memberId:_directPlayers[_editDirIdx].memberId,name};
-    }
-  });
+  temporaryOperators=temporaryOperators.map(operator=>
+    operator.memberId===_directPlayers[_editDirIdx].memberId||(!operator.memberId&&operator.name===previous.name)
+      ?{memberId:_directPlayers[_editDirIdx].memberId,name}
+      :operator
+  );
   closeEditDirectModal();
   renderDirectPlayerList();
   syncDirectToPaste();
@@ -6056,12 +6052,9 @@ function removeDirectPlayer(idx){
   _captureUndoSnapshot('선수 삭제: '+(_directPlayers[idx]?.name||''));
   const removed=_directPlayers[idx];
   _directPlayers.splice(idx,1);
-  if(removed)['primary','deputy'].forEach(role=>{
-    const official=matchDirectors[role];
-    if(official?.memberId===removed.memberId||official?.name===removed.name){
-      matchDirectors[role]={memberId:'',name:''};
-    }
-  });
+  if(removed)temporaryOperators=temporaryOperators.filter(operator=>
+    operator.memberId!==removed.memberId&&operator.name!==removed.name
+  );
   renderDirectPlayerList();
   syncDirectToPaste();
   if(currentMatches.length)saveState();
@@ -6217,7 +6210,7 @@ function renderDirectPlayerList(){
     bar.className = 'dir-count-bar';
     if(sortBar) sortBar.style.display='none';
     if(partnerHint){partnerHint.classList.remove('show');partnerHint.innerHTML='';}
-    renderMatchDirectorPanel();
+    renderTeamTemporaryOperatorPanel();
     if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
     return;
   }
@@ -6262,7 +6255,7 @@ function renderDirectPlayerList(){
       <button class="dpi-del" onclick="removeDirectPlayer(${p._origIdx})">✕</button>
     </div>`;
   }).join('');
-  renderMatchDirectorPanel();
+  renderTeamTemporaryOperatorPanel();
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
 }
 
@@ -7892,7 +7885,7 @@ function _rsvpClearUnstartedBracket(){
   _teamModeOverride=keepFree?false:null;
   _teamWanted=!keepFree;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
-  matchDirectors=_teamEmptyMatchDirectors();
+  temporaryOperators=[];
   currentMatches=[];
   currentParticipants=[];
   currentSettings={};
@@ -8022,7 +8015,7 @@ function _legacyRsvpImportAttendees(){
   };
   teamAssignment=null;
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
-  matchDirectors=_teamEmptyMatchDirectors();
+  temporaryOperators=[];
   renderDirectPlayerList();
   syncDirectToPaste();
   updateTeamModeBadge();
