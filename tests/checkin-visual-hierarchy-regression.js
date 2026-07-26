@@ -52,7 +52,11 @@ assert(
 const renderMyCard = functionSource('renderMyCard', 'requestPlayerOptions');
 assert(
   renderMyCard.includes('afterPartyPanel.innerHTML=afterPartyHtml'),
-  'After-party content should render outside the personal action card.'
+  'After-party names and count should render outside the personal action card.'
+);
+assert(
+  renderMyCard.includes('afterPartyQuickButtonHtml(selected,afterPartyDisabledAttr)'),
+  'The personal action card should keep a compact after-party toggle beside status actions.'
 );
 assert(
   renderMyCard.includes('officialPanel.innerHTML=officialHtml'),

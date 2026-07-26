@@ -1830,7 +1830,12 @@ body{
 }
 
 /* 팀전LIVE는 정상 참가를 기본값으로 두고 늦음만 예외로 표시한다. */
-.viewer-status-actions{grid-template-columns:1fr 1fr;}
+.viewer-status-actions{grid-template-columns:minmax(0,1fr) minmax(82px,.72fr);}
+.viewer-state-btn.party{
+  min-height:44px!important;
+  align-self:center;
+  font-size:.76rem!important;
+}
 .viewer-state-btn.ready,
 .team-member-att{
   background:#fff6f6!important;

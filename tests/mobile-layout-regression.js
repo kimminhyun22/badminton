@@ -40,6 +40,8 @@ assert(checkin.includes('@media(max-width:340px)'), '320px 다음 대진은 이�
 assert(checkin.includes('.event-official-active-yield{\n  width:100%;\n  min-height:44px;'), '자동 투입 뒤 이번만 뒤로 버튼은 모바일에서 44px 터치 크기와 안정된 너비를 가져야 합니다.');
 assert(checkin.includes('.event-official-member-jump{\n  width:100%;\n  min-height:44px;'), '임원 회원 요청 바로가기는 모바일에서 한 줄 전체와 44px 터치 높이를 사용해야 합니다.');
 assert(checkin.includes('.official-member-status .official-status-actions button{min-height:46px;'), '임원의 회원 휴식·복귀·종료 버튼은 모바일 터치 높이를 충분히 확보해야 합니다.');
+assert(checkin.includes('.my-primary-actions.three-actions')&&checkin.includes('grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(74px,.68fr);'), '휴식·종료·뒷풀이 버튼은 좁은 회원 화면에서도 한 줄 비율을 유지해야 합니다.');
+assert(checkin.includes('.my-action-panel .after-party-quick{')&&checkin.includes('min-height:52px;'), '작은 뒷풀이 버튼도 모바일 터치 높이를 확보해야 합니다.');
 assert(checkin.includes('grid-template-columns:repeat(4,minmax(0,1fr));')&&checkin.includes('.official-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr));}'), '임원 운영 현황은 모바일 너비에 맞춰 4열에서 3열로 안정적으로 재배치되어야 합니다.');
 assert(checkin.includes('id="toast" class="toast" role="status" aria-live="polite"'), '민턴LIVE 알림은 보조기기에 전달되어야 합니다.');
 assert(rsvp.includes('.identity-change,\n.select-badge,'), '팀전 회원 핵심 조작은 모바일 터치 크기를 보장해야 합니다.');
