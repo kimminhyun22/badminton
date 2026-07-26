@@ -40,7 +40,7 @@ assert(functionSource(dailySrc,'dailyReset','dailyToggleAutoAssign').includes('_
 assert(checkin.includes('클럽 임원 운영'),'회원 페이지에서 임원 중심 운영 화면을 제공해야 합니다.');
 assert(checkin.indexOf('id="officialPanel"')<checkin.indexOf('id="afterPartyPanel"'),'임원 운영 현황은 개인 카드 다음, 뒷풀이 정보보다 먼저 보여야 합니다.');
 assert(checkin.includes('${officialOperationsSummaryHtml(p)}'),'임원이 이름을 선택한 뒤에도 운영 현황이 임원 패널 안에 표시되어야 합니다.');
-assert(['등록','현장','경기중','대기','휴식','종료','도착 전'].every(label=>checkin.includes(`label:'${label}'`)),'임원 운영 현황에는 관리자와 같은 7개 인원 상태가 있어야 합니다.');
+assert(['등록','현장','경기중','대기','휴식','종료','도착 전','뒷풀이'].every(label=>checkin.includes(`label:'${label}'`)),'임원 운영 현황에는 현장 상태와 뒷풀이 신청 인원이 있어야 합니다.');
 assert(indexHtml.includes('임원이 두 선수를 접수합니다.')&&indexHtml.includes('뒷풀이 참석은 내 카드에서 직접 신청하거나 취소합니다.'),'사용 안내도 임원 파트너 접수와 회원 뒷풀이 신청 정책을 따라야 합니다.');
 assert(!checkin.includes('관리자 앱 연결 필요'),'임원 화면이 시스템 관리자 호출을 일상 운영의 전제로 보여주면 안 됩니다.');
 assert(checkin.includes("serverReady?'서버 즉시 처리'"),'임원에게 현재 운영 연결 상태를 짧게 보여줘야 합니다.');
@@ -68,6 +68,7 @@ let session={players:[
   {id:'w',name:'대기회원',status:'wait',games:1},
   {id:'x',name:'오등록취소',status:'planned',games:0,registrationCancelled:true}
 ]};
+let partyResponses={o:{attending:true},r:{attending:true}};
 function visibleUnscheduledCount(){return session.players.filter(player=>player.status==='wait').length;}
 function esc(value){return String(value||'');}
 function compactLabel(status){return ({wait:'참가 중',playing:'경기중',rest:'휴식 중',done:'운동 종료',planned:'도착 전',invited:'도착 전'})[status]||status;}
@@ -75,6 +76,7 @@ function render(){}
 const document={getElementById(){return null;}};
 ${functionSource(checkin,'isLiveOperatorPlayer','selectedOfficialPlayer')}
 ${functionSource(checkin,'voteSummary','renderVoteSummary')}
+${functionSource(checkin,'afterPartyPlayers','afterPartyRosterText')}
 ${functionSource(checkin,'officialOverviewPlayers','renderBalancePolicy')}
 this.api={
   players:officialOverviewPlayers,
@@ -87,7 +89,10 @@ assert.strictEqual(officialOverviewSandbox.api.players('current').length,4,'현�
 assert.strictEqual(officialOverviewSandbox.api.players('preArrival').length,2,'도착 전 명단은 planned와 invited를 함께 보여야 합니다.');
 const officialOverviewHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
 assert(officialOverviewHtml.includes('운영 현황')&&officialOverviewHtml.includes('현장 4명'),'임원 패널에서 현재 현장 인원을 바로 확인할 수 있어야 합니다.');
-assert.strictEqual((officialOverviewHtml.match(/official-overview-stat/g)||[]).length,7,'임원 현황에는 7개 상태 버튼이 정확히 한 번씩 있어야 합니다.');
+assert.strictEqual((officialOverviewHtml.match(/official-overview-stat/g)||[]).length,8,'임원 현황에는 7개 상태와 뒷풀이 버튼이 정확히 한 번씩 있어야 합니다.');
+officialOverviewSandbox.api.filter('party');
+const officialPartyHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
+assert(officialPartyHtml.includes('뒷풀이 2명')&&officialPartyHtml.includes('운영임원')&&officialPartyHtml.includes('휴식회원'),'뒷풀이 숫자를 누르면 신청자 명단을 바로 보여야 합니다.');
 officialOverviewSandbox.api.filter('rest');
 const officialRestHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
 assert(officialRestHtml.includes('휴식회원')&&!officialRestHtml.includes('종료회원'),'상태 숫자를 누르면 해당 회원 명단만 펼쳐져야 합니다.');
