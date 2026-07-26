@@ -41,7 +41,7 @@ assert(checkin.includes('클럽 임원 운영'),'회원 페이지에서 임원 �
 assert(checkin.indexOf('id="officialPanel"')<checkin.indexOf('id="afterPartyPanel"'),'임원 운영 현황은 개인 카드 다음, 뒷풀이 정보보다 먼저 보여야 합니다.');
 assert(checkin.includes('${officialOperationsSummaryHtml(p)}'),'임원이 이름을 선택한 뒤에도 운영 현황이 임원 패널 안에 표시되어야 합니다.');
 assert(['등록','현장','경기중','대기','휴식','종료','도착 전','뒷풀이'].every(label=>checkin.includes(`label:'${label}'`)),'임원 운영 현황에는 현장 상태와 뒷풀이 신청 인원이 있어야 합니다.');
-assert(indexHtml.includes('임원이 두 선수를 접수합니다.')&&indexHtml.includes('뒷풀이 참석은 내 카드에서 직접 신청하거나 취소합니다.'),'사용 안내도 임원 파트너 접수와 회원 뒷풀이 신청 정책을 따라야 합니다.');
+assert(indexHtml.includes('임원이 두 선수를 접수합니다.')&&indexHtml.includes('휴식·종료 옆의 작은 뒷풀이 버튼으로 직접 신청하거나 취소합니다.'),'사용 안내도 임원 파트너 접수와 회원 뒷풀이 신청 정책을 따라야 합니다.');
 assert(!checkin.includes('관리자 앱 연결 필요'),'임원 화면이 시스템 관리자 호출을 일상 운영의 전제로 보여주면 안 됩니다.');
 assert(checkin.includes("serverReady?'서버 즉시 처리'"),'임원에게 현재 운영 연결 상태를 짧게 보여줘야 합니다.');
 assert(!checkin.includes('id="officialSupportNote"'),'클럽 임원 도구에 일상 운영 설명을 길게 노출하면 안 됩니다.');
