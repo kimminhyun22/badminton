@@ -641,6 +641,7 @@ const players={
 _dailyPlayers=Object.values(players);
 function _dailyPlayer(id){return players[id]||null;}
 function _dailyNow(){return now;}
+function _dailyMarkLiveAddition(){}
 function _dailyApplyPlayerStatus(p,status){p.status=status;p.joinedAt=now;p.waitFrom=now;p.lastStatusAt=now;}
 function _dailyOfficialArrivalRosterProfile(memberId){return memberId==='roster_late'?{memberId,name:'명부지각',club:'테스트클럽',grade:'B',gender:'M',isClubOfficial:false}:null;}
 function _dailyHasRosterPlayer(profile){return _dailyPlayers.some(p=>p.memberId&&p.memberId===profile.memberId);}

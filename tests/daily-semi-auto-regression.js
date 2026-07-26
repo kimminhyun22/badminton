@@ -20,15 +20,20 @@ function extractFunction(src, name, nextName) {
 }
 
 const importSelected = extractFunction(dailySrc, 'importDailySelected', 'syncFixedTeamNames');
-assert(importSelected.includes("status='wait'"), '현장 등록 선수는 즉시 참가 상태여야 합니다.');
-assert(importSelected.includes("['invited','planned']"), '전날 등록 전 명단은 현장에서 다시 참가 등록할 수 있어야 합니다.');
+assert(importSelected.includes("status=status==='planned'?'planned':'wait'"), '현장 참가와 도착 전 등록 상태를 명확히 나눠야 합니다.');
+assert(importSelected.includes("['invited','planned']"), '도착 전 명단은 현장에서 다시 참가 등록할 수 있어야 합니다.');
 assert(!importSelected.includes('dailyShareCheckinLink'), '현장 참가 등록 뒤 회원 링크를 강제로 공유하면 안 됩니다.');
 assert.strictEqual(
   (indexHtml.match(/importDailySelected\('wait'\)/g) || []).length,
   1,
-  '명부 모달에는 현장 참가 등록 동작 하나만 있어야 합니다.'
+  '명부 모달에는 현장 참가 등록 동작이 하나 있어야 합니다.'
 );
-assert(!indexHtml.includes("importDailySelected('invited')"), '회원 자가 출석을 전제로 한 등록 전 추가 버튼은 노출하면 안 됩니다.');
+assert.strictEqual(
+  (indexHtml.match(/importDailySelected\('planned'\)/g) || []).length,
+  1,
+  '늦게 올 선수는 도착 전 상태로 미리 등록할 수 있어야 합니다.'
+);
+assert(!indexHtml.includes("importDailySelected('invited')"), '폐기된 자가 출석용 등록 버튼은 노출하면 안 됩니다.');
 
 const renderImport = extractFunction(dailySrc, 'renderDailyImportMembers', 'toggleDailySelectAll');
 assert(renderImport.includes('checked=!isDup&&prevChecked.has'), '관리자가 직접 고른 선수만 선택 상태여야 합니다.');
@@ -62,7 +67,7 @@ assert.deepStrictEqual(
 );
 
 const finishTransition = extractFunction(dailySrc, 'dailyFinishLiveTransition', 'dailySetManualActiveCourt');
-const operationStart = finishTransition.indexOf('_dailyOperationStarted=true');
+const operationStart = finishTransition.indexOf('_dailyMarkOperationStarted(');
 assert(operationStart >= 0, '대진 게시 시 운영 시작 상태를 저장해야 합니다.');
 assert(operationStart < finishTransition.indexOf('dailyEnsureQueue()', operationStart), '운영 시작을 확정한 뒤 나머지 자동대진을 만들어야 합니다.');
 assert(operationStart < finishTransition.indexOf('dailyMaybeAutoAssign()', operationStart), '대진 게시 전에는 빈 코트 자동 투입을 시작하면 안 됩니다.');
@@ -76,11 +81,16 @@ vm.runInContext(`${statusActionKeys}\nthis.keys=status=>statusActionKeys({status
 assert.deepStrictEqual(Array.from(actionSandbox.keys('wait')), ['rest','done'], '참가 중에는 휴식과 종료만 보여야 합니다.');
 assert.deepStrictEqual(Array.from(actionSandbox.keys('rest')), ['wait','done'], '휴식 중에는 복귀와 종료를 보여야 합니다.');
 assert.deepStrictEqual(Array.from(actionSandbox.keys('done')), ['wait'], '운동 종료 뒤에는 복귀만 보여야 합니다.');
+const renderMyCard = extractFunction(checkinSrc, 'renderMyCard', 'requestPlayerOptions');
+assert(renderMyCard.includes("const preArrival=['invited','planned']"), '도착 전 회원 카드는 일반 휴식·복귀 상태와 분리해야 합니다.');
+assert(renderMyCard.includes("preArrival?'':statusButtons"), '도착 전 회원에게 본인 복귀 버튼을 노출해 대진 후보가 되게 하면 안 됩니다.');
+assert(renderMyCard.includes('현장에 도착하면 클럽 임원이 대진 참가로 전환합니다.'), '도착 전 회원에게 임원 확인 흐름을 짧게 안내해야 합니다.');
 
 const renderEvent = extractFunction(checkinSrc, 'renderEvent', 'statusButtonSpec');
 assert(renderEvent.includes('if(!viewer||!viewer.playerId)'), '본인 이름 선택 전에는 전체 경기판을 기본 노출하면 안 됩니다.');
 assert(checkinSrc.includes("checkinId=officialLink.checkinId||qs('id')||(sampleMode?'SAMPLE':'')"), '회원 샘플 화면은 별도 링크 ID 없이도 열려야 합니다.');
 const payload = extractFunction(dailySrc, '_dailyCheckinPayload', 'dailyEnsureCheckinId');
 assert(payload.includes('lastStatusAt:p.lastStatusAt||0'), '회원 화면은 관리자 상태 변경 시각을 받아 오래된 요청 표시를 덮어써야 합니다.');
+assert(payload.includes('preArrivalVisible:p.preArrivalVisible===true'), '이번 세션에 도착 전 등록한 선수만 이름 검색에 공개해야 합니다.');
 
 console.log('daily semi-auto regression ok');

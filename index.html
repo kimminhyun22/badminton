@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.468  (2026-07)
+     APP VERSION: 1.10.469  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.468">
+<meta name="app-version" content="1.10.469">
 <script id="defaultEntryRedirect">
 (function redirectDefaultEntryToTeamLive(){
   const params=new URLSearchParams(location.search);
@@ -21,7 +21,7 @@
   const standalone=(typeof matchMedia==='function'&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
   const rootEntry=location.pathname.endsWith('/');
   if((rootEntry||standalone)&&!explicitDaily){
-    location.replace('team.html?v=1.10.468&from=entry');
+    location.replace('team.html?v=1.10.469&from=entry');
   }
 })();
 </script>
@@ -64,8 +64,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.468&from=daily'">팀전LIVE</button>
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.468&from=daily'">민턴LIVE</button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.469&from=daily'">팀전LIVE</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.469&from=daily'">민턴LIVE</button>
 </div>
 
 <div class="nav-bar">
@@ -98,7 +98,7 @@
         기본 시작 화면은 팀전LIVE입니다. 민턴LIVE는 클럽 임원이 현장 참가를 확인한 뒤 반자동으로 운영하는 평소 운동용입니다.
       </div>
       <div class="operation-grid">
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.468&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.469&from=daily'">
           <b>팀전LIVE</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
           <small>기본 시작 화면</small>
@@ -501,6 +501,8 @@
           <div class="daily-pause-notice" id="dailyPauseNotice" hidden></div>
           <div class="daily-start-guide" id="dailyStartGuide" hidden></div>
           <div class="daily-ops-grid" id="dailyOpsStats"></div>
+          <div class="daily-headcount" id="dailyHeadcount"></div>
+          <div class="daily-live-additions" id="dailyLiveAdditions" hidden></div>
           <div class="daily-temporary-officials" id="dailyTemporaryOfficials" hidden></div>
           <div class="daily-party-spotlight" id="dailyAfterPartySpotlight" hidden></div>
           <div class="daily-alert-area" id="dailyAlertArea" hidden>
@@ -560,9 +562,12 @@
             <input class="daily-player-search" id="dailyPlayerSearch" type="search" placeholder="이름 검색" oninput="setDailyPlayerSearch(this.value)">
             <div class="daily-player-filter" aria-label="선수 상태 필터">
               <button class="daily-player-filter-btn active" id="dailyPlayerFilterAll" onclick="setDailyPlayerFilter('all')">전체</button>
-              <button class="daily-player-filter-btn" id="dailyPlayerFilterWait" onclick="setDailyPlayerFilter('wait')">참가</button>
+              <button class="daily-player-filter-btn" id="dailyPlayerFilterCurrent" onclick="setDailyPlayerFilter('current')">현재</button>
+              <button class="daily-player-filter-btn" id="dailyPlayerFilterWait" onclick="setDailyPlayerFilter('wait')">대기</button>
               <button class="daily-player-filter-btn" id="dailyPlayerFilterPlaying" onclick="setDailyPlayerFilter('playing')">경기중</button>
               <button class="daily-player-filter-btn" id="dailyPlayerFilterRest" onclick="setDailyPlayerFilter('rest')">휴식</button>
+              <button class="daily-player-filter-btn" id="dailyPlayerFilterDone" onclick="setDailyPlayerFilter('done')">종료</button>
+              <button class="daily-player-filter-btn" id="dailyPlayerFilterPlanned" onclick="setDailyPlayerFilter('planned')">도착 전</button>
               <button class="daily-player-filter-btn" id="dailyPlayerFilterQueued" onclick="setDailyPlayerFilter('queued')">다음대진</button>
             </div>
           </div>
@@ -807,7 +812,7 @@
     </div>
     <div class="modal-body">
       <p style="font-size:.76rem;color:var(--dim);line-height:1.6;margin-bottom:10px;">
-        클럽 임원이 현장에서 확인한 선수만 선택하세요. 등록된 선수는 대진 게시 전까지 자유게임을 진행합니다.
+        도착한 선수는 현장 참가, 늦게 올 선수는 도착 전으로 등록하세요. 도착 전 선수는 임원이 도착을 확인하기 전까지 대진에 들어가지 않습니다.
       </p>
       <div id="dailyImportClubTabs"></div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;">
@@ -817,8 +822,9 @@
         <button class="dir-sort-btn"        id="disb-gender" onclick="setDailyImportSort('gender')">성별순</button>
       </div>
       <div id="dailyImportMemberList" style="max-height:330px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;"></div>
-      <div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap;">
+      <div class="daily-import-actions">
         <button class="btn btn-ghost btn-sm" onclick="toggleDailySelectAll()" style="flex-shrink:0;">전체 선택/해제</button>
+        <button class="btn btn-ghost daily-prearrival-btn" onclick="importDailySelected('planned')">도착 전 등록</button>
         <button class="btn btn-go" style="flex:1;padding:10px;min-width:180px;" onclick="importDailySelected('wait')">현장 참가 등록</button>
       </div>
     </div>
@@ -1002,7 +1008,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.468</span>
+  <span class="app-version" id="appVersion">v1.10.469</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

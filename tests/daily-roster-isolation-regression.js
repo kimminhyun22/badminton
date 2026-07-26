@@ -93,6 +93,14 @@ identitySandbox.api.setPlayers([...oldPlayers,...todayPlayers]);
 assert.strictEqual(identitySandbox.api.list().length,43,'회원 내 이름 찾기에는 현장 등록된 오늘 선수만 보여야 합니다.');
 
 identitySandbox.api.setPlayers([
+  ...todayPlayers,
+  {id:'late',memberId:'late_member',name:'오늘지각',status:'planned',preArrivalVisible:true},
+  {id:'cancelled',memberId:'cancelled_member',name:'오등록취소',status:'planned',preArrivalVisible:false,registrationCancelled:true}
+]);
+assert.strictEqual(identitySandbox.api.list().length,44,'이번 세션에 도착 전 등록한 선수는 도착 전에도 이름을 찾아 실중계를 볼 수 있어야 합니다.');
+assert(!identitySandbox.api.list().some(player=>player.registrationCancelled),'오등록 취소한 숨김 선수는 이름 찾기에서 다시 나타나면 안 됩니다.');
+
+identitySandbox.api.setPlayers([
   {id:'a',memberId:'same',name:'동일회원',status:'wait'},
   {id:'b',memberId:'same',name:'동일회원 복제',status:'rest'},
   {id:'c',memberId:'done',name:'운동종료회원',status:'done'}

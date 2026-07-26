@@ -1556,6 +1556,16 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-arrival-actions select{width:100%;min-width:0;min-height:44px;border:1.5px solid #b8d8ff;border-radius:8px;background:#fff;padding:8px 10px;font:inherit;font-weight:900;color:var(--txt);}
 .official-arrival-actions button{min-height:44px;border:1.5px solid #6aa6ee;border-radius:8px;background:#3f7fd5;color:#fff;padding:8px 13px;font:inherit;font-weight:1000;white-space:nowrap;}
 .official-arrival-actions button:disabled{opacity:.42;cursor:not-allowed;}
+.official-live-additions{margin:10px 0 4px;padding:12px;border:1px solid #ead39d;border-left:3px solid #d6ad62;border-radius:8px;background:#fffaf0;}
+.official-live-additions-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;color:#75551c;}
+.official-live-additions-head b{font-size:14px;}
+.official-live-additions-head span{font-size:11px;font-weight:1000;}
+.official-live-addition-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #efdfba;}
+.official-live-addition-row:first-of-type{border-top:0;}
+.official-live-addition-row b{display:block;color:#3f4650;font-size:13px;}
+.official-live-addition-row small{display:block;margin-top:2px;color:var(--mut);font-size:11px;font-weight:800;}
+.official-live-addition-row button{min-height:38px;border:1px solid #e3a7aa;border-radius:8px;background:#fff;color:#a2282f;padding:7px 9px;font:inherit;font-size:11px;font-weight:1000;}
+.official-live-addition-row button:disabled{border-color:#ddd;background:#f5f5f5;color:#999;}
 .official-action-list{display:flex;flex-direction:column;border-top:1px solid var(--line);}
 .official-action-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
 .official-action-row span{min-width:0;font-size:13px;font-weight:900;line-height:1.45;overflow-wrap:anywhere;}
@@ -1770,6 +1780,18 @@ h1{
 .vote-chip.warn{
   border:0;
   background:#fff7eb;
+}
+.vote-summary.official{grid-template-columns:repeat(4,minmax(0,1fr));}
+.vote-summary.official .vote-chip.total{text-align:center;padding:9px 7px;}
+.vote-summary.official .vote-chip.total b{font-size:18px;}
+.vote-summary.official .vote-chip.total span{font-size:11px;}
+.vote-chip.pending{background:#fff9ed;}
+.vote-chip.pending b{color:#8a5a00;}
+@media(max-width:430px){
+  .vote-summary.official{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
+  .vote-summary.official .vote-chip{padding:8px 3px;}
+  .vote-summary.official .vote-chip b{font-size:16px;}
+  .vote-summary.official .vote-chip span{font-size:9px;}
 }
 .toolbar{margin-bottom:10px;}
 .search{
@@ -2049,6 +2071,11 @@ summary:focus-visible{
   border-color:#d7e8de;
   background:#f3f8f5;
 }
+.rest-guide.pre-arrival{
+  border-color:#ead5a8;
+  background:#fffaf0;
+  color:#805c19;
+}
 .my-action-panel .status-btn{
   min-height:64px;
   border:1px solid #dce4e1;
@@ -2243,7 +2270,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.468">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.469">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="콕매치">
@@ -2258,7 +2285,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.468</span>
+    <span class="version-chip" id="appVersion">v1.10.469</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2305,7 +2332,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.468';
+const APP_VERSION='1.10.469';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -2378,7 +2405,7 @@ function statusInfo(key){
   return (session?.statuses||[]).find(x=>x.key===key)||{key,label:statusLabel(key),desc:''};
 }
 function compactLabel(key){
-  const map={planned:'등록 전',invited:'등록 전',wait:'참가 중',playing:'경기중',lesson:'휴식 중',rest:'휴식 중',last:'운동 종료',leaving:'운동 종료',done:'운동 종료'};
+  const map={planned:'도착 전',invited:'도착 전',wait:'참가 중',playing:'경기중',lesson:'휴식 중',rest:'휴식 중',last:'운동 종료',leaving:'운동 종료',done:'운동 종료'};
   return map[key]||statusLabel(key);
 }
 function normalizeText(s){
@@ -2401,7 +2428,8 @@ function playerMatchesQuery(p,q){
 function memberIdentityPlayers(){
   const seen=new Set();
   return (session?.players||[]).filter(player=>{
-    if(!player?.id||['invited','planned'].includes(String(player.status||'')))return false;
+    if(!player?.id)return false;
+    if(['invited','planned'].includes(String(player.status||''))&&player.preArrivalVisible!==true)return false;
     const key=player.memberId?`member:${player.memberId}`:`player:${player.id}`;
     if(seen.has(key))return false;
     seen.add(key);
@@ -2434,7 +2462,8 @@ function sampleSession(){
     gender:genders[i],
     grade:grades[i],
     status:i<12?'playing':(i<22?'wait':'invited'),
-    statusLabel:i<12?'경기중':(i<22?'참가 중':'등록 전'),
+    statusLabel:i<12?'경기중':(i<22?'참가 중':'도착 전'),
+    preArrivalVisible:i>=22,
     isGuest:i>=22,
     isClubOfficial:i===0,
     games:i%5,
@@ -2585,7 +2614,12 @@ function memberStatusServerReady(){
   );
 }
 function isLiveOperatorPlayer(player){
-  return !!(player&&(player.isClubOfficial||player.isTemporaryOfficial));
+  return !!(
+    player
+    &&(player.isClubOfficial||player.isTemporaryOfficial)
+    &&!player.registrationCancelled
+    &&!['invited','planned','done'].includes(String(player.status||''))
+  );
 }
 function selectedOfficialPlayer(){
   const last=getLastSent();
@@ -2759,17 +2793,25 @@ function visibleUnscheduledCount(){
   return players.filter(p=>p.status==='wait'&&!covered.has(String(p.id))).length;
 }
 function voteSummary(){
-  const players=session?.players||[];
+  const players=(session?.players||[]).filter(player=>!player?.registrationCancelled);
   if(!players.length)return null;
   const count=status=>players.filter(p=>p.status===status).length;
-  const started=players.filter(p=>['wait','playing'].includes(p.status)).length;
+  const wait=count('wait');
+  const playing=count('playing');
+  const rest=count('rest');
+  const done=count('done');
+  const preArrival=count('invited')+count('planned');
+  const current=wait+playing+rest;
   return {
-    started,
+    total:players.length,
+    current,
+    started:current,
     wait:visibleUnscheduledCount(),
-    waitTotal:count('wait'),
-    playing:count('playing'),
-    rest:count('rest'),
-    invited:count('invited')
+    waitTotal:wait,
+    playing,
+    rest,
+    done,
+    preArrival
   };
 }
 function renderVoteSummary(){
@@ -2781,12 +2823,24 @@ function renderVoteSummary(){
     el.innerHTML='';
     return;
   }
-  el.className='vote-summary';
-  el.innerHTML=[
-    `<div class="vote-chip total"><b>${s.started}명</b><span>라이브</span></div>`,
-    `<div class="vote-chip"><b>${s.playing}</b><span>경기중</span></div>`,
-    `<div class="vote-chip warn"><b>${s.rest}</b><span>휴식</span></div>`
-  ].join('');
+  const last=getLastSent();
+  const selected=last?.playerId?(session?.players||[]).find(player=>String(player.id)===String(last.playerId)):null;
+  const official=isLiveOperatorPlayer(selected);
+  el.className=`vote-summary${official?' official':''}`;
+  const cards=official?[
+    [s.total,'등록','total'],
+    [s.current,'현장','ready'],
+    [s.playing,'경기중',''],
+    [s.waitTotal,'대기',''],
+    [s.rest,'휴식','warn'],
+    [s.done,'종료',''],
+    [s.preArrival,'도착 전','pending']
+  ]:[
+    [s.current,'라이브','total'],
+    [s.playing,'경기중',''],
+    [s.rest,'휴식','warn']
+  ];
+  el.innerHTML=cards.map(([value,label,cls])=>`<div class="vote-chip ${cls}"><b>${value}${official?'':'명'}</b><span>${label}</span></div>`).join('');
 }
 function renderBalancePolicy(){
   // 회원 화면에서는 관리자용 운영 정보를 노출하지 않는다.
@@ -2798,6 +2852,7 @@ function officialFlowOperationType(type){
   return [
     'official-player-arrival',
     'official-player-add',
+    'official-player-add-cancel',
     'official-player-status',
     'official-court-complete',
     'official-active-yield',
@@ -3559,7 +3614,7 @@ function officialRequestStateHtml(actorId){
   const req=latestOfficialRequest(actorId);
   if(!req)return '';
   if(req.ignoredAt||req.serverRejectedAt)return `<div class="official-request-state error">반영 안 됨 · ${esc(req.reason||req.serverReason||'현재 경기 상태를 다시 확인해 주세요.')}</div>`;
-  if(req.appliedAt||req.serverAppliedAt)return `<div class="official-request-state done">${['official-player-arrival','official-player-add'].includes(req.type)?`${esc(req.playerName||'선수')} 참가 등록 완료`:'운영 요청이 바로 반영됐습니다.'}</div>`;
+  if(req.appliedAt||req.serverAppliedAt)return `<div class="official-request-state done">${['official-player-arrival','official-player-add'].includes(req.type)?`${esc(req.playerName||'선수')} 참가 등록 완료`:req.type==='official-player-add-cancel'?`${esc(req.playerName||'선수')} 오등록 취소 완료`:'운영 요청이 바로 반영됐습니다.'}</div>`;
   return `<div class="official-request-state">${officialServerReady()?'서버에서 운영 요청을 즉시 반영 중입니다.':operatorConnected()?'관리자 앱에서 운영 요청을 즉시 반영 중입니다.':'운영 요청이 저장됐습니다. 관리자 화면이 다시 연결되면 자동 반영됩니다.'}</div>`;
 }
 function officialArrivalPlayers(){
@@ -3580,7 +3635,7 @@ function officialArrivalToolsHtml(p,disabled){
     .map(r=>String(r.candidateKey||(r.playerId?`player:${r.playerId}`:`roster:${r.memberId||''}`))));
   const options=players.map(player=>{
     const pending=pendingIds.has(String(player.candidateKey));
-    return `<option value="${esc(player.candidateKey)}" ${pending?'disabled':''}>${esc(player.name)} · ${pending?'등록 확인 중':player.kind==='roster'?'클럽 명부':'등록 전'}</option>`;
+    return `<option value="${esc(player.candidateKey)}" ${pending?'disabled':''}>${esc(player.name)} · ${pending?'등록 확인 중':player.kind==='roster'?'클럽 명부':'도착 전'}</option>`;
   }).join('');
   const allPending=players.every(player=>pendingIds.has(String(player.candidateKey)));
   const actionDisabled=disabled||allPending?'disabled':'';
@@ -3591,6 +3646,26 @@ function officialArrivalToolsHtml(p,disabled){
       <button type="button" data-official-action data-arrival-pending="${allPending?'true':'false'}" ${actionDisabled} onclick="sendOfficialArrival('${esc(p.id)}')">참가 등록</button>
     </div>
   </div>`;
+}
+function officialLiveAdditionPlayers(){
+  const startedAt=Number(session?.event?.operationStartedAt||session?.matchStartedAt||0);
+  if(!startedAt)return [];
+  return (session?.players||[])
+    .filter(player=>Number(player?.liveAddedAt||0)>=startedAt)
+    .sort((a,b)=>Number(b.liveAddedAt||0)-Number(a.liveAddedAt||0));
+}
+function officialLiveAdditionToolsHtml(p,disabled){
+  if(session?.capabilities?.officialLiveAdditionCancelV1!==true)return '';
+  const players=officialLiveAdditionPlayers();
+  if(!players.length)return '';
+  const rows=players.map(player=>{
+    const pending=officialRequests.some(request=>request.type==='official-player-add-cancel'&&officialRequestPending(request)&&String(request.playerId)===String(player.id));
+    const cancellable=Number(player.games||0)===0&&player.status!=='playing'&&!player.currentMatchId;
+    const when=player.liveAddedAt?new Date(player.liveAddedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
+    const detail=[when,player.liveAddedByName||'클럽 임원',compactLabel(player.status)].filter(Boolean).join(' · ');
+    return `<div class="official-live-addition-row"><span><b>${esc(player.name)}</b><small>${esc(detail)}</small></span><button type="button" data-official-action ${disabled||pending||!cancellable?'disabled':''} onclick="sendOfficialLiveAdditionCancel('${esc(p.id)}','${esc(player.id)}')">${pending?'처리 중':cancellable?'오등록 취소':`${player.games||0}게임`}</button></div>`;
+  }).join('');
+  return `<div class="official-live-additions"><div class="official-live-additions-head"><b>라이브 후 추가</b><span>${players.length}명</span></div>${rows}</div>`;
 }
 function officialPlayerOptions(){
   const options=(session?.players||[])
@@ -3795,6 +3870,7 @@ function officialSupportHtml(p){
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
     ${officialArrivalToolsHtml(p,disabled)}
+    ${officialLiveAdditionToolsHtml(p,disabled)}
     ${freeRows?`<div class="official-action-list">${freeRows}</div>`:''}
     ${officialQueueYieldToolsHtml(p,disabled)}
     ${officialPlayerStatusToolsHtml(p,disabled)}
@@ -3878,20 +3954,23 @@ function renderMyCard(last,players){
   if(fold&&!query)fold.open=false;
   const initial=String(selected.name||'?').trim().slice(0,1)||'?';
   const selectedState=compactLabel(getSelectedStatus(selected));
+  const preArrival=['invited','planned'].includes(String(selected.status||''));
   const statusDisabledAttr=(sendingKey||selected.locked||eventFlowPaused())?'disabled':'';
   const requestDisabledAttr=(sendingKey||eventFlowPaused())?'disabled':'';
   const afterPartyDisabledAttr=sendingKey?'disabled':'';
   const fair=playerFairnessInfo(selected);
-  const mainButtons=statusButtons(selected,MAIN_STATUS_KEYS,statusDisabledAttr);
-  const subSection=statusSection(selected,'상태 변경',SUB_STATUS_KEYS,statusDisabledAttr);
-  const currentMatch=myCurrentMatchHtml(selected.id);
-  const nextNotice=nextQueueNoticeHtml(selected.id);
-  const restGuide=selected.locked
+  const mainButtons=preArrival?'':statusButtons(selected,MAIN_STATUS_KEYS,statusDisabledAttr);
+  const subSection=preArrival?'':statusSection(selected,'상태 변경',SUB_STATUS_KEYS,statusDisabledAttr);
+  const currentMatch=preArrival?'':myCurrentMatchHtml(selected.id);
+  const nextNotice=preArrival?'':nextQueueNoticeHtml(selected.id);
+  const restGuide=preArrival
+    ? `<div class="rest-guide pre-arrival">도착 전이에요<small>실중계는 볼 수 있어요. 현장에 도착하면 클럽 임원이 대진 참가로 전환합니다.</small></div>`
+    : selected.locked
     ? (currentMatch?'':`<div class="rest-guide">경기중이에요<small>경기 종료 후 휴식·종료를 선택할 수 있어요.</small></div>`)
     : getSelectedStatus(selected)==='rest'
     ? `<div class="rest-guide">휴식 중이에요<small>다시 뛸 준비가 되면 복귀를 눌러주세요.</small></div>`
     : '';
-  const stateChipClass=['rest','done'].includes(getSelectedStatus(selected))?'warn':'on';
+  const stateChipClass=preArrival||['rest','done'].includes(getSelectedStatus(selected))?'warn':'on';
   const statusChips=[
     `<span class="my-status-chip ${stateChipClass}">${esc(selectedState)}</span>`,
     `<span class="my-status-chip">${selected.games||0}게임</span>`,
@@ -3914,7 +3993,7 @@ function renderMyCard(last,players){
       <div class="buttons main-actions">${mainButtons}</div>
       ${restGuide}
       ${subSection}
-      ${gameRequestBox(selected,requestDisabledAttr)}
+      ${preArrival?'':gameRequestBox(selected,requestDisabledAttr)}
     </div>
   </section>`;
   if(afterPartyPanel){
@@ -3933,7 +4012,7 @@ function renderMyCard(last,players){
   }
 }
 function requestPlayerOptions(selfId,selected){
-  const players=(session?.players||[]).filter(p=>p.id!==selfId&&p.status!=='invited'&&p.status!=='done');
+  const players=(session?.players||[]).filter(p=>p.id!==selfId&&!['invited','planned','done'].includes(p.status));
   return '<option value="">선택 안 함</option>'+players.map(p=>{
     const reserveHint=p.locked||p.status==='playing'?' · 예약':'';
     return `<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)} · ${esc(compactLabel(p.status))}${reserveHint}</option>`;
@@ -3991,7 +4070,7 @@ function reservationSectionTitle(r){
   return r?.mode==='match'?'게임 신청':'파트너 신청';
 }
 function gameRequestBox(p,disabled){
-  if(p.status==='invited'||getSelectedStatus(p)==='done')return '';
+  if(['invited','planned'].includes(p.status)||getSelectedStatus(p)==='done')return '';
   const reqs=playerReservationRequests(p.id);
   const pending=reqs.find(r=>!r.appliedAt&&!r.ignoredAt);
   const recentCancelled=reqs.find(r=>r.ignoredAt&&Date.now()-(r.ignoredAt||0)<10*60*1000);
@@ -4318,6 +4397,8 @@ async function sendOfficialArrival(actorId){
     }
     target.status='wait';
     target.statusLabel=compactLabel('wait');
+    target.preArrivalVisible=false;
+    target.registrationCancelled=false;
     target.locked=false;
     target.joinedAt=now;
     target.lastStatusAt=now;
@@ -4326,6 +4407,64 @@ async function sendOfficialArrival(actorId){
     target.arrivalConfirmedAt=now;
     target.arrivalConfirmedSource='club-official-arrival';
     session.arrivalCandidates=(session.arrivalCandidates||[]).filter(item=>String(item.candidateKey)!==String(candidate.candidateKey));
+    render();
+  }
+}
+async function sendOfficialLiveAdditionCancel(actorId,playerId){
+  const actor=officialActor(actorId);
+  const target=(session?.players||[]).find(player=>String(player.id)===String(playerId));
+  if(!actor||!target)return toast('임원 또는 추가 선수를 다시 확인해 주세요.');
+  if(!Number(target.liveAddedAt||0))return toast('라이브 후 추가 기록을 찾지 못했습니다.');
+  if(Number(target.games||0)>0||target.status==='playing'||target.currentMatchId)return toast('이미 경기에 참여한 선수는 오등록 취소할 수 없어요.');
+  const mode=target.liveAddedOrigin==='existing'?'도착 전으로 되돌립니다.':'오늘 참가 명단에서 취소 처리합니다.';
+  if(!confirm(`${target.name}님의 오등록을 취소할까요?\n\n${mode}`))return;
+  const now=Date.now();
+  const operationId=createOfficialOperationId('add-cancel');
+  const ok=await pushOfficialRequest({
+    type:'official-player-add-cancel',
+    operationId,
+    actorPlayerId:actor.id,
+    actorPlayerName:actor.name,
+    playerId:target.id,
+    playerName:target.name,
+    expectedStatus:target.status||'',
+    expectedLastStatusAt:Number(target.lastStatusAt||0),
+    expectedLiveAddedAt:Number(target.liveAddedAt||0),
+    expectedLiveAddedOperationId:target.liveAddedOperationId||'',
+    expectedGames:Number(target.games||0),
+    liveAddedOrigin:target.liveAddedOrigin||'',
+    candidateKey:target.liveAddedCandidateKey||'',
+    createdAt:now,
+    expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-live-add-cancel'
+  },`${target.name} · 오등록 취소 요청`);
+  if(ok&&isSampleMode()){
+    if(target.liveAddedOrigin==='existing'){
+      target.status='planned';
+      target.statusLabel=compactLabel('planned');
+      target.preArrivalVisible=true;
+      target.registrationCancelled=false;
+      target.lastStatusAt=now;
+      target.liveAddedAt=0;
+      target.liveAddedBy='';
+      target.liveAddedByName='';
+      target.liveAddedOrigin='';
+      target.liveAddedCandidateKey='';
+      target.liveAddedOperationId='';
+    }else{
+      target.status='planned';
+      target.statusLabel=compactLabel('planned');
+      target.preArrivalVisible=false;
+      target.registrationCancelled=true;
+      target.lastStatusAt=now;
+      target.liveAddedAt=0;
+      target.liveAddedBy='';
+      target.liveAddedByName='';
+      target.liveAddedOrigin='';
+      target.liveAddedCandidateKey='';
+      target.liveAddedOperationId='';
+    }
     render();
   }
 }

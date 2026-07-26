@@ -113,6 +113,13 @@ function submit(root, type, operationId, now, extra = {}, auth = {}){
   });
   return {outcome,stored};
 }
+
+let preArrivalOperatorRoot=baseRoot();
+preArrivalOperatorRoot.session.players.find(item=>item.id==='official').status='planned';
+const blockedPreArrivalOperator=submit(preArrivalOperatorRoot,'official-court-complete','operation_pre_arrival_operator_001',BASE_NOW,{
+  matchId:'m1',expectedCourt:1,expectedPlayerIds:['p1','p2','p3','p4']
+});
+assert.strictEqual(blockedPreArrivalOperator.outcome.action,'abort','도착 전 임원이 이전에 발급받은 운영 권한으로 경기 처리를 계속하면 안 됩니다.');
 function assertOperationalInvariants(session){
   const activeCourts=(session.event.active||[]).map(match=>match.court);
   assert.strictEqual(new Set(activeCourts).size,activeCourts.length,'한 코트에는 진행 경기 하나만 있어야 합니다.');
@@ -311,6 +318,82 @@ const finishAdd=submit(finishAddRoot,'official-player-add','operation_add_finish
 });
 assert.strictEqual(finishAdd.outcome.terminal.status,'rejected','마무리 전환 뒤 명부 지각 추가도 서버와 관리자 모두 거절해야 합니다.');
 assert(!finishAdd.outcome.current.session.players.some(item=>item.id==='late-added'),'거절된 명부 추가가 서버 선수 명단을 바꾸면 안 됩니다.');
+
+let liveArrivalRoot=baseRoot();
+liveArrivalRoot.session.event.operationStarted=true;
+liveArrivalRoot.session.event.operationStartedAt=BASE_NOW-60_000;
+liveArrivalRoot.session.players.push({...player('late-planned','planned'),preArrivalVisible:true});
+liveArrivalRoot.session.arrivalCandidates=[{
+  candidateKey:'player:late-planned',kind:'existing',playerId:'late-planned',
+  name:'LATE-PLANNED',status:'planned',lastStatusAt:BASE_NOW-1000
+}];
+const liveArrival=submit(liveArrivalRoot,'official-player-arrival','operation_arrival_live_001',BASE_NOW,{
+  candidateKey:'player:late-planned',playerId:'late-planned',playerName:'LATE-PLANNED',
+  status:'wait',expectedStatus:'planned',expectedLastStatusAt:BASE_NOW-1000
+});
+assert.strictEqual(liveArrival.outcome.terminal.status,'applied','도착 전 선수는 임원 확인 뒤에만 참가 상태가 되어야 합니다.');
+liveArrivalRoot=liveArrival.outcome.current;
+const liveArrivedPlayer=liveArrivalRoot.session.players.find(item=>item.id==='late-planned');
+assert.strictEqual(liveArrivedPlayer.status,'wait','임원이 확인한 도착 선수는 대진 후보가 되어야 합니다.');
+assert.strictEqual(liveArrivedPlayer.liveAddedOrigin,'existing','라이브 중 도착 확인은 기존 도착 전 선수로 기록해야 합니다.');
+const liveArrivalCancel=submit(liveArrivalRoot,'official-player-add-cancel','operation_arrival_cancel_001',BASE_NOW+1000,{
+  playerId:'late-planned',playerName:'LATE-PLANNED',
+  expectedStatus:'wait',expectedLastStatusAt:BASE_NOW,expectedLiveAddedAt:BASE_NOW,expectedGames:0,
+  expectedLiveAddedOperationId:liveArrivedPlayer.liveAddedOperationId,
+  liveAddedOrigin:'existing',candidateKey:'player:late-planned'
+});
+assert.strictEqual(liveArrivalCancel.outcome.terminal.status,'applied','한 경기도 하지 않은 도착 확인은 오등록 취소할 수 있어야 합니다.');
+liveArrivalRoot=liveArrivalCancel.outcome.current;
+assert.strictEqual(liveArrivalRoot.session.players.find(item=>item.id==='late-planned').status,'planned','기존 도착 전 선수의 취소는 명단 삭제가 아니라 도착 전으로 되돌려야 합니다.');
+assert(liveArrivalRoot.session.arrivalCandidates.some(item=>item.candidateKey==='player:late-planned'),'되돌린 선수는 다시 도착 확인 후보가 되어야 합니다.');
+
+let liveRosterRoot=baseRoot();
+liveRosterRoot.session.event.operationStarted=true;
+liveRosterRoot.session.event.operationStartedAt=BASE_NOW-60_000;
+liveRosterRoot.session.arrivalCandidates=[{
+  candidateKey:'roster:late-member',kind:'roster',memberId:'late-member',
+  name:'명부지각',grade:'C',level:4,gender:'M',ageGroup:'40대'
+}];
+const liveRosterAdd=submit(liveRosterRoot,'official-player-add','operation_roster_live_001',BASE_NOW,{
+  candidateKey:'roster:late-member',memberId:'late-member',playerId:'late-added',
+  playerName:'명부지각',expectedName:'명부지각'
+});
+assert.strictEqual(liveRosterAdd.outcome.terminal.status,'applied','라이브 중 명부 지각 선수 추가가 서버에서 즉시 반영되어야 합니다.');
+liveRosterRoot=liveRosterAdd.outcome.current;
+const liveRosterPlayer=liveRosterRoot.session.players.find(item=>item.id==='late-added');
+assert.strictEqual(liveRosterPlayer.liveAddedOrigin,'roster','라이브 중 새 명부 추가는 오등록 취소 가능한 출처로 기록해야 합니다.');
+assert.strictEqual(liveRosterAdd.outcome.terminal.serverResult.playerAddition.player.name,'명부지각','서버 결과에는 관리자 재생에 사용할 정규화 선수 원본이 포함되어야 합니다.');
+liveRosterPlayer.isClubOfficial=true;
+liveRosterRoot.officialClaims.late_client={
+  clientId:'late_client',expiresAt:BASE_NOW+60_000,claimMode:'roster',
+  officialPlayerId:'late-added',officialPlayerName:'명부지각'
+};
+const liveRosterCancel=submit(liveRosterRoot,'official-player-add-cancel','operation_roster_cancel_001',BASE_NOW+1000,{
+  playerId:'late-added',playerName:'명부지각',
+  expectedStatus:'wait',expectedLastStatusAt:BASE_NOW,expectedLiveAddedAt:BASE_NOW,expectedGames:0,
+  expectedLiveAddedOperationId:liveRosterPlayer.liveAddedOperationId,
+  liveAddedOrigin:'roster',candidateKey:'roster:late-member'
+});
+assert.strictEqual(liveRosterCancel.outcome.terminal.status,'applied','임원은 잘못 추가한 명부 선수를 즉시 취소할 수 있어야 합니다.');
+const hiddenRosterPlayer=liveRosterCancel.outcome.current.session.players.find(item=>item.id==='late-added');
+assert(hiddenRosterPlayer,'오등록 취소 선수는 동시 처리와 완료 기록 보호를 위해 서버에서 물리 삭제하면 안 됩니다.');
+assert.strictEqual(hiddenRosterPlayer.status,'planned','오등록 취소 선수는 대진에서 제외되는 도착 전 상태로 보존해야 합니다.');
+assert.strictEqual(hiddenRosterPlayer.registrationCancelled,true,'오등록 취소 선수는 회원 검색과 현장 인원 집계에서 숨길 표식을 남겨야 합니다.');
+assert(!liveRosterCancel.outcome.current.officialClaims.late_client,'오등록 취소된 임원의 기존 서버 운영 권한도 같은 트랜잭션에서 회수해야 합니다.');
+assert(liveRosterCancel.outcome.current.session.arrivalCandidates.some(item=>item.candidateKey==='player:late-added'),'오등록 취소 후 실제 도착하면 같은 선수 생명주기로 다시 참가 등록할 수 있어야 합니다.');
+assert(!liveRosterCancel.outcome.current.session.arrivalCandidates.some(item=>item.candidateKey==='roster:late-member'),'취소 전의 오래된 명부 추가 요청이 선수를 다시 살리지 못하도록 후보 세대를 바꿔야 합니다.');
+const staleRosterAdd=submit(liveRosterCancel.outcome.current,'official-player-add','operation_roster_stale_add_001',BASE_NOW+1500,{
+  candidateKey:'roster:late-member',memberId:'late-member',playerId:'late-added-stale',
+  playerName:'명부지각',expectedName:'명부지각'
+});
+assert.strictEqual(staleRosterAdd.outcome.terminal.status,'rejected','추가 후 취소된 과거 명부 요청을 늦게 재생해도 선수가 부활하면 안 됩니다.');
+const staleLiveCancel=submit(liveRosterCancel.outcome.current,'official-player-add-cancel','operation_roster_cancel_002',BASE_NOW+2000,{
+  playerId:'late-added',playerName:'명부지각',
+  expectedStatus:'wait',expectedLastStatusAt:BASE_NOW,expectedLiveAddedAt:BASE_NOW,expectedGames:0,
+  expectedLiveAddedOperationId:liveRosterPlayer.liveAddedOperationId,
+  liveAddedOrigin:'roster',candidateKey:'roster:late-member'
+});
+assert.strictEqual(staleLiveCancel.outcome.terminal.status,'rejected','여러 임원이 같은 오등록을 동시에 취소해도 두 번째 요청은 안전하게 거절해야 합니다.');
 
 let endedPartnerRoot=baseRoot();
 endedPartnerRoot.session.players.find(item=>item.id==='p9').status='done';
@@ -532,8 +615,8 @@ unauthorized.session.players.find(item=>item.id==='official').isClubOfficial=fal
 const denied=submit(unauthorized,'official-player-status','operation_denied_001',BASE_NOW,{
   playerId:'p9',status:'rest',expectedLastStatusAt:BASE_NOW-1000
 });
-assert.strictEqual(denied.outcome.terminal.status,'rejected','임원 링크가 있어도 현재 명단에서 임원 해제된 사람은 운영할 수 없어야 합니다.');
-assert.strictEqual(denied.outcome.current.session.serverRevision,0,'권한 거절은 운영 상태를 바꾸면 안 됩니다.');
+assert.strictEqual(denied.outcome.failureCode,'permission-denied','임원 링크가 있어도 현재 명단에서 임원 해제된 사람은 운영할 수 없어야 합니다.');
+assert.strictEqual(unauthorized.session.serverRevision,0,'권한 거절은 운영 상태를 바꾸면 안 됩니다.');
 
 const checkinSource=fs.readFileSync(path.join(__dirname,'..','checkin.html'),'utf8');
 const dailySource=fs.readFileSync(path.join(__dirname,'..','js','daily.js'),'utf8');

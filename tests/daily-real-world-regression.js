@@ -66,6 +66,7 @@ const arrivalSandbox={
   _dailyNormalizeStatus:s=>s,
   _dailyNow:()=>2_000_000,
   _dailyFinishMode:false,
+  _dailyMarkLiveAddition:()=>{},
   _dailyLatePriorityInfo:()=>({late:true}),
   _dailyNext:null,
   dailyRebuildQueue:options=>rebuildCalls.push(options)

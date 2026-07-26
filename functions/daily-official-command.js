@@ -34,6 +34,15 @@ function applyCommandTransaction(current, input){
   if(signedPlayerId && String(storedCommand.actorPlayerId || '') !== signedPlayerId){
     return {action:'abort',failureCode:'permission-denied',failureMessage:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
+  if(signedPlayerId){
+    const currentActor = (current.session.players || []).find(player=>String(player?.id || '') === signedPlayerId);
+    const currentStatus = String(currentActor?.status || '');
+    if(!currentActor
+      || (!currentActor.isClubOfficial && !currentActor.isTemporaryOfficial)
+      || ['invited','planned','done'].includes(currentStatus)){
+      return {action:'abort',failureCode:'permission-denied',failureMessage:'현장 참가 중인 임원 또는 운영 도우미만 운영 지원을 사용할 수 있습니다.'};
+    }
+  }
   const claimNonce=String(claim.claimNonce || '');
   const signedClaimNonce=String(grantClaimNonce || '');
   if(claimNonce !== signedClaimNonce){
@@ -82,6 +91,14 @@ function applyCommandTransaction(current, input){
       const revokedPlayerId=String(temporaryOfficial.playerId || '');
       Object.keys(current.officialClaims || {}).forEach(key=>{
         if(String(current.officialClaims[key]?.officialPlayerId || '') === revokedPlayerId){
+          delete current.officialClaims[key];
+        }
+      });
+    }
+    const cancelledPlayerId=String(serverResult?.playerAddCancel?.playerId || '');
+    if(cancelledPlayerId){
+      Object.keys(current.officialClaims || {}).forEach(key=>{
+        if(String(current.officialClaims[key]?.officialPlayerId || '') === cancelledPlayerId){
           delete current.officialClaims[key];
         }
       });

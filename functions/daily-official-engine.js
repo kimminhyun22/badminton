@@ -23,6 +23,7 @@ const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.
 const SUPPORTED_TYPES = new Set([
   'official-player-arrival',
   'official-player-add',
+  'official-player-add-cancel',
   'official-player-status',
   'official-court-complete',
   'official-active-yield',
@@ -46,6 +47,7 @@ const UNDOABLE_TYPES = new Set([
 const PAUSED_FLOW_TYPES = new Set([
   'official-player-arrival',
   'official-player-add',
+  'official-player-add-cancel',
   'official-player-status',
   'official-court-complete',
   'official-active-yield',
@@ -116,7 +118,7 @@ function normalizeStatus(value){
 }
 
 function statusLabel(value){
-  return ({invited:'등록 전',planned:'등록 전',wait:'참가',playing:'경기중',rest:'휴식',done:'종료'})[normalizeStatus(value)] || '';
+  return ({invited:'도착 전',planned:'도착 전',wait:'참가',playing:'경기중',rest:'휴식',done:'종료'})[normalizeStatus(value)] || '';
 }
 
 function idsFingerprint(ids){
@@ -870,10 +872,14 @@ function validateCommon(session, request, now, options){
     return {reason:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
   const temporaryRoleCommand = ['official-temporary-grant','official-temporary-revoke'].includes(request.type);
+  const adminClaimCommand = temporaryRoleCommand || request.type === 'official-player-add-cancel';
   const actor = playerById(session, request.actorPlayerId);
-  const adminClaim = temporaryRoleCommand && options?.adminClaim === true && !grant.payload?.pid;
+  const adminClaim = adminClaimCommand && options?.adminClaim === true && !grant.payload?.pid;
   if(!adminClaim && !isLiveOperator(actor)){
     return {reason:'현재 운영 권한이 있는 회원만 운영 지원을 사용할 수 있습니다.'};
+  }
+  if(!adminClaim && ['invited','planned','done'].includes(normalizeStatus(actor?.status))){
+    return {reason:'현장 참가 중인 임원 또는 운영 도우미만 운영 지원을 사용할 수 있습니다.'};
   }
   if(temporaryRoleCommand && !adminClaim && !actor?.isClubOfficial){
     return {reason:'운영 도우미 지정은 관리자 또는 정식 클럽 임원만 할 수 있습니다.'};
@@ -931,7 +937,29 @@ function applyTemporaryOfficial(session, request, now, operation, enabled){
   return '';
 }
 
-function applyArrival(session, request, now){
+function markLiveAddition(session, player, request, now, origin, operationId){
+  if(!session.event?.operationStarted || !player)return;
+  player.registrationCancelled = false;
+  player.liveAddedAt = now;
+  player.liveAddedBy = request.actorPlayerId || 'system-admin';
+  player.liveAddedByName = request.actorPlayerName || '관리자';
+  player.liveAddedSource = 'club-official-arrival';
+  player.liveAddedOrigin = origin;
+  player.liveAddedCandidateKey = request.candidateKey || (origin === 'roster' ? `roster:${player.memberId || player.id}` : `player:${player.id}`);
+  player.liveAddedOperationId = operationId || request.operationId || request.key || `server-add-${player.id}-${now}`;
+}
+
+function clearLiveAddition(player){
+  delete player.liveAddedAt;
+  delete player.liveAddedBy;
+  delete player.liveAddedByName;
+  delete player.liveAddedSource;
+  delete player.liveAddedOrigin;
+  delete player.liveAddedCandidateKey;
+  delete player.liveAddedOperationId;
+}
+
+function applyArrival(session, request, now, requestId){
   if(session.event?.finishMode)return '마무리 전환 후에는 자동대진 참가자를 추가할 수 없습니다.';
   const player = playerById(session, request.playerId);
   if(!player)return '참가 등록할 선수를 찾지 못했습니다.';
@@ -940,6 +968,8 @@ function applyArrival(session, request, now){
   if(number(request.expectedLastStatusAt) !== number(player.lastStatusAt))return '선수 상태가 이미 바뀌었습니다.';
   player.status = 'wait';
   player.statusLabel = statusLabel('wait');
+  player.preArrivalVisible = false;
+  player.registrationCancelled = false;
   player.locked = false;
   player.currentMatchId = '';
   player.afterMatchStatus = '';
@@ -951,11 +981,12 @@ function applyArrival(session, request, now){
   player.arrivalConfirmedByName = request.actorPlayerName || '';
   player.arrivalConfirmedAt = now;
   player.arrivalConfirmedSource = 'club-official-arrival';
+  markLiveAddition(session, player, request, now, 'existing', requestId);
   session.arrivalCandidates = session.arrivalCandidates.filter(item=>text(item.candidateKey) !== text(request.candidateKey));
   return '';
 }
 
-function applyPlayerAdd(session, request, now){
+function applyPlayerAdd(session, request, now, requestId, operation){
   if(session.event?.finishMode)return '마무리 전환 후에는 자동대진 참가자를 추가할 수 없습니다.';
   const candidate = session.arrivalCandidates.find(item=>text(item.candidateKey) === text(request.candidateKey) && item.kind === 'roster');
   if(!candidate || text(candidate.memberId) !== text(request.memberId))return '현재 클럽 명부에서 참가 등록할 선수를 찾지 못했습니다.';
@@ -974,6 +1005,8 @@ function applyPlayerAdd(session, request, now){
     club: candidate.club || '',
     status: 'wait',
     statusLabel: statusLabel('wait'),
+    preArrivalVisible: false,
+    registrationCancelled: false,
     games: 0,
     fairExpected: 0,
     mixedGames: 0,
@@ -994,8 +1027,86 @@ function applyPlayerAdd(session, request, now){
     arrivalConfirmedAt: now,
     arrivalConfirmedSource: 'club-official-arrival'
   };
+  markLiveAddition(session, player, request, now, 'roster', requestId);
   session.players.push(player);
   session.arrivalCandidates = session.arrivalCandidates.filter(item=>text(item.candidateKey) !== text(request.candidateKey));
+  if(operation){
+    operation.result = {
+      playerAddition:{
+        candidateKey:text(request.candidateKey),
+        player:clone(player)
+      }
+    };
+  }
+  return '';
+}
+
+function applyPlayerAddCancel(session, request, now, operation){
+  const player = playerById(session, request.playerId);
+  if(!player)return '취소할 선수를 찾지 못했습니다.';
+  if(number(player.liveAddedAt) <= 0)return '라이브 후 추가된 선수만 오등록 취소할 수 있습니다.';
+  if(text(request.expectedStatus) !== text(player.status))return '선수 상태가 이미 바뀌었습니다.';
+  if(number(request.expectedLiveAddedAt) !== number(player.liveAddedAt))return '라이브 후 추가 기록이 이미 바뀌었습니다.';
+  if(text(request.expectedLiveAddedOperationId) !== text(player.liveAddedOperationId))return '라이브 후 추가 작업이 이미 바뀌었습니다.';
+  if(number(request.expectedLastStatusAt) !== number(player.lastStatusAt))return '선수 상태가 이미 바뀌었습니다.';
+  if(number(request.expectedGames) !== number(player.games) || number(player.games) > 0)return '이미 경기에 참여한 선수는 오등록 취소할 수 없습니다.';
+  if(normalizeStatus(player.status) === 'playing' || player.currentMatchId)return '진행 중인 선수는 오등록 취소할 수 없습니다.';
+
+  const playerId = text(player.id);
+  const origin = text(player.liveAddedOrigin);
+  const mode = origin === 'existing' ? 'revert' : 'hide';
+  repairPreparedForUnavailablePlayer(session, playerId, now);
+  removePlayerReservations(session, playerId);
+  session.players.forEach(other=>{
+    if(text(other?.partnerId) !== playerId)return;
+    delete other.partnerId;
+    delete other.partnerName;
+  });
+
+  player.status = 'planned';
+  player.statusLabel = statusLabel('planned');
+  player.preArrivalVisible = mode === 'revert';
+  player.registrationCancelled = mode === 'hide';
+  player.locked = false;
+  player.currentMatchId = '';
+  player.afterMatchStatus = '';
+  player.lastStatusAt = now;
+  player.restPausedMs = 0;
+  delete player.arrivalConfirmedBy;
+  delete player.arrivalConfirmedByName;
+  delete player.arrivalConfirmedAt;
+  delete player.arrivalConfirmedSource;
+  clearLiveAddition(player);
+  const candidateKey = `player:${playerId}`;
+  session.arrivalCandidates = session.arrivalCandidates.filter(item=>{
+    return text(item.playerId) !== playerId && text(item.memberId) !== text(player.memberId);
+  });
+  session.arrivalCandidates.push({
+    candidateKey,
+    kind:'existing',
+    playerId,
+    name:player.name,
+    status:'planned',
+    lastStatusAt:now,
+    registrationCancelled:mode === 'hide'
+  });
+  if(mode === 'hide'){
+    player.isTemporaryOfficial = false;
+    delete player.temporaryOfficialGrantedAt;
+    delete player.temporaryOfficialGrantedBy;
+    delete player.temporaryOfficialGrantedByName;
+  }
+  promotePrepared(session);
+  if(operation){
+    operation.result = {
+      playerAddCancel:{
+        playerId,
+        mode,
+        liveAddedAt:number(request.expectedLiveAddedAt),
+        updatedAt:now
+      }
+    };
+  }
   return '';
 }
 
@@ -1531,8 +1642,9 @@ function applyUndo(session, request, receipts, now){
 
 function applyByType(session, request, now, requestId, operation){
   switch(request.type){
-    case 'official-player-arrival': return applyArrival(session, request, now);
-    case 'official-player-add': return applyPlayerAdd(session, request, now);
+    case 'official-player-arrival': return applyArrival(session, request, now, requestId);
+    case 'official-player-add': return applyPlayerAdd(session, request, now, requestId, operation);
+    case 'official-player-add-cancel': return applyPlayerAddCancel(session, request, now, operation);
     case 'official-player-status': return applyPlayerStatus(session, request, now, operation);
     case 'official-court-complete': return applyComplete(session, request, now, requestId, operation);
     case 'official-active-yield': return applyActiveYield(session, request, now, requestId, operation);
