@@ -5,6 +5,7 @@
     partnerGapOk:1.25,
     partnerGapCaution:2.25,
     partnerGapHard:3,
+    partnerGapCorrectionLimit:4.5,
     teamDiffTarget:1.5,
     teamDiffLimit:2,
     teamDiffSevere:3

@@ -2,6 +2,10 @@
 
 const crypto = require('crypto');
 const {
+  FAIR_FORCE_GAP,
+  PARTNER_GAP_HARD,
+  PARTNER_GAP_CORRECTION_LIMIT,
+  TEAM_DIFF_LIMIT,
   preparedPairing,
   replenishPrepared,
   recordCompletedMatchHistory
@@ -13,8 +17,6 @@ const OFFICIAL_UNDO_MS = 45 * 1000;
 const RECEIPT_RETAIN_MS = 10 * 60 * 1000;
 const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
 const MATCH_MINUTES = 15;
-const PARTNER_GAP_HARD = 3;
-const TEAM_DIFF_LIMIT = 2;
 const TEMPORARY_OFFICIAL_LIMIT = 4;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
@@ -173,16 +175,62 @@ function partnerGap(players){
   return players.length === 2 ? Math.abs(effectiveLevel(players[0]) - effectiveLevel(players[1])) : Infinity;
 }
 
-function queuePairingMetrics(session, team1Ids, team2Ids){
+function fairnessCorrectionEligible(session, ids){
+  return (ids || []).some(id=>{
+    const player = playerById(session, id);
+    return player && ensureFairExpected(player) - fairActual(player) >= FAIR_FORCE_GAP;
+  });
+}
+
+function queuePairingMetrics(session, team1Ids, team2Ids, options = {}){
   const team1 = team1Ids.map(id=>playerById(session, id)).filter(Boolean);
   const team2 = team2Ids.map(id=>playerById(session, id)).filter(Boolean);
   if(team1.length !== 2 || team2.length !== 2 || teamShape(team1) !== teamShape(team2))return null;
-  if(partnerGap(team1) >= PARTNER_GAP_HARD || partnerGap(team2) >= PARTNER_GAP_HARD)return null;
+  const fairnessCorrection = !!options.fairnessCorrection;
+  const partnerLimit = fairnessCorrection ? PARTNER_GAP_CORRECTION_LIMIT : PARTNER_GAP_HARD;
+  const gap1 = partnerGap(team1);
+  const gap2 = partnerGap(team2);
+  if(fairnessCorrection ? gap1 > partnerLimit || gap2 > partnerLimit : gap1 >= partnerLimit || gap2 >= partnerLimit)return null;
   const team1Level = Math.round(teamLevel(team1) * 10) / 10;
   const team2Level = Math.round(teamLevel(team2) * 10) / 10;
   const levelDiff = Math.round(Math.abs(team1Level - team2Level) * 10) / 10;
   if(levelDiff > TEAM_DIFF_LIMIT)return null;
+  if(
+    fairnessCorrection &&
+    (
+      text(options.correctionReason) !== 'fairness-partner-gap' ||
+      !fairnessCorrectionEligible(session, [...team1Ids, ...team2Ids])
+    )
+  )return null;
   return {team1, team2, team1Level, team2Level, levelDiff, type:teamShape(team1)};
+}
+
+function preparedQualityValid(session, item){
+  const team1Ids = queueTeam1Ids(item);
+  const team2Ids = queueTeam2Ids(item);
+  const team1 = team1Ids.map(id=>playerById(session, id)).filter(Boolean);
+  const team2 = team2Ids.map(id=>playerById(session, id)).filter(Boolean);
+  if(team1.length !== 2 || team2.length !== 2)return false;
+  const fairnessCorrection = !!item?.fairnessCorrection;
+  const partnerLimit = fairnessCorrection ? PARTNER_GAP_CORRECTION_LIMIT : PARTNER_GAP_HARD;
+  const gap1 = partnerGap(team1);
+  const gap2 = partnerGap(team2);
+  if(fairnessCorrection ? gap1 > partnerLimit || gap2 > partnerLimit : gap1 >= partnerLimit || gap2 >= partnerLimit)return false;
+  if(Math.abs(teamLevel(team1) - teamLevel(team2)) > TEAM_DIFF_LIMIT)return false;
+  if(fairnessCorrection && (item?.flexible || teamShape(team1) !== teamShape(team2)))return false;
+  if(item?.teamMode){
+    const firstSides = new Set(team1.map(player=>text(player?.team)).filter(Boolean));
+    const secondSides = new Set(team2.map(player=>text(player?.team)).filter(Boolean));
+    if(firstSides.size !== 1 || secondSides.size !== 1 || [...firstSides][0] === [...secondSides][0])return false;
+  }
+  if(
+    fairnessCorrection &&
+    (
+      text(item?.correctionReason) !== 'fairness-partner-gap' ||
+      !fairnessCorrectionEligible(session, [...team1Ids, ...team2Ids])
+    )
+  )return false;
+  return true;
 }
 
 function writePreparedTeams(session, item, team1Ids, team2Ids, metrics){
@@ -211,7 +259,10 @@ function writePreparedTeams(session, item, team1Ids, team2Ids, metrics){
 }
 
 function setPreparedTeams(session, item, team1Ids, team2Ids){
-  const metrics = queuePairingMetrics(session, team1Ids, team2Ids);
+  const metrics = queuePairingMetrics(session, team1Ids, team2Ids, {
+    fairnessCorrection:!!item?.fairnessCorrection,
+    correctionReason:item?.correctionReason
+  });
   return metrics ? writePreparedTeams(session, item, team1Ids, team2Ids, metrics) : false;
 }
 
@@ -466,7 +517,7 @@ function removeInvalidPrepared(session){
   ['next', 'expected', 'serverStandby'].forEach(key=>{
     event[key] = event[key].filter(item=>{
       const ids = queuePlayerIds(item);
-      return ids.length === 4 && new Set(ids).size === 4 && !ids.some(permanentlyUnavailable);
+      return ids.length === 4 && new Set(ids).size === 4 && !ids.some(permanentlyUnavailable) && preparedQualityValid(session, item);
     });
   });
 }
@@ -1024,7 +1075,13 @@ function queueResult(item, queueIndex){
 
 function startPreparedItem(session, item, index, court, now, requestId, options = {}){
   const event = session.event;
-  if(index < 0 || event.next[index] !== item || event.active.some(match=>number(match.court) === number(court)) || !queueReady(session, item))return null;
+  if(
+    index < 0 ||
+    event.next[index] !== item ||
+    event.active.some(match=>number(match.court) === number(court)) ||
+    !queueReady(session, item) ||
+    !preparedQualityValid(session, item)
+  )return null;
   const runtime = session.serverRuntime;
   const maxSeq = event.active.reduce((max, match)=>Math.max(max, number(match.seq)), number(event.completed));
   runtime.nextSeq = Math.max(number(runtime.nextSeq), maxSeq + 1);
@@ -1075,6 +1132,8 @@ function startPreparedItem(session, item, index, court, now, requestId, options 
     reservationId:item.reservationId || null,
     reservationLabel:item.reservationLabel || reservation?.label || null,
     reservationMode:item.reservationMode || reservation?.mode || null,
+    fairnessCorrection:!!item.fairnessCorrection,
+    correctionReason:item.correctionReason || '',
     serverStartedBy:options.actorPlayerId || '',
     serverRequestId:requestId
   };
@@ -1226,6 +1285,7 @@ function applyQueueEnter(session, request, now, requestId){
   if(event.active.some(match=>number(match.court) === court))return '선택한 코트에서 이미 다른 경기가 진행 중입니다.';
   if(text(request.newMatchId) && event.active.some(match=>text(match.id) === text(request.newMatchId)))return '이미 사용 중인 경기 번호입니다.';
   if(!queueReady(session, item))return '다음 대진 선수 상태가 바뀌었습니다.';
+  if(!preparedQualityValid(session, item))return '대진 품질 기준이 바뀌어 다음 대진을 다시 준비해 주세요.';
 
   return startPreparedItem(session, item, index, court, now, requestId, {
     matchId:request.newMatchId,

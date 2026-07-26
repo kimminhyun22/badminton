@@ -90,6 +90,7 @@ function memberQueueCueText(){return '';}
 function officialQueueCueText(){return '';}
 function officialQueueCardActionsHtml(){return '';}
 function partnerMatchBadge(){return '';}
+function fairnessCorrectionBadge(){return '';}
 ${memberEventBoard}
 this.rendered=()=>{renderEvent();return eventPanel.innerHTML;};
 `,memberEventRenderSandbox);
@@ -254,6 +255,7 @@ const officialProcessSource=functionSource(dailySrc,'dailyProcessCheckinRequests
 assert(officialProcessSource.includes("_dailyCaptureCompleteUndo(req.token,'club-official-queue-enter')")&&officialProcessSource.includes("_dailyCaptureCompleteUndo(req.token,'club-official-queue-yield')")&&dailySrc.includes("_dailyCaptureCompleteUndo(req.token,'club-official-active-yield')"),'입장 처리와 두 종류의 이번만 뒤로도 적용 직전 상태를 45초 취소용으로 보존해야 합니다.');
 assert(functionSource(dailySrc,'_dailyServerOperationAlreadyApplied','_dailyOfficialRequestError').includes('req.serverResult?.autoEnter')&&functionSource(dailySrc,'_dailyServerOperationAlreadyApplied','_dailyOfficialRequestError').includes('auto.matchId'),'관리자 재접속 시 종료와 자동 투입이 모두 존재해야 복합 작업 완료로 판단해야 합니다.');
 assert(functionSource(checkin,'sendOfficialQueueEnter','sendOfficialQueueYield').includes("const token='oqe_"),'입장 처리 요청은 재연결 뒤에도 같은 작업을 되돌릴 토큰을 보내야 합니다.');
+assert(functionSource(checkin,'sendOfficialQueueEnter','sendOfficialQueueYield').includes('queueFairnessCorrection:!!q.fairnessCorrection'),'임원 입장 요청에도 공정 보정 플래그를 보내 관리자 콜드 복구 시 일반 대진으로 바뀌지 않아야 합니다.');
 assert(functionSource(checkin,'sendOfficialQueueYield','sendOfficialCourtUndo').includes("const token='oqy_"),'이번만 뒤로 요청은 재연결 뒤에도 같은 작업을 되돌릴 토큰을 보내야 합니다.');
 
 const dailySaveSource=functionSource(dailySrc,'dailySave','_dailySameLocalDay');

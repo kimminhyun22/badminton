@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.465';
+const APP_VERSION = '1.10.466';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1667,7 +1667,7 @@ function _dailyCompactPairNames(players){
 function _dailyQueueMatch(q){
   const t1=(q.team1||[]).map(_dailyPlayer),t2=(q.team2||[]).map(_dailyPlayer);
   if(t1.length!==2||t2.length!==2||t1.some(p=>!p)||t2.some(p=>!p))return null;
-  return {team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],type:q.type||'예외',levelDiff:q.levelDiff||0,team1Level:q.team1Level||0,team2Level:q.team2Level||0,isFlexible:!!q.flexible,teamMode:!!q.teamMode,reservationId:q.reservationId||null,reservationLabel:q.reservationLabel||null,reservationMode:q.reservationMode||null};
+  return {team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],type:q.type||'예외',levelDiff:q.levelDiff||0,team1Level:q.team1Level||0,team2Level:q.team2Level||0,isFlexible:!!q.flexible,teamMode:!!q.teamMode,fairnessCorrection:!!q.fairnessCorrection,reservationId:q.reservationId||null,reservationLabel:q.reservationLabel||null,reservationMode:q.reservationMode||null};
 }
 function _dailyIsPartnerReservation(item){
   if(!item)return false;
@@ -1678,6 +1678,9 @@ function _dailyIsPartnerReservation(item){
 }
 function _dailyPartnerReservationBadge(item){
   return _dailyIsPartnerReservation(item)?'<span class="daily-partner-badge">파트너 지정</span>':'';
+}
+function _dailyFairnessCorrectionBadge(item){
+  return item?.fairnessCorrection?'<span class="daily-fairness-correction-badge">공정 보정</span>':'';
 }
 function _dailyIsQueued(id){
   return _dailyQueue.some(q=>_dailyQueueIds(q).includes(id));
@@ -1729,7 +1732,7 @@ function _dailyQueueItemValid(q,used){
   if(!_dailyValidTeamPairing(t1,t2))return false;
   const team1Level=_dailyTeamLevel(t1);
   const team2Level=_dailyTeamLevel(t2);
-  const m={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:Math.round(Math.abs(team1Level-team2Level)*10)/10,team1Level,team2Level};
+  const m={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:Math.round(Math.abs(team1Level-team2Level)*10)/10,team1Level,team2Level,fairnessCorrection:!!q.fairnessCorrection};
   return _dailyMatchTeamBalanceOk(m)&&_dailyMatchPartnerGapOfficialOk(m);
 }
 function _dailyQueueFromMatch(m,score,strict){
@@ -1744,6 +1747,8 @@ function _dailyQueueFromMatch(m,score,strict){
     team2Level:m.team2Level,
     flexible:!!m.isFlexible,
     teamMode:!!m.teamMode||!!_dailyTeamMode,
+    fairnessCorrection:!!m.fairnessCorrection,
+    correctionReason:m.correctionReason||'',
     reservationId:m.reservationId||null,
     reservationLabel:m.reservationLabel||null,
     reservationMode:m.reservationMode||null,
@@ -1819,8 +1824,29 @@ function _dailyBuildQueueItem(excludeIds,options){
     }
     return !!best;
   };
+  const pickFairnessCorrection=(avoidExactRepeat,requiredPlayerId)=>{
+    best=null;bestScore=Infinity;strictBest=false;
+    for(const four of _dailyCombos(ranked)){
+      if(requiredPlayerId&&!four.some(p=>p.id===requiredPlayerId))continue;
+      if(!_dailyPartnerConstraintOk(four))continue;
+      if(avoidExactRepeat&&_dailyFourRepeatCount(four)>0)continue;
+      const m=_dailyTeamMode
+        ?formTeams(four,true,'any',DAILY_TEAM_DIFF_LIMIT)
+        :formTeams(four,false,'any',DAILY_TEAM_DIFF_LIMIT);
+      if(!m)continue;
+      if(_dailyTeamMode)m.teamMode=true;
+      m.fairnessCorrection=true;
+      m.correctionReason='fairness-partner-gap';
+      if(!_dailyValidTeamPairing([m.team1A,m.team1B],[m.team2C,m.team2D]))continue;
+      if(!_dailyMatchTeamBalanceOk(m)||!_dailyMatchPartnerGapOfficialOk(m))continue;
+      const score=_dailyScoreMatch(m,true);
+      if(score<bestScore){best=m;bestScore=score;strictBest=true;}
+    }
+    return !!best;
+  };
   if(urgent){
     if(!pick(ranked.length>=8,urgent.id))pick(false,urgent.id);
+    if(!best&&!pickFairnessCorrection(ranked.length>=8,urgent.id))pickFairnessCorrection(false,urgent.id);
   }
   if(!best&&!pick(ranked.length>=8))pick(false);
   if(!best)return null;
@@ -3298,6 +3324,7 @@ function _dailyExactRepeatCount(m){
 const DAILY_PARTNER_GAP_OK=MATCH_QUALITY?.constants.partnerGapOk??1.25;
 const DAILY_PARTNER_GAP_CAUTION=MATCH_QUALITY?.constants.partnerGapCaution??2.25;
 const DAILY_PARTNER_GAP_HARD=MATCH_QUALITY?.constants.partnerGapHard??3;
+const DAILY_PARTNER_GAP_CORRECTION_LIMIT=MATCH_QUALITY?.constants.partnerGapCorrectionLimit??4.5;
 const DAILY_TEAM_DIFF_TARGET=MATCH_QUALITY?.constants.teamDiffTarget??1.5;
 const DAILY_TEAM_DIFF_LIMIT=MATCH_QUALITY?.constants.teamDiffLimit??2;
 const DAILY_RECENT_SOFT_MIN=6;
@@ -3364,7 +3391,10 @@ function _dailyMatchMaxPartnerGap(m){
   );
 }
 function _dailyMatchPartnerGapOfficialOk(m){
-  return _dailyMatchMaxPartnerGap(m)<DAILY_PARTNER_GAP_HARD;
+  const gap=_dailyMatchMaxPartnerGap(m);
+  return m?.fairnessCorrection
+    ?gap<=DAILY_PARTNER_GAP_CORRECTION_LIMIT
+    :gap<DAILY_PARTNER_GAP_HARD;
 }
 function _dailyMatchLevelSpreadPenalty(players){
   const levels=(players||[]).map(effLevel).filter(v=>Number.isFinite(v));
@@ -4289,7 +4319,7 @@ function dailyStartQueueItem(queueId,options){
     t1Ids:[m.team1A.id,m.team1B.id],t2Ids:[m.team2C.id,m.team2D.id],
     playerIds:[m.team1A.id,m.team1B.id,m.team2C.id,m.team2D.id],
     levelDiff:Number(q.levelDiff||m.levelDiff||0),team1Level:Number(q.team1Level||m.team1Level||0),team2Level:Number(q.team2Level||m.team2Level||0),
-    flexible:!!(q.flexible||m.isFlexible),reservationId:q.reservationId||null,reservationLabel:q.reservationLabel||null,reservationMode:q.reservationMode||null
+    flexible:!!(q.flexible||m.isFlexible),fairnessCorrection:!!(q.fairnessCorrection||m.fairnessCorrection),correctionReason:q.correctionReason||m.correctionReason||'',reservationId:q.reservationId||null,reservationLabel:q.reservationLabel||null,reservationMode:q.reservationMode||null
   };
   const autoHandoffReservation=options.autoHandoffReservation||(q.reservationId?_dailyReservations.find(r=>r.id===q.reservationId)||null:null);
   _dailyQueue.splice(idx,1);
@@ -4320,6 +4350,8 @@ function dailyStartQueueItem(queueId,options){
     teamMode:!!(q.teamMode||m.teamMode),
     fourKey:_dailyFourKey([m.team1A,m.team1B,m.team2C,m.team2D]),
     flexible:!!m.isFlexible,
+    fairnessCorrection:!!(q.fairnessCorrection||m.fairnessCorrection),
+    correctionReason:q.correctionReason||m.correctionReason||'',
     reservationId:q.reservationId||null,
     reservationLabel:q.reservationLabel||null,
     reservationMode:q.reservationMode||null,
@@ -4429,6 +4461,7 @@ function _dailyRenderQueueItem(q,idx,mode){
           <span class="daily-next-pair b">${nextPlayerBtn('team2',0,m.team2C)}${nextPlayerBtn('team2',1,m.team2D)}</span>
         </div>
         ${partnerReserved?`<div class="daily-next-note partner">${_dailyPartnerReservationBadge(q)}</div>`:''}
+        ${q.fairnessCorrection?`<div class="daily-next-note correction">${_dailyFairnessCorrectionBadge(q)}</div>`:''}
         ${isRestPass?`<div class="daily-next-note hold">${esc(_dailyQueueRestPassLabel(q))}</div>`:''}
       </div>
     </div>`;
@@ -4453,7 +4486,7 @@ function _dailyRenderQueueItem(q,idx,mode){
       <div class="daily-queue-head-main">
         ${urgent||expected?'':`<button class="daily-drag-handle" type="button" title="끌어서 대기 순서 변경" onpointerdown="dailyQueuePointerDown(event,'${q.id}')">☰</button>`}
         <div>
-          <div class="daily-queue-title">${compactTitle}${restPassBadge}</div>
+          <div class="daily-queue-title">${compactTitle}${restPassBadge}${_dailyFairnessCorrectionBadge(q)}</div>
           ${urgent?'':`<span class="daily-queue-badge ${partnerReserved?'partner':expected?'expected':reserved?'locked':'flex'}">${badgeText}</span>`}
         </div>
       </div>
@@ -4591,7 +4624,9 @@ function _dailyPublicEvent(){
       autoHandoffReservation:m.autoHandoffReservation||null,
       reservationId:m.reservationId||null,
       reservationLabel:m.reservationLabel||null,
-      reservationMode:m.reservationMode||null
+      reservationMode:m.reservationMode||null,
+      fairnessCorrection:!!m.fairnessCorrection,
+      correctionReason:m.correctionReason||''
     };
   });
   const queuePayload=(q,idx,extra)=>{
@@ -4608,6 +4643,8 @@ function _dailyPublicEvent(){
       team1Level:Number(q.team1Level||m.team1Level||0),
       team2Level:Number(q.team2Level||m.team2Level||0),
       flexible:!!(q.flexible||m.isFlexible),
+      fairnessCorrection:!!(q.fairnessCorrection||m.fairnessCorrection),
+      correctionReason:q.correctionReason||m.correctionReason||'',
       reservationId:q.reservationId||null,
       reservationLabel:q.reservationLabel||null,
       reservationMode:q.reservationMode||null,
@@ -6689,7 +6726,7 @@ function _dailyServerQueueResultRequest(result,serverAppliedAt,queueIndex){
     expectedTeam2Ids:team2,
     queueType:q.type||'',queueTeamMode:!!q.teamMode,
     queueLevelDiff:Number(q.levelDiff||0),queueTeam1Level:Number(q.team1Level||0),queueTeam2Level:Number(q.team2Level||0),
-    queueFlexible:!!q.flexible,queueReservationId:q.reservationId||null,queueReservationLabel:q.reservationLabel||null,queueReservationMode:q.reservationMode||null,
+    queueFlexible:!!q.flexible,queueFairnessCorrection:!!q.fairnessCorrection,queueCorrectionReason:q.correctionReason||'',queueReservationId:q.reservationId||null,queueReservationLabel:q.reservationLabel||null,queueReservationMode:q.reservationMode||null,
     createdAt:serverAppliedAt
   };
 }
@@ -6708,6 +6745,8 @@ function _dailyQueueFromServerSyncItem(item){
     team1Level:Number(item?.team1Level||0),
     team2Level:Number(item?.team2Level||0),
     flexible:!!item?.flexible,
+    fairnessCorrection:!!item?.fairnessCorrection,
+    correctionReason:item?.correctionReason||'',
     teamMode:!!item?.teamMode,
     reservationId:item?.reservationId||null,
     reservationLabel:item?.reservationLabel||null,
@@ -6785,6 +6824,8 @@ function _dailyPrepareServerQueueRequest(req){
       team1Level:Number(req.queueTeam1Level||0),
       team2Level:Number(req.queueTeam2Level||0),
       flexible:!!req.queueFlexible,
+      fairnessCorrection:!!req.queueFairnessCorrection,
+      correctionReason:req.queueCorrectionReason||'',
       teamMode:!!req.queueTeamMode,
       reservationId:req.queueReservationId||null,
       reservationLabel:req.queueReservationLabel||null,
@@ -8182,7 +8223,7 @@ function dailyRenderMatches(){
     const labelB=_dailyMatchSideLabel(m,'t2');
     return `<div class="daily-match">
       <div class="daily-match-top">
-        <div class="daily-match-title">${done?'최근 완료':'진행중'} · 투입 ${m.seq} · 코트 ${m.court} · ${m.reservationLabel&&!_dailyIsPartnerReservation(m)?'신청경기 · ':''}${esc(m.type)}${m.flexible?' · 예외':''} · 25점 ${_dailyPartnerReservationBadge(m)}</div>
+        <div class="daily-match-title">${done?'최근 완료':'진행중'} · 투입 ${m.seq} · 코트 ${m.court} · ${m.reservationLabel&&!_dailyIsPartnerReservation(m)?'신청경기 · ':''}${esc(m.type)}${m.flexible?' · 예외':''} · 25점 ${_dailyPartnerReservationBadge(m)}${_dailyFairnessCorrectionBadge(m)}</div>
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
           ${done?`<span class="daily-status done">완료</span>`:`<span class="daily-timer ${_dailyTimerState(m)==='soon'?'soon':''} ${_dailyTimerState(m)==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>`}
         </div>
@@ -8221,7 +8262,7 @@ function dailyRenderMatches(){
     const playerButton=(side,p,i)=>`<button class="daily-active-player" type="button" ${pausedAttr} title="이름을 눌러 대기선수로 교체" onclick="dailyPickActiveReplacement('${m.id}','${side}',${i})">${_dailyNameHtml(p)}</button>`;
     return `<div class="daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
       <div class="daily-court-head">
-        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" ${pausedAttr} title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button>${_dailyPartnerReservationBadge(m)}</div>
+        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" ${pausedAttr} title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button>${_dailyPartnerReservationBadge(m)}${_dailyFairnessCorrectionBadge(m)}</div>
         <span class="daily-timer ${state==='soon'?'soon':''} ${state==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>
       </div>
       <div class="daily-court-body">
@@ -8505,7 +8546,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.465&from=daily';
+  location.href='team.html?v=1.10.466&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

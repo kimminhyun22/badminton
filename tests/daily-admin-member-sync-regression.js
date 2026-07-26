@@ -52,11 +52,20 @@ assert(
 const completeSource=sourceBetween('dailyCompleteMatch','dailyCancelMatch');
 assert(completeSource.includes('_dailyCheckinIdentityPending||_dailyServerSyncBusy'),'복귀 동기화 중에는 관리자 경기 종료를 먼저 실행하면 안 됩니다.');
 assert(completeSource.includes('!options.syncReplay'),'서버 명령을 관리자 원본에 재생할 때는 동기화 잠금을 통과해야 합니다.');
+const queueFromServerSource=sourceBetween('_dailyQueueFromServerSyncItem','_dailyApplyServerQueueSync');
+assert(queueFromServerSource.includes('fairnessCorrection:!!item?.fairnessCorrection'),'서버가 만든 공정 보정 대진의 완화 표시를 관리자 원본까지 보존해야 합니다.');
+const publicEventSource=sourceBetween('_dailyPublicEvent','dailyRenderResults');
+assert(
+  publicEventSource.includes('fairnessCorrection:!!m.fairnessCorrection')
+  &&publicEventSource.includes('fairnessCorrection:!!(q.fairnessCorrection||m.fairnessCorrection)'),
+  '관리자 재게시 뒤에도 진행 중·다음 공정 보정 표시를 회원 화면까지 보존해야 합니다.'
+);
 const queueSyncSource=sourceBetween('_dailyApplyServerQueueSync','_dailyPrepareServerQueueRequest');
 assert(queueSyncSource.includes('_dailyQueueCapacity().target')&&queueSyncSource.includes('sync.next.slice(0,syncLimit)'),'구버전 서버의 초과 대진을 복원해도 관리자 표시 코트 수로 정리해야 합니다.');
 const queueReplaySource=sourceBetween('_dailyPrepareServerQueueRequest','_dailyServerOperationAlreadyApplied');
 assert(!queueReplaySource.includes('dailyEnsureQueue()'),'서버 대진을 재생하기 전에 로컬 대진을 새로 만들어 충돌시키면 안 됩니다.');
 assert(queueReplaySource.includes('_dailyOfficialTeamFingerprint(_dailyQueue[idx].team1,_dailyQueue[idx].team2)!==requestFingerprint'),'같은 대진 ID에 다른 선수가 있으면 서버 조합으로 교체해야 합니다.');
+assert(queueReplaySource.includes('fairnessCorrection:!!req.queueFairnessCorrection'),'자동 투입 대진을 복원할 때도 공정 보정 표시를 잃으면 안 됩니다.');
 const queueReplaySandbox={
   _dailyQueue:[{id:'same-id',team1:['old1','old2'],team2:['old3','old4']}],
   _dailyServerQueueResultRequest:()=>null,

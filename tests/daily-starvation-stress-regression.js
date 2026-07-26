@@ -10,6 +10,7 @@ const {applyCommandTransaction}=require('../functions/daily-official-command');
 const {
   TEAM_DIFF_LIMIT,
   PARTNER_GAP_HARD,
+  PARTNER_GAP_CORRECTION_LIMIT,
   effectiveLevel,
   replenishPrepared
 }=require('../functions/daily-server-matchmaker');
@@ -161,8 +162,11 @@ function assertQuality(session){
       -second.reduce((sum,row)=>sum+effectiveLevel(row),0)
     );
     assert(teamDiff<=TEAM_DIFF_LIMIT,'공정성 보정 중에도 팀 실력차 하드 제한을 넘으면 안 됩니다.');
-    assert(Math.abs(effectiveLevel(first[0])-effectiveLevel(first[1]))<PARTNER_GAP_HARD,'첫 팀 파트너 실력차 하드 제한을 넘으면 안 됩니다.');
-    assert(Math.abs(effectiveLevel(second[0])-effectiveLevel(second[1]))<PARTNER_GAP_HARD,'둘째 팀 파트너 실력차 하드 제한을 넘으면 안 됩니다.');
+    const partnerLimit=item.fairnessCorrection?PARTNER_GAP_CORRECTION_LIMIT:PARTNER_GAP_HARD;
+    const firstGap=Math.abs(effectiveLevel(first[0])-effectiveLevel(first[1]));
+    const secondGap=Math.abs(effectiveLevel(second[0])-effectiveLevel(second[1]));
+    assert(item.fairnessCorrection?firstGap<=partnerLimit:firstGap<partnerLimit,'첫 팀 파트너 실력차 제한을 넘으면 안 됩니다.');
+    assert(item.fairnessCorrection?secondGap<=partnerLimit:secondGap<partnerLimit,'둘째 팀 파트너 실력차 제한을 넘으면 안 됩니다.');
   }
 }
 
@@ -271,6 +275,44 @@ recoveryResults.forEach(result=>{
   assert(result.focusGames>=result.medianGames-1,`${result.name}: 희소 급수·성별 선수의 보정이 다음 주기까지 완료되어야 합니다. ${summary}`);
   assert(result.maxFairGap<=1.5,`${result.name}: 강제 보정 기준을 넘은 공정성 부족은 다음 생성 주기 안에 회복되어야 합니다. ${summary}`);
 });
+
+function correctionRoster(fairExpected){
+  const rows=[
+    profile('correction-s',7,'M','20대'),
+    profile('correction-d',3,'M','20대'),
+    profile('correction-b1',5,'M','20대'),
+    profile('correction-b2',5,'M','20대')
+  ];
+  rows[0].fairExpected=fairExpected;
+  return rows;
+}
+
+const correctionSession=sessionFor(correctionRoster(2));
+correctionSession.event.courts=1;
+correctionSession.event.queuePolicy.official=1;
+const correctionGenerated=replenishPrepared(correctionSession,{now:BASE_NOW,requestId:'fair_partner_gap_correction'});
+assert.strictEqual(correctionGenerated.generated.length,1,'경기 기회가 1.5경기 이상 부족하면 파트너 차이만 완화한 보정 대진을 만들어야 합니다.');
+const correctionMatch=correctionGenerated.generated[0];
+assert.strictEqual(correctionMatch.fairnessCorrection,true,'일반 대진과 파트너 차이 완화 보정 대진을 구분해 동기화해야 합니다.');
+assert(correctionMatch.playerIds.includes('correction-s'),'보정 대진에는 실제 경기 기회가 부족한 희소 선수가 포함되어야 합니다.');
+const correctionTeam1=correctionMatch.t1Ids.map(id=>correctionSession.players.find(player=>player.id===id));
+const correctionTeam2=correctionMatch.t2Ids.map(id=>correctionSession.players.find(player=>player.id===id));
+const correctionPartnerGap=Math.max(
+  Math.abs(effectiveLevel(correctionTeam1[0])-effectiveLevel(correctionTeam1[1])),
+  Math.abs(effectiveLevel(correctionTeam2[0])-effectiveLevel(correctionTeam2[1]))
+);
+assert(correctionPartnerGap>=PARTNER_GAP_HARD,'보정 시나리오는 일반 파트너 제한으로는 만들 수 없는 조합이어야 합니다.');
+assert(correctionPartnerGap<=PARTNER_GAP_CORRECTION_LIMIT,'보정 대진도 완화된 파트너 차이 상한은 지켜야 합니다.');
+assert(correctionMatch.levelDiff<=TEAM_DIFF_LIMIT,'파트너 차이를 완화해도 양 팀 합산 실력차 제한은 절대 풀면 안 됩니다.');
+
+const earlyCorrectionSession=sessionFor(correctionRoster(1.49));
+earlyCorrectionSession.event.courts=1;
+earlyCorrectionSession.event.queuePolicy.official=1;
+assert.strictEqual(
+  replenishPrepared(earlyCorrectionSession,{now:BASE_NOW,requestId:'fair_partner_gap_too_early'}).generated.length,
+  0,
+  '게임 기회가 강제 보정 기준에 이르기 전에는 일반 파트너 품질을 느슨하게 만들면 안 됩니다.'
+);
 
 const impossiblePlayers=[
   profile('impossible-s',7,'M','20대'),

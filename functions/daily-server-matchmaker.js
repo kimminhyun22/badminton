@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const PARTNER_GAP_OK = 1.25;
 const PARTNER_GAP_CAUTION = 2.25;
 const PARTNER_GAP_HARD = 3;
+const PARTNER_GAP_CORRECTION_LIMIT = 4.5;
 const TEAM_DIFF_TARGET = 1.5;
 const TEAM_DIFF_LIMIT = 2;
 const RECENT_SOFT_MIN = 6;
@@ -90,6 +91,13 @@ function partnerGapPenalty(team){
   if(gap > PARTNER_GAP_CAUTION)penalty += 1200 + (gap - PARTNER_GAP_CAUTION) * 2200;
   if(gap >= PARTNER_GAP_HARD)penalty += 4200 + (gap - PARTNER_GAP_HARD) * 3200;
   return penalty;
+}
+
+function partnerGapAllowed(team, fairnessCorrection){
+  const gap = partnerGap(team);
+  return fairnessCorrection
+    ? gap <= PARTNER_GAP_CORRECTION_LIMIT
+    : gap < PARTNER_GAP_HARD;
 }
 
 function partnerRepeatPenalty(count){
@@ -316,14 +324,14 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
   return score;
 }
 
-function pairingFor(session, team1, team2, reference, now, strict, reservation){
+function pairingFor(session, team1, team2, reference, now, strict, reservation, fairnessCorrection = false){
   if(!partnerTeamsValid(team1, team2))return null;
   const teamMode = !!session.event?.teamMode;
   if(!validTeamModePairing(team1, team2, teamMode))return null;
   const type = strict ? strictMatchType(team1, team2) : '예외';
   if(strict && !type)return null;
   const diff = teamDiff(team1, team2);
-  if(diff > TEAM_DIFF_LIMIT || partnerGap(team1) >= PARTNER_GAP_HARD || partnerGap(team2) >= PARTNER_GAP_HARD)return null;
+  if(diff > TEAM_DIFF_LIMIT || !partnerGapAllowed(team1, fairnessCorrection) || !partnerGapAllowed(team2, fairnessCorrection))return null;
   let first = team1;
   let second = team2;
   if(teamMode && teamSide(first[0]) === '홍팀' && teamSide(second[0]) === '청팀'){
@@ -338,13 +346,15 @@ function pairingFor(session, team1, team2, reference, now, strict, reservation){
     team1Level:Math.round(teamLevel(first) * 10) / 10,
     team2Level:Math.round(teamLevel(second) * 10) / 10,
     flexible:!strict,
+    fairnessCorrection:!!fairnessCorrection,
+    correctionReason:fairnessCorrection ? 'fairness-partner-gap' : '',
     teamMode
   };
   pairing.score = scorePairing(session, pairing, reference, now, strict, reservation);
   return pairing;
 }
 
-function bestPairingForFour(session, four, reference, now, strict, reservation){
+function bestPairingForFour(session, four, reference, now, strict, reservation, fairnessCorrection = false){
   const layouts = [[0,1,2,3],[0,2,1,3],[0,3,1,2]];
   let best = null;
   layouts.forEach(layout=>{
@@ -355,7 +365,8 @@ function bestPairingForFour(session, four, reference, now, strict, reservation){
       reference,
       now,
       strict,
-      reservation
+      reservation,
+      fairnessCorrection
     );
     if(!pairing)return;
     const key = pairingKey(pairing);
@@ -460,6 +471,7 @@ function bestGeneratedPairing(session, available, reference, now){
   }
   const passes = ranked.length >= 8 ? [true, false] : [false];
   let fallback = null;
+  let urgentCorrectionFallback = null;
   for(const avoidFourRepeat of passes){
     let strictBest = null;
     let flexibleBest = null;
@@ -478,6 +490,17 @@ function bestGeneratedPairing(session, available, reference, now){
         if(flexible && (!flexibleBest || flexible.score < flexibleBest.score || (flexible.score === flexibleBest.score && pairingKey(flexible) < pairingKey(flexibleBest))))flexibleBest = flexible;
         if(flexible && containsUrgent && (!urgentFlexibleBest || flexible.score < urgentFlexibleBest.score || (flexible.score === urgentFlexibleBest.score && pairingKey(flexible) < pairingKey(urgentFlexibleBest))))urgentFlexibleBest = flexible;
       }
+      if(containsUrgent && !strict){
+        const correction = bestPairingForFour(session, four, reference, now, true, null, true);
+        if(
+          correction &&
+          (
+            !urgentCorrectionFallback ||
+            correction.score < urgentCorrectionFallback.score ||
+            (correction.score === urgentCorrectionFallback.score && pairingKey(correction) < pairingKey(urgentCorrectionFallback))
+          )
+        )urgentCorrectionFallback = correction;
+      }
     });
     const urgentBest = urgentStrictBest || urgentFlexibleBest;
     if(urgentBest)return urgentBest;
@@ -485,6 +508,7 @@ function bestGeneratedPairing(session, available, reference, now){
     if(!fallback && normalBest)fallback = normalBest;
     if(!urgent && normalBest)return normalBest;
   }
+  if(urgentCorrectionFallback)return urgentCorrectionFallback;
   return fallback;
 }
 
@@ -520,6 +544,9 @@ function queueItem(session, pairing, now, requestId, index, reservation){
     levelDiff:pairing.levelDiff,
     flexible:pairing.flexible,
     strict:!pairing.flexible,
+    fairnessCorrection:!!pairing.fairnessCorrection,
+    correctionReason:pairing.correctionReason || '',
+    partnerGapLimit:pairing.fairnessCorrection ? PARTNER_GAP_CORRECTION_LIMIT : PARTNER_GAP_HARD,
     score:Math.round(pairing.score),
     reservationId:reservation?.id || null,
     reservationLabel:reservation?.label || null,
@@ -622,7 +649,9 @@ function recordCompletedMatchHistory(session, match){
 }
 
 module.exports = {
+  FAIR_FORCE_GAP,
   PARTNER_GAP_HARD,
+  PARTNER_GAP_CORRECTION_LIMIT,
   TEAM_DIFF_LIMIT,
   effectiveLevel,
   fourKeyFromIds,

@@ -17,6 +17,7 @@ vm.runInContext(policySrc,sandbox,{filename:'match-quality.js'});
 const q=sandbox.KokMatchQuality;
 assert(q,'공통 대진 품질 API가 전역에 공개되어야 합니다.');
 assert(Object.isFrozen(q),'공통 대진 품질 API는 실행 중 바뀌지 않아야 합니다.');
+assert.strictEqual(q.constants.partnerGapCorrectionLimit,4.5,'공정 보정에서만 사용하는 파트너 차이 완화 상한을 공통 정책으로 유지해야 합니다.');
 
 const player=(level,gender='M',ageGroup='20대')=>({level,gender,ageGroup});
 assert.strictEqual(q.effectiveLevel(player(4,'M','20대')),4);
@@ -47,6 +48,31 @@ function sourceBetween(src,startName,nextName){
   assert(start>=0&&end>start,`${startName} 함수 범위를 찾을 수 있어야 합니다.`);
   return src.slice(start,end);
 }
+
+assert(dailySrc.includes('pickFairnessCorrection'),'관리자 앱의 로컬 대진도 서버와 같은 공정 보정 단계를 사용해야 합니다.');
+assert(dailySrc.includes("m.correctionReason='fairness-partner-gap'"),'파트너 차이 완화는 공정 보정 대진으로만 표시되어야 합니다.');
+const correctionPolicySandbox={
+  KokMatchQuality:q,
+  DAILY_PARTNER_GAP_HARD:q.constants.partnerGapHard,
+  DAILY_PARTNER_GAP_CORRECTION_LIMIT:q.constants.partnerGapCorrectionLimit
+};
+vm.createContext(correctionPolicySandbox);
+vm.runInContext(`
+function _dailyPartnerLevelGap(team){return KokMatchQuality.partnerGap(team);}
+${sourceBetween(dailySrc,'_dailyMatchMaxPartnerGap','_dailyMatchLevelSpreadPenalty')}
+this.allowed=_dailyMatchPartnerGapOfficialOk;
+`,correctionPolicySandbox,{filename:'daily-correction-policy.js'});
+const correctionCandidate={
+  team1A:player(7),team1B:player(3),
+  team2C:player(5),team2D:player(5)
+};
+assert.strictEqual(correctionPolicySandbox.allowed(correctionCandidate),false,'일반 대진은 기존 파트너 차이 제한을 유지해야 합니다.');
+assert.strictEqual(correctionPolicySandbox.allowed({...correctionCandidate,fairnessCorrection:true}),true,'공정 보정 대진만 파트너 차이를 완화해야 합니다.');
+assert.strictEqual(correctionPolicySandbox.allowed({
+  team1A:player(7),team1B:player(1),
+  team2C:player(4),team2D:player(4),
+  fairnessCorrection:true
+}),false,'공정 보정이어도 완화 상한을 넘는 파트너 조합은 허용하면 안 됩니다.');
 
 const formSandbox={KokMatchQuality:q};
 vm.createContext(formSandbox);

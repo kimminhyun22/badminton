@@ -74,6 +74,18 @@ function baseRoot(){
   };
 }
 
+function fairnessCorrectionRoot(fairExpected = 2, levels = [7,4,6,3]){
+  const value=baseRoot();
+  ['p9','p10','p11','p12'].forEach((id,index)=>{
+    value.session.players.find(item=>item.id===id).level=levels[index];
+  });
+  value.session.players.find(item=>item.id==='p9').fairExpected=fairExpected;
+  const item=value.session.event.next.find(row=>row.queueId==='q1');
+  item.fairnessCorrection=true;
+  item.correctionReason='fairness-partner-gap';
+  return value;
+}
+
 const grantToken = issueOfficialGrant({
   v:1,sid:CHECKIN_ID,cid:CLIENT_ID,pid:'official',iat:BASE_NOW-1000,exp:BASE_NOW+60*60_000
 }, SECRET);
@@ -179,6 +191,19 @@ const rearrangedQueue=oppositePartnerRoot.session.event.next.find(item=>item.que
 assert(rearrangedQueue.t1Ids.includes('p9')&&rearrangedQueue.t1Ids.includes('p11'),'같은 예정 경기의 요청 선수는 관리자 앱 없이 같은 편으로 재정렬해야 합니다.');
 assert.strictEqual(oppositePartner.outcome.terminal.serverResult.rearranged,true,'서버 응답은 팀 재정렬 여부를 기록해야 합니다.');
 const oppositeReservation=oppositePartnerRoot.session.reservations.find(item=>item.id==='sr_operation_partner_opposite_001');
+
+let correctionPartnerRoot=fairnessCorrectionRoot();
+const correctionPartner=submit(correctionPartnerRoot,'official-partner-reservation','operation_partner_correction_001',BASE_NOW,{
+  playerIds:['p10','p11'],playerNames:['P10','P11']
+});
+assert.strictEqual(correctionPartner.outcome.terminal.status,'applied','공정 보정 대진에서도 안전한 파트너 요청은 즉시 반영해야 합니다.');
+const correctionPartnerQueue=correctionPartner.outcome.current.session.event.next.find(item=>item.queueId==='q1');
+assert(
+  ['p10','p11'].every(id=>correctionPartnerQueue.t1Ids.includes(id))
+  ||['p10','p11'].every(id=>correctionPartnerQueue.t2Ids.includes(id)),
+  '보정 대진의 파트너 재배치도 요청한 두 선수를 같은 편으로 유지해야 합니다.'
+);
+assert.strictEqual(correctionPartnerQueue.fairnessCorrection,true,'파트너 재배치 뒤에도 공정 보정 제한과 표시를 유지해야 합니다.');
 
 let partnerRepairRoot=baseRoot();
 partnerRepairRoot.session.players.push(player('spare','wait'));
@@ -357,6 +382,41 @@ root=entered.outcome.current;
 assert(root.session.event.active.some(match=>match.id==='dmv2_operation_enter_0001'&&match.court===1),'입장 처리는 결정적 경기 ID로 해당 코트에서 시작해야 합니다.');
 assert(root.session.event.next.some(item=>item.queueId==='q3'),'앱이 꺼져 있어도 준비된 예상 대진을 다음 대진으로 승격해야 합니다.');
 assertOperationalInvariants(root.session);
+
+let correctionEnterRoot=fairnessCorrectionRoot();
+correctionEnterRoot=submit(correctionEnterRoot,'official-court-complete','operation_correction_complete_001',BASE_NOW,completeExtra).outcome.current;
+const correctionEnterQueue=correctionEnterRoot.session.event.next.find(item=>item.queueId==='q1');
+const correctionEnter=submit(correctionEnterRoot,'official-queue-enter-free','operation_correction_enter_001',BASE_NOW+1000,{
+  queueId:'q1',court:1,token:'undo_correction_enter',newMatchId:'dmv2_correction_enter',
+  expectedQueueIndex:correctionEnterRoot.session.event.next.findIndex(item=>item.queueId==='q1')+1,
+  expectedHoldId:correctionEnterQueue.targetHoldId,
+  expectedPlayerIds:[...correctionEnterQueue.playerIds],
+  expectedTeam1Ids:[...correctionEnterQueue.t1Ids],
+  expectedTeam2Ids:[...correctionEnterQueue.t2Ids]
+});
+assert.strictEqual(correctionEnter.outcome.terminal.status,'applied','유효한 공정 보정 대진은 투입 직전 재검증 후 시작해야 합니다.');
+assert.strictEqual(
+  correctionEnter.outcome.current.session.event.active.find(match=>match.id==='dmv2_correction_enter')?.fairnessCorrection,
+  true,
+  '서버에서 시작한 경기에도 공정 보정 표시를 보존해야 합니다.'
+);
+
+let staleCorrectionRoot=fairnessCorrectionRoot(1.49);
+staleCorrectionRoot=submit(staleCorrectionRoot,'official-court-complete','operation_stale_correction_complete_001',BASE_NOW,completeExtra).outcome.current;
+assert(!staleCorrectionRoot.session.event.next.some(item=>item.queueId==='q1'),'기회 격차가 1.5 미만으로 바뀐 오래된 보정 대진은 투입 전에 제거해야 합니다.');
+
+let excessiveGapRoot=fairnessCorrectionRoot(2,[7,2,6,3]);
+excessiveGapRoot=submit(excessiveGapRoot,'official-court-complete','operation_gap_correction_complete_001',BASE_NOW,completeExtra).outcome.current;
+assert(!excessiveGapRoot.session.event.next.some(item=>item.queueId==='q1'),'파트너 차이가 완화 상한 4.5를 넘는 보정 대진은 투입 전에 제거해야 합니다.');
+
+let excessiveTeamDiffRoot=fairnessCorrectionRoot(2,[7,3,4,3]);
+excessiveTeamDiffRoot=submit(excessiveTeamDiffRoot,'official-court-complete','operation_team_diff_correction_complete_001',BASE_NOW,completeExtra).outcome.current;
+assert(!excessiveTeamDiffRoot.session.event.next.some(item=>item.queueId==='q1'),'보정 대진도 팀 합산 차이가 2.0을 넘으면 투입 전에 제거해야 합니다.');
+
+let flexibleCorrectionRoot=fairnessCorrectionRoot();
+flexibleCorrectionRoot.session.event.next.find(item=>item.queueId==='q1').flexible=true;
+flexibleCorrectionRoot=submit(flexibleCorrectionRoot,'official-court-complete','operation_flexible_correction_complete_001',BASE_NOW,completeExtra).outcome.current;
+assert(!flexibleCorrectionRoot.session.event.next.some(item=>item.queueId==='q1'),'공정 보정은 파트너 차이 외 종목 구성까지 완화한 예외 대진에 적용하면 안 됩니다.');
 
 const q2Index=root.session.event.next.findIndex(item=>item.queueId==='q2');
 const q2=root.session.event.next[q2Index];
