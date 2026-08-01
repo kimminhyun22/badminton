@@ -11,7 +11,9 @@ const {
   TEAM_DIFF_LIMIT,
   PARTNER_GAP_HARD,
   PARTNER_GAP_CORRECTION_LIMIT,
+  PARTNER_GAP_SYMMETRY_LIMIT,
   effectiveLevel,
+  preparedPairing,
   replenishPrepared
 }=require('../functions/daily-server-matchmaker');
 
@@ -276,6 +278,30 @@ recoveryResults.forEach(result=>{
   assert(result.maxFairGap<=1.5,`${result.name}: 강제 보정 기준을 넘은 공정성 부족은 다음 생성 주기 안에 회복되어야 합니다. ${summary}`);
 });
 
+const symmetryPlayers=[
+  profile('symmetry-s',7,'M','20대'),
+  profile('symmetry-b',5,'M','20대'),
+  profile('symmetry-a1',6,'M','20대'),
+  profile('symmetry-a2',6,'M','20대')
+];
+const symmetrySession=sessionFor(symmetryPlayers);
+assert.strictEqual(PARTNER_GAP_SYMMETRY_LIMIT,1.5,'서버도 보통 대진의 파트너 격차 대칭 상한을 공유해야 합니다.');
+assert.strictEqual(
+  preparedPairing(symmetrySession,['symmetry-s','symmetry-b'],['symmetry-a1','symmetry-a2'],{now:BASE_NOW}),
+  null,
+  '합산이 같아도 한쪽 파트너 격차만 크면 서버 보통 대진에서 제외해야 합니다.'
+);
+symmetryPlayers[0].fairExpected=1;
+assert(
+  preparedPairing(symmetrySession,['symmetry-s','symmetry-b'],['symmetry-a1','symmetry-a2'],{now:BASE_NOW}),
+  '한 경기 이상 부족한 선수는 파트너 격차 대칭보다 경기 기회를 우선해야 합니다.'
+);
+symmetryPlayers[0].fairExpected=0;
+assert(
+  preparedPairing(symmetrySession,['symmetry-s','symmetry-b'],['symmetry-a1','symmetry-a2'],{now:BASE_NOW,reservationId:'pair-1'}),
+  '지정 파트너 요청은 서버 대칭 제한으로 취소하면 안 됩니다.'
+);
+
 function correctionRoster(fairExpected){
   const rows=[
     profile('correction-s',7,'M','20대'),
@@ -313,6 +339,25 @@ assert.strictEqual(
   0,
   '게임 기회가 강제 보정 기준에 이르기 전에는 일반 파트너 품질을 느슨하게 만들면 안 됩니다.'
 );
+
+const supportOutsideCandidateRows=[profile('candidate-s',7,'M','20대')];
+supportOutsideCandidateRows[0].fairExpected=2;
+for(let index=0;index<22;index++){
+  supportOutsideCandidateRows.push(profile(`candidate-low-${index+1}`,3,'M','40대'));
+}
+for(let index=0;index<3;index++){
+  const support=profile(`candidate-support-${index+1}`,5,'M','20대');
+  support.games=5;
+  support.fairExpected=5;
+  supportOutsideCandidateRows.push(support);
+}
+const supportOutsideCandidateSession=sessionFor(supportOutsideCandidateRows);
+supportOutsideCandidateSession.event.courts=1;
+supportOutsideCandidateSession.event.queuePolicy.official=1;
+const supportOutsideCandidate=replenishPrepared(supportOutsideCandidateSession,{now:BASE_NOW,requestId:'fair_support_outside_candidate'}).generated[0];
+assert(supportOutsideCandidate,'전체 대기자에 합법 조합이 있으면 희소 급수 대진을 생성해야 합니다.');
+assert(supportOutsideCandidate.playerIds.includes('candidate-s'),'강제 보정 선수와 호환되는 선수가 상위 22명 밖에 있어도 전체 대기자에서 찾아야 합니다.');
+assert(supportOutsideCandidate.playerIds.filter(id=>id.startsWith('candidate-support-')).length===3,'희소 S급의 합법 조합에 필요한 B급 세 명을 함께 찾아야 합니다.');
 
 const impossiblePlayers=[
   profile('impossible-s',7,'M','20대'),

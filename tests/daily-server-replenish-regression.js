@@ -369,6 +369,7 @@ const finishResult=complete(finish,finish.session.event.active[0],40,BASE_NOW+40
 assert.strictEqual(finishResult.outcome.terminal.status,'applied','마무리 중에도 현재 경기 종료는 처리되어야 합니다.');
 assert.strictEqual(finishResult.outcome.current.session.event.next.length,0,'마무리 모드에서는 서버가 새 대진을 만들면 안 됩니다.');
 assert.strictEqual(finishResult.outcome.current.session.event.active.length,2,'마무리 모드의 빈 코트는 새 경기로 다시 채우면 안 됩니다.');
+assert.strictEqual(finishResult.outcome.current.session.event.queuePolicy.finishComplete,false,'진행 경기가 남아 있으면 서버도 마무리 완료로 게시하면 안 됩니다.');
 
 const beforeStart=root();
 beforeStart.session.event.operationStarted=false;

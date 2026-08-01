@@ -60,6 +60,10 @@ assert(dailySrc.includes("mixedGames:(p.mixedGames||0)+(active.match.type==='혼
 assert(dailySrc.includes('typeTrackedGames:(p.typeTrackedGames||0)+1'),'예상 대진은 유형을 확인할 수 있는 경기만 혼복 목표에 포함해야 합니다.');
 assert(dailySrc.includes("if(m.type==='혼복')p.mixedGames=(p.mixedGames||0)+1"),'혼복 완료 시 개인별 혼복 횟수를 기록해야 합니다.');
 assert(dailySrc.includes('_dailyRebuildLiveTypeCounts();'),'기존 저장본을 불러올 때 완료 대진으로 혼복 횟수를 복구해야 합니다.');
+assert(dailySrc.includes('const DAILY_FAIR_FORCE_GAP=1;'),'1경기 기회 차부터 부족 선수를 정상 품질 대진에 강제 포함해야 합니다.');
+assert(dailySrc.includes('const DAILY_FAIR_CORRECTION_GAP=1.5;'),'파트너 급수 완화는 1.5경기 차부터만 허용해야 합니다.');
+assert(dailySrc.includes('pick(eligible.length>=8,urgent.id,eligible)'),'부족 선수와 맞는 조합은 상위 22명뿐 아니라 전체 대기자에서 찾아야 합니다.');
+assert(dailySrc.includes('_dailyFairGap(urgent)>=DAILY_FAIR_CORRECTION_GAP'),'정상 품질 대진을 먼저 찾고 별도 보정 기준에 도달한 경우에만 급수 제한을 완화해야 합니다.');
 
 const rebuildCalls=[];
 const arrivalSandbox={

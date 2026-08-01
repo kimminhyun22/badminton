@@ -41,6 +41,32 @@ assert(
   !publicEvent.includes('_dailyProjectedQueue('),
   '회원 세션 게시 과정에서 코트 수 밖의 예상 대진을 만들면 안 됩니다.'
 );
+assert(publicEvent.includes('_dailyFinishMode&&!queuedCount&&!st.active.length'),'진행 경기가 남아 있으면 회원 화면을 마무리 완료로 표시하면 안 됩니다.');
+const finishPlan=extractFunction('_dailyFinishPlanInfo','_dailyFinishEtaLabel');
+const finishEta=extractFunction('_dailyFinishEtaLabel','dailyToggleFinishMode');
+const finishSandbox={};
+vm.createContext(finishSandbox);
+vm.runInContext(`
+const DAILY_MATCH_MINUTES=15;
+let _dailyQueue=[];
+let active=[];
+function _dailyQueueItemValid(){return true;}
+function _dailyCourtCount(){return 3;}
+function _dailyActiveMatches(){return active;}
+function _dailyRemainingMinutes(match){return match.remain;}
+${finishPlan}
+${finishEta}
+this.api={
+  set(queueCount,remaining){_dailyQueue=Array.from({length:queueCount},()=>({}));active=remaining.map(remain=>({remain}));},
+  plan:_dailyFinishPlanInfo
+};
+`,finishSandbox);
+finishSandbox.api.set(3,[5,5,5]);
+assert.strictEqual(finishSandbox.api.plan().etaMin,20,'현재 경기 뒤 다음 세 경기를 마치려면 시작 시각이 아니라 최종 종료까지 20분으로 계산해야 합니다.');
+finishSandbox.api.set(0,[12,7,3]);
+assert.strictEqual(finishSandbox.api.plan().etaMin,12,'다음 대진이 없어도 진행 중인 마지막 경기 종료까지 남은 시간을 보여야 합니다.');
+finishSandbox.api.set(0,[]);
+assert.strictEqual(finishSandbox.api.plan().etaMin,0,'진행·다음 대진이 모두 없을 때만 바로 자율게임이어야 합니다.');
 const queueTarget=extractFunction('_dailyQueueTarget','_dailyQueueCapacity');
 assert(queueTarget.includes('return _dailyFinishMode?Math.min(base,_dailyQueue.length):base;'),'다음 대진 목표는 사용 코트 수를 넘지 않아야 합니다.');
 assert(!queueTarget.includes('boost')&&!queueTarget.includes('extra'),'종료 임박이나 여유 인원 때문에 다음 대진 수를 늘리면 안 됩니다.');

@@ -2,9 +2,10 @@
 
 const crypto = require('crypto');
 const {
-  FAIR_FORCE_GAP,
+  FAIR_CORRECTION_GAP,
   PARTNER_GAP_HARD,
   PARTNER_GAP_CORRECTION_LIMIT,
+  partnerGapSymmetryAllowed,
   TEAM_DIFF_LIMIT,
   preparedPairing,
   replenishPrepared,
@@ -180,7 +181,7 @@ function partnerGap(players){
 function fairnessCorrectionEligible(session, ids){
   return (ids || []).some(id=>{
     const player = playerById(session, id);
-    return player && ensureFairExpected(player) - fairActual(player) >= FAIR_FORCE_GAP;
+    return player && ensureFairExpected(player) - fairActual(player) >= FAIR_CORRECTION_GAP;
   });
 }
 
@@ -193,6 +194,10 @@ function queuePairingMetrics(session, team1Ids, team2Ids, options = {}){
   const gap1 = partnerGap(team1);
   const gap2 = partnerGap(team2);
   if(fairnessCorrection ? gap1 > partnerLimit || gap2 > partnerLimit : gap1 >= partnerLimit || gap2 >= partnerLimit)return null;
+  if(!partnerGapSymmetryAllowed(team1, team2, {
+    fairnessCorrection,
+    reservation:options.reservation || options.reservationId
+  }))return null;
   const team1Level = Math.round(teamLevel(team1) * 10) / 10;
   const team2Level = Math.round(teamLevel(team2) * 10) / 10;
   const levelDiff = Math.round(Math.abs(team1Level - team2Level) * 10) / 10;
@@ -218,6 +223,10 @@ function preparedQualityValid(session, item){
   const gap1 = partnerGap(team1);
   const gap2 = partnerGap(team2);
   if(fairnessCorrection ? gap1 > partnerLimit || gap2 > partnerLimit : gap1 >= partnerLimit || gap2 >= partnerLimit)return false;
+  if(!partnerGapSymmetryAllowed(team1, team2, {
+    fairnessCorrection,
+    reservation:item?.reservationId
+  }))return false;
   if(Math.abs(teamLevel(team1) - teamLevel(team2)) > TEAM_DIFF_LIMIT)return false;
   if(fairnessCorrection && (item?.flexible || teamShape(team1) !== teamShape(team2)))return false;
   if(item?.teamMode){
@@ -260,10 +269,11 @@ function writePreparedTeams(session, item, team1Ids, team2Ids, metrics){
   return true;
 }
 
-function setPreparedTeams(session, item, team1Ids, team2Ids){
+function setPreparedTeams(session, item, team1Ids, team2Ids, options = {}){
   const metrics = queuePairingMetrics(session, team1Ids, team2Ids, {
     fairnessCorrection:!!item?.fairnessCorrection,
-    correctionReason:item?.correctionReason
+    correctionReason:item?.correctionReason,
+    reservation:options.reservation || item?.reservationId
   });
   return metrics ? writePreparedTeams(session, item, team1Ids, team2Ids, metrics) : false;
 }
@@ -285,7 +295,7 @@ function attachPartnerToPrepared(session, reservation){
       if(!sameSide){
         if(item.teamMode)return null;
         const others = ids.filter(id=>!pair.includes(id));
-        if(others.length !== 2 || !setPreparedTeams(session, item, pair, others))return null;
+        if(others.length !== 2 || !setPreparedTeams(session, item, pair, others, {reservation}))return null;
       }
       item.reservationId = reservation.id;
       item.reservationLabel = reservation.label;
@@ -634,7 +644,12 @@ function repairPreparedForUnavailablePlayer(session, playerId, now){
     seen.add(candidateId);
     const team1 = originalTeam1.map(id=>id === targetId ? candidateId : id);
     const team2 = originalTeam2.map(id=>id === targetId ? candidateId : id);
-    const pairing = preparedPairing(session, team1, team2, {now, allowFlexible:true});
+    const pairing = preparedPairing(session, team1, team2, {
+      now,
+      allowFlexible:true,
+      fairnessCorrection:!!target.item?.fairnessCorrection,
+      reservationId:target.item?.reservationId || ''
+    });
     if(!pairing)return;
     const strictRank = pairing.flexible ? 1 : 0;
     const score = number(pairing.score) + candidate.sourcePenalty;
@@ -851,7 +866,7 @@ function refreshEvent(session, now){
   event.queuePolicy.eligible = waiting.length;
   event.queuePolicy.ready = waiting.filter(player=>!queuedIds.has(text(player.id))).length;
   event.queuePolicy.readyTotal = waiting.length;
-  event.queuePolicy.finishComplete = !!(event.finishMode && !event.next.length);
+  event.queuePolicy.finishComplete = !!(event.finishMode && !event.next.length && !event.active.length);
   event.queuePolicy.detail = event.queuePolicy.finishComplete
     ? '마무리 완료 · 빈 코트는 자율게임'
     : event.next.length
@@ -959,6 +974,20 @@ function clearLiveAddition(player){
   delete player.liveAddedOperationId;
 }
 
+function reprioritizePreparedForLateArrival(session, now){
+  const event=session?.event;
+  const startedAt=number(session?.matchStartedAt);
+  if(!event || !startedAt || now-startedAt<5*60*1000 || event.finishMode)return false;
+  const target=Math.max(0,number(event.nextTarget||event.queuePolicy?.official||event.next?.length));
+  const current=Array.isArray(event.next)?event.next:[];
+  if(current.length<=1)return false;
+  const preserved=current.filter((item,index)=>index===0||item?.reservationId||item?.restPass||item?.notifiedAt);
+  const next=preserved.slice(0,target);
+  if(next.length===current.length&&next.every((item,index)=>item===current[index]))return false;
+  event.next=next;
+  return true;
+}
+
 function applyArrival(session, request, now, requestId){
   if(session.event?.finishMode)return '마무리 전환 후에는 자동대진 참가자를 추가할 수 없습니다.';
   const player = playerById(session, request.playerId);
@@ -983,6 +1012,7 @@ function applyArrival(session, request, now, requestId){
   player.arrivalConfirmedSource = 'club-official-arrival';
   markLiveAddition(session, player, request, now, 'existing', requestId);
   session.arrivalCandidates = session.arrivalCandidates.filter(item=>text(item.candidateKey) !== text(request.candidateKey));
+  reprioritizePreparedForLateArrival(session, now);
   return '';
 }
 

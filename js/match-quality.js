@@ -6,6 +6,7 @@
     partnerGapCaution:2.25,
     partnerGapHard:3,
     partnerGapCorrectionLimit:4.5,
+    partnerGapSymmetryLimit:1.5,
     teamDiffTarget:1.5,
     teamDiffLimit:2,
     teamDiffSevere:3
@@ -36,6 +37,9 @@
     if(!Array.isArray(team)||team.length<2)return 0;
     return Math.abs(effectiveLevel(team[0])-effectiveLevel(team[1]));
   }
+  function partnerGapSymmetry(team1,team2){
+    return Math.abs(partnerGap(team1)-partnerGap(team2));
+  }
   function partnerGapPenalty(team){
     const gap=partnerGap(team);
     if(gap<=constants.partnerGapOk)return 0;
@@ -62,6 +66,7 @@
     teamDiff,
     teamDiffPenalty,
     partnerGap,
+    partnerGapSymmetry,
     partnerGapPenalty,
     partnerRepeatPenalty,
     opponentRepeatPenalty

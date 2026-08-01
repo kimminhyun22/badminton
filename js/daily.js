@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.475';
+const APP_VERSION = '1.10.477';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1549,7 +1549,8 @@ function _dailyEligible(){
   return list;
 }
 const DAILY_FAIR_PRIORITY_GAP=0.75;
-const DAILY_FAIR_FORCE_GAP=1.5;
+const DAILY_FAIR_FORCE_GAP=1;
+const DAILY_FAIR_CORRECTION_GAP=1.5;
 function _dailyFairActual(p){
   if(!p)return 0;
   return Number(p.games||0)+((p.status==='playing'||p.currentMatchId)?1:0);
@@ -1765,6 +1766,7 @@ function _dailyQueueItemValid(q,used){
   if(used&&ids.some(id=>used.has(id)))return false;
   const players=ids.map(_dailyPlayer);
   if(players.some(p=>!p||!DAILY_STATUS[p.status]?.eligible||p.currentMatchId))return false;
+  if(q.fairnessCorrection&&!players.some(p=>_dailyFairGap(p)>=DAILY_FAIR_CORRECTION_GAP))return false;
   if(!_dailyPartnerConstraintOk(players))return false;
   const t1=(q.team1||[]).map(_dailyPlayer),t2=(q.team2||[]).map(_dailyPlayer);
   if(t1.some(p=>!p)||t2.some(p=>!p))return false;
@@ -1775,7 +1777,7 @@ function _dailyQueueItemValid(q,used){
   if(!_dailyValidTeamPairing(t1,t2))return false;
   const team1Level=_dailyTeamLevel(t1);
   const team2Level=_dailyTeamLevel(t2);
-  const m={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:Math.round(Math.abs(team1Level-team2Level)*10)/10,team1Level,team2Level,fairnessCorrection:!!q.fairnessCorrection};
+  const m={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:Math.round(Math.abs(team1Level-team2Level)*10)/10,team1Level,team2Level,fairnessCorrection:!!q.fairnessCorrection,reservationId:q.reservationId||null};
   return _dailyMatchTeamBalanceOk(m)&&_dailyMatchPartnerGapOfficialOk(m);
 }
 function _dailyQueueFromMatch(m,score,strict){
@@ -1831,14 +1833,10 @@ function _dailyBuildQueueItem(excludeIds,options){
     if(priority)return priority;
     return (a.waitFrom||0)-(b.waitFrom||0);
   }).slice(0,22);
-  if(urgent&&!ranked.some(p=>p.id===urgent.id)){
-    ranked.splice(Math.max(0,ranked.length-1),1);
-    ranked.unshift(urgent);
-  }
   let best=null,bestScore=Infinity,strictBest=false;
-  const pick=(avoidExactRepeat,requiredPlayerId)=>{
+  const pick=(avoidExactRepeat,requiredPlayerId,candidates=ranked)=>{
     best=null;bestScore=Infinity;strictBest=false;
-    for(const four of _dailyCombos(ranked)){
+    for(const four of _dailyCombos(candidates)){
       if(requiredPlayerId&&!four.some(p=>p.id===requiredPlayerId))continue;
       if(!_dailyPartnerConstraintOk(four))continue;
       if(avoidExactRepeat&&_dailyFourRepeatCount(four)>0)continue;
@@ -1855,7 +1853,7 @@ function _dailyBuildQueueItem(excludeIds,options){
     }
     if(best)return true;
     if(_dailyTeamMode)return false;
-    for(const four of _dailyCombos(ranked)){
+    for(const four of _dailyCombos(candidates)){
       if(requiredPlayerId&&!four.some(p=>p.id===requiredPlayerId))continue;
       if(!_dailyPartnerConstraintOk(four))continue;
       if(avoidExactRepeat&&_dailyFourRepeatCount(four)>0)continue;
@@ -1867,9 +1865,9 @@ function _dailyBuildQueueItem(excludeIds,options){
     }
     return !!best;
   };
-  const pickFairnessCorrection=(avoidExactRepeat,requiredPlayerId)=>{
+  const pickFairnessCorrection=(avoidExactRepeat,requiredPlayerId,candidates=ranked)=>{
     best=null;bestScore=Infinity;strictBest=false;
-    for(const four of _dailyCombos(ranked)){
+    for(const four of _dailyCombos(candidates)){
       if(requiredPlayerId&&!four.some(p=>p.id===requiredPlayerId))continue;
       if(!_dailyPartnerConstraintOk(four))continue;
       if(avoidExactRepeat&&_dailyFourRepeatCount(four)>0)continue;
@@ -1888,8 +1886,10 @@ function _dailyBuildQueueItem(excludeIds,options){
     return !!best;
   };
   if(urgent){
-    if(!pick(ranked.length>=8,urgent.id))pick(false,urgent.id);
-    if(!best&&!pickFairnessCorrection(ranked.length>=8,urgent.id))pickFairnessCorrection(false,urgent.id);
+    if(!pick(eligible.length>=8,urgent.id,eligible))pick(false,urgent.id,eligible);
+    if(!best&&_dailyFairGap(urgent)>=DAILY_FAIR_CORRECTION_GAP&&!pickFairnessCorrection(eligible.length>=8,urgent.id,eligible)){
+      pickFairnessCorrection(false,urgent.id,eligible);
+    }
   }
   if(!best&&!pick(ranked.length>=8))pick(false);
   if(!best)return null;
@@ -3025,7 +3025,8 @@ function _dailyFinishPlanInfo(){
   const active=_dailyActiveMatches();
   const free=Math.max(0,courts-active.length);
   if(!queued){
-    return {queued,active:active.length,etaMin:0,label:'바로 자율게임'};
+    const etaMin=active.length?Math.max(...active.map(m=>Math.max(0,_dailyRemainingMinutes(m)))):0;
+    return {queued,active:active.length,etaMin,label:etaMin?_dailyFinishEtaLabel(etaMin):'바로 자율게임'};
   }
   const slots=active
     .map(m=>Math.max(0,_dailyRemainingMinutes(m)))
@@ -3033,15 +3034,14 @@ function _dailyFinishPlanInfo(){
   for(let i=0;i<free;i++)slots.push(0);
   if(!slots.length)slots.push(0);
   let remain=queued;
-  let eta=0;
   const queue=slots.sort((a,b)=>a-b);
   while(remain>0){
     const t=queue.shift()??0;
-    eta=t;
     remain--;
     queue.push(t+DAILY_MATCH_MINUTES);
     queue.sort((a,b)=>a-b);
   }
+  const eta=Math.max(0,...queue);
   return {queued,active:active.length,etaMin:Math.max(0,Math.ceil(eta)),label:_dailyFinishEtaLabel(Math.max(0,Math.ceil(eta)))};
 }
 function _dailyFinishEtaLabel(minutes){
@@ -3393,6 +3393,7 @@ const DAILY_PARTNER_GAP_OK=MATCH_QUALITY?.constants.partnerGapOk??1.25;
 const DAILY_PARTNER_GAP_CAUTION=MATCH_QUALITY?.constants.partnerGapCaution??2.25;
 const DAILY_PARTNER_GAP_HARD=MATCH_QUALITY?.constants.partnerGapHard??3;
 const DAILY_PARTNER_GAP_CORRECTION_LIMIT=MATCH_QUALITY?.constants.partnerGapCorrectionLimit??4.5;
+const DAILY_PARTNER_GAP_SYMMETRY_LIMIT=MATCH_QUALITY?.constants.partnerGapSymmetryLimit??1.5;
 const DAILY_TEAM_DIFF_TARGET=MATCH_QUALITY?.constants.teamDiffTarget??1.5;
 const DAILY_TEAM_DIFF_LIMIT=MATCH_QUALITY?.constants.teamDiffLimit??2;
 const DAILY_RECENT_SOFT_MIN=6;
@@ -3458,11 +3459,26 @@ function _dailyMatchMaxPartnerGap(m){
     _dailyPartnerLevelGap([m.team2C,m.team2D])
   );
 }
+function _dailyMatchPartnerGapSymmetry(m){
+  if(!m)return 0;
+  return Math.abs(
+    _dailyPartnerLevelGap([m.team1A,m.team1B])-
+    _dailyPartnerLevelGap([m.team2C,m.team2D])
+  );
+}
+function _dailyMatchFairnessPriority(m){
+  return [m?.team1A,m?.team1B,m?.team2C,m?.team2D]
+    .filter(Boolean)
+    .some(p=>_dailyFairGap(p)>=DAILY_FAIR_FORCE_GAP);
+}
 function _dailyMatchPartnerGapOfficialOk(m){
   const gap=_dailyMatchMaxPartnerGap(m);
-  return m?.fairnessCorrection
+  const absoluteOk=m?.fairnessCorrection
     ?gap<=DAILY_PARTNER_GAP_CORRECTION_LIMIT
     :gap<DAILY_PARTNER_GAP_HARD;
+  if(!absoluteOk)return false;
+  if(m?.fairnessCorrection||m?.reservationId||_dailyMatchFairnessPriority(m))return true;
+  return _dailyMatchPartnerGapSymmetry(m)<=DAILY_PARTNER_GAP_SYMMETRY_LIMIT;
 }
 function _dailyMatchLevelSpreadPenalty(players){
   const levels=(players||[]).map(effLevel).filter(v=>Number.isFinite(v));
@@ -4750,7 +4766,7 @@ function _dailyPublicEvent(){
   const queuedCount=next.length;
   const expectedCount=expected.length;
   const deferredCount=_dailyDeferredWaitingPlayers().length;
-  const finishComplete=!!(_dailyFinishMode&&!queuedCount);
+  const finishComplete=!!(_dailyFinishMode&&!queuedCount&&!st.active.length);
   const policyDetail=finishComplete
     ? '마무리 완료 · 빈 코트는 자율게임'
     : queuedCount
@@ -5209,7 +5225,7 @@ function dailyRenderOpsStats(){
   const rest=_dailyPlayers.filter(p=>p.status==='rest').length;
   const guestLive=_dailyPlayers.filter(p=>p.status!=='done'&&p.status!=='planned'&&p.status!=='invited'&&p.isGuest).length;
   const flow=_dailyNaturalAutoInfo();
-  const finishComplete=!!(_dailyFinishMode&&!locked);
+  const finishComplete=!!(_dailyFinishMode&&!locked&&!active);
   const finishPlan=_dailyFinishPlanInfo();
   const courtHint=_dailyPaused
     ? '타이머 정지'
@@ -8841,7 +8857,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.475&from=daily';
+  location.href='team.html?v=1.10.477&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

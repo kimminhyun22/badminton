@@ -18,6 +18,7 @@ const q=sandbox.KokMatchQuality;
 assert(q,'공통 대진 품질 API가 전역에 공개되어야 합니다.');
 assert(Object.isFrozen(q),'공통 대진 품질 API는 실행 중 바뀌지 않아야 합니다.');
 assert.strictEqual(q.constants.partnerGapCorrectionLimit,4.5,'공정 보정에서만 사용하는 파트너 차이 완화 상한을 공통 정책으로 유지해야 합니다.');
+assert.strictEqual(q.constants.partnerGapSymmetryLimit,1.5,'보통 대진의 양 팀 파트너 격차 차이는 공통 상한을 사용해야 합니다.');
 
 const player=(level,gender='M',ageGroup='20대')=>({level,gender,ageGroup});
 assert.strictEqual(q.effectiveLevel(player(4,'M','20대')),4);
@@ -25,6 +26,7 @@ assert.strictEqual(q.effectiveLevel(player(4,'F','20대')),3.5);
 assert.strictEqual(q.effectiveLevel(player(4,'남','40대')),3.5);
 assert.strictEqual(q.effectiveLevel(player(4,'여','60대+')),1.5);
 assert.strictEqual(q.teamDiff([player(4),player(3)],[player(3),player(3)]),1);
+assert.strictEqual(q.partnerGapSymmetry([player(7),player(5)],[player(6),player(6)]),2);
 assert(q.teamDiffPenalty(2.1)>q.teamDiffPenalty(1.9),'팀 실력차 2 초과는 강하게 회피해야 합니다.');
 assert.strictEqual(q.partnerRepeatPenalty(0),0);
 assert.strictEqual(q.partnerRepeatPenalty(1),140);
@@ -54,11 +56,14 @@ assert(dailySrc.includes("m.correctionReason='fairness-partner-gap'"),'파트너
 const correctionPolicySandbox={
   KokMatchQuality:q,
   DAILY_PARTNER_GAP_HARD:q.constants.partnerGapHard,
-  DAILY_PARTNER_GAP_CORRECTION_LIMIT:q.constants.partnerGapCorrectionLimit
+  DAILY_PARTNER_GAP_CORRECTION_LIMIT:q.constants.partnerGapCorrectionLimit,
+  DAILY_PARTNER_GAP_SYMMETRY_LIMIT:q.constants.partnerGapSymmetryLimit,
+  DAILY_FAIR_FORCE_GAP:1
 };
 vm.createContext(correctionPolicySandbox);
 vm.runInContext(`
 function _dailyPartnerLevelGap(team){return KokMatchQuality.partnerGap(team);}
+function _dailyFairGap(player){return Number(player&&player.fairGap||0);}
 ${sourceBetween(dailySrc,'_dailyMatchMaxPartnerGap','_dailyMatchLevelSpreadPenalty')}
 this.allowed=_dailyMatchPartnerGapOfficialOk;
 `,correctionPolicySandbox,{filename:'daily-correction-policy.js'});
@@ -73,6 +78,16 @@ assert.strictEqual(correctionPolicySandbox.allowed({
   team2C:player(4),team2D:player(4),
   fairnessCorrection:true
 }),false,'공정 보정이어도 완화 상한을 넘는 파트너 조합은 허용하면 안 됩니다.');
+const asymmetricCandidate={
+  team1A:player(7),team1B:player(5),
+  team2C:player(6),team2D:player(6)
+};
+assert.strictEqual(correctionPolicySandbox.allowed(asymmetricCandidate),false,'합산이 같아도 양 팀 파트너 격차가 크게 다르면 보통 대진에서 제외해야 합니다.');
+assert.strictEqual(correctionPolicySandbox.allowed({
+  ...asymmetricCandidate,
+  team1A:{...asymmetricCandidate.team1A,fairGap:1}
+}),true,'경기 기회가 한 경기 이상 부족한 선수는 파트너 격차 대칭보다 출전 보장을 우선해야 합니다.');
+assert.strictEqual(correctionPolicySandbox.allowed({...asymmetricCandidate,reservationId:'pair-1'}),true,'지정 파트너 요청은 새 대칭 제한으로 취소하면 안 됩니다.');
 
 const formSandbox={KokMatchQuality:q};
 vm.createContext(formSandbox);

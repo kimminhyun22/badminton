@@ -6,6 +6,7 @@ const PARTNER_GAP_OK = 1.25;
 const PARTNER_GAP_CAUTION = 2.25;
 const PARTNER_GAP_HARD = 3;
 const PARTNER_GAP_CORRECTION_LIMIT = 4.5;
+const PARTNER_GAP_SYMMETRY_LIMIT = 1.5;
 const TEAM_DIFF_TARGET = 1.5;
 const TEAM_DIFF_LIMIT = 2;
 const RECENT_SOFT_MIN = 6;
@@ -13,7 +14,8 @@ const RECENT_RECOVERY_MIN = 12;
 const LATE_GRACE_MIN = 5;
 const LATE_PRIORITY_GAMES = 2;
 const FAIR_PRIORITY_GAP = 0.75;
-const FAIR_FORCE_GAP = 1.5;
+const FAIR_FORCE_GAP = 1;
+const FAIR_CORRECTION_GAP = 1.5;
 const MAX_CANDIDATES = 22;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
@@ -98,6 +100,16 @@ function partnerGapAllowed(team, fairnessCorrection){
   return fairnessCorrection
     ? gap <= PARTNER_GAP_CORRECTION_LIMIT
     : gap < PARTNER_GAP_HARD;
+}
+
+function partnerGapSymmetry(team1, team2){
+  return Math.abs(partnerGap(team1) - partnerGap(team2));
+}
+
+function partnerGapSymmetryAllowed(team1, team2, options = {}){
+  if(options.fairnessCorrection || options.reservation)return true;
+  if([...team1, ...team2].some(player=>fairGap(player) >= FAIR_FORCE_GAP))return true;
+  return partnerGapSymmetry(team1, team2) <= PARTNER_GAP_SYMMETRY_LIMIT;
 }
 
 function partnerRepeatPenalty(count){
@@ -331,7 +343,12 @@ function pairingFor(session, team1, team2, reference, now, strict, reservation, 
   const type = strict ? strictMatchType(team1, team2) : '예외';
   if(strict && !type)return null;
   const diff = teamDiff(team1, team2);
-  if(diff > TEAM_DIFF_LIMIT || !partnerGapAllowed(team1, fairnessCorrection) || !partnerGapAllowed(team2, fairnessCorrection))return null;
+  if(
+    diff > TEAM_DIFF_LIMIT ||
+    !partnerGapAllowed(team1, fairnessCorrection) ||
+    !partnerGapAllowed(team2, fairnessCorrection) ||
+    !partnerGapSymmetryAllowed(team1, team2, {fairnessCorrection, reservation})
+  )return null;
   let first = team1;
   let second = team2;
   if(teamMode && teamSide(first[0]) === '홍팀' && teamSide(second[0]) === '청팀'){
@@ -391,10 +408,12 @@ function preparedPairing(session, team1Ids, team2Ids, options = {}){
   if([...team1, ...team2].some(player=>status(player?.status) !== 'wait' || player?.currentMatchId))return null;
   const reference = eligiblePlayers(session);
   const now = number(options.now, Date.now());
+  const fairnessCorrection = !!options.fairnessCorrection;
+  const reservation = options.reservation || (options.reservationId ? {id:text(options.reservationId)} : null);
   const strict = !!strictMatchType(team1, team2);
-  if(strict)return pairingFor(session, team1, team2, reference, now, true, null);
+  if(strict)return pairingFor(session, team1, team2, reference, now, true, reservation, fairnessCorrection);
   if(options.allowFlexible === false)return null;
-  return pairingFor(session, team1, team2, reference, now, false, null);
+  return pairingFor(session, team1, team2, reference, now, false, reservation, fairnessCorrection);
 }
 
 function forEachFour(players, callback){
@@ -451,6 +470,48 @@ function bestReservationPairing(session, reservation, available, reference, now)
   return best;
 }
 
+function bestUrgentGeneratedPairing(session, urgent, available, reference, now){
+  if(!urgent)return null;
+  const urgentId = playerId(urgent);
+  const peers = available.filter(player=>playerId(player) !== urgentId);
+  const passes = available.length >= 8 ? [true, false] : [false];
+  let correctionFallback = null;
+  for(const avoidFourRepeat of passes){
+    let strictBest = null;
+    let flexibleBest = null;
+    for(let a=0;a<peers.length-2;a++){
+      for(let b=a+1;b<peers.length-1;b++){
+        for(let c=b+1;c<peers.length;c++){
+          const four = [urgent, peers[a], peers[b], peers[c]];
+          if(!partnerSelectionValid(four))continue;
+          const fourCount = number(session.serverRuntime?.fourCounts?.[fourKeyFromIds(four.map(playerId))]);
+          if(avoidFourRepeat && fourCount > 0)continue;
+          const strict = bestPairingForFour(session, four, reference, now, true, null);
+          if(strict && (!strictBest || strict.score < strictBest.score || (strict.score === strictBest.score && pairingKey(strict) < pairingKey(strictBest))))strictBest = strict;
+          if(!strict){
+            const flexible = bestPairingForFour(session, four, reference, now, false, null);
+            if(flexible && (!flexibleBest || flexible.score < flexibleBest.score || (flexible.score === flexibleBest.score && pairingKey(flexible) < pairingKey(flexibleBest))))flexibleBest = flexible;
+            if(fairGap(urgent) >= FAIR_CORRECTION_GAP){
+              const correction = bestPairingForFour(session, four, reference, now, true, null, true);
+              if(
+                correction &&
+                (
+                  !correctionFallback ||
+                  correction.score < correctionFallback.score ||
+                  (correction.score === correctionFallback.score && pairingKey(correction) < pairingKey(correctionFallback))
+                )
+              )correctionFallback = correction;
+            }
+          }
+        }
+      }
+    }
+    const best = strictBest || flexibleBest;
+    if(best)return best;
+  }
+  return correctionFallback;
+}
+
 function bestGeneratedPairing(session, available, reference, now){
   const urgent = available
     .slice()
@@ -459,56 +520,34 @@ function bestGeneratedPairing(session, available, reference, now){
       number(a.waitFrom)-number(b.waitFrom) ||
       playerId(a).localeCompare(playerId(b), 'ko'))
     .find(player=>fairGap(player) >= FAIR_FORCE_GAP) || null;
+  const urgentBest = bestUrgentGeneratedPairing(session, urgent, available, reference, now);
+  if(urgentBest)return urgentBest;
   const ranked = available
     .slice()
     .sort((a,b)=>priorityScore(session, a, now)-priorityScore(session, b, now) ||
       number(a.waitFrom)-number(b.waitFrom) ||
       playerId(a).localeCompare(playerId(b), 'ko'))
     .slice(0, MAX_CANDIDATES);
-  if(urgent && !ranked.some(player=>playerId(player) === playerId(urgent))){
-    ranked.splice(Math.max(0, ranked.length - 1), 1);
-    ranked.unshift(urgent);
-  }
   const passes = ranked.length >= 8 ? [true, false] : [false];
   let fallback = null;
-  let urgentCorrectionFallback = null;
   for(const avoidFourRepeat of passes){
     let strictBest = null;
     let flexibleBest = null;
-    let urgentStrictBest = null;
-    let urgentFlexibleBest = null;
     forEachFour(ranked, four=>{
       if(!partnerSelectionValid(four))return;
       const fourCount = number(session.serverRuntime?.fourCounts?.[fourKeyFromIds(four.map(playerId))]);
       if(avoidFourRepeat && fourCount > 0)return;
-      const containsUrgent = !!urgent && four.some(player=>playerId(player) === playerId(urgent));
       const strict = bestPairingForFour(session, four, reference, now, true, null);
       if(strict && (!strictBest || strict.score < strictBest.score || (strict.score === strictBest.score && pairingKey(strict) < pairingKey(strictBest))))strictBest = strict;
-      if(strict && containsUrgent && (!urgentStrictBest || strict.score < urgentStrictBest.score || (strict.score === urgentStrictBest.score && pairingKey(strict) < pairingKey(urgentStrictBest))))urgentStrictBest = strict;
       if(!strict){
         const flexible = bestPairingForFour(session, four, reference, now, false, null);
         if(flexible && (!flexibleBest || flexible.score < flexibleBest.score || (flexible.score === flexibleBest.score && pairingKey(flexible) < pairingKey(flexibleBest))))flexibleBest = flexible;
-        if(flexible && containsUrgent && (!urgentFlexibleBest || flexible.score < urgentFlexibleBest.score || (flexible.score === urgentFlexibleBest.score && pairingKey(flexible) < pairingKey(urgentFlexibleBest))))urgentFlexibleBest = flexible;
-      }
-      if(containsUrgent && !strict){
-        const correction = bestPairingForFour(session, four, reference, now, true, null, true);
-        if(
-          correction &&
-          (
-            !urgentCorrectionFallback ||
-            correction.score < urgentCorrectionFallback.score ||
-            (correction.score === urgentCorrectionFallback.score && pairingKey(correction) < pairingKey(urgentCorrectionFallback))
-          )
-        )urgentCorrectionFallback = correction;
       }
     });
-    const urgentBest = urgentStrictBest || urgentFlexibleBest;
-    if(urgentBest)return urgentBest;
     const normalBest = strictBest || flexibleBest;
     if(!fallback && normalBest)fallback = normalBest;
-    if(!urgent && normalBest)return normalBest;
+    if(normalBest)return normalBest;
   }
-  if(urgentCorrectionFallback)return urgentCorrectionFallback;
   return fallback;
 }
 
@@ -650,10 +689,14 @@ function recordCompletedMatchHistory(session, match){
 
 module.exports = {
   FAIR_FORCE_GAP,
+  FAIR_CORRECTION_GAP,
   PARTNER_GAP_HARD,
   PARTNER_GAP_CORRECTION_LIMIT,
+  PARTNER_GAP_SYMMETRY_LIMIT,
   TEAM_DIFF_LIMIT,
   effectiveLevel,
+  partnerGapSymmetry,
+  partnerGapSymmetryAllowed,
   fourKeyFromIds,
   exactKeyFromTeams,
   queueIds,
