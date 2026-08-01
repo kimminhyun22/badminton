@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.477';
+const APP_VERSION = '1.10.478';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -239,12 +239,16 @@ function openManual(){
 const DAILY_KEY='kokmatch_daily_v1';
 const DAILY_CHECKIN_KEY='kokmatch_daily_checkin_id';
 const DAILY_CHECKIN_CREATED_KEY='kokmatch_daily_checkin_created_at';
+const DAILY_PREPARATION_DRAFT_KEY='kokmatch_daily_preparation_drafts_v1';
+const DAILY_AUG3_RECOVERY_MARKER='kokmatch_daily_recovery_2026_08_03_v1';
 const DAILY_MATCH_MINUTES=15;
 const DAILY_AUTO_MIN_START=8;
 const DAILY_AUTO_FULL_START=12;
 const DAILY_AUTO_GRACE_MS=3*60*1000;
 const DAILY_CHECKIN_TTL_MS=48*60*60*1000;
 const DAILY_CROSS_DAY_RESUME_MS=6*60*60*1000;
+const DAILY_PREPARATION_RETENTION_MS=7*24*60*60*1000;
+const DAILY_PREPARATION_DRAFT_LIMIT=3;
 const DAILY_REST_AUTO_DONE_MS=60*60*1000;
 const DAILY_QUEUE_REST_PASS_MS=45*60*1000;
 const DAILY_OPERATOR_HEARTBEAT_MS=10000;
@@ -253,6 +257,44 @@ const DAILY_OFFICIAL_OPERATION_TTL_MS=30*60*1000;
 const DAILY_COMPLETE_UNDO_MS=45*1000;
 const DAILY_OFFICIAL_COMMAND_PROTOCOL=2;
 const DAILY_PAUSE_REASON='생일축하·공지';
+const DAILY_AUG3_RECOVERY_ROSTER=Object.freeze([
+  ['강연수','D','여','40대',true],
+  ['곽유진','C','남','30대',false],
+  ['권혁창','A','남','40대',false],
+  ['김병철','C','남','50대',false],
+  ['김민정','C','여','40대',false],
+  ['김민현','D','남','40대',false],
+  ['김석','B','남','40대',false],
+  ['김원옥','D','여','40대',false],
+  ['김은숙','C','여','40대',false],
+  ['김주영','C','남','30대',false],
+  ['김진아','D','여','40대',false],
+  ['김태원','E','남','40대',true],
+  ['김하주','S','남','40대',false],
+  ['남경란','C','여','40대',false],
+  ['노경록','E','남','40대',false],
+  ['도재준','C','남','50대',false],
+  ['민상기','B','남','50대',false],
+  ['박수진','D','여','50대',false],
+  ['안승희','D','남','40대',false],
+  ['우연정','C','여','40대',true],
+  ['이상우','A','남','40대',false],
+  ['이범영','A','남','50대',false],
+  ['이민수','B','남','40대',true],
+  ['이은하','A','여','40대',false],
+  ['이준원','D','남','40대',true],
+  ['이혜련','D','여','50대',false],
+  ['장봉수','B','남','40대',true],
+  ['장희선','B','여','40대',false],
+  ['정동수','C','남','50대',false],
+  ['정영례','C','여','40대',true],
+  ['차재풍','C','남','50대',false],
+  ['천희주','D','남','50대',false],
+  ['최시복','C','남','40대',false],
+  ['최영연','C','남','20대',false],
+  ['최영훈','B','남','50대',false],
+  ['홍승철','A','남','40대',false]
+]);
 const DAILY_STATUS={
   invited:{label:'도착 전',eligible:false},
   planned:{label:'도착 전',eligible:false},
@@ -305,6 +347,7 @@ let _dailyCheckinApplying=false;
 let _dailyVoteDeadlineAt='';
 let _dailyStartTime='19:00';
 let _dailyEndTime='22:00';
+let _dailyPreparationDate='';
 let _dailyCourtOrder=[];
 let _dailyManualActiveDraft={mode:'manual',court:null,ids:[],registeredCount:0};
 let _dailyEmergencyEditQueueId=null;
@@ -1965,12 +2008,229 @@ function _dailyPersistedCompleteUndo(){
   if(!undo||!undo.token||!undo.state||_dailyNow()>=Number(undo.expiresAt||0))return null;
   return JSON.parse(JSON.stringify(undo));
 }
+function _dailyLocalDateKey(value){
+  const date=new Date(Number(value)||_dailyNow());
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function _dailyPreparationDateLabel(value){
+  const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match?`${Number(match[2])}월 ${Number(match[3])}일`:'준비';
+}
+function _dailyPreparationDraftSafeId(value){
+  return /^daily-preparation-\d{4}-\d{2}-\d{2}(?:-[a-z0-9-]+)?$/i.test(String(value||''));
+}
+function _dailyPreparationState(state,now){
+  if(!state||!(state.players||[]).some(player=>player&&player.name))return false;
+  const savedAt=Math.max(0,Number(state.savedAt||0));
+  const age=(Number(now)||_dailyNow())-savedAt;
+  if(!savedAt||age<0||age>DAILY_PREPARATION_RETENTION_MS)return false;
+  if(state.operationStarted||state.checkinId||(state.matches||[]).length)return false;
+  return true;
+}
+function _dailyPreparationResetPlayer(raw){
+  const source=raw||{};
+  const normalizedStatus=_dailyNormalizeStatus(source.status);
+  const status=['invited','planned'].includes(normalizedStatus)?'planned':'wait';
+  const now=_dailyNow();
+  return _dailyNormalize({
+    ...source,
+    status,
+    preArrivalVisible:status==='planned',
+    registrationCancelled:false,
+    joinedAt:now,
+    waitFrom:now,
+    lastStatusAt:now,
+    restPausedMs:0,
+    games:0,
+    fairExpected:0,
+    mixedGames:0,
+    typeTrackedGames:0,
+    lastPlayedSeq:0,
+    partnerCount:{},
+    opponentCount:{},
+    currentMatchId:null,
+    afterMatchStatus:null,
+    deferUntil:0,
+    deferReason:'',
+    team:'',
+    isTemporaryOfficial:false,
+    temporaryOfficialGrantedAt:0,
+    temporaryOfficialGrantedBy:'',
+    temporaryOfficialGrantedByName:'',
+    arrivalConfirmedBy:'',
+    arrivalConfirmedByName:'',
+    arrivalConfirmedAt:0,
+    arrivalConfirmedSource:'',
+    arrivalRequestKey:'',
+    liveAddedAt:0,
+    liveAddedBy:'',
+    liveAddedByName:'',
+    liveAddedSource:'',
+    liveAddedOrigin:'',
+    liveAddedCandidateKey:'',
+    liveAddedOperationId:''
+  });
+}
+function _dailyPreparationPlayers(rows){
+  const seen=new Set();
+  return (rows||[]).map(_dailyPreparationResetPlayer).filter(player=>{
+    const key=_rsvpNameKey(player.name);
+    if(!key||seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+function _dailyReadPreparationDrafts(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(DAILY_PREPARATION_DRAFT_KEY)||'null');
+    const rows=Array.isArray(raw)?raw:Array.isArray(raw?.drafts)?raw.drafts:[];
+    const cutoff=_dailyNow()-DAILY_PREPARATION_RETENTION_MS;
+    const today=_dailyLocalDateKey(_dailyNow());
+    return rows
+      .filter(draft=>draft&&_dailyPreparationDraftSafeId(draft.id)&&/^\d{4}-\d{2}-\d{2}$/.test(String(draft.targetDate||''))&&(draft.players||[]).length&&(Number(draft.updatedAt||0)>=cutoff||String(draft.targetDate||'')>=today))
+      .sort((a,b)=>Number(b.updatedAt||0)-Number(a.updatedAt||0))
+      .slice(0,DAILY_PREPARATION_DRAFT_LIMIT);
+  }catch(e){return [];}
+}
+function _dailyWritePreparationDrafts(rows){
+  try{
+    localStorage.setItem(DAILY_PREPARATION_DRAFT_KEY,JSON.stringify({version:1,drafts:(rows||[]).slice(0,DAILY_PREPARATION_DRAFT_LIMIT)}));
+    return true;
+  }catch(e){return false;}
+}
+function _dailyStorePreparationDraft(input){
+  const players=_dailyPreparationPlayers(input?.players||[]);
+  if(!players.length)return null;
+  const targetDate=String(input?.targetDate||_dailyPreparationDate||_dailyLocalDateKey(_dailyNow()));
+  const id=String(input?.id||`daily-preparation-${targetDate}`);
+  const draft={
+    id,
+    targetDate,
+    updatedAt:_dailyNow(),
+    courts:Math.max(1,Number(input?.courts||_dailyCourtCount()||3)),
+    operatingStart:String(input?.operatingStart||_dailyStartTime||'19:00'),
+    operatingEnd:String(input?.operatingEnd||_dailyEndTime||'22:00'),
+    players
+  };
+  const drafts=_dailyReadPreparationDrafts().filter(row=>row.id!==id);
+  drafts.unshift(draft);
+  if(!_dailyWritePreparationDrafts(drafts))return null;
+  return draft;
+}
+function _dailyArchiveCurrentPreparation(){
+  if(!_dailyPlayers.length||_dailyOperationStarted||_dailyCheckinId||_dailyMatches.length)return null;
+  if(!_dailyPreparationDate)_dailyPreparationDate=_dailyLocalDateKey(_dailyNow());
+  return _dailyStorePreparationDraft({
+    targetDate:_dailyPreparationDate,
+    players:_dailyPlayers,
+    courts:_dailyCourtCount(),
+    operatingStart:_dailyStartTime,
+    operatingEnd:_dailyEndTime
+  });
+}
+function _dailyLatestPreparationDraft(){
+  return _dailyReadPreparationDrafts()[0]||null;
+}
+function _dailyApplyPreparationDraft(draft,options){
+  if(!draft||!(draft.players||[]).length)return false;
+  _dailyPlayers=_dailyPreparationPlayers(draft.players);
+  if(!_dailyPlayers.length)return false;
+  _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
+  _dailyAutoAssign=false;_dailyOperationStarted=false;_dailyOperationStartedAt=0;_dailyFinishMode=false;_dailyFinishStartedAt=0;
+  _dailyPaused=false;_dailyPausedAt=0;_dailyPauseReason='';_dailyPauseRevision=0;_dailyResumedAt=0;
+  _dailyPreparationDate=String(draft.targetDate||_dailyLocalDateKey(_dailyNow()));
+  _dailyStartTime=String(draft.operatingStart||_dailyStartTime||'19:00');
+  _dailyEndTime=String(draft.operatingEnd||_dailyEndTime||'22:00');
+  _dailyMarkFourCacheDirty();
+  _dailySyncControls(Math.max(1,Number(draft.courts||3)));
+  if(dailySave({preserveServerQueue:true,skipPreparationArchive:true})===false)return false;
+  if(options?.render!==false)dailyRender();
+  return true;
+}
+function dailyRestorePreparationDraft(id){
+  if(_dailyCheckinId||_dailyOperationStarted||_dailyMatches.length){
+    alert('진행 중인 민턴LIVE에서는 준비 명단을 덮어쓸 수 없습니다.');
+    return false;
+  }
+  const draft=_dailyReadPreparationDrafts().find(row=>row.id===id);
+  if(!draft){alert('보관된 준비 명단을 찾지 못했습니다.');return false;}
+  if(_dailyPlayers.length&&!confirm(`현재 선수 ${_dailyPlayers.length}명을 지우고 ${draft.players.length}명 준비 명단을 복원할까요?`))return false;
+  return _dailyApplyPreparationDraft(draft);
+}
+function dailyRestoreLatestPreparationDraft(){
+  const draft=_dailyLatestPreparationDraft();
+  if(!draft){alert('보관된 준비 명단을 찾지 못했습니다.');return false;}
+  return dailyRestorePreparationDraft(draft.id);
+}
+function _dailyRecoveryNameKey(name){
+  return _rsvpNameKey(String(name||'').replace(/\([^)]*\)/g,''));
+}
+function _dailyAug3RecoveryClub(){
+  const memberNames=new Set(DAILY_AUG3_RECOVERY_ROSTER.filter(row=>!row[4]).map(row=>_dailyRecoveryNameKey(row[0])));
+  const ranked=(rosters.clubs||[])
+    .filter(club=>['일만','일만클럽'].includes(String(club?.name||'').replace(/\s+/g,'')))
+    .map(club=>({club,matched:(club.members||[]).filter(member=>memberNames.has(_dailyRecoveryNameKey(member?.name))).length}))
+    .sort((a,b)=>b.matched-a.matched);
+  if(!ranked[0]||ranked[0].matched<18)return null;
+  if(ranked[1]&&ranked[1].matched===ranked[0].matched)return null;
+  return ranked[0].club;
+}
+function _dailyBuildAug3RecoveryDraft(){
+  const club=_dailyAug3RecoveryClub();
+  if(!club)return null;
+  const byName=new Map();
+  (club.members||[]).forEach(member=>{
+    const key=_dailyRecoveryNameKey(member?.name);
+    if(key&&!byName.has(key))byName.set(key,member);
+  });
+  const players=DAILY_AUG3_RECOVERY_ROSTER.map(([name,grade,gender,ageGroup,isGuest])=>{
+    const member=isGuest?null:byName.get(_dailyRecoveryNameKey(name));
+    const clubName=member?(club.name||member.club||''):'';
+    return {
+      ...(member||{}),
+      memberId:member?(member.memberId||_rsvpMemberId({...member,club:clubName})): '',
+      name,
+      grade:member?.grade||grade,
+      gender:member?.gender||gender,
+      ageGroup:member?.ageGroup||ageGroup,
+      club:clubName,
+      isGuest:!!isGuest,
+      isClubOfficial:member?!!member.isClubOfficial:false,
+      status:'wait'
+    };
+  });
+  return {
+    id:'daily-preparation-2026-08-03-jilman-36',
+    targetDate:'2026-08-03',
+    courts:3,
+    operatingStart:'10:00',
+    operatingEnd:'13:00',
+    players
+  };
+}
+function _dailyTryRestoreAug3Preparation(){
+  if(localStorage.getItem(DAILY_AUG3_RECOVERY_MARKER)==='restored')return false;
+  if(_dailyLocalDateKey(_dailyNow())>'2026-08-10')return false;
+  const recoveryId='daily-preparation-2026-08-03-jilman-36';
+  const existing=_dailyReadPreparationDrafts().find(row=>row.id===recoveryId);
+  const draft=existing||_dailyBuildAug3RecoveryDraft();
+  if(!draft||draft.players.length!==36)return false;
+  const stored=existing||_dailyStorePreparationDraft(draft);
+  if(!stored)return false;
+  if(_dailyPlayers.length||_dailyCheckinId||_dailyOperationStarted||_dailyMatches.length)return false;
+  if(!_dailyApplyPreparationDraft(stored,{render:false}))return false;
+  localStorage.setItem(DAILY_AUG3_RECOVERY_MARKER,'restored');
+  return true;
+}
 function dailySave(options){
   try{
     _dailyClearSimpleTeamState();
     if(!_dailyPaused&&!options?.preserveServerQueue)dailyEnsureQueue();
     _dailyClientStateRevision=Math.max(0,Number(_dailyClientStateRevision||0))+1;
     if(_dailyCheckinId)_dailyCheckinNeedsPublish=true;
+    if(_dailyPlayers.length&&!_dailyOperationStarted&&!_dailyCheckinId&&!_dailyMatches.length&&!_dailyPreparationDate){
+      _dailyPreparationDate=_dailyLocalDateKey(_dailyNow());
+    }
     localStorage.setItem(DAILY_KEY,JSON.stringify({
       mode:'daily',
       appMode:'dailyLive',
@@ -1995,6 +2255,7 @@ function dailySave(options){
       voteDeadlineAt:_dailyVoteDeadlineAt,
       operatingStart:_dailyStartTime,
       operatingEnd:_dailyEndTime,
+      preparationDate:_dailyPreparationDate,
       courtOrder:_dailyDefaultCourtOrder(_dailyCourtCount()),
       players:_dailyPlayers,
       matches:_dailyMatches,
@@ -2012,9 +2273,11 @@ function dailySave(options){
       checkinNeedsPublish:_dailyCheckinNeedsPublish,
       lastCompleteUndo:_dailyPersistedCompleteUndo()
     }));
+    if(!options?.skipPreparationArchive)_dailyArchiveCurrentPreparation();
     _dailySaveRosterBridge();
     dailyPushCheckinSession();
-  }catch(e){console.warn('daily save 실패',e);}
+    return true;
+  }catch(e){console.warn('daily save 실패',e);return false;}
 }
 function _dailySameLocalDay(a,b){
   const da=new Date(a),db=new Date(b);
@@ -2099,12 +2362,17 @@ function _dailyPruneForeignDormantCarryover(){
   return removeIds.size;
 }
 function _dailyLoadAsNewDay(s){
-  _dailyPlayers=[];
+  const now=_dailyNow();
+  const preservedPlayers=_dailyPreparationState(s,now)?_dailyPreparationPlayers(s.players):[];
+  _dailyPlayers=preservedPlayers;
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
   _dailyAutoAssign=false;_dailyOperationStarted=false;_dailyOperationStartedAt=0;_dailyFinishMode=false;_dailyFinishStartedAt=0;_dailyPaused=false;_dailyPausedAt=0;_dailyPauseReason='';_dailyPauseRevision=0;_dailyResumedAt=0;_dailyTeamMode=false;_dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
   _dailyStartTime=s.operatingStart||_dailyStartTime||'19:00';
   _dailyEndTime=s.operatingEnd||_dailyEndTime||'22:00';
+  _dailyPreparationDate=preservedPlayers.length
+    ?String(s.preparationDate||_dailyLocalDateKey(s.savedAt||now))
+    :'';
   _dailyCourtOrder=_dailyDefaultCourtOrder(s.courts||3);
   captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
   _dailyPairSelectId=null;
@@ -2125,7 +2393,7 @@ function _dailyLoadAsNewDay(s){
   _dailyMarkFourCacheDirty();
   _dailySyncControls(s.courts||3);
   localStorage.removeItem(DAILY_KEY);
-  dailySave();
+  dailySave({preserveServerQueue:true});
 }
 function dailyLoad(){
   try{
@@ -2174,6 +2442,7 @@ function dailyLoad(){
     _dailyVoteDeadlineAt=s.voteDeadlineAt||'';
     _dailyStartTime=s.operatingStart||'19:00';
     _dailyEndTime=s.operatingEnd||'22:00';
+    _dailyPreparationDate=String(s.preparationDate||(!_dailyOperationStarted&&_dailyPlayers.length?_dailyLocalDateKey(s.savedAt||now):''));
     _dailyCourtOrder=_dailyDefaultCourtOrder(s.courts||3);
     const storedCheckinId=String(localStorage.getItem(DAILY_CHECKIN_KEY)||'');
     const savedCheckinId=String(s.checkinId||'');
@@ -2203,6 +2472,7 @@ function dailyLoad(){
     _dailySyncControls(s.courts||3);
     if(prunedCarryover)dailySave({preserveServerQueue:true});
     else _dailySaveRosterBridge();
+    _dailyArchiveCurrentPreparation();
   }catch(e){console.warn('daily load 실패',e);}
 }
 function dailyApplyReviewSample(){
@@ -2266,6 +2536,7 @@ function dailyApplyReviewSample(){
   _dailyPauseReason='';
   _dailyPauseRevision=0;
   _dailyResumedAt=0;
+  _dailyPreparationDate='';
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -2971,6 +3242,7 @@ function dailyReset(){
   _dailyPauseReason='';
   _dailyPauseRevision=0;
   _dailyResumedAt=0;
+  _dailyPreparationDate='';
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -5082,6 +5354,29 @@ function dailyOpenBoardTarget(target){
     window.scrollTo({top,behavior:'smooth'});
   }
 }
+function dailyRenderPreparationDraft(){
+  const el=document.getElementById('dailyPreparationDraftBanner');
+  if(!el)return;
+  if(_dailyOperationStarted||_dailyCheckinId){
+    el.hidden=true;
+    el.innerHTML='';
+    return;
+  }
+  if(_dailyPlayers.length){
+    const targetDate=_dailyPreparationDate||_dailyLocalDateKey(_dailyNow());
+    el.hidden=false;
+    el.innerHTML=`<div><small>자동 저장됨</small><strong>${esc(_dailyPreparationDateLabel(targetDate))} 준비 명단 · ${_dailyPlayers.length}명</strong></div><button type="button" onclick="dailyOpenBoardTarget('players')">명단 보기</button>`;
+    return;
+  }
+  const draft=_dailyLatestPreparationDraft();
+  if(!draft){
+    el.hidden=true;
+    el.innerHTML='';
+    return;
+  }
+  el.hidden=false;
+  el.innerHTML=`<div><small>보관된 준비 명단</small><strong>${esc(_dailyPreparationDateLabel(draft.targetDate))} 준비 명단 · ${(draft.players||[]).length}명</strong></div><button type="button" onclick="dailyRestoreLatestPreparationDraft()">복원</button>`;
+}
 function dailyRenderStartGuide(){
   const el=document.getElementById('dailyStartGuide');
   if(!el)return;
@@ -5216,6 +5511,7 @@ function dailyRenderOpsStats(){
       ? `<strong>진행 일시 정지</strong><span>${esc(_dailyPauseLabel())} 중입니다. 경기 타이머와 다음 대진 순서는 그대로 멈춰 있습니다.</span>`
       : '';
   }
+  dailyRenderPreparationDraft();
   dailyRenderStartGuide();
   const courts=_dailyCourtCount();
   const activeMatches=_dailyActiveMatches();
@@ -8857,7 +9153,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.477&from=daily';
+  location.href='team.html?v=1.10.478&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -14833,6 +15129,7 @@ window.addEventListener('DOMContentLoaded', () => {
   rsvpLoad();
   rsvpRender();
   dailyLoad();
+  _dailyTryRestoreAug3Preparation();
   _dailySyncPlayerRolesFromRoster();
   dailyApplyReviewSample();
   dailyResumeCheckin().catch(()=>{});

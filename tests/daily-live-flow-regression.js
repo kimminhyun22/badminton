@@ -107,7 +107,32 @@ assert.strictEqual(
 assert.strictEqual(
   resumeSandbox.api._dailyCanResumeCrossDay({savedAt:resumeNow-10*60*1000,players:[{name:'김민현'}]}, resumeNow),
   false,
-  '운영이나 링크가 시작되지 않은 이전 날짜 명단만 자동 복구하면 안 됩니다.'
+  '준비 명단은 이전 LIVE 전체 재개가 아니라 새날 준비본 보존 경로로 처리해야 합니다.'
+);
+
+const preparationState = extractFunction('_dailyPreparationState', '_dailyPreparationResetPlayer');
+const preparationSandbox = {};
+vm.createContext(preparationSandbox);
+vm.runInContext(`
+const DAILY_PREPARATION_RETENTION_MS=7*24*60*60*1000;
+function _dailyNow(){return ${resumeNow};}
+${preparationState}
+this.api={_dailyPreparationState};
+`, preparationSandbox);
+assert.strictEqual(
+  preparationSandbox.api._dailyPreparationState({savedAt:resumeNow-2*24*60*60*1000,players:[{name:'김민현'}]},resumeNow),
+  true,
+  '7일 이내의 미시작 선수 등록은 준비 명단으로 보존해야 합니다.'
+);
+assert.strictEqual(
+  preparationSandbox.api._dailyPreparationState({...activeSession},resumeNow),
+  false,
+  '이미 시작한 LIVE는 준비 명단으로 바꾸면 안 됩니다.'
+);
+assert.strictEqual(
+  preparationSandbox.api._dailyPreparationState({savedAt:resumeNow-8*24*60*60*1000,players:[{name:'김민현'}]},resumeNow),
+  false,
+  '7일이 지난 준비 명단은 자동 승계하지 않아야 합니다.'
 );
 
 const loadAsNewDay = extractFunction('_dailyLoadAsNewDay', 'dailyLoad');

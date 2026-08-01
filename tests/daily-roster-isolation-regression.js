@@ -64,8 +64,9 @@ pruneSandbox.api.setTie();
 assert.strictEqual(pruneSandbox.api.prune(),0,'두 클럽이 함께 실제 참가 중이면 임의로 한 클럽 명단을 지우면 안 됩니다.');
 
 const newDaySource=functionSource(dailySrc,'_dailyLoadAsNewDay','dailyLoad');
-assert(newDaySource.includes('_dailyPlayers=[]'),'새날에는 이전 참가자를 등록 전 명단으로 자동 승계하지 않아야 합니다.');
-assert(!newDaySource.includes('(s.players||[]).map(_dailyNormalize)'),'이전 날짜 선수 전체를 새날 명단으로 복사하면 안 됩니다.');
+assert(newDaySource.includes('_dailyPreparationState(s,now)'),'날짜 전환 시 진행 세션과 미시작 준비 명단을 구분해야 합니다.');
+assert(newDaySource.includes('_dailyPreparationPlayers(s.players)'),'LIVE를 시작하지 않은 최근 준비 명단은 새날에도 보존해야 합니다.');
+assert(newDaySource.includes('_dailyMatches=[]')&&newDaySource.includes('_dailyQueue=[]'),'준비 명단을 보존해도 이전 경기와 대기표는 새날에 승계하면 안 됩니다.');
 
 const arrivalSource=functionSource(dailySrc,'_dailyOfficialArrivalCandidates','_dailyCheckinPayload');
 assert(arrivalSource.includes("String(player.club)===clubName"),'임원 지각 등록 후보도 현재 운영 클럽 명부로 제한해야 합니다.');
