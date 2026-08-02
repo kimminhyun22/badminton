@@ -77,7 +77,6 @@ function makeRoot(){
         event:{
           courts:COURTS, nextTarget:COURTS, serverExpectedGoal:0, completed:0,
           finishMode:false, operationStarted:true, queuePolicy:{official:COURTS, auto:true},
-          womensDoublesPriority:process.env.SIM_WD === '1',
           plannedEndAt:BASE_NOW + WAVES * MATCH_MINUTES * 60_000,
           active:[], next:[], expected:[], serverStandby:[]
         }

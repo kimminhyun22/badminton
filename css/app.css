@@ -1414,20 +1414,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
    모바일 전용 CSS (768px 이하)
 ════════════════════════════════ */
 
-/* 코트 설정 안의 운영 옵션 (여복 우선 등) */
-.daily-option-row{
-  display:flex;align-items:flex-start;gap:10px;
-  margin-top:12px;padding:11px 12px;
-  border:1px solid var(--bdr);border-radius:10px;background:#fbfcff;
-  cursor:pointer;
-}
-.daily-option-row input[type="checkbox"]{
-  width:18px;height:18px;margin:1px 0 0;flex:none;accent-color:var(--bl);cursor:pointer;
-}
-.daily-option-text{display:flex;flex-direction:column;gap:3px;min-width:0;}
-.daily-option-text b{font-size:.85rem;font-weight:700;color:var(--txt);}
-.daily-option-text small{font-size:.72rem;line-height:1.5;color:var(--dim);}
-
 /* 하단 탭바 */
 .bottom-nav{display:none;}
 .app-footer{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:20px 16px 28px;font-size:.7rem;color:var(--dim);border-top:1px solid var(--bdr);margin-top:24px;}
