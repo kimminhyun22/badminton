@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.480';
+const APP_VERSION = '1.10.481';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3748,8 +3748,6 @@ const DAILY_RECENT_SOFT_MIN=6;
 const DAILY_RECENT_RECOVERY_MIN=12;
 const DAILY_LATE_GRACE_MIN=5;
 const DAILY_LATE_PRIORITY_GAMES=2;
-const DAILY_TYPE_BALANCE_CAP=MATCH_QUALITY?.TYPE_BALANCE_CAP??600;
-const DAILY_TYPE_BALANCE_MATCH_CAP=MATCH_QUALITY?.TYPE_BALANCE_MATCH_CAP??1200;
 function _dailyPartnerRepeatPenalty(count){
   return MATCH_QUALITY?MATCH_QUALITY.partnerRepeatPenalty(count):(count===0?0:count===1?240:count===2?1400:1e9);
 }
@@ -3884,23 +3882,25 @@ function _dailyQueuePriorityScore(p){
   const wait=_dailyMinutes(p.waitFrom||p.joinedAt);
   return Number(p.games||0)*170-Math.min(wait,60)*4-_dailyLatePriorityBonus(p)-_dailyFairPriorityBonus(p);
 }
-function _dailyMixedTargetRange(games){
-  const total=Math.max(0,Number(games||0));
-  return {min:Math.floor(total/4),max:Math.floor(total/4)*2+Math.min(2,total%4)};
+// ── 종목 선호: 남복·여복 우선 ────────────────────────────────────────
+// 서버 daily-server-matchmaker.js 와 같은 규칙입니다.
+// 회원들이 동성복식을 선호하므로 혼복에 감점을 둡니다. 동성복식이 성립하지
+// 않으면 감점은 소프트 점수라 혼복이 그대로 뽑히고, 운동 후반에는 감점을 풉니다.
+const DAILY_MIXED_PENALTY_EARLY=3200;
+const DAILY_MIXED_PENALTY_LATE=0;
+const DAILY_LATE_STAGE_RATIO=0.65;
+const DAILY_LATE_STAGE_FALLBACK_MS=90*60000;
+function _dailySessionLateStage(){
+  if(_dailyFinishMode)return true;
+  const started=_dailyFirstMatchStartedAt();
+  if(!started)return false;
+  const now=_dailyNow();
+  const plannedEnd=Number(_dailyOperatingInfo(now).endAt||0);
+  if(plannedEnd>started)return now>=started+(plannedEnd-started)*DAILY_LATE_STAGE_RATIO;
+  return now-started>=DAILY_LATE_STAGE_FALLBACK_MS;
 }
-function _dailyMixedQuotaPenalty(p,isMixed){
-  const nextGames=Math.max(1,Number(p?.typeTrackedGames||0)+1);
-  const nextMixed=Math.max(0,Number(p?.mixedGames||0)+(isMixed?1:0));
-  const nextSame=Math.max(0,nextGames-nextMixed);
-  const range=_dailyMixedTargetRange(nextGames);
-  const ideal=nextGames*0.375;
-  let quota=Math.abs(nextMixed-ideal)*35;
-  if(nextMixed<range.min)quota+=(range.min-nextMixed)*3600;
-  if(nextMixed>range.max)quota+=(nextMixed-range.max)*3600;
-  let starve=0;
-  if(nextGames>=3&&nextMixed===0)starve+=900;
-  if(nextGames>=3&&nextSame===0)starve+=900;
-  return Math.min(DAILY_TYPE_BALANCE_CAP,quota+starve);
+function _dailyMixedTypePenalty(){
+  return _dailySessionLateStage()?DAILY_MIXED_PENALTY_LATE:DAILY_MIXED_PENALTY_EARLY;
 }
 function _dailyFlexibleMatch(four){
   const combos=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
@@ -3937,7 +3937,6 @@ function _dailyScoreMatch(m,strict){
   let score=_dailyTeamDiffPenalty(_dailyMatchTeamLevelDiff(m));
   let latePriorityTotal=0;
   let fairPriorityTotal=0;
-  let mixedQuotaTotal=0;
   all.forEach(p=>{
     const wait=_dailyMinutes(p.waitFrom||p.joinedAt);
     score+=(p.games-minGames)*170;
@@ -3945,11 +3944,14 @@ function _dailyScoreMatch(m,strict){
     score+=_dailyRecentRecoveryPenalty(p,ref);
     latePriorityTotal+=_dailyLatePriorityBonus(p);
     fairPriorityTotal+=_dailyFairPriorityBonus(p);
-    mixedQuotaTotal+=_dailyMixedQuotaPenalty(p,isMixed);
   });
   score-=Math.min(360,latePriorityTotal);
   score-=Math.min(5600,fairPriorityTotal);
-  score+=Math.min(DAILY_TYPE_BALANCE_MATCH_CAP,mixedQuotaTotal);
+  // 출전이 밀린 사람이 끼어 있을수록 종목을 덜 따집니다(경기 수 균등이 먼저).
+  if(isMixed){
+    const behind=Math.max(0,...all.map(p=>_dailyFairGap(p)));
+    score+=_dailyMixedTypePenalty()*(1-Math.min(1,behind/DAILY_FAIR_FORCE_GAP));
+  }
   const teams=[[m.team1A,m.team1B],[m.team2C,m.team2D]];
   teams.forEach(t=>{if(t[0].partnerName!==t[1].name)score+=_dailyPartnerRepeatPenalty(t[0].partnerCount[t[1].name]||0);});
   teams.forEach(t=>{score+=_dailyPartnerLevelGapPenalty(t);});
@@ -3994,7 +3996,11 @@ function _dailyReasons(next){
   if(paired.length)reasons.push(`${paired.join(', ')} 신청을 같은 편으로 반영했습니다.`);
   if(recent.length)reasons.push(`${recent.join(', ')} 선수는 최근 경기자라 대기 인원 여유에 따라 우선순위를 낮춰 반영했습니다.`);
   if(late.length)reasons.push(`${late.join(', ')} 선수는 늦게 도착해 남은 운동시간을 고려하여 첫 2경기까지 우선 반영했습니다.`);
-  if(m.type==='혼복')reasons.push('개인별 4경기 중 혼복 1~2회 목표를 함께 반영했습니다.');
+  if(m.type==='혼복'){
+    reasons.push(_dailySessionLateStage()
+      ?'운동 후반이라 종목을 가리지 않고 편성했습니다.'
+      :'남복·여복으로 묶기 어려워 혼복으로 편성했습니다.');
+  }
   if(!next.strict)reasons.push('표준 남복/여복/혼복 조합이 어려워 실력 균형을 맞춘 예외 조합입니다.');
   return reasons;
 }
@@ -5144,6 +5150,7 @@ function _dailyPublicEvent(){
     activeCount:st.active.length,
     courts:_dailyCourtCount(),
     womensDoublesPriority:_dailyWomensDoublesPriority,
+    plannedEndAt:_dailyOperatingInfo().endAt||0,
     nextTarget:cap.target,
     nextGoal:cap.goal,
     queuePolicy:{
@@ -9235,7 +9242,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.480&from=daily';
+  location.href='team.html?v=1.10.481&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

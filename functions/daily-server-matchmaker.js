@@ -17,10 +17,6 @@ const FAIR_PRIORITY_GAP = 0.75;
 const FAIR_FORCE_GAP = 1;
 const FAIR_CORRECTION_GAP = 1.5;
 const MAX_CANDIDATES = 22;
-// 상한을 더 올리면(2600/4200) 종목 균형이 반복 회피 항을 눌러
-// 같은 상대를 네 번 만나는 대진이 되살아납니다. 실측으로 고른 값입니다.
-const TYPE_BALANCE_CAP = 600;
-const TYPE_BALANCE_MATCH_CAP = 1200;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
 function number(value, fallback = 0){
@@ -270,31 +266,34 @@ function priorityScore(session, player, now){
     - fairPriorityBonus(player);
 }
 
-function mixedTargetRange(games){
-  const total = Math.max(0, number(games));
-  return {min:Math.floor(total / 4), max:Math.floor(total / 4) * 2 + Math.min(2, total % 4)};
+// ── 종목 선호: 남복·여복 우선 ────────────────────────────────────────
+// 운영자 방침(2026-08-02): 회원들이 동성복식을 선호합니다. 혼복은
+//  (가) 동성복식이 성립하지 않을 때  (나) 운동 후반에 지쳤을 때
+// 만 나오면 됩니다.
+//
+// (가)는 따로 처리할 게 없습니다. 이 감점은 점수일 뿐이라 동성복식 조합이
+// 아예 없으면 혼복이 그대로 뽑힙니다.
+// (나)는 운동 시간의 뒷부분에 들어서면 감점을 풀어 종목을 가리지 않습니다.
+//
+// 감점은 경기 수 균등 보너스(최대 5,600)보다 작게 둡니다. 안 그러면
+// 종목을 맞추느라 대기자가 밀립니다(예전 실측에서 확인한 실패 방식).
+const MIXED_PENALTY_EARLY = 3200;
+const MIXED_PENALTY_LATE = 0;
+const LATE_STAGE_RATIO = 0.65;
+const LATE_STAGE_FALLBACK_MS = 90 * 60000;
+
+function sessionLateStage(session, now){
+  if(session?.event?.finishMode)return true;
+  const started = number(session?.matchStartedAt);
+  if(!started)return false;
+  const plannedEnd = number(session?.event?.plannedEndAt);
+  if(plannedEnd > started)return now >= started + (plannedEnd - started) * LATE_STAGE_RATIO;
+  // 계획 종료 시각을 모르면 90분 경과를 후반으로 봅니다.
+  return now - started >= LATE_STAGE_FALLBACK_MS;
 }
 
-// 종목 균형. 예전에는 혼복 쿼터 한 방향만 봤고 상한이 600/합계 1200이라
-// 공정성 보너스(최대 5600)에 늘 눌려, 여성 상위권은 혼복만·남성 상위권은
-// 남복만 나오는 편중이 스스로 풀리지 않았습니다. 이제 혼복·동성복식 양쪽
-// 굶주림을 함께 보고 상한도 판을 바꿀 수 있는 크기로 올립니다.
-// (그래도 경기 수 균등 보너스보다는 아래입니다.)
-function typeBalancePenalty(player, mixed){
-  const nextGames = Math.max(1, number(player?.typeTrackedGames) + 1);
-  const nextMixed = Math.max(0, number(player?.mixedGames) + (mixed ? 1 : 0));
-  const nextSame = Math.max(0, nextGames - nextMixed);
-  const range = mixedTargetRange(nextGames);
-  const ideal = nextGames * 0.375;
-  // (1) 목표 범위 감점. 범위를 벗어나면 3,600점씩 붙어 금세 상한에 닿습니다.
-  let quota = Math.abs(nextMixed - ideal) * 35;
-  if(nextMixed < range.min)quota += (range.min - nextMixed) * 3600;
-  if(nextMixed > range.max)quota += (nextMixed - range.max) * 3600;
-  // (2) 굶주림 감점. 상한을 나눠 걸면 출전 차례가 밀려 공정성 회귀가 납니다.
-  let starve = 0;
-  if(nextGames >= 3 && nextMixed === 0)starve += 900;
-  if(nextGames >= 3 && nextSame === 0)starve += 900;
-  return Math.min(TYPE_BALANCE_CAP, quota + starve);
+function mixedTypePenalty(session, now){
+  return sessionLateStage(session, now) ? MIXED_PENALTY_LATE : MIXED_PENALTY_EARLY;
 }
 
 function fourKeyFromIds(ids){
@@ -323,18 +322,23 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
   let score = teamDiffPenalty(pairing.levelDiff);
   let lateTotal = 0;
   let fairTotal = 0;
-  let mixedTotal = 0;
   all.forEach(player=>{
     score += (number(player.games) - minGames) * 170;
     score -= Math.min(minutesSince(player.waitFrom || player.joinedAt, now), 60) * 4;
     score += recentRecoveryPenalty(session, player, reference, now);
     lateTotal += latePriorityBonus(session, player, now);
     fairTotal += fairPriorityBonus(player);
-    mixedTotal += typeBalancePenalty(player, pairing.type === '혼복');
   });
   score -= Math.min(360, lateTotal);
   score -= Math.min(5600, fairTotal);
-  score += Math.min(TYPE_BALANCE_MATCH_CAP, mixedTotal);
+  // 출전이 밀린 사람이 끼어 있을수록 종목을 덜 따집니다. 그 사람에게는
+  // 지금이 바로 "어쩔 수 없을 때"입니다. 한 경기 이상 밀렸으면 감점 없음.
+  // (경기 수 균등이 항상 종목 선호보다 먼저입니다.)
+  if(pairing.type === '혼복'){
+    const behind = Math.max(0, ...all.map(player=>fairGap(player)));
+    const relief = Math.min(1, behind / FAIR_FORCE_GAP);
+    score += mixedTypePenalty(session, now) * (1 - relief);
+  }
   [pairing.team1, pairing.team2].forEach(team=>{
     if(team[0].partnerName !== team[1].name)score += partnerRepeatPenalty(countAgainst(team[0], 'partnerCount', team[1]));
     score += partnerGapPenalty(team);

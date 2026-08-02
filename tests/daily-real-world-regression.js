@@ -14,7 +14,6 @@ function sourceBetween(startName,nextName){
 }
 
 const scoringSandbox={
-  DAILY_TYPE_BALANCE_CAP:600,
   DAILY_LATE_GRACE_MIN:5,
   DAILY_LATE_PRIORITY_GAMES:2,
   DAILY_RECENT_RECOVERY_MIN:12,
@@ -25,9 +24,8 @@ const scoringSandbox={
 vm.createContext(scoringSandbox);
 vm.runInContext(`
 ${sourceBetween('_dailyLatePriorityInfo','_dailyLatePriorityBonus')}
-${sourceBetween('_dailyLatePriorityBonus','_dailyMixedQuotaPenalty')}
-${sourceBetween('_dailyMixedQuotaPenalty','_dailyFlexibleMatch')}
-this.api={lateInfo:_dailyLatePriorityInfo,lateBonus:_dailyLatePriorityBonus,mixedPenalty:_dailyMixedQuotaPenalty};
+${sourceBetween('_dailyLatePriorityBonus','_dailySessionLateStage')}
+this.api={lateInfo:_dailyLatePriorityInfo,lateBonus:_dailyLatePriorityBonus};
 `,scoringSandbox,{filename:'daily-real-world-scoring.js'});
 
 const onTime={joinedAt:999_000,games:0,mixedGames:0};
@@ -45,31 +43,20 @@ assert(scoringSandbox.api.lateBonus({joinedAt:4_600_000,games:1})<=150,'지각�
 scoringSandbox._dailyRecentRecoveryMinutes=()=>11;
 assert.strictEqual(scoringSandbox.api.lateBonus(lateSecond),0,'지각 보정이 12분 회복시간을 무시해 연속 출전을 유발하면 안 됩니다.');
 
-const needsMixed={games:3,typeTrackedGames:3,mixedGames:0};
-const needsSameGender={games:3,typeTrackedGames:3,mixedGames:2};
-// 동성복식을 한 번도 못 잡은 선수(여성 상위권의 '혼복만 계속')도 감지 대상입니다.
-// 다만 목표 범위를 크게 벗어난 구간에서는 두 선택지가 모두 1인당 상한에 걸려
-// 점수만으로는 갈리지 않습니다. 상한을 올리면 출전 차례가 밀려 공정성이 깨지므로
-// 이 구간은 점수가 아니라 운영 규칙으로 풀어야 합니다(MATCHMAKING_NOTES.md).
-const needsSameGenderStarved={games:2,typeTrackedGames:2,mixedGames:2};
-assert(
-  scoringSandbox.api.mixedPenalty(needsSameGenderStarved,false)<scoringSandbox.api.mixedPenalty(needsSameGenderStarved,true),
-  '혼복만 이어진 선수는 다음 경기를 남복·여복으로 우선해야 합니다.'
-);
-const inRange={games:3,typeTrackedGames:3,mixedGames:1};
-assert(scoringSandbox.api.mixedPenalty(needsMixed,true)<scoringSandbox.api.mixedPenalty(needsMixed,false),'첫 3경기에 혼복이 없으면 네 번째는 혼복을 우선해야 합니다.');
-assert(scoringSandbox.api.mixedPenalty(needsSameGender,false)<scoringSandbox.api.mixedPenalty(needsSameGender,true),'첫 3경기 중 혼복이 2회면 네 번째는 남복·여복을 우선해야 합니다.');
-assert(scoringSandbox.api.mixedPenalty(inRange,false)<900&&scoringSandbox.api.mixedPenalty(inRange,true)<900,'4경기 중 혼복 1~2회는 모두 정상 범위여야 합니다.');
-assert(scoringSandbox.api.mixedPenalty(needsMixed,false)<=600,'개인별 종목 목표가 다른 품질 기준을 압도하지 않도록 1인당 감점을 제한해야 합니다.');
-assert(scoringSandbox.api.mixedPenalty(needsSameGenderStarved,true)<=600,'동성복식 굶주림 감점도 1인당 상한을 지켜야 합니다.');
+// 종목 방침(2026-08-02 운영자 결정): 남복·여복이 기본, 혼복은 동성복식이
+// 안 될 때나 운동 후반에만. 개인별 혼복 쿼터는 폐기했습니다.
+assert(dailySrc.includes('const DAILY_MIXED_PENALTY_EARLY=3200;'),'전반 혼복 감점은 3,200점이어야 합니다.');
+assert(dailySrc.includes('const DAILY_MIXED_PENALTY_LATE=0;'),'후반에는 혼복 감점을 풀어야 합니다.');
+assert(!dailySrc.includes('_dailyMixedQuotaPenalty'),'개인별 혼복 쿼터는 남아 있으면 안 됩니다.');
+// 혼복 감점이 경기 수 균등 보정(최대 5,600)을 넘으면 종목 맞추다 대기자가 밀립니다.
+assert(3200 < 5600,'혼복 감점은 경기 수 균등 보정보다 작아야 합니다.');
 
 const scoreSource=sourceBetween('_dailyScoreMatch','dailyRecommend');
 assert(scoreSource.includes('score-=Math.min(360,latePriorityTotal)'),'한 경기의 지각 보정 합계는 360점으로 제한되어야 합니다.');
-assert(scoreSource.includes('mixedQuotaTotal+=_dailyMixedQuotaPenalty(p,isMixed)'),'실제 LIVE 점수식에 개인별 혼복 목표가 연결되어야 합니다.');
-assert(scoreSource.includes('score+=Math.min(DAILY_TYPE_BALANCE_MATCH_CAP,mixedQuotaTotal)'),'한 경기의 종목 목표 감점은 상한이 걸려 있어야 합니다.');
-assert(dailySrc.includes('DAILY_TYPE_BALANCE_MATCH_CAP=MATCH_QUALITY?.TYPE_BALANCE_MATCH_CAP??1200'),'한 경기의 종목 목표 감점 상한은 1,200점이어야 합니다.');
+assert(scoreSource.includes('_dailyMixedTypePenalty()'),'실제 LIVE 점수식에 종목 선호가 연결되어야 합니다.');
+assert(scoreSource.includes('behind/DAILY_FAIR_FORCE_GAP'),'출전이 밀린 사람이 있으면 혼복 감점을 풀어야 합니다(경기 수 균등 우선).');
 assert(dailySrc.includes("mixedGames:(p.mixedGames||0)+(active.match.type==='혼복'?1:0)"),'진행 중 혼복도 예상 대진의 개인별 횟수에 반영되어야 합니다.');
-assert(dailySrc.includes('typeTrackedGames:(p.typeTrackedGames||0)+1'),'예상 대진은 유형을 확인할 수 있는 경기만 혼복 목표에 포함해야 합니다.');
+assert(dailySrc.includes('typeTrackedGames:(p.typeTrackedGames||0)+1'),'예상 대진은 유형을 확인할 수 있는 경기만 종목 집계에 포함해야 합니다.');
 assert(dailySrc.includes("if(m.type==='혼복')p.mixedGames=(p.mixedGames||0)+1"),'혼복 완료 시 개인별 혼복 횟수를 기록해야 합니다.');
 assert(dailySrc.includes('_dailyRebuildLiveTypeCounts();'),'기존 저장본을 불러올 때 완료 대진으로 혼복 횟수를 복구해야 합니다.');
 assert(dailySrc.includes('const DAILY_FAIR_FORCE_GAP=1;'),'1경기 기회 차부터 부족 선수를 정상 품질 대진에 강제 포함해야 합니다.');

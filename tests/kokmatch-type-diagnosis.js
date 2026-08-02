@@ -78,6 +78,7 @@ function makeRoot(){
           courts:COURTS, nextTarget:COURTS, serverExpectedGoal:0, completed:0,
           finishMode:false, operationStarted:true, queuePolicy:{official:COURTS, auto:true},
           womensDoublesPriority:process.env.SIM_WD === '1',
+          plannedEndAt:BASE_NOW + WAVES * MATCH_MINUTES * 60_000,
           active:[], next:[], expected:[], serverStandby:[]
         }
       },
@@ -231,6 +232,13 @@ console.log(`\n── 같은 4인 재조합: ${repeatedFours}건 / 총 ${fourCou
 
 const gamesArr = rows.map(r=>r.games);
 console.log(`── 경기 수 min/max: ${Math.min(...gamesArr)}/${Math.max(...gamesArr)}`);
+const wg = women.map(r=>r.games), mg = men.map(r=>r.games);
+const avg = a=>(a.reduce((s,v)=>s+v,0)/a.length).toFixed(2);
+console.log(`── 여성 경기 수 min/평균/max: ${Math.min(...wg)}/${avg(wg)}/${Math.max(...wg)}  |  남성: ${Math.min(...mg)}/${avg(mg)}/${Math.max(...mg)}`);
+const half = Math.ceil(WAVES/2);
+const early = context.matchLog.filter(m=>m.wave<=half), late = context.matchLog.filter(m=>m.wave>half);
+const mixRate = a=>a.length?((a.filter(m=>m.type==='혼복').length/a.length)*100).toFixed(0):'-';
+console.log(`── 혼복 비율 전반(1~${half}회차) ${mixRate(early)}%  →  후반(${half+1}~${WAVES}회차) ${mixRate(late)}%`);
 
 // 남성 파트너 다양성: 각 남성이 함께 뛴 서로 다른 파트너 수
 console.log(`\n── 파트너 다양성 (같이 뛴 서로 다른 파트너 수 / 경기 수) ──`);
