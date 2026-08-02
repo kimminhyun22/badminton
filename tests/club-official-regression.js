@@ -40,6 +40,13 @@ assert(functionSource(dailySrc,'dailyReset','dailyToggleAutoAssign').includes('_
 assert(checkin.includes('클럽 임원 운영'),'회원 페이지에서 임원 중심 운영 화면을 제공해야 합니다.');
 assert(checkin.indexOf('id="officialPanel"')<checkin.indexOf('id="afterPartyPanel"'),'임원 운영 현황은 개인 카드 다음, 뒷풀이 정보보다 먼저 보여야 합니다.');
 assert(checkin.includes('${officialOperationsSummaryHtml(p)}'),'임원이 이름을 선택한 뒤에도 운영 현황이 임원 패널 안에 표시되어야 합니다.');
+// 관리자 화면에도 같은 흐름이 있어야 합니다: 대시보드 숫자로 바로 걸러 보고, 기본은 이름순.
+assert(dailySrc.includes("onclick=\"setDailyPlayerFilter('${f}')\""),'관리자 대시보드 숫자를 눌러 해당 상태만 볼 수 있어야 합니다.');
+assert(dailySrc.includes("let _dailyPlayerSort='name'"),'관리자 선수 목록 기본 정렬은 이름순이어야 합니다.');
+// 파트너 지정(게임신청)은 임원·관리자 양쪽에서 가능해야 합니다.
+assert(checkin.includes('data-official-partner-panel'),'임원 화면에 파트너 지정 패널이 있어야 합니다.');
+assert(dailySrc.includes('dailySheetStartPair')&&dailySrc.includes('dailyPlayerCardClick'),'관리자 화면에서도 파트너를 지정할 수 있어야 합니다.');
+assert(dailySrc.includes('파트너 지정</button>'),'관리자 선수 시트에 파트너 지정 버튼이 있어야 합니다.');
 assert(['등록','현장','경기중','대기','휴식','종료','도착 전','뒷풀이'].every(label=>checkin.includes(`label:'${label}'`)),'임원 운영 현황에는 현장 상태와 뒷풀이 신청 인원이 있어야 합니다.');
 assert(indexHtml.includes('임원이 두 선수를 접수합니다.')&&indexHtml.includes('휴식·종료 옆의 작은 뒷풀이 버튼으로 직접 신청하거나 취소합니다.'),'사용 안내도 임원 파트너 접수와 회원 뒷풀이 신청 정책을 따라야 합니다.');
 assert(!checkin.includes('관리자 앱 연결 필요'),'임원 화면이 시스템 관리자 호출을 일상 운영의 전제로 보여주면 안 됩니다.');
@@ -74,6 +81,10 @@ function esc(value){return String(value||'');}
 function compactLabel(status){return ({wait:'참가 중',playing:'경기중',rest:'휴식 중',done:'운동 종료',planned:'도착 전',invited:'도착 전'})[status]||status;}
 function render(){}
 const document={getElementById(){return null;}};
+// 명단 행의 상태 버튼이 쓰는 최소 환경
+function eventFlowPaused(){return !!session?.event?.paused;}
+let sendingKey='';
+let claimingOfficial=false;
 ${functionSource(checkin,'isLiveOperatorPlayer','selectedOfficialPlayer')}
 ${functionSource(checkin,'voteSummary','renderVoteSummary')}
 ${functionSource(checkin,'afterPartyPlayers','afterPartyRosterText')}
@@ -88,6 +99,16 @@ assert.strictEqual(officialOverviewSandbox.api.players('total').length,7,'임원
 assert.strictEqual(officialOverviewSandbox.api.players('current').length,4,'현장 집계는 대기·경기중·휴식 회원을 모두 포함해야 합니다.');
 assert.strictEqual(officialOverviewSandbox.api.players('preArrival').length,2,'도착 전 명단은 planned와 invited를 함께 보여야 합니다.');
 const officialOverviewHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
+// 운영 현황 명단에서 바로 상태를 바꿀 수 있어야 합니다(드롭다운에서 다시 찾지 않도록).
+officialOverviewSandbox.api.filter('wait');
+const officialWaitHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
+assert(officialWaitHtml.includes('official-overview-actions'),'운영 현황 명단에 상태 변경 버튼이 있어야 합니다.');
+assert(officialWaitHtml.includes("sendOfficialPlayerStatus('o','rest'"),'명단 버튼은 그 회원을 바로 지정해 처리해야 합니다.');
+officialOverviewSandbox.api.filter('preArrival');
+const officialPreHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
+assert(officialPreHtml.includes('참가 등록 대상'),'도착 전 회원은 상태 버튼 대신 참가 등록으로 안내해야 합니다.');
+assert(!officialPreHtml.includes('official-overview-actions'),'도착 전 회원에게 상태 변경 버튼을 노출하면 안 됩니다.');
+officialOverviewSandbox.api.filter('');
 assert(officialOverviewHtml.includes('운영 현황')&&officialOverviewHtml.includes('현장 4명'),'임원 패널에서 현재 현장 인원을 바로 확인할 수 있어야 합니다.');
 assert.strictEqual((officialOverviewHtml.match(/official-overview-stat/g)||[]).length,8,'임원 현황에는 7개 상태와 뒷풀이 버튼이 정확히 한 번씩 있어야 합니다.');
 officialOverviewSandbox.api.filter('party');

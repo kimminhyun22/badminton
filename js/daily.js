@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.483';
+const APP_VERSION = '1.10.484';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -330,7 +330,7 @@ let _dailyAutoBusy=false;
 let _dailyPairSelectId=null;
 let _dailyTimerId=null;
 let _dailyIsGuest=false;
-let _dailyPlayerSort='status';
+let _dailyPlayerSort='name';   // 상태 변경을 찾기 쉽도록 기본은 이름순
 let _dailyPlayerFilter='all';
 let _dailyPlayerSearch='';
 let _dailyPlayerSheetId=null;
@@ -3052,7 +3052,7 @@ function dailyRenderReservations(){
   }).join('');
 }
 function setDailyPlayerSort(mode){
-  _dailyPlayerSort=['status','name','gender'].includes(mode)?mode:'status';
+  _dailyPlayerSort=['status','name','gender'].includes(mode)?mode:'name';
   dailyRender();
 }
 function setDailyPlayerSearch(value){
@@ -3121,7 +3121,8 @@ function _dailySortPlayersForManage(players){
   );
 }
 function _dailyPlayerMetaText(p){
-  return `${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')}급 · ${esc(p.ageGroup||'40대')} · ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분`;
+  const partner=p.partnerName?` · 파트너 ${esc(p.partnerName)}`:'';
+  return `${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')}급 · ${esc(p.ageGroup||'40대')} · ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분${partner}`;
 }
 function _dailyRenamePlayerEverywhere(oldName,newName){
   const renameMapKey=map=>{
@@ -3187,6 +3188,11 @@ function dailyOpenPlayerSheet(id){
     ${playingNote}
     <div class="daily-player-sheet-actions">${statusButtons}</div>
     <div class="daily-player-sheet-actions secondary">
+      ${p.partnerName
+        ? `<button class="daily-player-sheet-action pair" onclick="dailySheetClearPair('${id}')">파트너 해제 (${esc(p.partnerName)})</button>`
+        : playing
+          ? ''
+          : `<button class="daily-player-sheet-action pair" onclick="dailySheetStartPair('${id}')">파트너 지정</button>`}
       <button class="daily-player-sheet-action" onclick="dailyRenamePlayer('${id}')">이름 변경</button>
       <button class="daily-player-sheet-action danger" onclick="dailySheetRemovePlayer('${id}')">삭제</button>
     </div>`;
@@ -3195,6 +3201,21 @@ function dailyOpenPlayerSheet(id){
 function dailySheetSetStatus(id,status){
   dailyClosePlayerSheet();
   dailySetStatus(id,status);
+}
+// 파트너 지정(게임신청): 한 명을 고른 뒤 목록에서 같이 칠 사람을 누릅니다.
+function dailySheetStartPair(id){
+  dailyClosePlayerSheet();
+  dailyStartPair(id);
+}
+function dailySheetClearPair(id){
+  dailyClosePlayerSheet();
+  dailyClearPair(id);
+}
+// 선수 카드를 눌렀을 때: 파트너 고르는 중이면 짝을 확정하고, 아니면 시트를 엽니다.
+function dailyPlayerCardClick(id){
+  if(_dailyPairSelectId&&_dailyPairSelectId!==id){dailyConfirmPair(id);return;}
+  if(_dailyPairSelectId===id){dailyCancelPair();return;}
+  dailyOpenPlayerSheet(id);
 }
 function dailySheetRemovePlayer(id){
   dailyClosePlayerSheet();
@@ -8269,15 +8290,16 @@ function dailyRender(){
   const stats=document.getElementById('dailyStats');
   if(stats){
     const counts=_dailyHeadcountInfo();
+    // 숫자를 누르면 아래 목록이 그 상태로 바로 걸러집니다.
     stats.innerHTML=[
-      ['등록',counts.total],
-      ['현장',counts.current],
-      ['대기',counts.wait],
-      ['경기중',counts.playing],
-      ['휴식',counts.rest],
-      ['종료',counts.done],
-      ['도착 전',counts.preArrival]
-    ].map(([l,v])=>`<div class="daily-stat"><b>${v}</b><span>${l}</span></div>`).join('');
+      ['등록',counts.total,'all'],
+      ['현장',counts.current,'current'],
+      ['대기',counts.wait,'wait'],
+      ['경기중',counts.playing,'playing'],
+      ['휴식',counts.rest,'rest'],
+      ['종료',counts.done,'done'],
+      ['도착 전',counts.preArrival,'planned']
+    ].map(([l,v,f])=>`<button type="button" class="daily-stat${_dailyPlayerFilter===f?' active':''}" onclick="setDailyPlayerFilter('${f}')" aria-pressed="${_dailyPlayerFilter===f?'true':'false'}" aria-label="${l} ${v}명만 보기"><b>${v}</b><span>${l}</span></button>`).join('');
   }
   const list=document.getElementById('dailyPlayerList');
   if(list){
@@ -8287,7 +8309,11 @@ function dailyRender(){
     else{
       const filtered=_dailyFilterPlayersForManage(_dailyPlayers);
       const sorted=_dailySortPlayersForManage(filtered);
-      list.innerHTML=sorted.length?sorted.map(p=>`<button type="button" class="daily-player ${_dailyPairSelectId===p.id?'daily-pair-selecting':''}" onclick="dailyOpenPlayerSheet('${p.id}')">
+      const pairing=_dailyPlayer(_dailyPairSelectId);
+      const pairBanner=pairing
+        ? `<div class="daily-pair-banner"><b>${esc(pairing.name)}</b>님과 같은 편으로 묶을 선수를 누르세요.<button type="button" onclick="dailyCancelPair()">취소</button></div>`
+        : '';
+      list.innerHTML=sorted.length?pairBanner+sorted.map(p=>`<button type="button" class="daily-player ${_dailyPairSelectId===p.id?'daily-pair-selecting':''} ${p.partnerName?'daily-paired':''}" onclick="dailyPlayerCardClick('${p.id}')">
         <span class="daily-player-main">
           <span class="daily-player-top">
             <span class="daily-player-name">${_dailyNameHtml(p)} ${_dailyStatusBadge(p.status)} ${_dailyQueueLabelForPlayer(p.id)}</span>
@@ -9146,7 +9172,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.483&from=daily';
+  location.href='team.html?v=1.10.484&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
