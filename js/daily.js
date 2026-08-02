@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.484';
+const APP_VERSION = '1.10.485';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2926,6 +2926,13 @@ function dailyConfirmPair(id){
   }
   if(a.partnerName||b.partnerName){
     alert('이미 게임신청이 있는 선수가 포함되어 있습니다. 먼저 신청을 정리해 주세요.');
+    dailyCancelPair();return;
+  }
+  // 임원이 이미 접수한 파트너와 겹치면 그 선수가 어느 쪽으로도 편성되지 못합니다.
+  const reserved=_dailyReservationHeldIds();
+  const clash=[a,b].filter(player=>reserved.has(player.id));
+  if(clash.length){
+    alert(`${clash.map(player=>player.name).join(', ')} 선수는 임원이 접수한 파트너 신청에 이미 포함되어 있습니다.\n임원 화면에서 접수를 취소한 뒤 묶어 주세요.`);
     dailyCancelPair();return;
   }
   const pairId='dpair_'+Date.now().toString(36);
@@ -9172,7 +9179,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.484&from=daily';
+  location.href='team.html?v=1.10.485&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
