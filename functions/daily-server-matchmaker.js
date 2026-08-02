@@ -267,41 +267,27 @@ function priorityScore(session, player, now){
 }
 
 // ── 종목 선호: 남복·여복 우선 ────────────────────────────────────────
-// 운영자 방침(2026-08-02): 회원들이 동성복식을 선호합니다. 혼복은
-//  (가) 동성복식이 성립하지 않을 때  (나) 운동 후반에 지쳤을 때
-// 만 나오면 됩니다.
+// 운영자 방침(2026-08-02): 회원들이 동성복식을 선호합니다.
+// 혼복은 "동성복식으로 짜면 문제가 생길 때"만 나오면 됩니다.
+//  - 같은 파트너가 또 걸릴 때 / 같은 얼굴만 계속 만날 때
+//  - 실력 균형이 안 맞을 때
+//  - 출전 차례가 밀린 사람을 넣어야 할 때
 //
-// (가)는 따로 처리할 게 없습니다. 이 감점은 점수일 뿐이라 동성복식 조합이
-// 아예 없으면 혼복이 그대로 뽑힙니다.
-// (나)는 운동 시간의 뒷부분에 들어서면 감점을 풀어 종목을 가리지 않습니다.
+// 그래서 시계(마무리·후반 판정)를 쓰지 않습니다. 대신 혼복에 고정 감점을 두고,
+// 동성복식 최선안이 그만큼 나쁘면 혼복이 자동으로 이깁니다.
+// 즉 이 값은 "얼마나 문제여야 혼복으로 넘어가는가"의 문턱입니다.
 //
-// 감점은 경기 수 균등 보너스(최대 5,600)보다 작게 둡니다. 안 그러면
-// 종목을 맞추느라 대기자가 밀립니다(예전 실측에서 확인한 실패 방식).
-const MIXED_PENALTY_EARLY = 3200;
-const MIXED_PENALTY_LATE = 0;
-const LATE_STAGE_RATIO = 0.65;
-const LATE_STAGE_FALLBACK_MS = 90 * 60000;
-// 운동 시간 설정이 실제와 동떨어져 있으면(화면에 설정 칸이 없어 기본값
-// 19:00~22:00 이 그대로 남아 있는 경우가 있습니다) 비율 계산이 무의미해집니다.
-// 한 번의 운동으로 볼 수 있는 최대 길이를 넘으면 설정을 무시합니다.
-const MAX_PLAUSIBLE_SESSION_MS = 6 * 60 * 60000;
-
-// 후반 판정: ①임원이 '마무리'를 눌렀거나 ②운동 시간의 65%가 지났을 때.
-// 운동 시간을 알 수 없으면 첫 경기 후 90분을 후반으로 봅니다.
-function sessionLateStage(session, now){
-  if(session?.event?.finishMode)return true;
-  const started = number(session?.matchStartedAt);
-  if(!started)return false;
-  const planned = number(session?.event?.plannedEndAt) - started;
-  if(planned > 0 && planned <= MAX_PLAUSIBLE_SESSION_MS){
-    return now >= started + planned * LATE_STAGE_RATIO;
-  }
-  return now - started >= LATE_STAGE_FALLBACK_MS;
-}
-
-function mixedTypePenalty(session, now){
-  return sessionLateStage(session, now) ? MIXED_PENALTY_LATE : MIXED_PENALTY_EARLY;
-}
+// 값은 같은 점수판 위의 다른 감점에 맞춰 잡았습니다.
+//   파트너 2회 반복 1,400 · 같은 상대 4번째 760 · 팀 실력차 1.8 약 1,130
+// 문턱 3,200 = "이런 문제가 두세 개 겹치면 혼복으로 푼다".
+//
+// 더 낮추고 싶었지만(1,200이면 파트너 반복 한 번만으로 혼복) 안 됩니다.
+// 혼복이 늘면 **혼복에 낄 수 없는 최상급 선수**의 출전 기회가 깎입니다.
+// S급(유효 6.5)은 파트너 실력차 3.0 제한 때문에 짝이 될 수 있는 여성이
+// 사실상 없어서, 혼복 코트가 늘수록 설 자리가 줄어듭니다.
+// 실측: 1,200~3,000 전부 `daily-36p-150m-regression`(늦게 온 S급도 2경기)
+// 실패, 3,200에서만 통과.
+const MIXED_PENALTY = 3200;
 
 function fourKeyFromIds(ids){
   return ids.map(text).filter(Boolean).sort((a,b)=>a.localeCompare(b, 'ko')).join('|');
@@ -338,13 +324,12 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
   });
   score -= Math.min(360, lateTotal);
   score -= Math.min(5600, fairTotal);
-  // 출전이 밀린 사람이 끼어 있을수록 종목을 덜 따집니다. 그 사람에게는
-  // 지금이 바로 "어쩔 수 없을 때"입니다. 한 경기 이상 밀렸으면 감점 없음.
-  // (경기 수 균등이 항상 종목 선호보다 먼저입니다.)
+  // 출전이 밀린 사람이 끼어 있을수록 문턱을 낮춥니다. 한 경기 이상 밀렸으면 0.
+  // "출전 차례가 밀린 것"도 혼복으로 풀어야 할 문제 중 하나입니다.
+  // (경기 수 균등은 항상 종목 선호보다 먼저입니다.)
   if(pairing.type === '혼복'){
     const behind = Math.max(0, ...all.map(player=>fairGap(player)));
-    const relief = Math.min(1, behind / FAIR_FORCE_GAP);
-    score += mixedTypePenalty(session, now) * (1 - relief);
+    score += MIXED_PENALTY * (1 - Math.min(1, behind / FAIR_FORCE_GAP));
   }
   [pairing.team1, pairing.team2].forEach(team=>{
     if(team[0].partnerName !== team[1].name)score += partnerRepeatPenalty(countAgainst(team[0], 'partnerCount', team[1]));

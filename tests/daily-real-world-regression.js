@@ -24,7 +24,7 @@ const scoringSandbox={
 vm.createContext(scoringSandbox);
 vm.runInContext(`
 ${sourceBetween('_dailyLatePriorityInfo','_dailyLatePriorityBonus')}
-${sourceBetween('_dailyLatePriorityBonus','_dailySessionLateStage')}
+${sourceBetween('_dailyLatePriorityBonus','_dailyQueuePriorityScore')}
 this.api={lateInfo:_dailyLatePriorityInfo,lateBonus:_dailyLatePriorityBonus};
 `,scoringSandbox,{filename:'daily-real-world-scoring.js'});
 
@@ -45,15 +45,15 @@ assert.strictEqual(scoringSandbox.api.lateBonus(lateSecond),0,'지각 보정이 
 
 // 종목 방침(2026-08-02 운영자 결정): 남복·여복이 기본, 혼복은 동성복식이
 // 안 될 때나 운동 후반에만. 개인별 혼복 쿼터는 폐기했습니다.
-assert(dailySrc.includes('const DAILY_MIXED_PENALTY_EARLY=3200;'),'전반 혼복 감점은 3,200점이어야 합니다.');
-assert(dailySrc.includes('const DAILY_MIXED_PENALTY_LATE=0;'),'후반에는 혼복 감점을 풀어야 합니다.');
+assert(dailySrc.includes('const DAILY_MIXED_PENALTY=3200;'),'혼복 문턱은 3,200점이어야 합니다.');
+assert(!dailySrc.includes('_dailySessionLateStage'),'종목 판단에 시계(후반/마무리)를 쓰면 안 됩니다.');
 assert(!dailySrc.includes('_dailyMixedQuotaPenalty'),'개인별 혼복 쿼터는 남아 있으면 안 됩니다.');
 // 혼복 감점이 경기 수 균등 보정(최대 5,600)을 넘으면 종목 맞추다 대기자가 밀립니다.
-assert(3200 < 5600,'혼복 감점은 경기 수 균등 보정보다 작아야 합니다.');
+assert(3200 < 5600,'혼복 문턱은 경기 수 균등 보정보다 작아야 합니다.');
 
 const scoreSource=sourceBetween('_dailyScoreMatch','dailyRecommend');
 assert(scoreSource.includes('score-=Math.min(360,latePriorityTotal)'),'한 경기의 지각 보정 합계는 360점으로 제한되어야 합니다.');
-assert(scoreSource.includes('_dailyMixedTypePenalty()'),'실제 LIVE 점수식에 종목 선호가 연결되어야 합니다.');
+assert(scoreSource.includes('DAILY_MIXED_PENALTY'),'실제 LIVE 점수식에 종목 선호가 연결되어야 합니다.');
 assert(scoreSource.includes('behind/DAILY_FAIR_FORCE_GAP'),'출전이 밀린 사람이 있으면 혼복 감점을 풀어야 합니다(경기 수 균등 우선).');
 assert(dailySrc.includes("mixedGames:(p.mixedGames||0)+(active.match.type==='혼복'?1:0)"),'진행 중 혼복도 예상 대진의 개인별 횟수에 반영되어야 합니다.');
 assert(dailySrc.includes('typeTrackedGames:(p.typeTrackedGames||0)+1'),'예상 대진은 유형을 확인할 수 있는 경기만 종목 집계에 포함해야 합니다.');

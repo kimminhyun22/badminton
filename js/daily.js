@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.482';
+const APP_VERSION = '1.10.483';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3808,30 +3808,10 @@ function _dailyQueuePriorityScore(p){
 }
 // ── 종목 선호: 남복·여복 우선 ────────────────────────────────────────
 // 서버 daily-server-matchmaker.js 와 같은 규칙입니다.
-// 회원들이 동성복식을 선호하므로 혼복에 감점을 둡니다. 동성복식이 성립하지
-// 않으면 감점은 소프트 점수라 혼복이 그대로 뽑히고, 운동 후반에는 감점을 풉니다.
-const DAILY_MIXED_PENALTY_EARLY=3200;
-const DAILY_MIXED_PENALTY_LATE=0;
-const DAILY_LATE_STAGE_RATIO=0.65;
-const DAILY_LATE_STAGE_FALLBACK_MS=90*60000;
-// 후반 판정: ①임원이 '마무리'를 눌렀거나 ②운동 시간의 65%가 지났을 때.
-// 운동 시간 설정이 실제와 동떨어져 있으면(화면에 설정 칸이 없어 기본값이
-// 그대로 남는 경우) 첫 경기 후 90분을 후반으로 봅니다.
-const DAILY_MAX_PLAUSIBLE_SESSION_MS=6*60*60000;
-function _dailySessionLateStage(){
-  if(_dailyFinishMode)return true;
-  const started=_dailyFirstMatchStartedAt();
-  if(!started)return false;
-  const now=_dailyNow();
-  const planned=Number(_dailyOperatingInfo(now).endAt||0)-started;
-  if(planned>0&&planned<=DAILY_MAX_PLAUSIBLE_SESSION_MS){
-    return now>=started+planned*DAILY_LATE_STAGE_RATIO;
-  }
-  return now-started>=DAILY_LATE_STAGE_FALLBACK_MS;
-}
-function _dailyMixedTypePenalty(){
-  return _dailySessionLateStage()?DAILY_MIXED_PENALTY_LATE:DAILY_MIXED_PENALTY_EARLY;
-}
+// 혼복은 "동성복식으로 짜면 문제가 생길 때"만 나옵니다(파트너 반복·같은 얼굴·
+// 실력 균형·출전 차례). 시계(마무리·후반)는 쓰지 않습니다.
+// 이 값은 "얼마나 문제여야 혼복으로 넘어가는가"의 문턱입니다.
+const DAILY_MIXED_PENALTY=3200;
 function _dailyFlexibleMatch(four){
   const combos=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
   let best=null,bestScore=Infinity;
@@ -3877,10 +3857,10 @@ function _dailyScoreMatch(m,strict){
   });
   score-=Math.min(360,latePriorityTotal);
   score-=Math.min(5600,fairPriorityTotal);
-  // 출전이 밀린 사람이 끼어 있을수록 종목을 덜 따집니다(경기 수 균등이 먼저).
+  // 출전이 밀린 사람이 끼어 있을수록 문턱을 낮춥니다(경기 수 균등이 먼저).
   if(isMixed){
     const behind=Math.max(0,...all.map(p=>_dailyFairGap(p)));
-    score+=_dailyMixedTypePenalty()*(1-Math.min(1,behind/DAILY_FAIR_FORCE_GAP));
+    score+=DAILY_MIXED_PENALTY*(1-Math.min(1,behind/DAILY_FAIR_FORCE_GAP));
   }
   const teams=[[m.team1A,m.team1B],[m.team2C,m.team2D]];
   teams.forEach(t=>{if(t[0].partnerName!==t[1].name)score+=_dailyPartnerRepeatPenalty(t[0].partnerCount[t[1].name]||0);});
@@ -3926,11 +3906,7 @@ function _dailyReasons(next){
   if(paired.length)reasons.push(`${paired.join(', ')} 신청을 같은 편으로 반영했습니다.`);
   if(recent.length)reasons.push(`${recent.join(', ')} 선수는 최근 경기자라 대기 인원 여유에 따라 우선순위를 낮춰 반영했습니다.`);
   if(late.length)reasons.push(`${late.join(', ')} 선수는 늦게 도착해 남은 운동시간을 고려하여 첫 2경기까지 우선 반영했습니다.`);
-  if(m.type==='혼복'){
-    reasons.push(_dailySessionLateStage()
-      ?'운동 후반이라 종목을 가리지 않고 편성했습니다.'
-      :'남복·여복으로 묶기 어려워 혼복으로 편성했습니다.');
-  }
+  if(m.type==='혼복')reasons.push('남복·여복으로 묶으면 파트너·상대 반복이나 실력 균형이 어긋나 혼복으로 편성했습니다.');
   if(!next.strict)reasons.push('표준 남복/여복/혼복 조합이 어려워 실력 균형을 맞춘 예외 조합입니다.');
   return reasons;
 }
@@ -5079,7 +5055,6 @@ function _dailyPublicEvent(){
     completed:st.completed.length,
     activeCount:st.active.length,
     courts:_dailyCourtCount(),
-    plannedEndAt:_dailyOperatingInfo().endAt||0,
     nextTarget:cap.target,
     nextGoal:cap.goal,
     queuePolicy:{
@@ -9171,7 +9146,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.482&from=daily';
+  location.href='team.html?v=1.10.483&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
