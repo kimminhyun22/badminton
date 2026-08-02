@@ -1,6 +1,6 @@
 'use strict';
 
-const {applyMemberStatusRequest} = require('./daily-official-engine');
+const {applyMemberStatusRequest, pruneCommandLedger} = require('./daily-official-engine');
 
 function applyMemberCommandTransaction(current, input){
   const {
@@ -66,6 +66,7 @@ function applyMemberCommandTransaction(current, input){
     };
     current.updatedAt = now;
   }
+  pruneCommandLedger(current, now);
   return {action:'commit', current, terminal};
 }
 

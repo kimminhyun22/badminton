@@ -17,6 +17,10 @@ const FAIR_PRIORITY_GAP = 0.75;
 const FAIR_FORCE_GAP = 1;
 const FAIR_CORRECTION_GAP = 1.5;
 const MAX_CANDIDATES = 22;
+// 상한을 더 올리면(2600/4200) 종목 균형이 반복 회피 항을 눌러
+// 같은 상대를 네 번 만나는 대진이 되살아납니다. 실측으로 고른 값입니다.
+const TYPE_BALANCE_CAP = 600;
+const TYPE_BALANCE_MATCH_CAP = 1200;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
 function number(value, fallback = 0){
@@ -112,14 +116,17 @@ function partnerGapSymmetryAllowed(team1, team2, options = {}){
   return partnerGapSymmetry(team1, team2) <= PARTNER_GAP_SYMMETRY_LIMIT;
 }
 
+// js/match-quality.js 와 같은 값을 씁니다(서버·클라이언트 동일 판단).
+// 예전 값은 "경기 수 1경기 차이"(170점)보다 싸서 같은 사람끼리 계속 붙는
+// 편이 점수상 이득이었습니다.
 function partnerRepeatPenalty(count){
   const value = Math.max(0, Math.floor(number(count)));
-  return value === 0 ? 0 : value === 1 ? 140 : value === 2 ? 1200 : 1e9;
+  return value === 0 ? 0 : value === 1 ? 240 : value === 2 ? 1400 : 1e9;
 }
 
 function opponentRepeatPenalty(count){
   const value = Math.max(0, Math.floor(number(count)));
-  const base = value === 0 ? 0 : value === 1 ? 2 : value === 2 ? 15 : value === 3 ? 80 : 1e9;
+  const base = value === 0 ? 0 : value === 1 ? 8 : value === 2 ? 50 : value === 3 ? 190 : 1e9;
   return base * 4;
 }
 
@@ -268,16 +275,26 @@ function mixedTargetRange(games){
   return {min:Math.floor(total / 4), max:Math.floor(total / 4) * 2 + Math.min(2, total % 4)};
 }
 
-function mixedQuotaPenalty(player, mixed){
+// 종목 균형. 예전에는 혼복 쿼터 한 방향만 봤고 상한이 600/합계 1200이라
+// 공정성 보너스(최대 5600)에 늘 눌려, 여성 상위권은 혼복만·남성 상위권은
+// 남복만 나오는 편중이 스스로 풀리지 않았습니다. 이제 혼복·동성복식 양쪽
+// 굶주림을 함께 보고 상한도 판을 바꿀 수 있는 크기로 올립니다.
+// (그래도 경기 수 균등 보너스보다는 아래입니다.)
+function typeBalancePenalty(player, mixed){
   const nextGames = Math.max(1, number(player?.typeTrackedGames) + 1);
   const nextMixed = Math.max(0, number(player?.mixedGames) + (mixed ? 1 : 0));
+  const nextSame = Math.max(0, nextGames - nextMixed);
   const range = mixedTargetRange(nextGames);
   const ideal = nextGames * 0.375;
-  let penalty = Math.abs(nextMixed - ideal) * 35;
-  if(nextMixed < range.min)penalty += (range.min - nextMixed) * 3600;
-  if(nextMixed > range.max)penalty += (nextMixed - range.max) * 3600;
-  if(nextGames >= 3 && nextMixed === 0)penalty += 640;
-  return Math.min(600, penalty);
+  // (1) 목표 범위 감점. 범위를 벗어나면 3,600점씩 붙어 금세 상한에 닿습니다.
+  let quota = Math.abs(nextMixed - ideal) * 35;
+  if(nextMixed < range.min)quota += (range.min - nextMixed) * 3600;
+  if(nextMixed > range.max)quota += (nextMixed - range.max) * 3600;
+  // (2) 굶주림 감점. 상한을 나눠 걸면 출전 차례가 밀려 공정성 회귀가 납니다.
+  let starve = 0;
+  if(nextGames >= 3 && nextMixed === 0)starve += 900;
+  if(nextGames >= 3 && nextSame === 0)starve += 900;
+  return Math.min(TYPE_BALANCE_CAP, quota + starve);
 }
 
 function fourKeyFromIds(ids){
@@ -313,11 +330,11 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
     score += recentRecoveryPenalty(session, player, reference, now);
     lateTotal += latePriorityBonus(session, player, now);
     fairTotal += fairPriorityBonus(player);
-    mixedTotal += mixedQuotaPenalty(player, pairing.type === '혼복');
+    mixedTotal += typeBalancePenalty(player, pairing.type === '혼복');
   });
   score -= Math.min(360, lateTotal);
   score -= Math.min(5600, fairTotal);
-  score += Math.min(1200, mixedTotal);
+  score += Math.min(TYPE_BALANCE_MATCH_CAP, mixedTotal);
   [pairing.team1, pairing.team2].forEach(team=>{
     if(team[0].partnerName !== team[1].name)score += partnerRepeatPenalty(countAgainst(team[0], 'partnerCount', team[1]));
     score += partnerGapPenalty(team);
@@ -512,7 +529,97 @@ function bestUrgentGeneratedPairing(session, urgent, available, reference, now){
   return correctionFallback;
 }
 
+// ── 여복 우선 (운영자 스위치) ───────────────────────────────────────────
+// 여성 인원이 적은 클럽에서는 상위권 여성이 낄 수 있는 여복이 점수상 늘 불리해
+// (파트너 실력차가 커서) 한 번도 안 나오는 일이 생깁니다. 가중치로는 못 풀고
+// 올리면 출전 차례가 밀리므로, 운영자가 켜는 명시적 규칙으로 둡니다.
+// 자세한 실측 근거는 MATCHMAKING_NOTES.md 참고.
+const WOMENS_DOUBLES_MIN_POOL = 4;
+
+// 동성복식을 한 번도 못 잡은 선수. 실력이 또래보다 높은 여성일수록 여복이
+// 점수상 불리해(파트너 실력차가 커서) 여기에 갇힙니다.
+function sameGenderStarved(player){
+  const games = number(player?.typeTrackedGames);
+  return games >= 2 && games - number(player?.mixedGames) === 0;
+}
+
+function mixedStarved(player){
+  const games = number(player?.typeTrackedGames);
+  return games >= 2 && number(player?.mixedGames) === 0;
+}
+
+
+function womensDoublesPriorityOn(session){
+  return session?.event?.womensDoublesPriority === true;
+}
+
+// 이미 진행 중이거나 대기열에 잡힌 여복이 있으면 더 만들지 않습니다.
+// 한 번에 한 코트만 — 계속 만들면 반대 방향 편중이 됩니다.
+function womensDoublesAlreadyPlanned(session){
+  return [
+    ...(session.event?.active || []),
+    ...(session.event?.next || []),
+    ...(session.event?.expected || []),
+    ...(session.event?.serverStandby || [])
+  ].some(row=>text(row?.type) === '여복');
+}
+
+function womensDoublesWanted(session, available){
+  if(!womensDoublesPriorityOn(session))return false;
+  const waitingWomen = available.filter(player=>gender(player) === 'F');
+  if(waitingWomen.length < WOMENS_DOUBLES_MIN_POOL)return false;
+  // 여복을 한 번도 못 잡은 사람이 없으면 굳이 끼워 넣지 않습니다.
+  // 쿼터가 아니라 교정 장치입니다 — 항상 켜 두면 이번엔 여복이 너무 많아져
+  // 혼복을 한 번도 못 하는 사람이 생깁니다(실측: 남경란 혼복 0회).
+  if(!waitingWomen.some(sameGenderStarved))return false;
+  return !womensDoublesAlreadyPlanned(session);
+}
+
+// 대기 중인 여성만으로 가장 좋은 여복을 찾습니다.
+// 고르는 기준은 평소와 같습니다(경기 수가 밀린 사람 우선, 반복 회피, 실력 균형).
+// 다만 "여복을 한 번도 못 잡은 선수"가 있으면 그 사람을 먼저 넣습니다.
+// 점수만으로 두면 실력이 고른 네 명이 항상 이겨서, 정작 스위치를 켠 이유였던
+// 선수가 계속 빠집니다(실측: 스위치만으로는 상위권 여성이 0회 그대로였음).
+function bestWomensDoublesPairing(session, available, reference, now){
+  const women = available
+    // 반대로 혼복을 한 번도 못 잡은 사람은 여기서 빼 둡니다.
+    // 여복 코트에 계속 넣으면 그 사람이 이번엔 혼복을 못 하게 됩니다.
+    .filter(player=>gender(player) === 'F' && !mixedStarved(player))
+    .sort((a,b)=>priorityScore(session, a, now)-priorityScore(session, b, now) ||
+      number(a.waitFrom)-number(b.waitFrom) ||
+      playerId(a).localeCompare(playerId(b), 'ko'))
+    .slice(0, MAX_CANDIDATES);
+  if(women.length < WOMENS_DOUBLES_MIN_POOL)return null;
+  const search = requiredId=>{
+    let best = null;
+    forEachFour(women, four=>{
+      if(!partnerSelectionValid(four))return;
+      if(requiredId && !four.some(player=>playerId(player) === requiredId))return;
+      const pairing = bestPairingForFour(session, four, reference, now, true, null);
+      if(!pairing || pairing.type !== '여복')return;
+      if(!best || pairing.score < best.score || (pairing.score === best.score && pairingKey(pairing) < pairingKey(best)))best = pairing;
+    });
+    return best;
+  };
+  // "굶주린 사람이 한 명이라도 끼면 통과"로 두면 넣기 쉬운 사람만 계속 들어가고
+  // 정작 제일 오래 못 잡은 사람이 빠집니다. 그래서 한 명씩 콕 집어 시도합니다.
+  const starvedOrder = women
+    .filter(sameGenderStarved)
+    .sort((a,b)=>number(b.typeTrackedGames)-number(a.typeTrackedGames) ||
+      priorityScore(session, a, now)-priorityScore(session, b, now) ||
+      playerId(a).localeCompare(playerId(b), 'ko'));
+  for(const target of starvedOrder){
+    const found = search(playerId(target));
+    if(found)return found;
+  }
+  return search('');
+}
+
 function bestGeneratedPairing(session, available, reference, now){
+  if(womensDoublesWanted(session, available)){
+    const womensBest = bestWomensDoublesPairing(session, available, reference, now);
+    if(womensBest)return womensBest;
+  }
   const urgent = available
     .slice()
     .sort((a,b)=>fairGap(b)-fairGap(a) ||

@@ -1,6 +1,6 @@
 'use strict';
 
-const {applyOfficialRequest} = require('./daily-official-engine');
+const {applyOfficialRequest, pruneCommandLedger} = require('./daily-official-engine');
 
 function applyCommandTransaction(current, input){
   const {
@@ -116,6 +116,7 @@ function applyCommandTransaction(current, input){
     };
     current.updatedAt = now;
   }
+  pruneCommandLedger(current, now);
   return {action:'commit',current,terminal};
 }
 

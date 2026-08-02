@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.478';
+const APP_VERSION = '1.10.480';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -315,6 +315,9 @@ let _dailyQueue=[];
 let _dailyReservations=[];
 let _dailySeq=1;
 let _dailyAutoAssign=false;
+// 여복 우선(운영자 스위치). 여성 인원이 적은 클럽에서 상위권 여성이 여복을
+// 한 번도 못 잡는 문제를 푸는 교정 장치입니다. 자세한 내용은 MATCHMAKING_NOTES.md
+let _dailyWomensDoublesPriority=false;
 let _dailyOperationStarted=false;
 let _dailyOperationStartedAt=0;
 let _dailyFinishMode=false;
@@ -1848,6 +1851,62 @@ function _dailyQueueFromMatch(m,score,strict){
   q.strict=!!strict;
   return q;
 }
+// ── 여복 우선 (운영자 스위치) ───────────────────────────────────────────
+// 서버 daily-server-matchmaker.js 와 같은 규칙입니다. 근거는 MATCHMAKING_NOTES.md
+const DAILY_WOMENS_DOUBLES_MIN_POOL=4;
+function _dailySameGenderStarved(p){
+  const games=Number(p?.typeTrackedGames||0);
+  return games>=2&&games-Number(p?.mixedGames||0)===0;
+}
+function _dailyMixedStarved(p){
+  const games=Number(p?.typeTrackedGames||0);
+  return games>=2&&Number(p?.mixedGames||0)===0;
+}
+// 진행 중이거나 이미 대기열에 잡힌 여복이 있으면 더 만들지 않습니다(한 번에 한 코트).
+function _dailyWomensDoublesPlanned(){
+  const running=_dailyActiveMatches().filter(m=>!m.cancelledAt);
+  return [...running,..._dailyQueue].some(row=>row&&row.type==='여복');
+}
+function _dailyWomensDoublesWanted(eligible){
+  if(!_dailyWomensDoublesPriority||_dailyTeamMode)return false;
+  const women=eligible.filter(p=>p.gender==='F'||p.gender==='여');
+  if(women.length<DAILY_WOMENS_DOUBLES_MIN_POOL)return false;
+  // 여복을 한 번도 못 잡은 사람이 없으면 끼워 넣지 않습니다(쿼터가 아니라 교정 장치).
+  if(!women.some(_dailySameGenderStarved))return false;
+  return !_dailyWomensDoublesPlanned();
+}
+function _dailyBuildWomensDoublesQueueItem(eligible){
+  const women=eligible
+    // 반대로 혼복을 한 번도 못 잡은 사람은 빼 둡니다.
+    .filter(p=>(p.gender==='F'||p.gender==='여')&&!_dailyMixedStarved(p))
+    .sort((a,b)=>_dailyQueuePriorityScore(a)-_dailyQueuePriorityScore(b)||(a.waitFrom||0)-(b.waitFrom||0))
+    .slice(0,22);
+  if(women.length<DAILY_WOMENS_DOUBLES_MIN_POOL)return null;
+  const search=requiredId=>{
+    let best=null,bestScore=Infinity;
+    for(const four of _dailyCombos(women)){
+      if(requiredId&&!four.some(p=>p.id===requiredId))continue;
+      if(!_dailyPartnerConstraintOk(four))continue;
+      const m=formTeams(four,false,'any',DAILY_TEAM_DIFF_LIMIT);
+      if(!m||m.type!=='여복')continue;
+      if(!_dailyMatchTeamBalanceOk(m)||!_dailyMatchPartnerGapOfficialOk(m))continue;
+      const score=_dailyScoreMatch(m,true);
+      if(score<bestScore){best=m;bestScore=score;}
+    }
+    return best?{match:best,score:bestScore}:null;
+  };
+  // 넣기 쉬운 사람만 계속 들어가지 않도록 제일 오래 못 잡은 사람부터 콕 집어 시도합니다.
+  const starvedOrder=women
+    .filter(_dailySameGenderStarved)
+    .sort((a,b)=>Number(b.typeTrackedGames||0)-Number(a.typeTrackedGames||0)
+      ||_dailyQueuePriorityScore(a)-_dailyQueuePriorityScore(b));
+  for(const target of starvedOrder){
+    const found=search(target.id);
+    if(found)return _dailyQueueFromMatch(found.match,found.score,true);
+  }
+  const fallback=search('');
+  return fallback?_dailyQueueFromMatch(fallback.match,fallback.score,true):null;
+}
 function _dailyBuildQueueItem(excludeIds,options){
   options=options||{};
   const source=Array.isArray(options.candidates)?options.candidates:_dailyEligible();
@@ -1865,6 +1924,10 @@ function _dailyBuildQueueItem(excludeIds,options){
     const b=eligible.filter(p=>p.team==='청팀').length;
     const w=eligible.filter(p=>p.team==='홍팀').length;
     if(b<2||w<2)return null;
+  }
+  if(_dailyWomensDoublesWanted(eligible)){
+    const womens=_dailyBuildWomensDoublesQueueItem(eligible);
+    if(womens)return womens;
   }
   const urgent=[...eligible]
     .sort((a,b)=>_dailyFairGap(b)-_dailyFairGap(a)||_dailyQueuePriorityScore(a)-_dailyQueuePriorityScore(b)||(a.waitFrom||0)-(b.waitFrom||0))
@@ -2237,6 +2300,7 @@ function dailySave(options){
       savedAt:_dailyNow(),
       courts:document.getElementById('dailyCourts')?.value||3,
       autoAssign:_dailyAutoAssign,
+      womensDoublesPriority:_dailyWomensDoublesPriority,
       operationStarted:_dailyOperationStarted,
       operationStartedAt:_dailyOperationStartedAt,
       finishMode:_dailyFinishMode,
@@ -2302,6 +2366,8 @@ function _dailySyncControls(courts){
   _dailyCourtOrder=_dailyDefaultCourtOrder(courts||3);
   const autoEl=document.getElementById('dailyAutoAssign');
   if(autoEl)autoEl.checked=_dailyAutoAssign;
+  const wdEl=document.getElementById('dailyWomensDoublesPriority');
+  if(wdEl)wdEl.checked=_dailyWomensDoublesPriority;
   const autoTopEl=document.getElementById('dailyAutoAssignTop');
   if(autoTopEl)autoTopEl.checked=_dailyAutoAssign;
   const voteEl=document.getElementById('dailyVoteDeadlineAt');
@@ -2468,6 +2534,7 @@ function dailyLoad(){
       ?JSON.parse(JSON.stringify(savedUndo))
       :null;
     const prunedCarryover=_dailyPruneForeignDormantCarryover();
+    _dailyWomensDoublesPriority=!!s.womensDoublesPriority;
     _dailyMarkFourCacheDirty();
     _dailySyncControls(s.courts||3);
     if(prunedCarryover)dailySave({preserveServerQueue:true});
@@ -2578,6 +2645,15 @@ function dailyStepCourts(delta){
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
+}
+function dailyToggleWomensDoublesPriority(on){
+  if(_dailyBlockServerSync({action:'여복 우선 설정 변경'}))return;
+  if(_dailyBlockPaused({action:'여복 우선 설정을 변경'}))return;
+  _dailyWomensDoublesPriority=!!on;
+  _dailySyncControls(_dailyCourtCount());
+  if(_dailyCheckinId)_dailyCheckinNeedsPublish=true;
+  dailySave();
+  dailyRender();
 }
 function dailyUpdateOperatingHours(){
   if(_dailyBlockServerSync({action:'운영 시간 변경'}))return;
@@ -3672,11 +3748,13 @@ const DAILY_RECENT_SOFT_MIN=6;
 const DAILY_RECENT_RECOVERY_MIN=12;
 const DAILY_LATE_GRACE_MIN=5;
 const DAILY_LATE_PRIORITY_GAMES=2;
+const DAILY_TYPE_BALANCE_CAP=MATCH_QUALITY?.TYPE_BALANCE_CAP??600;
+const DAILY_TYPE_BALANCE_MATCH_CAP=MATCH_QUALITY?.TYPE_BALANCE_MATCH_CAP??1200;
 function _dailyPartnerRepeatPenalty(count){
-  return MATCH_QUALITY?MATCH_QUALITY.partnerRepeatPenalty(count):(count===0?0:count===1?140:count===2?1200:1e9);
+  return MATCH_QUALITY?MATCH_QUALITY.partnerRepeatPenalty(count):(count===0?0:count===1?240:count===2?1400:1e9);
 }
 function _dailyOpponentRepeatPenalty(count){
-  const base=MATCH_QUALITY?MATCH_QUALITY.opponentRepeatPenalty(count):(count===0?0:count===1?2:count===2?15:count===3?80:1e9);
+  const base=MATCH_QUALITY?MATCH_QUALITY.opponentRepeatPenalty(count):(count===0?0:count===1?8:count===2?50:count===3?190:1e9);
   return base*4;
 }
 function _dailyExactRepeatPenalty(count){
@@ -3813,13 +3891,16 @@ function _dailyMixedTargetRange(games){
 function _dailyMixedQuotaPenalty(p,isMixed){
   const nextGames=Math.max(1,Number(p?.typeTrackedGames||0)+1);
   const nextMixed=Math.max(0,Number(p?.mixedGames||0)+(isMixed?1:0));
+  const nextSame=Math.max(0,nextGames-nextMixed);
   const range=_dailyMixedTargetRange(nextGames);
   const ideal=nextGames*0.375;
-  let penalty=Math.abs(nextMixed-ideal)*35;
-  if(nextMixed<range.min)penalty+=(range.min-nextMixed)*3600;
-  if(nextMixed>range.max)penalty+=(nextMixed-range.max)*3600;
-  if(nextGames>=3&&nextMixed===0)penalty+=640;
-  return Math.min(600,penalty);
+  let quota=Math.abs(nextMixed-ideal)*35;
+  if(nextMixed<range.min)quota+=(range.min-nextMixed)*3600;
+  if(nextMixed>range.max)quota+=(nextMixed-range.max)*3600;
+  let starve=0;
+  if(nextGames>=3&&nextMixed===0)starve+=900;
+  if(nextGames>=3&&nextSame===0)starve+=900;
+  return Math.min(DAILY_TYPE_BALANCE_CAP,quota+starve);
 }
 function _dailyFlexibleMatch(four){
   const combos=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
@@ -3868,7 +3949,7 @@ function _dailyScoreMatch(m,strict){
   });
   score-=Math.min(360,latePriorityTotal);
   score-=Math.min(5600,fairPriorityTotal);
-  score+=Math.min(1200,mixedQuotaTotal);
+  score+=Math.min(DAILY_TYPE_BALANCE_MATCH_CAP,mixedQuotaTotal);
   const teams=[[m.team1A,m.team1B],[m.team2C,m.team2D]];
   teams.forEach(t=>{if(t[0].partnerName!==t[1].name)score+=_dailyPartnerRepeatPenalty(t[0].partnerCount[t[1].name]||0);});
   teams.forEach(t=>{score+=_dailyPartnerLevelGapPenalty(t);});
@@ -5062,6 +5143,7 @@ function _dailyPublicEvent(){
     completed:st.completed.length,
     activeCount:st.active.length,
     courts:_dailyCourtCount(),
+    womensDoublesPriority:_dailyWomensDoublesPriority,
     nextTarget:cap.target,
     nextGoal:cap.goal,
     queuePolicy:{
@@ -9153,7 +9235,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.478&from=daily';
+  location.href='team.html?v=1.10.480&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

@@ -29,8 +29,11 @@ assert.strictEqual(q.teamDiff([player(4),player(3)],[player(3),player(3)]),1);
 assert.strictEqual(q.partnerGapSymmetry([player(7),player(5)],[player(6),player(6)]),2);
 assert(q.teamDiffPenalty(2.1)>q.teamDiffPenalty(1.9),'팀 실력차 2 초과는 강하게 회피해야 합니다.');
 assert.strictEqual(q.partnerRepeatPenalty(0),0);
-assert.strictEqual(q.partnerRepeatPenalty(1),140);
-assert.strictEqual(q.partnerRepeatPenalty(2),1200);
+assert.strictEqual(q.partnerRepeatPenalty(1),240);
+assert.strictEqual(q.partnerRepeatPenalty(2),1400);
+// 반복 회피는 '경기 수 1경기 차이'(170점)보다 비싸야 같은 얼굴이 계속 붙지 않습니다.
+assert(q.partnerRepeatPenalty(1)>170,'파트너 재조합은 한 경기 출전 차이보다 비싸야 합니다.');
+assert(q.opponentRepeatPenalty(3)*4>170*3,'같은 상대를 네 번째 만나는 값은 출전 차이 몇 경기보다 비싸야 합니다.');
 assert.strictEqual(q.partnerRepeatPenalty(1,'pool'),120);
 assert.strictEqual(q.partnerRepeatPenalty(2,'pool'),900);
 assert(Number.isFinite(q.partnerRepeatPenalty(3))&&q.partnerRepeatPenalty(3)>=1e9,'소수 인원에서도 대진은 멈추지 않는 유한 최후 패널티여야 합니다.');

@@ -16,6 +16,16 @@ const OFFICIAL_OPERATION_TTL_MS = 30 * 60 * 1000;
 const MEMBER_STATUS_TTL_MS = 5 * 60 * 1000;
 const OFFICIAL_UNDO_MS = 45 * 1000;
 const RECEIPT_RETAIN_MS = 10 * 60 * 1000;
+// 처리 끝난 요청·명령 원장은 링크 노드에 계속 쌓이면 안 됩니다.
+// 이 노드는 명령 한 건마다 통째로 트랜잭션(다운로드→병합→업로드)되고,
+// 임원·회원 화면 모두가 /requests 를 on('value')로 통째 구독하므로
+// 정리하지 않으면 운동 후반에 회원 화면 전송이 먼저 무너집니다.
+const REQUEST_DONE_RETAIN_MS = 15 * 60 * 1000;
+const REQUEST_STALE_RETAIN_MS = 2 * OFFICIAL_OPERATION_TTL_MS;
+// 중복 차단 원장은 클라이언트 재전송 창(명령 TTL 30분)보다 조금만 길면 충분합니다.
+const COMMAND_LEDGER_RETAIN_MS = OFFICIAL_OPERATION_TTL_MS + 15 * 60 * 1000;
+const MAX_REQUEST_ROWS = 200;
+const MAX_COMMAND_LEDGER_ROWS = 200;
 const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
 const MATCH_MINUTES = 15;
 const TEMPORARY_OFFICIAL_LIMIT = 4;
@@ -502,6 +512,58 @@ function pruneReceipts(raw, now){
     if(!anchor || now - anchor > RECEIPT_RETAIN_MS)delete receipts[key];
   });
   return receipts;
+}
+
+function requestSettled(row){
+  return !!(number(row?.appliedAt) || number(row?.ignoredAt) || number(row?.serverAppliedAt) || number(row?.serverRejectedAt));
+}
+
+// 상한을 넘으면 오래된 것부터 버리되, 아직 처리되지 않은 요청은 마지막까지 남깁니다.
+function capOldest(map, limit, settledFirst){
+  const keys = Object.keys(map);
+  if(keys.length <= limit)return;
+  keys
+    .sort((a, b)=>{
+      if(settledFirst){
+        const rank = requestSettled(map[a]) === requestSettled(map[b]) ? 0 : requestSettled(map[a]) ? -1 : 1;
+        if(rank)return rank;
+      }
+      return number(map[a]?.createdAt) - number(map[b]?.createdAt);
+    })
+    .slice(0, keys.length - limit)
+    .forEach(key=>{ delete map[key]; });
+}
+
+// 링크 노드에서 더 이상 쓰이지 않는 요청·명령 원장을 제거합니다.
+// 임원·회원 화면 모두 처리 완료분은 걸러내고 쓰므로 지워도 화면 동작은 같습니다.
+// serverCommands 는 재전송 중복 차단용이라 클라이언트 재시도 창(최대 30분)보다 넉넉히 남깁니다.
+function pruneCommandLedger(current, now){
+  if(!current || typeof current !== 'object')return current;
+  const at = number(now, Date.now());
+  const requests = current.requests;
+  if(requests && typeof requests === 'object'){
+    Object.keys(requests).forEach(key=>{
+      const row = requests[key];
+      const age = at - number(row?.createdAt);
+      if(!number(row?.createdAt)){
+        delete requests[key];
+        return;
+      }
+      if(requestSettled(row) ? age > REQUEST_DONE_RETAIN_MS : age > REQUEST_STALE_RETAIN_MS){
+        delete requests[key];
+      }
+    });
+    capOldest(requests, MAX_REQUEST_ROWS, true);
+  }
+  const ledger = current.serverCommands;
+  if(ledger && typeof ledger === 'object'){
+    Object.keys(ledger).forEach(key=>{
+      const createdAt = number(ledger[key]?.createdAt);
+      if(!createdAt || at - createdAt > COMMAND_LEDGER_RETAIN_MS)delete ledger[key];
+    });
+    capOldest(ledger, MAX_COMMAND_LEDGER_ROWS, false);
+  }
+  return current;
 }
 
 function timerInfo(match, now){
@@ -1840,5 +1902,6 @@ module.exports = {
   teamsFingerprint,
   canonicalJson,
   issueOfficialGrant,
-  verifyOfficialGrant
+  verifyOfficialGrant,
+  pruneCommandLedger
 };
