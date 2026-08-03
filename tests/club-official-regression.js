@@ -40,6 +40,12 @@ assert(functionSource(dailySrc,'dailyReset','dailyToggleAutoAssign').includes('_
 assert(checkin.includes('클럽 임원 운영'),'회원 페이지에서 임원 중심 운영 화면을 제공해야 합니다.');
 assert(checkin.indexOf('id="officialPanel"')<checkin.indexOf('id="afterPartyPanel"'),'임원 운영 현황은 개인 카드 다음, 뒷풀이 정보보다 먼저 보여야 합니다.');
 assert(checkin.includes('${officialOperationsSummaryHtml(p)}'),'임원이 이름을 선택한 뒤에도 운영 현황이 임원 패널 안에 표시되어야 합니다.');
+// 브랜드 표기: 개명 때 앞에 한 번 더 붙는 사고가 있었습니다(회원 화면 제목·공유 시트).
+[['index.html',indexHtml],['team.html',teamHtml],['checkin.html',checkin],['js/daily.js',dailySrc],['js/team.js',teamSrc],['js/live-view.js',liveSrc]]
+  .forEach(([name,src])=>assert(!src.includes('민턴LIVE 민턴LIVE'),`${name} 에 브랜드가 두 번 붙어 있습니다.`));
+// 화면에 보이는 제목의 LIVE 는 붉은 글자여야 합니다.
+['민턴<span class="brand-live">LIVE</span> 상황판','민턴<span class="brand-live">LIVE</span> 공용 링크']
+  .forEach(mark=>assert(indexHtml.includes(mark),`관리자 화면 제목 브랜드 표기가 빠졌습니다: ${mark}`));
 // 관리자 화면에도 같은 흐름이 있어야 합니다: 대시보드 숫자로 바로 걸러 보고, 기본은 이름순.
 assert(dailySrc.includes("onclick=\"setDailyPlayerFilter('${f}')\""),'관리자 대시보드 숫자를 눌러 해당 상태만 볼 수 있어야 합니다.');
 assert(dailySrc.includes("let _dailyPlayerSort='name'"),'관리자 선수 목록 기본 정렬은 이름순이어야 합니다.');

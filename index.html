@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.497  (2026-07)
+     APP VERSION: 1.10.498  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.497">
+<meta name="app-version" content="1.10.498">
 <script id="defaultEntryRedirect">
 (function redirectDefaultEntryToTeamLive(){
   const params=new URLSearchParams(location.search);
@@ -21,7 +21,7 @@
   const standalone=(typeof matchMedia==='function'&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
   const rootEntry=location.pathname.endsWith('/');
   if((rootEntry||standalone)&&!explicitDaily){
-    location.replace('team.html?v=1.10.497&from=entry');
+    location.replace('team.html?v=1.10.498&from=entry');
   }
 })();
 </script>
@@ -64,8 +64,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.497&from=daily'">팀전</button>
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.497&from=daily'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.498&from=daily'">팀전</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.498&from=daily'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
 </div>
 
 <div class="nav-bar">
@@ -92,13 +92,13 @@
   <div class="err-bar" id="errBar"></div>
   <div class="warn-bar" id="warnBar"></div>
   <div class="card operation-card" id="operationModeCard">
-    <div class="card-head"><span class="card-title">🧭 운영 방식 선택</span><span class="operation-current" id="operationModeSummary">현재: 민턴LIVE</span></div>
+    <div class="card-head"><span class="card-title">🧭 운영 방식 선택</span><span class="operation-current" id="operationModeSummary">현재: 민턴<span class="brand-live">LIVE</span></span></div>
     <div class="card-body">
       <div class="operation-intro">
         기본 시작 화면은 팀전입니다. 민턴LIVE는 클럽 임원이 현장 참가를 확인한 뒤 반자동으로 운영하는 평소 운동용입니다.
       </div>
       <div class="operation-grid">
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.497&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.498&from=daily'">
           <b>팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
           <small>기본 시작 화면</small>
@@ -476,14 +476,14 @@
     <div class="daily-main">
       <div class="card daily-primary-card daily-dashboard-card">
         <div class="card-head" id="dailyOpsCard">
-          <span class="card-title">민턴LIVE 상황판</span>
+          <span class="card-title">민턴<span class="brand-live">LIVE</span> 상황판</span>
           <button class="btn btn-ghost btn-sm" onclick="dailyRender()">새로고침</button>
         </div>
         <div class="card-body">
           <div class="daily-dashboard-hero">
             <div>
               <div class="daily-dashboard-kicker">LIVE</div>
-              <h3 class="daily-dashboard-title">민턴LIVE 상황판</h3>
+              <h3 class="daily-dashboard-title">민턴<span class="brand-live">LIVE</span> 상황판</h3>
             </div>
             <div class="daily-dashboard-head-actions">
               <div class="daily-state-pill" id="dailyFlowState"><span class="daily-dot"></span> 정상 운영</div>
@@ -514,7 +514,7 @@
 
 	      <details class="card" id="dailyCheckinDetails">
 	        <summary class="card-head" id="dailyCheckinCard">
-	          <span class="card-title">민턴LIVE 공용 링크 <span id="dailyCheckinSummary"></span></span>
+	          <span class="card-title">민턴<span class="brand-live">LIVE</span> 공용 링크 <span id="dailyCheckinSummary"></span></span>
 	        </summary>
 	        <div class="card-body">
 	          <div class="daily-dashboard-actions" style="margin-bottom:10px;">
@@ -860,7 +860,7 @@
 <div class="manual-wrap">
   <button class="manual-back-btn" onclick="switchNav('daily');window.scrollTo({top:0});">← 민턴LIVE로 돌아가기</button>
   <div class="manual-section">
-    <h2>📌 민턴LIVE 한눈에 보기</h2>
+    <h2>📌 민턴<span class="brand-live">LIVE</span> 한눈에 보기</h2>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">시스템 관리자가 명부·코트·공용 링크를 준비하면 클럽 임원과 운영 도우미가 같은 회원 화면에서 현장을 운영합니다. 회원은 자기 경기만 확인해도 되고, 필요할 때 <strong style="color:var(--txt)">휴식·복귀·종료·뒷풀이</strong>만 누르면 됩니다.</p>
     <div class="feat-grid">
       <div class="feat-card"><h4>1. 도착 구분</h4><p>현장 참가와 도착 전을 나눠 미도착 선수가 대진에 들어가지 않게 합니다.</p></div>
@@ -1010,7 +1010,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.497</span>
+  <span class="app-version" id="appVersion">v1.10.498</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

@@ -72,7 +72,7 @@ assert(index.includes('onclick="dailyReset()">초기화</button>'),'자주 쓰�
 assert(!index.includes('onclick="dailyShareOfficialLink()"'),'관리자 화면에 별도 임원 링크 버튼을 남기면 안 됩니다.');
 
 const shareSource=functionSource(daily,'dailyShareOfficialLink','dailyResumeCheckin');
-assert(shareSource.includes("navigator.share({title:'민턴LIVE 민턴LIVE 임원 운영',text,url})"),'Web Share에서 URL을 별도 필드로 전달해야 합니다.');
+assert(shareSource.includes("navigator.share({title:'민턴LIVE 임원 운영',text,url})"),'Web Share에서 URL을 별도 필드로 전달해야 합니다.');
 assert(shareSource.includes('await _dailyEnsureAdminGrant(true)'),'공유 직전에 서버 권한 교환이 실제로 작동하는지 확인해야 합니다.');
 
 const pushSource=functionSource(checkin,'pushOfficialRequest','sendOfficialPartnerReservation');
