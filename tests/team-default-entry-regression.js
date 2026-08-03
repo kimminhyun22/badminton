@@ -37,7 +37,9 @@ assert.strictEqual(redirectFor({pathname:'/badminton/',search:'?sample=1'}), '',
 
 function modeOrder(html) {
   const block = html.match(/<div class="live-mode-switch"[\s\S]*?<\/div>/)?.[0] || '';
-  return [block.indexOf('팀전'), block.indexOf('민턴LIVE')];
+  // 브랜드의 LIVE 는 네온 표시를 위해 <span> 으로 감싸여 있습니다. 태그를 걷고 봅니다.
+  const text = block.replace(/<[^>]*>/g, '');
+  return [text.indexOf('팀전'), text.indexOf('민턴LIVE')];
 }
 
 for (const html of [indexHtml, teamHtml]) {

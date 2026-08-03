@@ -22,7 +22,9 @@ const serviceWorker = read('sw.js');
 [checkin, rsvp, view].forEach((html, index) => {
   assert(html.includes('css/member-shell.css'), `회원 화면 ${index + 1}은 공통 화면 스타일을 사용해야 합니다.`);
   assert(html.includes('class="km-member-page '), `회원 화면 ${index + 1}은 공통 회원 페이지 범위를 가져야 합니다.`);
-  assert(html.includes('<span class="km-member-brand">민턴LIVE</span>'), `회원 화면 ${index + 1}의 상단 브랜드는 민턴LIVE로 통일되어야 합니다.`);
+  const brand = html.match(/<span class="km-member-brand">([\s\S]*?)<\/span>\s*<\/?span/)?.[0]
+    || html.match(/<span class="km-member-brand">[\s\S]*?민턴[\s\S]{0,60}?LIVE/)?.[0] || '';
+  assert(brand.replace(/<[^>]*>/g, '').includes('민턴LIVE'), `회원 화면 ${index + 1}의 상단 브랜드는 민턴LIVE로 통일되어야 합니다.`);
 });
 
 assert(!rsvp.includes('KOKMATCH TEAM LIVE'), '회원 이름 확인 화면에 서비스 구분용 영문 헤더를 노출하면 안 됩니다.');
