@@ -38,7 +38,10 @@ assert(liveCss.includes('overflow-wrap:anywhere'), '실중계의 긴 선수명�
 assert(checkin.includes('max-height:calc(100dvh - var(--safe-top) - var(--safe-bottom) - 28px)'), '민턴LIVE 코트 선택 시트는 화면 높이를 넘지 않아야 합니다.');
 assert(checkin.includes('@media(max-width:340px)'), '320px 다음 대진은 이름을 보존하는 좁은 화면 규칙이 필요합니다.');
 assert(checkin.includes('.event-official-active-yield{\n  width:100%;\n  min-height:44px;'), '자동 투입 뒤 이번만 뒤로 버튼은 모바일에서 44px 터치 크기와 안정된 너비를 가져야 합니다.');
-assert(checkin.includes('.event-official-member-jump{\n  width:100%;\n  min-height:44px;'), '임원 회원 요청 바로가기는 모바일에서 한 줄 전체와 44px 터치 높이를 사용해야 합니다.');
+// 상단 바로가기는 제거하고 운영 현황 명단에서 바로 처리합니다(2026-08-03).
+// 대신 명단 행의 처리 버튼이 모바일에서 누를 만한 크기여야 합니다.
+assert(checkin.includes('.official-overview-actions button{')&&checkin.includes('min-height:30px;'), '운영 현황 명단의 처리 버튼은 모바일에서 누를 수 있는 크기여야 합니다.');
+assert(checkin.includes('.official-overview-player{')&&checkin.includes('display:flex;'), '운영 현황 명단은 이름과 처리 버튼을 한 줄에 나란히 보여야 합니다.');
 assert(checkin.includes('.official-member-status .official-status-actions button{min-height:46px;'), '임원의 회원 휴식·복귀·종료 버튼은 모바일 터치 높이를 충분히 확보해야 합니다.');
 assert(checkin.includes('.my-primary-actions.three-actions')&&checkin.includes('grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(74px,.68fr);'), '휴식·종료·뒷풀이 버튼은 좁은 회원 화면에서도 한 줄 비율을 유지해야 합니다.');
 assert(checkin.includes('.my-action-panel .after-party-quick{')&&checkin.includes('min-height:52px;'), '작은 뒷풀이 버튼도 모바일 터치 높이를 확보해야 합니다.');

@@ -20,7 +20,7 @@ assert(
   'Club official tools need a separate operational section.'
 );
 
-const placeEvent = functionSource('placeEventPanelForViewer', 'jumpToOfficialMemberStatus');
+const placeEvent = functionSource('placeEventPanelForViewer', 'renderEvent');
 assert(
   placeEvent.includes('main.insertBefore(panel,nextTarget)'),
   'Member LIVE status should appear before the after-party section.'

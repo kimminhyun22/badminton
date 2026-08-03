@@ -65,7 +65,7 @@ const officialOverviewSandbox={};
 vm.createContext(officialOverviewSandbox);
 vm.runInContext(`
 let officialOverviewFilter='';
-let session={players:[
+let session={capabilities:{officialPartnerOpsV1:true,temporaryOfficialV1:true},reservations:[],event:{},players:[
   {id:'o',name:'운영임원',status:'wait',games:2,isClubOfficial:true},
   {id:'p',name:'경기회원',status:'playing',games:1},
   {id:'r',name:'휴식회원',status:'rest',games:3},
@@ -81,10 +81,20 @@ function esc(value){return String(value||'');}
 function compactLabel(status){return ({wait:'참가 중',playing:'경기중',rest:'휴식 중',done:'운동 종료',planned:'도착 전',invited:'도착 전'})[status]||status;}
 function render(){}
 const document={getElementById(){return null;}};
-// 명단 행의 상태 버튼이 쓰는 최소 환경
+// 명단 행의 액션 버튼이 쓰는 최소 환경
 function eventFlowPaused(){return !!session?.event?.paused;}
 let sendingKey='';
 let claimingOfficial=false;
+function officialArrivalPlayers(){
+  return (session?.players||[])
+    .filter(p=>p&&p.name&&['invited','planned'].includes(p.status))
+    .map(p=>({candidateKey:'player:'+p.id,kind:'existing',playerId:p.id,name:p.name}));
+}
+function officialPartnerReservedIds(){
+  const ids=new Set();
+  (session?.reservations||[]).forEach(r=>(r.team1||[]).forEach(id=>ids.add(String(id))));
+  return ids;
+}
 ${functionSource(checkin,'isLiveOperatorPlayer','selectedOfficialPlayer')}
 ${functionSource(checkin,'voteSummary','renderVoteSummary')}
 ${functionSource(checkin,'afterPartyPlayers','afterPartyRosterText')}
@@ -104,10 +114,21 @@ officialOverviewSandbox.api.filter('wait');
 const officialWaitHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
 assert(officialWaitHtml.includes('official-overview-actions'),'운영 현황 명단에 상태 변경 버튼이 있어야 합니다.');
 assert(officialWaitHtml.includes("sendOfficialPlayerStatus('o','rest'"),'명단 버튼은 그 회원을 바로 지정해 처리해야 합니다.');
+// 운영 도구를 전부 운영 현황 명단으로 모았습니다(2026-08-03 운영자 결정).
+assert(officialWaitHtml.includes('setOfficialPartnerPick'),'명단에서 파트너를 지정할 수 있어야 합니다.');
+assert(officialWaitHtml.includes('sendOfficialTemporaryGrant'),'명단에서 운영 도우미를 지정할 수 있어야 합니다.');
 officialOverviewSandbox.api.filter('preArrival');
 const officialPreHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
-assert(officialPreHtml.includes('참가 등록 대상'),'도착 전 회원은 상태 버튼 대신 참가 등록으로 안내해야 합니다.');
-assert(!officialPreHtml.includes('official-overview-actions'),'도착 전 회원에게 상태 변경 버튼을 노출하면 안 됩니다.');
+assert(officialPreHtml.includes('sendOfficialArrival'),'도착 전 회원은 명단에서 바로 참가 등록할 수 있어야 합니다.');
+officialOverviewSandbox.api.filter('party');
+assert(officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true}).includes('toggleAfterParty'),
+  '뒷풀이 명단에서 바로 신청을 취소할 수 있어야 합니다.');
+// 낡은 드롭다운 섹션은 남아 있으면 안 됩니다.
+['officialArrivalToolsHtml','officialPlayerStatusToolsHtml','officialPartnerToolsHtml','officialTemporaryToolsHtml']
+  .forEach(function(call){
+    assert(checkin.indexOf('$' + '{' + call + '(p,disabled)}') < 0, '임원 패널에 낡은 섹션이 남아 있습니다: ' + call);
+  });
+assert(!checkin.includes('jumpToOfficialMemberStatus'),'상단 회원 상태 수정 바로가기는 제거되어야 합니다.');
 officialOverviewSandbox.api.filter('');
 assert(officialOverviewHtml.includes('운영 현황')&&officialOverviewHtml.includes('현장 4명'),'임원 패널에서 현재 현장 인원을 바로 확인할 수 있어야 합니다.');
 assert.strictEqual((officialOverviewHtml.match(/official-overview-stat/g)||[]).length,8,'임원 현황에는 7개 상태와 뒷풀이 버튼이 정확히 한 번씩 있어야 합니다.');
@@ -489,8 +510,11 @@ partnerQueueCancelSandbox.api.remove('pair2');
 assert.strictEqual(partnerQueueCancelSandbox.api.queue().length,1,'파트너 요청으로 새로 만든 전용 대진은 접수 취소 시 함께 제거해야 합니다.');
 
 assert(checkin.includes("'경기중 · 경기 후 반영'"),'임원 선수 선택에서 경기중 선수의 경기 후 상태도 처리할 수 있어야 합니다.');
-assert(checkin.includes('회원 상태 수정')&&!checkin.includes('회원 요청 대신 처리')&&!checkin.includes('구두로 받은 휴식·복귀·귀가 요청'),'임원 회원 상태 도구는 설명 없이 짧은 명칭으로 보여야 합니다.');
-assert(checkin.includes('event-official-member-jump')&&checkin.includes('jumpToOfficialMemberStatus'),'임원은 긴 경기 현황을 지나지 않고 상단에서 회원 상태 수정으로 바로 이동할 수 있어야 합니다.');
+assert(!checkin.includes('회원 요청 대신 처리')&&!checkin.includes('구두로 받은 휴식·복귀·귀가 요청'),'임원 도구는 설명 없이 짧게 보여야 합니다.');
+// 예전에는 상단 바로가기로 '회원 상태 수정' 섹션까지 이동했습니다. 이제는 그 섹션이
+// 없어지고 운영 현황 명단에서 바로 처리합니다(2026-08-03 운영자 결정).
+assert(checkin.includes('officialOverviewStatusButtons(player,item,selected.key)'),'임원은 운영 현황 명단에서 바로 처리할 수 있어야 합니다.');
+assert(!checkin.includes('event-official-member-jump'),'상단 회원 상태 수정 바로가기는 제거되어야 합니다.');
 assert(!checkin.includes('<summary>선수 휴식·복귀·종료 처리</summary>'),'현장 핵심 상태 처리를 접힌 상세 메뉴 안에 숨기면 안 됩니다.');
 assert(checkin.includes("playing?'경기 후 휴식':'잠시 휴식'")&&checkin.includes("playing?'경기 후 종료':'운동 종료'"),'경기중 선수는 현재 경기 종료 후 적용된다는 버튼 문구를 보여야 합니다.');
 assert(checkin.includes("(playing&&status==='wait')||sameStatus"),'경기중 복귀와 같은 상태의 중복 처리는 버튼 단계에서 차단해야 합니다.');

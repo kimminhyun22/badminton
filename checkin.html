@@ -101,19 +101,6 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 }
 .event-title b{font-size:18px}
 .event-title span{font-size:12px;color:var(--mut);font-weight:900}
-.event-official-member-jump{
-  width:100%;
-  min-height:44px;
-  margin:0 0 10px;
-  border:1.5px solid #9ccfb7;
-  border-radius:8px;
-  background:#eef9f3;
-  color:#16724c;
-  font:inherit;
-  font-size:14px;
-  font-weight:1000;
-}
-.event-official-member-jump:active{background:#e1f4e9;}
 .event-score{
   display:grid;
   grid-template-columns:1fr auto 1fr;
@@ -1969,12 +1956,6 @@ summary:focus-visible{
 }
 .event-row em,
 .event-wait-pill{border-radius:999px;}
-.event-official-member-jump{
-  margin-bottom:10px;
-  border-color:#8fc3a7;
-  background:#eff8f3;
-  color:#2f7150;
-}
 .event-official-complete,
 .event-official-active-yield,
 .event-official-enter,
@@ -2269,21 +2250,32 @@ summary:focus-visible{
   display:flex;
   flex-direction:column;
   gap:5px;
-  max-height:260px;
+  max-height:320px;
   overflow:auto;
   overscroll-behavior:contain;
 }
 .official-overview-player{
+  /* 이름을 한 줄로 온전히 보여 주고, 처리 버튼은 그 아래에 둡니다.
+     좁은 화면에서 버튼이 이름 자리를 뺏어 '김…'처럼 잘리던 문제를 막습니다. */
   display:flex;
-  align-items:center;
-  gap:8px;
+  flex-direction:column;
+  align-items:stretch;
+  gap:6px;
   min-width:0;
-  padding:7px 8px;
+  padding:8px 9px;
   border-radius:6px;
   background:#fff;
 }
-.official-overview-player-info{min-width:0;flex:1;}
-.official-overview-actions{display:flex;gap:4px;flex:none;}
+.official-overview-player-info{
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  gap:6px;
+}
+.official-overview-player-info b{display:inline;font-size:13px;}
+.official-overview-player-info small{margin-top:0;}
+.official-overview-actions{display:flex;gap:5px;flex-wrap:wrap;}
+.official-overview-actions button{flex:1 1 0;min-width:0;padding:5px 3px;font-size:10.5px;white-space:nowrap;}
 .official-overview-actions button{
   padding:5px 9px;
   min-height:30px;
@@ -2300,6 +2292,22 @@ summary:focus-visible{
 .official-overview-actions button.rest{border-color:#ead2a8;color:#8c672b;}
 .official-overview-actions button.done{border-color:#e6c3c3;color:#9c4b4b;}
 .official-overview-actions button:disabled{opacity:.35;cursor:default;}
+.official-overview-actions button.join{border-color:#bcd3f3;color:#2f5da8;background:#f4f8ff;}
+.official-overview-actions button.pair{border-color:#ddd0fb;color:#5b3fa8;}
+.official-overview-actions button.pair.picking{background:#f3e8ff;border-color:#c4b5fd;}
+.official-overview-actions button.helper{border-color:#cfe4d8;color:#2f6b4f;}
+.official-overview-actions button.helper.on{background:#eaf7f0;}
+.official-overview-pick{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:8px 0 4px;padding:9px 11px;border-radius:8px;
+  background:#faf5ff;border:1px solid #ddd0fb;
+  font-size:11px;color:#5b3fa8;line-height:1.5;
+}
+.official-overview-pick button{
+  margin-left:auto;padding:4px 10px;border-radius:6px;cursor:pointer;
+  border:1px solid #ddd0fb;background:#fff;color:#5b3fa8;
+  font-family:'Noto Sans KR',sans-serif;font-size:11px;font-weight:700;
+}
 .official-overview-hint{flex:none;font-size:10px;color:#7b8782;white-space:nowrap;}
 .official-overview-player b{
   display:block;
@@ -2429,7 +2437,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.485">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.486">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="콕매치">
@@ -2444,7 +2452,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.485</span>
+    <span class="version-chip" id="appVersion">v1.10.486</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2491,7 +2499,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.485';
+const APP_VERSION='1.10.486';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3017,24 +3025,68 @@ function officialOverviewPlayers(filter){
   // 이름순 고정. 카드가 이미 상태로 걸러 주기 때문에 이름으로 찾는 편이 빠릅니다.
   return list.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
 }
-// 운영 현황 명단에서 바로 상태를 바꿉니다.
-// 드롭다운에서 이름을 다시 찾을 필요 없이, 보고 있는 그 사람을 그대로 처리합니다.
-function officialOverviewStatusButtons(actor,target){
+// 운영 현황 명단에서 바로 처리합니다.
+// 상태 변경·참가 등록·파트너 지정·운영 도우미·뒷풀이를 전부 여기서 끝내고,
+// 예전의 드롭다운 섹션들은 없앴습니다(운영자 요청 2026-08-03).
+let officialPartnerPickId='';
+function setOfficialPartnerPick(actorId,targetId){
+  if(officialPartnerPickId===targetId){officialPartnerPickId='';render();return;}
+  if(!officialPartnerPickId){officialPartnerPickId=targetId;render();return;}
+  const first=officialPartnerPickId;
+  officialPartnerPickId='';
+  sendOfficialPartnerReservation(actorId,first,targetId);
+}
+function officialOverviewStatusButtons(actor,target,viewKey){
   if(!actor||!target)return '';
-  // 도착 전 선수는 아래 '지각 선수 참가 등록'으로 처리합니다.
-  if(['invited','planned'].includes(String(target.status||'')))return '<span class="official-overview-hint">참가 등록 대상</span>';
   const blocked=eventFlowPaused()||!!sendingKey||claimingOfficial;
+  const dis=blocked?'disabled':'';
+
+  // 뒷풀이 명단: 신청 취소
+  if(viewKey==='party'){
+    return `<span class="official-overview-actions">
+      <button type="button" class="done" ${dis} onclick="toggleAfterParty('${esc(target.id)}')">신청 취소</button>
+    </span>`;
+  }
+
+  // 도착 전 명단: 참가 등록
+  if(['invited','planned'].includes(String(target.status||''))){
+    const candidate=officialArrivalPlayers().find(item=>String(item.playerId||'')===String(target.id));
+    if(!candidate)return '<span class="official-overview-hint">참가 등록 준비 중</span>';
+    return `<span class="official-overview-actions">
+      <button type="button" class="join" ${dis} onclick="sendOfficialArrival('${esc(actor.id)}','${esc(candidate.candidateKey)}')">참가 등록</button>
+    </span>`;
+  }
+
   const playing=!!target.locked||target.status==='playing';
   const current=compactLabel(target.status);
-  const buttons=[
+  const statusButtons=[
     {status:'wait',label:'복귀',cls:''},
     {status:'rest',label:'휴식',cls:'rest'},
     {status:'done',label:'종료',cls:'done'}
-  ].filter(b=>!(playing&&b.status==='wait'));
-  return `<span class="official-overview-actions">${buttons.map(b=>{
+  ].filter(b=>!(playing&&b.status==='wait')).map(b=>{
     const same=playing?target.afterMatchStatus===b.status:current===compactLabel(b.status);
     return `<button type="button" class="${b.cls}" ${blocked||same?'disabled':''} onclick="sendOfficialPlayerStatus('${esc(actor.id)}','${b.status}','${esc(target.id)}')">${playing&&b.status!=='wait'?'후 ':''}${b.label}</button>`;
-  }).join('')}</span>`;
+  }).join('');
+
+  // 파트너 지정: 한 명을 누르고 다른 한 명을 누르면 접수됩니다.
+  const partnerOn=session?.capabilities?.officialPartnerOpsV1===true&&!session?.event?.finishMode;
+  const adminPaired=String(target.partnerName||'').trim();
+  const reservedIds=partnerOn?officialPartnerReservedIds():new Set();
+  const reserved=reservedIds.has(String(target.id));
+  const picking=officialPartnerPickId===String(target.id);
+  const partnerButton=!partnerOn?''
+    :adminPaired?`<button type="button" class="pair" disabled title="관리자 지정">짝 ${esc(adminPaired)}</button>`
+    :reserved?`<button type="button" class="pair" disabled>접수됨</button>`
+    :`<button type="button" class="pair ${picking?'picking':''}" ${dis} onclick="setOfficialPartnerPick('${esc(actor.id)}','${esc(target.id)}')">${picking?'선택 취소':'파트너'}</button>`;
+
+  // 운영 도우미: 정식 임원만 지정·해제할 수 있습니다.
+  const helperOn=actor.isClubOfficial&&session?.capabilities?.temporaryOfficialV1===true;
+  const helperButton=!helperOn||target.isClubOfficial?''
+    :target.isTemporaryOfficial
+      ? `<button type="button" class="helper on" ${dis} onclick="sendOfficialTemporaryRevoke('${esc(actor.id)}','${esc(target.id)}')">도우미 해제</button>`
+      : `<button type="button" class="helper" ${dis} onclick="sendOfficialTemporaryGrant('${esc(actor.id)}','${esc(target.id)}')">도우미</button>`;
+
+  return `<span class="official-overview-actions">${statusButtons}${partnerButton}${helperButton}</span>`;
 }
 function setOfficialOverviewFilter(filter){
   const allowed=['total','current','playing','wait','rest','done','preArrival','party'];
@@ -3061,10 +3113,13 @@ function officialOperationsSummaryHtml(player){
   const detailPlayers=selected?officialOverviewPlayers(selected.key):[];
   const detail=selected?`<div class="official-overview-detail" id="officialOverviewDetail">
     <div class="official-overview-detail-head"><b>${esc(selected.label)} ${detailPlayers.length}명</b><button type="button" onclick="setOfficialOverviewFilter('${selected.key}')" aria-label="${esc(selected.label)} 명단 닫기">×</button></div>
-    <div class="official-overview-list">${detailPlayers.length?detailPlayers.map(item=>`<div class="official-overview-player"><span class="official-overview-player-info"><b>${esc(item.name)}</b><small>${selected.key==='party'?'뒷풀이 참석':`${esc(compactLabel(item.status))} · ${Number(item.games||0)}게임`}</small></span>${selected.key==='party'?'':officialOverviewStatusButtons(player,item)}</div>`).join(''):'<div class="official-overview-player"><b>해당 회원 없음</b></div>'}</div>
+    <div class="official-overview-list">${detailPlayers.length?detailPlayers.map(item=>`<div class="official-overview-player"><span class="official-overview-player-info"><b>${esc(item.name)}</b><small>${selected.key==='party'?'뒷풀이 참석':`${esc(compactLabel(item.status))} · ${Number(item.games||0)}게임`}</small></span>${officialOverviewStatusButtons(player,item,selected.key)}</div>`).join(''):'<div class="official-overview-player"><b>해당 회원 없음</b></div>'}</div>
   </div>`:'';
+  const picked=officialPartnerPickId?(session?.players||[]).find(row=>String(row.id)===String(officialPartnerPickId)):null;
+  const partnerBanner=picked?`<div class="official-overview-pick"><b>${esc(picked.name)}</b>님과 같은 편으로 묶을 선수의 <b>파트너</b>를 누르세요.<button type="button" onclick="setOfficialPartnerPick('${esc(player.id)}','${esc(picked.id)}')">취소</button></div>`:'';
   return `<div class="official-overview">
     <div class="official-overview-head"><b>운영 현황</b><span>현장 ${summary.current}명</span></div>
+    ${partnerBanner}
     <div class="official-overview-grid">${cards.map(card=>`<button type="button" class="official-overview-stat ${card.cls||''} ${officialOverviewFilter===card.key?'active':''}" onclick="setOfficialOverviewFilter('${card.key}')" aria-pressed="${officialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
     ${detail}
   </div>`;
@@ -3412,15 +3467,6 @@ function placeEventPanelForViewer(isOfficial){
   const nextTarget=afterPartyPanel||lookup;
   if(myCard.nextElementSibling!==panel)main.insertBefore(panel,nextTarget);
 }
-function jumpToOfficialMemberStatus(actorId){
-  const select=document.getElementById('officialPlayerSelect_'+actorId);
-  const target=select?.closest('.official-member-status');
-  if(!select||!target)return toast('회원 상태 수정 화면을 다시 불러와 주세요.');
-  target.scrollIntoView({behavior:'smooth',block:'start'});
-  setTimeout(()=>{
-    try{select.focus({preventScroll:true});}catch(e){select.focus();}
-  },350);
-}
 function renderEvent(){
   const el=document.getElementById('eventPanel');
   if(!el)return;
@@ -3446,7 +3492,6 @@ function renderEvent(){
   const canOfficialOperate=!!(isLiveOperatorPlayer(selectedPlayer)&&session?.capabilities?.officialOpsV1===true);
   const flowPaused=!!ev.paused;
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span><span class="event-chip gold">뒷풀이 ${afterPartyNames().length}명</span>`;
-  const memberStatusJump=canOfficialOperate?`<button type="button" class="event-official-member-jump" onclick="jumpToOfficialMemberStatus('${esc(selectedPlayer.id)}')">회원 상태 수정</button>`:'';
   placeEventPanelForViewer(canOfficialOperate);
   const active=(ev.active||[]).slice(0,4).map(m=>{
     const remain=remainMinutes(m);
@@ -3521,7 +3566,7 @@ function renderEvent(){
     <span>${esc(ev.pauseReason||'생일축하·공지')} 중입니다. 경기 시간과 다음 대진 순서는 멈춘 상태로 유지됩니다.</span>
   </div>`:'';
   el.innerHTML=`<div class="event-title"><b>운동 현황</b><span>${esc(updated)} 업데이트</span></div>
-    ${memberStatusJump}
+    
     <div>${summary}</div>
     ${pauseNotice}
     ${finishNotice}
@@ -4086,12 +4131,8 @@ function officialSupportHtml(p){
     ${officialOperationsSummaryHtml(p)}
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
-    ${officialArrivalToolsHtml(p,disabled)}
     ${officialLiveAdditionToolsHtml(p,disabled)}
     ${freeRows?`<div class="official-action-list">${freeRows}</div>`:''}
-    ${officialPlayerStatusToolsHtml(p,disabled)}
-    ${officialPartnerToolsHtml(p,disabled)}
-    ${officialTemporaryToolsHtml(p,disabled)}
   </section>`;
 }
 function refreshOfficialPlayerStatusActions(actorId){
@@ -4494,10 +4535,10 @@ async function pushOfficialRequest(req,successText){
     refreshOfficialConnection();
   }
 }
-async function sendOfficialTemporaryGrant(actorId){
+async function sendOfficialTemporaryGrant(actorId,targetId){
   const actor=officialActor(actorId);
   if(!actor?.isClubOfficial)return toast('정식 클럽 임원만 운영 도우미를 지정할 수 있습니다.');
-  const playerId=document.getElementById('officialTemporarySelect_'+actorId)?.value||'';
+  const playerId=targetId||document.getElementById('officialTemporarySelect_'+actorId)?.value||'';
   const player=(session?.players||[]).find(item=>String(item.id||'')===String(playerId));
   if(!player)return toast('운영을 도와줄 회원을 선택해 주세요.');
   if(!confirm(`${player.name}님을 오늘 운영 도우미로 지정할까요?\n\n경기 종료·회원 상태·대진 처리를 임원처럼 도울 수 있습니다.`))return;
@@ -4533,10 +4574,11 @@ async function sendOfficialTemporaryRevoke(actorId,playerId){
   if(ok&&isSampleMode())player.isTemporaryOfficial=false;
   if(ok)render();
 }
-async function sendOfficialPartnerReservation(actorId){
+async function sendOfficialPartnerReservation(actorId,firstId,secondId){
   const actor=officialActor(actorId);
-  const aId=document.getElementById('officialPartnerA_'+actorId)?.value||'';
-  const bId=document.getElementById('officialPartnerB_'+actorId)?.value||'';
+  // 두 id 가 오면 운영 현황 명단에서 두 명을 눌러 고른 경우입니다.
+  const aId=firstId||document.getElementById('officialPartnerA_'+actorId)?.value||'';
+  const bId=secondId||document.getElementById('officialPartnerB_'+actorId)?.value||'';
   const players=(session?.players||[]);
   const a=players.find(p=>p.id===aId),b=players.find(p=>p.id===bId);
   if(!actor||!a||!b)return toast('파트너 두 명을 선택해 주세요.');
@@ -4544,6 +4586,8 @@ async function sendOfficialPartnerReservation(actorId){
   if(session?.event?.finishMode)return toast('마무리 중에는 새 파트너 요청을 받지 않습니다.');
   if([a,b].some(p=>['invited','planned','done'].includes(p.status)))return toast('현재 운동 중인 선수만 접수할 수 있습니다.');
   if(officialPartnerGap([a,b])>=3)return toast('두 선수의 실력 차가 커 공정한 자동 대진으로 편성하기 어렵습니다.');
+  const adminPaired=[a,b].filter(row=>String(row.partnerName||'').trim());
+  if(adminPaired.length)return toast(`${adminPaired.map(row=>row.name).join(', ')} 선수는 관리자 화면에서 이미 파트너가 지정되어 있습니다.`);
   if(officialRequests.some(r=>r.type==='official-partner-reservation'&&officialRequestPending(r)))return toast('앞선 파트너 접수를 확인 중입니다.');
   const conflict=officialPartnerReservations().find(r=>(r.team1||[]).some(id=>id===a.id||id===b.id));
   if(conflict)return toast('이미 파트너 접수에 포함된 선수가 있습니다.');
@@ -4584,10 +4628,12 @@ async function sendOfficialPartnerCancel(actorId,reservationId){
     render();
   }
 }
-async function sendOfficialArrival(actorId){
+async function sendOfficialArrival(actorId,candidateKey){
   const actor=officialActor(actorId);
+  // candidateKey 가 오면 운영 현황 명단에서 바로 누른 경우입니다.
   const select=document.getElementById('officialArrivalSelect_'+actorId);
-  const candidate=officialArrivalPlayers().find(item=>String(item.candidateKey)===String(select?.value||''));
+  const wanted=candidateKey||select?.value||'';
+  const candidate=officialArrivalPlayers().find(item=>String(item.candidateKey)===String(wanted));
   let target=candidate?.playerId?(session?.players||[]).find(player=>String(player.id)===String(candidate.playerId)):null;
   if(!actor||!candidate)return toast('임원 또는 도착 선수를 다시 확인해 주세요.');
   if(candidate.kind!=='roster'&&(!target||!['invited','planned'].includes(target.status)))return toast('이미 참가 상태가 바뀐 선수입니다.');
