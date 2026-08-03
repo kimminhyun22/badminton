@@ -35,7 +35,7 @@ const MEMBER_FUNCTION_OPTIONS = {
 
 function cleanCheckinId(value){
   const id = String(value || '').trim().toUpperCase();
-  if(!/^D[A-Z2-9]{7}$/.test(id))throw new HttpsError('invalid-argument', '민턴라이브 링크를 다시 확인해 주세요.');
+  if(!/^D[A-Z2-9]{7}$/.test(id))throw new HttpsError('invalid-argument', '민턴LIVE 링크를 다시 확인해 주세요.');
   return id;
 }
 
@@ -157,7 +157,7 @@ exports.claimDailyOfficialInvite = onCall(FUNCTION_OPTIONS, async request=>{
     return outcome.action === 'commit' ? outcome.current : undefined;
   });
 
-  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴라이브입니다.');
+  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
   if(!transaction.result.committed)throw new HttpsError(outcome?.failureCode || 'permission-denied', outcome?.failureMessage || '임원 운영 연결을 만들지 못했습니다.');
   const secret = OFFICIAL_GRANT_SECRET.value();
   const grantToken = issueOfficialGrant({
@@ -201,7 +201,7 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
     return outcome.action === 'commit' ? outcome.current : undefined;
   });
 
-  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴라이브입니다.');
+  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
   if(!transaction.result.committed){
     if(terminal)return {ok:terminal.status==='applied',requestId:operationId,...terminal};
     throw new HttpsError(failureCode || 'aborted', failureMessage || '운영 요청을 처리하지 못했습니다.');
@@ -237,7 +237,7 @@ exports.submitDailyMemberStatusRequest = onCall(MEMBER_FUNCTION_OPTIONS, async r
     return outcome.action === 'commit' ? outcome.current : undefined;
   });
 
-  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴라이브입니다.');
+  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
   if(!transaction.result.committed){
     if(terminal)return {ok:terminal.status==='applied',requestId:operationId,...terminal};
     throw new HttpsError(failureCode || 'aborted', failureMessage || '회원 요청을 처리하지 못했습니다.');
@@ -256,7 +256,7 @@ exports.getDailyOfficialReconcile = onCall(FUNCTION_OPTIONS, async request=>{
   const clientId = cleanClientId(verified.payload.cid);
   const snapshot = await admin.database().ref(`live/checkin_${checkinId}`).once('value');
   const current = snapshot.val();
-  if(!current?.session)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴라이브입니다.');
+  if(!current?.session)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
   const claim = current.officialClaims?.[clientId];
   if(!claim || now >= Number(claim.expiresAt || 0)){
     throw new HttpsError('permission-denied', '임원 운영 연결 시간이 끝났습니다. 본인 이름을 다시 선택해 주세요.');

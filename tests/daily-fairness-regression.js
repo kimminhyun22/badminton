@@ -12,7 +12,7 @@ const engine=fs.readFileSync(path.join(root,'functions','daily-official-engine.j
 
 const start=daily.indexOf('const DAILY_FAIR_PRIORITY_GAP');
 const end=daily.indexOf('function _dailyIsDeferred',start);
-assert(start>=0&&end>start,'민턴라이브 공정성 계산 함수 범위를 찾을 수 있어야 합니다.');
+assert(start>=0&&end>start,'민턴LIVE 공정성 계산 함수 범위를 찾을 수 있어야 합니다.');
 
 const sandbox={
   _dailyPlayers:[

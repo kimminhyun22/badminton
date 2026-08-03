@@ -30,17 +30,17 @@ function abort(failureCode, failureMessage){
 function applyOfficialClaimTransaction(current, input){
   const {clientId, inviteToken, requestedPlayerId, now, maxGrantMs} = input;
   if(!current?.session){
-    return abort('not-found', '종료되었거나 아직 게시되지 않은 민턴라이브입니다.');
+    return abort('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
   }
   const session = current.session;
   if(session.capabilities?.officialOpsServerV2 !== true || number(session.commandProtocol) < 2){
-    return abort('failed-precondition', '아직 서버 운영이 준비되지 않은 민턴라이브입니다.');
+    return abort('failed-precondition', '아직 서버 운영이 준비되지 않은 민턴LIVE입니다.');
   }
 
   const invite = session.officialInvite || {};
   const inviteExpiresAt = number(invite.expiresAt || session.expiresAt);
   if(!inviteExpiresAt || now >= inviteExpiresAt){
-    return abort('permission-denied', '민턴라이브 운영 연결 시간이 끝났습니다.');
+    return abort('permission-denied', '민턴LIVE 운영 연결 시간이 끝났습니다.');
   }
 
   let officialPlayer = null;

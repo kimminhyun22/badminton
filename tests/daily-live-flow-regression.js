@@ -35,7 +35,7 @@ assert(
 const publicEvent = extractFunction('_dailyPublicEvent', 'dailyRenderResults');
 assert(
   publicEvent.includes('const expected=[]')&&publicEvent.includes('const serverStandby=[]'),
-  '민턴라이브는 코트 수를 넘는 예상·서버 대기 대진을 미리 생성하면 안 됩니다.'
+  '민턴LIVE는 코트 수를 넘는 예상·서버 대기 대진을 미리 생성하면 안 됩니다.'
 );
 assert(
   !publicEvent.includes('_dailyProjectedQueue('),
@@ -97,7 +97,7 @@ const activeSession = {
 assert.strictEqual(
   resumeSandbox.api._dailyCanResumeCrossDay(activeSession, resumeNow),
   true,
-  '자정 직후의 활성 민턴라이브는 이어서 불러와야 합니다.'
+  '자정 직후의 활성 민턴LIVE는 이어서 불러와야 합니다.'
 );
 assert.strictEqual(
   resumeSandbox.api._dailyCanResumeCrossDay({...activeSession, savedAt:resumeNow-7*60*60*1000}, resumeNow),

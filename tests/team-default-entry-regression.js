@@ -30,14 +30,14 @@ function redirectFor({pathname, search = '', standalone = false, displayStandalo
 assert.strictEqual(redirectFor({pathname:'/badminton/',search:'?v=1.10.312'}), `team.html?v=${version}&from=entry`, '기존 루트 주소도 팀전로 전환해야 합니다.');
 assert.strictEqual(redirectFor({pathname:'/badminton/index.html',standalone:true}), `team.html?v=${version}&from=entry`, '기존 iOS 홈 화면 아이콘도 팀전로 전환해야 합니다.');
 assert.strictEqual(redirectFor({pathname:'/badminton/index.html',displayStandalone:true}), `team.html?v=${version}&from=entry`, '설치형 PWA의 기존 index 진입도 팀전로 전환해야 합니다.');
-assert.strictEqual(redirectFor({pathname:'/badminton/index.html'}), '', '브라우저에서 민턴라이브 주소를 직접 열면 그대로 유지해야 합니다.');
-assert.strictEqual(redirectFor({pathname:'/badminton/index.html',search:'?from=team',standalone:true}), '', '팀전에서 민턴라이브를 선택한 경우 다시 되돌리면 안 됩니다.');
-assert.strictEqual(redirectFor({pathname:'/badminton/',search:'?mode=daily'}), '', '명시적인 민턴라이브 진입은 루트에서도 유지해야 합니다.');
-assert.strictEqual(redirectFor({pathname:'/badminton/',search:'?sample=1'}), '', '민턴라이브 샘플 화면은 팀전로 전환하면 안 됩니다.');
+assert.strictEqual(redirectFor({pathname:'/badminton/index.html'}), '', '브라우저에서 민턴LIVE 주소를 직접 열면 그대로 유지해야 합니다.');
+assert.strictEqual(redirectFor({pathname:'/badminton/index.html',search:'?from=team',standalone:true}), '', '팀전에서 민턴LIVE를 선택한 경우 다시 되돌리면 안 됩니다.');
+assert.strictEqual(redirectFor({pathname:'/badminton/',search:'?mode=daily'}), '', '명시적인 민턴LIVE 진입은 루트에서도 유지해야 합니다.');
+assert.strictEqual(redirectFor({pathname:'/badminton/',search:'?sample=1'}), '', '민턴LIVE 샘플 화면은 팀전로 전환하면 안 됩니다.');
 
 function modeOrder(html) {
   const block = html.match(/<div class="live-mode-switch"[\s\S]*?<\/div>/)?.[0] || '';
-  return [block.indexOf('팀전'), block.indexOf('민턴라이브')];
+  return [block.indexOf('팀전'), block.indexOf('민턴LIVE')];
 }
 
 for (const html of [indexHtml, teamHtml]) {
@@ -45,6 +45,6 @@ for (const html of [indexHtml, teamHtml]) {
   assert(teamIndex >= 0 && dailyIndex >= 0 && teamIndex < dailyIndex, 'LIVE 전환에서도 팀전가 먼저 보여야 합니다.');
 }
 
-assert(teamHtml.includes(`index.html?v=${version}&from=team`), '사용자가 선택한 민턴라이브 진입 의도를 표시해야 합니다.');
+assert(teamHtml.includes(`index.html?v=${version}&from=team`), '사용자가 선택한 민턴LIVE 진입 의도를 표시해야 합니다.');
 
 console.log('team default entry regression ok');

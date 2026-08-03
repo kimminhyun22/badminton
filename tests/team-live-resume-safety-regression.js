@@ -138,7 +138,7 @@ localStorage.setItem(legacyKey, JSON.stringify({
   appMode: 'dailyLive',
   matches: current
 }));
-assert.strictEqual(api._teamMigrateLegacySaveKey(), false, '민턴라이브 저장본은 팀전 전용 키로 마이그레이션하면 안 됩니다.');
-assert.strictEqual(localStorage.getItem(teamKey), null, '민턴라이브 저장본이 팀전 저장 키를 만들면 안 됩니다.');
+assert.strictEqual(api._teamMigrateLegacySaveKey(), false, '민턴LIVE 저장본은 팀전 전용 키로 마이그레이션하면 안 됩니다.');
+assert.strictEqual(localStorage.getItem(teamKey), null, '민턴LIVE 저장본이 팀전 저장 키를 만들면 안 됩니다.');
 
 console.log('team live resume safety regression ok');

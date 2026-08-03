@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.493';
+const APP_VERSION='1.10.494';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -32,7 +32,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
     var ttl=showBtn?'브라우저에서 열어주세요':'브라우저에서 열렸어요!';
     var msg=showBtn
       ?'아래 버튼을 눌러<br>Safari 또는 Chrome에서 열어주세요'
-      :'민턴라이브 실시간 현황을<br>브라우저에서 보고 계세요 🏸';
+      :'민턴LIVE 실시간 현황을<br>브라우저에서 보고 계세요 🏸';
     document.open();
     document.write(
       '<!DOCTYPE html><html lang="ko"><head>'

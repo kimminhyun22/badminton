@@ -1,6 +1,6 @@
 'use strict';
 /**
- * 민턴라이브 종목 배분 / 반복 대진 진단
+ * 민턴LIVE 종목 배분 / 반복 대진 진단
  * - 실제 클럽 36명 명부로 서버 매치메이커를 그대로 구동
  * - 측정: 종목 분포, 여성별 남복/여복/혼복, 파트너/상대 반복 분포
  */
@@ -189,7 +189,7 @@ const rows = [...perPlayer.values()];
 const women = rows.filter(r=>r.gender==='F');
 const men = rows.filter(r=>r.gender==='M');
 
-console.log(`\n════ 민턴라이브 종목·반복 진단 (${COURTS}코트 × ${WAVES}회차 = ${context.matchLog.length}경기, ${rows.length}명) ════`);
+console.log(`\n════ 민턴LIVE 종목·반복 진단 (${COURTS}코트 × ${WAVES}회차 = ${context.matchLog.length}경기, ${rows.length}명) ════`);
 console.log(`종목 분포: ${JSON.stringify(typeCounts)}`);
 const totalSlots = context.matchLog.length*4;
 const femaleSlots = rows.filter(r=>r.gender==='F').reduce((s,r)=>s+r.games,0);

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#5b8def">
-<title>민턴라이브 내 경기</title>
+<title>민턴LIVE 내 경기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -159,7 +159,7 @@ button:disabled{opacity:.55}
 .toast.show{transform:translateY(0)}
 @media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}.summary-grid{grid-template-columns:1fr 1fr}.guest-body{grid-template-columns:1fr 1fr}.guest input{grid-column:1/-1}.partner-body{grid-template-columns:1fr}.actions{gap:7px}button{font-size:14px}.name{font-size:17px}}
 
-/* 민턴라이브 톤앤매너 통합 */
+/* 민턴LIVE 톤앤매너 통합 */
 :root{
   --bg:#f6f8fc;--card:#fff;--line:#e3e9f3;--line2:#d8e1ee;--txt:#18202d;--mut:#6f7a8a;
   --blue:#5b8def;--blue-deep:#406fc7;--blue2:#eaf1fe;--green:#35a56a;--red:#e35b55;--amber:#f0a73a;
@@ -497,12 +497,12 @@ button.decline:before,
 .optional-actions summary{min-height:44px;}
 .toast{bottom:max(16px,calc(var(--safe-bottom) + 8px));}
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.493">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.494">
 </head>
 <body class="km-member-page km-rsvp-page">
-<header class="km-member-appbar" aria-label="민턴라이브">
+<header class="km-member-appbar" aria-label="민턴LIVE">
   <div class="km-member-appbar-inner">
-    <span class="km-member-brand">민턴라이브</span>
+    <span class="km-member-brand">민턴LIVE</span>
     <span class="km-member-state" id="memberPageState">확인 중</span>
   </div>
 </header>
@@ -528,7 +528,7 @@ button.decline:before,
     <div class="notice">내 이름을 선택하면 지금 경기로 바로 이동합니다.</div>
     <div class="my-state hidden" id="myState"></div>
     <div class="event-panel hidden" id="eventPanel"></div>
-    <span class="version-chip" id="appVersion">v1.10.493</span>
+    <span class="version-chip" id="appVersion">v1.10.494</span>
   </section>
 </main>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -546,7 +546,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',summaryOpen=false,identityLookupOpen=false;
-const APP_VERSION='1.10.493';
+const APP_VERSION='1.10.494';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -620,7 +620,7 @@ function sampleSession(){
     rsvpId:rsvpId||'TFAKE201',createdAt:Date.now()-3600000,updatedAt:Date.now(),
     clubName:'미르클럽',gamesPerPlayer:4,guestLimit:null,
     phase:liveSample?'live':'bracket',bracketReady:true,matchCount:32,roundCount:8,
-    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.493':'',
+    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.494':'',
     members:sampleMembers()
   };
 }

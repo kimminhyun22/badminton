@@ -121,7 +121,7 @@ assert(teamJs.includes('function _teamHasResumeLiveHint()'), '앱 재시작 후 
 assert(teamJs.includes('function _teamStoredLiveMatchesCurrentBracket(savedId)'), '이어 켜기 버튼은 저장 LIVE와 현재 대진이 로컬상 맞을 때만 노출되어야 합니다.');
 assert(teamJs.includes('_teamStoredLiveMatchesCurrentBracket(savedId)'), 'LIVE 복구 힌트는 대진 정합성 필터를 거쳐야 합니다.');
 assert(teamJs.includes("const LEGACY_SHARED_SAVE_KEY='badminton_bracket_v7'"), '구 공유 저장 키는 팀전 저장본 마이그레이션용으로만 남겨야 합니다.');
-assert(teamJs.includes("const SAVE_KEY='badminton_team_bracket_v7'"), '팀전 자동 저장 키는 민턴라이브와 분리되어야 합니다.');
+assert(teamJs.includes("const SAVE_KEY='badminton_team_bracket_v7'"), '팀전 자동 저장 키는 민턴LIVE와 분리되어야 합니다.');
 assert(teamJs.includes('function _teamMigrateLegacySaveKey()'), '구 팀전 저장본은 팀전 전용 키로 1회 마이그레이션되어야 합니다.');
 assert(teamJs.includes('resumeTeamLiveBroadcast'), '사용자가 직접 팀전 중계를 이어 켤 수 있어야 합니다.');
 assert(teamJs.includes('if(shouldResume)'), '자동 재개 확인을 취소해도 복구 정보를 즉시 지우지 않아야 합니다.');

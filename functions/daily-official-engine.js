@@ -122,7 +122,7 @@ function verifyOfficialGrant(token, secret, sessionId, now){
       return {reason:'임원 운영 연결이 올바르지 않습니다.'};
     }
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
-    if(number(payload.v) !== 1 || text(payload.sid) !== text(sessionId))return {reason:'다른 민턴라이브의 임원 운영 연결입니다.'};
+    if(number(payload.v) !== 1 || text(payload.sid) !== text(sessionId))return {reason:'다른 민턴LIVE의 임원 운영 연결입니다.'};
     if(!number(payload.exp) || now >= number(payload.exp))return {reason:'임원 운영 연결 시간이 끝났습니다. 본인 이름을 다시 선택해 주세요.'};
     return {ok:true,payload};
   }catch(e){
@@ -975,7 +975,7 @@ function validateCommon(session, request, now, options){
   if(!createdAt || createdAt > now + 5 * 60 * 1000 || now > expiresAt || now - createdAt > OFFICIAL_OPERATION_TTL_MS){
     return {reason:'운영 요청 시간이 지나 현재 상태를 다시 확인해야 합니다.'};
   }
-  if(number(session.expiresAt) && now >= number(session.expiresAt))return {reason:'종료된 민턴라이브 링크입니다.'};
+  if(number(session.expiresAt) && now >= number(session.expiresAt))return {reason:'종료된 민턴LIVE 링크입니다.'};
   if(session.event?.paused && PAUSED_FLOW_TYPES.has(request.type)){
     return {reason:'현재 진행이 일시 정지되어 있습니다. 재개 후 다시 처리해 주세요.'};
   }
@@ -1990,7 +1990,7 @@ function applyMemberStatusRequest(rawSession, rawRequest, options = {}){
     return {status:'rejected', reason:'요청 시간이 지나 현재 상태를 다시 확인해야 합니다.', session:rawSession};
   }
   if(number(session.expiresAt) && now >= number(session.expiresAt)){
-    return {status:'rejected', reason:'종료된 민턴라이브 링크입니다.', session:rawSession};
+    return {status:'rejected', reason:'종료된 민턴LIVE 링크입니다.', session:rawSession};
   }
   if(session.event?.paused){
     return {status:'rejected', reason:'현재 진행이 일시 정지되어 있습니다. 재개 후 다시 눌러 주세요.', session:rawSession};

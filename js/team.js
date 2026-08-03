@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.493';
+const APP_VERSION = '1.10.494';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2341,7 +2341,7 @@ function _teamIsTeamLiveData(data){
 function _teamValidateLiveDataForCurrent(data){
   if(!data||!Object.keys(data).length)return true;
   if(!_teamIsTeamLiveData(data)){
-    alert('저장된 LIVE ID가 민턴라이브 링크입니다.\n팀전와 섞이지 않도록 연결을 끊었습니다.');
+    alert('저장된 LIVE ID가 민턴LIVE 링크입니다.\n팀전와 섞이지 않도록 연결을 끊었습니다.');
     _teamResetLocalLiveState(_liveId);
     return false;
   }
@@ -2806,7 +2806,7 @@ async function resumeTeamLiveBroadcast(){
 }
 
 /* 오래된 실시간 데이터 자동 정리: 대진 시작 후 48시간 지난 중계 노드만 삭제.
-   참석투표(rsvp_)와 민턴라이브 체크인 노드는 장기 투표/운영 기록이므로 삭제하지 않는다. */
+   참석투표(rsvp_)와 민턴LIVE 체크인 노드는 장기 투표/운영 기록이므로 삭제하지 않는다. */
 async function _cleanupOldLive(){
   if(!_fbDb) return;
   const cutoff=Date.now()-LIVE_TTL_MS;
@@ -2946,12 +2946,12 @@ async function shareTeamStatus(){
   if(bW>wW) lead=`\n🔵 ${bn} ${bW-wW}점 차로 앞서는 중!`;
   else if(wW>bW) lead=`\n⚪ ${wn} ${wW-bW}점 차로 앞서는 중!`;
   else lead='\n⚖️ 동점! 접전 중';
-  const text=`🏸 민턴라이브 팀전 현황\n\n🔵 ${bn}  ${bW}승\n⚪ ${wn}  ${wW}승`
+  const text=`🏸 민턴LIVE 팀전 현황\n\n🔵 ${bn}  ${bW}승\n⚪ ${wn}  ${wW}승`
     + (totalR? `\n\n📊 ${totalR}라운드 중 ${doneR}라운드 완료`:'')
     + lead;
   try{
     if(navigator.share){
-      await navigator.share({text, title:'민턴라이브 팀전 현황'});
+      await navigator.share({text, title:'민턴LIVE 팀전 현황'});
     } else if(navigator.clipboard){
       await navigator.clipboard.writeText(text);
       alert('현황을 복사했어요. 단톡방에 붙여넣기 하세요!');
@@ -4451,7 +4451,7 @@ function restoreState(opts={}){
     if(!raw){alert('저장된 데이터가 없습니다.');return;}
     const state=migrateStateIfNeeded(JSON.parse(raw));
     if(_teamIsDailyBracketState(state)){
-      alert('민턴라이브 저장본입니다. 민턴라이브에서 복구하세요.');
+      alert('민턴LIVE 저장본입니다. 민턴LIVE에서 복구하세요.');
       return;
     }
     // 마이그레이션 결과를 즉시 다시 저장 (다음 실행 시 중복 적용 방지)
@@ -5898,7 +5898,7 @@ function renderTeamRosterTransferButton(){
     const btn=document.getElementById(id);
     if(!btn)return;
     btn.disabled=!count;
-    btn.textContent=count?`민턴라이브 선수 ${count}명 가져오기`:'민턴라이브 선수 없음';
+    btn.textContent=count?`민턴LIVE 선수 ${count}명 가져오기`:'민턴LIVE 선수 없음';
   });
 }
 function teamImportDailyRoster(){
@@ -5913,12 +5913,12 @@ function teamImportDailyRoster(){
   const snapshot=_teamDailyRosterSnapshot();
   const source=snapshot.players||[];
   if(!source.length){
-    alert('가져올 민턴라이브 선수 명단이 없습니다.');
+    alert('가져올 민턴LIVE 선수 명단이 없습니다.');
     renderTeamRosterTransferButton();
     return;
   }
-  if(_directPlayers.length&&!confirm(`현재 팀전 선수 ${_directPlayers.length}명을 지우고\n민턴라이브 선수 ${source.length}명을 가져올까요?`))return;
-  if(_directPlayers.length)_captureUndoSnapshot('민턴라이브 선수 명단 가져오기 전');
+  if(_directPlayers.length&&!confirm(`현재 팀전 선수 ${_directPlayers.length}명을 지우고\n민턴LIVE 선수 ${source.length}명을 가져올까요?`))return;
+  if(_directPlayers.length)_captureUndoSnapshot('민턴LIVE 선수 명단 가져오기 전');
   _directPlayers=source.map(raw=>{
     const gender=raw.gender==='여'?'여':'남';
     const grade=raw.grade||levelToGrade(raw.level||4,gender)||'C';
@@ -5953,7 +5953,7 @@ function teamImportDailyRoster(){
   renderAutoFlowDashboard();
   _autoFlowSetSection('sec-players',true,true);
   closeImportModal();
-  alert(`민턴라이브 선수 ${_directPlayers.length}명을 팀전 명단으로 가져왔습니다.`);
+  alert(`민턴LIVE 선수 ${_directPlayers.length}명을 팀전 명단으로 가져왔습니다.`);
 }
 
 function addDirectPlayer(){

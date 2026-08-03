@@ -16,7 +16,7 @@ const view = read('view.html');
 const dailyJs = read('js/daily.js');
 const teamJs = read('js/team.js');
 
-assert(appCss.includes('--safe-bottom:env(safe-area-inset-bottom,0px)'), '민턴라이브 관리자에 safe-area 변수가 필요합니다.');
+assert(appCss.includes('--safe-bottom:env(safe-area-inset-bottom,0px)'), '민턴LIVE 관리자에 safe-area 변수가 필요합니다.');
 assert(appCss.includes('.daily-court-grid{grid-template-columns:1fr;}'), '430px 이하 진행 코트는 한 열이어야 합니다.');
 assert(appCss.includes('.daily-queue-player{min-height:44px;}'), '대기 선수 조작 영역은 44px 이상이어야 합니다.');
 assert(appCss.includes('.daily-dashboard-quick-action{min-height:44px;}'), '모바일 상단 공유·초기화 버튼은 44px 터치 높이를 가져야 합니다.');
@@ -35,7 +35,7 @@ assert(liveCss.includes('@media(max-width:375px)'), '좁은 실중계 화면의 
 assert(liveCss.includes('.next-list{grid-template-columns:1fr!important;}'), '좁은 실중계 다음 경기 목록은 한 열이어야 합니다.');
 assert(liveCss.includes('overflow-wrap:anywhere'), '실중계의 긴 선수명은 카드 안에서 줄바꿈되어야 합니다.');
 
-assert(checkin.includes('max-height:calc(100dvh - var(--safe-top) - var(--safe-bottom) - 28px)'), '민턴라이브 코트 선택 시트는 화면 높이를 넘지 않아야 합니다.');
+assert(checkin.includes('max-height:calc(100dvh - var(--safe-top) - var(--safe-bottom) - 28px)'), '민턴LIVE 코트 선택 시트는 화면 높이를 넘지 않아야 합니다.');
 assert(checkin.includes('@media(max-width:340px)'), '320px 다음 대진은 이름을 보존하는 좁은 화면 규칙이 필요합니다.');
 assert(checkin.includes('.event-official-active-yield{\n  width:100%;\n  min-height:44px;'), '자동 투입 뒤 이번만 뒤로 버튼은 모바일에서 44px 터치 크기와 안정된 너비를 가져야 합니다.');
 // 상단 바로가기는 제거하고 운영 현황 명단에서 바로 처리합니다(2026-08-03).
@@ -46,15 +46,15 @@ assert(checkin.includes('.official-member-status .official-status-actions button
 assert(checkin.includes('.my-primary-actions.three-actions')&&checkin.includes('grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(74px,.68fr);'), '휴식·종료·뒷풀이 버튼은 좁은 회원 화면에서도 한 줄 비율을 유지해야 합니다.');
 assert(checkin.includes('.my-action-panel .after-party-quick{')&&checkin.includes('min-height:52px;'), '작은 뒷풀이 버튼도 모바일 터치 높이를 확보해야 합니다.');
 assert(checkin.includes('grid-template-columns:repeat(4,minmax(0,1fr));')&&checkin.includes('.official-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr));}'), '임원 운영 현황은 모바일 너비에 맞춰 4열에서 3열로 안정적으로 재배치되어야 합니다.');
-assert(checkin.includes('id="toast" class="toast" role="status" aria-live="polite"'), '민턴라이브 알림은 보조기기에 전달되어야 합니다.');
+assert(checkin.includes('id="toast" class="toast" role="status" aria-live="polite"'), '민턴LIVE 알림은 보조기기에 전달되어야 합니다.');
 assert(rsvp.includes('.identity-change,\n.select-badge,'), '팀전 회원 핵심 조작은 모바일 터치 크기를 보장해야 합니다.');
 assert(rsvp.includes('id="toast" class="toast" role="status" aria-live="polite"'), '팀전 회원 알림은 보조기기에 전달되어야 합니다.');
 
-assert(index.includes('class="gcb-prefix">진행중</span>'), '민턴라이브 진행중 버튼에 축약 가능한 문구가 필요합니다.');
+assert(index.includes('class="gcb-prefix">진행중</span>'), '민턴LIVE 진행중 버튼에 축약 가능한 문구가 필요합니다.');
 assert(team.includes('class="gcb-prefix">진행중</span>'), '팀전 진행중 버튼에 축약 가능한 문구가 필요합니다.');
-assert(index.includes('onclick="switchMobileTab(\'roster\')"'), '민턴라이브 모바일 명부 탭은 전용 이동 흐름을 사용해야 합니다.');
+assert(index.includes('onclick="switchMobileTab(\'roster\')"'), '민턴LIVE 모바일 명부 탭은 전용 이동 흐름을 사용해야 합니다.');
 assert(team.includes('onclick="switchMobileTab(\'roster\')"'), '팀전 모바일 명부 탭은 전용 이동 흐름을 사용해야 합니다.');
-assert(dailyJs.includes("window.scrollTo({top:0,behavior:'auto'});"), '민턴라이브 명부는 맨 위에서 열려야 합니다.');
+assert(dailyJs.includes("window.scrollTo({top:0,behavior:'auto'});"), '민턴LIVE 명부는 맨 위에서 열려야 합니다.');
 assert(dailyJs.includes("if(!document.getElementById('pageDaily')?.classList.contains('active'))return;"), '명부 화면에서 스크롤 판정이 하단 탭 상태를 덮어쓰면 안 됩니다.');
 assert(teamJs.includes("window.scrollTo({top:0,behavior:'auto'});"), '팀전 명부는 맨 위에서 열려야 합니다.');
 assert(view.includes('viewport-fit=cover'), '실중계 화면도 iPhone safe-area를 사용해야 합니다.');
