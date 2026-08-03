@@ -109,7 +109,7 @@ function startInitialMatches(context){
   for(let count=0;count<COURTS;count++){
     refreshEvent(context.state.session, BASE_NOW);
     const item = context.state.session.event.next.find(row=>row.cueState==='free' && row.targetCourt);
-    assert(item, '초기 코트 투입 대진을 찾지 못했습니다.');
+    if(!item)break;   // 첫 투입 뒤 남은 코트는 서버가 알아서 채웁니다
     submit(context, {
       type:'official-queue-enter-free', token:`initial_${count+1}`,
       queueId:item.queueId||item.id, court:item.targetCourt, newMatchId:`initial_match_${count+1}`,

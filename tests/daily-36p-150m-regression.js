@@ -252,7 +252,8 @@ function startInitialMatches(context){
   for(let count=0;count<COURTS;count++){
     refreshEvent(context.state.session,BASE_NOW);
     const item=context.state.session.event.next.find(row=>row.cueState==='free'&&row.targetCourt);
-    assert(item,'초기 빈 코트에 들어갈 대진을 찾지 못했습니다.');
+    // 첫 투입 뒤 남은 빈 코트는 서버가 알아서 채웁니다(2026-08-03 자동 투입 확대).
+    if(!item)break;
     submit(context,{
       type:'official-queue-enter-free',
       token:`initial_enter_${count+1}`,

@@ -94,6 +94,7 @@ refreshEvent(ctx.state.session, BASE_NOW);
 for(let c=0;c<COURTS;c++){
   refreshEvent(ctx.state.session, BASE_NOW);
   const item = ctx.state.session.event.next.find(r=>r.cueState==='free'&&r.targetCourt);
+  if(!item)break;   // 첫 투입 뒤 남은 코트는 서버가 알아서 채웁니다
   submit(ctx,{type:'official-queue-enter-free',token:`i_${c+1}`,queueId:item.queueId||item.id,
     court:item.targetCourt,newMatchId:`i_match_${c+1}`,
     expectedQueueIndex:ctx.state.session.event.next.indexOf(item)+1,expectedHoldId:item.targetHoldId||'',

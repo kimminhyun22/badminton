@@ -9,6 +9,7 @@ const {
 const {applyCommandTransaction}=require('../functions/daily-official-command');
 const crypto=require('crypto');
 
+function idsEqual(a,b){return JSON.stringify([...(a||[])].sort())===JSON.stringify([...(b||[])].sort());}
 const NOW=1_800_000_000_000;
 const CHECKIN_ID='DAUTO222';
 const CLIENT_ID='oc_auto_handoff_1234567890';
@@ -181,7 +182,13 @@ freeCourtRoot.session.event.nextTarget=3;
 freeCourtRoot.session.event.queuePolicy.official=3;
 let freeCourt=complete(freeCourtRoot,'free_court_complete','m2',NOW).current;
 assert.deepStrictEqual(freeCourt.session.event.active.find(match=>match.id==='sm_free_court_complete')?.playerIds,['p13','p14','p15','p16'],'다른 코트가 이미 비어 있어도 종료한 코트에 배정된 대진만 자동 투입해야 합니다.');
-assert.deepStrictEqual(freeCourt.session.event.next.find(item=>item.queueId==='q1')?.playerIds,['p9','p10','p11','p12'],'다른 빈 코트 몫의 대진을 가져오면 안 됩니다.');
+// 예전에는 종료한 코트만 채우고 다른 빈 코트는 그대로 뒀습니다.
+// 이제는 빈 코트를 모두 자동으로 채웁니다(운영자 결정 2026-08-03, '입장 처리' 없애기).
+assert(!freeCourt.session.event.next.some(item=>item.queueId==='q1'),'다른 빈 코트도 자동으로 채워야 합니다.');
+assert(
+  freeCourt.session.event.active.some(match=>idsEqual(match.playerIds,['p9','p10','p11','p12'])),
+  '다른 빈 코트 몫의 대진도 코트에 들어가 있어야 합니다.'
+);
 const freeCourtYield=activeYield(freeCourt,'sm_free_court_complete',NOW+10_000,'free_court_yield');
 assert.strictEqual(freeCourtYield.terminal.status,'applied','다른 빈 코트가 있어도 자동 투입 경기의 이번만 뒤로는 처리되어야 합니다.');
 assert.deepStrictEqual(freeCourtYield.current.session.event.active.find(match=>match.id==='sm_free_court_yield')?.playerIds,['p1','p2','p3','p4'],'이번만 뒤로도 정확히 같은 코트 몫의 다음 대진을 대체 투입해야 합니다.');

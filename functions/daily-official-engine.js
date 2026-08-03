@@ -1288,8 +1288,9 @@ function startPreparedItem(session, item, index, court, now, requestId, options 
   const runtime = session.serverRuntime;
   const maxSeq = event.active.reduce((max, match)=>Math.max(max, number(match.seq)), number(event.completed));
   runtime.nextSeq = Math.max(number(runtime.nextSeq), maxSeq + 1);
+  // 한 명령으로 여러 빈 코트를 채울 수 있어 경기 id 가 겹치면 안 됩니다.
   const matchId = options.autoHandoff
-    ? `sm_${safeId(requestId)}`
+    ? `sm_${safeId(requestId)}${options.autoSuffix ? `_${safeId(options.autoSuffix)}` : ''}`
     : text(options.matchId) || `sm_${safeId(requestId)}`;
   const team1Ids = queueTeam1Ids(item);
   const team2Ids = queueTeam2Ids(item);
@@ -1368,6 +1369,44 @@ function startPreparedItem(session, item, index, court, now, requestId, options 
   promotePrepared(session);
   refreshEvent(session, now);
   return match;
+}
+
+// 빈 코트가 있고 다음 대진이 준비돼 있으면 알아서 넣습니다.
+// 예전에는 '경기 종료' 순간에만 자동 투입이 돌아서, 끝난 경기가 없는 상황
+// (운영 시작 직후, 운영 중 코트 증설)에는 임원이 '입장 처리'를 눌러야 했습니다.
+// 이제 임원이 무슨 동작을 하든 그때마다 빈 코트를 채웁니다.
+function autoEnterFreeCourts(session, now, requestId, actorPlayerId){
+  if(session.capabilities?.officialAutoHandoffV1 !== true)return [];
+  if(session.event?.finishMode)return [];
+  const entered = [];
+  let guard = 0;
+  while(guard++ < 12){
+    promotePrepared(session);
+    replenishPrepared(session, {now, requestId});
+    refreshEvent(session, now);
+    const busy = new Set((session.event.active || []).map(match=>number(match.court)));
+    const index = (session.event.next || []).findIndex(item=>
+      item &&
+      item.cueState === 'free' &&
+      number(item.targetCourt) &&
+      !busy.has(number(item.targetCourt)) &&
+      !item.restPass &&
+      queueReady(session, item)
+    );
+    if(index < 0)break;
+    const item = session.event.next[index];
+    const court = number(item.targetCourt);
+    const match = startPreparedItem(session, item, index, court, now, requestId, {
+      actorPlayerId,
+      autoHandoff:true,
+      autoHandoffSource:'auto-free-court',
+      autoSuffix:`c${court}_${entered.length}`,
+      queueIndex:index + 1
+    });
+    if(!match)break;
+    entered.push(match);
+  }
+  return entered;
 }
 
 function applyComplete(session, request, now, requestId, operation){
@@ -1786,6 +1825,11 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
   if(reason)return {status:'rejected', reason, session:rawSession, serverOps:receipts};
   if(!['official-temporary-grant','official-temporary-revoke'].includes(request.type)){
     replenishPrepared(session, {now, requestId});
+    // '이번만 뒤로'는 미루려고 누르는 것이라, 그 직후에 자동 투입하면
+    // 미룬 대진이 곧바로 다른 코트로 들어가 기능이 무의미해집니다.
+    if(!['official-queue-yield','official-active-yield'].includes(request.type)){
+      autoEnterFreeCourts(session, now, requestId, request.actorPlayerId);
+    }
   }
   session.serverRevision = beforeRevision + 1;
   session.serverUpdatedAt = now;
