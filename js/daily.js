@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.499';
+const APP_VERSION = '1.10.500';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -383,6 +383,8 @@ let _dailyPauseSyncBusy=false;
 let _dailyObservedServerRevision=0;
 let _dailyObservedServerLastRequestId='';
 let _dailyTemporaryOfficialBusy=false;
+// 저장은 밀렸지만 그대로 쓸 수 있는 회원 링크. 공유가 빈손으로 끝나지 않게 합니다.
+let _dailyPublishKeptUrl='';
 const DAILY_TEMPORARY_OFFICIAL_LIMIT=4;   // functions/daily-official-engine.js 의 TEMPORARY_OFFICIAL_LIMIT 과 같은 값
 let _dailyLiveAdditionBusy='';
 
@@ -6766,6 +6768,7 @@ function dailyPushCheckinSession(){
   return publishing;
 }
 async function dailyPublishCheckinSession(silent){
+  _dailyPublishKeptUrl='';
   if(!_dailyPlayers.length){
     if(!silent)alert('먼저 민턴LIVE 명단을 추가하거나 명부를 가져오세요.');
     return null;
@@ -6885,9 +6888,20 @@ async function dailyPublishCheckinSession(silent){
       dailyEnsureCheckinId(true);
       continue;
     }
+    // 세션은 여전히 우리 것인데 저장만 밀린 경우입니다. 임원들이 서버로 처리한
+    // 내용이 관리자 화면보다 앞서 있으면 매번 이렇게 됩니다. 여기서 바로 포기하지
+    // 말고 남은 시도로 다시 맞춰 봅니다(예전에는 첫 실패에 바로 안내창이 떴습니다).
+    if(failedOwnership==='owned'&&attempt<3){
+      await _dailyPullServerReconcile();
+      if(!_dailyIdentityCurrent(resultIdentity))continue;
+      continue;
+    }
     _dailyServerReconcileError='회원 화면 저장을 완료하지 못했습니다.';
+    // 저장은 못 했어도 지금 쓰는 링크는 살아 있습니다. 회원들이 이미 접속해 있으므로
+    // 공유는 그대로 되게 두고, 실패 안내는 공유 쪽에서 한 번만 합니다.
+    if(failedOwnership==='owned'&&_dailyCheckinId)_dailyPublishKeptUrl=_dailyCheckinUrl();
     dailyRenderCheckinRequests();
-    if(!silent)alert('회원 화면 저장을 완료하지 못했습니다. 잠시 후 링크 공유를 다시 눌러 주세요.');
+    if(!silent&&!_dailyPublishKeptUrl)alert('회원 화면 저장을 완료하지 못했습니다. 잠시 후 링크 공유를 다시 눌러 주세요.');
     return null;
   }
   _dailyServerReconcileError='새 회원 링크를 만들지 못했습니다.';
@@ -6925,8 +6939,10 @@ async function _dailyCopyToClipboard(text){
 async function dailyShareCheckinLink(){
   _dailyVoteDeadlineAt='';
   const id=await dailyPublishCheckinSession(false);
-  if(!id)return;
-  const url=_dailyCheckinUrl();
+  const keptUrl=id?'':_dailyPublishKeptUrl;
+  if(!id&&!keptUrl)return;
+  const url=id?_dailyCheckinUrl():keptUrl;
+  const stale=!id;
   const text='🏸 민턴LIVE\n내 이름을 눌러 오늘 경기를 확인하세요.';
   const clipboardText=`${text}\n\n${url}`;
   try{
@@ -6940,14 +6956,16 @@ async function dailyShareCheckinLink(){
   // 복사가 안 되더라도 링크는 반드시 보여 줍니다.
   // 예전에는 실패하면 콘솔에만 남아서 눌러도 아무 일이 없어 보였습니다.
   const copied=await _dailyCopyToClipboard(clipboardText);
-  alert(copied
+  const note=stale?'최신 상태 저장은 잠시 밀렸지만, 지금 쓰는 회원 링크는 그대로 쓸 수 있습니다.\n':'';
+  alert(note+(copied
     ? '회원·임원 공용 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url
-    : '회원·임원 공용 링크입니다. 아래 주소를 길게 눌러 복사한 뒤 카톡방에 붙여넣어 주세요.\n\n'+url);
+    : '회원·임원 공용 링크입니다. 아래 주소를 길게 눌러 복사한 뒤 카톡방에 붙여넣어 주세요.\n\n'+url));
 }
 async function dailyShareOfficialLink(){
   _dailyVoteDeadlineAt='';
   const id=await dailyPublishCheckinSession(false);
-  if(!id)return;
+  const stale=!id&&!!_dailyPublishKeptUrl;
+  if(!id&&!stale)return;
   if(!_dailyOfficialInviteToken){
     alert('임원 운영 연결을 만들지 못했습니다. 보안 연결을 지원하는 브라우저에서 다시 시도해 주세요.');
     return;
@@ -6964,9 +6982,10 @@ async function dailyShareOfficialLink(){
     if(e&&e.name==='AbortError')return;
   }
   const copied=await _dailyCopyToClipboard(text);
-  alert(copied
+  const note=stale?'최신 상태 저장은 잠시 밀렸지만, 지금 쓰는 임원 링크는 그대로 쓸 수 있습니다.\n':'';
+  alert(note+(copied
     ? '임원 운영 링크를 복사했습니다. 운영을 도울 임원에게만 보내 주세요.'
-    : '임원 운영 링크입니다. 아래 주소를 길게 눌러 복사한 뒤 운영을 도울 임원에게만 보내 주세요.\n\n'+url);
+    : '임원 운영 링크입니다. 아래 주소를 길게 눌러 복사한 뒤 운영을 도울 임원에게만 보내 주세요.\n\n'+url));
 }
 async function dailyResumeCheckin(){
   let adoptedStoredIdentity=false;
@@ -9227,7 +9246,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.499&from=daily';
+  location.href='team.html?v=1.10.500&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

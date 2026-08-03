@@ -77,7 +77,7 @@ const memberShare=functionSource(daily,'dailyShareCheckinLink','dailyShareOffici
 [['dailyShareCheckinLink',memberShare],['dailyShareOfficialLink',functionSource(daily,'dailyShareOfficialLink','dailyResumeCheckin')]]
   .forEach(([name,src])=>{
     assert(src.includes('await _dailyCopyToClipboard('),`${name} 는 클립보드 실패에 대비한 복사 헬퍼를 써야 합니다.`);
-    assert(/alert\(copied\s*\?/.test(src),`${name} 는 복사 성공 여부와 무관하게 링크를 안내해야 합니다.`);
+    assert(/alert\([\s\S]{0,120}\bcopied\b[\s\S]{0,20}\?/.test(src),`${name} 는 복사 성공 여부와 무관하게 링크를 안내해야 합니다.`);
     assert(!/catch\([^)]*\)\{\s*console\.warn[^}]*\}\s*\}\s*$/.test(src.trim()),`${name} 의 마지막 실패 처리가 콘솔 경고로 끝나면 안 됩니다.`);
   });
 const copyHelper=functionSource(daily,'_dailyCopyToClipboard','dailyShareCheckinLink');
