@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.500';
+const APP_VERSION = '1.10.501';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2647,7 +2647,6 @@ async function startLiveBroadcast(){
   _rsvpEnsureCurrentEventLink({silent:true});
   if(!_liveId) _liveId=_genLiveId();
   // 오래된 중계 데이터 자동 정리 (48시간 경과분 삭제) — 새 중계 시작하는 김에 청소
-  _cleanupOldLive();
   try{
     const liveRef=_fbDb.ref('live/'+_liveId);
     const prev=await liveRef.once('value').catch(()=>null);
@@ -2807,24 +2806,8 @@ async function resumeTeamLiveBroadcast(){
 
 /* 오래된 실시간 데이터 자동 정리: 대진 시작 후 48시간 지난 중계 노드만 삭제.
    참석투표(rsvp_)와 민턴LIVE 체크인 노드는 장기 투표/운영 기록이므로 삭제하지 않는다. */
-async function _cleanupOldLive(){
-  if(!_fbDb) return;
-  const cutoff=Date.now()-LIVE_TTL_MS;
-  try{
-    const snap=await _fbDb.ref('live').once('value');
-    const all=snap.val()||{};
-    const dead=[];
-    for(const id in all){
-      const node=all[id]||{};
-      const kind=String(node.kind||node.session?.kind||'');
-      if(id===_liveId) continue;
-      if(id.startsWith('rsvp_')||kind==='tournamentRsvp'||kind==='dailyCheckin') continue;
-      const startedAt=node.matchStartedAt||node.createdAt||node.updatedAt||0;
-      if(!startedAt||startedAt<cutoff) dead.push(id);
-    }
-    await Promise.all(dead.map(id=>_fbDb.ref('live/'+id).remove().catch(()=>{})));
-  }catch(e){ /* 정리는 실패해도 중계엔 영향 없음 */ }
-}
+/* 오래된 실시간 데이터 정리는 서버(cleanupExpiredLive)가 맡습니다.
+   클라이언트가 live 전체를 읽던 경로를 없앴습니다(개인정보 노출 차단). */
 
 /* 실시간 상태 갱신 (점수 입력 시 자동 호출) */
 async function pushLiveState(){

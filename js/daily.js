@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.500';
+const APP_VERSION = '1.10.501';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -9246,7 +9246,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.500&from=daily';
+  location.href='team.html?v=1.10.501&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -11368,7 +11368,6 @@ async function startLiveBroadcast(){
   if(!_fbInit()){ alert('실시간 서버 연결에 실패했어요. 네트워크를 확인해주세요.'); return; }
   if(!_liveId) _liveId=_genLiveId();
   // 오래된 중계 데이터 자동 정리 (48시간 경과분 삭제) — 새 중계 시작하는 김에 청소
-  _cleanupOldLive();
   try{
     const liveRef=_fbDb.ref('live/'+_liveId);
     const prev=await liveRef.once('value').catch(()=>null);
@@ -11440,27 +11439,9 @@ async function _tryResumeLive(){
   }catch(e){ /* 재연결 실패는 조용히 무시 */ }
 }
 
-/* 오래된 실시간 데이터 자동 정리: updatedAt이 48시간 지난 중계 노드 삭제.
-   별도 서버 없이, 새 중계를 시작할 때마다 한 번씩 청소한다. */
-async function _cleanupOldLive(){
-  if(!_fbDb) return;
-  const TTL=48*60*60*1000; // 48시간(ms)
-  const cutoff=Date.now()-TTL;
-  try{
-    const snap=await _fbDb.ref('live').once('value');
-    const all=snap.val()||{};
-    const dead=[];
-    for(const id in all){
-      const kind=all[id]&&all[id].kind;
-      if(kind==='dailyCheckin'||kind==='tournamentRsvp')continue;
-      const u=all[id] && all[id].updatedAt;
-      // updatedAt이 없거나(구버전) 48시간 지난 것 삭제. 단, 지금 내 중계는 제외.
-      if(id!==_liveId && (!u || u<cutoff)) dead.push(id);
-    }
-    await Promise.all(dead.map(id=>_fbDb.ref('live/'+id).remove().catch(()=>{})));
-  }catch(e){ /* 정리는 실패해도 중계엔 영향 없음 */ }
-}
-
+/* 오래된 실시간 데이터 정리는 서버(cleanupExpiredLive)가 맡습니다.
+   예전에는 클라이언트가 live 전체를 내려받아 청소했는데, 그러려면 모든 클럽의
+   세션을 읽을 수 있어야 해서 남의 명단까지 열려 있었습니다(2026-08-03 확인). */
 /* 실시간 상태 갱신 (점수 입력 시 자동 호출) */
 async function pushLiveState(){
   if(!_liveOn || !_liveId || !_fbDb) return;

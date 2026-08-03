@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 const {onCall, HttpsError} = require('firebase-functions/v2/https');
+const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {defineSecret} = require('firebase-functions/params');
 const {
   canonicalJson,
@@ -283,4 +284,40 @@ exports.getDailyOfficialReconcile = onCall(FUNCTION_OPTIONS, async request=>{
     .filter(row=>row.serverAppliedAt && Number(row.serverRevision || 0) > revisionFloor)
     .sort((a,b)=>Number(a.serverRevision || 0)-Number(b.serverRevision || 0));
   return {ok:true,serverRevision,serverLastRequestId,commands};
+});
+
+/* ── 만료 세션 정리 ──────────────────────────────────────────────
+   예전에는 클라이언트가 live 전체를 내려받아 청소했습니다. 그러려면 모든 클럽의
+   세션을 읽을 수 있어야 해서, 링크를 모르는 사람도 남의 명단을 볼 수 있었습니다.
+   청소를 서버로 옮기고 클라이언트의 전체 읽기 경로는 없앴습니다(2026-08-03).
+   보관 기간이 지난 세션만 지웁니다. 관리자 화면의 운영 기록은 기기에 따로 있어
+   여기서 지워도 영향이 없습니다. */
+const LIVE_RETAIN_AFTER_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+const LIVE_RETAIN_WITHOUT_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000;
+
+exports.cleanupExpiredLive = onSchedule({
+  region:REGION,
+  schedule:'every 6 hours',
+  timeoutSeconds:120,
+  memory:'256MiB',
+  maxInstances:1
+}, async ()=>{
+  const now = Date.now();
+  const snapshot = await admin.database().ref('live').once('value');
+  const all = snapshot.val() || {};
+  const dead = [];
+  for(const id of Object.keys(all)){
+    const node = all[id] || {};
+    const session = node.session && typeof node.session === 'object' ? node.session : node;
+    const expiresAt = Number(session.expiresAt || node.expiresAt || 0);
+    const touchedAt = Number(session.updatedAt || node.updatedAt || session.createdAt || node.createdAt || 0);
+    const expiredLongEnough = expiresAt > 0 && now - expiresAt > LIVE_RETAIN_AFTER_EXPIRY_MS;
+    const staleWithoutExpiry = expiresAt <= 0 && touchedAt > 0 && now - touchedAt > LIVE_RETAIN_WITHOUT_EXPIRY_MS;
+    // 만료 시각도 갱신 시각도 없는 노드는 판단 근거가 없으므로 건드리지 않습니다.
+    if(expiredLongEnough || staleWithoutExpiry) dead.push(id);
+  }
+  for(const id of dead){
+    await admin.database().ref('live/' + id).remove();
+  }
+  console.info('민턴LIVE 만료 세션 정리', {검사:Object.keys(all).length, 삭제:dead.length});
 });
