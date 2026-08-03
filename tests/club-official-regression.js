@@ -80,6 +80,7 @@ function visibleUnscheduledCount(){return session.players.filter(player=>player.
 function esc(value){return String(value||'');}
 function compactLabel(status){return ({wait:'참가 중',playing:'경기중',rest:'휴식 중',done:'운동 종료',planned:'도착 전',invited:'도착 전'})[status]||status;}
 function render(){}
+function setTimeout(){}
 const document={getElementById(){return null;}};
 // 명단 행의 액션 버튼이 쓰는 최소 환경
 function eventFlowPaused(){return !!session?.event?.paused;}
@@ -103,7 +104,10 @@ this.api={
   players:officialOverviewPlayers,
   html:officialOperationsSummaryHtml,
   filter(value){officialOverviewFilter=value;},
-  mode(value){officialOverviewMode=value;}
+  mode(value){officialOverviewMode=value;},
+  currentMode(){return officialOverviewMode;},
+  currentPick(){return officialPartnerPickId;},
+  filterAction(value){setOfficialOverviewFilter(value);}
 };
 `,officialOverviewSandbox);
 assert.strictEqual(officialOverviewSandbox.api.players('total').length,7,'임원 등록 집계는 오등록 취소 선수를 제외해야 합니다.');
@@ -127,6 +131,13 @@ officialOverviewSandbox.api.mode('helper');
 assert(officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true}).includes('sendOfficialTemporaryGrant'),
   '도우미 모드에서는 명단에서 지정할 수 있어야 합니다.');
 officialOverviewSandbox.api.mode('');
+// 도구 모드를 켜 둔 채 다른 숫자를 누르면 자동으로 닫혀야 합니다.
+// 켜 둔 걸 잊고 엉뚱한 사람을 지정하는 사고를 막습니다.
+officialOverviewSandbox.api.mode('partner');
+officialOverviewSandbox.api.filterAction('rest');
+assert.strictEqual(officialOverviewSandbox.api.currentMode(),'','다른 숫자를 누르면 도구 모드가 닫혀야 합니다.');
+assert.strictEqual(officialOverviewSandbox.api.currentPick(),'','도구 모드가 닫히면 고르던 선수도 초기화해야 합니다.');
+assert(checkin.includes("officialOverviewMode='';   // 접수까지 끝났으니 평소 화면으로 돌아갑니다"),'두 선수를 다 고르면 파트너 모드가 닫혀야 합니다.');
 officialOverviewSandbox.api.filter('preArrival');
 const officialPreHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
 assert(officialPreHtml.includes('sendOfficialArrival'),'도착 전 회원은 명단에서 바로 참가 등록할 수 있어야 합니다.');
