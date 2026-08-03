@@ -1441,6 +1441,9 @@ body.monthly-team-mode .team-partner-help{display:block;}
    모바일 전용 CSS (768px 이하)
 ════════════════════════════════ */
 
+/* 브랜드의 LIVE — 붉은 글자만. 글로우는 피처럼 번져 보여 뺐습니다. */
+.brand-live{color:#e5142f;}
+
 /* 하단 탭바 */
 .bottom-nav{display:none;}
 .app-footer{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:20px 16px 28px;font-size:.7rem;color:var(--dim);border-top:1px solid var(--bdr);margin-top:24px;}
