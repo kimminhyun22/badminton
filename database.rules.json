@@ -4,17 +4,14 @@
     ".write": false,
 
     "live": {
-      "//": "목록 조회를 막습니다. 여기서 .read 를 열면 세션 ID 를 전부 훑어 남의 클럽 명단을 읽을 수 있습니다.",
       ".read": false,
       ".write": false,
 
       "$sessionId": {
-        "//": "링크(=세션 ID)를 가진 사람만 읽습니다. checkin_/rsvp_ 세션과 6자 실시간 중계 코드(_genLiveId)만 허용합니다.",
         ".read": "$sessionId.matches(/^((checkin|rsvp)_[A-Z0-9]{6,12}|[A-Z0-9]{6})$/)",
         ".write": "$sessionId.matches(/^((checkin|rsvp)_[A-Z0-9]{6,12}|[A-Z0-9]{6})$/)",
 
         "session": {
-          "//": "세션 탈취 방지 — 이미 발급된 임원 초대 해시와 세션 식별자는 바꿀 수 없습니다.",
           ".validate": "!data.exists() || !data.hasChild('officialInvite/tokenHash') || newData.child('officialInvite/tokenHash').val() === data.child('officialInvite/tokenHash').val()",
           "serverSessionId": {
             ".validate": "!newData.exists() || !data.exists() || newData.val() === data.val()"
@@ -26,8 +23,7 @@
 
         "requests": {
           "$requestId": {
-            "//": "회원·임원이 보내는 운영 요청. 서버가 처리 결과를 덮어씁니다.",
-            ".validate": "newData.hasChildren(['type']) || !newData.exists()",
+            ".validate": "!newData.exists() || newData.hasChildren(['type'])",
             "$field": {
               ".validate": true
             }
