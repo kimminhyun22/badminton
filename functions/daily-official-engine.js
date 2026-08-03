@@ -40,6 +40,8 @@ const SUPPORTED_TYPES = new Set([
   'official-active-yield',
   'official-queue-enter-free',
   'official-queue-yield',
+  'official-queue-hold',
+  'official-queue-resume',
   'official-partner-reservation',
   'official-partner-cancel',
   'official-temporary-grant',
@@ -52,7 +54,9 @@ const UNDOABLE_TYPES = new Set([
   'official-court-complete',
   'official-active-yield',
   'official-queue-enter-free',
-  'official-queue-yield'
+  'official-queue-yield',
+  'official-queue-hold',
+  'official-queue-resume'
 ]);
 
 const PAUSED_FLOW_TYPES = new Set([
@@ -64,6 +68,8 @@ const PAUSED_FLOW_TYPES = new Set([
   'official-active-yield',
   'official-queue-enter-free',
   'official-queue-yield',
+  'official-queue-hold',
+  'official-queue-resume',
   'official-partner-reservation',
   'official-partner-cancel'
 ]);
@@ -856,9 +862,10 @@ function refreshEvent(session, now){
     }
     const restPass = !!item.restPass;
     if(restPass && usable < freeCourts.length){
+      const officialHold = typeof item.restPass === 'object' && !!item.restPass.officialHold;
       item.cueState = 'hold';
-      item.cue = '조금 쉬고';
-      item.cueDetail = '';
+      item.cue = officialHold ? '일시정지' : '조금 쉬고';
+      item.cueDetail = officialHold ? '재시작을 누르면 투입' : '';
       item.targetCourt = null;
       item.targetMatchId = '';
       item.targetHoldId = '';
@@ -1670,6 +1677,35 @@ function applyQueueYield(session, request, now){
   return '';
 }
 
+function applyQueueHold(session, request, now){
+  refreshEvent(session, now);
+  const list = session.event.next;
+  const index = list.findIndex(item=>text(item.queueId || item.id) === text(request.queueId));
+  if(index < 0)return '일시정지할 다음 대진을 찾지 못했습니다.';
+  const item = list[index];
+  if(idsFingerprint(request.expectedPlayerIds) !== idsFingerprint(queuePlayerIds(item)))return '다음 대진 선수가 이미 바뀌었습니다.';
+  if(item.restPass)return '이미 일시정지된 대진입니다.';
+  // 자리는 그대로 두고 코트만 다음 순위에게 넘깁니다.
+  item.restPass = {officialHold:true, playerId:'', actorPlayerId:text(request.actorPlayerId), at:now};
+  item.restPassText = '일시정지';
+  refreshEvent(session, now);
+  return '';
+}
+
+function applyQueueResume(session, request, now){
+  refreshEvent(session, now);
+  const list = session.event.next;
+  const index = list.findIndex(item=>text(item.queueId || item.id) === text(request.queueId));
+  if(index < 0)return '재시작할 다음 대진을 찾지 못했습니다.';
+  const item = list[index];
+  if(!item.restPass)return '이미 진행 중인 대진입니다.';
+  if(idsFingerprint(request.expectedPlayerIds) !== idsFingerprint(queuePlayerIds(item)))return '다음 대진 선수가 이미 바뀌었습니다.';
+  item.restPass = false;
+  item.restPassText = '';
+  refreshEvent(session, now);
+  return '';
+}
+
 function reservationIds(reservation){
   return [...(reservation?.team1 || []), ...(reservation?.team2 || [])].map(text).filter(Boolean);
 }
@@ -1781,6 +1817,8 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-active-yield': return applyActiveYield(session, request, now, requestId, operation);
     case 'official-queue-enter-free': return applyQueueEnter(session, request, now, requestId);
     case 'official-queue-yield': return applyQueueYield(session, request, now);
+    case 'official-queue-hold': return applyQueueHold(session, request, now);
+    case 'official-queue-resume': return applyQueueResume(session, request, now);
     case 'official-partner-reservation': return applyPartnerReservation(session, request, now, requestId, operation);
     case 'official-partner-cancel': return applyPartnerCancel(session, request, now);
     case 'official-temporary-grant': return applyTemporaryOfficial(session, request, now, operation, true);
