@@ -16,12 +16,17 @@ function functionSource(src,name,nextName){
 
 assert(daily.includes('afterPartyV1:true'),'민턴LIVE 세션이 회원 뒷풀이 신청 기능을 명시해야 합니다.');
 assert(checkin.includes('afterPartyQuickButtonHtml(selected,afterPartyDisabledAttr)'),'본인 상태 버튼 옆에 뒷풀이 신청 토글을 제공해야 합니다.');
-assert(checkin.includes('${afterPartyCardHtml(selected,afterPartyDisabledAttr)}'),'본인 카드 아래에 뒷풀이 인원과 신청자 명단을 제공해야 합니다.');
+// 뒷풀이 명단은 보는 사람에 따라 자리가 다릅니다(운영자 요청 2026-08-03).
+// 대시보드가 없는 일반 회원은 예전처럼 본인 카드 아래에서 보고,
+// 임원은 운영 현황의 '뒷풀이' 숫자를 눌러 봅니다.
+assert(checkin.includes('${afterPartyCardHtml(selected,afterPartyDisabledAttr)}'),'일반 회원은 본인 카드 아래에서 뒷풀이 명단을 볼 수 있어야 합니다.');
+assert(checkin.includes('if(isLiveOperatorPlayer(p))return \'\';'),'임원 화면에는 뒷풀이 패널을 중복 노출하지 않아야 합니다.');
 assert(checkin.includes('<strong>${names.length}</strong><span>명</span>'),'뒷풀이 신청 인원수를 주요 정보로 표시해야 합니다.');
-assert(checkin.includes('뒷풀이 ${afterPartyNames().length}명'),'본인 확인 후 LIVE 현황 상단에서도 뒷풀이 신청 수를 보여야 합니다.');
-assert(checkin.includes('const previewNames=names.slice(0,8)'),'신청자가 많으면 주요 이름만 먼저 보여 경기 정보를 과도하게 밀지 않아야 합니다.');
 assert(checkin.includes('오늘 함께하는 이름'),'신청자 이름을 참여를 돕는 하이라이트 정보로 노출해야 합니다.');
-assert(checkin.includes('const canCopyRoster=!!p.isClubOfficial'),'뒷풀이 명단 복사는 명부에 등록된 클럽 임원에게만 제공해야 합니다.');
+assert(checkin.includes("{key:'party',label:'뒷풀이'"),'운영 현황에서 뒷풀이 신청자를 볼 수 있어야 합니다.');
+assert(checkin.includes('copyAfterPartyRoster()'),'뒷풀이 명단 복사는 운영 현황 안에서 계속 쓸 수 있어야 합니다.');
+assert(checkin.includes("selected.key==='party'&&player.isClubOfficial"),'명단 복사는 클럽 임원에게만 보여야 합니다.');
+assert(checkin.includes('뒷풀이 ${afterPartyNames().length}명'),'본인 확인 후 LIVE 현황 상단에서도 뒷풀이 신청 수를 보여야 합니다.');
 assert(checkin.includes('.my-primary-actions.three-actions'),'휴식·종료·뒷풀이가 한 줄에서 안정적으로 배치되어야 합니다.');
 assert(checkin.includes('.my-action-panel .after-party-quick{'),'뒷풀이 토글은 상태 버튼보다 작지만 충분한 터치 크기를 가져야 합니다.');
 assert(!checkin.includes('${officialPartySummaryHtml()}'),'임원 운영 도구 아래에 뒷풀이 현황을 중복 배치하면 안 됩니다.');
@@ -72,17 +77,22 @@ vm.runInContext(`
 let session={capabilities:{afterPartyV1:true},players:[{id:'p1',name:'신청자1'},{id:'p2',name:'신청자2'}]};
 let partyResponses={p1:{attending:true},p2:{attending:true}};
 function esc(value){return String(value||'');}
+// 임원은 운영 현황에서 보므로 패널을 숨깁니다. 여기서는 일반 회원 화면을 봅니다.
+function isLiveOperatorPlayer(player){return !!(player&&(player.isClubOfficial||player.isTemporaryOfficial));}
 ${helperSource}
 ${cardSource}
 this.renderCard=afterPartyCardHtml;
 this.renderQuick=afterPartyQuickButtonHtml;
 `,cardSandbox);
+assert.strictEqual(cardSandbox.renderCard({id:'p1',name:'임원',isClubOfficial:true},''),'','임원 화면에는 뒷풀이 패널을 띄우지 않아야 합니다(운영 현황에서 봅니다).');
+assert(cardSandbox.renderCard({id:'p1',name:'일반회원'},'').includes('오늘 함께하는 이름'),'일반 회원은 예전처럼 신청자 명단을 볼 수 있어야 합니다.');
 const memberCard=cardSandbox.renderCard({id:'p1',isClubOfficial:false},'');
 assert(memberCard.includes('신청자1')&&memberCard.includes('신청자2'),'본인 이름을 선택한 회원에게 뒷풀이 신청자 이름을 보여야 합니다.');
 assert(!memberCard.includes('신청 취소')&&!memberCard.includes('참석 신청'),'하단 상세 카드에 신청 버튼을 중복 노출하면 안 됩니다.');
 assert(!memberCard.includes('명단 복사'),'일반회원 카드에는 운영용 뒷풀이 명단 복사를 노출하면 안 됩니다.');
-const officialCard=cardSandbox.renderCard({id:'p1',isClubOfficial:true},'');
-assert(officialCard.includes('명단 복사'),'클럽 임원 카드에는 밴드·단톡방용 뒷풀이 명단 복사를 제공해야 합니다.');
+// 임원의 명단 복사는 이 카드가 아니라 운영 현황 '뒷풀이' 안으로 옮겼습니다.
+assert.strictEqual(cardSandbox.renderCard({id:'p1',isClubOfficial:true},''),'','임원에게는 이 카드를 띄우지 않습니다.');
+assert(checkin.includes('class="official-overview-copy"'),'임원은 운영 현황 뒷풀이 명단에서 복사할 수 있어야 합니다.');
 const quickButton=cardSandbox.renderQuick({id:'p1',isClubOfficial:false},'');
 assert(quickButton.includes('after-party-quick selected')&&quickButton.includes('참석✓')&&quickButton.includes("toggleAfterParty('p1')"),'상단 뒷풀이 토글은 현재 신청 상태와 취소 동작을 함께 제공해야 합니다.');
 

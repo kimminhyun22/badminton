@@ -51,8 +51,8 @@ assert(
 
 const renderMyCard = functionSource('renderMyCard', 'requestPlayerOptions');
 assert(
-  renderMyCard.includes('afterPartyPanel.innerHTML=afterPartyHtml'),
-  'After-party names and count should render outside the personal action card.'
+  renderMyCard.includes("afterPartyPanel.innerHTML=''"),
+  '뒷풀이 별도 패널은 비워 둡니다. 신청자 명단은 운영 현황에서 봅니다.'
 );
 assert(
   renderMyCard.includes('afterPartyQuickButtonHtml(selected,afterPartyDisabledAttr)'),

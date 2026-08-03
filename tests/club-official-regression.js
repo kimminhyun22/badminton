@@ -102,7 +102,8 @@ ${functionSource(checkin,'officialOverviewPlayers','renderBalancePolicy')}
 this.api={
   players:officialOverviewPlayers,
   html:officialOperationsSummaryHtml,
-  filter(value){officialOverviewFilter=value;}
+  filter(value){officialOverviewFilter=value;},
+  mode(value){officialOverviewMode=value;}
 };
 `,officialOverviewSandbox);
 assert.strictEqual(officialOverviewSandbox.api.players('total').length,7,'임원 등록 집계는 오등록 취소 선수를 제외해야 합니다.');
@@ -115,8 +116,17 @@ const officialWaitHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임�
 assert(officialWaitHtml.includes('official-overview-actions'),'운영 현황 명단에 상태 변경 버튼이 있어야 합니다.');
 assert(officialWaitHtml.includes("sendOfficialPlayerStatus('o','rest'"),'명단 버튼은 그 회원을 바로 지정해 처리해야 합니다.');
 // 운영 도구를 전부 운영 현황 명단으로 모았습니다(2026-08-03 운영자 결정).
-assert(officialWaitHtml.includes('setOfficialPartnerPick'),'명단에서 파트너를 지정할 수 있어야 합니다.');
-assert(officialWaitHtml.includes('sendOfficialTemporaryGrant'),'명단에서 운영 도우미를 지정할 수 있어야 합니다.');
+// 파트너·도우미는 가끔 쓰는 기능이라 평소 명단에는 안 나오고,
+// 상단 도구 버튼으로 모드를 켰을 때만 보입니다(운영자 요청 2026-08-03).
+assert(!officialWaitHtml.includes('setOfficialPartnerPick'),'평소 명단에는 상태 버튼만 보여야 합니다.');
+assert(officialWaitHtml.includes('official-overview-tool'),'상단에 파트너·도우미 도구 버튼이 있어야 합니다.');
+officialOverviewSandbox.api.mode('partner');
+const officialPartnerModeHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
+assert(officialPartnerModeHtml.includes('setOfficialPartnerPick'),'파트너 모드에서는 명단에서 두 선수를 고를 수 있어야 합니다.');
+officialOverviewSandbox.api.mode('helper');
+assert(officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true}).includes('sendOfficialTemporaryGrant'),
+  '도우미 모드에서는 명단에서 지정할 수 있어야 합니다.');
+officialOverviewSandbox.api.mode('');
 officialOverviewSandbox.api.filter('preArrival');
 const officialPreHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
 assert(officialPreHtml.includes('sendOfficialArrival'),'도착 전 회원은 명단에서 바로 참가 등록할 수 있어야 합니다.');
