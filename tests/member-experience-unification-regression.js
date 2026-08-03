@@ -22,7 +22,7 @@ const serviceWorker = read('sw.js');
 [checkin, rsvp, view].forEach((html, index) => {
   assert(html.includes('css/member-shell.css'), `회원 화면 ${index + 1}은 공통 화면 스타일을 사용해야 합니다.`);
   assert(html.includes('class="km-member-page '), `회원 화면 ${index + 1}은 공통 회원 페이지 범위를 가져야 합니다.`);
-  assert(html.includes('<span class="km-member-brand">콕매치</span>'), `회원 화면 ${index + 1}의 상단 브랜드는 콕매치로 통일되어야 합니다.`);
+  assert(html.includes('<span class="km-member-brand">민턴라이브</span>'), `회원 화면 ${index + 1}의 상단 브랜드는 민턴라이브로 통일되어야 합니다.`);
 });
 
 assert(!rsvp.includes('KOKMATCH TEAM LIVE'), '회원 이름 확인 화면에 서비스 구분용 영문 헤더를 노출하면 안 됩니다.');
@@ -41,9 +41,9 @@ assert(
   viewerSource.indexOf('_viewerNextHtml(d,current)') < viewerSource.indexOf('_viewerStatusButtons(current)'),
   '회원은 늦음·뒷풀이 버튼보다 지금 또는 다음 내 경기를 먼저 봐야 합니다.'
 );
-assert(checkin.includes("class=\"after-party-quick ${attending?'selected':''}\""), '민턴LIVE는 내 상태 옆에 작은 뒷풀이 토글을 제공해야 합니다.');
-assert(live.includes('class="viewer-state-btn party '), '팀전LIVE도 내 경기 영역에 뒷풀이 토글을 제공해야 합니다.');
-assert(liveCss.includes('grid-template-columns:minmax(0,1fr) minmax(82px,.72fr)'), '팀전LIVE 뒷풀이 버튼은 늦음보다 작게 배치해야 합니다.');
+assert(checkin.includes("class=\"after-party-quick ${attending?'selected':''}\""), '민턴라이브는 내 상태 옆에 작은 뒷풀이 토글을 제공해야 합니다.');
+assert(live.includes('class="viewer-state-btn party '), '팀전도 내 경기 영역에 뒷풀이 토글을 제공해야 합니다.');
+assert(liveCss.includes('grid-template-columns:minmax(0,1fr) minmax(82px,.72fr)'), '팀전 뒷풀이 버튼은 늦음보다 작게 배치해야 합니다.');
 
 assert(shell.includes('border-radius:8px!important'), '회원 화면의 명령 버튼과 주요 표면은 8px 규칙을 공유해야 합니다.');
 assert(shell.includes('body.km-live-page .viewer-state-btn.ready'), '팀전 늦음 표시는 현재 경기 레드와 구분되는 공통 의미색을 사용해야 합니다.');

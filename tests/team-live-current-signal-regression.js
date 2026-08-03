@@ -8,7 +8,7 @@ const css = fs.readFileSync(path.join(root, 'css', 'live.css'), 'utf8');
 
 assert(
   liveSrc.includes("document.body.classList.toggle('team-live-view',_isTeamLiveData(d))"),
-  '팀전LIVE 화면에만 강조 스타일 범위를 적용해야 합니다.'
+  '팀전 화면에만 강조 스타일 범위를 적용해야 합니다.'
 );
 assert(css.includes('--live-alert:#b42318'), '진행 중 신호는 눈에 띄는 진한 레드를 사용해야 합니다.');
 assert(css.includes('--live-alert-border:#d92d20'), '진행 경기 테두리는 선명한 레드를 사용해야 합니다.');

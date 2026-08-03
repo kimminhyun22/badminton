@@ -27,7 +27,7 @@ assert.strictEqual(teamSandbox.api.isTeamLive({kind:'teamLive',matchMode:'free',
 assert.strictEqual(teamSandbox.api.isTeamLive({isTeam:false,lateMode:'explicit',members:{all:[]}}), true,
   '기존 자유대진 LIVE도 Team LIVE로 복구해야 합니다.');
 assert.strictEqual(teamSandbox.api.isTeamLive({kind:'dailyLive',isTeam:false}), false,
-  '민턴LIVE 데이터는 Team LIVE로 연결하면 안 됩니다.');
+  '민턴라이브 데이터는 Team LIVE로 연결하면 안 됩니다.');
 
 const dailyKindCode = `${functionSource(dailySrc, '_dailyIsTeamLiveData', '_dailyValidateLiveDataForCurrent')}
 this.api={isTeamLive:_dailyIsTeamLiveData};`;
@@ -35,15 +35,15 @@ const dailySandbox = {};
 vm.createContext(dailySandbox);
 vm.runInContext(dailyKindCode, dailySandbox);
 assert.strictEqual(dailySandbox.api.isTeamLive({isTeam:false,lateMode:'explicit',members:{all:[]}}), true,
-  '민턴LIVE도 기존 자유대진 Team LIVE 표식을 구분해야 합니다.');
+  '민턴라이브도 기존 자유대진 Team LIVE 표식을 구분해야 합니다.');
 assert.strictEqual(dailySandbox.api.isTeamLive({kind:'dailyLive',isTeam:false}), false,
-  '민턴LIVE 자체 payload는 정상적으로 유지해야 합니다.');
+  '민턴라이브 자체 payload는 정상적으로 유지해야 합니다.');
 
 assert(teamSrc.includes("kind:'teamLive'"), 'Team LIVE payload에 서비스 종류가 있어야 합니다.');
 assert(teamSrc.includes("matchMode,"), 'Team LIVE payload에 청홍/자유 대진 방식이 있어야 합니다.');
 assert(teamSrc.includes('if(!_teamIsTeamLiveData(data))'), 'LIVE 재개는 isTeam이 아니라 서비스 종류로 검증해야 합니다.');
-assert(dailySrc.includes("kind:'dailyLive'"), '민턴LIVE payload도 서비스 종류를 명시해야 합니다.');
-assert(dailySrc.includes('if(_dailyIsTeamLiveData(data))'), '민턴LIVE 재개가 자유대진 Team LIVE를 가져가면 안 됩니다.');
+assert(dailySrc.includes("kind:'dailyLive'"), '민턴라이브 payload도 서비스 종류를 명시해야 합니다.');
+assert(dailySrc.includes('if(_dailyIsTeamLiveData(data))'), '민턴라이브 재개가 자유대진 Team LIVE를 가져가면 안 됩니다.');
 
 const fixedStart = liveSrc.indexOf('function _usesFixedTeams');
 const fixedEnd = liveSrc.indexOf('const content=', fixedStart);
@@ -67,7 +67,7 @@ assert(liveSrc.includes("isTeam?'홍':'B'"), '자유대진 사용자 경기판�
 
 assert(teamSrc.includes("matchMode:currentSettings?.teamMode===false?'free'"), 'RSVP 세션에 자유대진 방식을 전송해야 합니다.');
 assert(rsvpHtml.includes("session?.matchMode==='free'?'자유대진':'청·홍 팀전'"), '회원 페이지가 자유대진을 표시해야 합니다.');
-assert(rsvpHtml.includes("session?.matchMode==='free'?'자유대진 LIVE 진행 중':'팀전LIVE 진행 중'"), '회원 LIVE 안내가 대진 방식에 맞아야 합니다.');
+assert(rsvpHtml.includes("session?.matchMode==='free'?'자유대진 LIVE 진행 중':'팀전 진행 중'"), '회원 LIVE 안내가 대진 방식에 맞아야 합니다.');
 
 const changeSource = functionSource(teamSrc, 'executeChangeModal', 'showTab');
 assert(changeSource.includes('rsvpPushSession();'), '선수 변경 후 RSVP 본인확인 명단을 다시 발행해야 합니다.');

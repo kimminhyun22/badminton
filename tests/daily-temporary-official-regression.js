@@ -335,7 +335,7 @@ assert(checkinSource.includes('isLiveOperatorPlayer'),'회원 화면은 정식 �
 assert(checkinSource.includes('officialTemporaryToolsHtml'),'정식 임원 화면에 운영 도우미 지정 도구가 있어야 합니다.');
 assert(checkinSource.includes("if(!actor?.isClubOfficial)return toast('정식 클럽 임원만 운영 도우미"),'도우미 화면에서 재위임 기능을 사용할 수 없어야 합니다.');
 assert(dailySource.includes('dailySetTemporaryOfficial'),'관리자 화면에서도 운영 도우미를 즉시 지정·해제할 수 있어야 합니다.');
-assert(dailySource.includes('isTemporaryOfficial:!!p.isTemporaryOfficial'),'임시 권한이 현재 민턴LIVE 세션에만 게시되어야 합니다.');
+assert(dailySource.includes('isTemporaryOfficial:!!p.isTemporaryOfficial'),'임시 권한이 현재 민턴라이브 세션에만 게시되어야 합니다.');
 assert(dailySource.split('_dailyClearTemporaryOfficials()').length-1>=4,'링크 종료·만료·교체 시 임시 권한을 지워 다음 세션으로 넘기면 안 됩니다.');
 assert(dailySource.includes('if(player.isClubOfficial&&player.isTemporaryOfficial){'),'정식 임원으로 승격된 회원의 임시 권한 표시는 정리해야 합니다.');
 

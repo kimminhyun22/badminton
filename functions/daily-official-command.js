@@ -16,7 +16,7 @@ function applyCommandTransaction(current, input){
     grantSecret
   } = input;
   if(!current?.session){
-    return {action:'abort',failureCode:'not-found',failureMessage:'종료되었거나 아직 게시되지 않은 민턴LIVE입니다.'};
+    return {action:'abort',failureCode:'not-found',failureMessage:'종료되었거나 아직 게시되지 않은 민턴라이브입니다.'};
   }
   const claim = current.officialClaims?.[clientId];
   if(!claim || now >= Number(claim.expiresAt || 0)){

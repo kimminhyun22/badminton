@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.492';
+const APP_VERSION = '1.10.493';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -572,7 +572,7 @@ let _teamWanted=true; // 기본값은 청·홍 팀전
 // 단장/부단장 지정 { blue:{leader:'',sub:''}, white:{leader:'',sub:''} }
 let captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 const TEAM_TEMPORARY_OPERATOR_MAX=4;
-// 자유대진 운영 도우미는 현재 팀전LIVE에서만 전체 경기 승패를 입력할 수 있다.
+// 자유대진 운영 도우미는 현재 팀전에서만 전체 경기 승패를 입력할 수 있다.
 let temporaryOperators=[];
 let _teamTemporaryOperatorBusy=false;
 
@@ -2310,7 +2310,7 @@ function _teamLiveSignature(){
   return currentMatches.length?_teamLiveSignatureFromMatches(currentMatches):'';
 }
 function _teamLiveEventLabel(){
-  const title=(_rsvpTitle&&_rsvpTitle())||'팀전LIVE';
+  const title=(_rsvpTitle&&_rsvpTitle())||'팀전';
   const round=currentMatches.length?Math.max(...currentMatches.map(m=>m.round||0)):0;
   return `${title}${round?` · R${round}`:''}`;
 }
@@ -2318,15 +2318,15 @@ function _teamConfirmDetachLiveBeforeChange(actionLabel){
   const liveId=_liveId||_teamStoredLiveId();
   if(!liveId)return true;
   if(_liveOn){
-    alert(`팀전LIVE 중계 중입니다.\n\n${actionLabel} 전에 상단 운영 보드의 "중계 종료" 버튼으로 현재 중계를 먼저 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
+    alert(`팀전 중계 중입니다.\n\n${actionLabel} 전에 상단 운영 보드의 "중계 종료" 버튼으로 현재 중계를 먼저 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
     return false;
   }
-  if(!confirm(`진행 중이던 팀전LIVE 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
+  if(!confirm(`진행 중이던 팀전 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
   _teamResetLocalLiveState(liveId);
   return true;
 }
 function _teamLiveMismatchMessage(){
-  return '현재 대진과 기존 팀전LIVE 링크의 대진이 다릅니다.\n\n기존 회원 링크에 다른 경기가 섞이지 않도록 송출을 막았습니다.\n기존 LIVE를 종료하거나, 이 대진은 새 링크로 다시 시작해 주세요.';
+  return '현재 대진과 기존 팀전 링크의 대진이 다릅니다.\n\n기존 회원 링크에 다른 경기가 섞이지 않도록 송출을 막았습니다.\n기존 LIVE를 종료하거나, 이 대진은 새 링크로 다시 시작해 주세요.';
 }
 function _teamIsTeamLiveData(data){
   if(!data||!Object.keys(data).length)return false;
@@ -2341,7 +2341,7 @@ function _teamIsTeamLiveData(data){
 function _teamValidateLiveDataForCurrent(data){
   if(!data||!Object.keys(data).length)return true;
   if(!_teamIsTeamLiveData(data)){
-    alert('저장된 LIVE ID가 민턴LIVE 링크입니다.\n팀전LIVE와 섞이지 않도록 연결을 끊었습니다.');
+    alert('저장된 LIVE ID가 민턴라이브 링크입니다.\n팀전와 섞이지 않도록 연결을 끊었습니다.');
     _teamResetLocalLiveState(_liveId);
     return false;
   }
@@ -2432,7 +2432,7 @@ function _buildLiveState(){
     kind:'teamLive',
     appMode:'teamLive',
     matchMode,
-    title: (isTeam? (bn2+' vs '+wn2):'팀전LIVE 자유 대진'),
+    title: (isTeam? (bn2+' vs '+wn2):'팀전 자유 대진'),
     eventLabel:_teamLiveEventLabel(),
     bracketKey:_teamLiveSignature(),
     members: {blue:membersBlue, red:membersRed, all:membersAll},
@@ -2696,7 +2696,7 @@ function _teamHasResumeLiveHint(){
   return !_liveOn && !!currentMatches.length && !!savedId && _teamStoredLiveMatchesCurrentBracket(savedId);
 }
 function _teamLiveResumeLabel(){
-  return '팀전LIVE 이어가기';
+  return '팀전 이어가기';
 }
 
 /* 앱 재시작 시 중계 자동 재연결 */
@@ -2707,7 +2707,7 @@ async function _tryResumeLive(opts={}){
   if(!savedId) return false;
   const savedFromTeamKey=(()=>{try{return localStorage.getItem(TEAM_LIVE_STORAGE_KEY)===savedId;}catch(e){return false;}})();
   if(!_fbInit()){
-    if(manual)alert('팀전LIVE 서버 연결에 실패했어요. 네트워크를 확인한 뒤 다시 눌러주세요.');
+    if(manual)alert('팀전 서버 연결에 실패했어요. 네트워크를 확인한 뒤 다시 눌러주세요.');
     return false;
   }
   try{
@@ -2715,14 +2715,14 @@ async function _tryResumeLive(opts={}){
     if(!snap.exists()){
       _teamClearStoredLiveId(savedId);
       _updateLiveUI();
-      if(manual)alert('이어 켤 팀전LIVE 데이터를 찾지 못했어요. 새 중계를 시작해 주세요.');
+      if(manual)alert('이어 켤 팀전 데이터를 찾지 못했어요. 새 중계를 시작해 주세요.');
       return false;
     }
     const data=snap.val();
     if(!_teamIsTeamLiveData(data)){
       if(savedFromTeamKey)_teamClearStoredLiveId(savedId);
       _updateLiveUI();
-      if(manual)alert('저장된 LIVE가 팀전LIVE가 아니어서 이어 켤 수 없습니다.');
+      if(manual)alert('저장된 LIVE가 팀전가 아니어서 이어 켤 수 없습니다.');
       return false;
     }
     _liveId=savedId;
@@ -2732,7 +2732,7 @@ async function _tryResumeLive(opts={}){
     if(ownerRsvpId&&data.rsvpId&&data.rsvpId!==ownerRsvpId){
       _teamClearStoredLiveId(savedId);
       _updateLiveUI();
-      if(manual)alert('현재 대진과 저장된 팀전LIVE 링크가 달라서 이어 켤 수 없습니다.');
+      if(manual)alert('현재 대진과 저장된 팀전 링크가 달라서 이어 켤 수 없습니다.');
       return false;
     }
     const startedAt=data.matchStartedAt||data.createdAt||data.updatedAt||0;
@@ -2741,12 +2741,12 @@ async function _tryResumeLive(opts={}){
     if(!startedAt||age>LIVE_TTL_MS){
       _teamClearStoredLiveId(savedId);
       _updateLiveUI();
-      if(manual)alert('이전 팀전LIVE가 48시간을 지나 새 중계를 시작해야 합니다.');
+      if(manual)alert('이전 팀전가 48시간을 지나 새 중계를 시작해야 합니다.');
       return false;
     }
     const mins=Math.floor(age/60000);
     const timeStr=mins<60?`${mins}분 전`:`${Math.floor(mins/60)}시간 ${mins%60}분 전`;
-    const shouldResume=manual||confirm(`📡 팀전LIVE 중계가 ${timeStr}에 끊겼어요.
+    const shouldResume=manual||confirm(`📡 팀전 중계가 ${timeStr}에 끊겼어요.
 
 이어서 중계를 재개할까요?`);
     if(shouldResume){
@@ -2806,7 +2806,7 @@ async function resumeTeamLiveBroadcast(){
 }
 
 /* 오래된 실시간 데이터 자동 정리: 대진 시작 후 48시간 지난 중계 노드만 삭제.
-   참석투표(rsvp_)와 민턴LIVE 체크인 노드는 장기 투표/운영 기록이므로 삭제하지 않는다. */
+   참석투표(rsvp_)와 민턴라이브 체크인 노드는 장기 투표/운영 기록이므로 삭제하지 않는다. */
 async function _cleanupOldLive(){
   if(!_fbDb) return;
   const cutoff=Date.now()-LIVE_TTL_MS;
@@ -2876,11 +2876,11 @@ async function stopLiveBroadcast(){
     saveState();
     return;
   }
-  if(!confirm('팀전LIVE를 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.')) return;
+  if(!confirm('팀전를 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.')) return;
   await _teamClearLiveBroadcastData();
   await rsvpPushEventState();
   saveState();
-  alert('팀전LIVE를 종료했어요.');
+  alert('팀전를 종료했어요.');
 }
 
 /* 중계 버튼 UI 갱신 */
@@ -2900,13 +2900,13 @@ function _teamSyncLiveResumeShortcuts(){
 function _updateLiveUI(){
   const btn=document.getElementById('liveBtn');
   if(btn){
-    if(_liveOn){ btn.classList.add('on'); btn.classList.remove('resume'); btn.innerHTML='팀전LIVE 진행 중'; }
+    if(_liveOn){ btn.classList.add('on'); btn.classList.remove('resume'); btn.innerHTML='팀전 진행 중'; }
     else if(_teamHasResumeLiveHint()){
       btn.classList.remove('on');
       btn.classList.add('resume');
       btn.innerHTML=_teamLiveResumeLabel();
     }
-    else { btn.classList.remove('on','resume'); btn.innerHTML='팀전LIVE 시작'; }
+    else { btn.classList.remove('on','resume'); btn.innerHTML='팀전 시작'; }
   }
   _teamSyncLiveStopShortcuts();
   _teamSyncLiveResumeShortcuts();
@@ -2946,12 +2946,12 @@ async function shareTeamStatus(){
   if(bW>wW) lead=`\n🔵 ${bn} ${bW-wW}점 차로 앞서는 중!`;
   else if(wW>bW) lead=`\n⚪ ${wn} ${wW-bW}점 차로 앞서는 중!`;
   else lead='\n⚖️ 동점! 접전 중';
-  const text=`🏸 콕매치 팀전 현황\n\n🔵 ${bn}  ${bW}승\n⚪ ${wn}  ${wW}승`
+  const text=`🏸 민턴라이브 팀전 현황\n\n🔵 ${bn}  ${bW}승\n⚪ ${wn}  ${wW}승`
     + (totalR? `\n\n📊 ${totalR}라운드 중 ${doneR}라운드 완료`:'')
     + lead;
   try{
     if(navigator.share){
-      await navigator.share({text, title:'콕매치 팀전 현황'});
+      await navigator.share({text, title:'민턴라이브 팀전 현황'});
     } else if(navigator.clipboard){
       await navigator.clipboard.writeText(text);
       alert('현황을 복사했어요. 단톡방에 붙여넣기 하세요!');
@@ -4424,7 +4424,7 @@ function checkSavedState(){
     const hasLive=!!(restoreInfo&&restoreInfo.liveId);
     const restoreBtn=document.getElementById('restoreBtn');
     restoreBtn.textContent=hasLive
-      ? `🔴 팀전LIVE 이어가기 (${pCount}명 · ${ageStr})`
+      ? `🔴 팀전 이어가기 (${pCount}명 · ${ageStr})`
       : `📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
     restoreBtn.onclick=restoreSavedBracketAction;
     restoreBtn.classList.toggle('live-restore',hasLive);
@@ -4451,7 +4451,7 @@ function restoreState(opts={}){
     if(!raw){alert('저장된 데이터가 없습니다.');return;}
     const state=migrateStateIfNeeded(JSON.parse(raw));
     if(_teamIsDailyBracketState(state)){
-      alert('민턴LIVE 저장본입니다. 민턴LIVE에서 복구하세요.');
+      alert('민턴라이브 저장본입니다. 민턴라이브에서 복구하세요.');
       return;
     }
     // 마이그레이션 결과를 즉시 다시 저장 (다음 실행 시 중복 적용 방지)
@@ -5571,7 +5571,7 @@ function hideErr(){document.getElementById('errBar').classList.remove('on');}
 function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.textContent=m;b.classList.add('on');}
 function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.remove('on');}
 async function resetAll(){
-  if(!confirm('팀전LIVE를 전체 초기화할까요?\n팀전 링크, 늦음, 참가자, 팀 배정, 대진표, 승패 입력, 진행 중 LIVE가 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
+  if(!confirm('팀전를 전체 초기화할까요?\n팀전 링크, 늦음, 참가자, 팀 배정, 대진표, 승패 입력, 진행 중 LIVE가 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
   const resetLiveId=_liveId||_teamStoredLiveId()||_teamSavedBracketRestoreInfo()?.liveId||'';
   if(saveTimer)clearTimeout(saveTimer);
   saveTimer=null;
@@ -5898,7 +5898,7 @@ function renderTeamRosterTransferButton(){
     const btn=document.getElementById(id);
     if(!btn)return;
     btn.disabled=!count;
-    btn.textContent=count?`민턴LIVE 선수 ${count}명 가져오기`:'민턴LIVE 선수 없음';
+    btn.textContent=count?`민턴라이브 선수 ${count}명 가져오기`:'민턴라이브 선수 없음';
   });
 }
 function teamImportDailyRoster(){
@@ -5907,18 +5907,18 @@ function teamImportDailyRoster(){
     return;
   }
   if(currentMatches.length||teamAssignment||_liveOn||_liveId||_teamStoredLiveId()||_teamSavedBracketRestoreInfo()){
-    alert('대진 또는 팀전LIVE가 시작된 뒤에는 선수 명단을 바꿀 수 없습니다.\n필요하면 현재 운영을 종료하고 전체 초기화한 뒤 가져와 주세요.');
+    alert('대진 또는 팀전가 시작된 뒤에는 선수 명단을 바꿀 수 없습니다.\n필요하면 현재 운영을 종료하고 전체 초기화한 뒤 가져와 주세요.');
     return;
   }
   const snapshot=_teamDailyRosterSnapshot();
   const source=snapshot.players||[];
   if(!source.length){
-    alert('가져올 민턴LIVE 선수 명단이 없습니다.');
+    alert('가져올 민턴라이브 선수 명단이 없습니다.');
     renderTeamRosterTransferButton();
     return;
   }
-  if(_directPlayers.length&&!confirm(`현재 팀전LIVE 선수 ${_directPlayers.length}명을 지우고\n민턴LIVE 선수 ${source.length}명을 가져올까요?`))return;
-  if(_directPlayers.length)_captureUndoSnapshot('민턴LIVE 선수 명단 가져오기 전');
+  if(_directPlayers.length&&!confirm(`현재 팀전 선수 ${_directPlayers.length}명을 지우고\n민턴라이브 선수 ${source.length}명을 가져올까요?`))return;
+  if(_directPlayers.length)_captureUndoSnapshot('민턴라이브 선수 명단 가져오기 전');
   _directPlayers=source.map(raw=>{
     const gender=raw.gender==='여'?'여':'남';
     const grade=raw.grade||levelToGrade(raw.level||4,gender)||'C';
@@ -5953,7 +5953,7 @@ function teamImportDailyRoster(){
   renderAutoFlowDashboard();
   _autoFlowSetSection('sec-players',true,true);
   closeImportModal();
-  alert(`민턴LIVE 선수 ${_directPlayers.length}명을 팀전LIVE 명단으로 가져왔습니다.`);
+  alert(`민턴라이브 선수 ${_directPlayers.length}명을 팀전 명단으로 가져왔습니다.`);
 }
 
 function addDirectPlayer(){
@@ -6360,7 +6360,7 @@ function _rsvpCleanLabel(label){
 }
 function _rsvpDefaultTitle(ts){
   const day=_rsvpShortDate(ts||_rsvpCreatedAt||Date.now());
-  return `팀전LIVE ${day}`;
+  return `팀전 ${day}`;
 }
 function _rsvpLegacyClubTitle(ts){
   const base=_rsvpCleanLabel(_rsvpSelectedLabel());
@@ -6473,7 +6473,7 @@ function _rsvpEnsureCurrentEventLink({silent=true,createIfMissing=false}={}){
   if(currentSettings&&currentSettings.rsvpId!==ownerId)currentSettings.rsvpId=ownerId;
   const changed=_rsvpActivateEventId(ownerId,{restoreMeta:true,resetMissingMeta:!_rsvpHistoryItem(ownerId)});
   if(changed&&_fbDb)rsvpStartListener();
-  if(changed&&!silent)alert('현재 대진의 팀전LIVE 링크로 전환했습니다.');
+  if(changed&&!silent)alert('현재 대진의 팀전 링크로 전환했습니다.');
   return changed;
 }
 function _rsvpEventPayload(){
@@ -6802,7 +6802,7 @@ function rsvpRenderSavedBox(){
     const meta=[item.clubName||'클럽 미확인', _rsvpSavedDate(item.createdAt), item.id?`ID ${String(item.id).slice(-4)}`:'', active?'현재 열림':''].filter(Boolean).join(' · ');
     return `<div class="rsvp-saved-row">
       <div class="rsvp-saved-main">
-        <div class="rsvp-saved-name">${esc(item.title||'팀전LIVE')}</div>
+        <div class="rsvp-saved-name">${esc(item.title||'팀전')}</div>
         <div class="rsvp-saved-meta">${esc(meta)}</div>
       </div>
       <button class="rsvp-saved-btn ${active?'active':''}" onclick="rsvpLoadSaved('${esc(item.id)}')">${active?'열림':'열기'}</button>
@@ -6810,7 +6810,7 @@ function rsvpRenderSavedBox(){
     </div>`;
   }).join('');
   box.innerHTML=`<details class="rsvp-archive">
-    <summary><span>이전 팀전LIVE ${list.length}개</span>${_rsvpDetailsCloseButton()}</summary>
+    <summary><span>이전 팀전 ${list.length}개</span>${_rsvpDetailsCloseButton()}</summary>
     <div class="rsvp-archive-list">${rows}</div>
   </details>`;
 }
@@ -6818,11 +6818,11 @@ async function rsvpCopySavedLink(id){
   const item=_rsvpHistoryList().find(x=>x&&x.id===id);
   const url=(item&&item.url)||_rsvpUrlFor(id);
   if(!url){alert('복사할 링크를 찾을 수 없습니다.');return;}
-  const title=item?.title||'팀전LIVE';
+  const title=item?.title||'팀전';
   const text=`🏸 ${title}\n내 이름을 눌러 실중계에 들어가세요.\n\n${url}`;
   if(navigator.share){
     try{
-      await navigator.share({title:`${title} 팀전LIVE`,text});
+      await navigator.share({title:`${title} 팀전`,text});
       return;
     }catch(e){
       if(e&&e.name==='AbortError')return;
@@ -6830,7 +6830,7 @@ async function rsvpCopySavedLink(id){
   }
   try{
     await navigator.clipboard.writeText(text);
-    alert('팀전LIVE 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.');
+    alert('팀전 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.');
   }catch(e){
     alert('공유창을 열 수 없습니다. 링크 복사를 다시 시도해 주세요.');
   }
@@ -6841,7 +6841,7 @@ async function rsvpCreateNew(){
     teamLiveOpenPlayers();
     return;
   }
-  if(_rsvpId&&!confirm('새 팀전LIVE 링크를 만들까요?\n현재 열려 있는 팀전LIVE는 보관함에 그대로 남습니다.'))return;
+  if(_rsvpId&&!confirm('새 팀전 링크를 만들까요?\n현재 열려 있는 팀전는 보관함에 그대로 남습니다.'))return;
   _teamResetLocalLiveState(_liveId||_teamStoredLiveId());
   _teamParticipantSourceRsvpId=null;
   _lastRsvpImportSummary=null;
@@ -6878,7 +6878,7 @@ function rsvpLoadSaved(id){
 }
 function rsvpRemoveSaved(id){
   const item=_rsvpHistoryList().find(x=>x&&x.id===id);
-  if(!confirm(`${item?.title||'이 팀전LIVE'}를 저장 목록에서 삭제할까요?\n공유된 링크 자체는 삭제되지 않습니다.`))return;
+  if(!confirm(`${item?.title||'이 팀전'}를 저장 목록에서 삭제할까요?\n공유된 링크 자체는 삭제되지 않습니다.`))return;
   const list=_rsvpHistoryList().filter(x=>x&&x.id!==id);
   try{localStorage.setItem(RSVP_HISTORY_KEY,JSON.stringify(list));}catch(e){}
   rsvpRenderSavedBox();
@@ -6952,7 +6952,7 @@ async function rsvpPublishSession(silent){
     return null;
   }
   if(!_fbInit()){
-    if(!silent)alert('팀전LIVE 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
+    if(!silent)alert('팀전 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
     return null;
   }
   rsvpEnsureId();
@@ -6976,7 +6976,7 @@ async function rsvpCopyShareText(auto){
     return false;
   }
   if(!_fbInit()){
-    alert('팀전LIVE 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
+    alert('팀전 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
     return false;
   }
   rsvpEnsureId();
@@ -6986,7 +6986,7 @@ async function rsvpCopyShareText(auto){
   const text=`🏸 ${title}\n내 이름을 눌러 실중계에 들어가세요.\n\n${url}`;
   const published=await rsvpPublishSession(true).catch(()=>null);
   if(!published){
-    alert('팀전LIVE 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+    alert('팀전 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
     return false;
   }
   if(navigator.share){
@@ -7003,7 +7003,7 @@ async function rsvpCopyShareText(auto){
     await navigator.clipboard.writeText(text);
     alert(auto
       ? '공유창을 열 수 없어 문구를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.'
-      : '팀전LIVE 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.\n\n'+url);
+      : '팀전 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.\n\n'+url);
     return true;
   }catch(e){
     alert('공유창을 열 수 없습니다. 네트워크와 브라우저 권한을 확인한 뒤 다시 시도해 주세요.');
@@ -7553,31 +7553,31 @@ function renderAutoFlowDashboard(){
     const liveValue=live?'ON':(resumeLive?'복구':(matches?'대기':'전'));
     const liveNote=live?'링크 활성':(resumeLive?'같은 링크로 이어가기':(matches?'시작 전':'대진 필요'));
     let stage='playerSetup';
-    let cfg={badge:'준비',title:'팀전LIVE 세팅',sub:'참가자 세팅'};
+    let cfg={badge:'준비',title:'팀전 세팅',sub:'참가자 세팅'};
     if(live){
       stage='live';
-      cfg={badge:'진행 중',title:'팀전LIVE 운영',sub:currentRound==='완료'?'결과 확인':`${currentRound} 진행`};
+      cfg={badge:'진행 중',title:'팀전 운영',sub:currentRound==='완료'?'결과 확인':`${currentRound} 진행`};
     } else if(restoreLive){
       stage='restoreLive';
-      cfg={badge:'이어가기',title:'팀전LIVE 이어가기',sub:'앱이 꺼졌던 중계를 재개'};
+      cfg={badge:'이어가기',title:'팀전 이어가기',sub:'앱이 꺼졌던 중계를 재개'};
     } else if(restoreBracket){
       stage='restoreBracket';
       cfg={badge:'불러오기',title:'저장 대진표 불러오기',sub:'이전 대진을 먼저 복원'};
     } else if(resumeLive){
       stage='resume';
-      cfg={badge:'복구 필요',title:'팀전LIVE 이어가기',sub:'앱이 꺼졌던 중계를 같은 링크로 재개'};
+      cfg={badge:'복구 필요',title:'팀전 이어가기',sub:'앱이 꺼졌던 중계를 같은 링크로 재개'};
     } else if(matches){
       stage='broadcast';
-      cfg={badge:'시작 전',title:'팀전LIVE 세팅',sub:'팀전LIVE 시작'};
+      cfg={badge:'시작 전',title:'팀전 세팅',sub:'팀전 시작'};
     } else if(teamReady||(!fixedTeamMode&&players>=4&&_rsvpId)){
       stage='generate';
-      cfg={badge:fixedTeamMode?'팀 완료':'자유 대진',title:'팀전LIVE 세팅',sub:'대진 생성'};
+      cfg={badge:fixedTeamMode?'팀 완료':'자유 대진',title:'팀전 세팅',sub:'대진 생성'};
     } else if(players>=4&&_rsvpId){
       stage='playerReview';
-      cfg={badge:'팀 배정',title:'팀전LIVE 세팅',sub:'참가자 확인'};
+      cfg={badge:'팀 배정',title:'팀전 세팅',sub:'참가자 확인'};
     } else if(players>=4){
       stage='link';
-      cfg={badge:'공유',title:'팀전LIVE 세팅',sub:'링크 공유'};
+      cfg={badge:'공유',title:'팀전 세팅',sub:'링크 공유'};
     }
     if(card)card.classList.toggle('live-compact',live);
     if(card)card.classList.toggle('live-resume-ready',stage==='restoreLive'||stage==='resume');
@@ -7600,10 +7600,10 @@ function renderAutoFlowDashboard(){
       link:_autoFlowAction('링크 공유','rsvpShareLink','단톡방에 공유'),
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate',fixedTeamMode?'청·홍 대진 품질 확인':'자유 대진 품질 확인'),
-      broadcast:_autoFlowAction('팀전LIVE 시작','onLiveBtnClick','회원 링크 열림','live-start'),
-      restoreLive:_autoFlowAction('팀전LIVE 이어가기','restoreTeamLiveAndResume','대진 불러오기와 중계 재개를 한 번에','live-start'),
+      broadcast:_autoFlowAction('팀전 시작','onLiveBtnClick','회원 링크 열림','live-start'),
+      restoreLive:_autoFlowAction('팀전 이어가기','restoreTeamLiveAndResume','대진 불러오기와 중계 재개를 한 번에','live-start'),
       restoreBracket:_autoFlowAction('이전 대진표 불러오기','restoreState','저장된 대진부터 복원','live-start'),
-      resume:_autoFlowAction('팀전LIVE 이어가기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지','live-start'),
+      resume:_autoFlowAction('팀전 이어가기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지','live-start'),
       live:''
     }[stage]||'';
     const stageGuide={
@@ -7612,9 +7612,9 @@ function renderAutoFlowDashboard(){
       playerReview:{k:'3. 청/홍 배정',t:'늦음과 파트너만 확인하고 팀을 나눕니다.'},
       generate:{k:'4. 대진 생성',t:fixedTeamMode?'청·홍팀 확인 후 전체 라운드를 만듭니다.':'청·홍 구분 없이 매 경기 균형을 맞춰 전체 라운드를 만듭니다.'},
       broadcast:{k:'5. LIVE 시작',t:'대진표가 준비됐습니다. 실중계 링크를 여세요.'},
-      restoreLive:{k:'팀전LIVE 이어가기',t:`${savedBracketRestore?.pCount||'?'}명 대진을 불러오고 기존 회원 링크로 중계를 재개합니다.`},
+      restoreLive:{k:'팀전 이어가기',t:`${savedBracketRestore?.pCount||'?'}명 대진을 불러오고 기존 회원 링크로 중계를 재개합니다.`},
       restoreBracket:{k:'이전 대진표 불러오기',t:`${savedBracketRestore?.pCount||'?'}명 저장 대진을 먼저 복원합니다.`},
-      resume:{k:'팀전LIVE 이어가기',t:'앱이 꺼졌던 중계를 기존 회원 링크 그대로 재개합니다.'},
+      resume:{k:'팀전 이어가기',t:'앱이 꺼졌던 중계를 기존 회원 링크 그대로 재개합니다.'},
       live:{k:'운영 중',t:remaining?'현재 라운드 승패를 입력하세요.':'결과를 확인하세요.'}
     }[stage]||{k:'다음 단계',t:''};
     const boardHtml=restoreLive?[
@@ -7634,7 +7634,7 @@ function renderAutoFlowDashboard(){
       _autoFlowPanel('대진',matchValue,matchNote,matches&&!live&&!resumeLive?'warn':'',matches?'bracket':'settings'),
       resumeLive?_autoFlowPanel('LIVE',liveValue,liveNote,'live','bracket'):''
     ].join('');
-    const stepHtml=`<div class="team-live-flow" aria-label="팀전LIVE 진행 흐름">
+    const stepHtml=`<div class="team-live-flow" aria-label="팀전 진행 흐름">
         <span class="team-live-step ${stepState('playerSetup')}">참가자</span>
         <span class="team-live-step ${stepState('link')}">링크</span>
         <span class="team-live-step ${stepState(['playerReview','generate'])}">방식</span>
@@ -8030,7 +8030,7 @@ function _legacyRsvpImportAttendees(){
 }
 async function rsvpStopLink(){
   if(!_rsvpId)return;
-  if(!confirm('팀전LIVE 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 본인 확인과 실중계 연결을 사용할 수 없습니다.'))return;
+  if(!confirm('팀전 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 본인 확인과 실중계 연결을 사용할 수 없습니다.'))return;
   await _rsvpClearActiveLinkData();
   rsvpRender();
   renderAutoFlowDashboard();
@@ -8956,7 +8956,7 @@ window.addEventListener('DOMContentLoaded', () => {
   } else {
     rsvpLoad();
     rsvpRender();
-    updateTeamModeBadge(); // 팀전LIVE 기본 상태 반영
+    updateTeamModeBadge(); // 팀전 기본 상태 반영
     updateSettingsMiniSummary();
   }
   renderTeamRosterTransferButton();

@@ -8,19 +8,19 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
-     콕매치 (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.492  (2026-07)
+     민턴라이브 (KOK Match) — 배드민턴 대진표
+     APP VERSION: 1.10.493  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.492">
+<meta name="app-version" content="1.10.493">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="콕매치">
+<meta name="apple-mobile-web-app-title" content="민턴라이브">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>🏸 콕매치 | 배드민턴 대진표</title>
+<title>🏸 민턴라이브 | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
 <link rel="stylesheet" href="css/team.css">
@@ -41,7 +41,7 @@
 
 <header>
   <div class="h-left">
-    <h1>🏸 콕매치</h1>
+    <h1>🏸 민턴라이브</h1>
     <p>배드민턴 팀 배정 + 자동 대진표 생성기</p>
   </div>
   <div class="hbs">
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.492&from=team'">팀전LIVE</button>
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.492&from=team'">민턴LIVE</button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.493&from=team'">팀전</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.493&from=team'">민턴라이브</button>
 </div>
 
 <div class="nav-bar">
@@ -84,19 +84,19 @@
 
     <!-- ── LEFT ── -->
     <div>
-      <!-- 팀전LIVE 운영 보드 -->
+      <!-- 팀전 운영 보드 -->
       <div class="card auto-flow-card" id="autoFlowCard">
         <div class="auto-flow-head">
           <div>
             <div class="auto-flow-kicker">LIVE</div>
-            <div class="auto-flow-title" id="autoFlowTitle">팀전LIVE 세팅</div>
+            <div class="auto-flow-title" id="autoFlowTitle">팀전 세팅</div>
             <div class="auto-flow-sub" id="autoFlowSub">팀전 준비</div>
           </div>
           <div class="auto-flow-actions">
             <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
-            <button class="auto-flow-resume-btn hidden" id="liveResumeTopBtn" onclick="resumeTeamLiveBroadcast()" title="앱이 꺼졌던 팀전LIVE를 같은 링크로 이어갑니다">팀전LIVE 이어가기</button>
-            <button class="auto-flow-stop-btn hidden" id="liveStopTopBtn" onclick="stopLiveBroadcast()" title="현재 팀전LIVE 중계를 종료">중계 종료</button>
-            <div class="auto-flow-quick-actions" aria-label="자주 쓰는 팀전LIVE 관리">
+            <button class="auto-flow-resume-btn hidden" id="liveResumeTopBtn" onclick="resumeTeamLiveBroadcast()" title="앱이 꺼졌던 팀전를 같은 링크로 이어갑니다">팀전 이어가기</button>
+            <button class="auto-flow-stop-btn hidden" id="liveStopTopBtn" onclick="stopLiveBroadcast()" title="현재 팀전 중계를 종료">중계 종료</button>
+            <div class="auto-flow-quick-actions" aria-label="자주 쓰는 팀전 관리">
               <button class="team-share-top" type="button" onclick="rsvpShareLink()">링크 공유</button>
               <button class="team-reset-top auto-flow-reset-btn" type="button" onclick="resetAll()" title="참가자·팀배정·대진·LIVE 전체 초기화">초기화</button>
             </div>
@@ -147,7 +147,7 @@
             <button class="mob-restore-btn hidden" id="mobRestoreBtn" onclick="restoreSavedBracketAction()">
               📂 이전 대진표 불러오기
             </button>
-            <button class="mob-live-resume-btn hidden" id="mobLiveResumeBtn" onclick="resumeTeamLiveBroadcast()">팀전LIVE 이어가기</button>
+            <button class="mob-live-resume-btn hidden" id="mobLiveResumeBtn" onclick="resumeTeamLiveBroadcast()">팀전 이어가기</button>
             <button class="mob-live-stop-btn hidden" id="mobLiveStopBtn" onclick="stopLiveBroadcast()">중계 종료</button>
           </div>
           <div id="directSection">
@@ -194,7 +194,7 @@
               </button>
               <button class="roster-transfer-btn" id="teamImportDailyRosterBtn" type="button"
                 onclick="teamImportDailyRoster()" disabled>
-                민턴LIVE 선수 없음
+                민턴라이브 선수 없음
               </button>
             </div>
 
@@ -386,7 +386,7 @@
 
       <!-- 실시간 중계 버튼 (팀전/개인전 모두 표시) -->
       <div class="team-live-action-row" id="teamLiveActionRow" style="text-align:right;margin-bottom:8px;">
-        <button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">팀전LIVE 시작</button>
+        <button class="live-btn" id="liveBtn" onclick="onLiveBtnClick()">팀전 시작</button>
       </div>
       <div class="live-ops-summary hidden" id="liveOpsSummary"></div>
 
@@ -613,7 +613,7 @@
     <div class="modal-body">
       <button class="roster-transfer-btn" id="teamImportDailyRosterModalBtn" type="button"
         onclick="teamImportDailyRoster()" disabled style="margin-top:0;margin-bottom:11px;">
-        민턴LIVE 선수 없음
+        민턴라이브 선수 없음
       </button>
       <div id="importClubTabs"></div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;">
@@ -636,10 +636,10 @@
 <div class="manual-wrap">
   <button class="manual-back-btn" onclick="switchNav('main');window.scrollTo({top:0});">← 대진표로 돌아가기</button>
   <div class="manual-section">
-    <h2>📌 팀전LIVE 한눈에 보기</h2>
+    <h2>📌 팀전 한눈에 보기</h2>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">청팀·홍팀 월례전을 기본으로 하되, 인원이 적거나 팀 구성이 맞지 않으면 자유 대진으로 전환합니다. 시스템 관리자는 세팅과 예외 처리를, 클럽 임원과 자유대진 운영 도우미는 현장 진행을 맡습니다.</p>
     <div class="feat-grid">
-      <div class="feat-card"><h4>1. 명단 재사용</h4><p>민턴LIVE에서 준비한 선수 명단도 바로 가져올 수 있습니다.</p></div>
+      <div class="feat-card"><h4>1. 명단 재사용</h4><p>민턴라이브에서 준비한 선수 명단도 바로 가져올 수 있습니다.</p></div>
       <div class="feat-card"><h4>2. 방식 선택</h4><p>청·홍 팀전과 자유대진 중 현장에 맞는 방식을 고릅니다.</p></div>
       <div class="feat-card"><h4>3. 임원 운영</h4><p>운영 현황과 현재 라운드를 보며 승패와 예외를 처리합니다.</p></div>
       <div class="feat-card"><h4>4. 같은 링크</h4><p>본인 확인부터 실중계, 재실행 후 이어가기까지 한 링크로 연결됩니다.</p></div>
@@ -648,7 +648,7 @@
   <div class="manual-section">
     <h2>🚀 세팅과 현장 운영</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>선수 확정</strong> — 사전 명단을 직접 고르거나 민턴LIVE 선수 명단을 가져옵니다. 회원 응답 없이 관리자가 명단을 확정합니다.</p></div>
+      <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>선수 확정</strong> — 사전 명단을 직접 고르거나 민턴라이브 선수 명단을 가져옵니다. 회원 응답 없이 관리자가 명단을 확정합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>방식 선택</strong> — 청·홍 팀전은 좌우 명단과 팀 균형을 확인하고, 자유대진은 팀 배정 없이 바로 편성합니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>대진 생성</strong> — 게임 수와 종목을 맞춘 뒤 품질점수와 보정경기를 확인합니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>LIVE 시작</strong> — 명부의 클럽 임원 참가자는 본인 확인 즉시 운영 권한이 열립니다. 자유대진 도우미는 LIVE 시작 후 지정합니다.</p></div>
@@ -676,7 +676,7 @@
   </div>
   <div class="manual-section">
     <h2>🟧 보정경기</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">팀전에서 양 팀 성비가 서로 반대로 남으면 남복·여복·혼복만으로는 전원의 목표 게임 수를 정확히 맞추기 어려울 수 있습니다. 이때 콕매치는 <strong style="color:var(--txt)">보정경기</strong>를 만들어 일부 조합을 예외적으로 허용합니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">팀전에서 양 팀 성비가 서로 반대로 남으면 남복·여복·혼복만으로는 전원의 목표 게임 수를 정확히 맞추기 어려울 수 있습니다. 이때 민턴라이브는 <strong style="color:var(--txt)">보정경기</strong>를 만들어 일부 조합을 예외적으로 허용합니다.</p>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">왜</span><p class="step-text">특정 선수만 목표 게임 수에서 벗어나는 일을 줄이기 위한 안전장치입니다.</p></div>
       <div class="step-item"><span class="step-num ico">확인</span><p class="step-text">품질 점검의 실전 특이사항에서 보정경기 수를 확인합니다.</p></div>
@@ -698,9 +698,9 @@
       <div class="step-item"><span class="step-num ico">현황</span><p class="step-text">임원과 자유대진 운영 도우미는 등록·현장·경기중·대기·늦음·뒷풀이 명단을 함께 봅니다.</p></div>
       <div class="step-item"><span class="step-num ico">승패</span><p class="step-text">현재 경기 선수는 자기 결과를 입력합니다. 클럽 임원은 현재 라운드 전체를 입력하며, 청·홍 단장·부단장과 자유대진 운영 도우미도 같은 권한을 가집니다.</p></div>
       <div class="step-item"><span class="step-num ico">즉시</span><p class="step-text">관리자 앱이 꺼져 있어도 승패는 즉시 반영됩니다. 반대 결과가 동시에 들어오면 첫 결과를 유지하고 승패 확인 건으로 남깁니다.</p></div>
-      <div class="step-item"><span class="step-num ico">재개</span><p class="step-text">앱이 꺼졌다면 팀전LIVE 이어가기로 같은 대진과 회원 링크를 그대로 재개합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">재개</span><p class="step-text">앱이 꺼졌다면 팀전 이어가기로 같은 대진과 회원 링크를 그대로 재개합니다.</p></div>
       <div class="step-item"><span class="step-num ico">명단</span><p class="step-text">운영 현황의 숫자를 누르면 운영진과 뒷풀이 신청 인원·이름을 확인할 수 있습니다.</p></div>
-      <div class="step-item"><span class="step-num ico">48h</span><p class="step-text">기존 팀전LIVE는 시작 후 48시간까지만 이어갈 수 있습니다. 지난 데이터는 다음 LIVE 시작 때 정리됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">48h</span><p class="step-text">기존 팀전는 시작 후 48시간까지만 이어갈 수 있습니다. 지난 데이터는 다음 LIVE 시작 때 정리됩니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -717,7 +717,7 @@
       <div class="step-item"><span class="step-num">•</span><p class="step-text">가대진을 비교할 때는 상황판 또는 대진 생성 버튼 아래의 <strong>가대진 저장</strong>을 누르세요. 날짜와 시간이 포함된 이름이 자동으로 제안됩니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text"><strong>저장 목록</strong>에는 최대 10개를 보관할 수 있으며 선수 수, 게임 수, 저장 시각을 보고 원하는 안을 불러올 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">같은 기기·같은 브라우저에서는 앱을 다시 열어도 이어서 볼 수 있습니다.</p></div>
-      <div class="step-item"><span class="step-num">•</span><p class="step-text">LIVE 진행 중 앱이 꺼졌다면 첫 화면의 <strong>팀전LIVE 이어가기</strong>를 누릅니다. 기존 회원 링크도 그대로 유지됩니다.</p></div>
+      <div class="step-item"><span class="step-num">•</span><p class="step-text">LIVE 진행 중 앱이 꺼졌다면 첫 화면의 <strong>팀전 이어가기</strong>를 누릅니다. 기존 회원 링크도 그대로 유지됩니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">전체 초기화는 팀전 링크, 늦음, 참가자, 팀 배정, 대진표, 승패를 지웁니다. 클럽 명부는 남습니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">중요한 대회 전에는 JSON 백업을 함께 남기면 더 안전합니다.</p></div>
     </div>
@@ -808,13 +808,13 @@
 
 <!-- ═══ 제작자 정보 푸터 ═══ -->
 <footer class="app-footer">
-  <span>🏸 <b>콕매치</b> · 기획·제작 김민현</span>
+  <span>🏸 <b>민턴라이브</b> · 기획·제작 김민현</span>
   <span class="footer-dot">·</span>
   <a href="mailto:mhkim@ms99.kr">mhkim@ms99.kr</a>
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.492</span>
+  <span class="app-version" id="appVersion">v1.10.493</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

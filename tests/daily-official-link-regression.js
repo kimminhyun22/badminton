@@ -62,17 +62,17 @@ assert(selectSource.includes('if(isLiveOperatorPlayer(p))claimOfficialInvite(p)'
 assert(bootSource.includes('selectedOfficialPlayer()')&&bootSource.includes('claimOfficialInvite(official)'),'앱을 다시 열어도 저장된 임원 본인 이름으로 권한을 자동 복원해야 합니다.');
 
 const commonShareSource=functionSource(daily,'dailyShareCheckinLink','dailyShareOfficialLink');
-assert(commonShareSource.includes("const text='🏸 민턴LIVE\\n내 이름을 눌러 오늘 경기를 확인하세요.'"),'카카오톡 공유 문구는 바로 읽히는 한 문장으로 유지해야 합니다.');
+assert(commonShareSource.includes("const text='🏸 민턴라이브\\n내 이름을 눌러 오늘 경기를 확인하세요.'"),'카카오톡 공유 문구는 바로 읽히는 한 문장으로 유지해야 합니다.');
 assert(!commonShareSource.includes('쉴 때는 휴식')&&!commonShareSource.includes('클럽 임원은'),'공유 문구에 사용 설명을 길게 넣으면 안 됩니다.');
-assert(commonShareSource.includes("navigator.share({title:'민턴LIVE',text,url})"),'공용 링크를 Web Share URL 필드에도 전달해야 합니다.');
+assert(commonShareSource.includes("navigator.share({title:'민턴라이브',text,url})"),'공용 링크를 Web Share URL 필드에도 전달해야 합니다.');
 assert(commonShareSource.includes('const clipboardText=`${text}\\n\\n${url}`'),'공유 시 URL 필드와 본문이 중복되지 않고 클립보드 대체 경로에만 주소를 붙여야 합니다.');
 assert(index.includes('회원·임원 공용 링크 공유'),'관리자 화면에는 공용 링크 공유 동작이 분명히 보여야 합니다.');
-assert(index.includes('daily-dashboard-quick-actions')&&index.includes('onclick="dailyShareCheckinLink()">링크 공유</button>'),'자주 쓰는 링크 공유는 민턴LIVE 상황판 상단에 있어야 합니다.');
-assert(index.includes('onclick="dailyReset()">초기화</button>'),'자주 쓰는 초기화는 민턴LIVE 상황판 상단에 있어야 합니다.');
+assert(index.includes('daily-dashboard-quick-actions')&&index.includes('onclick="dailyShareCheckinLink()">링크 공유</button>'),'자주 쓰는 링크 공유는 민턴라이브 상황판 상단에 있어야 합니다.');
+assert(index.includes('onclick="dailyReset()">초기화</button>'),'자주 쓰는 초기화는 민턴라이브 상황판 상단에 있어야 합니다.');
 assert(!index.includes('onclick="dailyShareOfficialLink()"'),'관리자 화면에 별도 임원 링크 버튼을 남기면 안 됩니다.');
 
 const shareSource=functionSource(daily,'dailyShareOfficialLink','dailyResumeCheckin');
-assert(shareSource.includes("navigator.share({title:'콕매치 민턴LIVE 임원 운영',text,url})"),'Web Share에서 URL을 별도 필드로 전달해야 합니다.');
+assert(shareSource.includes("navigator.share({title:'민턴라이브 민턴라이브 임원 운영',text,url})"),'Web Share에서 URL을 별도 필드로 전달해야 합니다.');
 assert(shareSource.includes('await _dailyEnsureAdminGrant(true)'),'공유 직전에 서버 권한 교환이 실제로 작동하는지 확인해야 합니다.');
 
 const pushSource=functionSource(checkin,'pushOfficialRequest','sendOfficialPartnerReservation');

@@ -12,7 +12,7 @@ const development = fs.readFileSync(path.join(root, 'DEVELOPMENT_SUMMARY.md'), '
 const overviewStart = liveSrc.indexOf('function _teamOfficialOverviewData');
 const overviewEnd = liveSrc.indexOf('function _viewerNextHtml', overviewStart);
 assert(overviewStart >= 0 && overviewEnd > overviewStart,
-  '팀전LIVE 임원 운영 현황 함수 묶음을 찾을 수 있어야 합니다.');
+  '팀전 임원 운영 현황 함수 묶음을 찾을 수 있어야 합니다.');
 const overviewSource = liveSrc.slice(overviewStart, overviewEnd);
 
 assert(overviewSource.includes("viewer.isClubOfficial||(!_usesFixedTeams(d)&&viewer.isTemporaryOperator)"),

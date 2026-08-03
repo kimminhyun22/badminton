@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.492';
+const APP_VERSION = '1.10.493';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -35,16 +35,16 @@ let currentSettings={};
 let _operationPreset='daily';
 const OPERATION_PRESETS={
   monthlyTeam:{
-    label:'민턴LIVE',
-    hint:'민턴LIVE 중심 운영입니다. 클럽 명부와 상태 변경을 기준으로 대기표를 자동 보충합니다.'
+    label:'민턴라이브',
+    hint:'민턴라이브 중심 운영입니다. 클럽 명부와 상태 변경을 기준으로 대기표를 자동 보충합니다.'
   },
   monthlyPersonal:{
-    label:'민턴LIVE',
-    hint:'개인전 운영은 민턴LIVE 흐름에서 처리합니다. 클럽 명부와 상태 변경을 중심으로 대기표를 보충하세요.'
+    label:'민턴라이브',
+    hint:'개인전 운영은 민턴라이브 흐름에서 처리합니다. 클럽 명부와 상태 변경을 중심으로 대기표를 보충하세요.'
   },
   daily:{
-    label:'민턴LIVE',
-    hint:'민턴LIVE 모드입니다. 클럽 임원이 현장 참가자를 등록하고 대진을 게시한 뒤 휴식 상태를 반영해 운영합니다.'
+    label:'민턴라이브',
+    hint:'민턴라이브 모드입니다. 클럽 임원이 현장 참가자를 등록하고 대진을 게시한 뒤 휴식 상태를 반영해 운영합니다.'
   }
 };
 function setOperationPreset(mode,hintOverride){
@@ -235,7 +235,7 @@ function openManual(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-/* ═══ DAILY MODE: 민턴LIVE 실시간 추천 ═══ */
+/* ═══ DAILY MODE: 민턴라이브 실시간 추천 ═══ */
 const DAILY_KEY='kokmatch_daily_v1';
 const DAILY_CHECKIN_KEY='kokmatch_daily_checkin_id';
 const DAILY_CHECKIN_CREATED_KEY='kokmatch_daily_checkin_created_at';
@@ -673,7 +673,7 @@ function dailyToggleTeamMode(on){
   dailyRender();
 }
 function dailyAssignTeams(){
-  alert('민턴LIVE에서는 간단 팀 나눔을 제거했습니다. 지금은 상태 관리, 대기표, 코트 진행에 집중합니다.');
+  alert('민턴라이브에서는 간단 팀 나눔을 제거했습니다. 지금은 상태 관리, 대기표, 코트 진행에 집중합니다.');
 }
 function dailyToggleTeamLock(){
   _dailyClearSimpleTeamState();
@@ -2152,7 +2152,7 @@ function _dailyApplyPreparationDraft(draft,options){
 }
 function dailyRestorePreparationDraft(id){
   if(_dailyCheckinId||_dailyOperationStarted||_dailyMatches.length){
-    alert('진행 중인 민턴LIVE에서는 준비 명단을 덮어쓸 수 없습니다.');
+    alert('진행 중인 민턴라이브에서는 준비 명단을 덮어쓸 수 없습니다.');
     return false;
   }
   const draft=_dailyReadPreparationDrafts().find(row=>row.id===id);
@@ -2611,22 +2611,22 @@ function renderDailyRosterTransferButton(){
   if(!btn)return;
   const count=_dailyTeamRosterSnapshot().players.length;
   btn.disabled=!count;
-  btn.textContent=count?`팀전LIVE 선수 ${count}명 가져오기`:'팀전LIVE 선수 없음';
+  btn.textContent=count?`팀전 선수 ${count}명 가져오기`:'팀전 선수 없음';
 }
 function dailyImportTeamRoster(){
-  if(_dailyBlockServerSync({action:'팀전LIVE 선수 명단 가져오기'}))return;
+  if(_dailyBlockServerSync({action:'팀전 선수 명단 가져오기'}))return;
   if(_dailyCheckinId||_dailyOperationStarted||_dailyMatches.length){
-    alert('민턴LIVE 운영 또는 회원 링크가 시작된 뒤에는 선수 명단을 바꿀 수 없습니다.\n필요하면 현재 운영을 종료하고 초기화한 뒤 가져와 주세요.');
+    alert('민턴라이브 운영 또는 회원 링크가 시작된 뒤에는 선수 명단을 바꿀 수 없습니다.\n필요하면 현재 운영을 종료하고 초기화한 뒤 가져와 주세요.');
     return;
   }
   const snapshot=_dailyTeamRosterSnapshot();
   const source=snapshot.players||[];
   if(!source.length){
-    alert('가져올 팀전LIVE 선수 명단이 없습니다.');
+    alert('가져올 팀전 선수 명단이 없습니다.');
     renderDailyRosterTransferButton();
     return;
   }
-  if(_dailyPlayers.length&&!confirm(`현재 민턴LIVE 선수 ${_dailyPlayers.length}명을 지우고\n팀전LIVE 선수 ${source.length}명을 가져올까요?`))return;
+  if(_dailyPlayers.length&&!confirm(`현재 민턴라이브 선수 ${_dailyPlayers.length}명을 지우고\n팀전 선수 ${source.length}명을 가져올까요?`))return;
   const now=_dailyNow();
   _dailyPlayers=source.map(raw=>_dailyNormalize({
     memberId:raw.memberId||_rsvpMemberId({name:raw.name||'',club:raw.club||''}),
@@ -2665,7 +2665,7 @@ function dailyImportTeamRoster(){
   dailyRender();
   const setup=document.getElementById('dailySetupDetails');
   if(setup)setup.open=true;
-  alert(`팀전LIVE 선수 ${_dailyPlayers.length}명을 민턴LIVE 명단으로 가져왔습니다.`);
+  alert(`팀전 선수 ${_dailyPlayers.length}명을 민턴라이브 명단으로 가져왔습니다.`);
 }
 function dailyAddPlayer(){
   if(_dailyBlockServerSync({action:'선수 추가'}))return;
@@ -2674,7 +2674,7 @@ function dailyAddPlayer(){
   const name=(nameEl?.value||'').trim();
   if(!name){nameEl?.focus();return;}
   if(_dailyPlayers.some(p=>p.name===name)){
-    alert('민턴LIVE 명단에 이미 있는 선수입니다.');
+    alert('민턴라이브 명단에 이미 있는 선수입니다.');
     nameEl.select();return;
   }
   const grade=document.getElementById('dailyGrade')?.value||'C';
@@ -2695,7 +2695,7 @@ function dailyImportDirect(){
   if(_dailyBlockServerSync({action:'참가자 불러오기'}))return;
   if(!_dailyCanChangeRoster())return;
   if(!_directPlayers.length){
-    alert('기존 대진표 참가자 입력에 선수를 먼저 추가하거나, 민턴LIVE에서 직접 추가하세요.');
+    alert('기존 대진표 참가자 입력에 선수를 먼저 추가하거나, 민턴라이브에서 직접 추가하세요.');
     return;
   }
   let added=0;
@@ -3159,7 +3159,7 @@ function dailyRenamePlayer(id){
   const next=name.trim();
   if(!next)return;
   if(_dailyPlayers.some(x=>x.id!==id&&x.name===next)){
-    alert('민턴LIVE 명단에 이미 있는 선수입니다.');
+    alert('민턴라이브 명단에 이미 있는 선수입니다.');
     return;
   }
   const prev=p.name;
@@ -3240,8 +3240,8 @@ function dailyRemovePlayer(id){
   const queued=_dailyIsQueued(id);
   const locked=_dailyIsLockedQueued(id);
   const msg=queued
-    ? `${p.name} 선수를 민턴LIVE 명단에서 제외할까요?\n\n현재 다음 대진/대기표에 포함되어 있어 해당 대기표에서도 빠지고 가능한 경우 자동으로 보충됩니다.`
-    : `${p.name} 선수를 민턴LIVE 명단에서 제외할까요?`;
+    ? `${p.name} 선수를 민턴라이브 명단에서 제외할까요?\n\n현재 다음 대진/대기표에 포함되어 있어 해당 대기표에서도 빠지고 가능한 경우 자동으로 보충됩니다.`
+    : `${p.name} 선수를 민턴라이브 명단에서 제외할까요?`;
   if(!confirm(msg))return;
   const partner=_dailyPlayers.find(x=>(p.partnerId&&x.partnerId===p.partnerId)||x.name===p.partnerName);
   if(partner&&partner.id!==p.id){
@@ -3257,8 +3257,8 @@ function dailyRemovePlayer(id){
   dailySave();dailyRender();
 }
 function dailyReset(){
-  if(!_dailyConfirmDetachLiveBeforeChange('민턴LIVE 데이터 초기화'))return;
-  if(!confirm('민턴LIVE 기록을 모두 초기화할까요?\n기존 대진표와 명부는 지워지지 않습니다.'))return;
+  if(!_dailyConfirmDetachLiveBeforeChange('민턴라이브 데이터 초기화'))return;
+  if(!confirm('민턴라이브 기록을 모두 초기화할까요?\n기존 대진표와 명부는 지워지지 않습니다.'))return;
   if(typeof _dailyStopOperatorHeartbeat==='function')_dailyStopOperatorHeartbeat();
   _dailyStopCheckinListener();
   _dailyPlayers=[];_dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
@@ -5606,7 +5606,7 @@ function dailyRenderTemporaryOfficials(){
     <button type="button" ${disabled} onclick="dailySetTemporaryOfficial('${esc(player.id)}',false)" aria-label="${esc(player.name)} 운영 도우미 해제">해제</button>
   </span>`).join('');
   el.innerHTML=`<div class="daily-temporary-official-head">
-    <div><b>운영 도우미</b><small>오늘 민턴LIVE에서만 경기 처리</small></div>
+    <div><b>운영 도우미</b><small>오늘 민턴라이브에서만 경기 처리</small></div>
     <span>${helpers.length}/4명</span>
   </div>
   ${rows?`<div class="daily-temporary-official-list">${rows}</div>`:''}
@@ -5637,12 +5637,12 @@ async function dailySetTemporaryOfficial(playerId,enabled){
   const player=_dailyPlayer(playerId);
   if(!player){alert('선택한 회원을 찾지 못했습니다.');return false;}
   const action=enabled?'운영 도우미로 지정':'운영 도우미 권한을 해제';
-  if(!confirm(`${player.name}님을 ${action}할까요?\n\n${enabled?'오늘 민턴LIVE의 경기 종료·회원 상태·대진 처리를 도울 수 있습니다.':'운영 버튼이 즉시 사라집니다.'}`))return false;
+  if(!confirm(`${player.name}님을 ${action}할까요?\n\n${enabled?'오늘 민턴라이브의 경기 종료·회원 상태·대진 처리를 도울 수 있습니다.':'운영 버튼이 즉시 사라집니다.'}`))return false;
   _dailyTemporaryOfficialBusy=true;
   dailyRenderTemporaryOfficials();
   try{
     if(!_dailyCheckinId&&!await dailyPublishCheckinSession(true)){
-      throw new Error('민턴LIVE 회원 링크를 먼저 열어 주세요.');
+      throw new Error('민턴라이브 회원 링크를 먼저 열어 주세요.');
     }
     if(!await _dailyEnsureAdminGrant()){
       throw new Error('관리자 운영 연결을 확인하지 못했습니다.');
@@ -6311,7 +6311,7 @@ function _dailyExpireCheckinLink(silent){
   _dailyServerReconcileError='';
   if(_dailyClearTemporaryOfficials())dailySave({preserveServerQueue:true});
   _dailyPersistCheckinIdentity();
-  if(!silent)alert('민턴LIVE 링크가 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 만들어 공유해 주세요.');
+  if(!silent)alert('민턴라이브 링크가 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 만들어 공유해 주세요.');
   return true;
 }
 function _dailyCheckinUrl(){
@@ -6447,7 +6447,7 @@ function _dailyOfficialArrivalCandidates(){
 function _dailyCheckinPayload(){
   const serverPlayerHistory=_dailyServerPlayerHistory();
   return {
-    title:'콕매치 민턴LIVE 내 경기',
+    title:'민턴라이브 민턴라이브 내 경기',
     serverSessionId:_dailyCheckinId||'',
     updatedAt:_dailyNow(),
     createdAt:_dailyCheckinCreatedAt||_dailyNow(),
@@ -6697,10 +6697,10 @@ function _dailyWriteCheckinPayload(path){
     const pauseAhead=remotePauseRevision>_dailyPauseRevision;
     if(pauseAhead){
       _dailyAdoptRemotePauseEvent(remote.event||{});
-      console.info('민턴LIVE 일시정지 상태가 더 최신이라 해당 상태를 유지했습니다.');
+      console.info('민턴라이브 일시정지 상태가 더 최신이라 해당 상태를 유지했습니다.');
     }
     if(serverAhead||sameRevisionMismatch){
-      console.info(serverAhead?'민턴LIVE 서버 상태를 합친 뒤 회원 화면을 다시 게시합니다.':'민턴LIVE 같은 리비전의 운영 기록을 확인한 뒤 다시 게시합니다.');
+      console.info(serverAhead?'민턴라이브 서버 상태를 합친 뒤 회원 화면을 다시 게시합니다.':'민턴라이브 같은 리비전의 운영 기록을 확인한 뒤 다시 게시합니다.');
       if(!_dailyScheduleServerReconcile())_dailyScheduleCheckinPublishRetry(0);
     }else if(pauseAhead){
       _dailyScheduleCheckinPublishRetry(0);
@@ -6737,7 +6737,7 @@ async function _dailyPushCheckinSessionOnce(){
     _dailyServerReconcileError='회원 화면 게시 연결을 확인하지 못했습니다.';
     _dailyScheduleCheckinPublishRetry();
     dailyRenderCheckinRequests();
-    console.warn('민턴LIVE 회원 화면 게시 재시도',error);
+    console.warn('민턴라이브 회원 화면 게시 재시도',error);
     return false;
   }
 }
@@ -6772,11 +6772,11 @@ function dailyPushCheckinSession(){
 }
 async function dailyPublishCheckinSession(silent){
   if(!_dailyPlayers.length){
-    if(!silent)alert('먼저 민턴LIVE 명단을 추가하거나 명부를 가져오세요.');
+    if(!silent)alert('먼저 민턴라이브 명단을 추가하거나 명부를 가져오세요.');
     return null;
   }
   if(!_fbInit()){
-    if(!silent)alert('민턴LIVE 공용 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
+    if(!silent)alert('민턴라이브 공용 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
     return null;
   }
   const sharedCheckinId=localStorage.getItem(DAILY_CHECKIN_KEY)||null;
@@ -6863,7 +6863,7 @@ async function dailyPublishCheckinSession(silent){
       if(!_dailyIdentityCurrent(publishIdentity))continue;
       _dailyServerReconcileError='회원 화면 게시 연결을 확인하지 못했습니다.';
       dailyRenderCheckinRequests();
-      console.warn('민턴LIVE 회원 링크 게시 실패',error);
+      console.warn('민턴라이브 회원 링크 게시 실패',error);
       if(!silent)alert('회원 화면을 서버에 저장하지 못했습니다. 네트워크를 확인한 뒤 다시 눌러 주세요.');
       return null;
     }
@@ -6905,11 +6905,11 @@ async function dailyShareCheckinLink(){
   const id=await dailyPublishCheckinSession(false);
   if(!id)return;
   const url=_dailyCheckinUrl();
-  const text='🏸 민턴LIVE\n내 이름을 눌러 오늘 경기를 확인하세요.';
+  const text='🏸 민턴라이브\n내 이름을 눌러 오늘 경기를 확인하세요.';
   const clipboardText=`${text}\n\n${url}`;
   try{
     if(navigator.share){
-      await navigator.share({title:'민턴LIVE',text,url});
+      await navigator.share({title:'민턴라이브',text,url});
       return;
     }
   }catch(e){
@@ -6919,7 +6919,7 @@ async function dailyShareCheckinLink(){
     await navigator.clipboard.writeText(clipboardText);
     alert('회원·임원 공용 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url);
   }catch(e){
-    console.warn('민턴LIVE 공유 문구 복사 실패', e);
+    console.warn('민턴라이브 공유 문구 복사 실패', e);
   }
 }
 async function dailyShareOfficialLink(){
@@ -6935,9 +6935,9 @@ async function dailyShareOfficialLink(){
     return;
   }
   const url=_dailyOfficialCheckinUrl();
-  const text=`🏸 민턴LIVE 임원 운영\n링크를 열고 내 이름을 선택하세요.\n\n`+url;
+  const text=`🏸 민턴라이브 임원 운영\n링크를 열고 내 이름을 선택하세요.\n\n`+url;
   try{
-    if(navigator.share){await navigator.share({title:'콕매치 민턴LIVE 임원 운영',text,url});return;}
+    if(navigator.share){await navigator.share({title:'민턴라이브 민턴라이브 임원 운영',text,url});return;}
   }catch(e){}
   try{
     await navigator.clipboard.writeText(text);
@@ -7021,7 +7021,7 @@ async function dailyResumeCheckin(){
       return false;
     }
     const staleId=_dailyDetachStaleCheckinIdentity();
-    console.info('민턴LIVE 이전 회원 링크를 분리했습니다.',staleId||'');
+    console.info('민턴라이브 이전 회원 링크를 분리했습니다.',staleId||'');
     dailyRenderCheckinRequests();
     return false;
   }
@@ -7150,7 +7150,7 @@ function _dailyStopCheckinListener(){
   _dailyObservedServerLastRequestId='';
 }
 function _dailyCheckinBlockReason(req,p){
-  if(!p)return '민턴LIVE 명단에 없는 선수';
+  if(!p)return '민턴라이브 명단에 없는 선수';
   if(_dailyPaused)return '진행 일시 정지 중 · 재개 후 다시 처리';
   if(!_dailyCheckinAllowedStatus(req.status))return '알 수 없는 상태 요청';
   if(p.status==='playing'||p.currentMatchId)return '경기중이라 경기 완료/취소 후 반영 가능';
@@ -8191,7 +8191,7 @@ function dailyIgnoreCheckinRequest(key){
 }
 async function dailyStopCheckinLink(){
   if(!_dailyCheckinId)return;
-  if(!confirm('민턴LIVE 회원 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 명단을 볼 수 없습니다.'))return;
+  if(!confirm('민턴라이브 회원 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 명단을 볼 수 없습니다.'))return;
   const path=_dailyCheckinPath();
   if(typeof _dailyStopOperatorHeartbeat==='function')_dailyStopOperatorHeartbeat();
   _dailyStopCheckinListener();
@@ -8233,7 +8233,7 @@ function _dailyAfterPartyRosterText(){
   const names=rows.map(_dailyNameText);
   const lines=[];
   for(let i=0;i<names.length;i+=4)lines.push(names.slice(i,i+4).join(' · '));
-  return `민턴LIVE 뒷풀이 신청자 · ${names.length}명\n${lines.join('\n')}`;
+  return `민턴라이브 뒷풀이 신청자 · ${names.length}명\n${lines.join('\n')}`;
 }
 async function dailyCopyAfterPartyRoster(){
   const text=_dailyAfterPartyRosterText();
@@ -8344,7 +8344,7 @@ function dailyRender(){
   if(list){
     _dailyUpdatePlayerSortButtons();
     _dailyUpdatePlayerToolState();
-    if(!_dailyPlayers.length)list.innerHTML='<div class="daily-empty">민턴LIVE 명단이 비어 있습니다. 클럽 명부를 가져오거나 선수를 직접 추가하세요.</div>';
+    if(!_dailyPlayers.length)list.innerHTML='<div class="daily-empty">민턴라이브 명단이 비어 있습니다. 클럽 명부를 가져오거나 선수를 직접 추가하세요.</div>';
     else{
       const filtered=_dailyFilterPlayersForManage(_dailyPlayers);
       const sorted=_dailySortPlayersForManage(filtered);
@@ -8380,7 +8380,7 @@ let _rsvpSyncTimer=null;
 
 function _rsvpDefaultTitle(){
   const d=new Date();
-  return `${d.getMonth()+1}월 민턴LIVE`;
+  return `${d.getMonth()+1}월 민턴라이브`;
 }
 function _rsvpTitle(){
   const el=document.getElementById('rsvpTitle');
@@ -9210,8 +9210,8 @@ function parseParticipants(raw){
 
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
-  alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.492&from=daily';
+  alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴라이브는 개인 자동운영만 사용합니다.');
+  location.href='team.html?v=1.10.493&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -9452,7 +9452,7 @@ function updateTeamModeBadge(){
   teamAssignment=null;
   if(b){
     b.className='tmb hidden';
-    b.textContent='팀 모드는 팀전LIVE 메뉴에서 사용합니다';
+    b.textContent='팀 모드는 팀전 메뉴에서 사용합니다';
   }
   if(assignBtn) assignBtn.classList.add('hidden');
   if(wrap) wrap.classList.remove('show');
@@ -11234,15 +11234,15 @@ function _dailyConfirmDetachLiveBeforeChange(actionLabel){
   const liveId=_liveId||_dailyStoredLiveId();
   if(!liveId)return true;
   if(_liveOn){
-    alert(`민턴LIVE 중계 중입니다.\n\n${actionLabel} 전에 먼저 실시간 중계를 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
+    alert(`민턴라이브 중계 중입니다.\n\n${actionLabel} 전에 먼저 실시간 중계를 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
     return false;
   }
-  if(!confirm(`진행 중이던 민턴LIVE 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
+  if(!confirm(`진행 중이던 민턴라이브 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
   _dailyResetLocalLiveState(liveId);
   return true;
 }
 function _dailyLiveMismatchMessage(){
-  return '현재 대진과 기존 민턴LIVE 링크의 대진이 다릅니다.\n\n기존 회원 링크에 다른 경기가 섞이지 않도록 송출을 막았습니다.\n기존 중계를 종료하거나, 이 대진은 새 링크로 다시 시작해 주세요.';
+  return '현재 대진과 기존 민턴라이브 링크의 대진이 다릅니다.\n\n기존 회원 링크에 다른 경기가 섞이지 않도록 송출을 막았습니다.\n기존 중계를 종료하거나, 이 대진은 새 링크로 다시 시작해 주세요.';
 }
 function _dailyIsTeamLiveData(data){
   if(!data||!Object.keys(data).length)return false;
@@ -11257,7 +11257,7 @@ function _dailyIsTeamLiveData(data){
 function _dailyValidateLiveDataForCurrent(data){
   if(!data||!Object.keys(data).length)return true;
   if(_dailyIsTeamLiveData(data)){
-    alert('저장된 LIVE ID가 팀전LIVE 링크입니다.\n민턴LIVE와 섞이지 않도록 연결을 끊었습니다.');
+    alert('저장된 LIVE ID가 팀전 링크입니다.\n민턴라이브와 섞이지 않도록 연결을 끊었습니다.');
     _dailyResetLocalLiveState(_liveId);
     return false;
   }
@@ -11314,7 +11314,7 @@ function _buildLiveState(){
   return {
     kind:'dailyLive',
     appMode:'dailyLive',
-    title: (isTeam? (bn2+' vs '+wn2):'콕매치 대진표'),
+    title: (isTeam? (bn2+' vs '+wn2):'민턴라이브 대진표'),
     bracketKey:_dailyLiveSignature(),
     members: {blue:membersBlue, red:membersRed},
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
@@ -11486,12 +11486,12 @@ async function shareTeamStatus(){
   if(bW>wW) lead=`\n🔵 ${bn} ${bW-wW}점 차로 앞서는 중!`;
   else if(wW>bW) lead=`\n⚪ ${wn} ${wW-bW}점 차로 앞서는 중!`;
   else lead='\n⚖️ 동점! 접전 중';
-  const text=`🏸 콕매치 팀전 현황\n\n🔵 ${bn}  ${bW}승\n⚪ ${wn}  ${wW}승`
+  const text=`🏸 민턴라이브 팀전 현황\n\n🔵 ${bn}  ${bW}승\n⚪ ${wn}  ${wW}승`
     + (totalR? `\n\n📊 ${totalR}라운드 중 ${doneR}라운드 완료`:'')
     + lead;
   try{
     if(navigator.share){
-      await navigator.share({text, title:'콕매치 팀전 현황'});
+      await navigator.share({text, title:'민턴라이브 팀전 현황'});
     } else if(navigator.clipboard){
       await navigator.clipboard.writeText(text);
       alert('현황을 복사했어요. 단톡방에 붙여넣기 하세요!');
@@ -12768,14 +12768,14 @@ function checkSavedState(){
     const hasLive=!!localStorage.getItem(DAILY_LIVE_STORAGE_KEY);
     const restoreBtn=document.getElementById('restoreBtn');
     restoreBtn.textContent=hasLive
-      ? `🔴 진행 중 민턴LIVE 복구 (${pCount}명 · ${ageStr})`
+      ? `🔴 진행 중 민턴라이브 복구 (${pCount}명 · ${ageStr})`
       : `📂 이전 대진표 불러오기 (${pCount}명 · ${ageStr} 저장)`;
     restoreBtn.classList.toggle('live-restore',hasLive);
     restoreBtn.classList.remove('hidden');
     // 모바일 버튼도 표시
     const mb=document.getElementById('mobRestoreBtn');
     if(mb){
-      mb.textContent=hasLive?`🔴 민턴LIVE 복구 (${pCount}명)`:`📂 불러오기 (${pCount}명 · ${ageStr})`;
+      mb.textContent=hasLive?`🔴 민턴라이브 복구 (${pCount}명)`:`📂 불러오기 (${pCount}명 · ${ageStr})`;
       mb.classList.toggle('live-restore',hasLive);
       mb.classList.remove('hidden');
     }
@@ -12791,7 +12791,7 @@ function restoreState(){
     if(!raw){alert('저장된 데이터가 없습니다.');return;}
     const state=migrateStateIfNeeded(JSON.parse(raw));
     if(_dailyIsTeamBracketState(state)){
-      alert('팀전LIVE 저장본입니다. 팀전LIVE에서 복구하세요.');
+      alert('팀전 저장본입니다. 팀전에서 복구하세요.');
       return;
     }
     // 마이그레이션 결과를 즉시 다시 저장 (다음 실행 시 중복 적용 방지)
@@ -13986,16 +13986,16 @@ function addDirectPlayer(){
 
 function importDirectFromDaily(){
   if(currentMatches.length){
-    alert('이미 대진이 생성되어 있습니다. 기록 보호를 위해 민턴LIVE 명단은 대진 생성 전에 가져와 주세요.');
+    alert('이미 대진이 생성되어 있습니다. 기록 보호를 위해 민턴라이브 명단은 대진 생성 전에 가져와 주세요.');
     return;
   }
   if(!_dailyPlayers.length){
-    alert('민턴LIVE 명단이 비어 있습니다. 민턴LIVE에서 현장 참가자를 먼저 등록하세요.');
+    alert('민턴라이브 명단이 비어 있습니다. 민턴라이브에서 현장 참가자를 먼저 등록하세요.');
     return;
   }
   const candidates=_dailyPlayers.filter(p=>p.status!=='done');
   if(!candidates.length){
-    alert('가져올 민턴LIVE 선수가 없습니다. 종료 처리된 선수는 제외됩니다.');
+    alert('가져올 민턴라이브 선수가 없습니다. 종료 처리된 선수는 제외됩니다.');
     return;
   }
   const existing=new Set(_directPlayers.map(p=>p.name));
@@ -14023,7 +14023,7 @@ function importDirectFromDaily(){
   renderDirectPlayerList();
   syncDirectToPaste();
   if(added)setOperationPreset(inferOperationPreset());
-  alert(added?`${added}명을 팀전LIVE 참가자로 가져왔습니다.${skipped?` (중복 ${skipped}명 제외)`:''}`:'새로 가져온 선수가 없습니다.');
+  alert(added?`${added}명을 팀전 참가자로 가져왔습니다.${skipped?` (중복 ${skipped}명 제외)`:''}`:'새로 가져온 선수가 없습니다.');
 }
 
 // ── 직접입력 선수 편집 ──
@@ -15107,7 +15107,7 @@ function switchMobileTab(tab){
     window.scrollTo({top:0,behavior:'smooth'});
     return;
   }
-  // 민턴LIVE 안에서 주요 운영 구역으로 이동
+  // 민턴라이브 안에서 주요 운영 구역으로 이동
   switchNav('daily');
   if(tab==='players'){
     const details=document.getElementById('dailyPlayersManage');

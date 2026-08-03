@@ -109,8 +109,8 @@ assert.deepStrictEqual(visible, ['김민현'], '회원 화면 뒷풀이 카드�
 
 const teamJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'team.js'), 'utf8');
 const loadSavedBody = teamJs.match(/function rsvpLoadSaved\(id\)\{([\s\S]*?)\n\}/)?.[1] || '';
-assert(loadSavedBody.includes('_teamResetLocalLiveState'), '이전 팀전LIVE 열기 시 현재 LIVE 연결을 먼저 끊어야 합니다.');
-assert(!loadSavedBody.includes('rsvpPushSession()'), '이전 팀전LIVE 열기만으로 현재 대진/LIVE 세션을 덮어쓰면 안 됩니다.');
+assert(loadSavedBody.includes('_teamResetLocalLiveState'), '이전 팀전 열기 시 현재 LIVE 연결을 먼저 끊어야 합니다.');
+assert(!loadSavedBody.includes('rsvpPushSession()'), '이전 팀전 열기만으로 현재 대진/LIVE 세션을 덮어쓰면 안 됩니다.');
 const importBody = teamJs.match(/function rsvpImportAttendees\(\)\{([\s\S]*?)\n\}/)?.[1] || '';
 assert(importBody.includes('관리자가 참가자 명단을 직접 세팅'), '이전 응답자 불러오기는 관리자 참가자 세팅으로 안내해야 합니다.');
 assert(!teamJs.includes("_autoFlowAction('참가자 불러오기'"), '운영 흐름이 회원 응답자 불러오기를 요구하면 안 됩니다.');
@@ -121,11 +121,11 @@ assert(teamJs.includes('function _teamHasResumeLiveHint()'), '앱 재시작 후 
 assert(teamJs.includes('function _teamStoredLiveMatchesCurrentBracket(savedId)'), '이어 켜기 버튼은 저장 LIVE와 현재 대진이 로컬상 맞을 때만 노출되어야 합니다.');
 assert(teamJs.includes('_teamStoredLiveMatchesCurrentBracket(savedId)'), 'LIVE 복구 힌트는 대진 정합성 필터를 거쳐야 합니다.');
 assert(teamJs.includes("const LEGACY_SHARED_SAVE_KEY='badminton_bracket_v7'"), '구 공유 저장 키는 팀전 저장본 마이그레이션용으로만 남겨야 합니다.');
-assert(teamJs.includes("const SAVE_KEY='badminton_team_bracket_v7'"), '팀전 자동 저장 키는 민턴LIVE와 분리되어야 합니다.');
+assert(teamJs.includes("const SAVE_KEY='badminton_team_bracket_v7'"), '팀전 자동 저장 키는 민턴라이브와 분리되어야 합니다.');
 assert(teamJs.includes('function _teamMigrateLegacySaveKey()'), '구 팀전 저장본은 팀전 전용 키로 1회 마이그레이션되어야 합니다.');
-assert(teamJs.includes('resumeTeamLiveBroadcast'), '사용자가 직접 팀전LIVE 중계를 이어 켤 수 있어야 합니다.');
+assert(teamJs.includes('resumeTeamLiveBroadcast'), '사용자가 직접 팀전 중계를 이어 켤 수 있어야 합니다.');
 assert(teamJs.includes('if(shouldResume)'), '자동 재개 확인을 취소해도 복구 정보를 즉시 지우지 않아야 합니다.');
-assert(teamJs.includes("'live-start'"), '팀전LIVE 시작/이어 켜기 주요 액션은 눈에 띄는 전용 스타일을 써야 합니다.');
+assert(teamJs.includes("'live-start'"), '팀전 시작/이어 켜기 주요 액션은 눈에 띄는 전용 스타일을 써야 합니다.');
 assert(teamJs.includes('function _teamSavedLiveRestoreInfo()'), '앱 재실행 첫 화면에서 저장된 LIVE 대진을 감지해야 합니다.');
 assert(teamJs.includes('function _teamSavedBracketRestoreInfo()'), 'LIVE ID가 없어도 저장 대진이 있으면 첫 화면에서 불러오기를 우선해야 합니다.');
 assert(teamJs.includes('function restoreTeamLiveAndResume()'), '첫 화면에서 대진 불러오기와 중계 재개를 한 번에 실행해야 합니다.');
@@ -140,16 +140,16 @@ assert(teamJs.includes("const liveId=_teamStoredLiveId()||(state.liveOn&&state.l
 assert(teamJs.includes('if(state.liveOn&&state.liveId)_teamSaveLiveId(state.liveId);'), '저장본 LIVE ID는 사용자가 실제 대진을 복원할 때만 활성 상태로 연결해야 합니다.');
 
 const teamHtml = fs.readFileSync(path.join(__dirname, '..', 'team.html'), 'utf8');
-assert(teamHtml.includes('id="liveStopTopBtn"'), '운영 보드에 팀전LIVE 종료 버튼이 있어야 합니다.');
-assert(teamHtml.includes('id="liveStopManageBtn"'), '저장·관리 영역에 팀전LIVE 종료 버튼이 있어야 합니다.');
-assert(teamHtml.includes('id="liveResumeTopBtn"'), '운영 보드에 팀전LIVE 이어 켜기 버튼이 있어야 합니다.');
-assert(teamHtml.includes('id="mobLiveResumeBtn"'), '모바일 저장 바에 팀전LIVE 이어 켜기 버튼이 있어야 합니다.');
+assert(teamHtml.includes('id="liveStopTopBtn"'), '운영 보드에 팀전 종료 버튼이 있어야 합니다.');
+assert(teamHtml.includes('id="liveStopManageBtn"'), '저장·관리 영역에 팀전 종료 버튼이 있어야 합니다.');
+assert(teamHtml.includes('id="liveResumeTopBtn"'), '운영 보드에 팀전 이어 켜기 버튼이 있어야 합니다.');
+assert(teamHtml.includes('id="mobLiveResumeBtn"'), '모바일 저장 바에 팀전 이어 켜기 버튼이 있어야 합니다.');
 assert(teamHtml.includes('onclick="restoreSavedBracketAction()"'), '저장 대진 복구 버튼은 LIVE 저장본이면 바로 이어가기 액션으로 분기해야 합니다.');
 const teamCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'team.css'), 'utf8');
-assert(teamCss.includes('.auto-flow-btn.live-start'), '운영 보드의 팀전LIVE 시작 버튼은 레드 전용 스타일이어야 합니다.');
+assert(teamCss.includes('.auto-flow-btn.live-start'), '운영 보드의 팀전 시작 버튼은 레드 전용 스타일이어야 합니다.');
 assert(teamCss.includes('.auto-flow-card.live-resume-ready'), 'LIVE 복구 단계 카드가 눈에 띄게 강조되어야 합니다.');
 assert(teamCss.includes('.auto-flow-resume-note'), 'LIVE 복구 확인 문구 스타일이 있어야 합니다.');
-assert(teamCss.includes('.live-btn.resume'), '결과 영역의 팀전LIVE 이어 켜기 버튼도 시작 버튼과 같은 계열이어야 합니다.');
+assert(teamCss.includes('.live-btn.resume'), '결과 영역의 팀전 이어 켜기 버튼도 시작 버튼과 같은 계열이어야 합니다.');
 assert(teamJs.includes('실효 실력 기준'), '품질 대시보드에는 실력 보정 기준이 공개되어야 합니다.');
 
 console.log('team isolation regression ok');

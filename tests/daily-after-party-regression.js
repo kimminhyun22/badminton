@@ -14,7 +14,7 @@ function functionSource(src,name,nextName){
   return src.slice(start,end);
 }
 
-assert(daily.includes('afterPartyV1:true'),'민턴LIVE 세션이 회원 뒷풀이 신청 기능을 명시해야 합니다.');
+assert(daily.includes('afterPartyV1:true'),'민턴라이브 세션이 회원 뒷풀이 신청 기능을 명시해야 합니다.');
 assert(checkin.includes('afterPartyQuickButtonHtml(selected,afterPartyDisabledAttr)'),'본인 상태 버튼 옆에 뒷풀이 신청 토글을 제공해야 합니다.');
 // 뒷풀이 명단은 보는 사람에 따라 자리가 다릅니다(운영자 요청 2026-08-03).
 // 대시보드가 없는 일반 회원은 예전처럼 본인 카드 아래에서 보고,
@@ -36,7 +36,7 @@ assert(endedLink.includes('render();'),'만료 링크에서는 본인 카드와 
 
 const toggle=functionSource(checkin,'toggleAfterParty','officialActor');
 assert(toggle.includes('confirmPlayerIdentity(p)'),'뒷풀이 신청은 이 기기에서 확인한 본인에게만 제공해야 합니다.');
-assert(toggle.includes("checkinPath()+'/party/'+playerId"),'뒷풀이 응답은 현재 민턴LIVE 링크 아래에 격리해 저장해야 합니다.');
+assert(toggle.includes("checkinPath()+'/party/'+playerId"),'뒷풀이 응답은 현재 민턴라이브 링크 아래에 격리해 저장해야 합니다.');
 assert(toggle.includes('firebase.database.ServerValue.TIMESTAMP'),'회원 기기 시간이 아닌 서버 시간으로 신청 시점을 기록해야 합니다.');
 assert(toggle.includes('await ref.transaction'),'동시 신청·취소는 선수별 원자 트랜잭션으로 저장해야 합니다.');
 assert(toggle.includes('revision:Number(current?.revision||0)+1'),'다른 기기의 갱신 순서를 확인할 수 있도록 리비전을 올려야 합니다.');
@@ -46,7 +46,7 @@ assert(!toggle.includes('operatorConnected()'),'뒷풀이 신청은 관리자 �
 
 const listener=functionSource(daily,'dailyStartCheckinListener','_dailyCheckinBlockReason');
 assert(listener.includes("_fbDb.ref(path+'/party').on"),'시스템 관리자 화면도 예외 확인을 위해 현재 뒷풀이 명단을 구독해야 합니다.');
-assert(daily.includes("_fbDb.ref(_dailyCheckinListeningPath+'/party').off()"),'다른 민턴LIVE 링크로 바뀔 때 이전 뒷풀이 구독을 해제해야 합니다.');
+assert(daily.includes("_fbDb.ref(_dailyCheckinListeningPath+'/party').off()"),'다른 민턴라이브 링크로 바뀔 때 이전 뒷풀이 구독을 해제해야 합니다.');
 const managerSummary=functionSource(daily,'dailyRenderCheckinRequests','dailyRender');
 assert(managerSummary.includes('뒷풀이 ${partyNames.length}명'),'관리자 링크 패널에서 뒷풀이 신청 수를 확인할 수 있어야 합니다.');
 const managerRows=functionSource(daily,'_dailyAfterPartyRows','_dailyAfterPartyRosterText');

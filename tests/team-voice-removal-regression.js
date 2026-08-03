@@ -21,6 +21,6 @@ assert(!teamCss.includes('.team-voice'), '음성 모달 전용 스타일이 남�
 assert(!teamCss.includes('.team-live-voice'), 'LIVE 음성 버튼 스타일이 남으면 안 됩니다.');
 assert(teamCss.includes('grid-template-columns:repeat(2,minmax(0,1fr));'), '모바일 LIVE 운영 버튼은 두 칸으로 안정적으로 배치해야 합니다.');
 assert(!serviceWorker.includes('team-ai.js'), '서비스워커가 삭제된 AI 파일을 캐시하면 안 됩니다.');
-assert(!readme.includes('팀전LIVE 음성 운영'), '설명서가 삭제된 기능을 안내하면 안 됩니다.');
+assert(!readme.includes('팀전 음성 운영'), '설명서가 삭제된 기능을 안내하면 안 됩니다.');
 
 console.log('team voice removal regression ok');

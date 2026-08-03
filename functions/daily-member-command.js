@@ -11,7 +11,7 @@ function applyMemberCommandTransaction(current, input){
     checkinId
   } = input;
   if(!current?.session){
-    return {action:'abort', failureCode:'not-found', failureMessage:'종료되었거나 아직 게시되지 않은 민턴LIVE입니다.'};
+    return {action:'abort', failureCode:'not-found', failureMessage:'종료되었거나 아직 게시되지 않은 민턴라이브입니다.'};
   }
   current.serverCommands = current.serverCommands || {};
   const previous = current.serverCommands[operationId];

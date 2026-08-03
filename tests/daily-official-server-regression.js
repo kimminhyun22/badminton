@@ -132,7 +132,7 @@ function assertOperationalInvariants(session){
 
 const validGrant = verifyOfficialGrant(grantToken,SECRET,CHECKIN_ID,BASE_NOW);
 assert(validGrant.ok&&validGrant.payload.cid===CLIENT_ID&&validGrant.payload.pid==='official','정상 임원 본인 고정 권한 토큰을 검증해야 합니다.');
-assert(verifyOfficialGrant(grantToken,SECRET,'DOTHER22',BASE_NOW).reason.includes('다른 민턴LIVE'),'다른 세션의 임원 권한을 재사용하면 안 됩니다.');
+assert(verifyOfficialGrant(grantToken,SECRET,'DOTHER22',BASE_NOW).reason.includes('다른 민턴라이브'),'다른 세션의 임원 권한을 재사용하면 안 됩니다.');
 assert(verifyOfficialGrant(grantToken,SECRET,CHECKIN_ID,BASE_NOW+60*60_000).reason.includes('시간이 끝났습니다'),'만료된 임원 권한을 거절해야 합니다.');
 const tamperedGrant=grantToken.slice(0,-1)+(grantToken.endsWith('a')?'b':'a');
 assert(verifyOfficialGrant(tamperedGrant,SECRET,CHECKIN_ID,BASE_NOW).reason.includes('올바르지 않습니다'),'변조된 임원 권한을 거절해야 합니다.');

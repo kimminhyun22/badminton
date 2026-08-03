@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.492';
+const APP_VERSION='1.10.493';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -32,7 +32,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
     var ttl=showBtn?'브라우저에서 열어주세요':'브라우저에서 열렸어요!';
     var msg=showBtn
       ?'아래 버튼을 눌러<br>Safari 또는 Chrome에서 열어주세요'
-      :'콕매치 실시간 현황을<br>브라우저에서 보고 계세요 🏸';
+      :'민턴라이브 실시간 현황을<br>브라우저에서 보고 계세요 🏸';
     document.open();
     document.write(
       '<!DOCTYPE html><html lang="ko"><head>'
@@ -1256,7 +1256,7 @@ function buildTeamOfficialOverview(d){
   const progress=data.totalMatches
     ?`${data.currentRound?`R${data.currentRound}`:'완료'} · ${data.completedMatches}/${data.totalMatches}경기`
     :'대진 준비';
-  return `<section class="team-official-overview" aria-label="팀전LIVE 운영 현황">
+  return `<section class="team-official-overview" aria-label="팀전 운영 현황">
     <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
     <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
     ${data.conflictCount?`<div class="team-official-overview-conflict">승패 확인 ${data.conflictCount}건</div>`:''}
