@@ -22,8 +22,12 @@ assert(
 
 const placeEvent = functionSource('placeEventPanelForViewer', 'renderEvent');
 assert(
-  placeEvent.includes('main.insertBefore(panel,nextTarget)'),
-  'Member LIVE status should appear before the after-party section.'
+  placeEvent.includes('[myCard,panel,officialPanel]'),
+  '일반 회원은 내 카드 → 경기 현황 순으로 보여야 합니다.'
+);
+assert(
+  placeEvent.includes('[panel,officialPanel,myCard]'),
+  '임원은 본인 이름표보다 운영 대시보드를 먼저 봐야 합니다.'
 );
 
 const renderEvent = functionSource('renderEvent', 'render');
