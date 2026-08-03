@@ -12,7 +12,7 @@ const mk=(id,name)=>({id,name,gender:'M',level:4,ageGroup:'40대',grade:'C',stat
   lastPlayedSeq:0,partnerCount:{},opponentCount:{},partnerCountById:{},opponentCountById:{},
   joinedAt:NOW,waitFrom:NOW,lastStatusAt:NOW-1000,restPausedMs:0,preArrivalVisible:false,
   registrationCancelled:false,isClubOfficial:id==='o',isTemporaryOfficial:false,isGuest:false,partnerName:'',partnerId:''});
-const players=[mk('o','임원')]; for(let i=1;i<=15;i++)players.push(mk('p'+i,'선수'+i));
+const players=[mk('o','임원')]; for(let i=1;i<=23;i++)players.push(mk("p"+i,"선수"+i));
 const grant=issueOfficialGrant({v:1,sid:CHECKIN,cid:CLIENT,pid:'o',iat:NOW-1000,exp:NOW+48*3600_000},SECRET);
 let state={session:{serverSessionId:CHECKIN,commandProtocol:2,serverRevision:0,matchStartedAt:NOW,
   expiresAt:NOW+48*3600_000,officialInvite:{tokenHash:'a'.repeat(64),expiresAt:NOW+48*3600_000},
@@ -26,7 +26,9 @@ const submit=(extra,now)=>{const operationId=`h${i++}`;
   const stored={actorPlayerId:'o',actorPlayerName:'임원',createdAt:now,expiresAt:now+30*60_000,source:'t',operationId,...extra};
   const out=applyCommandTransaction(state,{storedCommand:stored,engineCommand:{...stored,officialGrantToken:grant},
     operationId,payloadHash:hash(stored),clientId:CLIENT,grantPlayerId:'o',now,checkinId:CHECKIN,grantSecret:SECRET});
-  assert.strictEqual(out.action,'commit',out.failureMessage||''); state=out.current; return out;};
+  assert.strictEqual(out.action,'commit',out.failureMessage||'');
+  assert.strictEqual(out.terminal?.status,'applied',`거절됨: ${out.terminal?.reason||''}`);
+  state=out.current; return out;};
 const nm=ids=>ids.map(id=>s().players.find(p=>p.id===id)?.name).join('+');
 replenishPrepared(s(),{now:NOW,requestId:'i'}); refreshEvent(s(),NOW);
 console.log('빈 코트 2개 · 대기열:', s().event.next.map(r=>`${r.idx}:${nm(r.playerIds)}[${r.cueState}]`).join(' | '));
@@ -49,4 +51,34 @@ console.log('  진행 중:', s().event.active.map(m=>`${m.court}코트 ${nm(m.pl
 const resumed=s().event.next.find(r=>heldStill.playerIds.every(id=>(r.playerIds||[]).includes(id)));
 const onCourt=s().event.active.some(m=>heldStill.playerIds.every(id=>m.playerIds.includes(id)));
 assert(onCourt||(resumed&&!resumed.restPass),'재시작하면 일시정지가 풀려야 합니다.');
+
+// 일시정지한 대진에서 안 오는 선수를 균형 맞춰 교체합니다.
+{
+  let held2=s().event.next.find(r=>r.restPass);
+  if(!held2&&s().event.next[0]){
+    const t=s().event.next[0];
+    submit({type:'official-queue-hold',queueId:t.queueId||t.id,expectedPlayerIds:[...t.playerIds]},NOW+3000);
+    refreshEvent(s(),NOW+3000);
+    held2=s().event.next.find(r=>r.restPass);
+  }
+  if(held2){
+    const before=[...held2.playerIds];
+    const outId=before[0];
+    const outName=nm([outId]);
+    submit({type:'official-queue-replace',queueId:held2.queueId||held2.id,outPlayerId:outId,
+      expectedPlayerIds:[...held2.playerIds]},NOW+4000);
+    refreshEvent(s(),NOW+4000);
+    const after=s().event.next.find(r=>String(r.queueId||r.id)===String(held2.queueId||held2.id));
+    console.log(`\n교체: ${outName} 빠짐 → ${nm(after.playerIds.filter(id=>!before.includes(id)))} 들어옴`);
+    console.log(`  대진: ${nm(after.playerIds)}`);
+    assert(!after.playerIds.includes(outId),'뺀 선수는 대진에서 빠져야 합니다.');
+    assert.strictEqual(after.playerIds.length,4,'교체 후에도 네 명이어야 합니다.');
+    assert(after.restPass,'교체해도 일시정지 상태는 유지되어야 합니다.');
+    const lv=id=>{const p=s().players.find(x=>x.id===id);const age={'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2};
+      return (p.level-(p.gender==='F'?0.5:0)+(age[p.ageGroup]||0));};
+    const t1=after.t1Ids.reduce((a,id)=>a+lv(id),0), t2=after.t2Ids.reduce((a,id)=>a+lv(id),0);
+    console.log(`  팀 실력차: ${Math.abs(t1-t2).toFixed(1)}`);
+    assert(Math.abs(t1-t2)<=2,'교체 후에도 팀 실력차 한계를 지켜야 합니다.');
+  }
+}
 console.log('\nqueue hold regression ok');

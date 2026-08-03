@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.491';
+const APP_VERSION = '1.10.492';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -429,6 +429,7 @@ function _dailyFlowOperationType(type){
     'official-queue-yield',
     'official-queue-hold',
     'official-queue-resume',
+    'official-queue-replace',
     'official-partner-reservation',
     'official-partner-cancel'
   ].includes(String(type||''));
@@ -7917,6 +7918,20 @@ function dailyProcessCheckinRequests(){
           finishOfficial(req,ok,'입장 처리 중 대기표가 바뀌었습니다.');
           return;
         }
+        if(req.type==='official-queue-replace'){
+          // 서버가 고른 교체 결과를 관리자 원본 대기표에도 그대로 반영합니다.
+          const q=_dailyQueue.find(item=>String(item.id)===String(req.queueId));
+          const inId=String(req.serverResult?.replacedInId||req.replacedInId||'');
+          const outId=String(req.outPlayerId||'');
+          if(!q||!inId){finishOfficial(req,false,'교체 결과를 관리자 원본에 연결하지 못했습니다.');return;}
+          const swap=ids=>(ids||[]).map(id=>String(id)===outId?inId:String(id));
+          q.team1=swap(q.team1);
+          q.team2=swap(q.team2);
+          _dailyRecalcQueueItem(q);
+          changed=true;
+          finishOfficial(req,true,'',true);
+          return;
+        }
         if(req.type==='official-queue-hold'||req.type==='official-queue-resume'){
           // 임원이 누른 일시정지/재시작을 관리자 원본 대기표에도 그대로 반영합니다.
           const q=_dailyQueue.find(item=>String(item.id)===String(req.queueId));
@@ -9196,7 +9211,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전LIVE 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.491&from=daily';
+  location.href='team.html?v=1.10.492&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

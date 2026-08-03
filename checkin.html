@@ -2308,6 +2308,10 @@ summary:focus-visible{
   white-space:nowrap;
 }
 .official-overview-detail-head .official-overview-copy:disabled{opacity:.35;cursor:default;}
+.event-next-player.replaceable{
+  border:1px dashed #c9a227;background:#fffdf5;color:#7a5b00;
+  padding:2px 7px;border-radius:6px;min-height:0;font:inherit;cursor:pointer;
+}
 .event-official-resume{
   border-color:#9ccfb7!important;background:#eef9f3!important;color:#16724c!important;
 }
@@ -2463,7 +2467,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.491">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.492">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="콕매치">
@@ -2478,7 +2482,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.491</span>
+    <span class="version-chip" id="appVersion">v1.10.492</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2525,7 +2529,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.491';
+const APP_VERSION='1.10.492';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3199,6 +3203,7 @@ function officialFlowOperationType(type){
     'official-queue-yield',
     'official-queue-hold',
     'official-queue-resume',
+    'official-queue-replace',
     'official-partner-reservation',
     'official-partner-cancel'
   ].includes(String(type||''));
@@ -3268,14 +3273,21 @@ function teamLines(row){
   };
   return `<div class="event-active-line">${pair(row.t1,'','A팀')}<span class="event-active-vs">VS</span>${pair(row.t2,'b','B팀')}</div>`;
 }
-function nextTeamLine(row){
+function nextTeamLine(row,actorId){
   const a=row.t1||[];
   const b=row.t2||[];
-  const player=n=>`<span class="event-next-player">${esc(n)}</span>`;
+  const ids=row.playerIds||[];
+  const t1Ids=row.t1Ids||[];
+  const t2Ids=row.t2Ids||[];
+  // 일시정지한 대진에서는 안 온 선수를 눌러 바로 교체할 수 있습니다.
+  const canReplace=!!actorId&&!!row.restPass&&session?.capabilities?.officialQueueHoldV1===true;
+  const player=(n,id)=>canReplace&&id
+    ? `<button type="button" class="event-next-player replaceable" onclick="sendOfficialQueueReplace('${esc(actorId)}','${esc(row.queueId||row.id||'')}','${esc(id)}')" title="${esc(n)} 교체">${esc(n)}</button>`
+    : `<span class="event-next-player">${esc(n)}</span>`;
   return `<div class="event-next-line">
-    <span class="event-next-pair a">${a.slice(0,2).map(player).join('')}</span>
+    <span class="event-next-pair a">${a.slice(0,2).map((n,i)=>player(n,t1Ids[i]||ids[i])).join('')}</span>
     <em>vs</em>
-    <span class="event-next-pair b">${b.slice(0,2).map(player).join('')}</span>
+    <span class="event-next-pair b">${b.slice(0,2).map((n,i)=>player(n,t2Ids[i]||ids[i+2])).join('')}</span>
   </div>`;
 }
 function courtBadge(label){
@@ -3607,7 +3619,7 @@ function renderEvent(){
       <div class="event-rank-badge">${esc(String(m.idx||''))}</div>
       <div>
         ${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}
-        <div class="event-teams next-teams">${nextTeamLine(m)}</div>
+        <div class="event-teams next-teams">${nextTeamLine(m,canOfficialOperate?selectedPlayer?.id:'')}</div>
         ${cueText?`<small class="event-cue">${esc(cueText)}</small>`:''}
         ${actionParts.join('')}
       </div>
@@ -4959,6 +4971,26 @@ async function sendOfficialActiveYield(actorId,matchId){
     setLastComplete({token,matchId:m.id,court:m.court,operation:'active-yield',official:true,actorPlayerId:actor.id});
     render();
   }
+}
+async function sendOfficialQueueReplace(actorId,queueId,outPlayerId){
+  const actor=officialActor(actorId);
+  const q=queueById(queueId);
+  const out=(session?.players||[]).find(p=>String(p.id)===String(outPlayerId));
+  if(!actor||!q||!out)return toast('교체할 선수를 다시 확인해 주세요.');
+  if(!q.restPass)return toast('일시정지한 대진에서만 선수를 교체할 수 있어요.');
+  if(!confirm(`${out.name} 선수를 빼고 대기 중인 다른 선수로 바꿀까요?\n\n대진에 없는 대기 선수 중에서 실력 균형이 가장 잘 맞는 사람이 들어갑니다.`))return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-queue-replace',
+    operationId:createOfficialOperationId('queue-replace'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    queueId:q.queueId||q.id||queueId,
+    outPlayerId:String(outPlayerId),
+    expectedPlayerIds:[...(q.playerIds||[])],
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-queue-replace'
+  },`${out.name} 교체 요청`);
 }
 async function sendOfficialQueueHold(actorId,queueId){
   const actor=officialActor(actorId);

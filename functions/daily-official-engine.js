@@ -42,6 +42,7 @@ const SUPPORTED_TYPES = new Set([
   'official-queue-yield',
   'official-queue-hold',
   'official-queue-resume',
+  'official-queue-replace',
   'official-partner-reservation',
   'official-partner-cancel',
   'official-temporary-grant',
@@ -70,6 +71,7 @@ const PAUSED_FLOW_TYPES = new Set([
   'official-queue-yield',
   'official-queue-hold',
   'official-queue-resume',
+  'official-queue-replace',
   'official-partner-reservation',
   'official-partner-cancel'
 ]);
@@ -1706,6 +1708,79 @@ function applyQueueResume(session, request, now){
   return '';
 }
 
+// 일시정지한 대진에서 안 돌아오는 선수를 바꿉니다.
+// 대진에 들어가지 않은 대기 선수 중, 팀 균형이 가장 잘 맞는 사람을 자동으로 고릅니다.
+function unassignedWaitingPlayers(session){
+  const busy = new Set();
+  (session.event?.active || []).forEach(match=>activePlayerIds(match).forEach(id=>busy.add(text(id))));
+  ['next','expected','serverStandby'].forEach(key=>{
+    (session.event?.[key] || []).forEach(item=>queuePlayerIds(item).forEach(id=>busy.add(text(id))));
+  });
+  (session.reservations || []).forEach(row=>reservationIds(row).forEach(id=>busy.add(text(id))));
+  return (session.players || []).filter(player=>
+    player && player.name &&
+    !busy.has(text(player.id)) &&
+    normalizeStatus(player.status) === 'wait' &&
+    !player.currentMatchId &&
+    !player.registrationCancelled &&
+    !text(player.partnerName)
+  );
+}
+
+function replacementScore(session, item, outId, candidate){
+  const swap = id=>text(id) === text(outId) ? candidate : playerById(session, id);
+  const t1 = queueTeam1Ids(item).map(swap).filter(Boolean);
+  const t2 = queueTeam2Ids(item).map(swap).filter(Boolean);
+  if(t1.length !== 2 || t2.length !== 2)return null;
+  const level = team=>team.reduce((sum, player)=>sum + effectiveLevel(player), 0);
+  const gap = team=>Math.abs(effectiveLevel(team[0]) - effectiveLevel(team[1]));
+  const teamDiff = Math.abs(level(t1) - level(t2));
+  const gapMax = Math.max(gap(t1), gap(t2));
+  if(gapMax >= PARTNER_GAP_HARD)return null;      // 한쪽이 일방적으로 몰리는 조합은 제외
+  if(teamDiff > TEAM_DIFF_LIMIT)return null;      // 팀 실력차 하드 한계
+  // 균형이 우선, 같으면 덜 뛴 사람을 먼저 넣습니다.
+  return teamDiff * 1000 + Math.abs(gap(t1) - gap(t2)) * 200 + number(candidate.games) * 10;
+}
+
+function applyQueueReplace(session, request, now, operation){
+  refreshEvent(session, now);
+  const list = session.event.next;
+  const index = list.findIndex(item=>text(item.queueId || item.id) === text(request.queueId));
+  if(index < 0)return '교체할 다음 대진을 찾지 못했습니다.';
+  const item = list[index];
+  if(!item.restPass)return '일시정지한 대진에서만 선수를 교체할 수 있습니다.';
+  if(idsFingerprint(request.expectedPlayerIds) !== idsFingerprint(queuePlayerIds(item)))return '대진 선수가 이미 바뀌었습니다.';
+  const outId = text(request.outPlayerId);
+  const outPlayer = playerById(session, outId);
+  if(!outPlayer || !queuePlayerIds(item).includes(outId))return '교체할 선수를 이 대진에서 찾지 못했습니다.';
+  if(text(outPlayer.partnerName))return '파트너로 묶인 선수는 교체할 수 없습니다. 먼저 파트너 지정을 풀어 주세요.';
+  const candidates = unassignedWaitingPlayers(session);
+  if(!candidates.length)return '지금 넣을 수 있는 대기 선수가 없습니다.';
+  let best = null;
+  candidates.forEach(candidate=>{
+    const score = replacementScore(session, item, outId, candidate);
+    if(score == null)return;
+    if(!best || score < best.score || (score === best.score && text(candidate.id) < text(best.player.id))){
+      best = {player:candidate, score};
+    }
+  });
+  if(!best)return '균형을 맞출 수 있는 대기 선수가 없습니다.';
+  const inId = text(best.player.id);
+  const swap = ids=>ids.map(id=>text(id) === outId ? inId : text(id));
+  item.t1Ids = swap(queueTeam1Ids(item));
+  item.t2Ids = swap(queueTeam2Ids(item));
+  item.playerIds = [...item.t1Ids, ...item.t2Ids];
+  item.t1 = item.t1Ids.map(id=>playerById(session, id)?.name || '선수');
+  item.t2 = item.t2Ids.map(id=>playerById(session, id)?.name || '선수');
+  item.replacedAt = now;
+  item.replacedOutId = outId;
+  item.replacedInId = inId;
+  refreshEvent(session, now);
+  // 관리자 원본이 같은 교체를 재현할 수 있도록 결과를 알려 줍니다.
+  if(operation)operation.result = {replacedOutId:outId, replacedInId:inId, replacedInName:text(best.player.name)};
+  return '';
+}
+
 function reservationIds(reservation){
   return [...(reservation?.team1 || []), ...(reservation?.team2 || [])].map(text).filter(Boolean);
 }
@@ -1819,6 +1894,7 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-queue-yield': return applyQueueYield(session, request, now);
     case 'official-queue-hold': return applyQueueHold(session, request, now);
     case 'official-queue-resume': return applyQueueResume(session, request, now);
+    case 'official-queue-replace': return applyQueueReplace(session, request, now, operation);
     case 'official-partner-reservation': return applyPartnerReservation(session, request, now, requestId, operation);
     case 'official-partner-cancel': return applyPartnerCancel(session, request, now);
     case 'official-temporary-grant': return applyTemporaryOfficial(session, request, now, operation, true);
