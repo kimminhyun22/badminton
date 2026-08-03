@@ -49,8 +49,19 @@ assert(checkin.includes('data-official-partner-panel'),'임원 화면에 파트�
 const matchmaker=fs.readFileSync(path.join(root,'functions','daily-server-matchmaker.js'),'utf8');
 assert(!/isClubOfficial|isTemporaryOfficial/.test(matchmaker),'대진 생성은 임원 여부를 보지 않아야 합니다.');
 assert(!/isClubOfficial/.test(functionSource(dailySrc,'_dailyEligible','_dailyFairActual')),'관리자 대진 후보에서 임원을 빼면 안 됩니다.');
-assert(dailySrc.includes('dailySheetStartPair')&&dailySrc.includes('dailyPlayerCardClick'),'관리자 화면에서도 파트너를 지정할 수 있어야 합니다.');
-assert(dailySrc.includes('파트너 지정</button>'),'관리자 선수 시트에 파트너 지정 버튼이 있어야 합니다.');
+assert(dailySrc.includes('dailyPlayerPairPick')&&dailySrc.includes("['pair','파트너 지정']"),'관리자 화면에서도 파트너를 지정할 수 있어야 합니다.');
+// 관리자 선수 목록은 임원 화면과 같은 구조여야 합니다: 행에서 바로 처리하고, 시트(모달)는 없습니다.
+const dailyRowActions=functionSource(dailySrc,'_dailyPlayerRowActions','_dailyPlayerToolsHtml');
+['복귀','휴식','종료'].forEach(label=>assert(dailyRowActions.includes(`label:'${label}'`),`관리자 선수 행에 ${label} 버튼이 있어야 합니다.`));
+assert(dailyRowActions.includes("onclick=\"dailySetStatus('${p.id}'"),'관리자 선수 행의 버튼이 상태를 바로 바꿔야 합니다.');
+assert(['pair','helper','rename','remove'].every(mode=>dailySrc.includes(`_dailyPlayerTool==='${mode}'`)),'파트너 지정·운영 도우미·이름 변경·삭제는 상단 도구 모드로 노출해야 합니다.');
+// 운영 도우미 입구는 하나여야 합니다 — 전용 카드는 도구 모드로 옮기며 없앴습니다.
+assert(!dailySrc.includes('dailyRenderTemporaryOfficials')&&!indexHtml.includes('id="dailyTemporaryOfficials"'),'운영 도우미 전용 카드가 남아 있으면 지정 입구가 둘이 됩니다.');
+assert(dailySrc.includes("dailySetTemporaryOfficial('${p.id}',true)")&&dailySrc.includes("dailySetTemporaryOfficial('${p.id}',false)"),'선수 행에서 운영 도우미를 지정·해제할 수 있어야 합니다.');
+assert(dailySrc.includes('const DAILY_TEMPORARY_OFFICIAL_LIMIT=4'),'화면에 표시하는 운영 도우미 상한은 서버 TEMPORARY_OFFICIAL_LIMIT 과 같아야 합니다.');
+assert(/TEMPORARY_OFFICIAL_LIMIT\s*=\s*4/.test(fs.readFileSync(path.join(root,'functions','daily-official-engine.js'),'utf8')),'서버 운영 도우미 상한이 바뀌면 화면 표시도 함께 고쳐야 합니다.');
+assert(functionSource(dailySrc,'setDailyPlayerFilter','_dailyUpdatePlayerSortButtons').includes("_dailyPlayerTool=''"),'상태 숫자를 누르면 켜 둔 도구 모드를 닫아 엉뚱한 선수를 지정하지 않아야 합니다.');
+assert(!dailySrc.includes('dailyOpenPlayerSheet')&&!indexHtml.includes('id="dailyPlayerSheet"'),'관리자 선수 시트(모달)는 행 처리로 대체되어 남아 있으면 안 됩니다.');
 assert(['등록','현장','경기중','대기','휴식','종료','도착 전','뒷풀이'].every(label=>checkin.includes(`label:'${label}'`)),'임원 운영 현황에는 현장 상태와 뒷풀이 신청 인원이 있어야 합니다.');
 assert(indexHtml.includes('임원이 두 선수를 접수합니다.')&&indexHtml.includes('휴식·종료 옆의 작은 뒷풀이 버튼으로 직접 신청하거나 취소합니다.'),'사용 안내도 임원 파트너 접수와 회원 뒷풀이 신청 정책을 따라야 합니다.');
 assert(!checkin.includes('관리자 앱 연결 필요'),'임원 화면이 시스템 관리자 호출을 일상 운영의 전제로 보여주면 안 됩니다.');

@@ -959,6 +959,10 @@ details.card:not([open]) .card-head{border-bottom:none;}
 
 /* 브랜드의 LIVE — 붉은 글자만. 글로우는 피처럼 번져 보여 뺐습니다. */
 .brand-live{color:#e5142f;}
+/* 브랜드 표기(민턴LIVE)는 어디에 놓이든 같은 색입니다.
+   전환 알약처럼 선택 상태에 따라 글자색이 바뀌는 자리에서도 브랜드만은
+   먹색+빨강 그대로 두고, 선택 여부는 배경과 테두리로만 알립니다. */
+.brand-mark{color:var(--txt);}
 
 /* 하단 탭바 */
 .bottom-nav{display:none;}
