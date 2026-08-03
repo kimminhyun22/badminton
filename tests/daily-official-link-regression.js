@@ -71,6 +71,19 @@ assert(index.includes('daily-dashboard-quick-actions')&&index.includes('onclick=
 assert(index.includes('onclick="dailyReset()">초기화</button>'),'자주 쓰는 초기화는 민턴LIVE 상황판 상단에 있어야 합니다.');
 assert(!index.includes('onclick="dailyShareOfficialLink()"'),'관리자 화면에 별도 임원 링크 버튼을 남기면 안 됩니다.');
 
+// 복사가 막혀도 링크는 눈에 보여야 합니다. 예전에는 사파리가 클립보드를 거절하면
+// console.warn 만 남아서 버튼을 눌러도 아무 일이 없어 보였습니다.
+const memberShare=functionSource(daily,'dailyShareCheckinLink','dailyShareOfficialLink');
+[['dailyShareCheckinLink',memberShare],['dailyShareOfficialLink',functionSource(daily,'dailyShareOfficialLink','dailyResumeCheckin')]]
+  .forEach(([name,src])=>{
+    assert(src.includes('await _dailyCopyToClipboard('),`${name} 는 클립보드 실패에 대비한 복사 헬퍼를 써야 합니다.`);
+    assert(/alert\(copied\s*\?/.test(src),`${name} 는 복사 성공 여부와 무관하게 링크를 안내해야 합니다.`);
+    assert(!/catch\([^)]*\)\{\s*console\.warn[^}]*\}\s*\}\s*$/.test(src.trim()),`${name} 의 마지막 실패 처리가 콘솔 경고로 끝나면 안 됩니다.`);
+  });
+const copyHelper=functionSource(daily,'_dailyCopyToClipboard','dailyShareCheckinLink');
+assert(copyHelper.includes("document.execCommand('copy')"),'클립보드 API 가 거절될 때 쓸 옛 방식 복사가 있어야 합니다.');
+assert(copyHelper.includes('document.body.removeChild(area)'),'복사용 임시 입력칸은 반드시 걷어내야 합니다.');
+
 const shareSource=functionSource(daily,'dailyShareOfficialLink','dailyResumeCheckin');
 assert(shareSource.includes("navigator.share({title:'민턴LIVE 임원 운영',text,url})"),'Web Share에서 URL을 별도 필드로 전달해야 합니다.');
 assert(shareSource.includes('await _dailyEnsureAdminGrant(true)'),'공유 직전에 서버 권한 교환이 실제로 작동하는지 확인해야 합니다.');

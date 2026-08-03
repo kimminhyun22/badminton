@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.498';
+const APP_VERSION = '1.10.499';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -6895,6 +6895,33 @@ async function dailyPublishCheckinSession(silent){
   if(!silent)alert('새 회원 링크를 만들지 못했습니다. 네트워크를 확인한 뒤 다시 눌러 주세요.');
   return null;
 }
+// 복사는 두 번 시도합니다. 클립보드 API 는 링크를 만드느라 await 한 뒤에 부르면
+// 사파리가 '사용자 조작 중'이 아니라고 보고 거절합니다. 그때는 옛 방식으로 한 번 더 합니다.
+async function _dailyCopyToClipboard(text){
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(e){
+    console.warn('클립보드 복사 실패 — 옛 방식으로 다시 시도합니다', e);
+  }
+  try{
+    const area=document.createElement('textarea');
+    area.value=text;
+    area.setAttribute('readonly','');
+    area.style.cssText='position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(area);
+    area.select();
+    area.setSelectionRange(0,text.length);
+    const ok=document.execCommand('copy');
+    document.body.removeChild(area);
+    return !!ok;
+  }catch(e){
+    console.warn('옛 방식 복사도 실패', e);
+    return false;
+  }
+}
 async function dailyShareCheckinLink(){
   _dailyVoteDeadlineAt='';
   const id=await dailyPublishCheckinSession(false);
@@ -6910,12 +6937,12 @@ async function dailyShareCheckinLink(){
   }catch(e){
     if(e&&e.name==='AbortError')return;
   }
-  try{
-    await navigator.clipboard.writeText(clipboardText);
-    alert('회원·임원 공용 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url);
-  }catch(e){
-    console.warn('민턴LIVE 공유 문구 복사 실패', e);
-  }
+  // 복사가 안 되더라도 링크는 반드시 보여 줍니다.
+  // 예전에는 실패하면 콘솔에만 남아서 눌러도 아무 일이 없어 보였습니다.
+  const copied=await _dailyCopyToClipboard(clipboardText);
+  alert(copied
+    ? '회원·임원 공용 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url
+    : '회원·임원 공용 링크입니다. 아래 주소를 길게 눌러 복사한 뒤 카톡방에 붙여넣어 주세요.\n\n'+url);
 }
 async function dailyShareOfficialLink(){
   _dailyVoteDeadlineAt='';
@@ -6933,13 +6960,13 @@ async function dailyShareOfficialLink(){
   const text=`🏸 민턴LIVE 임원 운영\n링크를 열고 내 이름을 선택하세요.\n\n`+url;
   try{
     if(navigator.share){await navigator.share({title:'민턴LIVE 임원 운영',text,url});return;}
-  }catch(e){}
-  try{
-    await navigator.clipboard.writeText(text);
-    alert('임원 운영 링크를 복사했습니다. 운영을 도울 임원에게만 보내 주세요.');
   }catch(e){
-    alert('임원 운영 링크입니다. 운영을 도울 임원에게만 보내 주세요.\n\n'+url);
+    if(e&&e.name==='AbortError')return;
   }
+  const copied=await _dailyCopyToClipboard(text);
+  alert(copied
+    ? '임원 운영 링크를 복사했습니다. 운영을 도울 임원에게만 보내 주세요.'
+    : '임원 운영 링크입니다. 아래 주소를 길게 눌러 복사한 뒤 운영을 도울 임원에게만 보내 주세요.\n\n'+url);
 }
 async function dailyResumeCheckin(){
   let adoptedStoredIdentity=false;
@@ -9200,7 +9227,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.498&from=daily';
+  location.href='team.html?v=1.10.499&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
