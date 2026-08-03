@@ -12,7 +12,7 @@ const mk=(id,name)=>({id,name,gender:'M',level:4,ageGroup:'40대',grade:'C',stat
   lastPlayedSeq:0,partnerCount:{},opponentCount:{},partnerCountById:{},opponentCountById:{},
   joinedAt:NOW,waitFrom:NOW,lastStatusAt:NOW-1000,restPausedMs:0,preArrivalVisible:false,
   registrationCancelled:false,isClubOfficial:id==='o',isTemporaryOfficial:false,isGuest:false,partnerName:'',partnerId:''});
-const players=[mk('o','임원')]; for(let i=1;i<=23;i++)players.push(mk("p"+i,"선수"+i));
+const players=[mk('o','운영자김')]; for(let i=1;i<=23;i++)players.push(mk("p"+i,"선수"+i));
 const grant=issueOfficialGrant({v:1,sid:CHECKIN,cid:CLIENT,pid:'o',iat:NOW-1000,exp:NOW+48*3600_000},SECRET);
 let state={session:{serverSessionId:CHECKIN,commandProtocol:2,serverRevision:0,matchStartedAt:NOW,
   expiresAt:NOW+48*3600_000,officialInvite:{tokenHash:'a'.repeat(64),expiresAt:NOW+48*3600_000},
@@ -23,7 +23,7 @@ let state={session:{serverSessionId:CHECKIN,commandProtocol:2,serverRevision:0,m
   officialClaims:{[CLIENT]:{clientId:CLIENT,expiresAt:NOW+48*3600_000,claimMode:'roster',officialPlayerId:'o'}}};
 let i=1; const s=()=>state.session;
 const submit=(extra,now)=>{const operationId=`h${i++}`;
-  const stored={actorPlayerId:'o',actorPlayerName:'임원',createdAt:now,expiresAt:now+30*60_000,source:'t',operationId,...extra};
+  const stored={actorPlayerId:'o',actorPlayerName:'운영자김',createdAt:now,expiresAt:now+30*60_000,source:'t',operationId,...extra};
   const out=applyCommandTransaction(state,{storedCommand:stored,engineCommand:{...stored,officialGrantToken:grant},
     operationId,payloadHash:hash(stored),clientId:CLIENT,grantPlayerId:'o',now,checkinId:CHECKIN,grantSecret:SECRET});
   assert.strictEqual(out.action,'commit',out.failureMessage||'');
@@ -70,6 +70,7 @@ assert(onCourt||(resumed&&!resumed.restPass),'재시작하면 일시정지가 �
     refreshEvent(s(),NOW+4000);
     const after=s().event.next.find(r=>String(r.queueId||r.id)===String(held2.queueId||held2.id));
     console.log(`\n교체: ${outName} 빠짐 → ${nm(after.playerIds.filter(id=>!before.includes(id)))} 들어옴`);
+    // 임원도 일반 선수와 똑같이 대진에 들어갑니다(제외 규칙 없음).
     console.log(`  대진: ${nm(after.playerIds)}`);
     assert(!after.playerIds.includes(outId),'뺀 선수는 대진에서 빠져야 합니다.');
     assert.strictEqual(after.playerIds.length,4,'교체 후에도 네 명이어야 합니다.');

@@ -45,6 +45,10 @@ assert(dailySrc.includes("onclick=\"setDailyPlayerFilter('${f}')\""),'관리자 
 assert(dailySrc.includes("let _dailyPlayerSort='name'"),'관리자 선수 목록 기본 정렬은 이름순이어야 합니다.');
 // 파트너 지정(게임신청)은 임원·관리자 양쪽에서 가능해야 합니다.
 assert(checkin.includes('data-official-partner-panel'),'임원 화면에 파트너 지정 패널이 있어야 합니다.');
+// 임원·운영 도우미도 일반 선수와 똑같이 대진에 들어갑니다. 대진 후보에서 빼면 안 됩니다.
+const matchmaker=fs.readFileSync(path.join(root,'functions','daily-server-matchmaker.js'),'utf8');
+assert(!/isClubOfficial|isTemporaryOfficial/.test(matchmaker),'대진 생성은 임원 여부를 보지 않아야 합니다.');
+assert(!/isClubOfficial/.test(functionSource(dailySrc,'_dailyEligible','_dailyFairActual')),'관리자 대진 후보에서 임원을 빼면 안 됩니다.');
 assert(dailySrc.includes('dailySheetStartPair')&&dailySrc.includes('dailyPlayerCardClick'),'관리자 화면에서도 파트너를 지정할 수 있어야 합니다.');
 assert(dailySrc.includes('파트너 지정</button>'),'관리자 선수 시트에 파트너 지정 버튼이 있어야 합니다.');
 assert(['등록','현장','경기중','대기','휴식','종료','도착 전','뒷풀이'].every(label=>checkin.includes(`label:'${label}'`)),'임원 운영 현황에는 현장 상태와 뒷풀이 신청 인원이 있어야 합니다.');
