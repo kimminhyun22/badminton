@@ -957,24 +957,6 @@ details.card:not([open]) .card-head{border-bottom:none;}
    모바일 전용 CSS (768px 이하)
 ════════════════════════════════ */
 
-/* 브랜드의 LIVE — 붉은 네온사인 느낌 */
-.brand-live{
-  color:#ff2038;
-  font-weight:900;
-  letter-spacing:.6px;
-  text-shadow:
-    0 0 3px rgba(255,32,56,.95),
-    0 0 9px rgba(255,32,56,.65),
-    0 0 20px rgba(255,32,56,.38);
-}
-@media(prefers-reduced-motion:no-preference){
-  .brand-live{animation:brandLiveGlow 2.6s ease-in-out infinite;}
-}
-@keyframes brandLiveGlow{
-  0%,100%{text-shadow:0 0 3px rgba(255,32,56,.95),0 0 9px rgba(255,32,56,.65),0 0 20px rgba(255,32,56,.38);}
-  50%{text-shadow:0 0 4px rgba(255,32,56,1),0 0 14px rgba(255,32,56,.8),0 0 28px rgba(255,32,56,.5);}
-}
-
 /* 하단 탭바 */
 .bottom-nav{display:none;}
 .app-footer{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:20px 16px 28px;font-size:.7rem;color:var(--dim);border-top:1px solid var(--bdr);margin-top:24px;}
@@ -1787,7 +1769,6 @@ header,.nav-bar{
   backdrop-filter:blur(14px);
   -webkit-backdrop-filter:blur(14px);
 }
-.h-left h1{letter-spacing:-.03em;font-weight:900;color:#172033;}
 .h-left p{color:#8b95a5;font-weight:700;}
 .hb{
   border-color:#e5edf8;background:rgba(255,255,255,.74);color:#94a3b8;
@@ -1988,7 +1969,7 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   --soft-red-bg:#fff6f6;
   --soft-green-bg:#f4fbf6;
 }
-.h-left h1,.auto-flow-title,.auto-flow-metric b,.auto-flow-panel-value,
+.auto-flow-title,.auto-flow-metric b,.auto-flow-panel-value,
 .rsvp-stat b,.tlb-name,.sum-box-v,.sb-score-v,.tm-name,.current-round{
   color:var(--ink)!important;
 }
@@ -2561,7 +2542,6 @@ header,.nav-bar{
   border-color:var(--bdr)!important;
   box-shadow:0 1px 0 rgba(227,233,243,.7)!important;
 }
-.h-left h1{font-weight:900!important;letter-spacing:-.04em!important;color:var(--txt)!important;}
 .card,.auto-flow-card,.qual-dash,.team-list-box,.match-card,.sum-box,.scoreboard,.fast-play-card,.live-ops-card{
   border:1px solid var(--bdr)!important;
   border-radius:24px!important;
