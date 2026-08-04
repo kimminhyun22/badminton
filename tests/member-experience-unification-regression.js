@@ -33,8 +33,10 @@ assert(!live.includes('선수용 라이브 보드'), '실중계 화면에 서비
 assert(live.includes('<div class="viewer-identity-k">내 경기</div>'), '실중계 개인 영역은 MY PAGE 대신 내 경기로 표시해야 합니다.');
 
 const renderSource = functionSource(live, 'render', 'toggleRoster');
+// 순서는 역할별로 갈립니다(2026-08-04). 회원 순서만 여기서 봅니다.
+const memberOrder = (renderSource.match(/:\s*(identity\+overview\+[A-Za-z+]+)/) || [])[1] || '';
 assert(
-  renderSource.indexOf('html+=buildViewerIdentity(d);') < renderSource.indexOf('html+=buildLiveScore(d,totalR,doneR);'),
+  memberOrder.indexOf('identity') === 0 && memberOrder.indexOf('identity') < memberOrder.indexOf('scoreboard'),
   '회원 실중계에서는 내 경기 정보가 팀 점수보다 먼저 나와야 합니다.'
 );
 assert(!renderSource.includes("d.title||'대진표'"), '회원 실중계 첫 화면에 행사명을 다시 노출하면 안 됩니다.');

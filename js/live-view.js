@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.512';
+const APP_VERSION='1.10.513';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1793,25 +1793,27 @@ function render(d){
 
   if(d.members) window._rosterData=d.members;
 
-  let html='<div class="live-board">';
-  html+=buildViewerIdentity(d);
-  html+=buildTeamOfficialOverview(d);
-  if(_usesFixedTeams(d)){
-    html+=buildLiveScore(d,totalR,doneR);
-  } else {
-    html+='<div class="round-progress-strip" id="scoreBoard"><b>경기 '+doneR+'/'+totalR+'라운드</b><span>'
+  // 화면 순서는 보는 사람이 할 일을 따라갑니다(민턴LIVE 와 같은 원칙).
+  //   회원 : 내 카드 → 경기
+  //   운영진: 운영 현황 → 경기(승패 입력) → 팀 명단(지각·도착) → 내 카드
+  // 운영진의 두 가지 일이 승패 입력과 출결 확인이라, 그 둘을 위로 올립니다.
+  const forOperator=_canOperateAttendance(d);
+  const identity=buildViewerIdentity(d);
+  const overview=buildTeamOfficialOverview(d);
+  const scoreboard=_usesFixedTeams(d)
+    ? buildLiveScore(d,totalR,doneR)
+    : '<div class="round-progress-strip" id="scoreBoard"><b>경기 '+doneR+'/'+totalR+'라운드</b><span>'
       +(d.pointSystem?esc(d.pointSystem)+'점 경기':'진행 현황')+'</span></div>';
-  }
+  const matchPanels=allDone
+    ? buildFinale(matches,d)
+    : buildCurrentPanel(curRound,curDisplay,d)+buildNextPanel(nextMatches,d);
+  const roster=buildTeamRosterCard(d);
+  const extras=buildMvpSpotlight(matches,d)+buildPartySpotlight(d);
 
-  if(allDone){
-    html+=buildFinale(matches,d);
-  } else {
-    html+=buildCurrentPanel(curRound,curDisplay,d);
-    html+=buildNextPanel(nextMatches,d);
-  }
-  html+=buildMvpSpotlight(matches,d);
-  html+=buildPartySpotlight(d);
-  html+=buildTeamRosterCard(d);
+  let html='<div class="live-board">';
+  html+=forOperator
+    ? overview+scoreboard+matchPanels+roster+identity+extras
+    : identity+overview+scoreboard+matchPanels+extras+roster;
 
   html+='<details class="info-details primary" id="fullBracket" '+(_viewerDetailsOpen.fullBracket?'open':'')+' ontoggle="setViewerDetailsOpen(\'fullBracket\',this.open)"><summary>전체 대진표 보기</summary><div class="info-body">';
   rounds.forEach(r=>{

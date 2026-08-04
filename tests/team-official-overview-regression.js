@@ -23,12 +23,15 @@ assert(overviewSource.includes("viewer.isClubOfficial||(!_usesFixedTeams(d)&&vie
 assert(overviewSource.includes('resultConflicts')&&overviewSource.includes('승패 확인'),
   '서로 다른 승패 입력은 임원 현황에서 확인 건으로 보여야 합니다.');
 
+// 2026-08-04 설계 변경: 운영진에게는 운영 현황이 '내 카드 직후'가 아니라 '맨 앞'입니다.
+// 민턴LIVE 와 같은 원칙 — 임원은 본인 이름표보다 운영 대시보드를 먼저 봅니다.
 const renderStart = liveSrc.indexOf('function render(d)');
-const identityIndex = liveSrc.indexOf('html+=buildViewerIdentity(d);', renderStart);
-const overviewIndex = liveSrc.indexOf('html+=buildTeamOfficialOverview(d);', renderStart);
-const scoreIndex = liveSrc.indexOf('html+=buildLiveScore', renderStart);
-assert(identityIndex >= 0 && overviewIndex > identityIndex && scoreIndex > overviewIndex,
-  '임원 운영 현황은 내 카드 직후, 점수와 경기 현황보다 먼저 보여야 합니다.');
+const renderBlock = liveSrc.slice(renderStart, liveSrc.indexOf('\nfunction toggleRoster', renderStart));
+const operatorOrder = (renderBlock.match(/\?\s*(overview\+scoreboard\+[A-Za-z+]+)/) || [])[1] || '';
+assert(operatorOrder.indexOf('overview') === 0,
+  '임원은 운영 현황을 가장 먼저 봐야 합니다.');
+assert(operatorOrder.indexOf('scoreboard') > 0 && operatorOrder.indexOf('identity') > operatorOrder.indexOf('scoreboard'),
+  '임원 화면에서 본인 이름표는 점수·경기 현황보다 뒤여야 합니다.');
 
 assert(liveCss.includes('grid-template-columns:repeat(4,minmax(0,1fr))'),
   '모바일 운영 현황은 한눈에 보이는 4열 요약이어야 합니다.');

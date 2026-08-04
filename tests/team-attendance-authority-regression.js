@@ -59,4 +59,33 @@ assert(/names\.includes\(viewer\.n\)\)\s*return true;/.test(canSubmit),
   '그 경기 선수 본인의 승패 입력 권한을 없애면 임원이 모든 코트를 돌아야 합니다.');
 console.log('  승패 입력: 경기 선수 권한 유지');
 
+
+// 6) 화면 순서가 보는 사람의 할 일을 따라야 합니다(민턴LIVE 와 같은 원칙).
+//    민턴LIVE: 회원 [myCard,panel,officialPanel] / 임원 [panel,officialPanel,myCard]
+//    팀전   : 운영진은 운영 현황·경기·팀 명단을 본인 이름표보다 먼저 봅니다.
+//    운영진의 일이 승패 입력과 출결 확인이라 그 둘이 위에 있어야 합니다.
+{
+  const renderStart = live.indexOf('function render(d)');
+  const renderSrc = live.slice(renderStart, live.indexOf('\nfunction toggleRoster', renderStart));
+
+  assert(/const forOperator\s*=\s*_canOperateAttendance\(d\)/.test(renderSrc),
+    '보는 사람이 운영진인지에 따라 순서를 바꿔야 합니다.');
+
+  const opOrder = renderSrc.match(/\?\s*(overview\+scoreboard\+[A-Za-z+]+)/);
+  const memberOrder = renderSrc.match(/:\s*(identity\+overview\+[A-Za-z+]+)/);
+  assert(opOrder, '운영진 순서가 운영 현황으로 시작해야 합니다.');
+  assert(memberOrder, '회원 순서가 본인 카드로 시작해야 합니다.');
+
+  const op = opOrder[1];
+  assert(op.indexOf('roster') < op.indexOf('identity'),
+    '운영진은 출결을 처리하는 팀 명단을 본인 이름표보다 먼저 봐야 합니다.');
+  assert(op.indexOf('matchPanels') < op.indexOf('roster'),
+    '승패를 입력하는 경기 패널이 팀 명단보다 앞이어야 합니다.');
+
+  const mem = memberOrder[1];
+  assert(mem.indexOf('identity') === 0,
+    '회원은 본인 카드를 먼저 봐야 합니다.');
+  console.log('  화면 순서: 운영진=운영현황·경기·명단 우선 / 회원=내 카드 우선');
+}
+
 console.log('\nteam attendance authority regression ok');
