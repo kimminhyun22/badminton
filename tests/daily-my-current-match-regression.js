@@ -9,8 +9,9 @@ function extractFunction(name, nextName) {
   const start = src.indexOf(`function ${name}`);
   assert(start >= 0, `${name} 함수가 있어야 합니다.`);
   const end = src.indexOf(`function ${nextName}`, start);
+  const endAsync = end >= 6 && src.slice(end-6, end) === 'async ' ? end-6 : end;
   assert(end > start, `${name} 함수의 끝을 찾을 수 있어야 합니다.`);
-  return src.slice(start, end);
+  return src.slice(start,endAsync);
 }
 
 const code = `

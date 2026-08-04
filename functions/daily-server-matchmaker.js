@@ -158,19 +158,6 @@ function validTeamModePairing(team1, team2, teamMode){
     team2.every(player=>teamSide(player) === side2);
 }
 
-function partnerSelectionValid(players){
-  return players.every(player=>!player.partnerName || players.some(other=>other.name === player.partnerName));
-}
-
-function partnerTeamsValid(team1, team2){
-  const all = [...team1, ...team2];
-  return all.every(player=>{
-    if(!player.partnerName)return true;
-    const partner = all.find(other=>other.name === player.partnerName);
-    return !!partner && team1.includes(player) === team1.includes(partner);
-  });
-}
-
 function countByName(player, key, name){
   const map = player?.[key];
   return map && typeof map === 'object' && !Array.isArray(map) ? number(map[name]) : 0;
@@ -332,7 +319,7 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
     score += MIXED_PENALTY * (1 - Math.min(1, behind / FAIR_FORCE_GAP));
   }
   [pairing.team1, pairing.team2].forEach(team=>{
-    if(team[0].partnerName !== team[1].name)score += partnerRepeatPenalty(countAgainst(team[0], 'partnerCount', team[1]));
+    score += partnerRepeatPenalty(countAgainst(team[0], 'partnerCount', team[1]));
     score += partnerGapPenalty(team);
   });
   score += levelSpreadPenalty(all);
@@ -342,7 +329,6 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
   const runtime = session.serverRuntime || {};
   score += number(runtime.fourCounts?.[fourKeyFromIds(all.map(playerId))]) * 1600;
   score += exactRepeatPenalty(number(runtime.exactCounts?.[pairingKey(pairing)]));
-  score -= all.filter(player=>player.partnerName && all.some(other=>other.name === player.partnerName)).length * 325;
   if(maxGames - minGames >= 2)score -= all.filter(player=>number(player.games) === minGames).length * 90;
   if(!strict)score += 260;
   if(reservation)score -= 1200;
@@ -350,7 +336,6 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
 }
 
 function pairingFor(session, team1, team2, reference, now, strict, reservation, fairnessCorrection = false){
-  if(!partnerTeamsValid(team1, team2))return null;
   const teamMode = !!session.event?.teamMode;
   if(!validTeamModePairing(team1, team2, teamMode))return null;
   const type = strict ? strictMatchType(team1, team2) : '예외';
@@ -453,21 +438,6 @@ function reservationPlayerIds(reservation){
   return [...(reservation?.team1 || []), ...(reservation?.team2 || [])].map(text).filter(Boolean);
 }
 
-// 관리자 화면의 파트너 묶기(partnerName)와 임원 화면의 파트너 접수(reservations)가
-// 같은 선수를 서로 다른 짝으로 잡으면, 그 선수는 어느 쪽으로도 편성되지 못하고
-// 짝까지 함께 굶습니다(실측: 세 명이 통째로 대진에서 빠짐).
-// 이런 예약은 아예 없는 것으로 보고 넘깁니다. 관리자 묶기가 더 강한 제약이라
-// 그쪽을 남기고, 예약에 걸려 있던 나머지 선수는 일반 편성으로 풀어 줍니다.
-function reservationConflictsWithPairing(session, reservation){
-  const ids = reservationPlayerIds(reservation);
-  if(!ids.length)return false;
-  const names = new Set(ids.map(id=>text(playerById(session, id)?.name)).filter(Boolean));
-  return ids.some(id=>{
-    const partnerName = text(playerById(session, id)?.partnerName);
-    return !!partnerName && !names.has(partnerName);
-  });
-}
-
 function bestReservationPairing(session, reservation, available, reference, now){
   const requested = (reservation.team1 || []).map(id=>playerById(session, id)).filter(Boolean);
   if(requested.length !== 2 || requested.some(player=>!available.some(row=>playerId(row) === playerId(player))))return null;
@@ -511,7 +481,6 @@ function bestUrgentGeneratedPairing(session, urgent, available, reference, now){
       for(let b=a+1;b<peers.length-1;b++){
         for(let c=b+1;c<peers.length;c++){
           const four = [urgent, peers[a], peers[b], peers[c]];
-          if(!partnerSelectionValid(four))continue;
           const fourCount = number(session.serverRuntime?.fourCounts?.[fourKeyFromIds(four.map(playerId))]);
           if(avoidFourRepeat && fourCount > 0)continue;
           const strict = bestPairingForFour(session, four, reference, now, true, null);
@@ -562,7 +531,6 @@ function bestGeneratedPairing(session, available, reference, now){
     let strictBest = null;
     let flexibleBest = null;
     forEachFour(ranked, four=>{
-      if(!partnerSelectionValid(four))return;
       const fourCount = number(session.serverRuntime?.fourCounts?.[fourKeyFromIds(four.map(playerId))]);
       if(avoidFourRepeat && fourCount > 0)return;
       const strict = bestPairingForFour(session, four, reference, now, true, null);
@@ -668,7 +636,6 @@ function replenishPrepared(session, options = {}){
     let reservation = null;
     for(const row of (session.reservations || []).slice().sort((a,b)=>number(a?.createdAt)-number(b?.createdAt))){
       if(attached.has(text(row?.id)))continue;
-      if(reservationConflictsWithPairing(session, row))continue;
       if(reservationPlayerIds(row).some(id=>used.has(id)))continue;
       pairing = bestReservationPairing(session, row, available, reference, now);
       if(pairing){
@@ -680,7 +647,6 @@ function replenishPrepared(session, options = {}){
       const held = new Set();
       (session.reservations || []).forEach(row=>{
         if(attached.has(text(row?.id)))return;
-        if(reservationConflictsWithPairing(session, row))return;
         reservationPlayerIds(row).forEach(id=>held.add(id));
       });
       pairing = bestGeneratedPairing(session, available.filter(player=>!held.has(playerId(player))), reference, now);

@@ -1,8 +1,17 @@
 'use strict';
 /**
- * 관리자 파트너 묶기(partnerName)와 임원 파트너 접수(session.reservations)가
- * 같은 선수를 서로 다른 짝으로 잡아도 아무도 굶지 않아야 합니다.
- * 방어선이 없으면 세 명이 통째로 대진에서 빠집니다(2026-08-02 실측).
+ * 파트너는 예약(게임신청) 한 곳에만 삽니다.
+ *
+ * 예전에는 관리자 화면이 선수에게 partnerName 을 직접 박고, 임원 화면은
+ * session.reservations 로 접수했습니다. 두 갈래가 같은 선수를 서로 다른 짝으로
+ * 잡으면 그 선수는 어느 쪽으로도 편성되지 못했습니다(2026-08-02 실측: 세 명이
+ * 통째로 대진에서 빠짐). 방어 코드로 막아 두었던 그 충돌을, 갈래를 하나로
+ * 합쳐서 없앴습니다.
+ *
+ * 여기서 지키는 것:
+ *   1) 예약으로 접수한 짝은 같은 편으로 편성된다
+ *   2) 낡은 세션에 partnerName 이 남아 있어도 편성을 흔들지 않는다
+ *   3) 겹치지 않는 예약 둘은 둘 다 편성된다
  */
 const path = require('path');
 const REPO = process.env.SIM_ENGINE_ROOT || path.join(__dirname, '..');
@@ -20,46 +29,59 @@ function player(id, name, gender, level, extra = {}){
     joinedAt:NOW, waitFrom:NOW, lastStatusAt:NOW-1000, restPausedMs:0,
     preArrivalVisible:false, registrationCancelled:false,
     isClubOfficial:false, isTemporaryOfficial:false, isGuest:false,
-    partnerName:'', partnerId:'', ...extra
+    ...extra
   };
 }
 
-function makeSession(players, reservations){
+function makeSession(players, reservations, courts){
+  const target = courts || 1;
   return {
-    serverSessionId:'DCONFLICT', commandProtocol:2, serverRevision:0, matchStartedAt:NOW,
+    serverSessionId:'DPARTNER', commandProtocol:2, serverRevision:0, matchStartedAt:NOW,
     expiresAt:NOW+48*3600_000,
     capabilities:{officialOpsServerV2:true, memberStatusServerV1:true, officialPartnerOpsV1:true},
     players, reservations:reservations||[], arrivalCandidates:[],
     serverRuntime:{holds:{}, nextSeq:1, fourCounts:{}, exactCounts:{}},
-    event:{courts:1, nextTarget:1, serverExpectedGoal:0, completed:0, finishMode:false,
-      operationStarted:true, queuePolicy:{official:1, auto:true},
+    event:{courts:target, nextTarget:target, serverExpectedGoal:0, completed:0, finishMode:false,
+      operationStarted:true, queuePolicy:{official:target, auto:true},
       active:[], next:[], expected:[], serverStandby:[]}
   };
 }
 
 const assert = require('assert');
 
-function run(label, players, reservations, watch){
-  const session = makeSession(players, reservations);
-  replenishPrepared(session, {now:NOW, requestId:'conflict_'+label});
+function pair(id, a, b){
+  return {id, mode:'pair', team1:[a, b], team2:[], label:`${a} · ${b}`};
+}
+
+function run(label, players, reservations, courts){
+  const session = makeSession(players, reservations, courts);
+  replenishPrepared(session, {now:NOW, requestId:'partner_'+label});
   refreshEvent(session, NOW);
   const nameOf = id => (session.players.find(p=>p.id===id)||{}).name || id;
-  const queued = (session.event.next||[]).map(item=>
-    `[${item.type}] ${(item.t1Ids||[]).map(nameOf).join('+')} vs ${(item.t2Ids||[]).map(nameOf).join('+')}`);
-  const placed = new Set((session.event.next||[]).flatMap(i=>i.playerIds||[]));
+  const items = session.event.next || [];
   console.log(`\n【${label}】`);
-  console.log(`  생성된 대진 ${queued.length}건: ${queued.join(' / ') || '없음'}`);
-  watch.forEach(id=>{
-    const p = session.players.find(x=>x.id===id);
-    console.log(`  ${p.name}: ${placed.has(id) ? '대진에 들어감' : '★ 대진에 못 들어감'}`
-      + (p.partnerName ? ` (관리자 묶임: ${p.partnerName})` : ''));
+  items.forEach(item=>{
+    console.log(`  [${item.type}] ${(item.t1Ids||[]).map(nameOf).join('+')} vs ${(item.t2Ids||[]).map(nameOf).join('+')}`
+      + (item.reservationId ? ` (신청 ${item.reservationId})` : ''));
   });
-  // 아무도 굶으면 안 됩니다.
-  watch.forEach(id=>{
-    const p = session.players.find(x=>x.id===id);
-    assert(placed.has(id), `${label}: ${p.name} 선수가 대진에서 빠졌습니다. 파트너 지정/접수 충돌을 확인하세요.`);
+  if(!items.length)console.log('  생성된 대진 없음');
+  return {session, items};
+}
+
+// 두 선수가 같은 대진의 같은 편에 들어갔는지 확인합니다.
+function assertSameSide(items, a, b, label){
+  const hit = items.find(item=>{
+    const first = (item.t1Ids || []).map(String);
+    const second = (item.t2Ids || []).map(String);
+    return (first.includes(a) && first.includes(b)) || (second.includes(a) && second.includes(b));
   });
-  return {session, placed};
+  assert(hit, `${label}: 접수한 짝이 같은 편으로 편성되지 않았습니다.`);
+  return hit;
+}
+
+function assertPlaced(items, ids, label){
+  const placed = new Set(items.flatMap(item=>(item.playerIds || []).map(String)));
+  ids.forEach(id=>assert(placed.has(id), `${label}: ${id} 선수가 대진에서 빠졌습니다.`));
 }
 
 const base = () => [
@@ -69,36 +91,33 @@ const base = () => [
   player('g','사선수','M',4), player('h','아선수','M',4)
 ];
 
-// 1) 정상: 관리자만 A+B 묶음
+// 1) 접수한 짝은 같은 편으로 붙습니다.
 {
-  const ps = base();
-  ps[0].partnerName='나선수'; ps[0].partnerId='pair1';
-  ps[1].partnerName='가선수'; ps[1].partnerId='pair1';
-  run('관리자만 A+B 묶음', ps, [], ['a','b']);
+  const label = '예약으로 접수한 A+B';
+  const {items} = run(label, base(), [pair('res1','a','b')]);
+  assertSameSide(items, 'a', 'b', label);
+  assertPlaced(items, ['a','b'], label);
 }
 
-// 2) 정상: 임원만 A+C 접수
+// 2) 낡은 세션에 남은 partnerName 은 아무 힘이 없어야 합니다.
+//    이 필드를 다시 읽기 시작하면 그때 예전 충돌이 되살아납니다.
 {
+  const label = '낡은 partnerName 이 남아 있어도 예약이 이깁니다';
   const ps = base();
-  run('임원만 A+C 접수', ps, [{id:'res1', mode:'partner', team1:['a','c'], team2:[], label:'가선수 · 다선수'}], ['a','c']);
+  ps[0].partnerName = '나선수'; ps[0].partnerId = 'pair1';   // 예전 관리자 묶기 잔재
+  ps[1].partnerName = '가선수'; ps[1].partnerId = 'pair1';
+  const {items} = run(label, ps, [pair('res1','a','c')]);
+  assertSameSide(items, 'a', 'c', label);
+  assertPlaced(items, ['a','c'], label);
 }
 
-// 3) 충돌: 관리자 A+B 묶음 + 임원 A+C 접수
+// 3) 겹치지 않는 예약 둘은 둘 다 편성됩니다.
 {
-  const ps = base();
-  ps[0].partnerName='나선수'; ps[0].partnerId='pair1';
-  ps[1].partnerName='가선수'; ps[1].partnerId='pair1';
-  run('★충돌★ 관리자 A+B 묶음 + 임원 A+C 접수', ps,
-      [{id:'res1', mode:'partner', team1:['a','c'], team2:[], label:'가선수 · 다선수'}], ['a','b','c']);
+  const label = '예약 A+B 와 C+D';
+  const {items} = run(label, base(), [pair('res1','a','b'), pair('res2','c','d')], 2);
+  assertSameSide(items, 'a', 'b', label);
+  assertSameSide(items, 'c', 'd', label);
+  assertPlaced(items, ['a','b','c','d'], label);
 }
 
-// 4) 충돌: 관리자 A+B 묶음 + 임원 C+D 접수 (겹치는 선수 없음)
-{
-  const ps = base();
-  ps[0].partnerName='나선수'; ps[0].partnerId='pair1';
-  ps[1].partnerName='가선수'; ps[1].partnerId='pair1';
-  run('관리자 A+B + 임원 C+D (안 겹침)', ps,
-      [{id:'res1', mode:'partner', team1:['c','d'], team2:[], label:'다선수 · 라선수'}], ['a','b','c','d']);
-}
-
-console.log('\npartner conflict regression ok');
+console.log('\npartner unification regression ok');

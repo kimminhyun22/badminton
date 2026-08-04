@@ -14,8 +14,9 @@ const teamHtml=fs.readFileSync(path.join(root,'team.html'),'utf8');
 function functionSource(src,name,nextName){
   const start=src.indexOf(`function ${name}`);
   const end=src.indexOf(`function ${nextName}`,start+1);
+  const endAsync = end >= 6 && src.slice(end-6, end) === 'async ' ? end-6 : end;
   assert(start>=0&&end>start,`${name} 함수 범위를 찾을 수 있어야 합니다.`);
-  return src.slice(start,end);
+  return src.slice(start,endAsync);
 }
 
 assert(indexHtml.includes('id="memberOfficial"')&&teamHtml.includes('id="memberOfficial"'),'두 LIVE 명부에서 같은 클럽 임원 체크를 제공해야 합니다.');
@@ -36,7 +37,7 @@ assert(dailySrc.includes('isClubOfficial:!!p.isClubOfficial'),'민턴LIVE 참가
 assert(dailySrc.includes('maxClaims:Math.min(20,Math.max(8,_dailyPlayers.filter(player=>player.isClubOfficial||player.isTemporaryOfficial).length*2+2))'),'카카오·Safari·PWA를 오가는 임원·운영 도우미 기기를 충분히 연결할 수 있어야 합니다.');
 assert(dailySrc.includes("source:'club-official-complete'"),'임원 경기 종료는 관리자 원본에서 별도 출처로 기록해야 합니다.');
 assert(functionSource(dailySrc,'importDirectFromDaily','openEditDirectPlayer').includes('isClubOfficial:!!p.isClubOfficial'),'민턴LIVE 참가자를 팀전으로 가져올 때 임원 역할을 보존해야 합니다.');
-assert(functionSource(dailySrc,'dailyReset','dailyToggleAutoAssign').includes('_dailyStopOperatorHeartbeat'),'민턴LIVE 초기화 시 운영 연결과 화면 켜짐 요청을 정리해야 합니다.');
+assert(functionSource(dailySrc,'dailyReset','_dailyFinishPlanInfo').includes('_dailyStopOperatorHeartbeat'),'민턴LIVE 초기화 시 운영 연결과 화면 켜짐 요청을 정리해야 합니다.');
 assert(checkin.includes('클럽 임원 운영'),'회원 페이지에서 임원 중심 운영 화면을 제공해야 합니다.');
 assert(checkin.indexOf('id="officialPanel"')<checkin.indexOf('id="afterPartyPanel"'),'임원 운영 현황은 개인 카드 다음, 뒷풀이 정보보다 먼저 보여야 합니다.');
 assert(checkin.includes('${officialOperationsSummaryHtml(p)}'),'임원이 이름을 선택한 뒤에도 운영 현황이 임원 패널 안에 표시되어야 합니다.');

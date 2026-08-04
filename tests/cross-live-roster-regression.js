@@ -15,8 +15,9 @@ const teamHtml=fs.readFileSync(path.join(root,'team.html'),'utf8');
 function sourceBetween(src,startName,endName){
   const start=src.indexOf(`function ${startName}`);
   const end=src.indexOf(`function ${endName}`,start+1);
+  const endAsync = end >= 6 && src.slice(end-6, end) === 'async ' ? end-6 : end;
   assert(start>=0&&end>start,`${startName} 함수 범위를 찾을 수 있어야 합니다.`);
-  return src.slice(start,end);
+  return src.slice(start,endAsync);
 }
 
 assert(indexHtml.includes('id="dailyImportTeamRosterBtn"')&&indexHtml.includes('onclick="dailyImportTeamRoster()"'),'민턴LIVE 선수 영역에서 팀전 명단을 가져올 수 있어야 합니다.');

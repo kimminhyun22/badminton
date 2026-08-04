@@ -9,8 +9,9 @@ const dailySrc=fs.readFileSync(path.join(root,'js','daily.js'),'utf8');
 function sourceBetween(startName,nextName){
   const start=dailySrc.indexOf(`function ${startName}`);
   const end=dailySrc.indexOf(`function ${nextName}`,start+1);
+  const endAsync = end >= 6 && dailySrc.slice(end-6, end) === 'async ' ? end-6 : end;
   assert(start>=0&&end>start,`${startName} 함수 범위를 찾을 수 있어야 합니다.`);
-  return dailySrc.slice(start,end);
+  return dailySrc.slice(start,endAsync);
 }
 
 const scoringSandbox={

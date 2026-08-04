@@ -7,8 +7,9 @@ const source = fs.readFileSync(path.join(__dirname, '..', 'checkin.html'), 'utf8
 function functionSource(name, nextName) {
   const start = source.indexOf(`function ${name}`);
   const end = source.indexOf(`function ${nextName}`, start + 1);
+  const endAsync = end >= 6 && source.slice(end-6, end) === 'async ' ? end-6 : end;
   assert(start >= 0 && end > start, `Missing function boundary: ${name}`);
-  return source.slice(start, end);
+  return source.slice(start,endAsync);
 }
 
 assert(

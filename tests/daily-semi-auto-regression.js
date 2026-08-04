@@ -15,8 +15,9 @@ function extractFunction(src, name, nextName) {
   const start = starts.length ? Math.min(...starts) : -1;
   assert(start >= 0, `${name} 함수가 있어야 합니다.`);
   const end = src.indexOf(`function ${nextName}`, start);
+  const endAsync = end >= 6 && src.slice(end-6, end) === 'async ' ? end-6 : end;
   assert(end > start, `${name} 함수의 끝을 찾을 수 있어야 합니다.`);
-  return src.slice(start, end);
+  return src.slice(start,endAsync);
 }
 
 const importSelected = extractFunction(dailySrc, 'importDailySelected', 'syncFixedTeamNames');

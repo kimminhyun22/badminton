@@ -13,8 +13,9 @@ const appCss=fs.readFileSync(path.join(root,'css','app.css'),'utf8');
 function functionSource(name,nextName){
   const start=dailySrc.indexOf(`function ${name}`);
   const end=dailySrc.indexOf(`function ${nextName}`,start+1);
+  const endAsync = end >= 6 && dailySrc.slice(end-6, end) === 'async ' ? end-6 : end;
   assert(start>=0&&end>start,`${name} 함수 범위를 찾을 수 있어야 합니다.`);
-  return dailySrc.slice(start,end);
+  return dailySrc.slice(start,endAsync);
 }
 
 const rosterMatch=dailySrc.match(/const DAILY_AUG3_RECOVERY_ROSTER=Object\.freeze\((\[[\s\S]*?\])\);/);
@@ -127,7 +128,7 @@ assert(loadSource.includes('_dailyArchiveCurrentPreparation();'),'기존 버전�
 assert(dailySrc.includes('DAILY_PREPARATION_RETENTION_MS=7*24*60*60*1000'),'준비 명단은 7일간 보관해야 합니다.');
 assert(dailySrc.includes('DAILY_PREPARATION_DRAFT_LIMIT=3'),'최근 준비 명단은 3개까지만 보관해야 합니다.');
 assert(dailySrc.includes('_dailyPreparationState(s,now)?_dailyPreparationPlayers(s.players):[]'),'날짜가 바뀌어도 미시작 준비 명단을 보존해야 합니다.');
-const reset=functionSource('dailyReset','dailyToggleAutoAssign');
+const reset=functionSource('dailyReset','_dailyFinishPlanInfo');
 assert(!reset.includes('DAILY_PREPARATION_DRAFT_KEY'),'초기화 후에도 보관된 준비 명단은 복원할 수 있어야 합니다.');
 
 assert(indexHtml.includes('id="dailyPreparationDraftBanner"'),'상황판 상단에 준비 명단 복원 영역이 있어야 합니다.');

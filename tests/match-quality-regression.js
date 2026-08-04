@@ -50,8 +50,9 @@ assert(teamSrc.includes('MATCH_QUALITY.partnerRepeatPenalty(count)'),'팀전 실
 function sourceBetween(src,startName,nextName){
   const start=src.indexOf(`function ${startName}`);
   const end=src.indexOf(`function ${nextName}`,start+1);
+  const endAsync = end >= 6 && src.slice(end-6, end) === 'async ' ? end-6 : end;
   assert(start>=0&&end>start,`${startName} 함수 범위를 찾을 수 있어야 합니다.`);
-  return src.slice(start,end);
+  return src.slice(start,endAsync);
 }
 
 assert(dailySrc.includes('pickFairnessCorrection'),'관리자 앱의 로컬 대진도 서버와 같은 공정 보정 단계를 사용해야 합니다.');
