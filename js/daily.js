@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.509';
+const APP_VERSION = '1.10.510';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2971,6 +2971,8 @@ async function dailyClearPair(id){
     const sent=await _dailySendAdminCommand({
       type:'official-partner-cancel',
       reservationId:r.id,
+      // 서버가 접수 선수 지문을 대조합니다. 안 보내면 '이미 바뀌었습니다'로 거절됩니다.
+      expectedPlayerIds:[...(r.team1||[])],
       source:'system-admin-partner-cancel'
     },{action:'파트너 지정 해제',tag:'partner-cancel'});
     dailyRender();
@@ -2988,9 +2990,11 @@ async function dailyDeleteReservation(id){
   if(_dailyBlockServerSync({action:'게임신청 취소'}))return;
   if(_dailyBlockPaused({action:'게임신청을 취소'}))return;
   if(_dailyCheckinId){
+    const target=_dailyReservations.find(r=>String(r.id)===String(id));
     const sent=await _dailySendAdminCommand({
       type:'official-partner-cancel',
       reservationId:id,
+      expectedPlayerIds:[...(target?.team1||[])],
       source:'system-admin-reservation-cancel'
     },{action:'게임신청 취소',tag:'reservation-cancel'});
     return sent.ok;
@@ -9675,7 +9679,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.509&from=daily';
+  location.href='team.html?v=1.10.510&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

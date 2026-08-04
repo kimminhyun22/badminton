@@ -210,4 +210,40 @@ console.log(`  관리자 화면에서 서버 명령으로 보내는 동작 ${con
   console.log(`  서버가 모르는 경기 종료: rejected (${r.reason})`);
 }
 
+
+// 6) 서버가 지문(expectedPlayerIds)을 대조하는 명령은 관리자도 그 값을 보내야 합니다.
+//    안 보내면 idsFingerprint(undefined) 와 어긋나 "이미 바뀌었습니다"로 거절됩니다.
+//    실측(2026-08-04): 파트너 해제·게임신청 취소가 이 이유로 전부 실패했습니다.
+{
+  const s = makeSession();
+  s.reservations = [{id:'r1', mode:'pair', team1:['p1','p2'], team2:[]}];
+  const withoutIds = applyOfficialRequest(s, {
+    type:'official-partner-cancel', operationId:'no_ids', reservationId:'r1',
+    commandProtocol:2, actorPlayerId:'', actorPlayerName:'관리자',
+    officialGrantToken:adminGrant, createdAt:NOW+1000, expiresAt:NOW+30*60*1000
+  }, {now:NOW+1000, grantSecret:SECRET, checkinId:SESSION_ID, adminClaim:true});
+  assert.strictEqual(withoutIds.status, 'rejected',
+    '지문 없이 보내면 서버가 거절합니다(이 전제가 깨지면 아래 검사가 무의미해집니다).');
+
+  const s2 = makeSession();
+  s2.reservations = [{id:'r1', mode:'pair', team1:['p1','p2'], team2:[]}];
+  const withIds = applyOfficialRequest(s2, {
+    type:'official-partner-cancel', operationId:'with_ids', reservationId:'r1',
+    expectedPlayerIds:['p1','p2'],
+    commandProtocol:2, actorPlayerId:'', actorPlayerName:'관리자',
+    officialGrantToken:adminGrant, createdAt:NOW+1000, expiresAt:NOW+30*60*1000
+  }, {now:NOW+1000, grantSecret:SECRET, checkinId:SESSION_ID, adminClaim:true});
+  assert.strictEqual(withIds.status, 'applied', `지문을 보내면 적용돼야 합니다: ${withIds.reason || ''}`);
+
+  // 관리자 화면의 두 호출부가 실제로 지문을 싣는지
+  ['dailyClearPair','dailyDeleteReservation'].forEach(name=>{
+    const st = daily.indexOf(`async function ${name}(`);
+    const en = daily.indexOf('\nasync function ', st + 10);
+    const src = daily.slice(st, en > st ? en : st + 2000);
+    assert(/expectedPlayerIds:\[/.test(src),
+      `${name} 이 official-partner-cancel 에 expectedPlayerIds 를 실어야 합니다.`);
+  });
+  console.log('  파트너 해제·게임신청 취소의 지문 전달 확인');
+}
+
 console.log('\ndaily admin command path regression ok');
