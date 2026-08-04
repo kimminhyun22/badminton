@@ -9,9 +9,10 @@
 
       "$sessionId": {
         ".read": "$sessionId.matches(/^((checkin|rsvp)_[A-Z0-9]{6,12}|[A-Z0-9]{6})$/)",
-        ".write": "$sessionId.matches(/^((checkin|rsvp)_[A-Z0-9]{6,12}|[A-Z0-9]{6})$/)",
+        ".write": "$sessionId.matches(/^([A-Z0-9]{6}|rsvp_[A-Z0-9]{6,12})$/) || !newData.exists()",
 
         "session": {
+          ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)",
           ".validate": "!data.exists() || !data.hasChild('officialInvite/tokenHash') || newData.child('officialInvite/tokenHash').val() === data.child('officialInvite/tokenHash').val()",
           "serverSessionId": {
             ".validate": "!newData.exists() || !data.exists() || newData.val() === data.val()"
@@ -22,6 +23,7 @@
         },
 
         "requests": {
+          ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)",
           "$requestId": {
             ".validate": "!newData.exists() || newData.hasChildren(['type'])",
             "$field": {
@@ -31,20 +33,33 @@
         },
 
         "party": {
+          ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)",
           "$playerId": {
             ".validate": true
           }
         },
 
         "operator": {
+          ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)",
           ".validate": true
         },
 
         "responses": {
+          ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)",
           "$memberId": {
             ".validate": true
           }
         },
+
+        "kind": { ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)" },
+        "createdAt": { ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)" },
+        "matchStartedAt": { ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)" },
+        "expiresAt": { ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)" },
+        "updatedAt": { ".write": "$sessionId.matches(/^checkin_[A-Z0-9]{6,12}$/)" },
+
+        "serverCommands": { ".write": false },
+        "serverOps": { ".write": false },
+        "officialClaims": { ".write": false },
 
         "$other": {
           ".validate": true
