@@ -16,7 +16,7 @@ const teamHtml = read('team.html');
 const readme = read('README.md');
 const simulation = read('tests/simulation.html');
 
-const mintonManual = section(indexHtml, '<!-- ═══════════════ MANUAL PAGE ═══════════════ -->', '<script src="js/match-quality.js"></script>');
+const mintonManual = section(indexHtml, '<!-- ═══════════════ MANUAL PAGE ═══════════════ -->', '<script src="js/match-quality.js');
 const mintonMemberGuide = section(mintonManual, '<h2>📱 회원에게 알려줄 말</h2>', '<h2>👥 도착 전·운영 도우미</h2>');
 
 assert(mintonManual.includes('도착 전에는 실중계만 볼 수 있고 대진에서는 제외됩니다.'), '민턴LIVE 설명서는 도착 전 선수가 자동대진에서 제외됨을 안내해야 합니다.');
@@ -29,7 +29,7 @@ assert(!mintonMemberGuide.includes('이번만 뒤로'), '일반회원 안내에 
 assert(!mintonManual.includes('예상 대진'), '민턴LIVE 설명서에 제거된 예상 대진 표현이 남으면 안 됩니다.');
 assert(indexHtml.includes('<span class="card-title">다음 대진</span>') && !indexHtml.includes('<span class="card-title">다음·예상 대진</span>'), '민턴LIVE 관리자 화면도 다음 대진만 간결하게 표시해야 합니다.');
 
-const teamManual = section(teamHtml, '<!-- ═══════════════ MANUAL PAGE ═══════════════ -->', '<script src="js/match-quality.js"></script>');
+const teamManual = section(teamHtml, '<!-- ═══════════════ MANUAL PAGE ═══════════════ -->', '<script src="js/match-quality.js');
 assert(!teamManual.includes('출석'), '팀전 설명서에 폐기한 출석 개념이 다시 노출되면 안 됩니다.');
 assert(teamManual.includes('회원 응답 없이 관리자가 명단을 확정합니다.'), '팀전 설명서는 관리자 확정 명단 방식을 안내해야 합니다.');
 assert(teamManual.includes('별도 단계 없이 진행 중인 실중계로 바로 들어갑니다.'), '팀전 설명서는 본인 확인 후 즉시 실중계로 이어짐을 안내해야 합니다.');
