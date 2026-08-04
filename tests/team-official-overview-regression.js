@@ -17,7 +17,7 @@ const overviewSource = liveSrc.slice(overviewStart, overviewEnd);
 
 assert(overviewSource.includes("viewer.isClubOfficial||(!_usesFixedTeams(d)&&viewer.isTemporaryOperator)"),
   '정식 임원과 자유대진 운영 도우미만 운영 현황을 볼 수 있어야 합니다.');
-['등록','현장','경기중','대기','늦음','운영진','뒷풀이'].forEach(label=>{
+['등록','현장','경기중','대기','지각','운영진','뒷풀이'].forEach(label=>{
   assert(overviewSource.includes(`label:'${label}'`), `운영 현황에 ${label} 항목이 있어야 합니다.`);
 });
 assert(overviewSource.includes('resultConflicts')&&overviewSource.includes('승패 확인'),
@@ -103,10 +103,10 @@ const liveData = {
 
 const summary = JSON.parse(JSON.stringify(sandbox.api.data(liveData)));
 assert.strictEqual(summary.members.length,8,'확정 참가자 전원을 등록 인원으로 집계해야 합니다.');
-assert.strictEqual(summary.onSite.length,7,'현장은 등록 인원에서 명시적 늦음만 제외해야 합니다.');
+assert.strictEqual(summary.onSite.length,7,'현장은 등록 인원에서 명시적 지각만 제외해야 합니다.');
 assert.strictEqual(summary.playing.length,4,'현재 라운드의 현장 선수를 경기중으로 집계해야 합니다.');
 assert.strictEqual(summary.waiting.length,3,'현장에 있으나 현재 경기 밖인 선수를 대기로 집계해야 합니다.');
-assert.strictEqual(summary.late.length,1,'늦음은 명시적 늦음 지도만 사용해야 합니다.');
+assert.strictEqual(summary.late.length,1,'지각은 명시적 지각 지도만 사용해야 합니다.');
 assert.strictEqual(summary.operators.length,2,'정식 임원과 자유대진 운영 도우미를 운영진으로 집계해야 합니다.');
 assert.strictEqual(summary.party.length,1,'뒷풀이 신청 인원을 별도로 집계해야 합니다.');
 assert.strictEqual(summary.conflictCount,2,'승패 충돌 입력 수를 정확히 집계해야 합니다.');
@@ -132,7 +132,7 @@ sandbox.api.setViewer({id:'official',n:'정식임원',isClubOfficial:true});
 sandbox.window._lastLiveData=liveData;
 sandbox.api.filter('late');
 const lateHtml = sandbox.api.build(liveData);
-assert(lateHtml.includes('늦음 1명')&&lateHtml.includes('늦은회원'),
+assert(lateHtml.includes('지각 1명')&&lateHtml.includes('늦은회원'),
   '현황 숫자를 누르면 해당 상태의 선수 이름을 바로 보여야 합니다.');
 assert.strictEqual(sandbox.api.rendered(),1,'상태 필터 변경은 현재 LIVE 화면만 다시 그려야 합니다.');
 

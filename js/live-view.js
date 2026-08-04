@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.511';
+const APP_VERSION='1.10.512';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1221,7 +1221,7 @@ function _teamOfficialOverviewMemberMeta(player,data,d,key){
     const match=data.currentMatches.find(m=>[...(m.t1||[]),...(m.t2||[])].includes(player.n));
     if(match)return `${match.court||'-'}코트 · 경기중`;
   }
-  if(key==='late')return '늦음';
+  if(key==='late')return '지각';
   if(key==='party')return '뒷풀이 참석';
   const team=player.team==='blue'?liveTeamLabel(d,'blue'):player.team==='red'?liveTeamLabel(d,'red'):'참가자';
   const matches=_viewerMatches(d,player.n);
@@ -1243,7 +1243,7 @@ function buildTeamOfficialOverview(d){
     {key:'current',label:'현장',value:data.onSite.length,cls:'current'},
     {key:'playing',label:'경기중',value:data.playing.length},
     {key:'waiting',label:'대기',value:data.waiting.length},
-    {key:'late',label:'늦음',value:data.late.length,cls:data.late.length?'alert':''},
+    {key:'late',label:'지각',value:data.late.length,cls:data.late.length?'alert':''},
     {key:'operators',label:'운영진',value:data.operators.length,cls:'operator'},
     {key:'party',label:'뒷풀이',value:data.party.length,cls:'party'}
   ];
@@ -1299,8 +1299,12 @@ function _viewerStatusButtons(current){
   const teamKey=current.team||'';
   const lateOn=_lateOn(current.n);
   const partyOn=_partyOn(current.n);
+  // 지각·도착은 운영진이 확인합니다. 회원에게는 현재 상태만 보여 줍니다.
+  const canOperate=_canOperateAttendance(window._lastLiveData||{});
   return '<div class="viewer-status-actions">'
-    +'<button type="button" class="viewer-state-btn ready '+(lateOn?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(lateOn?'늦음 취소':'늦음')+'</button>'
+    +(canOperate
+      ?'<button type="button" class="viewer-state-btn ready '+(lateOn?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(lateOn?'도착 확인':'지각')+'</button>'
+      :(lateOn?'<span class="viewer-state-view on">지각</span>':''))
     +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
   +'</div>';
 }
@@ -1534,8 +1538,14 @@ function closeTeamRoster(){
 
 async function toggleMemberLate(name, team){
   if(!name) return;
+  // 버튼을 감추는 것만으로는 부족합니다. 저장하는 자리에서도 막습니다.
+  // 권한 확인이 먼저입니다 — 연결 상태와 무관하게 막아야 안내가 헷갈리지 않습니다.
+  if(!_canOperateAttendance(window._lastLiveData||{})){
+    alert('지각·도착 확인은 단장·부단장·클럽 임원·운영 도우미가 처리합니다.');
+    return;
+  }
   if(!liveDb || !liveId){
-    alert('늦음 표시를 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
+    alert('지각 표시를 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
     return;
   }
   const key=_attKey(name);
@@ -1544,7 +1554,7 @@ async function toggleMemberLate(name, team){
     if(_lateOn(name)){
       await ref.remove();
     } else {
-      if(!confirm(name+'님을 늦음으로 표시할까요?')) return;
+      if(!confirm(name+'님을 지각으로 표시할까요?')) return;
       await ref.set({
         name:name,
         team:team||'',
@@ -1553,11 +1563,16 @@ async function toggleMemberLate(name, team){
       });
     }
   }catch(e){
-    alert('늦음 표시 저장 실패: '+e.message);
+    alert('지각 표시 저장 실패: '+e.message);
   }
 }
 
 async function toggleMemberParty(name, team){
+  // 뒷풀이는 본인 의사 표시라 본인이 하고, 현장에서 운영진이 대신 눌러줄 수 있습니다.
+  if(name&&!(_isSelf(window._lastLiveData||{},name)||_canOperateAttendance(window._lastLiveData||{}))){
+    alert('뒷풀이 참석은 본인 또는 운영진만 바꿀 수 있습니다.');
+    return;
+  }
   if(!name) return;
   if(!liveDb || !liveId){
     alert('뒷풀이 참석을 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
@@ -1581,6 +1596,18 @@ async function toggleMemberParty(name, team){
   }
 }
 
+// 명단에서 남의 출결을 만지는 것은 운영진만 합니다.
+// 회원이 서로의 지각을 켜고 끄면 결국 임원에게 확인 요청이 몰려 일이 늘어납니다
+// (운영자 판단 2026-08-04). 본인 것은 본인이 계속 처리합니다.
+function _canOperateAttendance(d){
+  const v=_viewerInfo(d);
+  if(!v)return false;
+  return !!(v.isClubOfficial||v.isLeader||v.isSub||v.isTemporaryOperator);
+}
+function _isSelf(d,name){
+  const v=_viewerInfo(d);
+  return !!(v&&String(v.n||'')===String(name||''));
+}
 function buildTeamRosterCard(d){
   if(!d.members) return '';
   const blue=_normalizeMembers(d.members.blue||[]);
@@ -1593,6 +1620,7 @@ function buildTeamRosterCard(d){
   const party=d.party||{};
   window._liveLate=late;
   window._liveParty=party;
+  const canOperate=_canOperateAttendance(d);
   const mk=(list,teamKey)=>{
     const arr=_sortMembers(list);
     if(!arr.length) return '<div class="faq-note">명단이 없습니다.</div>';
@@ -1613,8 +1641,12 @@ function buildTeamRosterCard(d){
         +'<span class="team-member-name">'+esc(p.n)+'</span>'
         +badges
         +'<div class="team-member-actions">'
-          +'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(on?'늦음 취소':'늦음')+'</button>'
-          +'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
+          +(canOperate
+            ?'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(on?'도착 확인':'지각')+'</button>'
+            :'<span class="team-member-att-view '+(on?'on':'')+'">'+(on?'지각':'')+'</span>')
+          +((canOperate||_isSelf(d,p.n))
+            ?'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
+            :'<span class="team-member-party-view '+(partyOn?'on':'')+'">'+(partyOn?'뒷풀이':'')+'</span>')
         +'</div>'
       +'</div>';
     }).join('');
@@ -1624,17 +1656,17 @@ function buildTeamRosterCard(d){
   const partyCount=all.filter(p=>_partyOn(p.n)).length;
   const sortBtn=(key,label)=>'<button type="button" class="team-roster-sort '+(_teamRosterSort===key?'active':'')+'" onclick="setTeamRosterSort(\''+key+'\')">'+label+'</button>';
   return '<details class="info-details primary" id="teamRoster" '+(_teamRosterOpen?'open':'')+' ontoggle="setTeamRosterOpen(this.open)">'
-    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 늦음 · 뒷풀이</summary>'
+    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 지각 · 뒷풀이</summary>'
     +'<div class="info-body">'
       +'<section class="team-roster-card">'
-        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>늦음 '+lateCount+'명 · 뒷풀이 '+partyCount+'명</span></div>'
-        +'<div class="team-att-summary"><b>늦음</b> · <b>뒷풀이</b> 확인</div>'
-        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','늦음')+sortBtn('role','역할')+sortBtn('level','급수')+'</div>'
+        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>지각 '+lateCount+'명 · 뒷풀이 '+partyCount+'명</span></div>'
+        +'<div class="team-att-summary"><b>지각</b> · <b>뒷풀이</b> 확인</div>'
+        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','지각')+sortBtn('role','역할')+sortBtn('level','급수')+'</div>'
         +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
           +(showTeam
-            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>늦음 '+blue.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(blue,'blue')+'</div>'
-              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>늦음 '+red.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(red,'red')+'</div>'
-            :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>늦음 '+lateCount+'명</small></div>'+mk(solo,'all')+'</div>')
+            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>지각 '+blue.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(blue,'blue')+'</div>'
+              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>지각 '+red.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(red,'red')+'</div>'
+            :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>지각 '+lateCount+'명</small></div>'+mk(solo,'all')+'</div>')
         +'</div>'
         +'<button type="button" class="team-roster-close" onclick="closeTeamRoster()">▲ 명단 접기</button>'
       +'</section>'
@@ -1654,7 +1686,7 @@ function _playerLine(name,d){
   if(!n) return '<div class="live-player">-</div>';
   const flag=!!(d&&_lateOn(n));
   return '<div class="live-player '+(flag?'not-ready':'')+'">'+esc(n)
-    +(flag?'<span class="ready-badge">늦음</span>':'')
+    +(flag?'<span class="ready-badge">지각</span>':'')
   +'</div>';
 }
 
