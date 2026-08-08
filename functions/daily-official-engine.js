@@ -50,6 +50,7 @@ const SUPPORTED_TYPES = new Set([
   'official-settings-update',
   'official-court-cancel',
   'official-manual-match',
+  'official-active-replace',
   'official-player-remove',
   'official-player-rename',
   'official-player-create',
@@ -86,6 +87,7 @@ const PAUSED_FLOW_TYPES = new Set([
   'official-partner-cancel',
   'official-court-cancel',
   'official-manual-match',
+  'official-active-replace',
   'official-player-remove',
   'official-player-create',
   'official-queue-delete',
@@ -995,7 +997,8 @@ function validateCommon(session, request, now, options){
   // 코트 수·운영 시간·자동 진행은 관리자 설정입니다. 임원 연결로는 못 바꿉니다.
   if(adminOnlyCommand && !adminClaim)return {reason:'이 운영 동작은 관리자만 할 수 있습니다.'};
   // 관리자 전용 확장 옵션. 임원 연결로 보내면 기본 규칙을 우회하게 되므로 막습니다.
-  if(!adminClaim && (request.allowFreeMove === true || text(request.inPlayerId))){
+  if(!adminClaim && (request.allowFreeMove === true
+    || (request.type === 'official-queue-replace' && text(request.inPlayerId)))){
     return {reason:'대진 순서 임의 이동과 교체 선수 지정은 관리자만 할 수 있습니다.'};
   }
   if(!adminClaim && !isLiveOperator(actor)){
@@ -2284,6 +2287,84 @@ function applyManualMatch(session, request, now, requestId, operation){
   return '';
 }
 
+
+// 진행 중 경기의 선수 교체(운영자 결정 2026-08-08).
+//  - 대기 선수 투입: 나간 선수는 휴식, 들어온 선수가 마저 뜁니다.
+//    경기 수는 종료 시점의 명단으로 셉니다 — 끝까지 뛴 사람이 그 경기를 가져갑니다.
+//  - 다른 코트 선수와 맞교환: 두 경기의 명단을 한 번에 바꿉니다(타이머는 그대로).
+// 코트에서 4명이 동의하고 바꾸는 일을 시스템이 막으면 기록만 실제와 어긋납니다.
+function applyActiveReplace(session, request, now, operation){
+  refreshEvent(session, now);
+  const event = session.event;
+  const match = event.active.find(m=>text(m.id) === text(request.matchId));
+  if(!match)return '교체할 진행중 경기를 찾지 못했습니다.';
+  if(number(request.expectedStartedAt) !== number(match.startedAt))return '코트의 진행 경기가 이미 바뀌었습니다.';
+  if(idsFingerprint(request.expectedPlayerIds) !== idsFingerprint(activePlayerIds(match))){
+    return '코트의 선수 구성이 이미 바뀌었습니다.';
+  }
+  const outId = text(request.outPlayerId);
+  const inId = text(request.inPlayerId);
+  if(!outId || !inId)return '교체할 두 선수를 다시 확인해 주세요.';
+  if(outId === inId)return '같은 선수입니다.';
+  if(!activePlayerIds(match).map(text).includes(outId))return '교체할 선수를 이 경기에서 찾지 못했습니다.';
+  if(activePlayerIds(match).map(text).includes(inId))return '이미 이 경기에서 뛰는 선수입니다.';
+  const outPlayer = playerById(session, outId);
+  const inPlayer = playerById(session, inId);
+  if(!outPlayer || !inPlayer)return '선수를 현재 명단에서 찾지 못했습니다.';
+
+  const swapIds = list=>list.map(id=>text(id) === outId ? inId : (text(id) === inId ? outId : text(id)));
+  const applyRoster = m=>{
+    m.t1Ids = swapIds(queueTeam1Ids(m));
+    m.t2Ids = swapIds(queueTeam2Ids(m));
+    m.playerIds = [...m.t1Ids, ...m.t2Ids];
+    m.t1 = m.t1Ids.map(id=>text(playerById(session, id)?.name) || '선수');
+    m.t2 = m.t2Ids.map(id=>text(playerById(session, id)?.name) || '선수');
+    // 명단이 바뀌면 자동 투입 취소 스냅샷은 더 이상 맞지 않습니다
+    ['autoHandoffAt','autoHandoffExpiresAt','autoHandoffQueue','autoHandoffPlayerStates',
+     'autoHandoffReservation','autoHandoffSource','autoHandoffSourceMatchId',
+     'autoHandoffSourceRequestId','autoHandoffQueueIndex'].forEach(key=>delete m[key]);
+  };
+
+  const otherMatch = event.active.find(m=>m !== match && activePlayerIds(m).map(text).includes(inId));
+  if(otherMatch){
+    applyRoster(match);
+    applyRoster(otherMatch);
+    outPlayer.currentMatchId = text(otherMatch.id);
+    inPlayer.currentMatchId = text(match.id);
+    outPlayer.lastStatusAt = now;
+    inPlayer.lastStatusAt = now;
+    if(operation)operation.result = {activeReplace:{mode:'swap', matchId:text(match.id),
+      otherMatchId:text(otherMatch.id), outId, inId}};
+    refreshEvent(session, now);
+    return '';
+  }
+
+  if(normalizeStatus(inPlayer.status) !== 'wait' || text(inPlayer.currentMatchId)){
+    return `${text(inPlayer.name)} 선수는 지금 참가 대기 상태가 아닙니다.`;
+  }
+  repairPreparedForUnavailablePlayer(session, inId, now);
+  removePlayerReservations(session, inId);
+  applyRoster(match);
+  inPlayer.status = 'playing';
+  inPlayer.statusLabel = statusLabel('playing');
+  inPlayer.locked = true;
+  inPlayer.currentMatchId = text(match.id);
+  inPlayer.afterMatchStatus = '';
+  inPlayer.lastStatusAt = now;
+  inPlayer.restPausedMs = 0;
+  outPlayer.status = 'rest';
+  outPlayer.statusLabel = statusLabel('rest');
+  outPlayer.locked = false;
+  outPlayer.currentMatchId = '';
+  outPlayer.afterMatchStatus = '';
+  outPlayer.lastStatusAt = now;
+  outPlayer.restPausedMs = 0;
+  promotePrepared(session);
+  if(operation)operation.result = {activeReplace:{mode:'sub', matchId:text(match.id), outId, inId}};
+  refreshEvent(session, now);
+  return '';
+}
+
 function applyByType(session, request, now, requestId, operation){
   switch(request.type){
     case 'official-player-arrival': return applyArrival(session, request, now, requestId);
@@ -2303,6 +2384,7 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-temporary-revoke': return applyTemporaryOfficial(session, request, now, operation, false);
     case 'official-settings-update': return applySettingsUpdate(session, request, now, operation);
     case 'official-court-cancel': return applyCourtCancel(session, request, now, operation);
+    case 'official-active-replace': return applyActiveReplace(session, request, now, operation);
     case 'official-manual-match': return applyManualMatch(session, request, now, requestId, operation);
     case 'official-player-remove': return applyPlayerRemove(session, request, now, operation);
     case 'official-player-rename': return applyPlayerRename(session, request, now, operation);
