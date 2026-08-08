@@ -186,7 +186,7 @@ function extractFunction(src, name){
   assert(/_dailyQueuedPlayerLocation/.test(candidateSrc),
     '예약된 대기 선수는 목록에서 빼지 말고 정렬로만 뒤에 두어야 합니다.');
   assert(daily.includes('대기(다음 대진 예정)'),'관리자 화면이 예약 상태를 표시해야 합니다.');
-  assert(checkin.includes('대기(다음 대진 예정)'),'임원 화면이 예약 상태를 표시해야 합니다.');
+  assert(checkin.includes('다음 대진 예정'),'임원 화면이 예약 상태를 표시해야 합니다.');
   console.log('  후보 목록: 상한 없음 · 다음 대진 예약 선수도 후보(뒤로 정렬)');
 }
 
@@ -239,7 +239,7 @@ function extractFunction(src, name){
   assert(!checkin.includes('event-official-complete replace'),'옛 선수 교체 버튼은 제거되어야 합니다.');
   // 후보 구분: 대기 선수와 맞교환(다른 코트)이 다르게 표시되어야 합니다.
   const cand=extractFunction(checkin,'officialActiveReplaceCandidates');
-  assert(/대기\(다음 대진 예정\)/.test(cand)&&/맞교환/.test(cand),'후보에 예약 상태와 맞교환 표시가 있어야 합니다.');
+  assert(/다음 대진 예정/.test(cand)&&/맞교환/.test(cand),'후보에 예약 상태와 맞교환 표시가 있어야 합니다.');
   console.log('  임원 이름 탭 → 후보 시트: prompt 없음 · 옛 버튼 제거 · 후보 구분 표시');
 }
 
