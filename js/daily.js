@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.521';
+const APP_VERSION = '1.10.522';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2649,19 +2649,17 @@ function dailyImportTeamRoster(){
   if(setup)setup.open=true;
   alert(`팀전 선수 ${_dailyPlayers.length}명을 민턴LIVE 명단으로 가져왔습니다.`);
 }
-async function dailyAddPlayer(){
-  if(_dailyBlockServerSync({action:'선수 추가'}))return;
-  if(!_dailyCanChangeRoster())return;
-  const nameEl=document.getElementById('dailyName');
-  const name=(nameEl?.value||'').trim();
-  if(!name){nameEl?.focus();return;}
-  if(_dailyPlayers.some(p=>p.name===name)){
-    alert('민턴LIVE 명단에 이미 있는 선수입니다.');
-    nameEl.select();return;
-  }
-  const grade=document.getElementById('dailyGrade')?.value||'C';
-  const gender=document.getElementById('dailyGender')?.value||'남';
-  const ageGroup=document.getElementById('dailyAge')?.value||'40대';
+// 선수 추가의 공용 코어. 「선수 추가」 폼과 참가자 모달의 게스트 추가가 같이 씁니다.
+// 두 벌로 복사하면 한쪽만 고치는 사고가 납니다(서버·클라이언트 이중 검사와 같은 덫).
+// status 'planned' 는 도착 전 등록 — 서버 official-player-create 가 이미 받습니다.
+async function _dailyCreatePlayerDirect(opts){
+  const name=String(opts.name||'').trim();
+  if(!name)return {ok:false,reason:''};   // 빈 이름은 조용히 포커스만 (호출부 처리)
+  if(_dailyPlayers.some(p=>p.name===name))return {ok:false,reason:'민턴LIVE 명단에 이미 있는 선수입니다.'};
+  const status=opts.status==='planned'?'planned':'wait';
+  const grade=opts.grade||'C';
+  const gender=_dailyGender(opts.gender||'남');
+  const ageGroup=opts.ageGroup||'40대';
   if(_dailyCheckinId){
     const operationId=_dailyAdminOperationId('player-create');
     const sent=await _dailySendAdminCommand({
@@ -2670,29 +2668,68 @@ async function dailyAddPlayer(){
       playerId:`dpv2_${operationId}`,
       name,
       grade,
-      gender:_dailyGender(gender),
-      level:gradeToLevel(grade,_dailyGenderLabel(_dailyGender(gender)))||4,
+      gender,
+      level:gradeToLevel(grade,_dailyGenderLabel(gender))||4,
       ageGroup,
-      isGuest:!!_dailyIsGuest,
-      source:'system-admin-player-create'
-    },{action:'선수 추가',tag:'player-create'});
-    if(sent.ok){
-      if(_dailyIsGuest)toggleDailyGuestMode(false);
-      nameEl.value='';
-      nameEl.focus();
-    }
-    return sent.ok;
+      isGuest:!!opts.isGuest,
+      status,
+      source:opts.source||'system-admin-player-create'
+    },{action:status==='planned'?'도착 전 선수 추가':'선수 추가',tag:'player-create'});
+    return {ok:!!sent.ok,reason:''};
   }
-  const player=_dailyNormalize({name,grade,gender,ageGroup,isGuest:_dailyIsGuest});
+  const player=_dailyNormalize({name,grade,gender,ageGroup,isGuest:!!opts.isGuest,status,preArrivalVisible:status==='planned'});
   _dailyPlayers.push(player);
-  _dailyMarkLiveAddition(player,{origin:'manual',source:'system-admin-manual-add'});
+  // 도착 전 선수는 아직 뛰지 않으므로 라이브 추가로 기록하지 않습니다(서버와 같은 규칙).
+  if(status==='wait')_dailyMarkLiveAddition(player,{origin:'manual',source:opts.source||'system-admin-manual-add'});
   _dailyNext=null;
-  if(_dailyIsGuest)toggleDailyGuestMode(false);
-  nameEl.value='';
-  nameEl.focus();
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
+  return {ok:true,reason:''};
+}
+async function dailyAddPlayer(){
+  if(_dailyBlockServerSync({action:'선수 추가'}))return;
+  if(!_dailyCanChangeRoster())return;
+  const nameEl=document.getElementById('dailyName');
+  const res=await _dailyCreatePlayerDirect({
+    name:nameEl?.value,
+    grade:document.getElementById('dailyGrade')?.value||'C',
+    gender:document.getElementById('dailyGender')?.value||'남',
+    ageGroup:document.getElementById('dailyAge')?.value||'40대',
+    isGuest:_dailyIsGuest,
+    source:_dailyCheckinId?'system-admin-player-create':'system-admin-manual-add'
+  });
+  if(!res.ok){
+    if(res.reason){alert(res.reason);nameEl?.select();}
+    else nameEl?.focus();
+    return;
+  }
+  if(_dailyIsGuest)toggleDailyGuestMode(false);
+  if(nameEl){nameEl.value='';nameEl.focus();}
+  return true;
+}
+// 참가자 모달의 게스트 추가. 미리 도착 전으로 넣어 두면 명부 회원과 같은
+// 목록에서 「전체 선택 → 현장 참가 등록」 한 번으로 함께 도착 처리됩니다.
+async function dailyImportAddGuest(status){
+  if(_dailyBlockServerSync({action:'게스트 추가'}))return;
+  if(!_dailyCanChangeRoster())return;
+  const nameEl=document.getElementById('dailyImportGuestName');
+  const res=await _dailyCreatePlayerDirect({
+    name:nameEl?.value,
+    grade:document.getElementById('dailyImportGuestGrade')?.value||'C',
+    gender:document.getElementById('dailyImportGuestGender')?.value||'남',
+    ageGroup:document.getElementById('dailyImportGuestAge')?.value||'40대',
+    isGuest:true,
+    status,
+    source:status==='planned'?'system-admin-guest-prearrival':'system-admin-guest-add'
+  });
+  if(!res.ok){
+    if(res.reason){alert(res.reason);nameEl?.select();}
+    else nameEl?.focus();
+    return;
+  }
+  if(nameEl){nameEl.value='';nameEl.focus();}
+  renderDailyImportMembers();
 }
 function dailyImportRoster(){
   if(!_dailyCanChangeRoster())return;
@@ -2701,6 +2738,11 @@ function dailyImportRoster(){
   if(!clubs.length){alert('명부에 등록된 회원이 없습니다.');return;}
   _dailyImportClubIdx=Math.max(0,(rosters.clubs||[]).findIndex(c=>(c.members||[]).length));
   _dailyImportSort='reg';
+  _dailyImportFilter='all';
+  ['all','planned'].forEach(m=>{
+    const btn=document.getElementById('disf-'+m);
+    if(btn)btn.classList.toggle('active',m==='all');
+  });
   const memberList=document.getElementById('dailyImportMemberList');
   if(memberList)memberList.innerHTML='';
   renderDailyImportTabs();
@@ -9508,6 +9550,7 @@ function dailyRenderMatches(){
 
 let _dailyImportClubIdx=0;
 let _dailyImportSort='reg';
+let _dailyImportFilter='all';
 
 function closeDailyImportModal(){
   document.getElementById('dailyImportModal').classList.add('hidden');
@@ -9538,25 +9581,42 @@ function setDailyImportSort(mode){
   });
   renderDailyImportMembers();
 }
+// '도착 전' 보기: 미리 등록해 둔 명단만 남겨 「전체 선택 → 현장 참가 등록」이
+// 오늘 안 오는 명부 회원까지 쓸어 담지 않게 합니다. 전체 선택은 화면에 보이는
+// 행만 집으므로 필터가 곧 선택 범위입니다.
+function setDailyImportFilter(mode){
+  _dailyImportFilter=mode==='planned'?'planned':'all';
+  ['all','planned'].forEach(m=>{
+    const btn=document.getElementById('disf-'+m);
+    if(btn)btn.classList.toggle('active',m===_dailyImportFilter);
+  });
+  renderDailyImportMembers();
+}
 function renderDailyImportMembers(){
   const club=(rosters.clubs||[])[_dailyImportClubIdx];
   const el=document.getElementById('dailyImportMemberList');
   if(!el)return;
-  if(!club||!(club.members||[]).length){
-    el.innerHTML='<div class="dir-empty">이 클럽에 등록된 회원이 없습니다</div>';
-    return;
-  }
   const existingByName=new Map(_dailyPlayers.map(p=>[p.name,p]));
+  const isPre=p=>['invited','planned'].includes(_dailyNormalizeStatus(p.status));
   const canRegister=m=>{
     const existing=existingByName.get(m.name);
     if(!existing)return true;
-    return ['invited','planned'].includes(_dailyNormalizeStatus(existing.status));
+    return isPre(existing);
   };
+  // 게스트 행은 'p:<id>' 값을 쓰므로 선택 보존은 문자열 키로 합니다.
   const prevChecked=new Set();
   document.querySelectorAll('.daily-import-chk:not(:disabled)').forEach(c=>{
-    if(c.checked)prevChecked.add(parseInt(c.value));
+    if(c.checked)prevChecked.add(String(c.value));
   });
-  const indexed=(club.members||[]).map((m,i)=>({...m,_origIdx:i}));
+  // 명부 밖 도착 전 선수(게스트·직접 추가)도 같은 목록에서 도착 처리합니다.
+  // 목록에 없으면 일괄 도착에서 빠져 게스트만 따로 챙겨야 합니다.
+  const rosterNames=new Set((club?.members||[]).map(m=>m.name));
+  const extras=_dailyPlayers.filter(p=>isPre(p)&&!rosterNames.has(p.name));
+  if((!club||!(club.members||[]).length)&&!extras.length){
+    el.innerHTML='<div class="dir-empty">이 클럽에 등록된 회원이 없습니다</div>';
+    return;
+  }
+  const indexed=(club?.members||[]).map((m,i)=>({...m,_origIdx:i}));
   if(_dailyImportSort==='name'){
     indexed.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   }else if(_dailyImportSort==='gender'){
@@ -9570,15 +9630,18 @@ function renderDailyImportMembers(){
     const bIn=canRegister(b)?0:1;
     return aIn-bIn;
   });
-  const available=indexed.filter(canRegister).length;
-  const total=indexed.length;
+  const rosterPre=indexed.filter(m=>{const ex=existingByName.get(m.name);return ex&&isPre(ex);});
+  const preCount=rosterPre.length+extras.length;
+  const available=indexed.filter(canRegister).length+extras.length;
+  const total=indexed.length+extras.length;
+  const plannedOnly=_dailyImportFilter==='planned';
+  // 필터는 감추기만 합니다. 걸러진 행도 '전체' 로 돌아오면 그대로 있습니다.
+  const rosterRows=plannedOnly?rosterPre:indexed;
   const GC={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
-  el.innerHTML=`<div style="padding:7px 12px;font-size:.72rem;color:var(--dim);border-bottom:1px solid var(--bdr);background:var(--sur2);">
-    오늘 추가 가능 <b style="color:var(--bl)">${available}명</b> · 이미 있음 <b>${total-available}명</b>
-  </div>`+indexed.map(m=>{
+  const rosterRow=m=>{
     const existing=existingByName.get(m.name);
     const isDup=!!existing&&!canRegister(m);
-    const checked=!isDup&&prevChecked.has(m._origIdx);
+    const checked=!isDup&&prevChecked.has(String(m._origIdx));
     if(isDup){
       return `<label class="import-member-row" style="opacity:.45;cursor:default;background:#f8f8f8;">
         <input type="checkbox" class="daily-import-chk" value="${m._origIdx}" disabled>
@@ -9595,7 +9658,25 @@ function renderDailyImportMembers(){
         <span class="lv-badge ${GC[m.level]||'lv3'}">${esc(m.grade||'C')}</span> ${esc(m.gender||'남')}
       </span>
     </label>`;
-  }).join('');
+  };
+  const extraRow=p=>{
+    const checked=prevChecked.has(`p:${p.id}`);
+    return `<label class="import-member-row">
+      <input type="checkbox" class="daily-import-chk" value="p:${esc(p.id)}" ${checked?'checked':''}>
+      <span style="flex:1;font-size:.84rem;font-weight:700;">${esc(p.name)}</span>
+      <span style="font-size:.68rem;color:var(--dim);">
+        <span style="color:var(--warn);margin-right:5px;">도착 전</span>
+        ${p.isGuest?'<span style="margin-right:5px;">게스트</span>':''}
+        <span class="lv-badge ${GC[_dailyLevel(p)]||'lv3'}">${esc(p.grade||'C')}</span> ${_dailyGenderLabel(p.gender)}
+      </span>
+    </label>`;
+  };
+  const enabledRoster=rosterRows.filter(canRegister);
+  const disabledRoster=plannedOnly?[]:rosterRows.filter(m=>!canRegister(m));
+  const body=[...enabledRoster.map(rosterRow),...extras.map(extraRow),...disabledRoster.map(rosterRow)].join('');
+  el.innerHTML=`<div style="padding:7px 12px;font-size:.72rem;color:var(--dim);border-bottom:1px solid var(--bdr);background:var(--sur2);">
+    오늘 추가 가능 <b style="color:var(--bl)">${available}명</b> · 도착 전 <b style="color:var(--warn)">${preCount}명</b> · 이미 있음 <b>${total-available}명</b>
+  </div>`+(body||'<div class="dir-empty">도착 전 선수가 없습니다</div>');
 }
 function toggleDailySelectAll(){
   const chks=[...document.querySelectorAll('.daily-import-chk:not(:disabled)')];
@@ -9686,9 +9767,18 @@ async function importDailySelected(status){
   status=status==='planned'?'planned':'wait';
   const club=(rosters.clubs||[])[_dailyImportClubIdx];
   if(!club)return;
+  // 'p:<id>' 행은 명부 밖 도착 전 선수(게스트·직접 추가)입니다. 명부 회원과 달리
+  // 프로필을 다시 쓰면 안 되므로 _playerRow 로 표시해 상태 전환만 합니다.
   const sel=[...document.querySelectorAll('.daily-import-chk:not(:disabled)')]
     .filter(c=>c.checked)
-    .map(c=>club.members[parseInt(c.value)])
+    .map(c=>{
+      const v=String(c.value||'');
+      if(v.startsWith('p:')){
+        const p=_dailyPlayers.find(x=>String(x.id)===v.slice(2));
+        return p?{name:p.name,grade:p.grade,gender:_dailyGenderLabel(p.gender),ageGroup:p.ageGroup,club:p.club,memberId:p.memberId||'',isGuest:p.isGuest,_playerRow:true}:null;
+      }
+      return club.members[parseInt(v)];
+    })
     .filter(Boolean);
   if(!sel.length){alert('선수를 1명 이상 선택해주세요.');return;}
   // 게시된 뒤의 '현장 참가' 등록은 선수마다 서버 명령 한 건으로 보냅니다.
@@ -9714,6 +9804,16 @@ async function importDailySelected(status){
   }
   let added=0,reactivated=0,skipped=0;
   sel.forEach(m=>{
+    if(m._playerRow){
+      // 명부 밖 도착 전 선수: 프로필(게스트 표시·급수)은 그대로 두고 상태만 바꿉니다.
+      const existing=_dailyPlayers.find(p=>p.name===m.name);
+      if(existing&&['invited','planned'].includes(_dailyNormalizeStatus(existing.status))&&status==='wait'){
+        _dailyApplyPlayerStatus(existing,'wait');
+        existing.preArrivalVisible=false;
+        added++;reactivated++;
+      }else skipped++;
+      return;
+    }
     const clubName=club.name||m.club||'';
     const profile={...m,club:clubName,memberId:m.memberId||_rsvpMemberId({name:m.name,club:clubName}),status,preArrivalVisible:status==='planned'};
     const existing=_dailyPlayers.find(p=>p.name===m.name);
@@ -9875,7 +9975,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.521&from=daily';
+  location.href='team.html?v=1.10.522&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
