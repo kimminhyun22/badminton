@@ -3132,3 +3132,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
   .daily-import-actions{display:grid;grid-template-columns:1fr;}
   .daily-import-actions .btn{width:100%;min-width:0!important;}
 }
+
+/* 세게 당겨도 화면이 고무줄처럼 튕기며 하단 메뉴가 들썩이지 않게 */
+html,body{overscroll-behavior-y:none;}
+/* 동기화 복구 배너 — 상황판 맨 위, 바로 누르는 자리 */
+.daily-reconcile-banner{border:1.5px solid #f59e0b;background:#fffbeb;border-radius:12px;padding:12px 14px;margin:10px 0 4px;display:flex;flex-direction:column;gap:8px;}
+.daily-reconcile-banner .daily-checkin-req-title{font-weight:900;color:#92400e;font-size:.88rem;}
+.daily-reconcile-banner .daily-checkin-req-meta{font-size:.78rem;color:#78350f;line-height:1.55;}
+.daily-reconcile-banner button{align-self:flex-start;}
+.daily-pause-notice button{margin-top:6px;}

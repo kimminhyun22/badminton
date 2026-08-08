@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.514';
+const APP_VERSION = '1.10.515';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5475,7 +5475,8 @@ function dailyOpenBoardTarget(target){
     request:{tab:'daily',id:'dailyCheckinCard',open:'dailyCheckinDetails'},
     players:{tab:'players',id:'dailyPlayersManage',open:'dailyPlayersManage'},
     rest:{tab:'players',id:'dailyPlayersManage',open:'dailyPlayersManage'},
-    setup:{tab:'daily',id:'dailySetupDetails',open:'dailySetupDetails'}
+    setup:{tab:'daily',id:'dailySetupDetails',open:'dailySetupDetails'},
+    liveAdds:{tab:'queue',id:'dailyLiveAdditions'}
   };
   const cfg=map[target]||map.active;
   if(typeof switchMobileTab==='function')switchMobileTab(cfg.tab||'daily');
@@ -5631,25 +5632,18 @@ function dailyRenderOpsStats(){
     finishBtn.classList.toggle('active',_dailyFinishMode);
     finishBtn.disabled=_dailyPaused||_dailyPauseSyncBusy;
   }
-  const pauseBtn=document.getElementById('dailyPauseBtn');
-  const showPause=!!_dailyOperationStarted;
-  if(pauseBtn){
-    pauseBtn.style.display=showPause?'flex':'none';
-    pauseBtn.innerHTML=_dailyPaused
-      ? '<span>진행 재개</span><small>멈춘 시간부터 이어가기</small>'
-      : '<span>진행 일시 정지</span><small>생일축하·공지</small>';
-    pauseBtn.classList.toggle('active',_dailyPaused);
-    pauseBtn.disabled=_dailyPauseSyncBusy;
-  }
   const controlStrip=document.querySelector('.daily-live-control-strip');
-  if(controlStrip)controlStrip.classList.toggle('single',Number(showTransition)+Number(showPause)+Number(showFinish)===1);
+  if(controlStrip)controlStrip.classList.toggle('single',Number(showTransition)+Number(showFinish)===1);
+  // 일시 정지 시작 버튼은 뺐습니다(운영자 요청 2026-08-08). 오조작 한 번이면
+  // 임원 코트 진행까지 전부 막힙니다. 이전에 걸린 정지를 푸는 길은 남깁니다.
   const pauseNotice=document.getElementById('dailyPauseNotice');
   if(pauseNotice){
     pauseNotice.hidden=!_dailyPaused;
     pauseNotice.innerHTML=_dailyPaused
-      ? `<strong>진행 일시 정지</strong><span>${esc(_dailyPauseLabel())} 중입니다. 경기 타이머와 다음 대진 순서는 그대로 멈춰 있습니다.</span>`
+      ? `<strong>진행 일시 정지</strong><span>${esc(_dailyPauseLabel())} 중입니다. 경기 타이머와 다음 대진 순서는 그대로 멈춰 있습니다.</span><button type="button" class="daily-mini-btn primary-action" onclick="dailyTogglePause()" ${_dailyPauseSyncBusy?'disabled':''}>진행 재개</button>`
       : '';
   }
+  _dailyRenderReconcileBanner();
   dailyRenderPreparationDraft();
   dailyRenderStartGuide();
   const courts=_dailyCourtCount();
@@ -5689,6 +5683,8 @@ function dailyRenderOpsStats(){
     {label:'대진',value:_dailyFinishMode?(locked||0):(flow.auto?queueValue:(_dailyOperationStarted?'대기':'게시 전')),hint:_dailyFinishMode?(finishComplete?'자율게임':(locked?finishPlan.label:'새 대진 없음')):queueHint,cls:'primary',target:'queue'},
     {label:'라이브',value:flow.pool,hint:liveHint,cls:flow.auto?'primary':'warn',target:'players'}
   ];
+  const liveAdds=_dailyLiveAdditionRows().length;
+  if(liveAdds)cards.push({label:'라이브 추가',value:liveAdds,hint:'오등록 확인',cls:'warn',target:'liveAdds'});
   el.innerHTML=cards.map(x=>`<button type="button" class="daily-op ${x.cls||''} is-link" onclick="dailyOpenBoardTarget('${esc(x.target)}')" aria-label="${esc(x.label)} 보기"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></button>`).join('');
   dailyRenderHeadcount();
   dailyRenderLiveAdditions();
@@ -6370,6 +6366,15 @@ function _dailyPullServerReconcile(retriedGrant){
 // (2026-08-02 사고, 2026-08-08 재발 실측: 관리자 rev<17, 서버 rev 21, 기록 4건).
 // 그때 쓰는 탈출구입니다 — 따라잡기를 포기하고 서버가 가진 현재 상태를
 // 관리자 원본의 새 기준으로 받아들입니다. 완료된 경기 기록은 로컬에 남깁니다.
+// 동기화가 막히면 즉시 눌러야 해서 상황판 맨 위에 띄웁니다(운영자 요청 2026-08-08).
+function _dailyRenderReconcileBanner(){
+  const el=document.getElementById('dailyReconcileBanner');
+  if(!el)return;
+  el.hidden=!_dailyServerReconcileError;
+  el.innerHTML=_dailyServerReconcileError
+    ? `<div class="daily-checkin-req-title">서버 운영 동기화 확인 필요</div><div class="daily-checkin-req-meta">${esc(_dailyServerReconcileError)} 서버의 실중계 상태는 그대로 유지됩니다.</div><button type="button" class="daily-mini-btn primary-action" onclick="dailyAdoptServerState()">서버 기준으로 다시 맞추기</button>`
+    : '';
+}
 async function dailyAdoptServerState(){
   if(!_dailyCheckinId||!_fbDb){alert('회원 링크 연결을 찾지 못했습니다.');return false;}
   if(!confirm('서버의 현재 상태를 관리자 화면의 새 기준으로 가져올까요?\n\n선수 상태·진행 경기·다음 대진이 서버 기준으로 바뀝니다.\n완료된 경기 기록은 그대로 남습니다.'))return false;
@@ -8752,8 +8757,8 @@ function dailyRenderCheckinRequests(){
   const pending=_dailyCheckinPendingRequests();
   const partyNames=_dailyAfterPartyRows().map(_dailyNameText);
   const partyHtml=`<div class="daily-checkin-req applied"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">뒷풀이 ${partyNames.length}명</div><div class="daily-checkin-req-meta">${partyNames.length?partyNames.map(esc).join(', '):'신청 없음'}</div></div><div class="daily-checkin-req-actions"><button class="daily-mini-btn" type="button" ${partyNames.length?'':'disabled'} onclick="dailyCopyAfterPartyRoster()">명단 복사</button></div></div></div>`;
-  const reconcileHtml=_dailyServerReconcileError?`<div class="daily-checkin-req pending"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">서버 운영 동기화 확인 필요</div><div class="daily-checkin-req-meta">${esc(_dailyServerReconcileError)} 서버의 실중계 상태는 그대로 유지됩니다.</div></div></div><div class="daily-checkin-req-actions"><button class="daily-mini-btn primary-action" onclick="dailyAdoptServerState()">서버 기준으로 다시 맞추기</button></div></div>`:'';
-  const linkHtml=`<div class="daily-checkin-link">회원·임원 공용 링크<br><strong>${esc(url)}</strong><br>회원은 경기 확인과 상태·뒷풀이 신청을, 명부 임원은 같은 화면에서 경기 운영까지 처리합니다.</div>${reconcileHtml}${partyHtml}`;
+  _dailyRenderReconcileBanner();
+  const linkHtml=`<div class="daily-checkin-link">회원·임원 공용 링크<br><strong>${esc(url)}</strong><br>회원은 경기 확인과 상태·뒷풀이 신청을, 명부 임원은 같은 화면에서 경기 운영까지 처리합니다.</div>${partyHtml}`;
   if(!pending.length){
     box.className='daily-checkin-panel';
     box.innerHTML=linkHtml+`<div class="daily-checkin-req applied">
@@ -9777,7 +9782,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.514&from=daily';
+  location.href='team.html?v=1.10.515&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

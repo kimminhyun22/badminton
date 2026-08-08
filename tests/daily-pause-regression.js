@@ -25,7 +25,10 @@ function functionSource(src,name,nextName){
   return src.slice(start,endAsync);
 }
 
-assert(index.includes('id="dailyPauseBtn"'),'관리자 상황판의 주요 운영 제어에 일시정지 버튼이 있어야 합니다.');
+// 2026-08-08 운영자 결정: 일시정지 '시작' 버튼은 뺍니다. 오조작 한 번이면
+// 임원 코트 진행까지 전부 막힙니다. 걸려 있는 정지를 푸는 길만 남깁니다.
+assert(!index.includes('id="dailyPauseBtn"'),'일시정지 시작 버튼을 되살리면 오조작으로 임원 진행이 막힙니다.');
+assert(/dailyPauseNotice[\s\S]{0,600}진행 재개[\s\S]{0,80}dailyTogglePause/.test(daily)||/pauseNotice\.innerHTML[\s\S]{0,400}dailyTogglePause/.test(daily),'걸려 있는 정지를 풀 재개 버튼은 알림에 남아야 합니다.');
 assert(index.includes('id="dailyPauseNotice"'),'정지 상태를 관리자에게 명확히 알리는 영역이 있어야 합니다.');
 assert(daily.includes('paused:_dailyPaused'),'일시정지 상태를 로컬 저장과 공용 이벤트에 기록해야 합니다.');
 assert(daily.includes('pausedAt:_dailyPausedAt'),'앱 재실행 후에도 정지 기준 시각을 복구할 수 있어야 합니다.');

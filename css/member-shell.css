@@ -495,3 +495,6 @@ body.km-live-page .party-spotlight{
     margin-right:-10px;
   }
 }
+
+/* 세게 당겨도 하단 탭이 들썩이지 않게 */
+html,body{overscroll-behavior-y:none;}
