@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.513';
+const APP_VERSION = '1.10.514';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -6365,6 +6365,104 @@ function _dailyPullServerReconcile(retriedGrant){
   _dailyServerSyncPromise=wrapped;
   return wrapped;
 }
+// 관리자 게시는 서버 리비전을 순서대로 따라잡아야 하는데 명령 기록은 60분만
+// 남습니다. 한 시간 이상 어긋나면 스스로는 절대 복구되지 않습니다
+// (2026-08-02 사고, 2026-08-08 재발 실측: 관리자 rev<17, 서버 rev 21, 기록 4건).
+// 그때 쓰는 탈출구입니다 — 따라잡기를 포기하고 서버가 가진 현재 상태를
+// 관리자 원본의 새 기준으로 받아들입니다. 완료된 경기 기록은 로컬에 남깁니다.
+async function dailyAdoptServerState(){
+  if(!_dailyCheckinId||!_fbDb){alert('회원 링크 연결을 찾지 못했습니다.');return false;}
+  if(!confirm('서버의 현재 상태를 관리자 화면의 새 기준으로 가져올까요?\n\n선수 상태·진행 경기·다음 대진이 서버 기준으로 바뀝니다.\n완료된 경기 기록은 그대로 남습니다.'))return false;
+  try{
+    const snap=await _fbDb.ref(_dailyCheckinPath()+'/session').once('value');
+    const remote=snap.val();
+    if(!remote||typeof remote!=='object')throw new Error('서버 세션을 읽지 못했습니다.');
+    if(String(remote.serverSessionId||'')!==String(_dailyCheckinId))throw new Error('세션 번호가 일치하지 않습니다.');
+    const remoteHash=String(remote.officialInvite?.tokenHash||'');
+    if(_dailyOfficialInviteHash&&remoteHash&&remoteHash!==_dailyOfficialInviteHash){
+      throw new Error('다른 관리자가 게시한 세션입니다. 새 링크를 만들어 주세요.');
+    }
+    _dailyAdoptServerSnapshot(remote);
+    dailySave({preserveServerQueue:true});
+    dailyRender();
+    await dailyPushCheckinSession();
+    dailyRenderCheckinRequests();
+    alert('서버 상태를 새 기준으로 가져왔습니다.\n이제 임원 처리가 다시 이 화면에 반영됩니다.');
+    return true;
+  }catch(e){
+    alert(String(e?.message||'서버 상태를 가져오지 못했습니다. 네트워크를 확인해 주세요.'));
+    return false;
+  }
+}
+function _dailyAdoptServerSnapshot(remote){
+  const now=_dailyNow();
+  // 선수: 서버가 가진 그대로. 게시 payload 형식이라 _dailyNormalize 가 그대로 받습니다.
+  const players=Array.isArray(remote.players)?remote.players:[];
+  _dailyPlayers=players.filter(p=>p&&p.id&&p.name).map(raw=>{
+    const p=_dailyNormalize(raw);
+    p.id=raw.id;
+    p.currentMatchId=raw.currentMatchId||null;
+    p.afterMatchStatus=raw.afterMatchStatus||null;
+    return p;
+  });
+  // 경기: 완료·취소 기록은 남기고, 진행분만 서버의 active 로 교체합니다.
+  const done=_dailyMatches.filter(m=>m&&(m.completedAt||m.cancelledAt));
+  const doneIds=new Set(done.map(m=>String(m.id)));
+  const active=(remote.event&&Array.isArray(remote.event.active))?remote.event.active:[];
+  const adopted=active.filter(m=>m&&m.id&&!doneIds.has(String(m.id))).map(m=>{
+    const team1=[...(m.t1Ids||m.team1||[])].map(String);
+    const team2=[...(m.t2Ids||m.team2||[])].map(String);
+    const startedAt=Number(m.startedAt)||now;
+    return {
+      id:String(m.id),
+      seq:Number(m.seq)||0,
+      court:Number(m.court)||0,
+      startedAt,
+      endAt:Number(m.endAt)||startedAt+DAILY_MATCH_MINUTES*60000,
+      type:m.type||'예외',
+      levelDiff:Number(m.levelDiff||0),
+      expectedMinutes:Number(m.expectedMinutes)||DAILY_MATCH_MINUTES,
+      durationMin:Number(m.expectedMinutes)||DAILY_MATCH_MINUTES,
+      team1,team2,
+      teamMode:!!m.teamMode,
+      fourKey:_dailyFourKey(team1.concat(team2).map(_dailyPlayer).filter(Boolean)),
+      flexible:!!m.flexible,
+      reservationId:m.reservationId||null,
+      reservationLabel:m.reservationLabel||null,
+      // 경기 전 상태는 서버에 없습니다. 채택된 경기를 취소하면 대기로 돌아갑니다.
+      previousStatuses:{},
+      serverAdopted:true,
+      transitionStarted:!!m.transitionStarted
+    };
+  });
+  _dailyMatches=[...done,...adopted];
+  _dailySeq=1+_dailyMatches.reduce((mx,m)=>Math.max(mx,Number(m.seq)||0),0);
+  // 다음 대진·게임신청: 서버 것으로 교체
+  _dailyReservations=(remote.reservations||[]).filter(r=>r&&r.id);
+  const next=[],used=new Set();
+  ((remote.event&&remote.event.next)||[]).forEach(item=>{
+    const q=_dailyQueueFromServerSyncItem(item);
+    if(q&&_dailyQueueItemValid(q,used)){next.push(q);_dailyQueueIds(q).forEach(id=>used.add(id));}
+  });
+  _dailyQueue=next;
+  _dailyNext=null;
+  _dailyEmergencyEditQueueId=null;
+  _dailyMarkFourCacheDirty();
+  // 일시정지·마무리 상태도 서버를 따릅니다
+  if(remote.event)_dailyAdoptRemotePauseEvent(remote.event,{silent:true});
+  _dailyFinishMode=!!(remote.event&&remote.event.finishMode);
+  if(remote.event&&remote.event.operationStarted)_dailyMarkOperationStarted();
+  // 리비전을 서버 머리로 맞춥니다 — 이것이 채택의 핵심입니다.
+  _dailyServerRevision=Math.max(0,Number(remote.serverRevision||0));
+  _dailyServerLastRequestId=String(remote.serverLastRequestId||'');
+  _dailyObservedServerRevision=_dailyServerRevision;
+  _dailyObservedServerLastRequestId=_dailyServerLastRequestId;
+  _dailyPersistServerIdentity();
+  // 이미 적용된 옛 명령은 다시 재생하지 않습니다. 대기 중 요청만 남깁니다.
+  _dailyCheckinRequests=_dailyCheckinRequests.filter(r=>!r.serverAppliedAt&&!r.serverRejectedAt);
+  _dailyServerReconcileError='';
+  _dailyRefreshNextFromQueue();
+}
 function _dailyServerRuntimePayload(){
   const holds={};
   const fourCounts={};
@@ -8654,7 +8752,7 @@ function dailyRenderCheckinRequests(){
   const pending=_dailyCheckinPendingRequests();
   const partyNames=_dailyAfterPartyRows().map(_dailyNameText);
   const partyHtml=`<div class="daily-checkin-req applied"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">뒷풀이 ${partyNames.length}명</div><div class="daily-checkin-req-meta">${partyNames.length?partyNames.map(esc).join(', '):'신청 없음'}</div></div><div class="daily-checkin-req-actions"><button class="daily-mini-btn" type="button" ${partyNames.length?'':'disabled'} onclick="dailyCopyAfterPartyRoster()">명단 복사</button></div></div></div>`;
-  const reconcileHtml=_dailyServerReconcileError?`<div class="daily-checkin-req pending"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">서버 운영 동기화 확인 필요</div><div class="daily-checkin-req-meta">${esc(_dailyServerReconcileError)} 네트워크를 확인한 뒤 이 화면을 다시 열어 주세요. 서버의 실중계 상태는 그대로 유지됩니다.</div></div></div></div>`:'';
+  const reconcileHtml=_dailyServerReconcileError?`<div class="daily-checkin-req pending"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">서버 운영 동기화 확인 필요</div><div class="daily-checkin-req-meta">${esc(_dailyServerReconcileError)} 서버의 실중계 상태는 그대로 유지됩니다.</div></div></div><div class="daily-checkin-req-actions"><button class="daily-mini-btn primary-action" onclick="dailyAdoptServerState()">서버 기준으로 다시 맞추기</button></div></div>`:'';
   const linkHtml=`<div class="daily-checkin-link">회원·임원 공용 링크<br><strong>${esc(url)}</strong><br>회원은 경기 확인과 상태·뒷풀이 신청을, 명부 임원은 같은 화면에서 경기 운영까지 처리합니다.</div>${reconcileHtml}${partyHtml}`;
   if(!pending.length){
     box.className='daily-checkin-panel';
@@ -9679,7 +9777,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.513&from=daily';
+  location.href='team.html?v=1.10.514&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

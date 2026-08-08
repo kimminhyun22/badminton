@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.513  (2026-07)
+     APP VERSION: 1.10.514  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.513">
+<meta name="app-version" content="1.10.514">
 <script id="defaultEntryRedirect">
 (function redirectDefaultEntryToTeamLive(){
   const params=new URLSearchParams(location.search);
@@ -21,7 +21,7 @@
   const standalone=(typeof matchMedia==='function'&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
   const rootEntry=location.pathname.endsWith('/');
   if((rootEntry||standalone)&&!explicitDaily){
-    location.replace('team.html?v=1.10.513&from=entry');
+    location.replace('team.html?v=1.10.514&from=entry');
   }
 })();
 </script>
@@ -34,14 +34,14 @@
 <title>🏸 민턴LIVE | 클럽 운동 운영</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/app.css?v=1.10.513">
+<link rel="stylesheet" href="css/app.css?v=1.10.514">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/storage.js?v=1.10.513"></script>
+<script src="js/storage.js?v=1.10.514"></script>
 </head>
 <body>
 
@@ -64,8 +64,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.513&from=daily'">팀전</button>
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.513&from=daily'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.514&from=daily'">팀전</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.514&from=daily'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
 </div>
 
 <div class="nav-bar">
@@ -98,7 +98,7 @@
         기본 시작 화면은 팀전입니다. 민턴LIVE는 클럽 임원이 현장 참가를 확인한 뒤 반자동으로 운영하는 평소 운동용입니다.
       </div>
       <div class="operation-grid">
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.513&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.514&from=daily'">
           <b>팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
           <small>기본 시작 화면</small>
@@ -937,9 +937,9 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.513"></script>
-<script src="js/mobile-nav.js?v=1.10.513"></script>
-<script src="js/daily.js?v=1.10.513"></script>
+<script src="js/match-quality.js?v=1.10.514"></script>
+<script src="js/mobile-nav.js?v=1.10.514"></script>
+<script src="js/daily.js?v=1.10.514"></script>
 
 <!-- 현재 진행 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 경기로 이동" title="현재 진행 경기로 이동">
@@ -1010,7 +1010,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.513</span>
+  <span class="app-version" id="appVersion">v1.10.514</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
