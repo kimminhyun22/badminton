@@ -139,6 +139,14 @@ assert(daily.includes("req.type==='official-active-replace'"),'관리자 원본�
 assert(daily.includes('function _dailyApplyActiveReplaceLocal'),'재생과 게시 전 경로가 같은 적용 함수를 써야 합니다.');
 assert(checkin.includes('sendOfficialActiveReplace'),'임원 화면에 교체 전송이 있어야 합니다.');
 assert(checkin.includes('선수 교체'),'임원 진행중 카드에 교체 버튼이 있어야 합니다.');
+// 맞교환은 두 코트가 함께 바뀌므로 양쪽 화면 모두 경고 확인을 거쳐야 합니다.
+['js/daily.js','checkin.html'].forEach(()=>{});
+assert(daily.includes('두 경기의 대진이 함께 바뀝니다'),'관리자 맞교환에 경고 확인이 있어야 합니다.');
+assert(checkin.includes('두 경기의 대진이 함께 바뀝니다'),'임원 맞교환에 경고 확인이 있어야 합니다.');
+assert(/chosen\.swap&&!confirm/.test(daily),'관리자 경고는 맞교환일 때만 떠야 합니다.');
+// 같은 이름의 옛 정의가 뒤에 남으면 새 코드를 조용히 덮습니다(2026-08-08 실측).
+assert.strictEqual((daily.match(/^(?:async )?function dailyPickActiveReplacement\(/gm)||[]).length,1,
+  'dailyPickActiveReplacement 가 두 번 정의되면 뒤의 옛 코드가 이깁니다.');
 console.log('  관리자·임원 화면 배선 + 재생 경로 확인');
 
 console.log('\ndaily active replace regression ok');

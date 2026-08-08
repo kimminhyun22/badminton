@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.517';
+const APP_VERSION = '1.10.519';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4250,7 +4250,7 @@ async function dailyPickActiveReplacement(matchId,side,pos){
   const playing=[];
   _dailyActiveMatches().forEach(other=>{
     if(other.id===m.id)return;
-    _dailyMatchPlayers(other).forEach(p=>playing.push({player:p,label:`${p.name} · ${other.court}코트 경기중 (맞교환)`}));
+    _dailyMatchPlayers(other).forEach(p=>playing.push({player:p,label:`${p.name} · ${other.court}코트 경기중 (맞교환)`,swap:true,court:other.court}));
   });
   const candidates=[...waiting,...playing];
   if(!candidates.length){alert('교체 가능한 선수가 없습니다.');return;}
@@ -4259,8 +4259,11 @@ async function dailyPickActiveReplacement(matchId,side,pos){
   if(raw==null)return;
   const pick=parseInt(String(raw).trim(),10);
   if(!pick||pick<1||pick>candidates.length){alert('번호를 다시 확인해 주세요.');return;}
-  const candidate=candidates[pick-1].player;
+  const chosen=candidates[pick-1];
+  const candidate=chosen.player;
   if(_dailyMatchPlayers(m).some(p=>p.id===candidate.id)){alert('이미 이 경기에 포함된 선수입니다.');return;}
+  // 맞교환은 두 코트의 대진이 함께 바뀝니다. 실수로 누르면 여덟 명이 흔들리니 한 번 더 확인합니다.
+  if(chosen.swap&&!confirm(`⚠️ 맞교환\n${candidate.name} 선수는 ${chosen.court}코트에서 경기 중입니다.\n${m.court}코트 ↔ ${chosen.court}코트 두 경기의 대진이 함께 바뀝니다.\n\n${current?.name||'선수'} ↔ ${candidate.name} 교체할까요?`))return;
   if(_dailyCheckinId){
     const sent=await _dailySendAdminCommand({
       type:'official-active-replace',
@@ -4473,49 +4476,6 @@ function dailyPickQueueReplacement(queueId,side,pos){
     return;
   }
   dailyEditQueuePlayer(queueId,side,pos,candidates[pick-1].id);
-}
-function dailyPickActiveReplacement(matchId,side,pos){
-  if(_dailyBlockPaused({action:'진행 선수를 교체'}))return;
-  const m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
-  if(!m)return;
-  const arr=side==='team2'?m.team2:m.team1;
-  if(!arr||!arr[pos])return;
-  const currentId=arr[pos];
-  const current=_dailyPlayer(currentId);
-  const candidates=_dailyActiveReplacementCandidates(m,currentId).slice(0,12);
-  if(!candidates.length){
-    alert('교체 가능한 순수 대기선수가 없습니다.');
-    return;
-  }
-  const list=candidates.map((p,i)=>`${i+1}. ${p.name}${p.isGuest?'(G)':''} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G`).join('\n');
-  const raw=prompt(`${current?.name||'선수'} 대신 들어갈 대기선수를 번호로 선택하세요.\n기존 선수는 휴식으로 전환됩니다.\n\n${list}`,'1');
-  if(raw==null)return;
-  const pick=parseInt(String(raw).trim(),10);
-  if(!pick||pick<1||pick>candidates.length){
-    alert('번호를 다시 확인해 주세요.');
-    return;
-  }
-  const candidate=candidates[pick-1];
-  if(_dailyMatchPlayers(m).some(p=>p.id===candidate.id)){
-    alert('이미 이 경기에 포함된 선수입니다.');
-    return;
-  }
-  arr[pos]=candidate.id;
-  if(current){
-    current.status='rest';
-    current.currentMatchId=null;
-    current.afterMatchStatus=null;
-    current.lastStatusAt=_dailyNow();
-  }
-  _dailyCancelReservationsForPlayer(candidate.id,'진행 중 경기 선수교체로 게임신청이 자동 취소됐습니다.','admin-active-replace');
-  candidate.status='playing';
-  candidate.currentMatchId=m.id;
-  candidate.lastStatusAt=_dailyNow();
-  _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).includes(candidate.id));
-  dailyEnsureQueue();
-  dailySave();
-  dailyRender();
-  dailyMaybeAutoAssign();
 }
 function dailyEditActiveCourt(matchId){
   if(_dailyBlockPaused({action:'코트를 변경'}))return;
@@ -10046,7 +10006,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.517&from=daily';
+  location.href='team.html?v=1.10.519&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
