@@ -134,7 +134,13 @@ function extractFunction(src, name){
     '게스트를 도착 전·현장 참가 양쪽으로 추가할 수 있어야 합니다.');
   assert(extractFunction(daily,'dailyImportRoster').includes("_dailyImportFilter='all'"),
     '모달을 열 때 필터가 전체로 돌아와야 합니다 — 지난 필터가 남으면 명부가 사라진 것처럼 보입니다.');
-  console.log('  모달 배선: 공용 코어 · 게스트 행 · 도착 전 필터 · 열 때 초기화');
+  // 전체 선택은 목록 머리글에 있어야 합니다. 하단 등록 버튼 줄에 섞여 있으면
+  // 헷갈립니다(운영자 피드백 2026-08-09) — 보이는 행만 집으므로 필터 눈높이가 맞습니다.
+  assert(/toggleDailySelectAll/.test(extractFunction(daily,'renderDailyImportMembers')),
+    '전체 선택/해제가 목록 머리글에 있어야 합니다.');
+  assert(!index.includes('toggleDailySelectAll'),
+    '하단 액션 줄의 전체 선택은 제거되어야 합니다 — 진입점이 둘이면 다시 헷갈립니다.');
+  console.log('  모달 배선: 공용 코어 · 게스트 행 · 도착 전 필터 · 열 때 초기화 · 전체 선택 위치');
 }
 
 console.log('\ndaily import bulk arrival regression ok');

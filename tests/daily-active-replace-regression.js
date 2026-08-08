@@ -138,7 +138,7 @@ assert(daily.includes("type:'official-active-replace'"),'관리자 화면이 교
 assert(daily.includes("req.type==='official-active-replace'"),'관리자 원본에 재생·검증 분기가 있어야 합니다.');
 assert(daily.includes('function _dailyApplyActiveReplaceLocal'),'재생과 게시 전 경로가 같은 적용 함수를 써야 합니다.');
 assert(checkin.includes('sendOfficialActiveReplace'),'임원 화면에 교체 전송이 있어야 합니다.');
-assert(checkin.includes('선수 교체'),'임원 진행중 카드에 교체 버튼이 있어야 합니다.');
+assert(checkin.includes('선수 교체'),'임원 화면에 교체 진입점이 있어야 합니다.');
 // 맞교환은 두 코트가 함께 바뀌므로 양쪽 화면 모두 경고 확인을 거쳐야 합니다.
 ['js/daily.js','checkin.html'].forEach(()=>{});
 assert(daily.includes('두 경기의 대진이 함께 바뀝니다'),'관리자 맞교환에 경고 확인이 있어야 합니다.');
@@ -190,12 +190,10 @@ function extractFunction(src, name){
   console.log('  후보 목록: 상한 없음 · 다음 대진 예약 선수도 후보(뒤로 정렬)');
 }
 
-// 8) 목록이 길어졌으므로 번호 대신 이름으로도 골라야 합니다.
-//    두 화면이 같은 규칙이어야 합니다 — 한쪽만 고치면 현장에서 갈립니다.
+// 8) 관리자 화면은 목록이 길어 번호 대신 이름으로도 골라야 합니다.
 {
   const load=(src,name)=>new Function(`${extractFunction(src,name)}\nreturn ${name};`)();
   const adminPick=load(daily,'_dailyPickFromCandidates');
-  const officialPick=load(checkin,'officialPickFromCandidates');
   const rows=[{id:'a',name:'김가나'},{id:'b',name:'김나다'},{id:'c',name:'박다라'},{id:'d',name:'김가나'}];
   const cases=[
     ['2','b','번호로 고르기'],
@@ -210,26 +208,39 @@ function extractFunction(src, name){
     ['',null,'빈 입력'],
     ['홍길동',null,'없는 이름']
   ];
-  [['관리자',adminPick],['임원',officialPick]].forEach(([who,fn])=>{
-    cases.forEach(([input,expectId,label])=>{
-      const got=fn(rows,input);
-      if(expectId===null){
-        assert.strictEqual(typeof got,'string',`${who}: ${label} — 사유를 돌려줘야 합니다 (입력 ${JSON.stringify(input)})`);
-        assert(got.length>0,`${who}: ${label} — 사유가 비어 있습니다.`);
-      }else{
-        assert(got&&got.id===expectId,`${who}: ${label} — ${expectId} 를 골라야 합니다 (입력 ${JSON.stringify(input)}).`);
-      }
-    });
-  });
-  // 두 화면의 판정이 같은지 직접 대조합니다.
-  cases.forEach(([input,,label])=>{
-    const a=adminPick(rows,input), b=officialPick(rows,input);
-    const key=v=>typeof v==='string'?'reject':v.id;
-    assert.strictEqual(key(a),key(b),`관리자·임원 판정이 갈립니다: ${label}`);
+  cases.forEach(([input,expectId,label])=>{
+    const got=adminPick(rows,input);
+    if(expectId===null){
+      assert.strictEqual(typeof got,'string',`관리자: ${label} — 사유를 돌려줘야 합니다 (입력 ${JSON.stringify(input)})`);
+      assert(got.length>0,`관리자: ${label} — 사유가 비어 있습니다.`);
+    }else{
+      assert(got&&got.id===expectId,`관리자: ${label} — ${expectId} 를 골라야 합니다 (입력 ${JSON.stringify(input)}).`);
+    }
   });
   assert(daily.includes('번호 또는 이름으로 선택'),'관리자 안내 문구가 이름 입력을 알려야 합니다.');
-  assert(checkin.includes('번호 또는 이름으로 선택'),'임원 안내 문구가 이름 입력을 알려야 합니다.');
-  console.log(`  번호·이름 선택 ${cases.length}가지: 관리자·임원 판정 일치`);
+  console.log(`  관리자 번호·이름 선택 ${cases.length}가지 확인`);
+}
+
+// 8b) 임원 화면은 prompt 를 폐지했습니다(운영자 요청 2026-08-09
+//     "이름을 누르면 선수교체 창이 뜨고 골라 바꾸는 방식"). 카드의 선수 이름을
+//     누르면 그 선수를 빼는 후보 시트가 뜨고, 후보를 눌러 고릅니다.
+{
+  // 이름 → 시트 배선: 진행 코트 이름이 버튼이고 시트 열기를 부릅니다.
+  const lines=extractFunction(checkin,'teamLines');
+  assert(/openOfficialActiveReplace\(/.test(lines),'진행 코트 선수 이름이 교체 시트를 열어야 합니다.');
+  assert(/event-active-player replaceable/.test(lines),'이름 버튼은 일시정지 대진 교체와 같은 시각 언어여야 합니다.');
+  assert(checkin.includes('id="replacePicker"'),'교체 후보 시트가 있어야 합니다.');
+  assert(checkin.includes('pickOfficialReplaceCandidate'),'후보를 눌러 고르는 경로가 있어야 합니다.');
+  // prompt 로 돌아가면 현장에서 번호를 세게 됩니다.
+  ['openOfficialActiveReplace','sendOfficialActiveReplace','pickOfficialReplaceCandidate'].forEach(name=>{
+    assert(!/\bprompt\(/.test(extractFunction(checkin,name)),`${name} 이 prompt 를 쓰면 안 됩니다.`);
+  });
+  // 옛 「선수 교체」 버튼이 남아 있으면 진입점이 둘이 됩니다.
+  assert(!checkin.includes('event-official-complete replace'),'옛 선수 교체 버튼은 제거되어야 합니다.');
+  // 후보 구분: 대기 선수와 맞교환(다른 코트)이 다르게 표시되어야 합니다.
+  const cand=extractFunction(checkin,'officialActiveReplaceCandidates');
+  assert(/대기\(다음 대진 예정\)/.test(cand)&&/맞교환/.test(cand),'후보에 예약 상태와 맞교환 표시가 있어야 합니다.');
+  console.log('  임원 이름 탭 → 후보 시트: prompt 없음 · 옛 버튼 제거 · 후보 구분 표시');
 }
 
 // 9) 서버가 적용한 교체를 관리자 원본이 다시 거절하면 안 됩니다.
