@@ -2472,7 +2472,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.519">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.521">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2487,7 +2487,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.519</span>
+    <span class="version-chip" id="appVersion">v1.10.521</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2534,7 +2534,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.519';
+const APP_VERSION='1.10.521';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -4887,24 +4887,61 @@ function sampleAutoStartQueue(q,court,matchId,sourceMatchId,startedAt){
   session.event.activeCount=session.event.active.length;
   return match;
 }
+// 관리자 화면의 `_dailyPickFromCandidates` 와 같은 규칙입니다. 한쪽만 고치지 마십시오
+// (tests/daily-active-replace-regression.js 가 두 화면의 판정을 직접 대조합니다).
+function officialPickFromCandidates(candidates,raw){
+  const input=String(raw==null?'':raw).trim();
+  if(!input)return '번호 또는 이름을 입력해 주세요.';
+  if(/^\d+$/.test(input)){
+    const pick=parseInt(input,10);
+    if(!pick||pick<1||pick>candidates.length)return '번호를 다시 확인해 주세요.';
+    return candidates[pick-1];
+  }
+  const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const key=norm(input);
+  const exact=candidates.filter(c=>norm(c.name)===key);
+  const hit=exact.length?exact:candidates.filter(c=>norm(c.name).includes(key));
+  if(!hit.length)return '그 이름의 후보를 찾지 못했습니다.';
+  if(hit.length>1)return `이름이 ${hit.length}명과 맞습니다. 번호로 골라 주세요.`;
+  return hit[0];
+}
+function officialQueuedPlayerIds(){
+  const ids=new Set();
+  ((session?.event?.next)||[]).forEach(item=>{
+    const list=item?.playerIds||[...(item?.t1Ids||[]),...(item?.t2Ids||[])];
+    (list||[]).forEach(id=>ids.add(String(id)));
+  });
+  return ids;
+}
 // 진행 중 경기의 선수 교체(운영자 결정 2026-08-08). 코트에서 4명이 동의하면
 // 임원이 그 자리에서 처리합니다. 대기 선수 투입은 나간 선수를 휴식으로,
 // 다른 코트 선수를 고르면 두 코트를 맞교환합니다. 경기 수는 종료 시점 명단 기준.
+// 운영자는 "이 선수로" 를 지목하므로(2026-08-09) 후보를 잘라내지 않습니다.
 async function sendOfficialActiveReplace(actorId,matchId){
   const actor=officialActor(actorId);
   const m=((session?.event?.active||[])||[]).find(x=>String(x.id||'')===String(matchId||''));
   if(!actor||!m)return toast('진행중 경기를 다시 확인해 주세요.');
   const ids=[...(m.t1Ids||[]),...(m.t2Ids||[])].map(String);
   const names=[...(m.t1||[]),...(m.t2||[])];
-  const outList=ids.map((id,i)=>`${i+1}. ${names[i]||'선수'}`).join('\n');
-  const outRaw=prompt(`교체로 나갈 선수를 번호로 선택하세요.\n\n${outList}`,'1');
+  const outRows=ids.map((id,i)=>({id,name:names[i]||'선수',label:names[i]||'선수'}));
+  const outList=outRows.map((c,i)=>`${i+1}. ${c.label}`).join('\n');
+  const outRaw=prompt(`교체로 나갈 선수를 번호 또는 이름으로 선택하세요.\n\n${outList}`,'1');
   if(outRaw==null)return;
-  const outPick=parseInt(String(outRaw).trim(),10);
-  if(!outPick||outPick<1||outPick>ids.length)return toast('번호를 다시 확인해 주세요.');
-  const outId=ids[outPick-1], outName=names[outPick-1]||'선수';
+  const outChosen=officialPickFromCandidates(outRows,outRaw);
+  if(typeof outChosen==='string')return toast(outChosen);
+  const outId=outChosen.id, outName=outChosen.name;
+  // 다음 대진에 예약된 선수도 후보에 둡니다. 지목한 선수가 목록에 없으면
+  // 그 교체를 아예 못 합니다 — 감추지 않고 뒤로만 미룹니다.
+  const queued=officialQueuedPlayerIds();
   const waiting=(session?.players||[])
     .filter(p=>p&&p.name&&String(p.status||'')==='wait'&&!p.currentMatchId&&!ids.includes(String(p.id)))
-    .map(p=>({id:String(p.id),label:`${p.name} · ${p.games||0}G · 대기`}));
+    .map(p=>({id:String(p.id),name:p.name,queued:queued.has(String(p.id)),games:p.games||0}))
+    .sort((a,b)=>{
+      if(a.queued!==b.queued)return a.queued?1:-1;
+      if(a.games!==b.games)return a.games-b.games;
+      return a.name.localeCompare(b.name,'ko');
+    })
+    .map(p=>({...p,label:`${p.name} · ${p.games}G · ${p.queued?'대기(다음 대진 예정)':'대기'}`}));
   const others=[];
   ((session?.event?.active||[])||[]).forEach(o=>{
     if(String(o.id||'')===String(m.id||''))return;
@@ -4915,11 +4952,10 @@ async function sendOfficialActiveReplace(actorId,matchId){
   const candidates=[...waiting,...others];
   if(!candidates.length)return toast('교체 가능한 선수가 없습니다.');
   const inList=candidates.map((c,i)=>`${i+1}. ${c.label}`).join('\n');
-  const inRaw=prompt(`${outName} 대신 들어갈 선수를 번호로 선택하세요.\n대기 선수면 ${outName}님은 휴식으로 전환됩니다.\n\n${inList}`,'1');
+  const inRaw=prompt(`${outName} 대신 들어갈 선수를 번호 또는 이름으로 선택하세요.\n대기 선수면 ${outName}님은 휴식으로 전환됩니다.\n\n${inList}`,'1');
   if(inRaw==null)return;
-  const inPick=parseInt(String(inRaw).trim(),10);
-  if(!inPick||inPick<1||inPick>candidates.length)return toast('번호를 다시 확인해 주세요.');
-  const chosen=candidates[inPick-1];
+  const chosen=officialPickFromCandidates(candidates,inRaw);
+  if(typeof chosen==='string')return toast(chosen);
   const chosenName=chosen.name||chosen.label.split(' · ')[0];
   const ask=chosen.swap
     ? `⚠️ 맞교환\n${chosenName} 선수는 ${chosen.court}코트에서 경기 중입니다.\n${m.court}코트 ↔ ${chosen.court}코트 두 경기의 대진이 함께 바뀝니다.\n\n${outName} ↔ ${chosenName} 교체할까요?`

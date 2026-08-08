@@ -175,6 +175,20 @@ console.log(`  관리자 화면에서 서버 명령으로 보내는 동작 ${con
       `${type} 을 관리자 원본이 모릅니다. _dailyOfficialRequestError 에 추가해야 서버 결과를 받습니다.`);
   });
   console.log(`  관리자 원본이 아는 관리자 전용 명령 ${adminOnly.length}종 확인`);
+
+  // 관리자 전용만 보는 것으로는 부족했습니다. 임원도 쓰는 명령이 빠지면 관리자
+  // 원본이 '지원하지 않는 임원 운영 요청' 으로 떨어뜨리고, 그 순간 서버 동기화가
+  // 통째로 멈춥니다(finishOfficial 의 serverReconcileBlocked). 즉 교체 한 번이
+  // 실패하는 게 아니라 그 뒤 모든 서버 결과가 관리자 화면에 안 들어옵니다.
+  // 2026-08-09 실측: official-active-replace · official-queue-replace ·
+  // official-queue-hold · official-queue-resume 네 종이 실제로 이 상태였습니다.
+  const supportedStart = engine.indexOf('const SUPPORTED_TYPES');
+  const supported = engine.slice(supportedStart, engine.indexOf(']);', supportedStart))
+    .match(/'official-[a-z-]+'/g).map(s=>s.replace(/'/g, ''));
+  const unknown = supported.filter(type=>!src.includes(`'${type}'`));
+  assert.strictEqual(unknown.length, 0,
+    `서버가 받는 명령을 관리자 원본이 모릅니다: ${unknown.join(', ')} — _dailyOfficialRequestError 에 분기를 넣어야 합니다.`);
+  console.log(`  관리자 원본이 아는 서버 명령 ${supported.length}종 확인`);
 }
 
 

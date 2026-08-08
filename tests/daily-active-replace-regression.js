@@ -149,4 +149,130 @@ assert.strictEqual((daily.match(/^(?:async )?function dailyPickActiveReplacement
   'dailyPickActiveReplacement 가 두 번 정의되면 뒤의 옛 코드가 이깁니다.');
 console.log('  관리자·임원 화면 배선 + 재생 경로 확인');
 
+// 6) 이름 하나만 막으면 다음 중복은 또 통과합니다.
+//    실제로 2026-08-08 의 교체 작업이 161줄(함수 6개)을 통째로 복사해 두고 갔고,
+//    위의 단일 검사는 그것을 잡지 못했습니다. 파일 전체를 봅니다.
+{
+  const re=/^(?:async\s+)?function\s+([A-Za-z0-9_$]+)\s*\(/gm;
+  const seen=new Map();
+  let hit;
+  while((hit=re.exec(daily))!==null)seen.set(hit[1],(seen.get(hit[1])||0)+1);
+  const dup=[...seen.entries()].filter(([,n])=>n>1).map(([name,n])=>`${name}(${n}회)`);
+  assert.strictEqual(dup.length,0,`js/daily.js 에 중복 정의된 함수가 있습니다 — 뒤의 것이 앞의 것을 덮습니다: ${dup.join(', ')}`);
+  console.log(`  js/daily.js 최상위 함수 ${seen.size}개, 중복 정의 없음`);
+}
+
+// 7) "원하는 선수로 교환" — 대기 선수든 다른 코트 선수든 목록에서 닿아야 합니다.
+//    (운영자 2026-08-09: "원하는 선수로 교환하려다보면 대기선수일 수도 있고
+//     다른 코트 선수일 수도 있어 이 두 가지 경우에 대응할 수 있어야 해")
+function extractFunction(src, name){
+  const start=src.indexOf('function '+name+'(');
+  assert(start>=0, `${name} 를 찾지 못했습니다.`);
+  let depth=0, started=false;
+  for(let i=src.indexOf('{', start); i<src.length; i++){
+    if(src[i]==='{'){depth++; started=true;}
+    else if(src[i]==='}'){depth--; if(started&&depth===0)return src.slice(start,i+1);}
+  }
+  throw new Error(`${name} 의 끝을 찾지 못했습니다.`);
+}
+{
+  const candidateSrc=extractFunction(daily,'_dailyActiveReplacementCandidates');
+  // 상한을 두면 지목한 선수가 목록 밖으로 밀려납니다.
+  assert(!/_dailyActiveReplacementCandidates\([^)]*\)\s*\.slice\(/.test(daily),
+    '교체 후보 목록을 잘라내면 안 됩니다 — 운영자가 지목한 선수가 빠질 수 있습니다.');
+  // 다음 대진에 예약된 대기 선수는 지우지 말고 뒤로만 미룹니다.
+  assert(!/_dailyQueue\.forEach\(q=>_dailyQueueIds\(q\)\.forEach\(id=>blocked\.add\(id\)\)\)/.test(candidateSrc),
+    '다음 대진 예약 선수를 후보에서 지우면 그 선수로는 교체할 수 없습니다.');
+  assert(/_dailyQueuedPlayerLocation/.test(candidateSrc),
+    '예약된 대기 선수는 목록에서 빼지 말고 정렬로만 뒤에 두어야 합니다.');
+  assert(daily.includes('대기(다음 대진 예정)'),'관리자 화면이 예약 상태를 표시해야 합니다.');
+  assert(checkin.includes('대기(다음 대진 예정)'),'임원 화면이 예약 상태를 표시해야 합니다.');
+  console.log('  후보 목록: 상한 없음 · 다음 대진 예약 선수도 후보(뒤로 정렬)');
+}
+
+// 8) 목록이 길어졌으므로 번호 대신 이름으로도 골라야 합니다.
+//    두 화면이 같은 규칙이어야 합니다 — 한쪽만 고치면 현장에서 갈립니다.
+{
+  const load=(src,name)=>new Function(`${extractFunction(src,name)}\nreturn ${name};`)();
+  const adminPick=load(daily,'_dailyPickFromCandidates');
+  const officialPick=load(checkin,'officialPickFromCandidates');
+  const rows=[{id:'a',name:'김가나'},{id:'b',name:'김나다'},{id:'c',name:'박다라'},{id:'d',name:'김가나'}];
+  const cases=[
+    ['2','b','번호로 고르기'],
+    ['0',null,'0번은 없음'],
+    ['5',null,'범위 밖 번호'],
+    ['박다라','c','이름 정확히'],
+    ['박','c','이름 일부가 한 명일 때'],
+    ['김가나',null,'동명이인은 번호로 유도'],
+    ['김',null,'여러 명에 걸리면 고르지 않음'],
+    [' 박다라 ','c','앞뒤 공백 무시'],
+    ['박 다 라','c','가운데 공백 무시'],
+    ['',null,'빈 입력'],
+    ['홍길동',null,'없는 이름']
+  ];
+  [['관리자',adminPick],['임원',officialPick]].forEach(([who,fn])=>{
+    cases.forEach(([input,expectId,label])=>{
+      const got=fn(rows,input);
+      if(expectId===null){
+        assert.strictEqual(typeof got,'string',`${who}: ${label} — 사유를 돌려줘야 합니다 (입력 ${JSON.stringify(input)})`);
+        assert(got.length>0,`${who}: ${label} — 사유가 비어 있습니다.`);
+      }else{
+        assert(got&&got.id===expectId,`${who}: ${label} — ${expectId} 를 골라야 합니다 (입력 ${JSON.stringify(input)}).`);
+      }
+    });
+  });
+  // 두 화면의 판정이 같은지 직접 대조합니다.
+  cases.forEach(([input,,label])=>{
+    const a=adminPick(rows,input), b=officialPick(rows,input);
+    const key=v=>typeof v==='string'?'reject':v.id;
+    assert.strictEqual(key(a),key(b),`관리자·임원 판정이 갈립니다: ${label}`);
+  });
+  assert(daily.includes('번호 또는 이름으로 선택'),'관리자 안내 문구가 이름 입력을 알려야 합니다.');
+  assert(checkin.includes('번호 또는 이름으로 선택'),'임원 안내 문구가 이름 입력을 알려야 합니다.');
+  console.log(`  번호·이름 선택 ${cases.length}가지: 관리자·임원 판정 일치`);
+}
+
+// 9) 서버가 적용한 교체를 관리자 원본이 다시 거절하면 안 됩니다.
+//    소스에 분기가 있는지만 보면 부족합니다 — 실제로 호출해 빈 사유가 나와야 합니다.
+//    2026-08-09 실측: 이 분기가 검증 함수가 아니라 적용 함수 안에 붙어 있어
+//    닿지 않는 죽은 코드였고, 교체는 전부 '지원하지 않는 임원 운영 요청' 이었습니다.
+{
+  const vm = require('vm');
+  const start = daily.indexOf('function _dailyOfficialRequestError');
+  const end = daily.indexOf('\nfunction _dailyRecordOfficialArrival');
+  assert(start >= 0 && end > start, '_dailyOfficialRequestError 를 잘라내지 못했습니다.');
+  const src = daily.slice(start, end);
+  const match = {id:'m1', team1:['p1','p2'], team2:['p3','p4'], completedAt:null, cancelledAt:null};
+  const run = (req, actor) => {
+    const sandbox = {
+      _dailyPlayer: id => (actor && String(id) === actor.id) ? actor : null,
+      _dailyNow: () => NOW, DAILY_OFFICIAL_OPERATION_TTL_MS: 30*60_000,
+      _dailyPaused:false, _dailyFinishMode:false, _dailyFlowOperationType:()=>false,
+      _dailyMatches:[match], _dailyQueue:[], console
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(`${src}\nthis.check=_dailyOfficialRequestError;`, sandbox);
+    return sandbox.check(req);
+  };
+  const applied = {type:'official-active-replace', matchId:'m1', court:1,
+    outPlayerId:'p1', inPlayerId:'w1', serverAppliedAt:NOW-1000, createdAt:NOW-2000};
+
+  assert.strictEqual(run({...applied, actorPlayerId:''}, null), '',
+    '관리자가 보내 서버가 적용한 교체를 관리자 원본이 받아야 합니다.');
+  assert.strictEqual(run({...applied, actorPlayerId:'p9'}, {id:'p9', isClubOfficial:true}), '',
+    '임원이 보내 서버가 적용한 교체를 관리자 원본이 받아야 합니다.');
+
+  // 게시 전(서버 미적용) 경로의 전제 검사는 그대로 살아 있어야 합니다.
+  const local = {type:'official-active-replace', matchId:'m1', court:1, createdAt:NOW,
+    actorPlayerId:'p9'};
+  const actor = {id:'p9', isClubOfficial:true};
+  assert.strictEqual(run({...local, outPlayerId:'p1', inPlayerId:'w1'}, actor), '',
+    '전제가 맞으면 통과해야 합니다.');
+  assert(run({...local, outPlayerId:'w1', inPlayerId:'w2'}, actor).includes('찾지 못했습니다'),
+    '경기에 없는 선수를 빼려 하면 막아야 합니다.');
+  assert(run({...local, outPlayerId:'p1', inPlayerId:'p2'}, actor).includes('이미 이 경기'),
+    '같은 경기 선수를 넣으려 하면 막아야 합니다.');
+  console.log('  관리자 원본 검증: 서버 적용분 수용 · 게시 전 전제 검사 유지');
+}
+
 console.log('\ndaily active replace regression ok');

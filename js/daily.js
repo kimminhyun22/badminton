@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.519';
+const APP_VERSION = '1.10.521';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4075,13 +4075,16 @@ function _dailyTailQueueReplacementCandidates(q,currentId,idx){
   }
   return out;
 }
+// 다른 코트 선수는 여기서 빼고 호출부가 '맞교환' 후보로 따로 붙입니다.
+// 다음 대진에 예약된 대기 선수는 목록에서 지우지 않고 뒤로만 미룹니다 —
+// 운영자가 지목한 선수가 목록에 없으면 그 교체를 아예 못 합니다.
+// 서버(applyActiveReplace)와 로컬 적용부 모두 예약된 대기 선수를 받아들입니다.
 function _dailyActiveReplacementCandidates(match,currentId){
   const blocked=new Set();
   _dailyActiveMatches().forEach(other=>{
     if(other.id===match.id)return;
     _dailyMatchPlayers(other).forEach(p=>blocked.add(p.id));
   });
-  _dailyQueue.forEach(q=>_dailyQueueIds(q).forEach(id=>blocked.add(id)));
   const current=_dailyPlayer(currentId);
   const requiredTeam=(_dailyTeamMode&&current)?_dailyTeamSide(current):'';
   return _dailyEligible()
@@ -4089,6 +4092,8 @@ function _dailyActiveReplacementCandidates(match,currentId){
     .filter(p=>p.status==='wait'&&!p.currentMatchId)
     .filter(p=>!requiredTeam||p.team===requiredTeam)
     .sort((a,b)=>{
+      const aq=_dailyQueuedPlayerLocation(a.id)?1:0,bq=_dailyQueuedPlayerLocation(b.id)?1:0;
+      if(aq!==bq)return aq-bq;
       if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
       if((a.waitFrom||0)!==(b.waitFrom||0))return (a.waitFrom||0)-(b.waitFrom||0);
       return a.name.localeCompare(b.name,'ko');
@@ -4236,6 +4241,25 @@ function dailyPickQueueReplacement(queueId,side,pos){
   }
   dailyEditQueuePlayer(queueId,side,pos,candidates[pick-1].id);
 }
+// 번호로도 이름으로도 고를 수 있게 합니다. 후보 상한을 없앤 뒤로는 목록이 스무 줄을
+// 넘길 수 있어, 급할 때 번호를 세는 것보다 이름을 적는 쪽이 빠르고 오조작도 적습니다.
+// 고른 후보를 돌려주고, 못 고르면 그 이유를 문자열로 돌려줍니다.
+function _dailyPickFromCandidates(candidates,raw){
+  const input=String(raw==null?'':raw).trim();
+  if(!input)return '번호 또는 이름을 입력해 주세요.';
+  if(/^\d+$/.test(input)){
+    const pick=parseInt(input,10);
+    if(!pick||pick<1||pick>candidates.length)return '번호를 다시 확인해 주세요.';
+    return candidates[pick-1];
+  }
+  const norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const key=norm(input);
+  const exact=candidates.filter(c=>norm(c.name)===key);
+  const hit=exact.length?exact:candidates.filter(c=>norm(c.name).includes(key));
+  if(!hit.length)return '그 이름의 후보를 찾지 못했습니다.';
+  if(hit.length>1)return `이름이 ${hit.length}명과 맞습니다. 번호로 골라 주세요.`;
+  return hit[0];
+}
 async function dailyPickActiveReplacement(matchId,side,pos){
   if(_dailyBlockPaused({action:'진행 선수를 교체'}))return;
   const m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
@@ -4244,22 +4268,23 @@ async function dailyPickActiveReplacement(matchId,side,pos){
   if(!arr||!arr[pos])return;
   const currentId=arr[pos];
   const current=_dailyPlayer(currentId);
-  // 후보: 대기 선수 + 다른 코트에서 뛰는 선수(맞교환, 운영자 결정 2026-08-08)
-  const waiting=_dailyActiveReplacementCandidates(m,currentId).slice(0,10)
-    .map(p=>({player:p,label:`${p.name}${p.isGuest?'(G)':''} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G · 대기`}));
+  // 후보: 대기 선수 + 다른 코트에서 뛰는 선수(맞교환, 운영자 결정 2026-08-08).
+  // 운영자는 "이 선수로" 를 지목합니다. 상한을 두면 지목한 선수가 목록에서 빠질 수
+  // 있어 자르지 않습니다 — 대신 이름으로도 고를 수 있게 했습니다.
+  const waiting=_dailyActiveReplacementCandidates(m,currentId)
+    .map(p=>({player:p,name:p.name,label:`${p.name}${p.isGuest?'(G)':''} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G · ${_dailyQueuedPlayerLocation(p.id)?'대기(다음 대진 예정)':'대기'}`}));
   const playing=[];
   _dailyActiveMatches().forEach(other=>{
     if(other.id===m.id)return;
-    _dailyMatchPlayers(other).forEach(p=>playing.push({player:p,label:`${p.name} · ${other.court}코트 경기중 (맞교환)`,swap:true,court:other.court}));
+    _dailyMatchPlayers(other).forEach(p=>playing.push({player:p,name:p.name,label:`${p.name} · ${other.court}코트 경기중 (맞교환)`,swap:true,court:other.court}));
   });
   const candidates=[...waiting,...playing];
   if(!candidates.length){alert('교체 가능한 선수가 없습니다.');return;}
   const list=candidates.map((c,i2)=>`${i2+1}. ${c.label}`).join('\n');
-  const raw=prompt(`${current?.name||'선수'} 대신 들어갈 선수를 번호로 선택하세요.\n대기 선수를 넣으면 ${current?.name||'기존 선수'}님은 휴식으로 전환되고,\n경기중 선수를 고르면 두 코트가 맞교환됩니다.\n\n${list}`,'1');
+  const raw=prompt(`${current?.name||'선수'} 대신 들어갈 선수를 번호 또는 이름으로 선택하세요.\n대기 선수를 넣으면 ${current?.name||'기존 선수'}님은 휴식으로 전환되고,\n경기중 선수를 고르면 두 코트가 맞교환됩니다.\n\n${list}`,'1');
   if(raw==null)return;
-  const pick=parseInt(String(raw).trim(),10);
-  if(!pick||pick<1||pick>candidates.length){alert('번호를 다시 확인해 주세요.');return;}
-  const chosen=candidates[pick-1];
+  const chosen=_dailyPickFromCandidates(candidates,raw);
+  if(typeof chosen==='string'){alert(chosen);return;}
   const candidate=chosen.player;
   if(_dailyMatchPlayers(m).some(p=>p.id===candidate.id)){alert('이미 이 경기에 포함된 선수입니다.');return;}
   // 맞교환은 두 코트의 대진이 함께 바뀝니다. 실수로 누르면 여덟 명이 흔들리니 한 번 더 확인합니다.
@@ -4315,167 +4340,6 @@ function _dailyApplyActiveReplaceLocal(m,outId,inId,operationAt){
   }
   _dailyMarkFourCacheDirty();
   return true;
-}
-function _dailyActiveReplacementCandidates(match,currentId){
-  const blocked=new Set();
-  _dailyActiveMatches().forEach(other=>{
-    if(other.id===match.id)return;
-    _dailyMatchPlayers(other).forEach(p=>blocked.add(p.id));
-  });
-  _dailyQueue.forEach(q=>_dailyQueueIds(q).forEach(id=>blocked.add(id)));
-  const current=_dailyPlayer(currentId);
-  const requiredTeam=(_dailyTeamMode&&current)?_dailyTeamSide(current):'';
-  return _dailyEligible()
-    .filter(p=>p.id!==currentId&&!blocked.has(p.id))
-    .filter(p=>p.status==='wait'&&!p.currentMatchId)
-    .filter(p=>!requiredTeam||p.team===requiredTeam)
-    .sort((a,b)=>{
-      if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
-      if((a.waitFrom||0)!==(b.waitFrom||0))return (a.waitFrom||0)-(b.waitFrom||0);
-      return a.name.localeCompare(b.name,'ko');
-    });
-}
-function _dailyFindQueueReplacement(playerId){
-  const loc=_dailyQueuedPlayerLocation(playerId);
-  if(!loc)return null;
-  const before={team1:[...(loc.q.team1||[])],team2:[...(loc.q.team2||[])]};
-  const direct=_dailyQueueReplacementCandidates(loc.q,playerId).map(player=>({player,source:'free'}));
-  const expected=_dailyExpectedReplacementCandidates(loc.q,playerId);
-  const tail=_dailyTailQueueReplacementCandidates(loc.q,playerId,loc.idx);
-  const candidates=[...direct,...expected,...tail];
-  const seen=new Set();
-  let best=null,bestScore=Infinity;
-  for(const item of candidates){
-    const candidate=item.player;
-    if(!candidate||seen.has(candidate.id))continue;
-    seen.add(candidate.id);
-    loc.q[loc.side][loc.pos]=candidate.id;
-    const ok=new Set(_dailyQueueIds(loc.q)).size===4&&_dailyQueueItemValid(loc.q,null);
-    if(ok){
-      const match=_dailyQueueMatch(loc.q);
-      const sourcePenalty=item.source==='free'?0:item.source==='expected'?120:240;
-      const score=match?_dailyScoreMatch(match,loc.q.strict!==false)+sourcePenalty:Infinity;
-      if(score<bestScore){bestScore=score;best={loc,candidate,source:item.source,sourceIdx:item.sourceIdx,sourceId:item.sourceId};}
-    }
-    loc.q.team1=[...before.team1];
-    loc.q.team2=[...before.team2];
-  }
-  loc.q.team1=[...before.team1];
-  loc.q.team2=[...before.team2];
-  return best;
-}
-function _dailyTryReplaceQueuedPlayer(playerId,reason){
-  const found=_dailyFindQueueReplacement(playerId);
-  if(!found)return false;
-  const attachedReservation=found.loc.q.reservationId
-    ?_dailyReservations.find(r=>r.id===found.loc.q.reservationId)
-    :null;
-  const preserveReservation=!!(attachedReservation&&!_dailyReservationIds(attachedReservation).includes(playerId));
-  if(found.loc.q.reservationId&&!preserveReservation){
-    _dailyCancelReservationById(found.loc.q.reservationId,reason||'신청 선수 상태 변경으로 대기표가 자동 조정됐습니다.','member-auto-cancel');
-    _dailyClearReservationQueueMeta(found.loc.q);
-  }
-  if(found.loc.q.restPass){
-    const restPassOwner=typeof found.loc.q.restPass==='object'?String(found.loc.q.restPass.playerId||''):'';
-    if(!restPassOwner||restPassOwner===String(playerId)){
-      found.loc.q.restPass=null;
-      found.loc.q.restPassText='';
-    }
-  }
-  found.loc.q[found.loc.side][found.loc.pos]=found.candidate.id;
-  if(preserveReservation&&found.loc.q.reservationAttachedExisting){
-    found.loc.q.reservationOriginalTeam1Ids=(found.loc.q.reservationOriginalTeam1Ids||[])
-      .map(id=>id===playerId?found.candidate.id:id);
-    found.loc.q.reservationOriginalTeam2Ids=(found.loc.q.reservationOriginalTeam2Ids||[])
-      .map(id=>id===playerId?found.candidate.id:id);
-  }
-  _dailyRecalcQueueItem(found.loc.q);
-  if(found.source==='tail'&&found.sourceId){
-    _dailyQueue=_dailyQueue.filter(q=>q.id!==found.sourceId);
-  }
-  return true;
-}
-function _dailyRemoveQueuedPlayer(playerId,reason){
-  let changed=false;
-  _dailyQueue=_dailyQueue.filter(q=>{
-    if(!_dailyQueueIds(q).includes(playerId))return true;
-    if(q.reservationId){
-      const reservation=_dailyReservations.find(r=>r.id===q.reservationId);
-      if(!reservation||_dailyReservationIds(reservation).includes(playerId)){
-        _dailyCancelReservationById(q.reservationId,reason||'신청 선수 상태 변경으로 대기표가 자동 취소됐습니다.','member-auto-cancel');
-      }
-    }
-    changed=true;
-    return false;
-  });
-  if(changed)_dailyRefreshNextFromQueue();
-  return changed;
-}
-async function dailyEditQueuePlayer(queueId,side,pos,newId){
-  if(_dailyBlockServerSync({action:'대진 선수 변경'}))return;
-  if(!newId){dailyRender();return;}
-  const idx=_dailyQueue.findIndex(q=>q.id===queueId);
-  if(idx<0)return;
-  const q=_dailyQueue[idx];
-  const urgent=idx<_dailyQueueLockCount();
-  if(q.reservationId&&!urgent){
-    alert('회원 게임신청은 선수 직접 수정이 잠겨 있습니다. 신청 삭제 후 다시 등록해 주세요.');
-    dailyRender();return;
-  }
-  if(q.reservationId&&urgent){
-    _dailyCancelReservationById(q.reservationId,'다음 대진 선수교체로 신청 대진이 자동 조정됐습니다.','admin-queue-replace');
-    _dailyClearReservationQueueMeta(q);
-  }
-  if(_dailyCheckinId){
-    const outId=q[side]?.[pos]||'';
-    const sent=await _dailySendAdminCommand({
-      type:'official-queue-replace',
-      queueId:q.id,
-      outPlayerId:outId,
-      inPlayerId:newId,
-      expectedPlayerIds:[..._dailyQueueIds(q)],
-      source:'system-admin-queue-replace'
-    },{action:'대진 선수 변경',tag:'queue-replace'});
-    if(!sent.ok)dailyRender();
-    return sent.ok;
-  }
-  const before={team1:[...q.team1],team2:[...q.team2]};
-  q[side][pos]=newId;
-  const ids=_dailyQueueIds(q);
-  if(new Set(ids).size!==4||!_dailyQueueItemValid(q,null)){
-    q.team1=before.team1;q.team2=before.team2;
-    alert('같은 선수가 중복되었거나 게임신청 조건에 맞지 않습니다.');
-    dailyRender();return;
-  }
-  _dailyRecalcQueueItem(q);
-  dailySave();dailyRender();
-}
-function dailyPickQueueReplacement(queueId,side,pos){
-  if(_dailyBlockPaused({action:'대진 선수를 교체'}))return;
-  const idx=_dailyQueue.findIndex(q=>q.id===queueId);
-  if(idx<0)return;
-  const q=_dailyQueue[idx];
-  const urgent=idx<_dailyQueueLockCount();
-  if(q.reservationId&&!urgent){
-    alert('회원이 신청한 게임은 선수 교체가 잠겨 있습니다. 신청 삭제 후 다시 등록해 주세요.');
-    return;
-  }
-  const currentId=q[side]?.[pos];
-  const candidates=_dailyQueueReplacementCandidates(q,currentId).slice(0,12);
-  if(!candidates.length){
-    alert('교체 가능한 순수 대기선수가 없습니다.');
-    return;
-  }
-  const current=_dailyPlayer(currentId);
-  const list=candidates.map((p,i)=>`${i+1}. ${p.name}${p.isGuest?'(G)':''} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G`).join('\n');
-  const raw=prompt(`${current?.name||'선수'} 대신 넣을 대기선수를 번호로 선택하세요.\n\n${list}`,'1');
-  if(raw==null)return;
-  const pick=parseInt(String(raw).trim(),10);
-  if(!pick||pick<1||pick>candidates.length){
-    alert('번호를 다시 확인해 주세요.');
-    return;
-  }
-  dailyEditQueuePlayer(queueId,side,pos,candidates[pick-1].id);
 }
 function dailyEditActiveCourt(matchId){
   if(_dailyBlockPaused({action:'코트를 변경'}))return;
@@ -8145,6 +8009,21 @@ function _dailyOfficialRequestError(req){
     return '';
   }
   if(['official-court-complete-undo','official-operation-undo'].includes(req.type))return req.token?'':'되돌릴 운영 기록을 다시 확인해야 합니다.';
+  if(req.type==='official-active-replace'){
+    const m=_dailyMatches.find(x=>String(x.id)===String(req.matchId)&&!x.completedAt&&!x.cancelledAt);
+    if(!m)return req.serverAppliedAt?'':'교체할 진행중 경기를 찾지 못했습니다.';
+    if(!req.serverAppliedAt){
+      const ids=[...(m.team1||[]),...(m.team2||[])].map(String);
+      if(!ids.includes(String(req.outPlayerId||'')))return '교체할 선수를 이 경기에서 찾지 못했습니다.';
+      if(ids.includes(String(req.inPlayerId||'')))return '이미 이 경기에서 뛰는 선수입니다.';
+    }
+    return '';
+  }
+  // 대기표 조작 3종. 전제는 서버가 이미 검사했고 관리자 원본은 결과를 옮기기만
+  // 합니다. 대기표를 못 찾으면 아래 적용부가 더 정확한 사유로 실패합니다.
+  if(['official-queue-replace','official-queue-hold','official-queue-resume'].includes(req.type)){
+    return '';
+  }
   // 관리자 전용 운영 명령. 전제 조건은 서버가 이미 검사했고 관리자 원본은
   // serverResult 를 그대로 옮기기만 하므로, 서버가 적용한 것만 받습니다.
   // 새 명령을 만들 때 여기에 추가하지 않으면 아래 '지원하지 않는' 으로 떨어져
@@ -8609,17 +8488,7 @@ function dailyProcessCheckinRequests(){
           finishOfficial(req,ok,'교체 결과를 관리자 원본에 연결하지 못했습니다.',true);
           return;
         }
-        if(req.type==='official-active-replace'){
-    const m=_dailyMatches.find(x=>String(x.id)===String(req.matchId)&&!x.completedAt&&!x.cancelledAt);
-    if(!m)return req.serverAppliedAt?'':'교체할 진행중 경기를 찾지 못했습니다.';
-    if(!req.serverAppliedAt){
-      const ids=[...(m.team1||[]),...(m.team2||[])].map(String);
-      if(!ids.includes(String(req.outPlayerId||'')))return '교체할 선수를 이 경기에서 찾지 못했습니다.';
-      if(ids.includes(String(req.inPlayerId||'')))return '이미 이 경기에서 뛰는 선수입니다.';
-    }
-    return '';
-  }
-  if(req.type==='official-queue-replace'){
+        if(req.type==='official-queue-replace'){
           // 서버가 고른 교체 결과를 관리자 원본 대기표에도 그대로 반영합니다.
           const q=_dailyQueue.find(item=>String(item.id)===String(req.queueId));
           const inId=String(req.serverResult?.replacedInId||req.replacedInId||'');
@@ -10006,7 +9875,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.519&from=daily';
+  location.href='team.html?v=1.10.521&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
