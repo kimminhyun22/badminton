@@ -1545,6 +1545,9 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-arrival-actions button:disabled{opacity:.42;cursor:not-allowed;}
 .official-live-additions{margin:10px 0 4px;padding:12px;border:1px solid #ead39d;border-left:3px solid #d6ad62;border-radius:8px;background:#fffaf0;}
 .official-live-additions-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;color:#75551c;}
+summary.official-live-additions-head{cursor:pointer;margin-bottom:0;list-style:none;}
+summary.official-live-additions-head::-webkit-details-marker{display:none;}
+.official-live-additions[open] summary.official-live-additions-head{margin-bottom:4px;}
 .official-live-additions-head b{font-size:14px;}
 .official-live-additions-head span{font-size:11px;font-weight:1000;}
 .official-live-addition-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #efdfba;}
@@ -2469,7 +2472,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.515">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.516">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2484,7 +2487,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.515</span>
+    <span class="version-chip" id="appVersion">v1.10.516</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2531,7 +2534,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.515';
+const APP_VERSION='1.10.516';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -4029,7 +4032,7 @@ function officialLiveAdditionToolsHtml(p,disabled){
     const detail=[when,player.liveAddedByName||'클럽 임원',compactLabel(player.status)].filter(Boolean).join(' · ');
     return `<div class="official-live-addition-row"><span><b>${esc(player.name)}</b><small>${esc(detail)}</small></span><button type="button" data-official-action ${disabled||pending||!cancellable?'disabled':''} onclick="sendOfficialLiveAdditionCancel('${esc(p.id)}','${esc(player.id)}')">${pending?'처리 중':cancellable?'오등록 취소':`${player.games||0}게임`}</button></div>`;
   }).join('');
-  return `<div class="official-live-additions"><div class="official-live-additions-head"><b>라이브 후 추가</b><span>${players.length}명</span></div>${rows}</div>`;
+  return `<details class="official-live-additions"><summary class="official-live-additions-head"><b>라이브 후 추가</b><span>${players.length}명 · 펼쳐서 확인</span></summary>${rows}</details>`;
 }
 function officialPlayerOptions(){
   const options=(session?.players||[])
