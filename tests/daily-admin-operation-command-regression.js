@@ -238,12 +238,26 @@ console.log(`  관리자 전용 ${adminOnly.length}종: 임원 연결 전부 rej
   assert(free.reason.includes('관리자'), `거절 이유가 명확해야 합니다: ${free.reason}`);
   console.log(`  임원 임의 순서 이동: rejected (${free.reason})`);
 
-  const pick = send(seededSession(), {
-    type:'official-queue-replace', queueId:'q1', outPlayerId:'p1', inPlayerId:'p5',
-    expectedPlayerIds:['p1','p2','p3','p4']
+  // 대기 경기의 '이 선수로' 지정은 임원에게도 열렸습니다(운영자 2026-08-10
+  // "다음 대진도 동일하게") — 진행 경기 지정 교체와 같은 신뢰입니다.
+  const pickSession = seededSession();
+  const pickTarget = pickSession.event.next[0];
+  assert(pickTarget, '편성기가 다음 대진을 만들어야 합니다.');
+  const pickQueued = new Set();
+  ['next','expected','serverStandby'].forEach(key=>(pickSession.event[key]||[]).forEach(item=>(item.playerIds||[]).forEach(id=>pickQueued.add(String(id)))));
+  const spare = pickSession.players.find(p=>!pickQueued.has(String(p.id)));
+  assert(spare, '대기 여유 선수가 있어야 합니다.');
+  const pickOutId = String((pickTarget.playerIds||[])[0]);
+  const pick = send(pickSession, {
+    type:'official-queue-replace', queueId:String(pickTarget.queueId||pickTarget.id),
+    outPlayerId:pickOutId, inPlayerId:String(spare.id),
+    expectedPlayerIds:[...(pickTarget.playerIds||[])]
   }, {admin:false});
-  assert.strictEqual(pick.status, 'rejected', '임원이 교체 선수를 지정하면 안 됩니다.');
-  console.log(`  임원 교체 선수 지정: rejected (${pick.reason})`);
+  assert.strictEqual(pick.status, 'applied', `임원 지정 교체가 적용되어야 합니다: ${pick.reason||''}`);
+  const after = pick.session.event.next.find(i=>String(i.queueId||i.id)===String(pickTarget.queueId||pickTarget.id));
+  assert(after.playerIds.map(String).includes(String(spare.id))&&!after.playerIds.map(String).includes(pickOutId),
+    '지정한 선수로 바뀌어야 합니다.');
+  console.log('  임원 교체 선수 지정: applied (운영자 2026-08-10 결정)');
 }
 
 // 10) 관리자 화면이 이 명령들을 실제로 보내는지 봅니다.

@@ -102,16 +102,25 @@ const base={type:'official-active-replace', matchId:'m1', court:1,
   console.log('  코트 간 맞교환: 두 경기 동시 교체 · 둘 다 경기중 유지');
 }
 
-// 3) 임원도 지정 교체가 됩니다 (결정 2). queue-replace 의 지정 금지는 그대로입니다.
+// 3) 임원도 지정 교체가 됩니다 (결정 2). 대기 경기의 지정 교체도 임원에게
+//    열렸습니다(운영자 2026-08-10 "다음 대진도 동일하게" — 임원 자유 + 사후 균형).
 {
   const r=send(makeSession(), {...base, outPlayerId:'p1', inPlayerId:'w1'}, {admin:false});
   assert.strictEqual(r.status,'applied',`임원 교체가 적용되어야 합니다: ${r.reason||''}`);
   console.log('  임원 지정 교체: applied');
-  const q=send(makeSession(), {type:'official-queue-replace', queueId:'q1',
-    outPlayerId:'p1', inPlayerId:'w1', expectedPlayerIds:['p1','p2','p3','p4']}, {admin:false});
-  assert.strictEqual(q.status,'rejected','대기 경기의 지정 교체는 여전히 관리자 전용입니다.');
-  assert(q.reason.includes('관리자'),q.reason);
-  console.log('  대기 경기 지정 교체(임원): rejected 유지');
+  const s=makeSession();
+  ['qa','qb','qc','qd'].forEach((id,i)=>s.players.push(player(id,'대기조'+(i+1))));
+  s.event.next=[{queueId:'q1', idx:1, t1Ids:['qa','qb'], t2Ids:['qc','qd'],
+    playerIds:['qa','qb','qc','qd'], t1:['대기조1','대기조2'], t2:['대기조3','대기조4']}];
+  const q=send(s, {type:'official-queue-replace', queueId:'q1',
+    outPlayerId:'qa', inPlayerId:'w1', expectedPlayerIds:['qa','qb','qc','qd']}, {admin:false});
+  assert.strictEqual(q.status,'applied',`대기 경기 지정 교체(임원)가 적용되어야 합니다: ${q.reason||''}`);
+  const item=q.session.event.next.find(x=>String(x.queueId||x.id)==='q1');
+  assert(item.playerIds.map(String).includes('w1')&&!item.playerIds.map(String).includes('qa'),
+    '지정한 선수로 바뀌어야 합니다.');
+  // 일시정지 없이도 됩니다 — 지정 교체는 서버 지문이 경합을 거릅니다.
+  assert(!item.restPass,'일시정지를 요구하면 안 됩니다.');
+  console.log('  대기 경기 지정 교체(임원): applied (2026-08-10 개방)');
 }
 
 // 4) 전제가 깨지면 거절합니다.
@@ -241,6 +250,25 @@ function extractFunction(src, name){
   const cand=extractFunction(checkin,'officialActiveReplaceCandidates');
   assert(/다음 대진 예정/.test(cand)&&/맞교환/.test(cand),'후보에 예약 상태와 맞교환 표시가 있어야 합니다.');
   console.log('  임원 이름 탭 → 후보 시트: prompt 없음 · 옛 버튼 제거 · 후보 구분 표시');
+
+  // 8c) 다음 대진도 같은 흐름입니다(운영자 2026-08-10 "다음 대진도 동일하게").
+  const nextLine=extractFunction(checkin,'nextTeamLine');
+  assert(/openOfficialQueueReplace\(/.test(nextLine),'다음 대진 선수 이름이 교체 시트를 열어야 합니다.');
+  assert(!/restPass/.test(nextLine)||!/canReplace=.*restPass/.test(nextLine),
+    '이름 탭이 일시정지를 요구하면 안 됩니다 — 경합은 서버 지문이 거릅니다.');
+  assert(/reservationId/.test(nextLine),'게임신청으로 잡힌 대진은 이름을 버튼으로 만들면 안 됩니다.');
+  ['openOfficialQueueReplace','sendOfficialQueueReplace'].forEach(name=>{
+    assert(!/\bprompt\(/.test(extractFunction(checkin,name)),`${name} 이 prompt 를 쓰면 안 됩니다.`);
+  });
+  assert(extractFunction(checkin,'sendOfficialQueueReplace').includes('inPlayerId'),
+    '임원 대기 경기 교체가 지정 선수를 실어야 합니다.');
+  // 시트 후보는 서버 unassignedWaitingPlayers 와 같은 규칙이어야 합니다 —
+  // 넓히면 서버가 거절할 후보를 보여주게 됩니다.
+  const mirror=extractFunction(checkin,'officialUnassignedWaitingPlayers');
+  ['next','expected','serverStandby','reservations','registrationCancelled'].forEach(key=>{
+    assert(mirror.includes(key),`후보 계산이 서버 규칙(${key})을 빠뜨리면 안 됩니다.`);
+  });
+  console.log('  다음 대진 이름 탭 → 후보 시트: 지정 교체 · 서버 규칙 거울');
 }
 
 // 9) 서버가 적용한 교체를 관리자 원본이 다시 거절하면 안 됩니다.

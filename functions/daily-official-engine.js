@@ -977,10 +977,12 @@ function validateCommon(session, request, now, options){
     return {reason:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
   const temporaryRoleCommand = ['official-temporary-grant','official-temporary-revoke'].includes(request.type);
+  // 수동 경기 등록(official-manual-match)은 임원에게도 열었습니다(운영자 2026-08-10
+  // "임원이 새로운 게임을 생성할 수 있는 권한"). 임원의 게임 설정 자유는 최대로
+  // 보장하고, 시스템은 그 이후의 균형·보충을 책임진다는 원칙입니다.
   const adminOnlyCommand = [
     'official-settings-update',
     'official-court-cancel',
-    'official-manual-match',
     'official-player-remove',
     'official-player-rename',
     'official-player-create',
@@ -997,9 +999,11 @@ function validateCommon(session, request, now, options){
   // 코트 수·운영 시간·자동 진행은 관리자 설정입니다. 임원 연결로는 못 바꿉니다.
   if(adminOnlyCommand && !adminClaim)return {reason:'이 운영 동작은 관리자만 할 수 있습니다.'};
   // 관리자 전용 확장 옵션. 임원 연결로 보내면 기본 규칙을 우회하게 되므로 막습니다.
-  if(!adminClaim && (request.allowFreeMove === true
-    || (request.type === 'official-queue-replace' && text(request.inPlayerId)))){
-    return {reason:'대진 순서 임의 이동과 교체 선수 지정은 관리자만 할 수 있습니다.'};
+  // 대기 경기의 '이 선수로'(inPlayerId) 지정은 임원에게도 열었습니다(운영자 2026-08-10
+  // "다음 대진도 동일하게") — 진행 경기 지정 교체(2026-08-08)와 같은 신뢰입니다.
+  // 현장에서 보고 지목한 것이라 균형 점수 하한을 건너뛰는 것까지 동일합니다.
+  if(!adminClaim && request.allowFreeMove === true){
+    return {reason:'대진 순서 임의 이동은 관리자만 할 수 있습니다.'};
   }
   if(!adminClaim && !isLiveOperator(actor)){
     return {reason:'현재 운영 권한이 있는 회원만 운영 지원을 사용할 수 있습니다.'};
@@ -1796,7 +1800,8 @@ function applyQueueReplace(session, request, now, operation){
   const outPlayer = playerById(session, outId);
   if(!outPlayer || !queuePlayerIds(item).includes(outId))return '교체할 선수를 이 대진에서 찾지 못했습니다.';
   if(text(item.reservationId))return '게임신청으로 잡힌 대진은 선수를 교체할 수 없습니다. 먼저 신청을 정리해 주세요.';
-  // 관리자는 '이 선수로'를 지정합니다. 임원 화면은 지정하지 않고 서버가 고릅니다.
+  // '이 선수로'(inPlayerId)를 지정하면 그대로 넣고, 없으면 서버가 균형으로 고릅니다.
+  // 지정은 관리자·임원 공통입니다(운영자 2026-08-10).
   const requestedInId = text(request.inPlayerId);
   const candidates = requestedInId
     ? unassignedWaitingPlayers(session).filter(player=>text(player.id) === requestedInId)

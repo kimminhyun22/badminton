@@ -143,20 +143,48 @@ badCases.forEach(([request, label])=>{
   console.log('  기본값: wait 유지');
 }
 
-// 4) 둘 다 관리자 전용입니다.
-[manual, {type:'official-player-create', playerId:'dpv2_x', name:'딴선수', status:'planned'}]
-  .forEach(request=>{
-    const r = send(makeSession(), request, {admin:false});
-    assert.strictEqual(r.status, 'rejected', `${request.type} 은 임원 연결로 막혀야 합니다.`);
-    assert(r.reason.includes('관리자'), `거절 이유가 관리자 전용임을 밝혀야 합니다: ${r.reason}`);
+// 4) 선수 추가는 관리자 전용, 수동 경기 등록은 임원에게도 열렸습니다
+//    (운영자 2026-08-10 "임원이 새로운 게임을 생성할 수 있는 권한" —
+//     임원의 게임 설정 자유는 최대 보장, 시스템은 사후 균형).
+{
+  const r = send(makeSession(), {type:'official-player-create', playerId:'dpv2_x', name:'딴선수', status:'planned'}, {admin:false});
+  assert.strictEqual(r.status, 'rejected', '선수 추가는 임원 연결로 막혀야 합니다.');
+  assert(r.reason.includes('관리자'), `거절 이유가 관리자 전용임을 밝혀야 합니다: ${r.reason}`);
+  const byOfficial = send(makeSession(), manual, {admin:false});
+  assert.strictEqual(byOfficial.status, 'applied', `임원 새 게임 등록이 적용되어야 합니다: ${byOfficial.reason || ''}`);
+  const match = byOfficial.session.event.active.find(m=>m.id === 'sm_manual1');
+  assert(match && match.court === 1, '임원이 등록한 경기가 코트에 올라가야 합니다.');
+  ['p1','p2','p3','p4'].forEach(id=>{
+    assert.strictEqual(byOfficial.session.players.find(p=>p.id === id).status, 'playing',
+      '임원 등록 경기의 4명이 경기중이어야 합니다.');
   });
-console.log('  관리자 전용 확인');
+  console.log('  선수 추가: 관리자 전용 유지 · 새 게임 등록: 임원 applied (2026-08-10 개방)');
+}
 
 // 5) 관리자 화면이 두 명령을 보내는지, 재생 경로가 있는지 봅니다.
 assert(daily.includes("type:'official-manual-match'"), '관리자 화면이 수동 경기 등록 명령을 보내야 합니다.');
 assert(daily.includes("status:'planned'"), '도착 전 등록이 planned 상태로 명령을 보내야 합니다.');
 assert(daily.includes('function _dailyRegisterPreArrivalsViaServer'), '도착 전 등록 전송 경로가 있어야 합니다.');
 assert(daily.includes("req.type==='official-manual-match'"), '수동 경기 등록 재생 경로가 있어야 합니다.');
+
+// 5b) 임원 화면의 새 게임 등록 배선 (2026-08-10).
+{
+  const checkin = fs.readFileSync(path.join(root, 'checkin.html'), 'utf8');
+  assert(checkin.includes('openOfficialManualMatch'), '임원 화면에 새 게임 등록 진입점이 있어야 합니다.');
+  assert(checkin.includes("type:'official-manual-match'"), '임원 화면이 수동 경기 등록 명령을 보내야 합니다.');
+  assert(checkin.includes('새 게임 등록'), '새 게임 등록 버튼이 있어야 합니다.');
+  assert(checkin.includes('officialFreeCourts'), '빈 코트 계산이 있어야 합니다.');
+  ['openOfficialManualMatch','_officialManualToggle'].forEach(name=>{
+    const start = checkin.indexOf('function '+name);
+    assert(start >= 0, `${name} 이 있어야 합니다.`);
+    const src = checkin.slice(start, checkin.indexOf('\nfunction ', start + 10));
+    assert(!/\bprompt\(/.test(src), `${name} 이 prompt 를 쓰면 안 됩니다.`);
+  });
+  // A팀·B팀 확인창 없이 바로 보내면 오조작 한 번이 코트 하나를 차지합니다.
+  assert(/A팀 .*B팀 /s.test(checkin) && checkin.includes('경기를 시작할까요?'),
+    '팀 구성을 보여주는 확인창이 있어야 합니다.');
+  console.log('  임원 새 게임 등록 배선: 버튼 · 빈 코트 · 팀 확인창 · prompt 없음');
+}
 
 // 6) 차단 요소가 아니라고 판정한 셋의 근거를 코드로 고정합니다.
 //    이 전제가 바뀌면 5단계 계획을 다시 세워야 합니다.
