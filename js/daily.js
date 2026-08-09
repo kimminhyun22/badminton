@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.528';
+const APP_VERSION = '1.10.529';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3305,7 +3305,7 @@ function _dailyPlayerRowActions(p){
     {status:'done',label:'종료',cls:'done'}
   ].filter(b=>!(playing&&b.status==='wait')).map(b=>{
     const same=playing?p.afterMatchStatus===b.status:status===b.status;
-    return `<button type="button" class="${b.cls}" ${blocked||same?'disabled':''} onclick="dailySetStatus('${p.id}','${b.status}')">${playing&&b.status!=='wait'?'후 ':''}${b.label}</button>`;
+    return `<button type="button" class="${b.cls}" ${blocked||same?'disabled':''} onclick="dailySetStatus('${p.id}','${b.status}')">${playing&&b.status!=='wait'?'경기 후 ':''}${b.label}</button>`;
   }).join('');
   // 아직 한 경기도 안 뛴 선수만 '도착 전'으로 되돌릴 수 있습니다(잘못 등록한 경우의 정정).
   const preArrival=!playing&&Number(p.games||0)===0
@@ -10027,7 +10027,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.528&from=daily';
+  location.href='team.html?v=1.10.529&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
