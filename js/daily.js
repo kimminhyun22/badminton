@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.533';
+const APP_VERSION = '1.10.534';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2597,7 +2597,11 @@ function _dailyRosterBridge(){
 }
 function _dailySaveRosterBridge(){
   const bridge=_dailyRosterBridge();
-  return bridge?bridge.save('daily',_dailyPlayers):null;
+  const saved=bridge?bridge.save('daily',_dailyPlayers):null;
+  // 명단·명부가 바뀔 때마다 서버의 명부 후보를 따라 맞춥니다(해시가 같으면
+  // 아무것도 안 씀). 라이브 중에는 전체 게시가 없어 이 경로가 유일합니다.
+  if(typeof _dailySyncArrivalCandidates==='function')_dailySyncArrivalCandidates();
+  return saved;
 }
 function _dailyTeamRosterSnapshot(){
   const bridge=_dailyRosterBridge();
@@ -6894,6 +6898,29 @@ function _dailyOfficialArrivalCandidates(){
     return String(a.name).localeCompare(String(b.name),'ko');
   });
 }
+// 명부 후보(arrivalCandidates)는 세션 게시에만 실립니다. 그런데 라이브 중
+// 관리자 조작은 명령 경로만 돌아 전체 게시가 일어나지 않으므로, 명부·코드가
+// 바뀌어도 서버 후보는 낡은 채 남습니다(2026-08-11 실전: v533 수리 후에도
+// 임원 화면에 미르클럽 명부). 일시정지(_dailySyncPauseState)와 같은 방식의
+// **부분 쓰기**로 후보만 따로 맞춥니다 — 예민한 전체 게시 경로는 건드리지 않습니다.
+let _dailyArrivalCandidatesSyncedHash='';
+function _dailyArrivalCandidatesHash(candidates){
+  return _dailyCheckinId+'|'+JSON.stringify(candidates.map(c=>[c.candidateKey,c.name,c.club||'',c.grade||'',c.kind]));
+}
+async function _dailySyncArrivalCandidates(){
+  if(!_dailyCheckinId||!_fbDb||!_dailyCheckinOwnershipVerified)return false;
+  try{
+    const fresh=_dailyOfficialArrivalCandidates();
+    const hash=_dailyArrivalCandidatesHash(fresh);
+    if(hash===_dailyArrivalCandidatesSyncedHash)return true;
+    await _fbDb.ref(_dailyCheckinPath()+'/session/arrivalCandidates').set(fresh);
+    _dailyArrivalCandidatesSyncedHash=hash;
+    return true;
+  }catch(e){
+    console.warn('명부 후보 동기화 실패',e);
+    return false;
+  }
+}
 function _dailyCheckinPayload(){
   const serverPlayerHistory=_dailyServerPlayerHistory();
   return {
@@ -7125,6 +7152,10 @@ function _dailyWriteCheckinPayload(path){
       _dailyRemoteCheckinExpiresAt=Math.max(0,Number(payload.expiresAt||0));
       _dailyCrossTabIdentityPending=false;
       _dailyMarkCheckinPublishConnected(localPublishRevision);
+      // 전체 게시에는 최신 후보가 이미 실렸으므로 부분 쓰기를 건너뛰게 표시합니다.
+      if(Array.isArray(payload?.arrivalCandidates)){
+        _dailyArrivalCandidatesSyncedHash=_dailyArrivalCandidatesHash(payload.arrivalCandidates);
+      }
       return wrapped;
     }
     const remote=wrapped.snapshot?.val()||{};
@@ -7550,6 +7581,9 @@ async function dailyResumeCheckin(){
     _dailyCrossTabIdentityPending=false;
     if(!_dailyCheckinCreatedAt)_dailyCheckinCreatedAt=Math.max(0,Number(ownershipResult.session?.createdAt||0));
     _dailyPersistCheckinIdentity();
+    // 관리자 화면이 열리면 서버의 명부 후보를 최신으로 맞춥니다 — 라이브 중에는
+    // 전체 게시가 없어 여기서 안 맞추면 임원 화면이 낡은 명부를 계속 봅니다.
+    _dailySyncArrivalCandidates();
   }
   if(ownership==='owned'&&_dailyOfficialInviteHash&&_dailyRemoteHeadNeedsReconcile(ownershipResult.session)){
     const reconciled=await _dailyPullServerReconcile();
@@ -10093,7 +10127,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.533&from=daily';
+  location.href='team.html?v=1.10.534&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

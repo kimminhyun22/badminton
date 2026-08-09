@@ -150,6 +150,40 @@ this.out=_dailyOfficialArrivalCandidates();`,sandbox);
   assert(!rosterRows.some(c=>c.name==='오늘참가'),'이미 참가한 회원은 후보에서 빠져야 합니다.');
   assert(sandbox.out.some(c=>c.kind==='existing'&&c.name==='늦은이'),'도착 전 선수는 후보 맨 앞에 있어야 합니다.');
   console.log('  명부 후보: 전 클럽 수록 · 겹침 큰 클럽 우선 · 이름 중복 제거');
+
+  // 1e) 서버 후보 부분 동기화(2026-08-11 실전: 라이브 중에는 관리자 조작이 명령
+  //     경로만 돌아 전체 게시가 없고, 후보는 게시에만 실려 낡은 명부가 서버에
+  //     남았음 — "휴식 전환해도 미르클럽"). 관리자 화면이 열리면 후보만 부분
+  //     쓰기로 맞추고, 내용이 같으면 다시 쓰지 않아야 합니다.
+  const writes=[];
+  Object.assign(sandbox,{
+    _dailyCheckinId:'TESTID',
+    _dailyCheckinOwnershipVerified:true,
+    _dailyCheckinPath:()=>'live/checkin_TESTID',
+    _fbDb:{ref:path=>({set:async value=>{writes.push({path,count:value.length});}})},
+    _dailyArrivalCandidatesSyncedHash:'',
+    console
+  });
+  vm.runInContext(`${extractFunction(daily,'_dailyArrivalCandidatesHash')}
+async ${extractFunction(daily,'_dailySyncArrivalCandidates')}
+this.sync=_dailySyncArrivalCandidates;`,sandbox);
+  // 모든 프라미스가 즉시 완료되므로 async IIFE 로 검사합니다 — 안에서 단언이
+  // 깨지면 미처리 거부로 테스트가 실패합니다.
+  (async()=>{
+    const first=await sandbox.sync();
+    const second=await sandbox.sync();
+    assert.strictEqual(first,true,'후보 동기화가 성공해야 합니다.');
+    assert.strictEqual(second,true,'같은 내용의 재동기화도 성공(생략)해야 합니다.');
+    assert.strictEqual(writes.length,1,'내용이 같으면 서버에 다시 쓰면 안 됩니다.');
+    assert.strictEqual(writes[0].path,'live/checkin_TESTID/session/arrivalCandidates',
+      '전체 게시가 아니라 후보 노드만 부분 쓰기해야 합니다 — 통째 쓰기는 8일 밤 사고의 경로입니다.');
+    assert(writes[0].count>0,'후보가 실제로 실려야 합니다.');
+    console.log('  후보 부분 동기화: 관리자 열림 시 1회 쓰기 · 중복 생략 · 부분 경로');
+  })();
+
+  // 배선: 소유 확인 직후와 명단 저장 브리지에서 동기화를 불러야 합니다.
+  assert((daily.match(/_dailySyncArrivalCandidates\(\)/g)||[]).length>=2,
+    '소유 확인·명단 저장 경로에서 후보 동기화를 불러야 합니다.');
 }
 
 // 2) 전제 검사는 그대로여야 합니다.
