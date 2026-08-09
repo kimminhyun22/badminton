@@ -67,15 +67,26 @@ assert(commonShareSource.includes("const text='🏸 민턴LIVE\\n내 이름을 �
 assert(!commonShareSource.includes('쉴 때는 휴식')&&!commonShareSource.includes('클럽 임원은'),'공유 문구에 사용 설명을 길게 넣으면 안 됩니다.');
 assert(commonShareSource.includes("navigator.share({title:'민턴LIVE',text,url})"),'공용 링크를 Web Share URL 필드에도 전달해야 합니다.');
 assert(commonShareSource.includes('const clipboardText=`${text}\\n\\n${url}`'),'공유 시 URL 필드와 본문이 중복되지 않고 클립보드 대체 경로에만 주소를 붙여야 합니다.');
-// 중복 메뉴 정리(운영자 2026-08-12 "공용 링크·운영기록 링크 공유 모두 같은 거
-// 아냐"): 같은 동작의 버튼은 상황판 퀵 + 공용 링크 카드 두 곳까지만, 이름은
-// 「링크 공유」 하나로 통일. 운영 기록 카드의 중복 버튼과 카드의 「데이터
-// 초기화」(퀵 「초기화」와 동일 동작)는 제거.
-assert(index.includes('daily-share-primary" onclick="dailyShareCheckinLink()">링크 공유</button>'),'공용 링크 카드의 공유 버튼은 「링크 공유」 한 이름이어야 합니다.');
-assert.strictEqual((index.match(/dailyShareCheckinLink\(\)/g)||[]).length,2,'링크 공유 진입점은 상황판 퀵 + 공용 링크 카드 둘뿐이어야 합니다.');
+// 대시보드 중심 정리(운영자 2026-08-12 "공용 링크 영역 없애고 상단 링크 공유·
+// 링크종료·초기화"): 공용 링크 카드는 은퇴. 진입점은 상황판 퀵 액션 한 줄
+// (링크 공유·링크 종료·초기화 각 1개)뿐이고, 카드가 품던 확인 필요 요청 상자
+// (dailyCheckinBox)는 상황판 안으로 들어가 요청이 있을 때만 나타납니다.
+assert.strictEqual((index.match(/dailyShareCheckinLink\(\)/g)||[]).length,1,'링크 공유 진입점은 상황판 퀵 하나뿐이어야 합니다.');
+assert.strictEqual((index.match(/dailyStopCheckinLink\(\)/g)||[]).length,1,'링크 종료 진입점은 상황판 퀵 하나뿐이어야 합니다.');
 assert.strictEqual((index.match(/onclick="dailyReset\(\)"/g)||[]).length,1,'초기화 진입점은 상황판 퀵 하나뿐이어야 합니다.');
-assert(index.includes('daily-dashboard-quick-actions')&&index.includes('onclick="dailyShareCheckinLink()">링크 공유</button>'),'자주 쓰는 링크 공유는 민턴LIVE 상황판 상단에 있어야 합니다.');
-assert(index.includes('onclick="dailyReset()">초기화</button>'),'자주 쓰는 초기화는 민턴LIVE 상황판 상단에 있어야 합니다.');
+assert(index.includes('daily-dashboard-quick-actions')&&index.includes('onclick="dailyShareCheckinLink()">링크 공유</button>')
+  &&index.includes('onclick="dailyStopCheckinLink()">링크 종료</button>')&&index.includes('onclick="dailyReset()">초기화</button>'),
+  '상황판 상단 퀵 액션은 링크 공유·링크 종료·초기화 세 개여야 합니다.');
+assert(!index.includes('dailyCheckinDetails')&&!index.includes('dailyCheckinSummary'),'공용 링크 카드는 남아 있으면 안 됩니다.');
+assert(index.includes('id="dailyCheckinBox" hidden'),'확인 필요 요청 상자는 상황판 안에 숨김 상태로 있어야 합니다.');
+const requestRender=functionSource(daily,'dailyRenderCheckinRequests','dailyRender');
+assert(requestRender.includes('box.hidden=true')&&requestRender.includes('확인 필요한 요청'),
+  '요청 상자는 확인할 요청이 있을 때만 나타나야 합니다 — 항상 떠 있으면 상황판이 한눈에 안 들어옵니다.');
+assert(!requestRender.includes('daily-checkin-link'),'링크 주소 상자는 은퇴 — 주소 안내는 「링크 공유」 버튼이 맡습니다.');
+// display:flex 클래스는 hidden 속성을 이깁니다 — 빈 노란 막대 사고(v542 발견).
+const appCss=fs.readFileSync(path.join(root,'css','app.css'),'utf8');
+assert(appCss.includes('.daily-reconcile-banner[hidden]{display:none!important;}'),
+  '동기화 배너는 hidden 가드가 있어야 합니다 — 없으면 숨겨도 빈 막대가 남습니다.');
 assert(!index.includes('onclick="dailyShareOfficialLink()"'),'관리자 화면에 별도 임원 링크 버튼을 남기면 안 됩니다.');
 
 // 복사가 막혀도 링크는 눈에 보여야 합니다. 예전에는 사파리가 클립보드를 거절하면

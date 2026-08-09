@@ -48,8 +48,9 @@ assert(!toggle.includes('operatorConnected()'),'뒷풀이 신청은 관리자 �
 const listener=functionSource(daily,'dailyStartCheckinListener','_dailyCheckinBlockReason');
 assert(listener.includes("_fbDb.ref(path+'/party').on"),'시스템 관리자 화면도 예외 확인을 위해 현재 뒷풀이 명단을 구독해야 합니다.');
 assert(daily.includes("_fbDb.ref(_dailyCheckinListeningPath+'/party').off()"),'다른 민턴LIVE 링크로 바뀔 때 이전 뒷풀이 구독을 해제해야 합니다.');
-const managerSummary=functionSource(daily,'dailyRenderCheckinRequests','dailyRender');
-assert(managerSummary.includes('뒷풀이 ${partyNames.length}명'),'관리자 링크 패널에서 뒷풀이 신청 수를 확인할 수 있어야 합니다.');
+// v542: 공용 링크 카드 은퇴 — 관리자 뒷풀이 표시는 상황판 스포트라이트 하나입니다.
+const managerSummary=functionSource(daily,'dailyRenderAfterPartySpotlight','dailyRenderCheckinRequests');
+assert(managerSummary.includes('오늘 함께하는 ${rows.length}명'),'관리자 상황판에서 뒷풀이 신청 수를 확인할 수 있어야 합니다.');
 const managerRows=functionSource(daily,'_dailyAfterPartyRows','_dailyAfterPartyRosterText');
 assert(managerRows.includes("row.attending!==false&&_dailyPlayer(id)"),'취소됐거나 현재 참가자 명단에 없는 뒷풀이 응답을 집계하면 안 됩니다.');
 assert(!managerSummary.includes('row.name'),'공개 경로의 이름을 신뢰하지 말고 현재 참가자 명단에서 이름을 가져와야 합니다.');

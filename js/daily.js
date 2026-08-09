@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.541';
+const APP_VERSION = '1.10.542';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5616,7 +5616,7 @@ function dailyOpenBoardTarget(target){
   const map={
     active:{tab:'daily',id:'dailyActiveCard'},
     queue:{tab:'queue',id:'dailyUrgentCard'},
-    request:{tab:'daily',id:'dailyCheckinCard',open:'dailyCheckinDetails'},
+    request:{tab:'daily',id:'dailyCheckinBox'},
     players:{tab:'players',id:'dailyPlayersManage',open:'dailyPlayersManage'},
     rest:{tab:'players',id:'dailyPlayersManage',open:'dailyPlayersManage'},
     setup:{tab:'daily',id:'dailySetupDetails',open:'dailySetupDetails'},
@@ -9038,34 +9038,21 @@ function dailyRenderAfterPartySpotlight(){
 }
 function dailyRenderCheckinRequests(){
   const box=document.getElementById('dailyCheckinBox');
-  const summary=document.getElementById('dailyCheckinSummary');
-  if(summary){
-    const pending=_dailyCheckinPendingRequests().length;
-    summary.textContent=_dailyCheckinId?`(${pending}건 확인 필요)`:''; 
-  }
   if(!box)return;
-  if(!_dailyCheckinId){
-    box.className='daily-empty';
-    box.textContent='준비가 끝나면 회원·임원 공용 링크 하나만 카톡방에 공유하세요.';
-    return;
-  }
-  const url=_dailyCheckinUrl();
-  const pending=_dailyCheckinPendingRequests();
-  const partyNames=_dailyAfterPartyRows().map(_dailyNameText);
-  const partyHtml=`<div class="daily-checkin-req applied"><div class="daily-checkin-req-head"><div><div class="daily-checkin-req-title">뒷풀이 ${partyNames.length}명</div><div class="daily-checkin-req-meta">${partyNames.length?partyNames.map(esc).join(', '):'신청 없음'}</div></div><div class="daily-checkin-req-actions"><button class="daily-mini-btn" type="button" ${partyNames.length?'':'disabled'} onclick="dailyCopyAfterPartyRoster()">명단 복사</button></div></div></div>`;
   _dailyRenderReconcileBanner();
-  const linkHtml=`<div class="daily-checkin-link">회원·임원 공용 링크<br><strong>${esc(url)}</strong><br>회원은 경기 확인과 상태·뒷풀이 신청을, 명부 임원은 같은 화면에서 경기 운영까지 처리합니다.</div>${partyHtml}`;
+  // 공용 링크 카드는 은퇴(운영자 2026-08-12 "대시보드 중심으로 한눈에"). 링크
+  // 주소 안내는 「링크 공유」 버튼이, 뒷풀이 명단은 상황판 스포트라이트가 맡고,
+  // 이 상자는 상황판 안에서 확인 필요한 요청이 있을 때만 나타납니다.
+  const pending=_dailyCheckinId?_dailyCheckinPendingRequests():[];
   if(!pending.length){
-    box.className='daily-checkin-panel';
-    box.innerHTML=linkHtml+`<div class="daily-checkin-req applied">
-      <div class="daily-checkin-req-head">
-        <div><div class="daily-checkin-req-title">확인 필요한 요청 없음</div><div class="daily-checkin-req-meta">안전한 요청은 자동 반영됩니다.</div></div>
-      </div>
-    </div>`;
+    box.hidden=true;
+    box.className='';
+    box.innerHTML='';
     return;
   }
+  box.hidden=false;
   box.className='daily-checkin-panel';
-  box.innerHTML=linkHtml+pending.map(req=>{
+  box.innerHTML=`<div class="daily-todo-head">확인 필요한 요청 ${pending.length}건</div>`+pending.map(req=>{
     const p=_dailyPlayer(req.playerId);
     const reason=_dailyCheckinBlockReason(req,p);
     const name=req.playerName||p?.name||'알 수 없음';
@@ -10168,7 +10155,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.541&from=daily';
+  location.href='team.html?v=1.10.542&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

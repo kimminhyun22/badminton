@@ -45,7 +45,8 @@ assert(checkin.includes('${officialOperationsSummaryHtml(p)}'),'임원이 이름
 [['index.html',indexHtml],['team.html',teamHtml],['checkin.html',checkin],['js/daily.js',dailySrc],['js/team.js',teamSrc],['js/live-view.js',liveSrc]]
   .forEach(([name,src])=>assert(!src.includes('민턴LIVE 민턴LIVE'),`${name} 에 브랜드가 두 번 붙어 있습니다.`));
 // 화면에 보이는 제목의 LIVE 는 붉은 글자여야 합니다.
-['민턴<span class="brand-live">LIVE</span> 상황판','민턴<span class="brand-live">LIVE</span> 공용 링크']
+// v542: 공용 링크 카드 은퇴로 제목 표기는 상황판 하나만 남았습니다.
+['민턴<span class="brand-live">LIVE</span> 상황판']
   .forEach(mark=>assert(indexHtml.includes(mark),`관리자 화면 제목 브랜드 표기가 빠졌습니다: ${mark}`));
 // 관리자 화면에도 같은 흐름이 있어야 합니다: 대시보드 숫자로 바로 걸러 보고, 기본은 이름순.
 assert(dailySrc.includes("onclick=\"setDailyPlayerFilter('${f}')\""),'관리자 대시보드 숫자를 눌러 해당 상태만 볼 수 있어야 합니다.');
