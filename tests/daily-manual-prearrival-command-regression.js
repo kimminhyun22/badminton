@@ -143,13 +143,12 @@ badCases.forEach(([request, label])=>{
   console.log('  기본값: wait 유지');
 }
 
-// 4) 선수 추가는 관리자 전용, 수동 경기 등록은 임원에게도 열렸습니다
-//    (운영자 2026-08-10 "임원이 새로운 게임을 생성할 수 있는 권한" —
-//     임원의 게임 설정 자유는 최대 보장, 시스템은 사후 균형).
+// 4) 선수 추가·수동 경기 등록 모두 임원에게 열렸습니다(운영자 2026-08-10
+//    "관리자와 동일한 기능 제공" — 임원 자유 최대, 시스템은 사후 균형).
 {
   const r = send(makeSession(), {type:'official-player-create', playerId:'dpv2_x', name:'딴선수', status:'planned'}, {admin:false});
-  assert.strictEqual(r.status, 'rejected', '선수 추가는 임원 연결로 막혀야 합니다.');
-  assert(r.reason.includes('관리자'), `거절 이유가 관리자 전용임을 밝혀야 합니다: ${r.reason}`);
+  assert.strictEqual(r.status, 'applied', `임원 선수 추가(도착 전)가 적용되어야 합니다: ${r.reason||''}`);
+  assert.strictEqual(r.session.players.find(p=>p.id==='dpv2_x').status, 'planned', '도착 전 상태로 올라가야 합니다.');
   const byOfficial = send(makeSession(), manual, {admin:false});
   assert.strictEqual(byOfficial.status, 'applied', `임원 새 게임 등록이 적용되어야 합니다: ${byOfficial.reason || ''}`);
   const match = byOfficial.session.event.active.find(m=>m.id === 'sm_manual1');
@@ -158,7 +157,7 @@ badCases.forEach(([request, label])=>{
     assert.strictEqual(byOfficial.session.players.find(p=>p.id === id).status, 'playing',
       '임원 등록 경기의 4명이 경기중이어야 합니다.');
   });
-  console.log('  선수 추가: 관리자 전용 유지 · 새 게임 등록: 임원 applied (2026-08-10 개방)');
+  console.log('  선수 추가·새 게임 등록: 임원 applied (2026-08-10 전면 개방)');
 }
 
 // 5) 관리자 화면이 두 명령을 보내는지, 재생 경로가 있는지 봅니다.
@@ -179,7 +178,10 @@ assert(daily.includes("req.type==='official-manual-match'"), '수동 경기 등�
   ['openOfficialQueueCompose','_officialComposeToggle','sendOfficialQueueMove'].forEach(name=>{
     const start = checkin.indexOf('function '+name);
     assert(start >= 0, `${name} 이 있어야 합니다.`);
-    const src = checkin.slice(start, checkin.indexOf('\nfunction ', start + 10));
+    // 경계 탐색이 async function 을 건너뛰면 옆 함수의 prompt 까지 조각에 섞입니다.
+    const ends = [checkin.indexOf('\nfunction ', start + 10), checkin.indexOf('\nasync function ', start + 10)]
+      .filter(i=>i > 0);
+    const src = checkin.slice(start, ends.length ? Math.min(...ends) : checkin.length);
     assert(!/\bprompt\(/.test(src), `${name} 이 prompt 를 쓰면 안 됩니다.`);
   });
   // A팀·B팀 확인창 없이 바로 보내면 오조작 한 번이 대기표를 어지럽힙니다.

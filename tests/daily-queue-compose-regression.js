@@ -235,7 +235,21 @@ function extractFunction(src, name){
   // 마무리 전환 — 클럽 임원 버튼과 전송이 있어야 합니다.
   assert(checkin.includes('sendOfficialFinishMode')&&checkin.includes("type:'official-finish-mode'"),
     '임원 마무리 전환 버튼·전송이 있어야 합니다.');
-  console.log('  실전 피드백 배선: 예약현황 · 순번 안내 · 지각 안내 · 마무리 버튼');
+  // 관리자 동일 기능(2026-08-10): 경기 취소 · 대기 다시 짜기/삭제 · 선수
+  // 추가/이름 변경/제외 · 코트 수. 전부 클럽 임원 게이트를 지나야 합니다.
+  ['sendOfficialCourtCancel','sendOfficialQueueRegenerate','sendOfficialQueueDelete',
+   'sendOfficialPlayerCreate','sendOfficialPlayerRename','sendOfficialPlayerRemove',
+   'sendOfficialSettingsCourts'].forEach(name=>{
+    const start=checkin.indexOf('async function '+name);
+    assert(start>=0,`${name} 이 있어야 합니다.`);
+    const src=checkin.slice(start,checkin.indexOf('\nasync function ',start+10));
+    assert(/isClubOfficial/.test(src),`${name} 은 클럽 임원 게이트를 지나야 합니다.`);
+  });
+  assert(checkin.includes("type:'official-court-cancel'")&&checkin.includes("type:'official-queue-delete'")
+    &&checkin.includes("type:'official-queue-regenerate'")&&checkin.includes("type:'official-player-remove'")
+    &&checkin.includes("type:'official-player-rename'")&&checkin.includes("type:'official-settings-update'"),
+    '관리자 동일 기능 명령 전송이 전부 있어야 합니다.');
+  console.log('  실전 피드백 배선: 예약현황 · 순번 안내 · 지각 안내 · 마무리 · 관리자 동일 7종');
 }
 
 console.log('\ndaily queue compose regression ok');

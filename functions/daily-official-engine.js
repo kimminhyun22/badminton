@@ -55,6 +55,7 @@ const SUPPORTED_TYPES = new Set([
   'official-player-remove',
   'official-player-rename',
   'official-player-create',
+  'official-player-official',
   'official-queue-delete',
   'official-queue-regenerate',
   'official-reservation-promote',
@@ -995,19 +996,12 @@ function validateCommon(session, request, now, options){
     return {reason:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
   const temporaryRoleCommand = ['official-temporary-grant','official-temporary-revoke'].includes(request.type);
-  // 수동 경기 등록(2026-08-10)과 마무리 전환(2026-08-10 실전 피드백 "관리자의
-  // 마무리 기능도 임원에게")은 임원에게 열렸습니다. 임원의 게임 설정 자유는
-  // 최대로 보장하고, 시스템은 그 이후의 균형·보충을 책임진다는 원칙입니다.
-  // 남은 관리자 전용은 명단·설정 계열입니다.
+  // 운영 명령은 임원에게 전부 열렸습니다(운영자 2026-08-10 "관리자와 동일한
+  // 기능 제공" — 임원의 게임 설정 자유는 최대로, 시스템은 사후 균형).
+  // 관리자 전용으로 남는 것은 자격 부여뿐입니다 — 임원 자격은 보안 경계라
+  // 자유권의 대상이 아닙니다(임원이 임원을 만들면 권한이 번집니다).
   const adminOnlyCommand = [
-    'official-settings-update',
-    'official-court-cancel',
-    'official-player-remove',
-    'official-player-rename',
-    'official-player-create',
-    'official-queue-delete',
-    'official-queue-regenerate',
-    'official-reservation-promote'
+    'official-player-official'
   ].includes(request.type);
   const actor = playerById(session, request.actorPlayerId);
   // 관리자는 세션을 만든 주체라 명단에 선수로 들어 있지 않습니다. 초대 토큰으로 확인한
@@ -2255,6 +2249,26 @@ function applyReservationPromote(session, request, now, operation){
   return '';
 }
 
+// 세션 선수의 임원 자격을 되돌립니다(2026-08-10 실전: 도착 전 등록 버그로 지워진
+// 자격은 세션 데이터에 굳어 있어, 엔진 수리만으로는 이미 만든 세션이 안 낫습니다).
+// 자격 부여는 보안 경계라 관리자 전용입니다.
+function applyPlayerOfficial(session, request, now, operation){
+  const player = playerById(session, request.playerId);
+  if(!player)return '대상 선수를 현재 명단에서 찾지 못했습니다.';
+  const expectedName = text(request.expectedName);
+  if(expectedName && text(player.name) !== expectedName)return '선수 이름이 이미 바뀌었습니다.';
+  const next = request.isClubOfficial === true;
+  if(!!player.isClubOfficial === next)return next ? '이미 클럽 임원입니다.' : '이미 임원이 아닙니다.';
+  player.isClubOfficial = next;
+  if(next){
+    // 임원이 되면 임시 도우미 표시는 정리합니다.
+    player.isTemporaryOfficial = false;
+  }
+  player.lastStatusAt = now;
+  if(operation)operation.result = {playerOfficial:{playerId:text(player.id), name:text(player.name), isClubOfficial:next}};
+  return '';
+}
+
 function applyFinishMode(session, request, now, operation){
   const next = request.finishMode === true;
   const event = session.event;
@@ -2497,6 +2511,7 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-active-replace': return applyActiveReplace(session, request, now, operation);
     case 'official-manual-match': return applyManualMatch(session, request, now, requestId, operation);
     case 'official-player-remove': return applyPlayerRemove(session, request, now, operation);
+    case 'official-player-official': return applyPlayerOfficial(session, request, now, operation);
     case 'official-player-rename': return applyPlayerRename(session, request, now, operation);
     case 'official-player-create': return applyPlayerCreate(session, request, now, operation);
     case 'official-queue-delete': return applyQueueDelete(session, request, now, operation);

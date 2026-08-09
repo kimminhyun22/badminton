@@ -205,29 +205,51 @@ function send(session, request, {admin = true} = {}){
   console.log(`  중복 마무리 전환: rejected (${dup.reason})`);
 }
 
-// 8) 관리자 전용 — 임원 연결로는 전부 막혀야 합니다.
-//    마무리 전환은 임원에게 열렸습니다(운영자 2026-08-10 실전 피드백
-//    "관리자의 마무리 기능도 임원에게").
-const adminOnly = [
+// 8) 운영 명령은 임원에게 전부 열렸습니다(운영자 2026-08-10 "관리자와 동일한
+//    기능 제공"). 관리자 전용으로 남는 것은 임원 자격 부여뿐입니다 —
+//    보안 경계라 자유권 대상이 아닙니다.
+const formerlyAdminOnly = [
   {type:'official-player-remove', playerId:'p1'},
   {type:'official-player-rename', playerId:'p1', name:'딴이름'},
   {type:'official-player-create', playerId:'dpv2_z', name:'딴선수'},
-  {type:'official-queue-delete', queueId:'q1'},
-  {type:'official-queue-regenerate', queueId:'q1'},
+  {type:'official-queue-delete', queueId:'q1', expectedPlayerIds:[]},
+  {type:'official-queue-regenerate', queueId:'q1', expectedPlayerIds:[]},
   {type:'official-reservation-promote', reservationId:'res1'},
-  {type:'official-settings-update', courts:5}
+  {type:'official-settings-update', courts:5, expectedCourts:2},
+  {type:'official-finish-mode', finishMode:true}
 ];
-adminOnly.forEach(request=>{
+formerlyAdminOnly.forEach(request=>{
   const r = send(makeSession(), request, {admin:false});
-  assert.strictEqual(r.status, 'rejected', `${request.type} 은 임원 연결로 막혀야 합니다.`);
-  assert(r.reason.includes('관리자'), `${request.type} 거절 이유가 관리자 전용임을 밝혀야 합니다: ${r.reason}`);
+  assert(!/관리자만/.test(r.reason||''),
+    `${request.type} 이 임원 연결에서 권한으로 막히면 안 됩니다: ${r.reason||r.status}`);
 });
-console.log(`  관리자 전용 ${adminOnly.length}종: 임원 연결 전부 rejected`);
+console.log(`  옛 관리자 전용 ${formerlyAdminOnly.length}종: 임원 권한 게이트 없음 확인`);
 {
   const r = send(makeSession(), {type:'official-finish-mode', finishMode:true}, {admin:false});
   assert.strictEqual(r.status, 'applied', `임원 마무리 전환이 적용되어야 합니다: ${r.reason||''}`);
   assert.strictEqual(r.session.event.finishMode, true, '마무리 상태가 켜져야 합니다.');
-  console.log('  임원 마무리 전환: applied (2026-08-10 개방)');
+  const create = send(makeSession(), {type:'official-player-create', playerId:'dpv2_off', name:'임원추가'}, {admin:false});
+  assert.strictEqual(create.status, 'applied', `임원 선수 추가가 적용되어야 합니다: ${create.reason||''}`);
+  console.log('  임원 마무리 전환·선수 추가: applied (2026-08-10 개방)');
+}
+
+// 8b) 임원 자격 부여(official-player-official)만 관리자 전용으로 남습니다.
+//     도착 전 등록 버그로 세션에 굳은 자격 풀림을 복구하는 명령입니다.
+{
+  const byOfficial = send(makeSession(), {type:'official-player-official', playerId:'p1', isClubOfficial:true}, {admin:false});
+  assert.strictEqual(byOfficial.status, 'rejected', '임원이 임원 자격을 주면 안 됩니다 — 권한이 번집니다.');
+  assert(byOfficial.reason.includes('관리자'), byOfficial.reason);
+  const s = makeSession();
+  const target = s.players.find(p=>p.id==='p1');
+  target.isTemporaryOfficial = true;
+  const grant = send(s, {type:'official-player-official', playerId:'p1', expectedName:target.name, isClubOfficial:true});
+  assert.strictEqual(grant.status, 'applied', `관리자 자격 복구가 적용되어야 합니다: ${grant.reason||''}`);
+  const after = grant.session.players.find(p=>p.id==='p1');
+  assert.strictEqual(after.isClubOfficial, true, '임원 자격이 복구되어야 합니다.');
+  assert.strictEqual(after.isTemporaryOfficial, false, '임원이 되면 도우미 표시는 정리되어야 합니다.');
+  const wrongName = send(makeSession(), {type:'official-player-official', playerId:'p1', expectedName:'딴사람', isClubOfficial:true});
+  assert.strictEqual(wrongName.status, 'rejected', '이름 지문이 어긋나면 거절되어야 합니다.');
+  console.log('  임원 자격 복구: 관리자 applied · 임원 rejected · 지문 검증');
 }
 
 // 9) 확장 옵션도 임원에게 열렸습니다(운영자 2026-08-10 "다음 대진 순서 변경도

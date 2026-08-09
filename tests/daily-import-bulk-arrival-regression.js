@@ -101,7 +101,13 @@ function send(session, request, {admin=true}={}){
   // 화면 배선: 도착 전 일괄 등록이 명부의 임원 표시를 실어 보내야 합니다.
   assert(/isClubOfficial:!!m\.isClubOfficial/.test(daily),
     '_dailyRegisterPreArrivalsViaServer 가 임원 표시를 빠뜨리면 안 됩니다.');
-  console.log('  임원 자격: 도착 전 등록 → 도착 확인까지 유지');
+  // 이미 굳은 세션의 복구: 명부-세션 대조와 복구 배너가 있어야 합니다.
+  // (버그 수리는 새로 만드는 선수부터 적용되고, 지난 세션 데이터는 안 낫습니다)
+  assert(daily.includes('function _dailyStrippedOfficials')&&daily.includes('function dailyRestoreOfficialFlags'),
+    '임원 자격 풀림을 감지·복구하는 경로가 있어야 합니다.');
+  assert(daily.includes('임원 자격 복구'),'상황판에 복구 배너가 있어야 합니다.');
+  assert(daily.includes("type:'official-player-official'"),'복구가 자격 명령을 보내야 합니다.');
+  console.log('  임원 자격: 도착 전 등록 → 도착 확인까지 유지 · 굳은 세션 복구 배너');
 }
 
 // 2) 전제 검사는 그대로여야 합니다.
@@ -109,10 +115,11 @@ function send(session, request, {admin=true}={}){
   const dup=send(makeSession(), {type:'official-player-create',
     playerId:'dpv2_dup', name:'가선수', isGuest:true, status:'planned'});
   assert.strictEqual(dup.status,'rejected','같은 이름은 거절되어야 합니다.');
+  // 선수 추가도 임원에게 열렸습니다(운영자 2026-08-10 "관리자와 동일한 기능").
   const byOfficial=send(makeSession(), {type:'official-player-create',
     playerId:'dpv2_off', name:'게스트이', isGuest:true, status:'planned'}, {admin:false});
-  assert.strictEqual(byOfficial.status,'rejected','선수 추가는 관리자 전용이 유지되어야 합니다.');
-  console.log('  같은 이름 거절 · 관리자 전용 유지');
+  assert.strictEqual(byOfficial.status,'applied',`임원 게스트 추가가 적용되어야 합니다: ${byOfficial.reason||''}`);
+  console.log('  같은 이름 거절 · 임원 추가 applied (2026-08-10 개방)');
 }
 
 // 3) 화면 배선 — 게스트 등록과 명부 등록이 한 모달로 합쳐져야 합니다.

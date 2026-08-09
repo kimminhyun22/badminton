@@ -95,12 +95,11 @@ function send(patch, {admin = true, active = null} = {}){
   console.log('  관리자 설정 변경: applied', JSON.stringify(result.result.settings));
 }
 
-// 2) 임원 연결로는 못 바꿉니다.
+// 2) 설정 변경도 임원에게 열렸습니다(운영자 2026-08-10 "관리자와 동일한 기능").
 {
   const result = send({courts:5}, {admin:false});
-  assert.strictEqual(result.status, 'rejected', '임원 연결의 설정 변경은 거절되어야 합니다.');
-  assert(result.reason.includes('관리자'), `거절 이유가 명확해야 합니다: ${result.reason}`);
-  console.log(`  임원 설정 변경: rejected (${result.reason})`);
+  assert.strictEqual(result.status, 'applied', `임원 설정 변경이 적용되어야 합니다: ${result.reason||''}`);
+  console.log('  임원 설정 변경: applied (2026-08-10 개방)');
 }
 
 // 3) 진행 중인 코트를 잘라내는 축소는 거절합니다.

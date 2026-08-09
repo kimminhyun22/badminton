@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.529';
+const APP_VERSION = '1.10.530';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -6502,10 +6502,51 @@ function _dailyPullServerReconcile(retriedGrant){
 function _dailyRenderReconcileBanner(){
   const el=document.getElementById('dailyReconcileBanner');
   if(!el)return;
-  el.hidden=!_dailyServerReconcileError;
-  el.innerHTML=_dailyServerReconcileError
-    ? `<div class="daily-checkin-req-title">서버 운영 동기화 확인 필요</div><div class="daily-checkin-req-meta">${esc(_dailyServerReconcileError)} 서버의 실중계 상태는 그대로 유지됩니다.</div><button type="button" class="daily-mini-btn primary-action" onclick="dailyAdoptServerState()">서버 기준으로 다시 맞추기</button>`
+  // 명부에는 임원인데 세션 선수에는 임원 표시가 없는 경우 — 도착 전 등록 버그
+  // (v1.10.527 이전)로 지워진 자격은 세션에 굳어 있어 명령으로 복구해야 합니다.
+  const stripped=_dailyCheckinId?_dailyStrippedOfficials():[];
+  const officialFix=stripped.length
+    ? `<div class="daily-checkin-req-title">임원 자격 복구 필요</div><div class="daily-checkin-req-meta">명부에는 임원인데 오늘 명단에서 임원이 아닌 선수: ${esc(stripped.map(p=>p.name).join(', '))}</div><button type="button" class="daily-mini-btn primary-action" onclick="dailyRestoreOfficialFlags()">임원 자격 복구 (${stripped.length}명)</button>`
     : '';
+  el.hidden=!_dailyServerReconcileError&&!officialFix;
+  el.innerHTML=[
+    _dailyServerReconcileError
+      ? `<div class="daily-checkin-req-title">서버 운영 동기화 확인 필요</div><div class="daily-checkin-req-meta">${esc(_dailyServerReconcileError)} 서버의 실중계 상태는 그대로 유지됩니다.</div><button type="button" class="daily-mini-btn primary-action" onclick="dailyAdoptServerState()">서버 기준으로 다시 맞추기</button>`
+      : '',
+    officialFix
+  ].filter(Boolean).join('');
+}
+// 명부의 임원 표시와 세션 선수의 임원 표시를 대조합니다. 이름 기준입니다 —
+// 세션 선수는 명부에서 왔고, 명부가 임원의 원본입니다.
+function _dailyStrippedOfficials(){
+  const officialNames=new Set();
+  (rosters?.clubs||[]).forEach(club=>(club.members||[]).forEach(m=>{
+    if(m?.isClubOfficial&&m.name)officialNames.add(String(m.name).trim());
+  }));
+  if(!officialNames.size)return [];
+  return _dailyPlayers.filter(p=>p&&!p.isGuest&&!p.isClubOfficial&&officialNames.has(String(p.name||'').trim()));
+}
+async function dailyRestoreOfficialFlags(){
+  if(_dailyBlockServerSync({action:'임원 자격 복구'}))return;
+  const stripped=_dailyStrippedOfficials();
+  if(!stripped.length){alert('복구할 임원이 없습니다.');dailyRender();return;}
+  if(!confirm(`${stripped.map(p=>p.name).join(', ')} — ${stripped.length}명을 클럽 임원으로 복구할까요?\n\n복구되면 본인 이름을 고른 화면에 임원 운영 도구가 다시 붙습니다.`))return;
+  let done=0;const reasons=[];
+  for(const p of stripped){
+    const sent=await _dailySendAdminCommand({
+      type:'official-player-official',
+      playerId:p.id,
+      expectedName:p.name,
+      isClubOfficial:true,
+      source:'system-admin-official-restore'
+    },{action:'임원 자격 복구',tag:'player-official',silent:true});
+    if(sent.ok)done++;
+    else if(sent.reason&&!reasons.includes(sent.reason))reasons.push(`${p.name}: ${sent.reason}`);
+  }
+  alert(done
+    ? `${done}명의 임원 자격을 복구했습니다.${reasons.length?`\n\n처리 못 한 선수:\n${reasons.join('\n')}`:''}\n\n해당 임원은 본인 화면을 새로고침하면 운영 도구가 보입니다.`
+    : `복구하지 못했습니다.\n${reasons.join('\n')}`);
+  dailyRender();
 }
 async function dailyAdoptServerState(){
   if(!_dailyCheckinId||!_fbDb){alert('회원 링크 연결을 찾지 못했습니다.');return false;}
@@ -8116,6 +8157,7 @@ function _dailyOfficialRequestError(req){
     'official-player-remove',
     'official-player-rename',
     'official-player-create',
+    'official-player-official',
     'official-queue-delete',
     'official-queue-regenerate',
     'official-reservation-promote',
@@ -8197,6 +8239,14 @@ function _dailyApplyAdminOperation(req){
     _dailyQueue=_dailyQueue.filter(q=>!_dailyQueueIds(q).includes(id));
     if(_dailyPairSelectId===id)_dailyPairSelectId=null;
     _dailyNext=null;
+    return true;
+  }
+  if(req.type==='official-player-official'){
+    const info=result.playerOfficial;
+    const p=info?_dailyPlayer(info.playerId):null;
+    if(!p)return false;
+    p.isClubOfficial=info.isClubOfficial===true;
+    if(p.isClubOfficial)p.isTemporaryOfficial=false;
     return true;
   }
   if(req.type==='official-player-rename'){
@@ -8525,6 +8575,7 @@ function dailyProcessCheckinRequests(){
           return;
         }
         if(['official-player-remove','official-player-rename','official-player-create',
+            'official-player-official',
             'official-queue-delete','official-queue-regenerate','official-reservation-promote',
             'official-finish-mode','official-court-cancel','official-manual-match'].includes(req.type)){
           const ok=_dailyApplyAdminOperation(req);
@@ -10027,7 +10078,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.529&from=daily';
+  location.href='team.html?v=1.10.530&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

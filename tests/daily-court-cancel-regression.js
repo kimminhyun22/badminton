@@ -143,12 +143,11 @@ badCases.forEach(([request, label])=>{
   console.log(`  ${label}: rejected (${r.reason})`);
 });
 
-// 4) 관리자 전용입니다.
+// 4) 경기 취소도 임원에게 열렸습니다(운영자 2026-08-10 "관리자와 동일한 기능").
 {
   const r = send(makeSession(), {type:'official-court-cancel', ...base}, {admin:false});
-  assert.strictEqual(r.status, 'rejected', '임원 연결의 경기 취소는 거절되어야 합니다.');
-  assert(r.reason.includes('관리자'), `거절 이유가 명확해야 합니다: ${r.reason}`);
-  console.log(`  임원 경기 취소: rejected (${r.reason})`);
+  assert.strictEqual(r.status, 'applied', `임원 경기 취소가 적용되어야 합니다: ${r.reason||''}`);
+  console.log('  임원 경기 취소: applied (2026-08-10 개방)');
 }
 
 // 5) 관리자 화면이 명령을 보내고, 버튼이 되살아났는지 봅니다.

@@ -2381,6 +2381,39 @@ summary:focus-visible{
   border-color:#cfd8d4;background:#f7faf8;color:#5d6b65;
 }
 .official-finish-toggle:disabled{opacity:.5;}
+/* 관리자 동일 기능(2026-08-10) — 경기 취소·대기 삭제는 위험색, 추가 폼은 한 줄. */
+.event-official-cancel{
+  min-height:38px;padding:6px 5px;font-size:11px;
+  border-color:#f1cdcf!important;background:#fff7f7!important;color:#ae343c!important;
+}
+.event-official-queue-remove{
+  border-color:#f1cdcf!important;background:#fff7f7!important;color:#ae343c!important;
+}
+.official-add-player{
+  margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:#fbfdff;
+}
+.official-add-player>b{display:block;font-size:.74rem;color:var(--mut);margin-bottom:7px;}
+.official-add-grid{
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+}
+.official-add-grid input[type="text"]{
+  flex:1;min-width:110px;padding:9px 10px;border:1px solid var(--line);border-radius:12px;
+  font:inherit;font-weight:800;
+}
+.official-add-grid select{
+  padding:9px 6px;border:1px solid var(--line);border-radius:12px;font:inherit;font-weight:800;background:#fff;
+}
+.official-add-guest{
+  display:flex;align-items:center;gap:4px;font-size:.76rem;font-weight:900;color:var(--mut);
+}
+.official-add-grid button{min-height:40px;padding:8px 14px;flex-shrink:0;}
+.official-courts-button{
+  width:100%;margin-top:8px;
+  border:1.5px solid #d7dde6;background:#f7f9fc;color:#4a5a70;
+}
+.official-overview-actions button.remove{
+  border-color:#f1cdcf;background:#fff7f7;color:#ae343c;
+}
 .event-official-new-match{
   width:100%;margin-top:10px;
   border:1.5px dashed #b9cfc4;background:#f6fbf8;color:var(--green-deep);
@@ -2553,7 +2586,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.529">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.530">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2568,7 +2601,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.529</span>
+    <span class="version-chip" id="appVersion">v1.10.530</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2628,7 +2661,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.529';
+const APP_VERSION='1.10.530';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3191,6 +3224,20 @@ function officialOverviewStatusButtons(actor,target,viewKey){
       ? `<button type="button" class="helper on" ${dis} onclick="sendOfficialTemporaryRevoke('${esc(actor.id)}','${esc(target.id)}')">해제</button>`
       : `<button type="button" class="helper" ${dis} onclick="sendOfficialTemporaryGrant('${esc(actor.id)}','${esc(target.id)}')">지정</button>`}</span>`;
   }
+  // 이름 변경·제외(관리자 동일 기능, 2026-08-10). 클럽 임원 전용 모드입니다.
+  if(officialOverviewMode==='rename'){
+    if(viewKey==='party')return '';
+    return `<span class="official-overview-actions">
+      <button type="button" ${dis} onclick="sendOfficialPlayerRename('${esc(actor.id)}','${esc(target.id)}')">이름 변경</button>
+    </span>`;
+  }
+  if(officialOverviewMode==='remove'){
+    if(viewKey==='party')return '';
+    if(target.status==='playing'||target.currentMatchId)return '<span class="official-overview-hint">경기중 — 경기 정리 후</span>';
+    return `<span class="official-overview-actions">
+      <button type="button" class="remove" ${dis} onclick="sendOfficialPlayerRemove('${esc(actor.id)}','${esc(target.id)}')">제외</button>
+    </span>`;
+  }
 
   // 평소 화면
   if(viewKey==='party'){
@@ -3261,9 +3308,12 @@ function officialOperationsSummaryHtml(player){
   const partnerOn=session?.capabilities?.officialPartnerOpsV1===true&&!session?.event?.finishMode;
   const helperOn=player.isClubOfficial&&session?.capabilities?.temporaryOfficialV1===true;
   const helperCount=(session?.players||[]).filter(row=>row?.isTemporaryOfficial&&!row.isClubOfficial).length;
+  const rosterToolsOn=player.isClubOfficial;   // 관리자 동일 기능(2026-08-10)
   const tools=[
     partnerOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='partner'?'active':''}" onclick="setOfficialOverviewMode('partner')" aria-pressed="${officialOverviewMode==='partner'?'true':'false'}">파트너 지정</button>`:'',
-    helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">운영 도우미${helperCount?` ${helperCount}`:''}</button>`:''
+    helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">운영 도우미${helperCount?` ${helperCount}`:''}</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='rename'?'active':''}" onclick="setOfficialOverviewMode('rename')" aria-pressed="${officialOverviewMode==='rename'?'true':'false'}">이름 변경</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='remove'?'active':''}" onclick="setOfficialOverviewMode('remove')" aria-pressed="${officialOverviewMode==='remove'?'true':'false'}">제외</button>`:''
   ].filter(Boolean).join('');
   const picked=officialPartnerPickId?(session?.players||[]).find(row=>String(row.id)===String(officialPartnerPickId)):null;
   const modeNote=officialOverviewMode==='partner'
@@ -3272,7 +3322,11 @@ function officialOperationsSummaryHtml(player){
         : '같은 편으로 묶을 두 선수를 차례로 <b>선택</b>하세요.')
     : officialOverviewMode==='helper'
       ? '오늘만 운영을 도울 회원을 <b>지정</b>하세요. 운동이 끝나면 자동으로 해제됩니다.'
-      : '';
+      : officialOverviewMode==='rename'
+        ? '이름을 바꿀 선수의 <b>이름 변경</b>을 누르세요.'
+        : officialOverviewMode==='remove'
+          ? '명단에서 뺄 선수의 <b>제외</b>를 누르세요. 경기중 선수는 경기를 먼저 정리해야 합니다.'
+          : '';
   const modeBanner=modeNote?`<div class="official-overview-pick">${modeNote}<button type="button" onclick="setOfficialOverviewMode('${officialOverviewMode}')">닫기</button></div>`:'';
   return `<div class="official-overview">
     <div class="official-overview-head"><b>운영 현황</b><span>현장 ${summary.current}명</span></div>
@@ -3526,6 +3580,12 @@ function officialQueueCardActionsHtml(actor,q,index,list){
     actions.push(`<button type="button" class="event-official-move" data-official-action ${disabled||queuePending||index<=0?'disabled':''} onclick="sendOfficialQueueMove('${esc(actor.id)}','${esc(queueId)}',-1)">▲ 위로</button>`);
     actions.push(`<button type="button" class="event-official-move" data-official-action ${disabled||queuePending||index>=(list||[]).length-1?'disabled':''} onclick="sendOfficialQueueMove('${esc(actor.id)}','${esc(queueId)}',1)">▼ 아래로</button>`);
   }
+  // 다시 짜기·삭제(관리자 동일 기능, 2026-08-10). 클럽 임원 전용.
+  if(actor.isClubOfficial){
+    const pendingEdit=officialRequests.some(r=>['official-queue-regenerate','official-queue-delete'].includes(r.type)&&officialRequestPending(r)&&String(r.queueId||'')===String(queueId));
+    actions.push(`<button type="button" class="event-official-move" data-official-action ${disabled||queuePending||pendingEdit?'disabled':''} onclick="sendOfficialQueueRegenerate('${esc(actor.id)}','${esc(queueId)}')">다시 짜기</button>`);
+    actions.push(`<button type="button" class="event-official-queue-remove" data-official-action ${disabled||queuePending||pendingEdit?'disabled':''} onclick="sendOfficialQueueDelete('${esc(actor.id)}','${esc(queueId)}')">삭제</button>`);
+  }
   if(!actions.length)return '';
   return `<div class="event-official-queue-actions ${actions.length>1?'split':''}">${actions.join('')}</div>`;
 }
@@ -3707,6 +3767,10 @@ function renderEvent(){
     const pendingReplace=officialRequests.some(r=>r.type==='official-active-replace'&&officialRequestPending(r)&&String(r.matchId||'')===String(m.id||''));
     // 「선수 교체」 버튼은 없앴습니다 — 카드의 선수 이름을 직접 누릅니다(2026-08-09).
     const replaceStatus=canOfficialOperate&&pendingReplace?`<em class="event-replace-pending">교체 확인 중</em>`:'';
+    // 경기 취소(관리자 동일 기능, 2026-08-10). 오투입을 종료로 처리하면 안 뛴
+    // 4명의 경기 수가 올라가 하루 공정성이 틀어집니다 — 취소가 정답입니다.
+    const pendingCancel=officialRequests.some(r=>r.type==='official-court-cancel'&&officialRequestPending(r)&&String(r.matchId||'')===String(m.id||''));
+    const cancelButton=canOfficialOperate&&selectedPlayer.isClubOfficial?`<button type="button" class="event-official-cancel" data-official-action ${completeDisabled||(pendingCancel?'disabled':'')} onclick="sendOfficialCourtCancel('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingCancel?'취소 확인 중':'경기 취소'}</button>`:'';
     const replaceCtx=canOfficialOperate?{actorId:selectedPlayer.id,matchId:m.id,
       disabled:!!(flowPaused||sendingKey||claimingOfficial||pendingReplace||pendingComplete||pendingActiveYield)}:null;
     const activeYieldSeconds=officialActiveYieldSeconds(m);
@@ -3719,7 +3783,7 @@ function renderEvent(){
         <div class="event-teams active-teams">${teamLines(m,replaceCtx)}</div>
       </div>
     </div>
-    <div class="event-active-meta">${activeYieldButton}${completeButton}${replaceStatus}</div>
+    <div class="event-active-meta">${activeYieldButton}${completeButton}${cancelButton}${replaceStatus}</div>
   </div>`;
   }).join('');
   const lastComplete=getLastComplete();
@@ -4343,10 +4407,28 @@ function officialSupportHtml(p){
   const finishOn=!!session?.event?.finishMode;
   const pendingFinish=officialRequests.some(r=>r.type==='official-finish-mode'&&officialRequestPending(r));
   const finishButton=p.isClubOfficial?`<button type="button" class="official-finish-toggle ${finishOn?'undo':''}" data-official-action ${disabled||pendingFinish?'disabled':''} onclick="sendOfficialFinishMode('${esc(p.id)}')">${pendingFinish?'마무리 확인 중':finishOn?'마무리 해제':'마무리 전환'}<small>${finishOn?'다음 대진 자동 생성을 다시 시작합니다':'새 대진 생성을 멈추고 남은 대진만 진행합니다'}</small></button>`:'';
+  // 관리자 동일 기능(2026-08-10): 선수 추가 폼 + 코트 수 변경. 클럽 임원 전용.
+  const courts=Math.max(1,parseInt(session?.event?.courts,10)||1);
+  const adminTools=p.isClubOfficial?`<div class="official-add-player">
+    <b>선수 추가 — 명부에 없는 선수·게스트</b>
+    <div class="official-add-grid">
+      <input type="text" id="officialAddName_${esc(p.id)}" placeholder="이름" maxlength="20"
+        onkeydown="if(event.key==='Enter')sendOfficialPlayerCreate('${esc(p.id)}')">
+      <select id="officialAddGrade_${esc(p.id)}">
+        <option value="E">E</option><option value="D">D</option><option value="C" selected>C</option>
+        <option value="B">B</option><option value="A">A</option><option value="S">S</option>
+      </select>
+      <select id="officialAddGender_${esc(p.id)}"><option value="남">남</option><option value="여">여</option></select>
+      <label class="official-add-guest"><input type="checkbox" id="officialAddGuest_${esc(p.id)}">게스트</label>
+      <button type="button" data-official-action ${disabled} onclick="sendOfficialPlayerCreate('${esc(p.id)}')">추가</button>
+    </div>
+  </div>
+  <button type="button" class="official-courts-button" data-official-action ${disabled} onclick="sendOfficialSettingsCourts('${esc(p.id)}')">코트 수 변경<small>현재 ${courts}코트</small></button>`:'';
   return `<section class="official-support">
     <div class="official-support-head"><b>${roleLabel}</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
     <span class="official-fairness ${fair.count?'warn':''}">${esc(fair.label)}</span>
     ${officialOperationsSummaryHtml(p)}
+    ${adminTools}
     ${finishButton}
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
@@ -5251,6 +5333,152 @@ async function _officialComposeToggle(id){
   if(ok)toast(playingNames.length
     ? `${position}순위로 추가 요청 · ${playingNames.join('·')} 경기 종료 후 투입`
     : `${position}순위로 추가 요청됐어요`);
+}
+// ── 관리자 동일 기능(운영자 2026-08-10 "관리자와 동일한 기능 제공") ──────────
+// 전부 클럽 임원 전용입니다. 도우미는 기존 현장 도구까지만 씁니다.
+async function sendOfficialCourtCancel(actorId,matchId){
+  const actor=officialActor(actorId);
+  const m=activeMatchById(matchId);
+  if(!actor||!actor.isClubOfficial)return toast('경기 취소는 클럽 임원만 할 수 있어요.');
+  if(!m)return toast('진행 경기를 다시 확인해 주세요.');
+  if(!confirm(`${activeMatchLabel(m)}\n\n이 경기를 취소할까요?\n경기 수에 넣지 않고 4명을 경기 전 상태로 되돌립니다.\n잘못 투입한 경기를 정리할 때만 쓰세요.`))return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-court-cancel',
+    operationId:createOfficialOperationId('court-cancel'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    matchId:m.id,court:m.court,
+    expectedStartedAt:m.startedAt||0,
+    expectedPlayerIds:[...(m.playerIds||[])],
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-court-cancel'
+  },`${m.court}코트 경기 취소`);
+}
+async function sendOfficialQueueRegenerate(actorId,queueId){
+  const actor=officialActor(actorId);
+  const q=queueById(queueId);
+  if(!actor||!actor.isClubOfficial)return toast('대진 다시 짜기는 클럽 임원만 할 수 있어요.');
+  if(!q)return toast('다음 대진을 다시 확인해 주세요.');
+  if(!confirm(`${teamNames(q)}\n\n이 대진을 해체하고 자동 편성으로 다시 짤까요?`))return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-queue-regenerate',
+    operationId:createOfficialOperationId('queue-regen'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    queueId:String(q.queueId||q.id||queueId),
+    expectedPlayerIds:[...(q.playerIds||[])],
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-queue-regenerate'
+  },'대기 경기 다시 짜기');
+}
+async function sendOfficialQueueDelete(actorId,queueId){
+  const actor=officialActor(actorId);
+  const q=queueById(queueId);
+  if(!actor||!actor.isClubOfficial)return toast('대기 경기 삭제는 클럽 임원만 할 수 있어요.');
+  if(!q)return toast('다음 대진을 다시 확인해 주세요.');
+  if(!confirm(`${teamNames(q)}\n\n이 대기 경기를 삭제할까요?\n4명은 대기로 돌아가고, 자동 편성이 대기표를 다시 채웁니다.`))return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-queue-delete',
+    operationId:createOfficialOperationId('queue-delete'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    queueId:String(q.queueId||q.id||queueId),
+    expectedPlayerIds:[...(q.playerIds||[])],
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-queue-delete'
+  },'대기 경기 삭제');
+}
+const OFFICIAL_GRADE_LEVEL={S:7,A:6,B:5,C:4,D:3,E:2};
+async function sendOfficialPlayerCreate(actorId){
+  const actor=officialActor(actorId);
+  if(!actor||!actor.isClubOfficial)return toast('선수 추가는 클럽 임원만 할 수 있어요.');
+  const nameEl=document.getElementById('officialAddName_'+actorId);
+  const name=(nameEl?.value||'').trim();
+  if(!name){nameEl?.focus();return;}
+  if((session?.players||[]).some(p=>String(p?.name||'').trim()===name))return toast('이미 오늘 명단에 있는 이름이에요.');
+  const grade=document.getElementById('officialAddGrade_'+actorId)?.value||'C';
+  const genderRaw=document.getElementById('officialAddGender_'+actorId)?.value||'남';
+  const gender=genderRaw==='여'?'F':'M';
+  const isGuest=!!document.getElementById('officialAddGuest_'+actorId)?.checked;
+  const now=Date.now();
+  const operationId=createOfficialOperationId('player-create');
+  const ok=await pushOfficialRequest({
+    type:'official-player-create',
+    operationId,
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    playerId:`dpv2_${operationId}`,
+    name,grade,gender,
+    level:Math.max(1,(OFFICIAL_GRADE_LEVEL[grade]||4)-(gender==='F'?1:0)),
+    ageGroup:'40대',
+    isGuest,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-player-create'
+  },`${name} 선수 추가`);
+  if(ok&&nameEl){nameEl.value='';nameEl.focus();}
+}
+async function sendOfficialPlayerRename(actorId,targetId){
+  const actor=officialActor(actorId);
+  const target=(session?.players||[]).find(p=>String(p.id)===String(targetId));
+  if(!actor||!actor.isClubOfficial||!target)return toast('이름 변경은 클럽 임원만 할 수 있어요.');
+  const next=(prompt(`${target.name} 선수의 새 이름을 입력하세요.`,target.name)||'').trim();
+  if(!next||next===target.name)return;
+  if((session?.players||[]).some(p=>String(p?.name||'').trim()===next))return toast('이미 오늘 명단에 있는 이름이에요.');
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-player-rename',
+    operationId:createOfficialOperationId('player-rename'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    playerId:target.id,
+    name:next,
+    expectedName:target.name,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-player-rename'
+  },`${target.name} → ${next} 이름 변경`);
+}
+async function sendOfficialPlayerRemove(actorId,targetId){
+  const actor=officialActor(actorId);
+  const target=(session?.players||[]).find(p=>String(p.id)===String(targetId));
+  if(!actor||!actor.isClubOfficial||!target)return toast('선수 제외는 클럽 임원만 할 수 있어요.');
+  if(target.status==='playing'||target.currentMatchId)return toast('경기중 선수는 경기를 먼저 정리해 주세요.');
+  if(!confirm(`${target.name} 선수를 오늘 명단에서 제외할까요?\n대기표에 있으면 그 대진도 함께 정리됩니다.`))return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-player-remove',
+    operationId:createOfficialOperationId('player-remove'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    playerId:target.id,
+    playerName:target.name,
+    expectedName:target.name,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-player-remove'
+  },`${target.name} 선수 제외`);
+}
+async function sendOfficialSettingsCourts(actorId){
+  const actor=officialActor(actorId);
+  if(!actor||!actor.isClubOfficial)return toast('코트 수 변경은 클럽 임원만 할 수 있어요.');
+  const current=Math.max(1,parseInt(session?.event?.courts,10)||1);
+  const raw=prompt(`현재 ${current}코트입니다.\n사용할 코트 수를 입력하세요 (1~12).`,String(current));
+  if(raw==null)return;
+  const next=parseInt(String(raw).trim(),10);
+  if(!Number.isFinite(next)||next<1||next>12)return toast('코트 수는 1~12 사이 숫자로 입력해 주세요.');
+  if(next===current)return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-settings-update',
+    operationId:createOfficialOperationId('settings'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    courts:next,
+    expectedCourts:current,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-settings'
+  },`코트 ${current}→${next} 변경`);
 }
 // 마무리 전환·해제(운영자 2026-08-10 실전 피드백). 클럽 임원 전용.
 async function sendOfficialFinishMode(actorId){
