@@ -67,7 +67,13 @@ assert(commonShareSource.includes("const text='🏸 민턴LIVE\\n내 이름을 �
 assert(!commonShareSource.includes('쉴 때는 휴식')&&!commonShareSource.includes('클럽 임원은'),'공유 문구에 사용 설명을 길게 넣으면 안 됩니다.');
 assert(commonShareSource.includes("navigator.share({title:'민턴LIVE',text,url})"),'공용 링크를 Web Share URL 필드에도 전달해야 합니다.');
 assert(commonShareSource.includes('const clipboardText=`${text}\\n\\n${url}`'),'공유 시 URL 필드와 본문이 중복되지 않고 클립보드 대체 경로에만 주소를 붙여야 합니다.');
-assert(index.includes('회원·임원 공용 링크 공유'),'관리자 화면에는 공용 링크 공유 동작이 분명히 보여야 합니다.');
+// 중복 메뉴 정리(운영자 2026-08-12 "공용 링크·운영기록 링크 공유 모두 같은 거
+// 아냐"): 같은 동작의 버튼은 상황판 퀵 + 공용 링크 카드 두 곳까지만, 이름은
+// 「링크 공유」 하나로 통일. 운영 기록 카드의 중복 버튼과 카드의 「데이터
+// 초기화」(퀵 「초기화」와 동일 동작)는 제거.
+assert(index.includes('daily-share-primary" onclick="dailyShareCheckinLink()">링크 공유</button>'),'공용 링크 카드의 공유 버튼은 「링크 공유」 한 이름이어야 합니다.');
+assert.strictEqual((index.match(/dailyShareCheckinLink\(\)/g)||[]).length,2,'링크 공유 진입점은 상황판 퀵 + 공용 링크 카드 둘뿐이어야 합니다.');
+assert.strictEqual((index.match(/onclick="dailyReset\(\)"/g)||[]).length,1,'초기화 진입점은 상황판 퀵 하나뿐이어야 합니다.');
 assert(index.includes('daily-dashboard-quick-actions')&&index.includes('onclick="dailyShareCheckinLink()">링크 공유</button>'),'자주 쓰는 링크 공유는 민턴LIVE 상황판 상단에 있어야 합니다.');
 assert(index.includes('onclick="dailyReset()">초기화</button>'),'자주 쓰는 초기화는 민턴LIVE 상황판 상단에 있어야 합니다.');
 assert(!index.includes('onclick="dailyShareOfficialLink()"'),'관리자 화면에 별도 임원 링크 버튼을 남기면 안 됩니다.');
