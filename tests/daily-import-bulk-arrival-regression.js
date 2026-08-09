@@ -328,6 +328,14 @@ importDailySelected('planned');`,sandbox);
     '명부 밖 참가 중 선수(게스트)도 되돌리기 목록에 떠야 합니다.');
   assert(index.includes('사전에는 전원'),
     'index.html 안내가 역순 흐름(전원 현장 → 안 온 선수만 도착 전)을 설명해야 합니다.');
+  // 처음 등록 정리(운영자 2026-08-12 "도착 전 등록 버튼 정리"): 게시 전 +
+  // 되돌릴 선수 없음(= 처음 등록)이면 「도착 전」 액션 두 개를 숨겨야 합니다.
+  assert(/showPlanned=!!_dailyCheckinId\|\|_dailyPlayers\.some\(canRevert\)/.test(render),
+    '「도착 전」 노출 조건은 게시 후 또는 되돌릴 참가 중 선수 존재여야 합니다.');
+  assert(render.includes('daily-prearrival-btn')&&render.includes('dailyImportGuestPlannedBtn'),
+    '하단 「도착 전 등록」과 게스트 「도착 전으로 추가」 둘 다 같은 규칙으로 숨겨야 합니다.');
+  assert(index.includes("if(event.key==='Enter')dailyImportAddGuest('wait')"),
+    '게스트 이름 Enter 기본값은 현장 참가여야 합니다 — 역순 흐름의 기본은 현장입니다.');
   console.log('  역순 등록: 참가 중→도착 전 되돌리기 · 대기표 정리 · 뛴 선수 보호 · 게시 전 한정');
 }
 

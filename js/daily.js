@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.538';
+const APP_VERSION = '1.10.539';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -9769,6 +9769,13 @@ function renderDailyImportMembers(){
     if(!existing)return true;
     return isPre(existing)||canRevert(existing);
   };
+  // 역순 흐름 정리(운영자 2026-08-12): 처음 등록에는 「도착 전」 액션이 설 자리가
+  // 없습니다. 게시 후(지각자 서버 등록)거나 되돌릴 참가 중 선수가 있을 때만 노출.
+  const showPlanned=!!_dailyCheckinId||_dailyPlayers.some(canRevert);
+  ['.daily-prearrival-btn','#dailyImportGuestPlannedBtn'].forEach(s=>{
+    const b=document.querySelector(s);
+    if(b)b.style.display=showPlanned?'':'none';
+  });
   // 게스트 행은 'p:<id>' 값을 쓰므로 선택 보존은 문자열 키로 합니다.
   const prevChecked=new Set();
   document.querySelectorAll('.daily-import-chk:not(:disabled)').forEach(c=>{
@@ -10174,7 +10181,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.538&from=daily';
+  location.href='team.html?v=1.10.539&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
