@@ -101,6 +101,7 @@ let session={capabilities:{officialPartnerOpsV1:true,temporaryOfficialV1:true},r
 let partyResponses={o:{attending:true},r:{attending:true}};
 function visibleUnscheduledCount(){return session.players.filter(player=>player.status==='wait').length;}
 function esc(value){return String(value||'');}
+function obIcon(){return '';}
 function compactLabel(status){return ({wait:'참가 중',playing:'경기중',rest:'휴식 중',done:'운동 종료',planned:'도착 전',invited:'도착 전'})[status]||status;}
 function render(){}
 function setTimeout(){}
@@ -294,6 +295,7 @@ let sendingKey='';
 let claimingOfficial=false;
 function officialRequestPending(r){return !!(r&&!r.appliedAt&&!r.ignoredAt&&!r.serverAppliedAt&&!r.serverRejectedAt);}
 function esc(v){return String(v||'');}
+function obIcon(){return '';}
 ${functionSource(checkin,'officialQueueCardActionsHtml','canQueueCompleteCourt')}
 this.api={
   render:(q,index,list)=>officialQueueCardActionsHtml({id:'official'},q,index,list),
