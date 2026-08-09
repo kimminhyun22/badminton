@@ -278,6 +278,42 @@ function extractFunction(src, name){
   // 대기 팀에서 데려올 때의 확인창 안내(운영자 2026-08-11 결정).
   assert(checkin.includes('순번을 지킨 채 빈 자리가 자동 보충'),
     '대기 팀 선수를 데려올 때 팀이 유지된다는 안내가 있어야 합니다.');
+  // 도착 전 선수 참가 등록(운영자 2026-08-11 "임원은 도착 전 선수를 참가등록으로
+  // 처리할 수 있어야"). arrivalCandidates 는 관리자 게시 시점의 스냅샷이라,
+  // 게시 후 서버 명령으로 등록된 도착 전 선수가 빠지면 '참가 등록 준비 중'에
+  // 갇혔습니다. 실제 함수를 실행해 확인합니다.
+  {
+    const arrivalsFn=new Function('session',
+      `${extractFunction(checkin,'officialArrivalPlayers')}\nreturn officialArrivalPlayers();`);
+    const planned={id:'pp1',name:'늦은임원',status:'planned',lastStatusAt:1};
+    // 스냅샷에 없는 도착 전 선수 + 명부 후보가 함께 나와야 합니다.
+    const merged=arrivalsFn({capabilities:{officialArrivalV1:true},event:{},
+      players:[planned],
+      arrivalCandidates:[{candidateKey:'roster:m1',kind:'roster',memberId:'m1',name:'명부후보'}]});
+    assert(merged.some(c=>String(c.playerId)==='pp1'),
+      '후보 스냅샷에 없어도 도착 전 선수는 참가 등록 대상이어야 합니다.');
+    assert(merged.some(c=>c.kind==='roster'),'명부 후보도 함께 나와야 합니다.');
+    // 스냅샷에 같은 선수가 있으면 중복되지 않아야 합니다.
+    const deduped=arrivalsFn({capabilities:{officialArrivalV1:true},event:{},
+      players:[planned],
+      arrivalCandidates:[{candidateKey:'player:pp1',kind:'existing',playerId:'pp1',name:'늦은임원'}]});
+    assert.strictEqual(deduped.filter(c=>String(c.name)==='늦은임원').length,1,
+      '같은 선수가 두 번 나오면 안 됩니다.');
+    // 스냅샷 기능이 꺼진 낡은 세션에서도 명단의 도착 전 선수는 등록할 수 있어야 합니다.
+    const legacy=arrivalsFn({capabilities:{},event:{},players:[planned]});
+    assert(legacy.some(c=>String(c.playerId)==='pp1'),
+      '스냅샷 기능이 없는 세션에서도 도착 전 선수 등록이 되어야 합니다.');
+    assert.strictEqual(arrivalsFn({capabilities:{officialArrivalV1:true},event:{finishMode:true},players:[planned]}).length,0,
+      '마무리 전환 후에는 등록 후보가 없어야 합니다.');
+  }
+  // 명부 불러오기(운영자 2026-08-11 "명부에 없는 선수는 게스트와 다를 바 없잖아").
+  assert(checkin.includes('openOfficialRosterPick')&&checkin.includes('명부에서 불러오기'),
+    '선수 추가 옆에 명부 불러오기가 있어야 합니다.');
+  const createSrc=(()=>{const s=checkin.indexOf('async function sendOfficialPlayerCreate');
+    const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
+    return checkin.slice(s,Math.min(...ends));})();
+  assert(/officialArrivalPlayers\(\)/.test(createSrc)&&/sendOfficialArrival/.test(createSrc),
+    '명부에 있는 이름을 직접 입력하면 명부 프로필로 등록해야 합니다 — 아니면 급수·임원 표시가 사라집니다.');
   console.log('  실전 피드백 배선: 예약현황 · 순번 안내 · 지각 안내 · 마무리 · 관리자 동일 7종');
 }
 
