@@ -223,10 +223,12 @@ adminOnly.forEach(request=>{
 });
 console.log(`  관리자 전용 ${adminOnly.length}종: 임원 연결 전부 rejected`);
 
-// 9) 확장 옵션도 관리자 전용입니다.
+// 9) 확장 옵션도 임원에게 열렸습니다(운영자 2026-08-10 "다음 대진 순서 변경도
+//    할 수 있게" — 임원의 게임 설정 자유는 최대 보장, 시스템은 사후 균형).
 {
   const session = seededSession();
   const target = session.event.next[0];
+  const secondId = String((session.event.next[1]||{}).queueId||(session.event.next[1]||{}).id||'');
   const free = send(session, {
     type:'official-queue-yield', queueId:target.queueId || target.id,
     expectedQueueIndex:1, targetQueueIndex:2, allowFreeMove:true,
@@ -234,9 +236,12 @@ console.log(`  관리자 전용 ${adminOnly.length}종: 임원 연결 전부 rej
     expectedTeam1Ids:[...(target.t1Ids || [])],
     expectedTeam2Ids:[...(target.t2Ids || [])]
   }, {admin:false});
-  assert.strictEqual(free.status, 'rejected', '임원이 임의 순서 이동을 쓰면 안 됩니다.');
-  assert(free.reason.includes('관리자'), `거절 이유가 명확해야 합니다: ${free.reason}`);
-  console.log(`  임원 임의 순서 이동: rejected (${free.reason})`);
+  assert.strictEqual(free.status, 'applied', `임원 임의 순서 이동이 적용되어야 합니다: ${free.reason||''}`);
+  if(secondId){
+    assert.strictEqual(String(free.session.event.next[0].queueId||free.session.event.next[0].id), secondId,
+      '이동 후 2순위였던 대진이 1순위가 되어야 합니다.');
+  }
+  console.log('  임원 임의 순서 이동: applied (2026-08-10 개방)');
 
   // 대기 경기의 '이 선수로' 지정은 임원에게도 열렸습니다(운영자 2026-08-10
   // "다음 대진도 동일하게") — 진행 경기 지정 교체와 같은 신뢰입니다.

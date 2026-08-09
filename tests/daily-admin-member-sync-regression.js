@@ -61,7 +61,7 @@ assert(
   '관리자 재게시 뒤에도 진행 중·다음 공정 보정 표시를 회원 화면까지 보존해야 합니다.'
 );
 const queueSyncSource=sourceBetween('_dailyApplyServerQueueSync','_dailyPrepareServerQueueRequest');
-assert(queueSyncSource.includes('_dailyQueueCapacity().target')&&queueSyncSource.includes('sync.next.slice(0,syncLimit)'),'구버전 서버의 초과 대진을 복원해도 관리자 표시 코트 수로 정리해야 합니다.');
+assert(queueSyncSource.includes('_dailyQueueCapacity().target')&&queueSyncSource.includes('autoTaken>=syncLimit'),'구버전 서버의 초과 대진을 복원해도 자동 생성분은 관리자 표시 코트 수로 정리해야 합니다(수동 편성은 제한 밖 — 2026-08-10).');
 const queueReplaySource=sourceBetween('_dailyPrepareServerQueueRequest','_dailyServerOperationAlreadyApplied');
 assert(!queueReplaySource.includes('dailyEnsureQueue()'),'서버 대진을 재생하기 전에 로컬 대진을 새로 만들어 충돌시키면 안 됩니다.');
 assert(queueReplaySource.includes('_dailyOfficialTeamFingerprint(_dailyQueue[idx].team1,_dailyQueue[idx].team2)!==requestFingerprint'),'같은 대진 ID에 다른 선수가 있으면 서버 조합으로 교체해야 합니다.');

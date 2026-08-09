@@ -43,6 +43,7 @@ const SUPPORTED_TYPES = new Set([
   'official-queue-hold',
   'official-queue-resume',
   'official-queue-replace',
+  'official-queue-add',
   'official-partner-reservation',
   'official-partner-cancel',
   'official-temporary-grant',
@@ -83,6 +84,7 @@ const PAUSED_FLOW_TYPES = new Set([
   'official-queue-hold',
   'official-queue-resume',
   'official-queue-replace',
+  'official-queue-add',
   'official-partner-reservation',
   'official-partner-cancel',
   'official-court-cancel',
@@ -618,7 +620,11 @@ function removeInvalidPrepared(session){
   ['next', 'expected', 'serverStandby'].forEach(key=>{
     event[key] = event[key].filter(item=>{
       const ids = queuePlayerIds(item);
-      return ids.length === 4 && new Set(ids).size === 4 && !ids.some(permanentlyUnavailable) && preparedQualityValid(session, item);
+      // 운영자가 직접 짠 구성(manualComposed)은 품질 기준으로 지우지 않습니다 —
+      // 실력 차가 커도 현장에서 보고 정한 것입니다(운영자 2026-08-10). 선수가
+      // 아예 못 뛰는 상태(휴식·종료·도착 전)일 때만 다른 대진과 같이 정리합니다.
+      return ids.length === 4 && new Set(ids).size === 4 && !ids.some(permanentlyUnavailable)
+        && (item?.manualComposed === true || preparedQualityValid(session, item));
     });
   });
 }
@@ -998,13 +1004,10 @@ function validateCommon(session, request, now, options){
   const adminClaim = options?.adminClaim === true && !grant.payload?.pid;
   // 코트 수·운영 시간·자동 진행은 관리자 설정입니다. 임원 연결로는 못 바꿉니다.
   if(adminOnlyCommand && !adminClaim)return {reason:'이 운영 동작은 관리자만 할 수 있습니다.'};
-  // 관리자 전용 확장 옵션. 임원 연결로 보내면 기본 규칙을 우회하게 되므로 막습니다.
-  // 대기 경기의 '이 선수로'(inPlayerId) 지정은 임원에게도 열었습니다(운영자 2026-08-10
-  // "다음 대진도 동일하게") — 진행 경기 지정 교체(2026-08-08)와 같은 신뢰입니다.
-  // 현장에서 보고 지목한 것이라 균형 점수 하한을 건너뛰는 것까지 동일합니다.
-  if(!adminClaim && request.allowFreeMove === true){
-    return {reason:'대진 순서 임의 이동은 관리자만 할 수 있습니다.'};
-  }
+  // 대기 경기의 '이 선수로'(inPlayerId) 지정과 순서 임의 이동(allowFreeMove)은
+  // 임원에게도 열었습니다(운영자 2026-08-10 "임원의 게임설정 자유권을 최대로 보장").
+  // 현장에서 보고 정한 것이라 균형 점수 하한을 건너뛰는 것까지 관리자와 동일합니다.
+  // 시스템의 역할은 그 이후의 보정입니다 — 지문 검증으로 경합만 거릅니다.
   if(!adminClaim && !isLiveOperator(actor)){
     return {reason:'현재 운영 권한이 있는 회원만 운영 지원을 사용할 수 있습니다.'};
   }
@@ -1574,8 +1577,15 @@ function applyQueueEnter(session, request, now, requestId){
   if(text(request.expectedHoldId) !== text(item.targetHoldId))return '입장할 코트의 종료 연결이 이미 바뀌었습니다.';
   if(event.active.some(match=>number(match.court) === court))return '선택한 코트에서 이미 다른 경기가 진행 중입니다.';
   if(text(request.newMatchId) && event.active.some(match=>text(match.id) === text(request.newMatchId)))return '이미 사용 중인 경기 번호입니다.';
-  if(!queueReady(session, item))return '다음 대진 선수 상태가 바뀌었습니다.';
-  if(!preparedQualityValid(session, item))return '대진 품질 기준이 바뀌어 다음 대진을 다시 준비해 주세요.';
+  if(!queueReady(session, item)){
+    // 경기 중인 선수가 든 수동 편성은 정상 상태입니다 — 이유를 정확히 알려 줍니다.
+    const playing = queuePlayerIds(item)
+      .map(id=>playerById(session, id))
+      .filter(player=>player && (normalizeStatus(player.status) === 'playing' || text(player.currentMatchId)));
+    if(playing.length)return `${playing.map(player=>text(player.name)).join(', ')} 선수가 경기 중입니다. 경기 종료 후 입장할 수 있습니다.`;
+    return '다음 대진 선수 상태가 바뀌었습니다.';
+  }
+  if(item.manualComposed !== true && !preparedQualityValid(session, item))return '대진 품질 기준이 바뀌어 다음 대진을 다시 준비해 주세요.';
 
   return startPreparedItem(session, item, index, court, now, requestId, {
     matchId:request.newMatchId,
@@ -1801,26 +1811,36 @@ function applyQueueReplace(session, request, now, operation){
   if(!outPlayer || !queuePlayerIds(item).includes(outId))return '교체할 선수를 이 대진에서 찾지 못했습니다.';
   if(text(item.reservationId))return '게임신청으로 잡힌 대진은 선수를 교체할 수 없습니다. 먼저 신청을 정리해 주세요.';
   // '이 선수로'(inPlayerId)를 지정하면 그대로 넣고, 없으면 서버가 균형으로 고릅니다.
-  // 지정은 관리자·임원 공통입니다(운영자 2026-08-10).
+  // 지정은 관리자·임원 공통이고 후보 제한이 없습니다(운영자 2026-08-10) —
+  // 경기 중인 선수도 지정할 수 있고, 그 대진은 queueReady 가 선수의 경기 종료까지
+  // 투입을 막습니다. 휴식·종료·도착 전만 거절합니다 — 그 상태가 든 대진은
+  // 정리 필터가 통째로 지워 버리기 때문입니다(removeInvalidPrepared).
   const requestedInId = text(request.inPlayerId);
-  const candidates = requestedInId
-    ? unassignedWaitingPlayers(session).filter(player=>text(player.id) === requestedInId)
-    : unassignedWaitingPlayers(session);
-  if(requestedInId && !candidates.length){
+  let best = null;
+  if(requestedInId){
     const requested = playerById(session, requestedInId);
     if(!requested)return '넣으려는 선수를 찾지 못했습니다.';
-    return `${text(requested.name)} 선수는 지금 다른 대진이나 신청에 묶여 있어 넣을 수 없습니다.`;
-  }
-  if(!candidates.length)return '지금 넣을 수 있는 대기 선수가 없습니다.';
-  let best = null;
-  candidates.forEach(candidate=>{
-    const score = requestedInId ? 0 : replacementScore(session, item, outId, candidate);
-    if(score == null)return;
-    if(!best || score < best.score || (score === best.score && text(candidate.id) < text(best.player.id))){
-      best = {player:candidate, score};
+    if(queuePlayerIds(item).includes(requestedInId))return '이미 이 대진에 있는 선수입니다.';
+    const st = normalizeStatus(requested.status);
+    if(!(st === 'wait' || st === 'playing' || text(requested.currentMatchId))){
+      return `${text(requested.name)} 선수는 지금 넣을 수 없습니다(휴식·종료·도착 전). 복귀 후 선택해 주세요.`;
     }
-  });
-  if(!best)return '균형을 맞출 수 있는 대기 선수가 없습니다.';
+    // 다른 대기표·게임신청에 있으면 거기서 빼 옵니다 — 운영자의 지정이 우선입니다.
+    repairPreparedForUnavailablePlayer(session, requestedInId, now);
+    removePlayerReservations(session, requestedInId);
+    best = {player:requested, score:0};
+  }else{
+    const candidates = unassignedWaitingPlayers(session);
+    if(!candidates.length)return '지금 넣을 수 있는 대기 선수가 없습니다.';
+    candidates.forEach(candidate=>{
+      const score = replacementScore(session, item, outId, candidate);
+      if(score == null)return;
+      if(!best || score < best.score || (score === best.score && text(candidate.id) < text(best.player.id))){
+        best = {player:candidate, score};
+      }
+    });
+    if(!best)return '균형을 맞출 수 있는 대기 선수가 없습니다.';
+  }
   const inId = text(best.player.id);
   const swap = ids=>ids.map(id=>text(id) === outId ? inId : text(id));
   item.t1Ids = swap(queueTeam1Ids(item));
@@ -1831,9 +1851,75 @@ function applyQueueReplace(session, request, now, operation){
   item.replacedAt = now;
   item.replacedOutId = outId;
   item.replacedInId = inId;
+  // 운영자가 지정해 만든 구성은 품질 기준(실력 차)으로 지우지 않습니다 —
+  // 현장에서 보고 정한 것입니다. 정리 필터와 입장 검사가 이 표시를 봅니다.
+  if(requestedInId)item.manualComposed = true;
   refreshEvent(session, now);
-  // 관리자 원본이 같은 교체를 재현할 수 있도록 결과를 알려 줍니다.
-  if(operation)operation.result = {replacedOutId:outId, replacedInId:inId, replacedInName:text(best.player.name)};
+  // 지정 교체는 다른 대기표에서 선수를 빼 올 수 있어(repair) 이 대진만 옮기면
+  // 관리자 원본이 갈라집니다. 대기표 전체를 실어 보냅니다.
+  if(operation)operation.result = {replacedOutId:outId, replacedInId:inId,
+    replacedInName:text(best.player.name), queueSync:preparedQueueSync(session)};
+  return '';
+}
+// 다음 대진 수동 편성(운영자 2026-08-10 "새 게임 등록은 다음 대진을 수동으로
+// 짠다는 뜻"). 4명을 골라 대기표 끝에 붙입니다. 경기 중인 선수도 넣을 수 있고,
+// 그 대진은 queueReady 가 선수의 경기 종료까지 투입을 막습니다.
+function applyQueueAdd(session, request, now, requestId, operation){
+  refreshEvent(session, now);
+  const event = session.event;
+  if(event.finishMode)return '마무리 전환 후에는 대진을 추가할 수 없습니다.';
+  const team1Ids = (request.team1Ids || []).map(text).filter(Boolean);
+  const team2Ids = (request.team2Ids || []).map(text).filter(Boolean);
+  const ids = [...team1Ids, ...team2Ids];
+  if(team1Ids.length !== 2 || team2Ids.length !== 2 || new Set(ids).size !== 4){
+    return '서로 다른 선수 4명을 다시 선택해 주세요.';
+  }
+  const players = ids.map(id=>playerById(session, id));
+  if(players.some(player=>!player))return '등록할 선수를 현재 명단에서 찾지 못했습니다.';
+  // 휴식·종료·도착 전 선수가 들어가면 정리 필터가 대진을 통째로 지우므로 거절합니다.
+  const bad = players.filter(player=>{
+    const status = normalizeStatus(player.status);
+    return !(status === 'wait' || status === 'playing' || text(player.currentMatchId));
+  });
+  if(bad.length)return `${bad.map(player=>text(player.name)).join(', ')} 선수는 지금 이 대진에 넣을 수 없습니다(휴식·종료·도착 전).`;
+  const queueId = text(request.queueId) || `sq_${safeId(requestId)}`;
+  if(['next','expected','serverStandby'].some(key=>(event[key] || []).some(row=>text(row.queueId || row.id) === queueId))){
+    return '이미 사용 중인 대진 번호입니다.';
+  }
+  // 선택된 선수가 걸려 있던 대기표와 게임신청을 먼저 정리합니다 — 운영자의 편성이
+  // 우선입니다. 수동 경기 등록(applyManualMatch)과 같은 방식으로 해당 대진을 통째로
+  // 해체하고, 자동 편성이 다음 보충에서 다시 채웁니다. 한 명씩 repair 로 갈아 끼우면
+  // 네 명 연쇄에서 선수가 두 대진에 동시에 서는 경우가 생깁니다(회귀로 고정).
+  ids.forEach(id=>removePlayerReservations(session, id));
+  ['next','expected','serverStandby'].forEach(key=>{
+    event[key] = (event[key] || []).filter(item=>!queuePlayerIds(item).some(id=>ids.includes(id)));
+  });
+  const genders = players.map(player=>text(player.gender) === 'F' ? 'F' : 'M');
+  const type = genders.every(g=>g === 'M') ? '남복' : genders.every(g=>g === 'F') ? '여복' : '혼복';
+  const item = {
+    id:queueId,
+    queueId,
+    createdAt:now,
+    manualComposed:true,
+    composedBy:text(request.actorPlayerId) || 'system-admin',
+    composedByName:text(request.actorPlayerName),
+    type,
+    labelA:'A팀',
+    labelB:'B팀',
+    t1:team1Ids.map(id=>playerById(session, id)?.name || '선수'),
+    t2:team2Ids.map(id=>playerById(session, id)?.name || '선수'),
+    t1Ids:team1Ids,
+    t2Ids:team2Ids,
+    team1:[...team1Ids],
+    team2:[...team2Ids],
+    playerIds:ids
+  };
+  event.next.push(item);
+  refreshEvent(session, now);
+  if(operation)operation.result = {
+    queueAdd:{queueId, team1Ids, team2Ids, type},
+    queueSync:preparedQueueSync(session)
+  };
   return '';
 }
 
@@ -2383,6 +2469,7 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-queue-hold': return applyQueueHold(session, request, now);
     case 'official-queue-resume': return applyQueueResume(session, request, now);
     case 'official-queue-replace': return applyQueueReplace(session, request, now, operation);
+    case 'official-queue-add': return applyQueueAdd(session, request, now, requestId, operation);
     case 'official-partner-reservation': return applyPartnerReservation(session, request, now, requestId, operation);
     case 'official-partner-cancel': return applyPartnerCancel(session, request, now);
     case 'official-temporary-grant': return applyTemporaryOfficial(session, request, now, operation, true);

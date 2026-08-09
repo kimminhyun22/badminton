@@ -167,23 +167,28 @@ assert(daily.includes("status:'planned'"), '도착 전 등록이 planned 상태�
 assert(daily.includes('function _dailyRegisterPreArrivalsViaServer'), '도착 전 등록 전송 경로가 있어야 합니다.');
 assert(daily.includes("req.type==='official-manual-match'"), '수동 경기 등록 재생 경로가 있어야 합니다.');
 
-// 5b) 임원 화면의 새 게임 등록 배선 (2026-08-10).
+// 5b) 임원 화면의 다음 대진 짜기 배선 (2026-08-10 "새 게임 등록은 다음 대진을
+//     수동으로 짠다는 뜻"). 코트 즉시 시작이 아니라 대기표에 추가합니다.
 {
   const checkin = fs.readFileSync(path.join(root, 'checkin.html'), 'utf8');
-  assert(checkin.includes('openOfficialManualMatch'), '임원 화면에 새 게임 등록 진입점이 있어야 합니다.');
-  assert(checkin.includes("type:'official-manual-match'"), '임원 화면이 수동 경기 등록 명령을 보내야 합니다.');
-  assert(checkin.includes('새 게임 등록'), '새 게임 등록 버튼이 있어야 합니다.');
-  assert(checkin.includes('officialFreeCourts'), '빈 코트 계산이 있어야 합니다.');
-  ['openOfficialManualMatch','_officialManualToggle'].forEach(name=>{
+  assert(checkin.includes('openOfficialQueueCompose'), '임원 화면에 다음 대진 짜기 진입점이 있어야 합니다.');
+  assert(checkin.includes("type:'official-queue-add'"), '임원 화면이 대진 추가 명령을 보내야 합니다.');
+  assert(checkin.includes('다음 대진 짜기'), '다음 대진 짜기 버튼이 있어야 합니다.');
+  assert(!checkin.includes('openOfficialManualMatch'),
+    '코트 즉시 시작형 새 게임 등록은 남아 있으면 안 됩니다 — 의미가 바뀌었습니다.');
+  ['openOfficialQueueCompose','_officialComposeToggle','sendOfficialQueueMove'].forEach(name=>{
     const start = checkin.indexOf('function '+name);
     assert(start >= 0, `${name} 이 있어야 합니다.`);
     const src = checkin.slice(start, checkin.indexOf('\nfunction ', start + 10));
     assert(!/\bprompt\(/.test(src), `${name} 이 prompt 를 쓰면 안 됩니다.`);
   });
-  // A팀·B팀 확인창 없이 바로 보내면 오조작 한 번이 코트 하나를 차지합니다.
-  assert(/A팀 .*B팀 /s.test(checkin) && checkin.includes('경기를 시작할까요?'),
+  // A팀·B팀 확인창 없이 바로 보내면 오조작 한 번이 대기표를 어지럽힙니다.
+  assert(/A팀 .*B팀 /s.test(checkin) && checkin.includes('다음 대진에 추가할까요?'),
     '팀 구성을 보여주는 확인창이 있어야 합니다.');
-  console.log('  임원 새 게임 등록 배선: 버튼 · 빈 코트 · 팀 확인창 · prompt 없음');
+  // 순서 변경: 위/아래 버튼이 allowFreeMove 로 보냅니다(운영자 2026-08-10).
+  assert(checkin.includes('sendOfficialQueueMove')&&checkin.includes('allowFreeMove:true'),
+    '임원 순서 변경 버튼이 있어야 합니다.');
+  console.log('  임원 다음 대진 짜기 배선: 버튼 · 팀 확인창 · 순서 변경 · prompt 없음');
 }
 
 // 6) 차단 요소가 아니라고 판정한 셋의 근거를 코드로 고정합니다.

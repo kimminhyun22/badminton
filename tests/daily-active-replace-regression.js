@@ -262,13 +262,15 @@ function extractFunction(src, name){
   });
   assert(extractFunction(checkin,'sendOfficialQueueReplace').includes('inPlayerId'),
     '임원 대기 경기 교체가 지정 선수를 실어야 합니다.');
-  // 시트 후보는 서버 unassignedWaitingPlayers 와 같은 규칙이어야 합니다 —
-  // 넓히면 서버가 거절할 후보를 보여주게 됩니다.
-  const mirror=extractFunction(checkin,'officialUnassignedWaitingPlayers');
-  ['next','expected','serverStandby','reservations','registrationCancelled'].forEach(key=>{
-    assert(mirror.includes(key),`후보 계산이 서버 규칙(${key})을 빠뜨리면 안 됩니다.`);
-  });
-  console.log('  다음 대진 이름 탭 → 후보 시트: 지정 교체 · 서버 규칙 거울');
+  // 후보에 제한을 두지 않습니다(운영자 2026-08-10). 경기 중인 선수도 '경기중'
+  // 딱지를 달고 후보에 서고, 휴식·종료·도착 전만 뺍니다(서버가 거절하는 상태).
+  const pool=extractFunction(checkin,'officialQueueCandidatePool');
+  assert(/'wait','playing'/.test(pool)||/wait.*playing/.test(pool),
+    '후보 풀이 대기·경기중 선수를 모두 담아야 합니다.');
+  assert(/경기중/.test(pool),'경기중 선수에게 딱지 메타가 붙어야 합니다.');
+  assert(checkin.includes('replace-picker-row.playing'),'경기중 후보의 딱지 스타일이 있어야 합니다.');
+  assert(checkin.includes('event-next-playing-note'),'대기 카드에 경기중 보류 딱지가 있어야 합니다.');
+  console.log('  다음 대진 이름 탭 → 후보 시트: 지정 교체 · 제한 없음 · 경기중 딱지');
 }
 
 // 9) 서버가 적용한 교체를 관리자 원본이 다시 거절하면 안 됩니다.

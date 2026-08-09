@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.525';
+const APP_VERSION = '1.10.526';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1262,9 +1262,17 @@ function _dailyClearQueueRestPasses(reason){
   });
   return changed;
 }
+// 시작 판정: 4명 전원이 지금 뛸 수 있어야 합니다. 보관 판정(_dailyQueueItemValid)과
+// 다릅니다 — 수동 편성 대진은 경기 중인 선수를 품은 채 보관되지만 시작은 못 합니다.
+function _dailyQueueItemStartable(q){
+  return _dailyQueueIds(q).every(id=>{
+    const p=_dailyPlayer(id);
+    return p&&DAILY_STATUS[p.status]?.eligible&&!p.currentMatchId;
+  });
+}
 function _dailyFirstStartableQueueForCourt(court){
   dailyEnsureQueue();
-  return _dailyQueue.find(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q)&&(!court||_dailyCourtAvailable(court,null)))||null;
+  return _dailyQueue.find(q=>_dailyQueueItemValid(q,null)&&_dailyQueueItemStartable(q)&&!_dailyQueueRestPassActive(q)&&(!court||_dailyCourtAvailable(court,null)))||null;
 }
 function _dailyQueueStartInfo(idx){
   if(_dailyPaused)return {state:'paused',text:'진행 일시 정지',detail:'재개 후 순서 유지',court:null,matchId:''};
@@ -1800,6 +1808,13 @@ function _dailyQueueItemValid(q,used){
   if(ids.length!==4||new Set(ids).size!==4)return false;
   if(used&&ids.some(id=>used.has(id)))return false;
   const players=ids.map(_dailyPlayer);
+  // 운영자가 직접 짠 대진(manualComposed)은 보관 판정만 합니다 — 균형 검사 없이,
+  // 경기 중인 선수도 허용합니다(운영자 2026-08-10). 못 뛰는 상태(휴식·종료·도착 전)만
+  // 무효입니다. 시작 가능 여부는 _dailyQueueItemStartable 이 따로 봅니다 —
+  // 이 구분이 없으면 경기 중인 선수가 두 코트에 서거나, 보관 정리가 대진을 지웁니다.
+  if(q?.manualComposed===true){
+    return players.every(p=>p&&(DAILY_STATUS[p.status]?.eligible&&!p.currentMatchId||p.status==='playing'||!!p.currentMatchId));
+  }
   if(players.some(p=>!p||!DAILY_STATUS[p.status]?.eligible||p.currentMatchId))return false;
   if(q.fairnessCorrection&&!players.some(p=>_dailyFairGap(p)>=DAILY_FAIR_CORRECTION_GAP))return false;
   const t1=(q.team1||[]).map(_dailyPlayer),t2=(q.team2||[]).map(_dailyPlayer);
@@ -2899,6 +2914,10 @@ function _dailyFreeCourtRequestError(req){
   const q=_dailyQueue[idx];
   if(!_dailyQueueIds(q).includes(req.playerId))return '다음 대진 선수만 입장 처리할 수 있습니다.';
   if(!_dailyQueueItemValid(q,null))return '다음 대진 선수 상태가 바뀌었습니다.';
+  if(!_dailyQueueItemStartable(q)){
+    const playing=_dailyQueueIds(q).map(_dailyPlayer).filter(p=>p&&(p.status==='playing'||p.currentMatchId)).map(p=>p.name);
+    return `${playing.join(', ')} 선수가 경기 중입니다. 경기 종료 후 입장할 수 있습니다.`;
+  }
   const court=parseInt(req.court,10);
   if(!court||!_dailyCourtAvailable(court,null))return '입장할 빈 코트를 찾지 못했습니다.';
   const info=_dailyQueueStartInfo(idx);
@@ -4886,6 +4905,15 @@ function dailyStartQueueItem(queueId,options){
     if(!options.silent)alert('대기 선수 상태가 바뀌었습니다. 대기표를 다시 정리합니다.');
     dailyEnsureQueue();dailySave();dailyRender();return false;
   }
+  // 수동 편성 대진에 경기 중인 선수가 있으면 그 선수의 경기 종료까지 투입을 보류합니다.
+  // 대진은 지우지 않습니다 — 정상적인 대기 상태입니다(운영자 2026-08-10).
+  if(!_dailyQueueItemStartable(q)){
+    if(!options.silent){
+      const playing=_dailyQueueIds(q).map(_dailyPlayer).filter(p=>p&&(p.status==='playing'||p.currentMatchId)).map(p=>p.name);
+      alert(`${playing.join(', ')} 선수가 경기 중입니다. 경기 종료 후 투입할 수 있습니다.`);
+    }
+    return false;
+  }
   if(_dailyQueueRestPassActive(q)&&!options.ignoreRestPass){
     if(!options.silent)alert('이 대진은 잠시 쉬는 순서입니다. 다음 코트 종료 후 다시 입장할 수 있습니다.');
     return false;
@@ -5427,7 +5455,7 @@ function dailyCompleteMatch(id,winnerSide,options){
   const nextQueue=autoStartOk
     ? (requestedQueueId?_dailyQueue.find(q=>q.id===requestedQueueId):_dailyQueue[0])
     : null;
-  if(nextQueue&&_dailyQueueItemValid(nextQueue,null)){
+  if(nextQueue&&_dailyQueueItemValid(nextQueue,null)&&_dailyQueueItemStartable(nextQueue)){
     dailyStartQueueItem(nextQueue.id,{silent:true,court:freedCourt,auto:true,courtLimit:_dailyAutoCourtLimit()});
   }else{
     dailyEnsureQueue();
@@ -7731,6 +7759,9 @@ function _dailyQueueFromServerSyncItem(item){
     createdAt:Number(item?.createdAt||item?.serverGeneratedAt||_dailyNow()),
     team1,
     team2,
+    manualComposed:item?.manualComposed===true,
+    composedBy:item?.composedBy||'',
+    composedByName:item?.composedByName||'',
     type:item?.type||'예외',
     levelDiff:Number(item?.levelDiff||0),
     team1Level:Number(item?.team1Level||0),
@@ -7773,9 +7804,17 @@ function _dailyApplyServerQueueSync(req){
   const remoteTarget=hasRemoteTarget?Math.max(0,Number(sync.nextTarget)):sync.next.length;
   const syncLimit=Math.min(localTarget,remoteTarget);
   const next=[],used=new Set();
-  for(const item of sync.next.slice(0,syncLimit)){
+  // 수동 편성(manualComposed)은 목표 수 제한 밖입니다 — 끝에 붙은 수동 대진을
+  // 잘라내면 운영자가 짠 대진이 관리자 원본에서 조용히 사라집니다(2026-08-10).
+  let autoTaken=0;
+  for(const item of sync.next){
     const q=_dailyQueueFromServerSyncItem(item);
-    if(!q||!_dailyQueueItemValid(q,used))return false;
+    if(!q)return false;
+    if(q.manualComposed!==true){
+      if(autoTaken>=syncLimit)continue;
+      autoTaken++;
+    }
+    if(!_dailyQueueItemValid(q,used))return false;
     next.push(q);
     _dailyQueueIds(q).forEach(id=>used.add(id));
   }
@@ -8061,9 +8100,9 @@ function _dailyOfficialRequestError(req){
     }
     return '';
   }
-  // 대기표 조작 3종. 전제는 서버가 이미 검사했고 관리자 원본은 결과를 옮기기만
+  // 대기표 조작 4종. 전제는 서버가 이미 검사했고 관리자 원본은 결과를 옮기기만
   // 합니다. 대기표를 못 찾으면 아래 적용부가 더 정확한 사유로 실패합니다.
-  if(['official-queue-replace','official-queue-hold','official-queue-resume'].includes(req.type)){
+  if(['official-queue-replace','official-queue-hold','official-queue-resume','official-queue-add'].includes(req.type)){
     return '';
   }
   // 관리자 전용 운영 명령. 전제 조건은 서버가 이미 검사했고 관리자 원본은
@@ -8528,6 +8567,12 @@ function dailyProcessCheckinRequests(){
           const ok=already||_dailyApplyActiveReplaceLocal(m,outId,inId,req.serverAppliedAt||req.createdAt);
           if(ok)changed=true;
           finishOfficial(req,ok,'교체 결과를 관리자 원본에 연결하지 못했습니다.',true);
+          return;
+        }
+        if(req.type==='official-queue-add'){
+          // 서버가 대기표 전체(queueSync)를 실어 보내므로 finishOfficial 이 그대로
+          // 반영합니다. 수동 편성 대진은 그 안에 manualComposed 로 표시되어 옵니다.
+          finishOfficial(req,true,'',true);
           return;
         }
         if(req.type==='official-queue-replace'){
@@ -9504,7 +9549,7 @@ function dailyRenderMatches(){
     if(!m){
       const startQueue=freeCourtStartMap.get(c)||null;
       const startIdx=startQueue?_dailyQueue.findIndex(q=>q.id===startQueue.id):-1;
-      const canStart=!_dailyPaused&&startQueue&&_dailyQueueItemValid(startQueue,null);
+      const canStart=!_dailyPaused&&startQueue&&_dailyQueueItemValid(startQueue,null)&&_dailyQueueItemStartable(startQueue);
       const startLabel=startIdx>0?`${startIdx+1}순위 경기 시작`:'1순위 경기 시작';
       return `<div class="daily-court-card free">
         <div class="daily-court-head">
@@ -9978,7 +10023,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.525&from=daily';
+  location.href='team.html?v=1.10.526&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

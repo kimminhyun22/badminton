@@ -2354,6 +2354,15 @@ summary:focus-visible{
 .replace-picker-row.swap span{color:#b4232f;}
 .replace-picker-row.selected{border-color:var(--blue);background:var(--blue2);}
 .replace-picker-row.selected span{color:var(--blue-deep);}
+/* 경기중 딱지 — 골라도 되지만 그 대진은 선수의 경기 종료까지 투입이 보류됩니다. */
+.replace-picker-row.playing{border-color:#f0d2d4;background:#fffafa;}
+.replace-picker-row.playing span{color:#b4232f;}
+.event-next-playing-note{
+  margin-top:5px;font-size:.72rem;font-weight:900;color:#a3720a;
+}
+.event-official-move{
+  border-color:#d7dde6!important;background:#f7f9fc!important;color:#4a5a70!important;
+}
 .event-official-new-match{
   width:100%;margin-top:10px;
   border:1.5px dashed #b9cfc4;background:#f6fbf8;color:var(--green-deep);
@@ -2517,7 +2526,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.525">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.526">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2532,7 +2541,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.525</span>
+    <span class="version-chip" id="appVersion">v1.10.526</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2592,7 +2601,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.525';
+const APP_VERSION='1.10.526';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3355,11 +3364,19 @@ function nextTeamLine(row,actorId){
   const player=(n,id)=>canReplace&&id
     ? `<button type="button" class="event-next-player replaceable" onclick="openOfficialQueueReplace('${esc(actorId)}','${esc(row.queueId||row.id||'')}','${esc(id)}')" title="${esc(n)} 선수 교체">${esc(n)}</button>`
     : `<span class="event-next-player">${esc(n)}</span>`;
+  // 경기 중인 선수가 든 대진(수동 편성)은 그 선수의 경기 종료까지 투입이 보류됩니다.
+  // 왜 안 들어가는지 카드에서 바로 보이게 딱지를 답니다(운영자 2026-08-10).
+  const lineIds=[...t1Ids.slice(0,2),...t2Ids.slice(0,2)];
+  const lineNames=[...a.slice(0,2),...b.slice(0,2)];
+  const playingNames=lineIds.map((id,i)=>{
+    const p=(session?.players||[]).find(pp=>String(pp.id)===String(id||''));
+    return p&&(String(p.status||'')==='playing'||p.currentMatchId)?lineNames[i]:null;
+  }).filter(Boolean);
   return `<div class="event-next-line">
     <span class="event-next-pair a">${a.slice(0,2).map((n,i)=>player(n,t1Ids[i]||ids[i])).join('')}</span>
     <em>vs</em>
     <span class="event-next-pair b">${b.slice(0,2).map((n,i)=>player(n,t2Ids[i]||ids[i+2])).join('')}</span>
-  </div>`;
+  </div>${playingNames.length?`<div class="event-next-playing-note">${esc(playingNames.join(', '))} 경기중 — 경기 종료 후 투입</div>`:''}`;
 }
 function courtBadge(label){
   const text=String(label||'대기');
@@ -3476,6 +3493,11 @@ function officialQueueCardActionsHtml(actor,q,index,list){
     actions.push(held
       ? `<button type="button" class="event-official-resume" data-official-action data-official-pending="${pendingHold?'true':'false'}" ${disabled||pendingHold?'disabled':''} onclick="sendOfficialQueueResume('${esc(actor.id)}','${esc(queueId)}')">${pendingHold?'재시작 확인 중':'재시작'}</button>`
       : `<button type="button" class="event-official-yield" data-official-action data-official-pending="${pendingHold?'true':'false'}" ${disabled||pendingHold||queuePending?'disabled':''} onclick="sendOfficialQueueHold('${esc(actor.id)}','${esc(queueId)}')">${pendingHold?'일시정지 확인 중':'일시정지'}</button>`);
+  }
+  // 순서 변경(운영자 2026-08-10): 한 칸씩 위·아래. 구성이 안 바뀌어 확인창 없음.
+  if((list||[]).length>1){
+    actions.push(`<button type="button" class="event-official-move" data-official-action ${disabled||queuePending||index<=0?'disabled':''} onclick="sendOfficialQueueMove('${esc(actor.id)}','${esc(queueId)}',-1)">▲ 위로</button>`);
+    actions.push(`<button type="button" class="event-official-move" data-official-action ${disabled||queuePending||index>=(list||[]).length-1?'disabled':''} onclick="sendOfficialQueueMove('${esc(actor.id)}','${esc(queueId)}',1)">▼ 아래로</button>`);
   }
   if(!actions.length)return '';
   return `<div class="event-official-queue-actions ${actions.length>1?'split':''}">${actions.join('')}</div>`;
@@ -3725,8 +3747,8 @@ function renderEvent(){
     <strong>진행 일시 정지</strong>
     <span>${esc(ev.pauseReason||'생일축하·공지')} 중입니다. 경기 시간과 다음 대진 순서는 멈춘 상태로 유지됩니다.</span>
   </div>`:'';
-  const pendingManual=officialRequests.some(r=>r.type==='official-manual-match'&&officialRequestPending(r));
-  const newMatchButton=canOfficialOperate&&!ev.finishMode?`<button type="button" class="event-official-new-match" data-official-action ${flowPaused||pendingManual?'disabled':''} onclick="openOfficialManualMatch('${esc(selectedPlayer.id)}')">${pendingManual?'게임 등록 확인 중':'＋ 새 게임 등록'}<small>빈 코트에 4명을 직접 편성합니다</small></button>`:'';
+  const pendingCompose=officialRequests.some(r=>r.type==='official-queue-add'&&officialRequestPending(r));
+  const newMatchButton=canOfficialOperate&&!ev.finishMode?`<button type="button" class="event-official-new-match" data-official-action ${flowPaused||pendingCompose?'disabled':''} onclick="openOfficialQueueCompose('${esc(selectedPlayer.id)}')">${pendingCompose?'대진 추가 확인 중':'＋ 다음 대진 짜기'}<small>4명을 직접 골라 대기표에 추가합니다</small></button>`:'';
   el.innerHTML=`<div class="event-title"><b>운동 현황</b><span>${esc(updated)} 업데이트</span></div>
 
     <div>${summary}</div>
@@ -5028,7 +5050,7 @@ function _officialReplaceSheetShow(subText,groups,title){
   if(sub)sub.textContent=subText;
   const list=document.getElementById('replacePickerList');
   if(list){
-    const row=c=>`<button type="button" class="replace-picker-row${c.swap?' swap':''}${c.queued?' queued':''}" onclick="pickOfficialReplaceCandidate('${esc(c.id)}')">
+    const row=c=>`<button type="button" class="replace-picker-row${c.swap?' swap':''}${c.queued?' queued':''}${c.playing?' playing':''}" onclick="pickOfficialReplaceCandidate('${esc(c.id)}')">
       <b>${esc(c.name)}</b><span>${esc(c.meta)}</span></button>`;
     list.innerHTML=groups
       .filter(([,items])=>items.length)
@@ -5038,20 +5060,32 @@ function _officialReplaceSheetShow(subText,groups,title){
   }
   document.getElementById('replacePicker')?.classList.remove('hidden');
 }
-// 서버 unassignedWaitingPlayers 와 같은 규칙입니다 — 여기서 넓히면 시트가
-// 서버가 거절할 후보를 보여주게 됩니다.
-function officialUnassignedWaitingPlayers(){
-  const busy=new Set();
-  ((session?.event?.active)||[]).forEach(m=>[...(m.t1Ids||[]),...(m.t2Ids||[])].forEach(id=>busy.add(String(id))));
-  ['next','expected','serverStandby'].forEach(key=>{
-    ((session?.event?.[key])||[]).forEach(item=>{
-      const list=item?.playerIds||[...(item?.t1Ids||[]),...(item?.t2Ids||[])];
-      (list||[]).forEach(id=>busy.add(String(id)));
-    });
-  });
-  ((session?.reservations)||[]).forEach(r=>[...(r?.team1||[]),...(r?.team2||[])].forEach(id=>busy.add(String(id))));
+// 다음 대진 후보에는 제한을 두지 않습니다(운영자 2026-08-10). 경기 중인 선수는
+// '경기중' 딱지를 달고 뒤에 서고, 고르면 그 대진은 선수의 경기 종료까지 투입이
+// 보류됩니다(서버 queueReady). 다른 대기표에 있던 선수는 서버가 거기서 빼 옵니다.
+// 휴식·종료·도착 전만 제외합니다 — 그 상태가 들어간 대진은 서버가 지워 버립니다.
+function officialQueueCandidatePool(excludeIds){
+  const skip=new Set((excludeIds||[]).map(String));
+  const queued=officialQueuedPlayerIds();
+  const activeCourtById=new Map();
+  ((session?.event?.active)||[]).forEach(m=>[...(m.t1Ids||[]),...(m.t2Ids||[])].forEach(id=>activeCourtById.set(String(id),m.court)));
   return (session?.players||[])
-    .filter(p=>p&&p.name&&!busy.has(String(p.id))&&String(p.status||'')==='wait'&&!p.currentMatchId&&!p.registrationCancelled);
+    .filter(p=>p&&p.name&&!skip.has(String(p.id))&&!p.registrationCancelled)
+    .filter(p=>['wait','playing'].includes(String(p.status||''))||p.currentMatchId)
+    .map(p=>{
+      const id=String(p.id);
+      const playing=activeCourtById.has(id)||String(p.status||'')==='playing'||!!p.currentMatchId;
+      const inQueue=!playing&&queued.has(id);
+      const court=activeCourtById.get(id);
+      return {id,name:p.name,games:p.games||0,playing,queued:inQueue,
+        meta:playing?`${court?`${court}코트 `:''}경기중`:(inQueue?`${p.games||0}G · 다음 대진 예정`:`${p.games||0}G`)};
+    })
+    .sort((a,b)=>{
+      const rank=x=>x.playing?2:x.queued?1:0;
+      if(rank(a)!==rank(b))return rank(a)-rank(b);
+      if(a.games!==b.games)return a.games-b.games;
+      return a.name.localeCompare(b.name,'ko');
+    });
 }
 // 다음 대진의 선수 교체 — 진행 코트와 같은 이름 탭 → 시트 흐름(운영자 2026-08-10).
 // 나간 선수는 대기로 돌아가고, 지정한 선수가 그 자리에 들어갑니다.
@@ -5069,118 +5103,127 @@ function openOfficialQueueReplace(actorId,queueId,outPlayerId){
   const outIdx=ids.indexOf(String(outPlayerId||''));
   if(outIdx<0)return toast('교체할 선수를 이 대진에서 찾지 못했습니다.');
   const outName=names[outIdx]||(session?.players||[]).find(p=>String(p.id)===String(outPlayerId))?.name||'선수';
-  const waiting=officialUnassignedWaitingPlayers()
-    .map(p=>({id:String(p.id),name:p.name,games:p.games||0,meta:`${p.games||0}G`}))
-    .sort((a,b)=>a.games!==b.games?a.games-b.games:a.name.localeCompare(b.name,'ko'));
-  if(!waiting.length)return toast('지금 넣을 수 있는 대기 선수가 없습니다.');
+  const pool=officialQueueCandidatePool(ids);
+  if(!pool.length)return toast('지금 넣을 수 있는 선수가 없습니다.');
+  const ready=pool.filter(c=>!c.playing);
+  const playing=pool.filter(c=>c.playing);
   _officialReplaceCtx={kind:'queue',actorId:String(actorId),queueId:qid,outId:String(outPlayerId),outName,
-    candidates:waiting};
-  _officialReplaceSheetShow(`다음 대진 · ${outName} 대신 들어갈 선수를 누르세요`,[['대기 선수',waiting]]);
+    candidates:pool};
+  _officialReplaceSheetShow(`다음 대진 · ${outName} 대신 들어갈 선수를 누르세요`,[
+    ['대기 선수',ready],
+    ['경기중 — 경기 종료 후 투입',playing]
+  ]);
 }
 async function pickOfficialReplaceCandidate(inPlayerId){
   const ctx=_officialReplaceCtx;
   if(!ctx)return;
-  if(ctx.kind==='manual')return _officialManualToggle(String(inPlayerId||''));
-  if(ctx.kind==='manual-court'){
-    const court=ctx.candidates.find(c=>String(c.id)===String(inPlayerId||''));
-    if(!court)return toast('코트를 다시 확인해 주세요.');
-    return _officialManualPlayers(ctx.actorId,court.id,ctx.players);
-  }
+  if(ctx.kind==='compose')return _officialComposeToggle(String(inPlayerId||''));
   const chosen=ctx.candidates.find(c=>String(c.id)===String(inPlayerId||''));
   if(!chosen)return toast('교체할 후보를 다시 확인해 주세요.');
   closeOfficialReplacePicker();
   if(ctx.kind==='queue')await sendOfficialQueueReplace(ctx.actorId,ctx.queueId,ctx.outId,chosen);
   else await sendOfficialActiveReplace(ctx.actorId,ctx.matchId,ctx.outId,chosen);
 }
-// 새 게임 등록(운영자 2026-08-10 "임원이 새로운 게임을 생성"). 빈 코트를 고르고
-// 4명을 같은 편 두 명씩 순서대로 눌러 바로 시작합니다. 대기표에 있던 선수를 쓰면
-// 그 대기 경기는 해체되고 자동 편성이 다시 채웁니다 — 임원 자유 + 시스템 사후 균형.
-function officialFreeCourts(){
-  const total=Math.max(1,parseInt(session?.event?.courts,10)||1);
-  const used=new Set(((session?.event?.active)||[]).map(m=>parseInt(m.court,10)));
-  const free=[];
-  for(let c=1;c<=total;c++)if(!used.has(c))free.push(c);
-  return free;
-}
-function openOfficialManualMatch(actorId){
+// 다음 대진 짜기(운영자 2026-08-10 "새 게임 등록은 다음 대진을 수동으로 짠다는
+// 뜻"). 4명을 같은 편 두 명씩 순서대로 눌러 대기표 끝에 붙입니다. 순서는 카드의
+// 위로/아래로 버튼으로 바꿉니다. 경기 중인 선수도 넣을 수 있고, 그 대진은 선수의
+// 경기 종료까지 투입이 보류됩니다 — 임원 자유 + 시스템 사후 균형.
+function openOfficialQueueCompose(actorId){
   const actor=officialActor(actorId);
   if(!actor)return toast('운영 권한을 다시 확인해 주세요.');
-  if(session?.event?.finishMode)return toast('마무리 전환 후에는 경기를 등록할 수 없습니다.');
-  if(officialRequests.some(r=>r.type==='official-manual-match'&&officialRequestPending(r)))return toast('게임 등록을 확인하는 중입니다.');
-  const free=officialFreeCourts();
-  if(!free.length)return toast('빈 코트가 없습니다. 경기 종료 후 등록해 주세요.');
-  const queued=officialQueuedPlayerIds();
-  const players=(session?.players||[])
-    .filter(p=>p&&p.name&&String(p.status||'')==='wait'&&!p.currentMatchId)
-    .map(p=>({id:String(p.id),name:p.name,games:p.games||0,queued:queued.has(String(p.id))}))
-    .sort((a,b)=>{
-      if(a.queued!==b.queued)return a.queued?1:-1;
-      if(a.games!==b.games)return a.games-b.games;
-      return a.name.localeCompare(b.name,'ko');
-    });
-  if(players.length<4)return toast('참가 대기 선수가 4명보다 적습니다.');
-  if(free.length===1)return _officialManualPlayers(actorId,free[0],players);
-  _officialReplaceCtx={kind:'manual-court',actorId:String(actorId),
-    candidates:free.map(c=>({id:String(c),name:`${c}코트`,meta:'빈 코트'})),players};
-  _officialReplaceSheetShow('새 게임을 시작할 코트를 누르세요',[['빈 코트',_officialReplaceCtx.candidates]],'새 게임 등록');
+  if(session?.event?.finishMode)return toast('마무리 전환 후에는 대진을 추가할 수 없습니다.');
+  if(officialRequests.some(r=>r.type==='official-queue-add'&&officialRequestPending(r)))return toast('대진 추가를 확인하는 중입니다.');
+  const players=officialQueueCandidatePool([]);
+  if(players.length<4)return toast('넣을 수 있는 선수가 4명보다 적습니다.');
+  _officialReplaceCtx={kind:'compose',actorId:String(actorId),picked:[],players};
+  _officialComposeRender();
 }
-function _officialManualPlayers(actorId,court,players){
-  _officialReplaceCtx={kind:'manual',actorId:String(actorId),court:parseInt(court,10),picked:[],players};
-  _officialManualRender();
-}
-function _officialManualRender(){
+function _officialComposeRender(){
   const ctx=_officialReplaceCtx;
-  if(!ctx||ctx.kind!=='manual')return;
+  if(!ctx||ctx.kind!=='compose')return;
   const rows=ctx.players.map(p=>{
     const at=ctx.picked.indexOf(p.id);
     return {...p,selected:at>=0,
-      meta:at<0?(p.queued?`${p.games}G · 다음 대진 예정`:`${p.games}G`):(at<2?`A팀 ${at+1}`:`B팀 ${at-1}`)};
+      meta:at<0?p.meta:(at<2?`A팀 ${at+1}`:`B팀 ${at-1}`),
+      playing:at<0&&p.playing,queued:at<0&&p.queued};
   });
   const head=document.getElementById('replacePickerTitle');
-  if(head)head.textContent='새 게임 등록';
+  if(head)head.textContent='다음 대진 짜기';
   const sub=document.getElementById('replacePickerSub');
-  if(sub)sub.textContent=`${ctx.court}코트 · 같은 편 두 명씩 4명을 누르세요 (${ctx.picked.length}/4)`;
+  if(sub)sub.textContent=`같은 편 두 명씩 4명을 누르세요 (${ctx.picked.length}/4)`;
   const list=document.getElementById('replacePickerList');
   if(list){
-    const row=c=>`<button type="button" class="replace-picker-row${c.selected?' selected':''}${!c.selected&&c.queued?' queued':''}" onclick="pickOfficialReplaceCandidate('${esc(c.id)}')">
+    const row=c=>`<button type="button" class="replace-picker-row${c.selected?' selected':''}${c.queued?' queued':''}${c.playing?' playing':''}" onclick="pickOfficialReplaceCandidate('${esc(c.id)}')">
       <b>${esc(c.name)}</b><span>${esc(c.meta)}</span></button>`;
     const st=list.scrollTop;
-    list.innerHTML=`<div class="replace-picker-group">대기 선수 — 처음 두 명이 A팀</div>${rows.map(row).join('')}`;
+    list.innerHTML=`<div class="replace-picker-group">처음 두 명이 A팀 · 경기중 선수는 경기 종료 후 투입</div>${rows.map(row).join('')}`;
     list.scrollTop=st;
   }
   document.getElementById('replacePicker')?.classList.remove('hidden');
 }
-async function _officialManualToggle(id){
+async function _officialComposeToggle(id){
   const ctx=_officialReplaceCtx;
-  if(!ctx||ctx.kind!=='manual')return;
+  if(!ctx||ctx.kind!=='compose')return;
   const at=ctx.picked.indexOf(id);
   if(at>=0)ctx.picked.splice(at,1);
   else if(ctx.players.some(p=>p.id===id))ctx.picked.push(id);
-  if(ctx.picked.length<4)return _officialManualRender();
-  const names=ctx.picked.map(pid=>ctx.players.find(p=>p.id===pid)?.name||'선수');
-  if(!confirm(`A팀 ${names[0]} · ${names[1]}\nB팀 ${names[2]} · ${names[3]}\n\n${ctx.court}코트에 경기를 시작할까요?`)){
+  if(ctx.picked.length<4)return _officialComposeRender();
+  const picked=ctx.picked.map(pid=>ctx.players.find(p=>p.id===pid));
+  const names=picked.map(p=>p?.name||'선수');
+  const playingNote=picked.some(p=>p?.playing)
+    ? `\n\n${picked.filter(p=>p?.playing).map(p=>p.name).join(', ')} 선수는 경기 종료 후 투입됩니다.`
+    : '';
+  if(!confirm(`A팀 ${names[0]} · ${names[1]}\nB팀 ${names[2]} · ${names[3]}\n\n다음 대진에 추가할까요?${playingNote}`)){
     ctx.picked.pop();   // 마지막 선택만 되돌립니다 — 처음부터 다시 고르게 하지 않습니다
-    return _officialManualRender();
+    return _officialComposeRender();
   }
-  const actorId=ctx.actorId, court=ctx.court, ids=[...ctx.picked];
+  const actorId=ctx.actorId, ids=[...ctx.picked];
   closeOfficialReplacePicker();
   const actor=officialActor(actorId);
   if(!actor)return toast('운영 권한을 다시 확인해 주세요.');
   const now=Date.now();
-  const operationId=createOfficialOperationId('manual-match');
+  const operationId=createOfficialOperationId('queue-add');
   await pushOfficialRequest({
-    type:'official-manual-match',
+    type:'official-queue-add',
     operationId,
     actorPlayerId:actor.id,actorPlayerName:actor.name,
-    matchId:`sm_${operationId}`,
-    court,
+    queueId:`sq_${operationId}`,
     team1Ids:ids.slice(0,2),
     team2Ids:ids.slice(2,4),
-    reservationLabel:'자율게임',
     createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
     observedUpdatedAt:session.updatedAt||0,
-    source:'club-official-manual-match'
-  },`${court}코트 새 게임 등록`);
+    source:'club-official-queue-add'
+  },'다음 대진 추가');
+}
+// 순서 변경(운영자 2026-08-10 "다음 대진 순서 변경도 할 수 있게"). 한 칸씩
+// 위·아래로 옮깁니다. 구성이 안 바뀌고 언제든 되돌릴 수 있어 확인창은 없습니다.
+async function sendOfficialQueueMove(actorId,queueId,delta){
+  const actor=officialActor(actorId);
+  const list=eventNextList();
+  const index=list.findIndex(q=>String(q.queueId||q.id||'')===String(queueId||''));
+  const q=index>=0?list[index]:null;
+  if(!actor||!q)return toast('순서를 바꿀 다음 대진을 다시 확인해 주세요.');
+  if(delta<0&&index===0)return toast('이미 1순위입니다.');
+  if(delta>0&&index>=list.length-1)return toast('이미 마지막 순번입니다.');
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-queue-yield',
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    queueId:String(q.queueId||q.id||queueId),
+    token:'oqm_'+now.toString(36)+'_'+Math.random().toString(36).slice(2,7),
+    expectedQueueIndex:index+1,
+    targetQueueIndex:delta>0?index+2:index,
+    allowFreeMove:true,
+    expectedCueState:q.cueState||'',
+    expectedTargetCourt:q.targetCourt||null,
+    expectedHoldId:q.targetHoldId||'',
+    expectedPlayerIds:[...(q.playerIds||[])],
+    expectedTeam1Ids:[...(q.t1Ids||[])],
+    expectedTeam2Ids:[...(q.t2Ids||[])],
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-queue-move'
+  },`${index+1}순위 → ${delta>0?index+2:index}순위 이동`);
 }
 async function sendOfficialActiveReplace(actorId,matchId,outPlayerId,chosen){
   const actor=officialActor(actorId);
@@ -5303,7 +5346,8 @@ async function sendOfficialQueueReplace(actorId,queueId,outPlayerId,chosen){
   const outIdx=ids.indexOf(String(outPlayerId||''));
   if(outIdx<0)return toast('교체할 선수를 이 대진에서 찾지 못했습니다.');
   const outName=names[outIdx]||'선수';
-  if(!confirm(`${outName} ↔ ${chosen.name} 교체할까요?\n${outName}님은 대기로 돌아갑니다.`))return;
+  const playingNote=chosen.playing?`\n${chosen.name} 선수는 경기 종료 후 이 대진에 투입됩니다.`:'';
+  if(!confirm(`${outName} ↔ ${chosen.name} 교체할까요?\n${outName}님은 대기로 돌아갑니다.${playingNote}`))return;
   const now=Date.now();
   await pushOfficialRequest({
     type:'official-queue-replace',
