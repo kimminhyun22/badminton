@@ -2415,6 +2415,15 @@ summary:focus-visible{
   width:100%;margin-bottom:7px;min-height:40px;padding:8px 10px;
   border:1.5px dashed #b9cfc4;background:#f6fbf8;color:#347454;
 }
+/* 다른 클럽은 접힌 한 줄 — 오늘 클럽만 기본으로 펼칩니다(2026-08-11). */
+.replace-picker-club-toggle{
+  width:100%;min-height:44px;
+  display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px;
+  border:1.5px dashed var(--line);border-radius:14px;background:#f7f9fc;
+  padding:10px 14px;text-align:left;color:var(--mut);cursor:pointer;
+}
+.replace-picker-club-toggle b{font-size:.9rem;color:#4a5a70;}
+.replace-picker-club-toggle span{font-size:.74rem;font-weight:800;white-space:nowrap;}
 .official-overview-actions button.remove{
   border-color:#f1cdcf;background:#fff7f7;color:#ae343c;
 }
@@ -2590,7 +2599,7 @@ summary:focus-visible{
   }
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.534">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.535">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2605,7 +2614,7 @@ summary:focus-visible{
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.534</span>
+    <span class="version-chip" id="appVersion">v1.10.535</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2665,7 +2674,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.534';
+const APP_VERSION='1.10.535';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -5367,9 +5376,6 @@ async function _officialComposeToggle(id){
 function openOfficialRosterPick(actorId){
   const actor=officialActor(actorId);
   if(!actor)return toast('운영 권한을 다시 확인해 주세요.');
-  // 클럽이 여러 개면 클럽별 그룹으로 나눕니다(2026-08-11 실전: 클럽 하나로
-  // 뭉뚱그리면 어느 명부인지 안 보여 다른 클럽 명부로 오인). 겹침이 큰 클럽이
-  // 먼저 옵니다 — 순서는 관리자 게시 후보의 순서를 그대로 따릅니다.
   const rows=officialArrivalPlayers().map(c=>({id:String(c.candidateKey),name:c.name,
     club:c.kind==='roster'?String(c.club||'클럽 명부'):'',
     meta:c.kind==='roster'
@@ -5377,16 +5383,51 @@ function openOfficialRosterPick(actorId){
       :'도착 전',
     queued:c.kind!=='roster'}));
   if(!rows.length)return toast('불러올 명부 후보가 없습니다. 관리자가 명부를 게시해야 보여요.');
-  const groups=[];
-  const preArrival=rows.filter(r=>!r.club);
-  if(preArrival.length)groups.push(['도착 전',preArrival]);
-  rows.filter(r=>r.club).forEach(r=>{
-    const found=groups.find(([label])=>label===r.club);
-    if(found)found[1].push(r);
-    else groups.push([r.club,[r]]);
-  });
-  _officialReplaceCtx={kind:'arrival',actorId:String(actorId),candidates:rows};
-  _officialReplaceSheetShow('누르면 현장 참가로 등록합니다',groups,'명부에서 불러오기');
+  _officialReplaceCtx={kind:'arrival',actorId:String(actorId),candidates:rows,expandedClubs:{}};
+  _officialRosterPickRender();
+}
+// 오늘 클럽만 펼치고 다른 클럽은 접습니다(운영자 2026-08-11 "모든 클럽 명부
+// 다 나옴" — 기본 화면은 오늘 세션의 클럽만). 첫 번째 클럽이 오늘 클럽입니다
+// (관리자 게시 후보가 겹침 큰 클럽을 앞에 둠). 타 클럽 게스트 등록은 접힌
+// 줄을 눌러 펼치면 됩니다.
+function _officialRosterPickRender(){
+  const ctx=_officialReplaceCtx;
+  if(!ctx||ctx.kind!=='arrival')return;
+  const rows=ctx.candidates;
+  const clubOrder=[];
+  rows.forEach(r=>{if(r.club&&!clubOrder.includes(r.club))clubOrder.push(r.club);});
+  const primaryClub=clubOrder[0]||'';
+  const head=document.getElementById('replacePickerTitle');
+  if(head)head.textContent='명부에서 불러오기';
+  const sub=document.getElementById('replacePickerSub');
+  if(sub)sub.textContent='누르면 현장 참가로 등록합니다';
+  const list=document.getElementById('replacePickerList');
+  if(list){
+    const row=c=>`<button type="button" class="replace-picker-row${c.queued?' queued':''}" onclick="pickOfficialReplaceCandidate('${esc(c.id)}')">
+      <b>${esc(c.name)}</b><span>${esc(c.meta)}</span></button>`;
+    const parts=[];
+    const preArrival=rows.filter(r=>!r.club);
+    if(preArrival.length)parts.push(`<div class="replace-picker-group">도착 전</div>${preArrival.map(row).join('')}`);
+    clubOrder.forEach(club=>{
+      const members=rows.filter(r=>r.club===club);
+      const open=club===primaryClub||ctx.expandedClubs[club]===true;
+      if(open){
+        parts.push(`<div class="replace-picker-group">${esc(club)}</div>${members.map(row).join('')}`);
+      }else{
+        parts.push(`<button type="button" class="replace-picker-club-toggle" onclick="toggleOfficialRosterClub('${esc(club)}')">
+          <b>${esc(club)}</b><span>${members.length}명 펼치기</span></button>`);
+      }
+    });
+    list.innerHTML=parts.join('');
+    list.scrollTop=0;
+  }
+  document.getElementById('replacePicker')?.classList.remove('hidden');
+}
+function toggleOfficialRosterClub(club){
+  const ctx=_officialReplaceCtx;
+  if(!ctx||ctx.kind!=='arrival')return;
+  ctx.expandedClubs[club]=ctx.expandedClubs[club]!==true;
+  _officialRosterPickRender();
 }
 async function sendOfficialCourtCancel(actorId,matchId){
   const actor=officialActor(actorId);

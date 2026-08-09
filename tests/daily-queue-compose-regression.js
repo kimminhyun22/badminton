@@ -309,6 +309,17 @@ function extractFunction(src, name){
   // 명부 불러오기(운영자 2026-08-11 "명부에 없는 선수는 게스트와 다를 바 없잖아").
   assert(checkin.includes('openOfficialRosterPick')&&checkin.includes('명부에서 불러오기'),
     '선수 추가 옆에 명부 불러오기가 있어야 합니다.');
+  // 오늘 클럽만 펼치고 다른 클럽은 접습니다(운영자 2026-08-11 "모든 클럽 명부
+  // 다 나옴"). 접힌 줄을 누르면 펼쳐져 타 클럽 게스트 등록 길은 남습니다.
+  assert(checkin.includes('toggleOfficialRosterClub')&&checkin.includes('명 펼치기'),
+    '다른 클럽 명부는 접힌 줄로 나와야 합니다.');
+  {
+    const pickSrc=(()=>{const s=checkin.indexOf('function _officialRosterPickRender');
+      const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
+      return checkin.slice(s,Math.min(...ends));})();
+    assert(/primaryClub/.test(pickSrc)&&/expandedClubs/.test(pickSrc),
+      '첫(오늘) 클럽만 기본으로 펼쳐야 합니다.');
+  }
   const createSrc=(()=>{const s=checkin.indexOf('async function sendOfficialPlayerCreate');
     const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
     return checkin.slice(s,Math.min(...ends));})();
