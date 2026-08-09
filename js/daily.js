@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.527';
+const APP_VERSION = '1.10.528';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -8221,6 +8221,7 @@ function _dailyApplyAdminOperation(req){
       memberId:req.memberId||'',
       club:req.club||'',
       isGuest:info.isGuest===true,
+      isClubOfficial:req.isClubOfficial===true,
       status,
       preArrivalVisible:status==='planned'
     });
@@ -9798,6 +9799,9 @@ async function _dailyRegisterPreArrivalsViaServer(members,club){
       gender,
       level:m.level||gradeToLevel(grade,_dailyGenderLabel(gender))||4,
       ageGroup:m.ageGroup||'40대',
+      // 명부의 임원 표시를 반드시 실어 보냅니다 — 빠뜨리면 서버 명단에서 임원
+      // 자격이 사라져 현장에서 본인 이름을 골라도 운영 권한이 안 붙습니다.
+      isClubOfficial:!!m.isClubOfficial,
       status:'planned',
       source:'system-admin-prearrival'
     },{action:'도착 전 등록',tag:'prearrival',silent:true});
@@ -10023,7 +10027,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.527&from=daily';
+  location.href='team.html?v=1.10.528&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

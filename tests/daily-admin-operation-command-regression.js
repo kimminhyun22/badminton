@@ -206,6 +206,8 @@ function send(session, request, {admin = true} = {}){
 }
 
 // 8) 관리자 전용 — 임원 연결로는 전부 막혀야 합니다.
+//    마무리 전환은 임원에게 열렸습니다(운영자 2026-08-10 실전 피드백
+//    "관리자의 마무리 기능도 임원에게").
 const adminOnly = [
   {type:'official-player-remove', playerId:'p1'},
   {type:'official-player-rename', playerId:'p1', name:'딴이름'},
@@ -213,7 +215,6 @@ const adminOnly = [
   {type:'official-queue-delete', queueId:'q1'},
   {type:'official-queue-regenerate', queueId:'q1'},
   {type:'official-reservation-promote', reservationId:'res1'},
-  {type:'official-finish-mode', finishMode:true},
   {type:'official-settings-update', courts:5}
 ];
 adminOnly.forEach(request=>{
@@ -222,6 +223,12 @@ adminOnly.forEach(request=>{
   assert(r.reason.includes('관리자'), `${request.type} 거절 이유가 관리자 전용임을 밝혀야 합니다: ${r.reason}`);
 });
 console.log(`  관리자 전용 ${adminOnly.length}종: 임원 연결 전부 rejected`);
+{
+  const r = send(makeSession(), {type:'official-finish-mode', finishMode:true}, {admin:false});
+  assert.strictEqual(r.status, 'applied', `임원 마무리 전환이 적용되어야 합니다: ${r.reason||''}`);
+  assert.strictEqual(r.session.event.finishMode, true, '마무리 상태가 켜져야 합니다.');
+  console.log('  임원 마무리 전환: applied (2026-08-10 개방)');
+}
 
 // 9) 확장 옵션도 임원에게 열렸습니다(운영자 2026-08-10 "다음 대진 순서 변경도
 //    할 수 있게" — 임원의 게임 설정 자유는 최대 보장, 시스템은 사후 균형).

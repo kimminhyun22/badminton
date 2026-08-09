@@ -995,9 +995,10 @@ function validateCommon(session, request, now, options){
     return {reason:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
   const temporaryRoleCommand = ['official-temporary-grant','official-temporary-revoke'].includes(request.type);
-  // 수동 경기 등록(official-manual-match)은 임원에게도 열었습니다(운영자 2026-08-10
-  // "임원이 새로운 게임을 생성할 수 있는 권한"). 임원의 게임 설정 자유는 최대로
-  // 보장하고, 시스템은 그 이후의 균형·보충을 책임진다는 원칙입니다.
+  // 수동 경기 등록(2026-08-10)과 마무리 전환(2026-08-10 실전 피드백 "관리자의
+  // 마무리 기능도 임원에게")은 임원에게 열렸습니다. 임원의 게임 설정 자유는
+  // 최대로 보장하고, 시스템은 그 이후의 균형·보충을 책임진다는 원칙입니다.
+  // 남은 관리자 전용은 명단·설정 계열입니다.
   const adminOnlyCommand = [
     'official-settings-update',
     'official-court-cancel',
@@ -1006,8 +1007,7 @@ function validateCommon(session, request, now, options){
     'official-player-create',
     'official-queue-delete',
     'official-queue-regenerate',
-    'official-reservation-promote',
-    'official-finish-mode'
+    'official-reservation-promote'
   ].includes(request.type);
   const actor = playerById(session, request.actorPlayerId);
   // 관리자는 세션을 만든 주체라 명단에 선수로 들어 있지 않습니다. 초대 토큰으로 확인한
@@ -2168,7 +2168,10 @@ function applyPlayerCreate(session, request, now, operation){
     partnerCountById: {},
     opponentCountById: {},
     isGuest: request.isGuest === true,
-    isClubOfficial: false,
+    // 도착 전 일괄 등록으로 들어온 임원의 자격을 여기서 지우면, 현장에서 이름을
+    // 골라도 임원으로 인식되지 않습니다(2026-08-10 실전: 임원들이 도우미로 강등됨).
+    // 이 명령은 관리자 전용이라 요청의 임원 표시를 믿어도 됩니다.
+    isClubOfficial: request.isClubOfficial === true,
     isTemporaryOfficial: false,
     locked: false,
     currentMatchId: '',

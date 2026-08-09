@@ -183,8 +183,8 @@ assert(daily.includes("req.type==='official-manual-match'"), '수동 경기 등�
     assert(!/\bprompt\(/.test(src), `${name} 이 prompt 를 쓰면 안 됩니다.`);
   });
   // A팀·B팀 확인창 없이 바로 보내면 오조작 한 번이 대기표를 어지럽힙니다.
-  assert(/A팀 .*B팀 /s.test(checkin) && checkin.includes('다음 대진에 추가할까요?'),
-    '팀 구성을 보여주는 확인창이 있어야 합니다.');
+  assert(/A팀 .*B팀 /s.test(checkin) && checkin.includes('순위로 추가할까요?'),
+    '팀 구성과 순번을 보여주는 확인창이 있어야 합니다.');
   // 순서 변경: 위/아래 버튼이 allowFreeMove 로 보냅니다(운영자 2026-08-10).
   assert(checkin.includes('sendOfficialQueueMove')&&checkin.includes('allowFreeMove:true'),
     '임원 순서 변경 버튼이 있어야 합니다.');

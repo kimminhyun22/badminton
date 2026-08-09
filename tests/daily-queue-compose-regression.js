@@ -220,4 +220,22 @@ function extractFunction(src, name){
   console.log('  관리자 원본: 동기화 잘라내기 면제 · 보관/시작 판정 분리');
 }
 
+// 6) 실전 피드백 배선 (2026-08-10 밤): 예약현황 · 순번 안내 · 마무리 버튼.
+{
+  const checkin=fs.readFileSync(path.join(root,'checkin.html'),'utf8');
+  // 편성 시트 위에 현재 대기표가 보여야 합니다 — "현황이 안 보여".
+  assert(checkin.includes('replace-picker-current')&&checkin.includes('현재 다음 대진'),
+    '편성 시트에 예약현황(현재 다음 대진)이 있어야 합니다.');
+  // "몇 번째에 짜지는지" — 확인창·완료 안내가 순번을 말해야 합니다.
+  assert(/순위로 추가할까요\?/.test(checkin)&&/순위로 추가 요청/.test(checkin),
+    '편성 확인창과 완료 안내가 순번을 알려야 합니다.');
+  // 지각 등록 안내 — 우선 편성 규칙을 말해야 합니다.
+  assert(checkin.includes('처음 2경기 우선 편성'),
+    '지각 등록 후 편성 규칙 안내가 있어야 합니다.');
+  // 마무리 전환 — 클럽 임원 버튼과 전송이 있어야 합니다.
+  assert(checkin.includes('sendOfficialFinishMode')&&checkin.includes("type:'official-finish-mode'"),
+    '임원 마무리 전환 버튼·전송이 있어야 합니다.');
+  console.log('  실전 피드백 배선: 예약현황 · 순번 안내 · 지각 안내 · 마무리 버튼');
+}
+
 console.log('\ndaily queue compose regression ok');

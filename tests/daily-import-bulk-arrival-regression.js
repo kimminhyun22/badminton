@@ -79,6 +79,31 @@ function send(session, request, {admin=true}={}){
   console.log('  게스트 생애: 도착 전 등록(관리자) → 도착 확인(임원) → 참가 대기');
 }
 
+// 1b) 임원 자격은 도착 전 등록을 거쳐도 살아 있어야 합니다.
+//     applyPlayerCreate 가 isClubOfficial 을 false 로 박아 두는 바람에, 도착 전
+//     일괄 등록으로 들어간 임원들이 현장에서 본인 이름을 골라도 임원으로 인식되지
+//     않았습니다(2026-08-10 실전: 도우미로 강등해 운영). 명령은 관리자 전용이라
+//     요청의 임원 표시를 믿습니다.
+{
+  const create=send(makeSession(), {type:'official-player-create',
+    playerId:'dpv2_off1', name:'임원일', grade:'B', gender:'M',
+    isClubOfficial:true, status:'planned', source:'system-admin-prearrival'});
+  assert.strictEqual(create.status,'applied',`임원 도착 전 등록이 적용되어야 합니다: ${create.reason||''}`);
+  const o=create.session.players.find(p=>p.id==='dpv2_off1');
+  assert.strictEqual(o.isClubOfficial,true,'도착 전 등록이 임원 자격을 지우면 안 됩니다.');
+  const arrive=send(create.session, {type:'official-player-arrival',
+    candidateKey:'player:dpv2_off1', playerId:'dpv2_off1', playerName:'임원일',
+    status:'wait', expectedStatus:o.status, expectedLastStatusAt:o.lastStatusAt,
+    source:'system-admin-arrival'}, {admin:false});
+  assert.strictEqual(arrive.status,'applied',arrive.reason||'');
+  assert.strictEqual(arrive.session.players.find(p=>p.id==='dpv2_off1').isClubOfficial,true,
+    '도착 확인이 임원 자격을 지우면 안 됩니다.');
+  // 화면 배선: 도착 전 일괄 등록이 명부의 임원 표시를 실어 보내야 합니다.
+  assert(/isClubOfficial:!!m\.isClubOfficial/.test(daily),
+    '_dailyRegisterPreArrivalsViaServer 가 임원 표시를 빠뜨리면 안 됩니다.');
+  console.log('  임원 자격: 도착 전 등록 → 도착 확인까지 유지');
+}
+
 // 2) 전제 검사는 그대로여야 합니다.
 {
   const dup=send(makeSession(), {type:'official-player-create',
