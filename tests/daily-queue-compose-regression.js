@@ -309,16 +309,21 @@ function extractFunction(src, name){
   // 명부 불러오기(운영자 2026-08-11 "명부에 없는 선수는 게스트와 다를 바 없잖아").
   assert(checkin.includes('openOfficialRosterPick')&&checkin.includes('명부에서 불러오기'),
     '선수 추가 옆에 명부 불러오기가 있어야 합니다.');
-  // 오늘 클럽만 펼치고 다른 클럽은 접습니다(운영자 2026-08-11 "모든 클럽 명부
-  // 다 나옴"). 접힌 줄을 누르면 펼쳐져 타 클럽 게스트 등록 길은 남습니다.
-  assert(checkin.includes('toggleOfficialRosterClub')&&checkin.includes('명 펼치기'),
-    '다른 클럽 명부는 접힌 줄로 나와야 합니다.');
+  // 임원 화면은 오늘 클럽 명부만 보여줍니다(운영자 2026-08-11 "일만 세션이니까
+  // 일만만"). 타 클럽 방문자는 게스트 폼으로 등록합니다. 데이터에는 전 클럽이
+  // 실려 있어(오판 대비) 이름 타이핑 라우팅은 타 클럽 프로필도 찾습니다.
   {
     const pickSrc=(()=>{const s=checkin.indexOf('function _officialRosterPickRender');
       const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
       return checkin.slice(s,Math.min(...ends));})();
-    assert(/primaryClub/.test(pickSrc)&&/expandedClubs/.test(pickSrc),
-      '첫(오늘) 클럽만 기본으로 펼쳐야 합니다.');
+    assert(/primaryClub/.test(pickSrc)&&/r\.club===primaryClub/.test(pickSrc),
+      '명부 시트는 오늘 클럽만 렌더해야 합니다.');
+    assert(!/toggleOfficialRosterClub/.test(checkin),'타 클럽 접기/펼치기 줄은 없어야 합니다 — 오늘 클럽만.');
+    const toolsSrc=(()=>{const s=checkin.indexOf('function officialArrivalToolsHtml');
+      const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
+      return checkin.slice(s,Math.min(...ends));})();
+    assert(/primaryClub/.test(toolsSrc),'지각 등록 셀렉트도 오늘 클럽만 보여야 합니다.');
+    assert(checkin.includes('function officialPrimaryClub'),'오늘 클럽 판정 함수가 있어야 합니다.');
   }
   const createSrc=(()=>{const s=checkin.indexOf('async function sendOfficialPlayerCreate');
     const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);

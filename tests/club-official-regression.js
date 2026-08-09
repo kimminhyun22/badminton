@@ -430,6 +430,8 @@ let officialRequests=[];
 function officialRequestPending(r){return !!(r&&!r.appliedAt&&!r.ignoredAt&&!r.serverAppliedAt&&!r.serverRejectedAt);}
 function esc(v){return String(v||'');}
 function compactLabel(v){return v;}
+// 오늘 클럽 필터(2026-08-11)는 별도 검증 — 이 샌드박스는 클럽 없는 후보만 씁니다.
+function officialPrimaryClub(){return '';}
 ${functionSource(checkin,'officialArrivalPlayers','officialPlayerOptions')}
 ${functionSource(checkin,'officialPlayerOptions','officialPartnerOptions')}
 this.api={
