@@ -84,7 +84,9 @@ function send(session, request, {admin=false}={}){
   const still=again.session.event.next.find(x=>String(x.queueId||x.id)==='sq_manual1');
   assert(still,'실력 차 큰 수동 편성이 품질 필터에 지워지면 안 됩니다.');
   // 이미 다른 대진에 있는 선수를 다시 편성하면 거기서 빼 옵니다(편성 우선).
-  // 중요한 불변식: 어떤 선수도 두 대진에 동시에 서지 않습니다.
+  // 보충할 대기 인원이 없으면 그 대진만 해체됩니다(여기서는 넷을 한꺼번에
+  // 빼 가서 남은 풀이 부족). 중요한 불변식: 어떤 선수도 두 대진에 동시에 서지
+  // 않습니다.
   const overlap=send(again.session, {type:'official-queue-add', queueId:'sq_manual3',
     team1Ids:['w1','w6'], team2Ids:['w3','w8']});
   assert.strictEqual(overlap.status,'applied',`겹치는 편성도 빼 와서 적용되어야 합니다: ${overlap.reason||''}`);
@@ -96,6 +98,30 @@ function send(session, request, {admin=false}={}){
   assert.strictEqual(doubled.length,0,`선수가 두 대진에 동시에 서면 안 됩니다: ${doubled.join(', ')}`);
   assert(overlap.session.event.next.some(x=>String(x.queueId||x.id)==='sq_manual3'),'새 편성이 남아야 합니다.');
   console.log('  실력 차 큰 수동 편성: applied · 품질 필터 생존 · 이중 배치 없음');
+}
+
+// 1c) 대기 팀에서 한 명을 데려가도 그 팀은 해체되지 않습니다
+//     (운영자 2026-08-11 "해체하지 않고 1명 자동 투입이 공정").
+//     남은 세 명의 순번이 지켜지고 빈 자리만 자동 보충됩니다.
+{
+  const s=makeSession();
+  const a=send(s, {type:'official-queue-add', queueId:'sq_keep1',
+    team1Ids:['w1','w2'], team2Ids:['w3','w4']});
+  assert.strictEqual(a.status,'applied',a.reason||'');
+  const b=send(a.session, {type:'official-queue-add', queueId:'sq_keep2',
+    team1Ids:['w4','w6'], team2Ids:['w7','w8']});
+  assert.strictEqual(b.status,'applied',`대기 팀 선수를 데려온 편성이 적용되어야 합니다: ${b.reason||''}`);
+  const kept=b.session.event.next.find(x=>String(x.queueId||x.id)==='sq_keep1');
+  assert(kept,'선수를 내준 대기 팀이 해체되면 안 됩니다.');
+  assert.strictEqual(String(b.session.event.next[0].queueId||b.session.event.next[0].id),'sq_keep1',
+    '선수를 내준 팀의 순번(1순위)이 지켜져야 합니다.');
+  assert(!kept.playerIds.includes('w4')&&kept.playerIds.length===4,
+    '빈 자리 하나가 자동 보충되어야 합니다.');
+  ['w1','w2','w3'].forEach(id=>assert(kept.playerIds.includes(id),`남은 세 명(${id})은 그대로여야 합니다.`));
+  const dup=new Map();
+  b.session.event.next.forEach(item=>(item.playerIds||[]).forEach(id=>dup.set(id,(dup.get(id)||0)+1)));
+  assert([...dup.values()].every(n=>n===1),'보충 후에도 이중 배치가 없어야 합니다.');
+  console.log(`  대기 팀 보호: 순번 유지 · 빈 자리 자동 보충(${kept.playerIds.find(id=>!['w1','w2','w3'].includes(id))})`);
 }
 
 // 2) 경기 중인 선수를 넣을 수 있고, 그 대진은 빈 코트를 차지하지 않고 기다립니다.
@@ -249,6 +275,9 @@ function extractFunction(src, name){
     &&checkin.includes("type:'official-queue-regenerate'")&&checkin.includes("type:'official-player-remove'")
     &&checkin.includes("type:'official-player-rename'")&&checkin.includes("type:'official-settings-update'"),
     '관리자 동일 기능 명령 전송이 전부 있어야 합니다.');
+  // 대기 팀에서 데려올 때의 확인창 안내(운영자 2026-08-11 결정).
+  assert(checkin.includes('순번을 지킨 채 빈 자리가 자동 보충'),
+    '대기 팀 선수를 데려올 때 팀이 유지된다는 안내가 있어야 합니다.');
   console.log('  실전 피드백 배선: 예약현황 · 순번 안내 · 지각 안내 · 마무리 · 관리자 동일 7종');
 }
 

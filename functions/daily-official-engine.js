@@ -1807,6 +1807,66 @@ function replacementScore(session, item, outId, candidate){
   return teamDiff * 1000 + Math.abs(gap(t1) - gap(t2)) * 200 + number(candidate.games) * 10;
 }
 
+// 수동 편성·수동 경기 등록이 대기 대진의 선수를 데려갈 때: 그 팀을 해체하지 않고
+// 빈 자리만 자동 보충합니다(운영자 2026-08-11 "해체하지 않고 1명 자동 투입이
+// 공정"). 남은 세 명의 순번이 지켜집니다. 채울 수 없는 대진만 해체하고,
+// 자동 편성이 다시 채웁니다.
+function extractPlayersFromPrepared(session, takenIds, now){
+  const taken = new Set(takenIds.map(text));
+  const pool = unassignedWaitingPlayers(session).filter(player=>!taken.has(text(player.id)));
+  const event = session.event;
+  ['next', 'expected', 'serverStandby'].forEach(key=>{
+    event[key] = (event[key] || []).filter(item=>{
+      if(!queuePlayerIds(item).some(id=>taken.has(id)))return true;
+      const teams = {t1:queueTeam1Ids(item), t2:queueTeam2Ids(item)};
+      const consumed = [];
+      const apply = ()=>{
+        item.t1Ids = [...teams.t1];
+        item.t2Ids = [...teams.t2];
+        item.team1 = [...teams.t1];
+        item.team2 = [...teams.t2];
+        item.playerIds = [...teams.t1, ...teams.t2];
+        item.t1 = teams.t1.map(id=>playerById(session, id)?.name || '선수');
+        item.t2 = teams.t2.map(id=>playerById(session, id)?.name || '선수');
+      };
+      for(const side of ['t1', 't2']){
+        for(let index = 0; index < teams[side].length; index++){
+          const outId = text(teams[side][index]);
+          if(!taken.has(outId))continue;
+          let best = null;
+          pool.forEach(candidate=>{
+            const score = replacementScore(session, item, outId, candidate);
+            if(score == null)return;
+            if(!best || score < best.score || (score === best.score && text(candidate.id) < text(best.player.id))){
+              best = {player:candidate, score};
+            }
+          });
+          // 운영자가 짠 대진은 균형 점수를 못 매겨도 덜 뛴 대기 선수로 채웁니다.
+          if(!best && item.manualComposed === true && pool.length){
+            const fallback = [...pool].sort((a, b)=>number(a.games) - number(b.games) || text(a.id).localeCompare(text(b.id)))[0];
+            best = {player:fallback, score:0};
+          }
+          if(!best){
+            // 채울 수 없는 대진만 해체합니다. 이 대진에 이미 넣은 보충 인원은
+            // 자리로 돌아갑니다 — 안 그러면 다음 대진의 보충 후보에서 빠집니다.
+            consumed.forEach(player=>pool.push(player));
+            return false;
+          }
+          const inId = text(best.player.id);
+          teams[side][index] = inId;
+          pool.splice(pool.indexOf(best.player), 1);
+          consumed.push(best.player);
+          apply();
+          item.replacedAt = now;
+          item.replacedOutId = outId;
+          item.replacedInId = inId;
+        }
+      }
+      return true;
+    });
+  });
+}
+
 function applyQueueReplace(session, request, now, operation){
   refreshEvent(session, now);
   const list = session.event.next;
@@ -1895,14 +1955,10 @@ function applyQueueAdd(session, request, now, requestId, operation){
   if(['next','expected','serverStandby'].some(key=>(event[key] || []).some(row=>text(row.queueId || row.id) === queueId))){
     return '이미 사용 중인 대진 번호입니다.';
   }
-  // 선택된 선수가 걸려 있던 대기표와 게임신청을 먼저 정리합니다 — 운영자의 편성이
-  // 우선입니다. 수동 경기 등록(applyManualMatch)과 같은 방식으로 해당 대진을 통째로
-  // 해체하고, 자동 편성이 다음 보충에서 다시 채웁니다. 한 명씩 repair 로 갈아 끼우면
-  // 네 명 연쇄에서 선수가 두 대진에 동시에 서는 경우가 생깁니다(회귀로 고정).
+  // 선택된 선수가 걸려 있던 게임신청을 정리하고, 대기 대진은 해체하지 않습니다 —
+  // 남은 세 명의 순번을 지키고 빈 자리만 자동 보충합니다(운영자 2026-08-11).
   ids.forEach(id=>removePlayerReservations(session, id));
-  ['next','expected','serverStandby'].forEach(key=>{
-    event[key] = (event[key] || []).filter(item=>!queuePlayerIds(item).some(id=>ids.includes(id)));
-  });
+  extractPlayersFromPrepared(session, ids, now);
   const genders = players.map(player=>text(player.gender) === 'F' ? 'F' : 'M');
   const type = genders.every(g=>g === 'M') ? '남복' : genders.every(g=>g === 'F') ? '여복' : '혼복';
   const item = {
@@ -2356,11 +2412,10 @@ function applyManualMatch(session, request, now, requestId, operation){
   const matchId = text(request.matchId) || `sm_${safeId(requestId)}`;
   if(event.active.some(match=>text(match.id) === matchId))return '이미 사용 중인 경기 번호입니다.';
 
-  // 이 넷이 걸려 있던 대기표와 게임신청을 먼저 정리합니다.
+  // 이 넷이 걸려 있던 게임신청을 정리합니다. 대기 대진은 해체하지 않고
+  // 빈 자리만 자동 보충합니다(운영자 2026-08-11 — 남은 세 명의 순번 보호).
   ids.forEach(id=>removePlayerReservations(session, id));
-  ['next','expected','serverStandby'].forEach(key=>{
-    event[key] = (event[key] || []).filter(item=>!queuePlayerIds(item).some(id=>ids.includes(id)));
-  });
+  extractPlayersFromPrepared(session, ids, now);
 
   const runtime = session.serverRuntime;
   const maxSeq = event.active.reduce((max, match)=>Math.max(max, number(match.seq)), number(event.completed));
