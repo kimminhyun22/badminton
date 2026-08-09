@@ -517,8 +517,15 @@ const arrivalCandidateSandbox={};
 vm.createContext(arrivalCandidateSandbox);
 vm.runInContext(arrivalCandidateCode,arrivalCandidateSandbox);
 const approvedCandidates=arrivalCandidateSandbox.api.candidates();
-assert.deepStrictEqual(Array.from(approvedCandidates,c=>c.name),['명부지각','예정회원'],'현재 참가 클럽의 등록 전 선수와 미등록 명부 회원만 후보여야 합니다.');
-assert(!approvedCandidates.some(c=>c.name==='타클럽회원'),'다른 클럽 명부 회원을 임원 참가 등록 후보로 노출하면 안 됩니다.');
+// 후보는 클럽 하나로 좁히지 않습니다(2026-08-11 실전: 클럽 추정이 뒤집혀
+// 일만클럽 세션에 미르클럽 명부가 실림). 모든 클럽을 라벨과 함께 싣되
+// 도착 전 → 참가 클럽 → 다른 클럽 순서입니다.
+assert.deepStrictEqual(Array.from(approvedCandidates,c=>c.name),['예정회원','명부지각','타클럽회원'],
+  '도착 전 → 참가 클럽 명부 → 다른 클럽 명부 순이어야 합니다.');
+assert.strictEqual(approvedCandidates.find(c=>c.name==='타클럽회원').club,'다른클럽',
+  '다른 클럽 회원은 클럽 라벨을 달고 나와야 합니다 — 라벨 없이 섞이면 오인합니다.');
+assert.strictEqual(approvedCandidates.find(c=>c.name==='명부지각').club,'일만클럽',
+  '참가 클럽 회원의 클럽 라벨이 맞아야 합니다.');
 assert.strictEqual(arrivalCandidateSandbox.api.profile('m_late').grade,'B','추가 선수 프로필은 관리자 클럽 명부 원본에서 찾아야 합니다.');
 
 assert(checkin.includes('파트너 지정')&&checkin.includes("type:'official-partner-reservation'"),'파트너 요청은 회원이 아닌 임원이 두 선수를 접수하고 취소할 수 있어야 합니다.');

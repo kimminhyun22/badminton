@@ -110,6 +110,48 @@ function send(session, request, {admin=true}={}){
   console.log('  임원 자격: 도착 전 등록 → 도착 확인까지 유지 · 굳은 세션 복구 배너');
 }
 
+// 1d) 명부 후보는 클럽 하나를 추정해 싣지 않습니다(2026-08-11 실전: 일만클럽
+//     세션에 미르클럽 명부가 실림 — 이름이 겹치는 클럽이 여럿이면 추정이
+//     뒤집힘). 모든 클럽을 라벨과 함께 싣고, 오늘 명단과 겹침이 큰 클럽이
+//     앞에 오며, 같은 이름은 앞선 클럽 것만 남습니다. 실제 함수를 실행합니다.
+{
+  const vm=require('vm');
+  const sandbox={
+    rosters:{clubs:[
+      {name:'미르클럽',members:[{name:'겹침이',grade:'C',gender:'남'},{name:'미르만',grade:'B',gender:'남'}]},
+      {name:'일만클럽',members:[{name:'겹침이',grade:'A',gender:'남'},{name:'일만만',grade:'C',gender:'여'},{name:'오늘참가',grade:'C',gender:'남'}]}
+    ]},
+    _dailyPlayers:[
+      {id:'t1',name:'오늘참가',club:'일만클럽',memberId:'m_오늘참가_일만클럽',status:'wait'},
+      {id:'t2',name:'늦은이',club:'일만클럽',status:'planned',lastStatusAt:1}
+    ],
+    _rsvpMemberId:p=>'m_'+p.name+'_'+(p.club||''),
+    _rsvpNameKey:s=>String(s||'').replace(/\s+/g,'').toLowerCase(),
+    _dailyGenderLabel:g=>(g==='F'||g==='여')?'여':'남',
+    _dailyGender:g=>(g==='여'||g==='F')?'F':'M',
+    gradeToLevel:()=>4,
+    _dailyHasRosterPlayer:null
+  };
+  sandbox._dailyHasRosterPlayer=profile=>sandbox._dailyPlayers
+    .some(p=>p.name===profile.name&&!['planned','invited'].includes(p.status));
+  vm.createContext(sandbox);
+  vm.runInContext(`${extractFunction(daily,'_dailyOfficialArrivalRoster')}
+${extractFunction(daily,'_dailyOfficialArrivalCandidates')}
+this.out=_dailyOfficialArrivalCandidates();`,sandbox);
+  const rosterRows=sandbox.out.filter(c=>c.kind==='roster');
+  assert(rosterRows.some(c=>c.club==='일만클럽')&&rosterRows.some(c=>c.club==='미르클럽'),
+    '모든 클럽의 명부가 라벨과 함께 실려야 합니다.');
+  assert.strictEqual(rosterRows[0].club,'일만클럽',
+    '오늘 명단과 겹침이 큰 클럽(일만)이 먼저 와야 합니다 — 실전에서 미르가 앞서던 버그.');
+  const dup=rosterRows.filter(c=>c.name==='겹침이');
+  assert.strictEqual(dup.length,1,'같은 이름은 한 번만 나와야 합니다.');
+  assert.strictEqual(dup[0].club,'일만클럽','겹치는 이름은 앞선 클럽 프로필이어야 합니다.');
+  assert.strictEqual(dup[0].grade,'A','앞선 클럽의 급수가 유지되어야 합니다.');
+  assert(!rosterRows.some(c=>c.name==='오늘참가'),'이미 참가한 회원은 후보에서 빠져야 합니다.');
+  assert(sandbox.out.some(c=>c.kind==='existing'&&c.name==='늦은이'),'도착 전 선수는 후보 맨 앞에 있어야 합니다.');
+  console.log('  명부 후보: 전 클럽 수록 · 겹침 큰 클럽 우선 · 이름 중복 제거');
+}
+
 // 2) 전제 검사는 그대로여야 합니다.
 {
   const dup=send(makeSession(), {type:'official-player-create',

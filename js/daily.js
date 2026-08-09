@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.532';
+const APP_VERSION = '1.10.533';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -6841,13 +6841,13 @@ function _dailyHasRosterPlayer(profile){
     return _rsvpNameKey(player.name)===nameKey&&(!profile.club||!player.club||String(player.club)===String(profile.club));
   });
 }
+// 명부 후보는 클럽 하나를 추정해 싣지 않습니다 — 이름이 겹치는 클럽이 여러 개면
+// 추정이 뒤집힙니다(2026-08-11 실전: 일만클럽 세션에 미르클럽 명부가 실림).
+// 모든 클럽을 클럽 라벨과 함께 싣고, 오늘 명단과 겹침이 큰 클럽을 앞에 둡니다.
+// 같은 이름이 여러 클럽에 있으면 앞선(겹침 큰) 클럽 것만 남깁니다.
 function _dailyOfficialArrivalCandidates(){
-  const club=_dailyOfficialArrivalRoster();
-  const clubName=String(club?.name||'');
   const candidates=_dailyPlayers
-    .filter(player=>player?.name
-      &&['invited','planned'].includes(String(player.status||''))
-      &&(!clubName||player.isGuest||!player.club||String(player.club)===clubName))
+    .filter(player=>player?.name&&['invited','planned'].includes(String(player.status||'')))
     .map(player=>({
       candidateKey:`player:${player.id}`,
       kind:'existing',
@@ -6857,12 +6857,20 @@ function _dailyOfficialArrivalCandidates(){
       lastStatusAt:player.lastStatusAt||0,
       registrationCancelled:player.registrationCancelled===true
     }));
-  if(club){
+  const primary=_dailyOfficialArrivalRoster();
+  const clubs=(rosters.clubs||[]).filter(club=>(club.members||[]).some(member=>member&&member.name));
+  const ordered=primary?[primary,...clubs.filter(club=>club!==primary)]:clubs;
+  const seenNames=new Set(candidates.map(c=>_rsvpNameKey(c.name)));
+  ordered.forEach(club=>{
+    const clubName=String(club?.name||'');
     (club.members||[]).forEach(member=>{
       if(!member?.name)return;
+      const nameKey=_rsvpNameKey(member.name);
+      if(seenNames.has(nameKey))return;
       const profile={...member,club:clubName||member.club||''};
       profile.memberId=member.memberId||_rsvpMemberId(profile);
       if(_dailyHasRosterPlayer(profile))return;
+      seenNames.add(nameKey);
       candidates.push({
         candidateKey:`roster:${profile.memberId}`,
         kind:'roster',
@@ -6876,8 +6884,15 @@ function _dailyOfficialArrivalCandidates(){
         isClubOfficial:!!profile.isClubOfficial
       });
     });
-  }
-  return candidates.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+  });
+  // 클럽 순서(겹침 큰 클럽 먼저)를 지키고, 클럽 안에서만 이름순으로 정렬합니다.
+  const clubRank=new Map(ordered.map((club,index)=>[String(club?.name||''),index]));
+  return candidates.sort((a,b)=>{
+    const rankA=a.kind==='existing'?-1:(clubRank.get(String(a.club||''))??99);
+    const rankB=b.kind==='existing'?-1:(clubRank.get(String(b.club||''))??99);
+    if(rankA!==rankB)return rankA-rankB;
+    return String(a.name).localeCompare(String(b.name),'ko');
+  });
 }
 function _dailyCheckinPayload(){
   const serverPlayerHistory=_dailyServerPlayerHistory();
@@ -10078,7 +10093,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.532&from=daily';
+  location.href='team.html?v=1.10.533&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

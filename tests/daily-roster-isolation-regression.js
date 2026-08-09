@@ -69,8 +69,15 @@ assert(newDaySource.includes('_dailyPreparationState(s,now)'),'날짜 전환 시
 assert(newDaySource.includes('_dailyPreparationPlayers(s.players)'),'LIVE를 시작하지 않은 최근 준비 명단은 새날에도 보존해야 합니다.');
 assert(newDaySource.includes('_dailyMatches=[]')&&newDaySource.includes('_dailyQueue=[]'),'준비 명단을 보존해도 이전 경기와 대기표는 새날에 승계하면 안 됩니다.');
 
+// 후보를 클럽 하나로 좁히던 격리는 2026-08-11 실전에서 뒤집혔습니다 — 이름이
+// 겹치는 클럽이 여럿이면 클럽 추정이 틀려 일만클럽 세션에 미르클럽 명부가
+// 실렸습니다. 이제 격리 대신 **라벨**로 지킵니다: 모든 클럽을 클럽명과 함께
+// 싣고, 오늘 명단과 겹침이 큰 클럽이 앞에 오며, 같은 이름은 앞선 클럽 것만.
 const arrivalSource=functionSource(dailySrc,'_dailyOfficialArrivalCandidates','_dailyCheckinPayload');
-assert(arrivalSource.includes("String(player.club)===clubName"),'임원 지각 등록 후보도 현재 운영 클럽 명부로 제한해야 합니다.');
+assert(!arrivalSource.includes("String(player.club)===clubName"),'클럽 추정으로 후보를 좁히면 안 됩니다 — 추정이 틀리면 엉뚱한 명부가 실립니다.');
+assert(arrivalSource.includes('_dailyOfficialArrivalRoster()')&&arrivalSource.includes('clubRank'),
+  '겹침이 큰 클럽이 먼저 오도록 순서를 매겨야 합니다.');
+assert(arrivalSource.includes('seenNames'),'같은 이름은 앞선 클럽 것만 남겨야 합니다.');
 const importSource=functionSource(dailySrc,'importDailySelected','syncFixedTeamNames');
 assert(importSource.includes('_dailyPruneForeignDormantCarryover()'),'다른 클럽 명부를 불러오면 앱 재실행 없이 이전 승계 명단을 정리해야 합니다.');
 
