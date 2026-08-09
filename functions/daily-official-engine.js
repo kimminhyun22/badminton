@@ -898,6 +898,18 @@ function refreshEvent(session, now){
       item.targetHoldId = '';
       return;
     }
+    // 경기 중인 선수를 품은 수동 편성은 빈 코트를 차지하지 않습니다 — 붙잡으면
+    // 그 코트는 선수가 끝나도 자동으로 못 채워지고 사람이 눌러야만 삽니다
+    // (2026-08-10 시뮬레이션). 코트는 준비된 대진에게 넘기고 이 대진은 기다립니다.
+    if(usable < freeCourts.length && !queueReady(session, item)){
+      item.cueState = 'hold';
+      item.cue = '선수 경기중';
+      item.cueDetail = '경기 종료 후 투입';
+      item.targetCourt = null;
+      item.targetMatchId = '';
+      item.targetHoldId = '';
+      return;
+    }
     if(usable < freeCourts.length){
       const court = freeCourts[usable++];
       const hold = session.serverRuntime.holds[text(court)] || null;
@@ -1329,12 +1341,15 @@ function queueResult(item, queueIndex){
 
 function startPreparedItem(session, item, index, court, now, requestId, options = {}){
   const event = session.event;
+  // 운영자가 직접 짠 대진(manualComposed)은 품질 검사를 다시 하지 않습니다.
+  // 여기서 막으면 자동 투입은 물론 수동 입장까지 전부 조용히 실패하고, 그 대진이
+  // 대기표 자리를 차지해 보충까지 막혀 코트 전체가 굳습니다(2026-08-10 시뮬레이션).
   if(
     index < 0 ||
     event.next[index] !== item ||
     event.active.some(match=>number(match.court) === number(court)) ||
     !queueReady(session, item) ||
-    !preparedQualityValid(session, item)
+    (item.manualComposed !== true && !preparedQualityValid(session, item))
   )return null;
   const runtime = session.serverRuntime;
   const maxSeq = event.active.reduce((max, match)=>Math.max(max, number(match.seq)), number(event.completed));

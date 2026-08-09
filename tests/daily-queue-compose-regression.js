@@ -98,7 +98,9 @@ function send(session, request, {admin=false}={}){
   console.log('  실력 차 큰 수동 편성: applied · 품질 필터 생존 · 이중 배치 없음');
 }
 
-// 2) 경기 중인 선수를 넣을 수 있고, 그 대진은 선수의 경기 종료까지 입장이 거절됩니다.
+// 2) 경기 중인 선수를 넣을 수 있고, 그 대진은 빈 코트를 차지하지 않고 기다립니다.
+//    (2026-08-10 시뮬레이션: 빈 코트 cue 를 붙잡으면 선수가 끝나도 그 코트는
+//     자동으로 못 채워지고 사람이 눌러야만 삽니다)
 {
   const r=send(makeSession(), {type:'official-queue-add', queueId:'sq_wait1',
     team1Ids:['p1','w3'], team2Ids:['w4','w1']});
@@ -106,18 +108,56 @@ function send(session, request, {admin=false}={}){
   const item=r.session.event.next.find(x=>String(x.queueId||x.id)==='sq_wait1');
   assert(item,'대진이 남아 있어야 합니다.');
   assert(item.playerIds.includes('p1'),'경기 중 선수가 구성에 있어야 합니다.');
-  // 함정 3: 이 대진을 입장시키면 p1 이 두 코트에 섭니다. cue 가 빈 코트를 가리켜도
-  // queueReady 가 거절해야 합니다.
+  assert.strictEqual(item.cueState,'hold','준비 안 된 편성이 빈 코트 cue 를 받으면 안 됩니다.');
+  assert.strictEqual(item.cue,'선수 경기중','기다리는 이유가 딱지로 보여야 합니다.');
+  assert(!item.targetCourt,'빈 코트를 차지하면 안 됩니다 — 준비된 대진에게 넘깁니다.');
+  // 함정 3: 그래도 억지로 입장을 보내면 거절되어야 합니다(이중 코트 방지).
   const enter=send(r.session, {type:'official-queue-enter-free',
-    queueId:'sq_wait1', court:item.targetCourt||2,
+    queueId:'sq_wait1', court:2,
     expectedQueueIndex:1,
     expectedPlayerIds:[...item.playerIds],
     expectedTeam1Ids:[...item.t1Ids], expectedTeam2Ids:[...item.t2Ids],
     expectedCueState:item.cueState||'', expectedTargetCourt:item.targetCourt||null,
     expectedHoldId:item.targetHoldId||''});
   assert.strictEqual(enter.status,'rejected','경기 중 선수가 든 대진은 입장되면 안 됩니다.');
-  assert(enter.reason.includes('경기 중'),`거절 이유가 경기 중임을 밝혀야 합니다: ${enter.reason}`);
-  console.log(`  경기 중 선수 편성: applied · 입장 보류 (${enter.reason})`);
+  console.log(`  경기 중 선수 편성: applied · 코트 비점유(hold) · 입장 거절 (${enter.reason})`);
+
+  // 그 선수의 경기가 끝나면 자동 투입 대상이 됩니다 — 전체 흐름이 굳지 않습니다.
+  const done=send(r.session, {type:'official-court-complete', token:'t_done1',
+    matchId:'m1', court:1,
+    expectedStartedAt:r.session.event.active[0].startedAt,
+    expectedPlayerIds:[...r.session.event.active[0].playerIds]});
+  assert.strictEqual(done.status,'applied',`경기 종료가 되어야 합니다: ${done.reason||''}`);
+  const seated=done.session.event.active.find(m=>String(m.id).length&&m.playerIds.includes('p1'));
+  const stillQueued=done.session.event.next.find(x=>String(x.queueId||x.id)==='sq_wait1');
+  assert(seated||stillQueued,'선수 경기 종료 후 편성이 사라지면 안 됩니다(투입 또는 대기 유지).');
+  if(seated)console.log('  선수 경기 종료 → 수동 편성 자동 투입 확인');
+  else{
+    assert(stillQueued.cueState!=='hold'||stillQueued.cue!=='선수 경기중','선수가 끝났으면 보류가 풀려야 합니다.');
+    console.log('  선수 경기 종료 → 보류 해제 확인');
+  }
+}
+
+// 2b) 실력 차 큰 수동 편성도 입장이 됩니다 — startPreparedItem 의 품질 재검사가
+//     이를 막으면 자동·수동 입장이 전부 조용히 실패하고, 그 대진들이 대기표를
+//     차지해 코트 전체가 굳습니다(2026-08-10 시뮬레이션: 180분에 11경기).
+{
+  const r=send(makeSession(), {type:'official-queue-add', queueId:'sq_enter1',
+    team1Ids:['w1','w2'], team2Ids:['w3','w4']});   // S+E 같은 편
+  assert.strictEqual(r.status,'applied',r.reason||'');
+  const item=r.session.event.next.find(x=>String(x.queueId||x.id)==='sq_enter1');
+  assert.strictEqual(item.cueState,'free','전원 대기인 수동 편성은 빈 코트 cue 를 받아야 합니다.');
+  const enter=send(r.session, {type:'official-queue-enter-free',
+    queueId:'sq_enter1', court:item.targetCourt,
+    expectedQueueIndex:r.session.event.next.indexOf(item)+1,
+    expectedPlayerIds:[...item.playerIds],
+    expectedTeam1Ids:[...item.t1Ids], expectedTeam2Ids:[...item.t2Ids],
+    expectedCueState:item.cueState, expectedTargetCourt:item.targetCourt,
+    expectedHoldId:item.targetHoldId||''});
+  assert.strictEqual(enter.status,'applied',`실력 차 큰 수동 편성 입장이 되어야 합니다: ${enter.reason||''}`);
+  const match=enter.session.event.active.find(m=>m.playerIds.includes('w1'));
+  assert(match&&match.playerIds.includes('w2'),'짠 그대로 코트에 올라가야 합니다.');
+  console.log('  실력 차 큰 수동 편성: 입장 applied (품질 재검사 면제)');
 }
 
 // 3) 대기 경기 교체도 경기 중인 선수를 지정할 수 있습니다 — 제한 없음.
