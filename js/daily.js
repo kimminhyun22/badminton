@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.539';
+const APP_VERSION = '1.10.540';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -9798,11 +9798,6 @@ function renderDailyImportMembers(){
       return a.name.localeCompare(b.name,'ko');
     });
   }
-  indexed.sort((a,b)=>{
-    const aIn=canRegister(a)?0:1;
-    const bIn=canRegister(b)?0:1;
-    return aIn-bIn;
-  });
   const rosterPre=indexed.filter(m=>{const ex=existingByName.get(m.name);return ex&&isPre(ex);});
   const preCount=rosterPre.length+extras.length;
   const available=indexed.filter(canRegister).length+extras.length;
@@ -9813,16 +9808,7 @@ function renderDailyImportMembers(){
   const GC={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
   const rosterRow=m=>{
     const existing=existingByName.get(m.name);
-    const isDup=!!existing&&!canRegister(m);
-    const checked=!isDup&&prevChecked.has(String(m._origIdx));
-    if(isDup){
-      return `<label class="import-member-row" style="opacity:.45;cursor:default;background:#f8f8f8;">
-        <input type="checkbox" class="daily-import-chk" value="${m._origIdx}" disabled>
-        <span style="flex:1;font-size:.84rem;font-weight:700;color:#999;">${esc(m.name)}</span>
-        <span style="font-size:.65rem;color:#bbb;margin-right:6px;">이미 참가 등록</span>
-        <span style="font-size:.68rem;color:#ccc;"><span class="lv-badge" style="background:#f0f0f0;color:#bbb;border-color:#e0e0e0;">${esc(m.grade||'')}</span> ${esc(m.gender||'')}</span>
-      </label>`;
-    }
+    const checked=prevChecked.has(String(m._origIdx));
     const stateTag=existing
       ? (canRevert(existing)
         ? '<span style="color:var(--gr,#2f8f5b);margin-right:5px;">참가 중</span>'
@@ -9849,15 +9835,16 @@ function renderDailyImportMembers(){
       </span>
     </label>`;
   };
+  // 기존 참가자 재노출 정리(운영자 2026-08-12): 선택해도 할 게 없는 행(이미
+  // 등록·경기 중)은 목록에서 뺍니다. 숫자는 머리글 「이미 있음」으로만 남습니다.
   const enabledRoster=rosterRows.filter(canRegister);
-  const disabledRoster=plannedOnly?[]:rosterRows.filter(m=>!canRegister(m));
-  const body=[...enabledRoster.map(rosterRow),...extras.map(extraRow),...disabledRoster.map(rosterRow)].join('');
+  const body=[...enabledRoster.map(rosterRow),...extras.map(extraRow)].join('');
   // 전체 선택은 목록 머리글에 둡니다 — 하단에 있으면 등록 버튼과 섞여 헷갈립니다
   // (운영자 피드백 2026-08-09). 보이는 행만 집으므로 필터와 같은 눈높이가 맞습니다.
   el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;font-size:.72rem;color:var(--dim);border-bottom:1px solid var(--bdr);background:var(--sur2);">
     <span>선택 가능 <b style="color:var(--bl)">${available}명</b> · 도착 전 <b style="color:var(--warn)">${preCount}명</b> · 이미 있음 <b>${total-available}명</b></span>
     <button type="button" class="dir-sort-btn" style="flex-shrink:0;" onclick="toggleDailySelectAll()">전체 선택/해제</button>
-  </div>`+(body||'<div class="dir-empty">도착 전 선수가 없습니다</div>');
+  </div>`+(body||`<div class="dir-empty">${plannedOnly?'도착 전 선수가 없습니다':(total?'전원 이미 등록되어 있습니다':'추가할 선수가 없습니다')}</div>`);
 }
 function toggleDailySelectAll(){
   const chks=[...document.querySelectorAll('.daily-import-chk:not(:disabled)')];
@@ -10181,7 +10168,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.539&from=daily';
+  location.href='team.html?v=1.10.540&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

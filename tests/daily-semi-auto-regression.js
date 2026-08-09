@@ -37,7 +37,9 @@ assert.strictEqual(
 assert(!indexHtml.includes("importDailySelected('invited')"), '폐기된 자가 출석용 등록 버튼은 노출하면 안 됩니다.');
 
 const renderImport = extractFunction(dailySrc, 'renderDailyImportMembers', 'toggleDailySelectAll');
-assert(renderImport.includes('checked=!isDup&&prevChecked.has'), '관리자가 직접 고른 선수만 선택 상태여야 합니다.');
+// v540: 액션 없는 기존 참가자 행이 목록에서 빠지며 isDup 분기가 사라짐 —
+// 의도(전원 자동 선택 금지, 이전 체크만 보존)는 그대로 지켜야 합니다.
+assert(renderImport.includes('checked=prevChecked.has'), '관리자가 직접 고른 선수만 선택 상태여야 합니다.');
 assert(!renderImport.includes('firstRender'), '명부를 열자마자 전원을 자동 선택하면 안 됩니다.');
 
 const adminAlerts = extractFunction(dailySrc, 'dailyRenderAdminAlerts', 'dailyCurrentStage');

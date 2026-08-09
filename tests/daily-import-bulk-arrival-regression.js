@@ -336,6 +336,12 @@ importDailySelected('planned');`,sandbox);
     '하단 「도착 전 등록」과 게스트 「도착 전으로 추가」 둘 다 같은 규칙으로 숨겨야 합니다.');
   assert(index.includes("if(event.key==='Enter')dailyImportAddGuest('wait')"),
     '게스트 이름 Enter 기본값은 현장 참가여야 합니다 — 역순 흐름의 기본은 현장입니다.');
+  // 기존 참가자 재노출 정리(운영자 2026-08-12 "기존 참가자 명부는 다시 보여줄
+  // 필요 없는 거 아냐"): 액션 없는 회색 행은 목록에서 빠지고 머리글 숫자만 남습니다.
+  assert(!render.includes('이미 참가 등록')&&!/disabledRoster/.test(render),
+    '선택해도 할 게 없는 기존 참가자 행은 목록에 그리면 안 됩니다.');
+  assert(render.includes('이미 있음'),
+    '기존 참가자 수는 머리글 「이미 있음」으로는 남아야 합니다.');
   console.log('  역순 등록: 참가 중→도착 전 되돌리기 · 대기표 정리 · 뛴 선수 보호 · 게시 전 한정');
 }
 
