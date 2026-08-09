@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.536';
+const APP_VERSION = '1.10.537';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -350,6 +350,10 @@ let _dailyVoteDeadlineAt='';
 let _dailyStartTime='19:00';
 let _dailyEndTime='22:00';
 let _dailyPreparationDate='';
+// 오늘 세션의 클럽 — 최초 선수 등록 때 고른 명부 클럽을 그대로 기록합니다
+// (운영자 2026-08-11 "내가 일만클럽에서 선수등록을 했는데 그걸 그대로 따라가면
+// 되잖아"). 겹침 추정은 두 클럽 회원이 섞여 뛰는 날 반드시 뒤집힙니다.
+let _dailySessionClubName='';
 let _dailyCourtOrder=[];
 let _dailyManualActiveDraft={mode:'manual',court:null,ids:[],registeredCount:0};
 let _dailyEmergencyEditQueueId=null;
@@ -2256,6 +2260,7 @@ function dailySave(options){
       operatingStart:_dailyStartTime,
       operatingEnd:_dailyEndTime,
       preparationDate:_dailyPreparationDate,
+      sessionClub:_dailySessionClubName,
       courtOrder:_dailyDefaultCourtOrder(_dailyCourtCount()),
       players:_dailyPlayers,
       matches:_dailyMatches,
@@ -2443,6 +2448,7 @@ function dailyLoad(){
     _dailyStartTime=s.operatingStart||'19:00';
     _dailyEndTime=s.operatingEnd||'22:00';
     _dailyPreparationDate=String(s.preparationDate||(!_dailyOperationStarted&&_dailyPlayers.length?_dailyLocalDateKey(s.savedAt||now):''));
+    _dailySessionClubName=String(s.sessionClub||'');
     _dailyCourtOrder=_dailyDefaultCourtOrder(s.courts||3);
     const storedCheckinId=String(localStorage.getItem(DAILY_CHECKIN_KEY)||'');
     const savedCheckinId=String(s.checkinId||'');
@@ -2537,6 +2543,7 @@ function dailyApplyReviewSample(){
   _dailyPauseRevision=0;
   _dailyResumedAt=0;
   _dailyPreparationDate='';
+  _dailySessionClubName='';
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -3385,6 +3392,7 @@ function dailyReset(){
   _dailyPauseRevision=0;
   _dailyResumedAt=0;
   _dailyPreparationDate='';
+  _dailySessionClubName='';
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -6801,6 +6809,13 @@ function _dailyStartOperatorHeartbeat(){
 function _dailyOfficialArrivalRoster(){
   const clubs=(rosters.clubs||[]).filter(club=>(club.members||[]).some(member=>member&&member.name));
   if(!clubs.length)return null;
+  // 최초 선수 등록에 쓴 클럽이 기록돼 있으면 그게 답입니다 — 겹침 추정은
+  // 두 클럽 회원이 섞여 뛰는 날 뒤집힙니다(2026-08-11 실전: 미르 회원이 많아
+  // 일만 세션인데 미르가 이김).
+  if(_dailySessionClubName){
+    const named=clubs.find(club=>String(club?.name||'')===_dailySessionClubName);
+    if(named)return named;
+  }
   const players=_dailyPlayers.filter(player=>player&&player.name&&!player.isGuest);
   const ranked=clubs.map(club=>{
     const clubName=String(club.name||'');
@@ -9933,6 +9948,9 @@ async function importDailySelected(status){
     })
     .filter(Boolean);
   if(!sel.length){alert('선수를 1명 이상 선택해주세요.');return;}
+  // 최초 선수 등록에 쓴 명부 클럽이 오늘 세션의 클럽입니다(운영자 2026-08-11).
+  // 임원 화면의 명부·지각 등록이 이 클럽을 따릅니다.
+  if(!_dailySessionClubName&&club?.name)_dailySessionClubName=String(club.name);
   // 게시된 뒤의 '현장 참가' 등록은 선수마다 서버 명령 한 건으로 보냅니다.
   // '도착 전' 등록은 대응하는 명령이 없어 게시 후에도 로컬입니다.
   // 도착 전 등록도 게시 후에는 서버 명령으로 보냅니다(명단에 없는 선수만 대상).
@@ -10127,7 +10145,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.536&from=daily';
+  location.href='team.html?v=1.10.537&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

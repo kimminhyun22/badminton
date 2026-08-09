@@ -511,6 +511,7 @@ let _dailyPlayers=[
 function _rsvpMemberId(m){return 'generated:'+m.club+':'+m.name;}
 function _rsvpNameKey(name){return String(name||'').replace(/\\s+/g,'').toLowerCase();}
 function gradeToLevel(){return 4;}
+let _dailySessionClubName='일만클럽';   // 최초 등록 클럽 기록(2026-08-11)
 function _dailyGenderLabel(g){return g==='F'||g==='여'?'여':'남';}
 function _dailyGender(g){return g==='F'||g==='여'?'F':'M';}
 ${functionSource(dailySrc,'_dailyOfficialArrivalRoster','_dailyCheckinPayload')}

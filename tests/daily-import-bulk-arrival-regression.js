@@ -116,14 +116,22 @@ function send(session, request, {admin=true}={}){
 //     앞에 오며, 같은 이름은 앞선 클럽 것만 남습니다. 실제 함수를 실행합니다.
 {
   const vm=require('vm');
+  // 실전 2026-08-11 시나리오: 오늘 미르클럽 회원이 더 많이 참가해 겹침 점수로는
+  // 미르가 이깁니다. 하지만 관리자가 최초 선수 등록을 일만클럽 명부에서 했으므로
+  // 세션 클럽 기록(_dailySessionClubName)이 일만을 가리키고, 그게 이겨야 합니다.
   const sandbox={
     rosters:{clubs:[
-      {name:'미르클럽',members:[{name:'겹침이',grade:'C',gender:'남'},{name:'미르만',grade:'B',gender:'남'}]},
+      {name:'미르클럽',members:[{name:'겹침이',grade:'C',gender:'남'},{name:'미르만',grade:'B',gender:'남'},
+        {name:'미르둘',grade:'C',gender:'남'},{name:'미르셋',grade:'D',gender:'여'},{name:'미르넷',grade:'C',gender:'남'}]},
       {name:'일만클럽',members:[{name:'겹침이',grade:'A',gender:'남'},{name:'일만만',grade:'C',gender:'여'},{name:'오늘참가',grade:'C',gender:'남'}]}
     ]},
+    _dailySessionClubName:'일만클럽',
     _dailyPlayers:[
       {id:'t1',name:'오늘참가',club:'일만클럽',memberId:'m_오늘참가_일만클럽',status:'wait'},
-      {id:'t2',name:'늦은이',club:'일만클럽',status:'planned',lastStatusAt:1}
+      {id:'t2',name:'늦은이',club:'일만클럽',status:'planned',lastStatusAt:1},
+      {id:'t3',name:'미르만',club:'미르클럽',memberId:'m_미르만_미르클럽',status:'wait'},
+      {id:'t4',name:'미르둘',club:'미르클럽',memberId:'m_미르둘_미르클럽',status:'wait'},
+      {id:'t5',name:'미르셋',club:'미르클럽',memberId:'m_미르셋_미르클럽',status:'wait'}
     ],
     _rsvpMemberId:p=>'m_'+p.name+'_'+(p.club||''),
     _rsvpNameKey:s=>String(s||'').replace(/\s+/g,'').toLowerCase(),
@@ -142,14 +150,20 @@ this.out=_dailyOfficialArrivalCandidates();`,sandbox);
   assert(rosterRows.some(c=>c.club==='일만클럽')&&rosterRows.some(c=>c.club==='미르클럽'),
     '모든 클럽의 명부가 라벨과 함께 실려야 합니다.');
   assert.strictEqual(rosterRows[0].club,'일만클럽',
-    '오늘 명단과 겹침이 큰 클럽(일만)이 먼저 와야 합니다 — 실전에서 미르가 앞서던 버그.');
+    '미르 회원이 더 많이 참가한 날에도 최초 등록 클럽(일만)이 오늘 클럽이어야 합니다.');
   const dup=rosterRows.filter(c=>c.name==='겹침이');
   assert.strictEqual(dup.length,1,'같은 이름은 한 번만 나와야 합니다.');
   assert.strictEqual(dup[0].club,'일만클럽','겹치는 이름은 앞선 클럽 프로필이어야 합니다.');
   assert.strictEqual(dup[0].grade,'A','앞선 클럽의 급수가 유지되어야 합니다.');
   assert(!rosterRows.some(c=>c.name==='오늘참가'),'이미 참가한 회원은 후보에서 빠져야 합니다.');
   assert(sandbox.out.some(c=>c.kind==='existing'&&c.name==='늦은이'),'도착 전 선수는 후보 맨 앞에 있어야 합니다.');
-  console.log('  명부 후보: 전 클럽 수록 · 겹침 큰 클럽 우선 · 이름 중복 제거');
+  // 세션 클럽 기록의 배선: 최초 등록 시 기록 · 저장/복원 · 초기화.
+  assert(/if\(!_dailySessionClubName&&club\?\.name\)_dailySessionClubName=String\(club\.name\)/.test(daily),
+    '최초 선수 등록의 명부 클럽을 세션 클럽으로 기록해야 합니다.');
+  assert(daily.includes('sessionClub:_dailySessionClubName'),'세션 클럽이 저장에 실려야 합니다.');
+  assert(daily.includes("_dailySessionClubName=String(s.sessionClub||'')"),'세션 클럽이 복원되어야 합니다.');
+  assert((daily.match(/_dailySessionClubName='';/g)||[]).length>=2,'초기화·준비 복원 시 세션 클럽을 비워야 합니다.');
+  console.log('  명부 후보: 최초 등록 클럽 우선(기록) · 전 클럽 수록 · 이름 중복 제거');
 
   // 1e) 서버 후보 부분 동기화(2026-08-11 실전: 라이브 중에는 관리자 조작이 명령
   //     경로만 돌아 전체 게시가 없고, 후보는 게시에만 실려 낡은 명부가 서버에
