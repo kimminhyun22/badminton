@@ -107,7 +107,18 @@ function send(session, request, {admin=true}={}){
     '임원 자격 풀림을 감지·복구하는 경로가 있어야 합니다.');
   assert(daily.includes('임원 자격 복구'),'상황판에 복구 배너가 있어야 합니다.');
   assert(daily.includes("type:'official-player-official'"),'복구가 자격 명령을 보내야 합니다.');
-  console.log('  임원 자격: 도착 전 등록 → 도착 확인까지 유지 · 굳은 세션 복구 배너');
+  // 배너 닫기(운영자 2026-08-13 "오늘 명단 임원 아니면 자격 복구 필요 없어"):
+  // 관리자가 「복구 안 함」으로 접으면 그 이름은 다시 뜨지 않아야 하고,
+  // 접은 목록은 저장·복원·초기화가 함께 돌아야 합니다.
+  assert(daily.includes('function dailyDismissOfficialRestore')&&daily.includes('복구 안 함'),
+    '복구 배너에 닫기 경로가 있어야 합니다 — 계속 떠 있으면 눈에 거슬립니다.');
+  assert((daily.match(/_dailyOfficialRestoreCandidates\(\)/g)||[]).length>=3,
+    '배너 표시·복구 실행·닫기 모두 접은 이름을 뺀 후보를 써야 합니다.');
+  assert(daily.includes('officialRestoreDismissed:_dailyOfficialRestoreDismissed'),'접은 목록이 저장에 실려야 합니다.');
+  assert(daily.includes('s.officialRestoreDismissed'),'접은 목록이 복원되어야 합니다.');
+  assert((daily.match(/_dailyOfficialRestoreDismissed=\[\];/g)||[]).length>=2,
+    '초기화·준비 복원 시 접은 목록을 비워야 합니다.');
+  console.log('  임원 자격: 도착 전 등록 → 도착 확인까지 유지 · 굳은 세션 복구 배너 · 복구 안 함 닫기');
 }
 
 // 1d) 명부 후보는 클럽 하나를 추정해 싣지 않습니다(2026-08-11 실전: 일만클럽
@@ -158,11 +169,20 @@ this.out=_dailyOfficialArrivalCandidates();`,sandbox);
   assert(!rosterRows.some(c=>c.name==='오늘참가'),'이미 참가한 회원은 후보에서 빠져야 합니다.');
   assert(sandbox.out.some(c=>c.kind==='existing'&&c.name==='늦은이'),'도착 전 선수는 후보 맨 앞에 있어야 합니다.');
   // 세션 클럽 기록의 배선: 최초 등록 시 기록 · 저장/복원 · 초기화.
-  assert(/if\(!_dailySessionClubName&&club\?\.name\)_dailySessionClubName=String\(club\.name\)/.test(daily),
-    '최초 선수 등록의 명부 클럽을 세션 클럽으로 기록해야 합니다.');
+  assert(/if\(!_dailySessionClubName&&club\?\.name\)\{\s*_dailySessionClubName=String\(club\.name\);\s*if\(_dailyCheckinId\)_dailySyncArrivalCandidates\(\);/.test(daily),
+    '최초 선수 등록의 명부 클럽을 세션 클럽으로 기록하고, 라이브 중이면 후보를 바로 동기화해야 합니다.');
   assert(daily.includes('sessionClub:_dailySessionClubName'),'세션 클럽이 저장에 실려야 합니다.');
   assert(daily.includes("_dailySessionClubName=String(s.sessionClub||'')"),'세션 클럽이 복원되어야 합니다.');
   assert((daily.match(/_dailySessionClubName='';/g)||[]).length>=2,'초기화·준비 복원 시 세션 클럽을 비워야 합니다.');
+  // 기록 없는 라이브 세션의 구제(2026-08-13 실전 "여전히 미르클럽만"): 상황판
+  // 알림에서 관리자가 오늘 클럽을 버튼 한 번으로 지정하고, 지정 즉시 후보를
+  // 부분 동기화해야 합니다. 추정을 더 쌓는 길은 금지.
+  assert(daily.includes('function dailySetSessionClub'),'오늘 클럽 지정 함수가 있어야 합니다.');
+  const setClub=extractFunction(daily,'dailySetSessionClub');
+  assert(setClub.includes('dailySave()')&&setClub.includes('_dailySyncArrivalCandidates()'),
+    '클럽 지정은 저장과 후보 부분 동기화를 함께 해야 합니다 — 동기화가 빠지면 임원 화면이 낡은 클럽을 계속 봅니다.');
+  assert(/_dailyCheckinId&&!_dailySessionClubName&&rosterClubs\.length>1/.test(daily),
+    '오늘 클럽 확인 알림은 기록 없는 라이브 + 클럽 여럿일 때만 떠야 합니다.');
   console.log('  명부 후보: 최초 등록 클럽 우선(기록) · 전 클럽 수록 · 이름 중복 제거');
 
   // 1e) 서버 후보 부분 동기화(2026-08-11 실전: 라이브 중에는 관리자 조작이 명령

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.542';
+const APP_VERSION = '1.10.543';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -354,6 +354,10 @@ let _dailyPreparationDate='';
 // (운영자 2026-08-11 "내가 일만클럽에서 선수등록을 했는데 그걸 그대로 따라가면
 // 되잖아"). 겹침 추정은 두 클럽 회원이 섞여 뛰는 날 반드시 뒤집힙니다.
 let _dailySessionClubName='';
+// 임원 자격 복구 배너에서 관리자가 「복구 안 함」으로 접은 이름들. 명부 임원이어도
+// 오늘 임원으로 안 뛰면 복구가 필요 없다(운영자 2026-08-13). 새 이름이 감지되면
+// 배너는 그 이름으로만 다시 뜬다.
+let _dailyOfficialRestoreDismissed=[];
 let _dailyCourtOrder=[];
 let _dailyManualActiveDraft={mode:'manual',court:null,ids:[],registeredCount:0};
 let _dailyEmergencyEditQueueId=null;
@@ -2261,6 +2265,7 @@ function dailySave(options){
       operatingEnd:_dailyEndTime,
       preparationDate:_dailyPreparationDate,
       sessionClub:_dailySessionClubName,
+      officialRestoreDismissed:_dailyOfficialRestoreDismissed,
       courtOrder:_dailyDefaultCourtOrder(_dailyCourtCount()),
       players:_dailyPlayers,
       matches:_dailyMatches,
@@ -2449,6 +2454,7 @@ function dailyLoad(){
     _dailyEndTime=s.operatingEnd||'22:00';
     _dailyPreparationDate=String(s.preparationDate||(!_dailyOperationStarted&&_dailyPlayers.length?_dailyLocalDateKey(s.savedAt||now):''));
     _dailySessionClubName=String(s.sessionClub||'');
+    _dailyOfficialRestoreDismissed=Array.isArray(s.officialRestoreDismissed)?s.officialRestoreDismissed.map(String):[];
     _dailyCourtOrder=_dailyDefaultCourtOrder(s.courts||3);
     const storedCheckinId=String(localStorage.getItem(DAILY_CHECKIN_KEY)||'');
     const savedCheckinId=String(s.checkinId||'');
@@ -2544,6 +2550,7 @@ function dailyApplyReviewSample(){
   _dailyResumedAt=0;
   _dailyPreparationDate='';
   _dailySessionClubName='';
+  _dailyOfficialRestoreDismissed=[];
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -3393,6 +3400,7 @@ function dailyReset(){
   _dailyResumedAt=0;
   _dailyPreparationDate='';
   _dailySessionClubName='';
+  _dailyOfficialRestoreDismissed=[];
   _dailyTeamMode=false;
   _dailyTeamLocked=false;
   _dailyVoteDeadlineAt='';
@@ -5578,6 +5586,18 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn" onclick="dailyImportRoster()">참가자 등록</button>`
     });
   }
+  // 세션 클럽 기록이 없는 라이브(기록 도입 전에 만든 세션): 임원 화면 명부가
+  // 추정 클럽으로 열립니다. 추정을 더 쌓는 대신 관리자가 버튼 한 번으로 확정
+  // (2026-08-13 실전: "임원화면 명부에서 불러오기 여전히 미르클럽만 나오네").
+  const rosterClubs=(rosters.clubs||[]).filter(c=>(c.members||[]).some(m=>m&&m.name));
+  if(_dailyCheckinId&&!_dailySessionClubName&&rosterClubs.length>1){
+    alerts.push({
+      cls:'warn',
+      title:'오늘 클럽 확인',
+      desc:'임원 화면 명부가 추정 클럽으로 열리고 있습니다. 오늘 세션의 클럽을 골라 주세요.',
+      actions:rosterClubs.slice(0,4).map(c=>`<button class="daily-mini-btn" onclick="dailySetSessionClub('${esc(String(c.name||''))}')">${esc(String(c.name||''))}</button>`).join('')
+    });
+  }
   if(_dailyPlayers.length&&endingMatches.length&&readyQueue){
     const courts=endingMatches.map(m=>`${m.court}코트`).join(', ');
     alerts.push({
@@ -6516,9 +6536,11 @@ function _dailyRenderReconcileBanner(){
   if(!el)return;
   // 명부에는 임원인데 세션 선수에는 임원 표시가 없는 경우 — 도착 전 등록 버그
   // (v1.10.527 이전)로 지워진 자격은 세션에 굳어 있어 명령으로 복구해야 합니다.
-  const stripped=_dailyCheckinId?_dailyStrippedOfficials():[];
+  // 단, 오늘 임원으로 안 뛰는 선수는 복구가 필요 없으니 관리자가 접을 수 있고,
+  // 접은 이름은 다시 묻지 않습니다(운영자 2026-08-13).
+  const stripped=_dailyCheckinId?_dailyOfficialRestoreCandidates():[];
   const officialFix=stripped.length
-    ? `<div class="daily-checkin-req-title">임원 자격 복구 필요</div><div class="daily-checkin-req-meta">명부에는 임원인데 오늘 명단에서 임원이 아닌 선수: ${esc(stripped.map(p=>p.name).join(', '))}</div><button type="button" class="daily-mini-btn primary-action" onclick="dailyRestoreOfficialFlags()">임원 자격 복구 (${stripped.length}명)</button>`
+    ? `<div class="daily-checkin-req-title">임원 자격 복구 필요</div><div class="daily-checkin-req-meta">명부에는 임원인데 오늘 명단에서 임원이 아닌 선수: ${esc(stripped.map(p=>p.name).join(', '))}</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button type="button" class="daily-mini-btn primary-action" onclick="dailyRestoreOfficialFlags()">임원 자격 복구 (${stripped.length}명)</button><button type="button" class="daily-mini-btn" onclick="dailyDismissOfficialRestore()">복구 안 함 · 닫기</button></div>`
     : '';
   el.hidden=!_dailyServerReconcileError&&!officialFix;
   el.innerHTML=[
@@ -6538,9 +6560,30 @@ function _dailyStrippedOfficials(){
   if(!officialNames.size)return [];
   return _dailyPlayers.filter(p=>p&&!p.isGuest&&!p.isClubOfficial&&officialNames.has(String(p.name||'').trim()));
 }
+function dailySetSessionClub(name){
+  const clubName=String(name||'').trim();
+  if(!clubName)return;
+  _dailySessionClubName=clubName;
+  dailySave();
+  if(_dailyCheckinId)_dailySyncArrivalCandidates();
+  dailyRender();
+  alert(`오늘 클럽을 ${clubName}(으)로 기록했습니다.\n임원 화면은 새로고침하면 이 클럽 명부로 열립니다.`);
+}
+function _dailyOfficialRestoreCandidates(){
+  return _dailyStrippedOfficials().filter(p=>!_dailyOfficialRestoreDismissed.includes(String(p.name||'').trim()));
+}
+function dailyDismissOfficialRestore(){
+  const stripped=_dailyOfficialRestoreCandidates();
+  stripped.forEach(p=>{
+    const name=String(p.name||'').trim();
+    if(name&&!_dailyOfficialRestoreDismissed.includes(name))_dailyOfficialRestoreDismissed.push(name);
+  });
+  if(stripped.length)dailySave();
+  _dailyRenderReconcileBanner();
+}
 async function dailyRestoreOfficialFlags(){
   if(_dailyBlockServerSync({action:'임원 자격 복구'}))return;
-  const stripped=_dailyStrippedOfficials();
+  const stripped=_dailyOfficialRestoreCandidates();
   if(!stripped.length){alert('복구할 임원이 없습니다.');dailyRender();return;}
   if(!confirm(`${stripped.map(p=>p.name).join(', ')} — ${stripped.length}명을 클럽 임원으로 복구할까요?\n\n복구되면 본인 이름을 고른 화면에 임원 운영 도구가 다시 붙습니다.`))return;
   let done=0;const reasons=[];
@@ -9940,8 +9983,12 @@ async function importDailySelected(status){
     .filter(Boolean);
   if(!sel.length){alert('선수를 1명 이상 선택해주세요.');return;}
   // 최초 선수 등록에 쓴 명부 클럽이 오늘 세션의 클럽입니다(운영자 2026-08-11).
-  // 임원 화면의 명부·지각 등록이 이 클럽을 따릅니다.
-  if(!_dailySessionClubName&&club?.name)_dailySessionClubName=String(club.name);
+  // 임원 화면의 명부·지각 등록이 이 클럽을 따릅니다. 라이브 중에 처음 기록되면
+  // 서버 후보도 바로 맞춥니다 — 전체 게시가 없는 경로라 부분 쓰기가 유일한 길.
+  if(!_dailySessionClubName&&club?.name){
+    _dailySessionClubName=String(club.name);
+    if(_dailyCheckinId)_dailySyncArrivalCandidates();
+  }
   // 게시된 뒤의 '현장 참가' 등록은 선수마다 서버 명령 한 건으로 보냅니다.
   // '도착 전' 등록은 대응하는 명령이 없어 게시 후에도 로컬입니다.
   // 도착 전 등록도 게시 후에는 서버 명령으로 보냅니다(명단에 없는 선수만 대상).
@@ -10155,7 +10202,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.542&from=daily';
+  location.href='team.html?v=1.10.543&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
