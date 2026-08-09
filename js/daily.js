@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.537';
+const APP_VERSION = '1.10.538';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -9759,10 +9759,15 @@ function renderDailyImportMembers(){
   if(!el)return;
   const existingByName=new Map(_dailyPlayers.map(p=>[p.name,p]));
   const isPre=p=>['invited','planned'].includes(_dailyNormalizeStatus(p.status));
+  // 사전 등록 후 되돌리기(운영자 2026-08-11 "전원 현장으로 처리하고 현장에서
+  // 도착 전 선수만 체킹"): 게시 전이면 아직 안 뛴 참가 중 선수를 다시 골라
+  // 「도착 전 등록」으로 돌릴 수 있습니다. 게시 후에는 되돌림 명령이 없어 불가.
+  const canRevert=p=>!_dailyCheckinId&&!!p&&String(p.status||'')==='wait'
+    &&!p.currentMatchId&&Number(p.games||0)===0;
   const canRegister=m=>{
     const existing=existingByName.get(m.name);
     if(!existing)return true;
-    return isPre(existing);
+    return isPre(existing)||canRevert(existing);
   };
   // 게스트 행은 'p:<id>' 값을 쓰므로 선택 보존은 문자열 키로 합니다.
   const prevChecked=new Set();
@@ -9772,7 +9777,7 @@ function renderDailyImportMembers(){
   // 명부 밖 도착 전 선수(게스트·직접 추가)도 같은 목록에서 도착 처리합니다.
   // 목록에 없으면 일괄 도착에서 빠져 게스트만 따로 챙겨야 합니다.
   const rosterNames=new Set((club?.members||[]).map(m=>m.name));
-  const extras=_dailyPlayers.filter(p=>isPre(p)&&!rosterNames.has(p.name));
+  const extras=_dailyPlayers.filter(p=>(isPre(p)||canRevert(p))&&!rosterNames.has(p.name));
   if((!club||!(club.members||[]).length)&&!extras.length){
     el.innerHTML='<div class="dir-empty">이 클럽에 등록된 회원이 없습니다</div>';
     return;
@@ -9811,11 +9816,16 @@ function renderDailyImportMembers(){
         <span style="font-size:.68rem;color:#ccc;"><span class="lv-badge" style="background:#f0f0f0;color:#bbb;border-color:#e0e0e0;">${esc(m.grade||'')}</span> ${esc(m.gender||'')}</span>
       </label>`;
     }
+    const stateTag=existing
+      ? (canRevert(existing)
+        ? '<span style="color:var(--gr,#2f8f5b);margin-right:5px;">참가 중</span>'
+        : '<span style="color:var(--warn);margin-right:5px;">도착 전</span>')
+      : '';
     return `<label class="import-member-row">
       <input type="checkbox" class="daily-import-chk" value="${m._origIdx}" ${checked?'checked':''}>
       <span style="flex:1;font-size:.84rem;font-weight:700;">${esc(m.name)}</span>
       <span style="font-size:.68rem;color:var(--dim);">
-        ${existing?'<span style="color:var(--warn);margin-right:5px;">도착 전</span>':''}
+        ${stateTag}
         <span class="lv-badge ${GC[m.level]||'lv3'}">${esc(m.grade||'C')}</span> ${esc(m.gender||'남')}
       </span>
     </label>`;
@@ -9826,7 +9836,7 @@ function renderDailyImportMembers(){
       <input type="checkbox" class="daily-import-chk" value="p:${esc(p.id)}" ${checked?'checked':''}>
       <span style="flex:1;font-size:.84rem;font-weight:700;">${esc(p.name)}</span>
       <span style="font-size:.68rem;color:var(--dim);">
-        <span style="color:var(--warn);margin-right:5px;">도착 전</span>
+        ${canRevert(p)?'<span style="color:var(--gr,#2f8f5b);margin-right:5px;">참가 중</span>':'<span style="color:var(--warn);margin-right:5px;">도착 전</span>'}
         ${p.isGuest?'<span style="margin-right:5px;">게스트</span>':''}
         <span class="lv-badge ${GC[_dailyLevel(p)]||'lv3'}">${esc(p.grade||'C')}</span> ${_dailyGenderLabel(p.gender)}
       </span>
@@ -9838,7 +9848,7 @@ function renderDailyImportMembers(){
   // 전체 선택은 목록 머리글에 둡니다 — 하단에 있으면 등록 버튼과 섞여 헷갈립니다
   // (운영자 피드백 2026-08-09). 보이는 행만 집으므로 필터와 같은 눈높이가 맞습니다.
   el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;font-size:.72rem;color:var(--dim);border-bottom:1px solid var(--bdr);background:var(--sur2);">
-    <span>오늘 추가 가능 <b style="color:var(--bl)">${available}명</b> · 도착 전 <b style="color:var(--warn)">${preCount}명</b> · 이미 있음 <b>${total-available}명</b></span>
+    <span>선택 가능 <b style="color:var(--bl)">${available}명</b> · 도착 전 <b style="color:var(--warn)">${preCount}명</b> · 이미 있음 <b>${total-available}명</b></span>
     <button type="button" class="dir-sort-btn" style="flex-shrink:0;" onclick="toggleDailySelectAll()">전체 선택/해제</button>
   </div>`+(body||'<div class="dir-empty">도착 전 선수가 없습니다</div>');
 }
@@ -9972,15 +9982,30 @@ async function importDailySelected(status){
       : `현장 참가로 등록한 선수가 없습니다.${done.reasons.length?`\n\n${done.reasons.join(', ')}`:''}`);
     return;
   }
-  let added=0,reactivated=0,skipped=0;
+  let added=0,reactivated=0,skipped=0,reverted=0;
+  // 사전 전원 등록 → 현장에서 안 온 선수만 도착 전으로 되돌리는 흐름
+  // (운영자 2026-08-11). 게시 전, 아직 안 뛴 참가 중 선수만 되돌립니다.
+  const revertToPlanned=existing=>{
+    if(_dailyCheckinId||!existing||String(existing.status||'')!=='wait'
+      ||existing.currentMatchId||Number(existing.games||0)>0)return false;
+    _dailyCancelReservationsForPlayer(existing.id,`${existing.name}님이 도착 전으로 바뀌어 게임신청이 자동 취소됐습니다.`,'admin-unarrive');
+    if(_dailyIsQueued(existing.id)){
+      if(!_dailyTryReplaceQueuedPlayer(existing.id,`${existing.name}님이 도착 전으로 바뀌어 대기표가 자동 조정됐습니다.`))_dailyRemoveQueuedPlayer(existing.id,`${existing.name}님이 도착 전으로 바뀌어 대기표가 자동 취소됐습니다.`);
+    }
+    _dailyApplyPlayerStatus(existing,'planned');
+    existing.preArrivalVisible=true;
+    return true;
+  };
   sel.forEach(m=>{
     if(m._playerRow){
-      // 명부 밖 도착 전 선수: 프로필(게스트 표시·급수)은 그대로 두고 상태만 바꿉니다.
+      // 명부 밖 선수: 프로필(게스트 표시·급수)은 그대로 두고 상태만 바꿉니다.
       const existing=_dailyPlayers.find(p=>p.name===m.name);
       if(existing&&['invited','planned'].includes(_dailyNormalizeStatus(existing.status))&&status==='wait'){
         _dailyApplyPlayerStatus(existing,'wait');
         existing.preArrivalVisible=false;
         added++;reactivated++;
+      }else if(status==='planned'&&revertToPlanned(existing)){
+        reverted++;
       }else skipped++;
       return;
     }
@@ -10022,19 +10047,23 @@ async function importDailySelected(status){
       if(status==='wait')reactivated++;
       return;
     }
+    if(status==='planned'&&revertToPlanned(existing)){reverted++;return;}
     skipped++;
   });
   const prunedCarryover=added?_dailyPruneForeignDormantCarryover():0;
-  if(added||prunedCarryover)_dailyNext=null;
+  if(added||reverted||prunedCarryover)_dailyNext=null;
   closeDailyImportModal();
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
-  if(added){
-    const actionLabel=status==='planned'?'도착 전 명단':'현장 참가';
-    alert(`${added}명을 ${actionLabel}으로 등록했습니다.${reactivated?` (도착 확인 ${reactivated}명)`:''}${prunedCarryover?` (이전 클럽 명단 ${prunedCarryover}명 정리)`:''}${skipped?` (중복 ${skipped}명 제외)`:''}${status==='planned'?'\n\n이름을 찾아 실중계는 볼 수 있지만, 임원이 도착을 확인하기 전에는 대진에 들어가지 않습니다.':'\n\n자유게임을 진행한 뒤 대진 게시를 눌러주세요.'}`);
+  if(added||reverted){
+    const actionLabel=status==='planned'?'도착 전 명단으로':'현장 참가로';
+    const parts=[];
+    if(added)parts.push(`${added}명을 ${actionLabel} 등록했습니다.`);
+    if(reverted)parts.push(`${reverted}명을 도착 전으로 되돌렸습니다.`);
+    alert(`${parts.join(' ')}${reactivated?` (도착 확인 ${reactivated}명)`:''}${prunedCarryover?` (이전 클럽 명단 ${prunedCarryover}명 정리)`:''}${skipped?` (중복 ${skipped}명 제외)`:''}${status==='planned'?'\n\n도착 전 선수는 임원이 도착을 확인하기 전까지 대진에 들어가지 않습니다.':'\n\n자유게임을 진행한 뒤 대진 게시를 눌러주세요.'}`);
   }else{
-    alert(status==='planned'?'새로 도착 전 등록된 선수가 없습니다.':'새로 참가 등록된 선수가 없습니다.');
+    alert(status==='planned'?'새로 도착 전 처리된 선수가 없습니다.':'새로 참가 등록된 선수가 없습니다.');
   }
 }
 
@@ -10145,7 +10174,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.537&from=daily';
+  location.href='team.html?v=1.10.538&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

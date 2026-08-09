@@ -265,4 +265,70 @@ function extractFunction(src, name){
   console.log('  모달 배선: 공용 코어 · 게스트 행 · 도착 전 필터 · 열 때 초기화 · 전체 선택 위치');
 }
 
+// 4) 역순 등록 흐름(운영자 2026-08-11 "전원 현장으로 처리하고 현장에서 도착 전
+//    선수만 체킹"): 사전에 전원 현장 참가로 올린 뒤, 게시 전 모달에서 안 온
+//    선수만 골라 「도착 전 등록」으로 되돌립니다. 실제 함수를 실행합니다.
+{
+  const vm=require('vm');
+  const calls={cancel:[],removedFromQueue:[],alerts:[]};
+  const players=[
+    {id:'w1',name:'왔음이',status:'wait',games:0,club:'일만클럽'},
+    {id:'w2',name:'대기중이',status:'wait',games:0,club:'일만클럽'},   // 대기표 보유
+    {id:'w3',name:'안온이',status:'wait',games:0,club:'일만클럽'},     // 선택 안 함
+    {id:'w4',name:'뛴선수',status:'wait',games:3,club:'일만클럽'}      // 되돌리기 불가
+  ];
+  const checks=[
+    {checked:true,value:'0'},{checked:true,value:'1'},
+    {checked:false,value:'2'},{checked:true,value:'3'}
+  ];
+  const sandbox={
+    rosters:{clubs:[{name:'일만클럽',members:[
+      {name:'왔음이',grade:'C',gender:'남'},{name:'대기중이',grade:'B',gender:'남'},
+      {name:'안온이',grade:'C',gender:'여'},{name:'뛴선수',grade:'A',gender:'남'}]}]},
+    _dailyImportClubIdx:0,
+    _dailyPlayers:players,
+    _dailyCheckinId:'',
+    _dailySessionClubName:'',
+    _dailyNext:{dummy:true},
+    document:{querySelectorAll:()=>checks},
+    _dailyBlockServerSync:()=>false,
+    _dailyCanChangeRoster:()=>true,
+    _dailyNormalizeStatus:s=>String(s||''),
+    _rsvpMemberId:p=>'m_'+p.name,
+    _dailyGenderLabel:g=>g,
+    _dailyApplyPlayerStatus:(p,s)=>{p.status=s;},
+    _dailyCancelReservationsForPlayer:id=>{calls.cancel.push(id);},
+    _dailyIsQueued:id=>id==='w2',
+    _dailyTryReplaceQueuedPlayer:()=>false,
+    _dailyRemoveQueuedPlayer:id=>{calls.removedFromQueue.push(id);},
+    _dailyPruneForeignDormantCarryover:()=>0,
+    closeDailyImportModal(){},dailySave(){},dailyRender(){},dailyMaybeAutoAssign(){},
+    alert:msg=>{calls.alerts.push(String(msg));}
+  };
+  vm.createContext(sandbox);
+  // extractFunction 은 async 접두를 떨어뜨리므로 다시 붙입니다(테스트 기록 참조).
+  vm.runInContext(`async ${extractFunction(daily,'importDailySelected')}
+importDailySelected('planned');`,sandbox);
+  assert.strictEqual(players[0].status,'planned','선택한 참가 중 선수는 도착 전으로 돌아가야 합니다.');
+  assert.strictEqual(players[0].preArrivalVisible,true,'되돌린 선수는 도착 전 명단에 보여야 합니다.');
+  assert.strictEqual(players[1].status,'planned','대기표 보유자도 되돌아가야 합니다.');
+  assert(calls.removedFromQueue.includes('w2'),'되돌릴 때 대기표를 정리해야 합니다.');
+  assert(calls.cancel.includes('w1')&&calls.cancel.includes('w2'),'되돌릴 때 게임신청을 취소해야 합니다.');
+  assert.strictEqual(players[2].status,'wait','선택하지 않은 선수는 그대로여야 합니다.');
+  assert.strictEqual(players[3].status,'wait','이미 뛴 선수는 되돌리면 안 됩니다.');
+  assert.strictEqual(sandbox._dailyNext,null,'되돌리면 대진 미리보기를 무효화해야 합니다.');
+  assert(calls.alerts.length===1&&calls.alerts[0].includes('2명을 도착 전으로 되돌렸습니다'),
+    `되돌린 인원을 알림으로 보고해야 합니다: ${calls.alerts[0]||'(알림 없음)'}`);
+  // 게시 후에는 되돌림 명령이 없으므로 잠겨야 합니다.
+  const render=extractFunction(daily,'renderDailyImportMembers');
+  assert(/canRevert=p=>!_dailyCheckinId/.test(render),
+    '되돌리기는 게시 전에만 열려야 합니다 — 게시 후엔 planned 전환 서버 명령이 없습니다.');
+  assert(render.includes('참가 중'),'모달이 참가 중 선수를 표시로 구분해야 합니다.');
+  assert(/\(isPre\(p\)\|\|canRevert\(p\)\)/.test(render),
+    '명부 밖 참가 중 선수(게스트)도 되돌리기 목록에 떠야 합니다.');
+  assert(index.includes('사전에는 전원'),
+    'index.html 안내가 역순 흐름(전원 현장 → 안 온 선수만 도착 전)을 설명해야 합니다.');
+  console.log('  역순 등록: 참가 중→도착 전 되돌리기 · 대기표 정리 · 뛴 선수 보호 · 게시 전 한정');
+}
+
 console.log('\ndaily import bulk arrival regression ok');
