@@ -59,8 +59,16 @@ assert(!/isClubOfficial|isTemporaryOfficial/.test(matchmaker),'대진 생성은 
 assert(!/isClubOfficial/.test(functionSource(dailySrc,'_dailyEligible','_dailyFairActual')),'관리자 대진 후보에서 임원을 빼면 안 됩니다.');
 // v561(운영자 결정): 파트너 지정 도구는 임원 화면에 이어 관리자에서도 뺐습니다
 // — 「다음 대진 짜기」가 대신합니다. 모드 코드는 남기되 진입 버튼은 없어야 합니다.
-assert(!/\['pair',[^\]]*파트너 지정/.test(dailySrc),
+assert(!/\['pair',[^\]]*파트너 지정/.test(dailySrc)&&!/mode\('pair'/.test(dailySrc),
   '관리자 도구 줄에 파트너 지정 버튼이 남아 있으면 안 됩니다.');
+// v562: 운영 도구는 임원 화면처럼 **상황판 안** 한 곳에만 둡니다.
+assert(indexHtml.includes('id="dailyDashboardTools"'),'상황판에 운영 도구 자리가 있어야 합니다.');
+assert(/toolsBox\.innerHTML=_dailyPlayerToolsHtml\(\)/.test(dailySrc),'도구 줄을 상황판에 그려야 합니다.');
+assert(!/list\.innerHTML=_dailyPlayerToolsHtml\(\)/.test(dailySrc),
+  '선수 목록에 도구 줄을 또 그리면 진입점이 둘이 됩니다.');
+assert(!indexHtml.includes('id="dailyFinishBtn"'),
+  '마무리는 상황판 도구 하나로 — 제어 줄의 중복 버튼은 없어야 합니다.');
+assert(/act\('dailyToggleFinishMode\(\)'/.test(dailySrc),'마무리가 상황판 도구에 있어야 합니다.');
 // 관리자 선수 목록은 임원 화면과 같은 구조여야 합니다: 행에서 바로 처리하고, 시트(모달)는 없습니다.
 const dailyRowActions=functionSource(dailySrc,'_dailyPlayerRowActions','_dailyPlayerToolsHtml');
 ['복귀','휴식','종료'].forEach(label=>assert(dailyRowActions.includes(`label:'${label}'`),`관리자 선수 행에 ${label} 버튼이 있어야 합니다.`));

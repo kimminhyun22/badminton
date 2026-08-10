@@ -3199,3 +3199,11 @@ html,body{overscroll-behavior-y:none;}
 .daily-court-card.free{border-style:solid;border-color:var(--ad-hairline);background:#fff;}
 .daily-court-card.busy{background:#fff;}
 .daily-pair-banner{background:#f7f9fc;border:1px solid var(--ad-hairline);color:var(--ad-mut);}
+
+.daily-live-control-strip[hidden]{display:none!important;}
+/* 상황판 운영 도구 — 임원 화면과 같은 3열 두 줄 */
+#dailyDashboardTools{margin-top:10px;}
+#dailyDashboardTools .daily-player-modes{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;
+}
+#dailyDashboardTools .daily-player-tool{width:100%;}

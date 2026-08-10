@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.561';
+const APP_VERSION = '1.10.562';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3268,10 +3268,14 @@ async function dailyRenamePlayer(id){
 // 평소에는 행에 상태 버튼만 두고, 가끔 쓰는 파트너·이름·삭제는 상단 도구 모드를 켰을 때만
 // 그 버튼만 보여 줍니다. 예전의 선수 시트(모달)는 없앴습니다.
 function setDailyPlayerTool(mode){
+  // 임원 화면은 모드를 켜면 처리할 명단을 자동으로 펼칩니다. 관리자도 같게 —
+  // 도구가 상황판에 있으므로 켠 뒤 선수 목록으로 데려갑니다.
+  const willOpen = _dailyPlayerTool!==mode;
   const allowed=['pair','helper','rename','remove'];
   _dailyPlayerTool=allowed.includes(mode)&&_dailyPlayerTool!==mode?mode:'';
   if(_dailyPlayerTool!=='pair')dailyCancelPair();
   else dailyRender();
+  if(willOpen&&_dailyPlayerTool&&typeof dailyOpenBoardTarget==='function')dailyOpenBoardTarget('players');
 }
 // 파트너 지정 모드: 한 명을 고른 뒤 같이 칠 사람의 '선택'을 누릅니다.
 async function dailyPlayerPairPick(id){
@@ -3344,31 +3348,36 @@ function _dailyIcon(name){
   return d?`<svg class="daily-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`:'';
 }
 function _dailyPlayerToolsHtml(){
+  // 임원 화면 「운영 현황」의 도구 줄과 같은 구성·순서입니다(운영자 2026-08-13
+  // "ux/ui 거의 동일하게"). 진입점은 상황판 하나뿐 — 선수 목록에는 두지 않습니다.
   const helperCount=_dailyPlayers.filter(player=>player?.isTemporaryOfficial&&!player.isClubOfficial).length;
-  // 임원 화면과 같은 언어로 통일(운영자 2026-08-13): 이모지 + 쓰임새 묶음.
-  // 순서는 명단을 다루는 것부터, 파괴적인 삭제는 맨 뒤(붉은 글자).
-  // 임원 화면과 같은 언어로 통일(운영자 2026-08-13): 이모지 + 쓰임새 묶음.
-  // 명단을 다루는 것 먼저, 파괴적인 삭제는 붉은 글자.
-  // 파트너 지정은 임원 화면에 이어 관리자에서도 뺐습니다(운영자 2026-08-13) —
-  // 「다음 대진 짜기」가 대신합니다. 모드 코드는 남겨 둡니다(게임신청 접수 경로 공용).
-  const tools=[['rename','✏️','이름 변경',''],['remove','🚫','삭제','danger'],
-    ['helper','🤝',`도우미 ${helperCount}`,'']]
-    .map(([key,emo,label,cls])=>`<button type="button" class="daily-player-tool ${cls} ${_dailyPlayerTool===key?'active':''}" onclick="setDailyPlayerTool('${key}')" aria-pressed="${_dailyPlayerTool===key?'true':'false'}"><span class="dt-emo" aria-hidden="true">${emo}</span>${label}</button>`)
-    .join('');
-  const picked=_dailyPlayer(_dailyPairSelectId);
-  const note=_dailyPlayerTool==='pair'
-    ? (picked
-        ? `<b>${esc(picked.name)}</b>님과 같은 편으로 묶을 선수의 <b>선택</b>을 누르세요.`
-        : '같은 편으로 묶을 두 선수를 차례로 <b>선택</b>하세요.')
-    : _dailyPlayerTool==='helper'
-      ? `오늘만 운영을 도울 회원을 <b>지정</b>하세요(최대 ${DAILY_TEMPORARY_OFFICIAL_LIMIT}명). 운동이 끝나면 자동으로 해제됩니다.`
-      : _dailyPlayerTool==='rename'
-        ? '이름을 바꿀 선수의 <b>이름 변경</b>을 누르세요.'
-        : _dailyPlayerTool==='remove'
-          ? '명단에서 뺄 선수의 <b>삭제</b>를 누르세요. 경기중 선수는 경기를 먼저 정리해야 합니다.'
-          : '';
+  const courts=_dailyCourtCount();
+  const finishOn=!!_dailyFinishMode;
+  const blocked=!!_dailyPaused;
+  const dis=blocked?'disabled':'';
+  const mode=(key,emo,label,cls)=>`<button type="button" class="daily-player-tool ${cls||''} ${_dailyPlayerTool===key?'active':''}" onclick="setDailyPlayerTool('${key}')" aria-pressed="${_dailyPlayerTool===key?'true':'false'}"><span class="dt-emo" aria-hidden="true">${emo}</span>${label}</button>`;
+  const act=(onclick,emo,label,cls,pressed)=>`<button type="button" class="daily-player-tool ${cls||''} ${pressed?'active':''}" ${dis} onclick="${onclick}" ${pressed!=null?`aria-pressed="${pressed?'true':'false'}"`:''}><span class="dt-emo" aria-hidden="true">${emo}</span>${label}</button>`;
+  const tools=[
+    act('dailyImportRoster()','🙋','선수 추가'),
+    _dailyOperationStarted?act('dailyToggleFinishMode()','🏁',finishOn?'마무리 해제':'마무리','',finishOn):'',
+    act('dailyOpenCourtSetting()','🏸',`코트 ${courts}`),
+    mode('helper','🤝',`도우미 ${helperCount}`),
+    mode('rename','✏️','이름 변경'),
+    mode('remove','🚫','삭제','danger')
+  ].filter(Boolean).join('');
+  const note=_dailyPlayerTool==='helper'
+    ? `오늘만 운영을 도울 회원을 <b>지정</b>하세요(최대 ${DAILY_TEMPORARY_OFFICIAL_LIMIT}명). 운동이 끝나면 자동으로 해제됩니다.`
+    : _dailyPlayerTool==='rename'
+      ? '이름을 바꿀 선수의 <b>이름 변경</b>을 누르세요.'
+      : _dailyPlayerTool==='remove'
+        ? '명단에서 뺄 선수의 <b>삭제</b>를 누르세요. 경기중 선수는 경기를 먼저 정리해야 합니다.'
+        : '';
   const banner=note?`<div class="daily-pair-banner">${note}<button type="button" onclick="setDailyPlayerTool('${_dailyPlayerTool}')">닫기</button></div>`:'';
-  return `<div class="daily-player-modes" aria-label="선수 관리 도구">${tools}</div>${banner}`;
+  return `<div class="daily-player-modes" aria-label="운영 도구">${tools}</div>${banner}`;
+}
+// 코트 수 설정으로 이동 — 상황판 도구에서 바로 갑니다.
+function dailyOpenCourtSetting(){
+  if(typeof dailyOpenBoardTarget==='function')dailyOpenBoardTarget('setup');
 }
 async function dailyRemovePlayer(id){
   if(_dailyBlockServerSync({action:'선수 제외'}))return;
@@ -5827,7 +5836,12 @@ function dailyRenderOpsStats(){
     finishBtn.disabled=_dailyPaused||_dailyPauseSyncBusy;
   }
   const controlStrip=document.querySelector('.daily-live-control-strip');
-  if(controlStrip)controlStrip.classList.toggle('single',Number(showTransition)+Number(showFinish)===1);
+  if(controlStrip){
+    // 마무리를 상황판 도구로 옮긴 뒤로 이 줄에는 「대진 게시」만 남습니다.
+    // 게시가 끝나 버튼이 없으면 줄 자체를 감춥니다 — 빈 칸이 남지 않도록.
+    controlStrip.classList.toggle('single',true);
+    controlStrip.hidden=!showTransition;
+  }
   // 일시 정지 시작 버튼은 뺐습니다(운영자 요청 2026-08-08). 오조작 한 번이면
   // 임원 코트 진행까지 전부 막힙니다. 이전에 걸린 정지를 푸는 길은 남깁니다.
   const pauseNotice=document.getElementById('dailyPauseNotice');
@@ -5881,6 +5895,9 @@ function dailyRenderOpsStats(){
   if(liveAdds)cards.push({label:'라이브 추가',value:liveAdds,hint:'오등록 확인',cls:'warn',target:'liveAdds'});
   el.innerHTML=cards.map(x=>`<button type="button" class="daily-op ${x.cls||''} is-link" onclick="dailyOpenBoardTarget('${esc(x.target)}')" aria-label="${esc(x.label)} 보기"><b>${esc(String(x.value))}</b><span>${esc(x.label)}</span><small>${esc(x.hint)}</small></button>`).join('');
   dailyRenderHeadcount();
+  // 운영 도구는 상황판에 그립니다(임원 화면 「운영 현황」과 같은 자리).
+  const toolsBox=document.getElementById('dailyDashboardTools');
+  if(toolsBox)toolsBox.innerHTML=_dailyPlayerToolsHtml();
   dailyRenderLiveAdditions();
   dailyRenderStatusBar();
   dailyRenderAdminAlerts();
@@ -9219,7 +9236,7 @@ function dailyRender(){
         </span>
         ${_dailyPlayerRowActions(p)}
       </div>`).join(''):`<div class="daily-empty">검색 결과가 없습니다.</div>`;
-      list.innerHTML=_dailyPlayerToolsHtml()+rows;
+      list.innerHTML=rows;
     }
   }
   dailyRenderRecommend();
@@ -10264,7 +10281,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.561&from=daily';
+  location.href='team.html?v=1.10.562&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
