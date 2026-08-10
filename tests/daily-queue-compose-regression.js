@@ -278,6 +278,15 @@ function extractFunction(src, name){
   // 대기 팀에서 데려올 때의 확인창 안내(운영자 2026-08-11 결정).
   assert(checkin.includes('순번을 지킨 채 빈 자리가 자동 보충'),
     '대기 팀 선수를 데려올 때 팀이 유지된다는 안내가 있어야 합니다.');
+  // 중복 예약 경고(운영자 2026-08-13 "마무리 후 자율게임 신청이 겹칠 때
+  // 어떤 결정을 내릴지 경고가 필요"): 몇 순위에 잡혀 있는지까지 말해야 합니다.
+  assert(checkin.includes('function officialQueueIndexOfPlayer'),
+    '이미 잡힌 순위를 알려 주는 helper 가 있어야 합니다.');
+  assert(checkin.includes('순위 예약됨'),'후보 줄에 몇 순위 예약인지 보여야 합니다.');
+  assert(checkin.includes('⚠ 이미 예약된 선수'),'중복 예약은 경고로 띄워야 합니다.');
+  assert(checkin.includes('⚠ 같은 네 명이 이미'),'같은 네 명 중복 신청도 경고해야 합니다.');
+  assert(checkin.includes('보충할 대기 인원이 없으면 그 대진은 해체됩니다'),
+    '해체 가능성까지 알려야 임원이 판단할 수 있습니다.');
   // 도착 전 선수 참가 등록(운영자 2026-08-11 "임원은 도착 전 선수를 참가등록으로
   // 처리할 수 있어야"). arrivalCandidates 는 관리자 게시 시점의 스냅샷이라,
   // 게시 후 서버 명령으로 등록된 도착 전 선수가 빠지면 '참가 등록 준비 중'에
