@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.566';
+const APP_VERSION='1.10.567';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1477,6 +1477,43 @@ function _substituteCandidates(d,match,outName){
       ||a.games-b.games||String(a.name).localeCompare(String(b.name),'ko'))
     .slice(0,8);
 }
+// 서명된 운영 권한 — 본인 이름을 고르면 서버가 내주고, 조작마다 함께 보냅니다.
+// 이름만 실어 보내던 이전 단계의 위조 여지를 없앱니다(민턴LIVE 와 같은 구조).
+let _teamGrantToken='', _teamGrantName='', _teamGrantExpiresAt=0, _teamGrantPending=null;
+function _teamClientId(){
+  try{
+    let id=localStorage.getItem('kokmatch_team_client');
+    if(!id){
+      id='tc_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
+      localStorage.setItem('kokmatch_team_client',id);
+    }
+    return id;
+  }catch(e){ return 'tc_fallback'; }
+}
+async function ensureTeamOfficialGrant(d){
+  const viewer=_viewerInfo(d);
+  const name=viewer&&(viewer.n||viewer.name)||'';
+  if(!name||!_canSubstitute(d))return '';
+  const fresh=_teamGrantToken&&_teamGrantName===name&&Date.now()<_teamGrantExpiresAt-60_000;
+  if(fresh)return _teamGrantToken;
+  if(_teamGrantPending)return _teamGrantPending;
+  if(!liveId||!window.firebase||!firebase.functions)return '';
+  _teamGrantPending=(async()=>{
+    try{
+      const callable=firebase.functions().httpsCallable('claimTeamOfficialInvite');
+      const res=await callable({liveId,clientId:_teamClientId(),name});
+      const data=res&&res.data;
+      if(data&&data.ok&&data.grantToken){
+        _teamGrantToken=data.grantToken;
+        _teamGrantName=data.playerName||name;
+        _teamGrantExpiresAt=Number(data.expiresAt)||0;
+        return _teamGrantToken;
+      }
+    }catch(e){ /* 연결 실패는 조작 시점에 안내합니다 */ }
+    return '';
+  })().finally(()=>{ _teamGrantPending=null; });
+  return _teamGrantPending;
+}
 async function submitTeamSubstitute(matchNum,outName,inName,opts){
   const d=window._lastLiveData;
   const match=_matchByNum(d,matchNum);
@@ -1489,7 +1526,9 @@ async function submitTeamSubstitute(matchNum,outName,inName,opts){
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
     const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
-    const res=await callable({liveId,command:{
+    const grantToken=await ensureTeamOfficialGrant(d);
+    if(!grantToken)return alert('임원 운영 연결을 확인하지 못했습니다.\n내 이름을 다시 선택한 뒤 시도해주세요.');
+    const res=await callable({liveId,grantToken,command:{
       type:'team-official-substitute',
       operationId:'tsub_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
       actorPlayerName:viewer.n||viewer.name||'',
@@ -1907,6 +1946,8 @@ function buildNextPanel(nextMatches,d){
 
 function render(d){
   document.body.classList.toggle('team-live-view',_isTeamLiveData(d));
+  // 임원이면 운영 권한을 미리 받아 둡니다 — 첫 조작에서 기다리지 않도록.
+  if(typeof ensureTeamOfficialGrant==='function'&&_canSubstitute(d))ensureTeamOfficialGrant(d);
   _randomizeViewerGender();
   window._lastLiveData=d;
   window._liveLate=_lateMapFromData(d);

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const admin = require('firebase-admin');
 const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {applyTeamOfficialRequest} = require('./team-official-engine');
+const {applyTeamOfficialClaim} = require('./team-official-claim');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {defineSecret} = require('firebase-functions/params');
 const {
@@ -41,6 +42,12 @@ function cleanCheckinId(value){
   return id;
 }
 
+// 팀전 라이브 id — live/<liveId> 경로에 그대로 쓰이므로 문자를 좁힙니다.
+function cleanLiveId(value){
+  const id = String(value || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+  if(!id)throw new HttpsError('invalid-argument', '팀전 링크를 확인하지 못했습니다.');
+  return id;
+}
 function cleanClientId(value){
   const id = String(value || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
   if(id.length < 16)throw new HttpsError('invalid-argument', '임원 기기 연결 정보를 다시 확인해 주세요.');
@@ -306,11 +313,55 @@ const LIVE_RETAIN_WITHOUT_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000;
  * 방지는 다음 단계입니다. 그래도 클라이언트가 대진을 직접 덮어쓰던 것보다는
  * 안전합니다 — 규칙 검사를 화면에서 지울 수 없습니다.
  */
+/**
+ * 팀전 임원 운영 연결 — 본인 이름을 고르면 서명된 권한을 내줍니다
+ * (민턴LIVE `claimDailyOfficialInvite` 와 같은 구조).
+ */
+exports.claimTeamOfficialInvite = onCall(FUNCTION_OPTIONS, async request=>{
+  const liveId = cleanLiveId(request.data?.liveId);
+  const clientId = cleanClientId(request.data?.clientId);
+  const requestedName = String(request.data?.name || '').slice(0, 40);
+  if(!requestedName)throw new HttpsError('invalid-argument', '명단에서 본인 이름을 선택해 주세요.');
+  const now = Date.now();
+  const claimNonce = crypto.randomBytes(12).toString('hex');
+  const ref = admin.database().ref(`live/${liveId}`);
+  let outcome = null;
+
+  const result = await ref.transaction(current=>{
+    if(current == null)return;
+    outcome = applyTeamOfficialClaim(current, {clientId, requestedName, now, maxGrantMs:MAX_GRANT_MS, claimNonce});
+    return outcome.action === 'commit' ? outcome.current : undefined;
+  }, undefined, false);
+
+  if(!result.snapshot.exists())throw new HttpsError('not-found', '종료되었거나 없는 팀전입니다.');
+  if(!result.committed){
+    throw new HttpsError(outcome?.failureCode || 'permission-denied',
+      outcome?.failureMessage || '임원 운영 연결을 만들지 못했습니다.');
+  }
+  const grantToken = issueOfficialGrant({
+    v:1, sid:liveId, cid:clientId, nm:String(outcome.officialName || ''),
+    cn:String(outcome.claimNonce || ''), iat:now, exp:Number(outcome.grantExpiresAt || 0)
+  }, OFFICIAL_GRANT_SECRET.value());
+  return {ok:true, grantToken, expiresAt:outcome.grantExpiresAt,
+    playerName:outcome.officialName, memberId:outcome.officialMemberId};
+});
+
 exports.submitTeamOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
-  const liveId = String(request.data?.liveId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
-  if(!liveId)throw new HttpsError('invalid-argument', '팀전 링크를 확인하지 못했습니다.');
+  const liveId = cleanLiveId(request.data?.liveId);
   const operationId = safeOperationId(request.data?.command?.operationId);
   const command = request.data?.command || {};
+  // 서명된 권한이 있어야 받습니다 — 이름만 실어 보내는 위조를 막습니다.
+  const grantToken = String(request.data?.grantToken || '');
+  const now0 = Date.now();
+  const verified = verifyOfficialGrant(grantToken, OFFICIAL_GRANT_SECRET.value(), liveId, now0);
+  if(!verified.ok)throw new HttpsError('permission-denied', verified.reason || '임원 운영 연결을 확인하지 못했습니다.');
+  const grantName = String(verified.payload?.nm || '');
+  if(!grantName)throw new HttpsError('permission-denied', '임원 본인 이름을 다시 선택해 주세요.');
+  const actorName = String(command.actorPlayerName || '');
+  const sameName = (a,b)=>String(a).replace(/\s+/g,'').toLowerCase()===String(b).replace(/\s+/g,'').toLowerCase();
+  if(!sameName(grantName, actorName)){
+    throw new HttpsError('permission-denied', '연결된 임원 본인 이름으로만 처리할 수 있습니다.');
+  }
   const canonicalCommand = canonicalJson(command);
   if(Buffer.byteLength(canonicalCommand, 'utf8') > MAX_COMMAND_BYTES){
     throw new HttpsError('invalid-argument', '운영 요청 내용이 너무 큽니다.');
