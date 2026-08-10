@@ -6,11 +6,21 @@ const assert = require('assert');
   const src=fs2.readFileSync(path2.join(__dirname,'..','checkin.html'),'utf8');
   // 좁은 화면(360px 이하)용 축소 규칙과 섞이지 않게 기본 선언만 봅니다.
   const size=re=>{const m=src.match(re); return m?parseFloat(m[1]):0;};
-  const active=size(/\.event-active-player\{font-size:(\d+(?:\.\d+)?)px;line-height:1\.16/);
-  const next=size(/\.event-next-line\{font-size:(\d+(?:\.\d+)?)px;letter-spacing:-\.04em/);
-  assert(active>=20,`진행 중 이름은 20px 이상이어야 합니다(현재 ${active}).`);
-  assert(next>=17,`다음 대진 이름은 17px 이상이어야 합니다(현재 ${next}).`);
+  const active=size(/\.event-active-player\.replaceable\{font-size:(\d+(?:\.\d+)?)px;font-weight:1000/);
+  const next=size(/\.event-next-player\.replaceable\{font-size:(\d+(?:\.\d+)?)px;font-weight:1000/);
+  assert(active>=23,`진행 중 이름은 23px 이상이어야 합니다(현재 ${active}).`);
+  assert(next>=19,`다음 대진 이름은 19px 이상이어야 합니다(현재 ${next}).`);
   assert(active>next,'진행 중 이름이 다음 대진보다 커야 위계가 보입니다.');
+  // 함정: 이름은 교체 버튼(.replaceable)으로도 그려지고, 그 규칙의 `font:inherit`
+  // 가 크기·굵기를 되돌립니다. 버튼 선택자를 빼면 실제 화면에서는 안 커집니다
+  // (2026-08-13 실측으로 잡음 — v546 확대가 이 이유로 먹히지 않았습니다).
+  assert(/\.event-active-player,\s*\n\.event-active-player\.replaceable\{font-size:/.test(src),
+    '진행 중 이름 크기 규칙은 .replaceable 버튼까지 함께 걸어야 합니다.');
+  assert(/\.event-next-player,\s*\n\.event-next-player\.replaceable\{font-size:/.test(src),
+    '다음 대진 이름 크기 규칙도 .replaceable 버튼까지 함께 걸어야 합니다.');
+  // 「진행중」 글자는 뺐습니다(남은 시간 배지·코트 번호가 이미 말합니다).
+  assert(!/event-match-title">진행중</.test(src),
+    '진행 중 카드에 「진행중」 글자를 다시 넣으면 안 됩니다.');
 }
 const fs = require('fs');
 const path = require('path');
