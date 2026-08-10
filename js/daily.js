@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.560';
+const APP_VERSION = '1.10.561';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3331,10 +3331,29 @@ function _dailyPlayerRowActions(p){
     : '';
   return `<span class="daily-player-actions">${buttons}${preArrival}</span>`;
 }
+// 관리자 화면 아이콘(임원 화면 obIcon 과 같은 선 도형). 외부 자산 없이 인라인
+// SVG — 색은 currentColor 를 따라 버튼 위계 색을 그대로 입습니다.
+function _dailyIcon(name){
+  const paths={
+    check:'M5 12.5l4.5 4.5L19 7',
+    x:'M6.5 6.5l11 11M17.5 6.5l-11 11',
+    redo:'M20 11a8 8 0 1 0-2.2 5.5M20 5v6h-6',
+    trash:'M4.5 7h15M9.5 7V4.5h5V7M7 7l1 12.5h8L17 7'
+  };
+  const d=paths[name];
+  return d?`<svg class="daily-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`:'';
+}
 function _dailyPlayerToolsHtml(){
   const helperCount=_dailyPlayers.filter(player=>player?.isTemporaryOfficial&&!player.isClubOfficial).length;
-  const tools=[['pair','파트너 지정'],['helper',`운영 도우미 ${helperCount}/${DAILY_TEMPORARY_OFFICIAL_LIMIT}`],['rename','이름 변경'],['remove','삭제']]
-    .map(([key,label])=>`<button type="button" class="daily-player-tool ${_dailyPlayerTool===key?'active':''}" onclick="setDailyPlayerTool('${key}')" aria-pressed="${_dailyPlayerTool===key?'true':'false'}">${label}</button>`)
+  // 임원 화면과 같은 언어로 통일(운영자 2026-08-13): 이모지 + 쓰임새 묶음.
+  // 순서는 명단을 다루는 것부터, 파괴적인 삭제는 맨 뒤(붉은 글자).
+  // 임원 화면과 같은 언어로 통일(운영자 2026-08-13): 이모지 + 쓰임새 묶음.
+  // 명단을 다루는 것 먼저, 파괴적인 삭제는 붉은 글자.
+  // 파트너 지정은 임원 화면에 이어 관리자에서도 뺐습니다(운영자 2026-08-13) —
+  // 「다음 대진 짜기」가 대신합니다. 모드 코드는 남겨 둡니다(게임신청 접수 경로 공용).
+  const tools=[['rename','✏️','이름 변경',''],['remove','🚫','삭제','danger'],
+    ['helper','🤝',`도우미 ${helperCount}`,'']]
+    .map(([key,emo,label,cls])=>`<button type="button" class="daily-player-tool ${cls} ${_dailyPlayerTool===key?'active':''}" onclick="setDailyPlayerTool('${key}')" aria-pressed="${_dailyPlayerTool===key?'true':'false'}"><span class="dt-emo" aria-hidden="true">${emo}</span>${label}</button>`)
     .join('');
   const picked=_dailyPlayer(_dailyPairSelectId);
   const note=_dailyPlayerTool==='pair'
@@ -9766,8 +9785,8 @@ function dailyRenderMatches(){
           <div class="daily-court-team-name b">${t2.map((p,i)=>playerButton('team2',p,i)).join('')}</div>
         </div>
         <div class="daily-court-actions">
-          <button class="daily-mini-btn danger" data-daily-complete="${m.id}" ${pausedAttr} onclick="dailyOperatorCompleteMatch('${m.id}')">종료</button>
-          <button class="daily-mini-btn" ${pausedAttr} onclick="dailyCancelMatch('${m.id}')" title="잘못 투입한 경기를 없던 일로 되돌립니다. 경기 수는 오르지 않습니다.">취소</button>
+          <button class="daily-mini-btn primary-action" data-daily-complete="${m.id}" ${pausedAttr} onclick="dailyOperatorCompleteMatch('${m.id}')">${_dailyIcon('check')}경기 종료</button>
+          <button class="daily-icon-btn danger" ${pausedAttr} onclick="dailyCancelMatch('${m.id}')" title="경기 취소" aria-label="경기 취소 — 잘못 투입한 경기를 없던 일로">${_dailyIcon('x')}</button>
         </div>
       </div>
     </div>`;
@@ -10245,7 +10264,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.560&from=daily';
+  location.href='team.html?v=1.10.561&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

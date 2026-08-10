@@ -3143,3 +3143,59 @@ html,body{overscroll-behavior-y:none;}
 .daily-reconcile-banner .daily-checkin-req-meta{font-size:.78rem;color:#78350f;line-height:1.55;}
 .daily-reconcile-banner button{align-self:flex-start;}
 .daily-pause-notice button{margin-top:6px;}
+
+
+/* ═══ 관리자 화면 — 임원 화면과 같은 디자인 언어로 통일 (v1.10.561,
+   운영자 2026-08-13 "임원화면과 같이 관리자페이지도 대시보드화 통일").
+   규칙: 흰 버튼 + 헤어라인, 켜진 것만 파랑으로 채움, 파괴는 붉은 글자,
+   자주 안 쓰는 조작은 아이콘 한 줄, 이름은 크고 굵게. ═══ */
+:root{
+  --ad-blue:#0a6cff;--ad-blue-deep:#0b4dab;--ad-blue-tint:#eef4ff;
+  --ad-red:#d63a41;--ad-red-tint:#fdf1f1;
+  --ad-ink:#0f172a;--ad-mut:#5c6a7a;--ad-hairline:rgba(22,34,52,.14);
+}
+/* 선 아이콘 */
+.daily-ic{
+  width:15px;height:15px;stroke:currentColor;stroke-width:2.4;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;vertical-align:-2.5px;margin-right:6px;
+}
+.daily-icon-btn{
+  width:36px;height:36px;min-width:36px;min-height:36px;flex:none;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:0;border-radius:10px;background:#f1f3f6;color:var(--ad-mut);cursor:pointer;
+}
+.daily-icon-btn .daily-ic{margin:0;width:16px;height:16px;}
+.daily-icon-btn.danger{color:var(--ad-red);}
+.daily-icon-btn:disabled{opacity:.35;cursor:default;}
+.daily-icon-btn:active:not(:disabled){transform:scale(.96);}
+/* 진행 코트 조작 — 이름 붙은 주버튼 하나 + 아이콘 */
+.daily-court-actions{display:flex;align-items:center;gap:6px;}
+.daily-court-actions .daily-mini-btn.primary-action{
+  flex:1;min-height:40px;border:0;border-radius:12px;
+  background:var(--ad-blue);color:#fff;font-weight:900;
+}
+/* 선수 관리 도구 — 이모지 + 흰 버튼, 켜진 것만 파랑 */
+.daily-player-modes{display:flex;flex-wrap:wrap;gap:6px;}
+.daily-player-tool{
+  display:inline-flex;flex-direction:row;align-items:center;justify-content:center;
+  flex:0 1 auto;min-height:40px;padding:9px 12px;
+  border:1px solid var(--ad-hairline);border-radius:11px;background:#fff;color:var(--ad-ink);
+  font-size:14px;font-weight:900;white-space:nowrap;cursor:pointer;
+  box-shadow:0 1px 2px rgba(20,32,50,.05);
+}
+.daily-player-tool .dt-emo{margin-right:5px;font-size:14px;line-height:1;flex:none;}
+.daily-player-tool.danger{color:var(--ad-red);}
+.daily-player-tool.active{
+  border-color:var(--ad-blue);background:var(--ad-blue);color:#fff;
+  box-shadow:0 1px 3px rgba(10,108,255,.3);
+}
+.daily-player-tool.danger.active{border-color:var(--ad-red);background:var(--ad-red);color:#fff;}
+/* 이름은 이 화면에서도 가장 중요한 정보 — 임원 화면과 같은 크기로 */
+.daily-court-stack .daily-court-team-name,
+.daily-court-team-name{font-size:20px;font-weight:1000;color:var(--ad-ink);letter-spacing:-.04em;}
+.daily-active-player{font-size:inherit;font-weight:inherit;color:inherit;}
+.daily-next-player{font-size:16px;font-weight:1000;color:var(--ad-ink);letter-spacing:-.03em;}
+/* 점선·틴트 정리 — 상태는 테두리 한 겹으로 */
+.daily-court-card.free{border-style:solid;border-color:var(--ad-hairline);background:#fff;}
+.daily-court-card.busy{background:#fff;}
+.daily-pair-banner{background:#f7f9fc;border:1px solid var(--ad-hairline);color:var(--ad-mut);}
