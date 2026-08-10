@@ -405,19 +405,6 @@ this.club=officialPrimaryClub();`,legacy);
     // 상태 문구가 이미 말하는데 알약이 버튼처럼 보여 누르게 됩니다.
     assert(!/event-wait-pill">조금 쉬고/.test(checkin),
       '일시정지 대진에 「조금 쉬고」 알약을 다시 띄우면 안 됩니다.');
-    // 도구는 중요도 순으로 놓입니다: 선수 추가 → 마무리 → 코트 → 도우미 → 이름 변경 → 제외.
-    // 라벨이 삼항식 안에 있는 것도 있어 각 도구의 고유 호출로 위치를 잽니다.
-    const seq=[
-      ['선수 추가',"setOfficialOverviewMode('add')"],
-      ['마무리','sendOfficialFinishMode'],
-      ['코트 수','sendOfficialSettingsCourts'],
-      ['운영 도우미',"setOfficialOverviewMode('helper')"],
-      ['이름 변경',"setOfficialOverviewMode('rename')"],
-      ['제외',"setOfficialOverviewMode('remove')"]
-    ].map(([label,marker])=>({label,pos:summarySrc.indexOf(marker)}));
-    seq.forEach(({label,pos})=>assert(pos>=0,`${label} 도구가 있어야 합니다.`));
-    seq.slice(1).forEach((cur,i)=>assert(cur.pos>seq[i].pos,
-      `중요도 순이 어긋났습니다: ${seq[i].label} 다음에 ${cur.label} 가 와야 합니다.`));
     // 이모지(운영자 2026-08-13): 여섯 도구 모두 앞에 붙고, 스크린리더는
     // 이름만 읽도록 aria-hidden 이어야 합니다.
     assert(/const emo=ch=>`<span class="ot-emo" aria-hidden="true">/.test(summarySrc),
@@ -429,6 +416,20 @@ this.club=officialPrimaryClub();`,legacy);
     // 글자 위로 올라가 버튼이 두 줄이 됩니다(2026-08-13 실측).
     assert(/\.official-overview-tool\{[\s\S]{0,400}flex-direction:row/.test(checkin),
       '도구 버튼은 행 방향을 명시해야 합니다 — 전역 button 규칙이 세로로 쌓습니다.');
+    // 3열 두 줄 고정(운영자 2026-08-13): 윗줄 명단 셋 / 아랫줄 운영 설정 셋.
+    // 감싸기에 맡기면 라벨 길이에 따라 묶음이 흐트러집니다.
+    assert(/\.official-overview-tools\{[\s\S]{0,200}grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(checkin),
+      '도구 줄은 3열 그리드여야 묶음이 유지됩니다.');
+    const grouped=[
+      ['선수 추가',"setOfficialOverviewMode('add')"],
+      ['이름 변경',"setOfficialOverviewMode('rename')"],
+      ['제외',"setOfficialOverviewMode('remove')"],
+      ['코트 수','sendOfficialSettingsCourts'],
+      ['운영 도우미',"setOfficialOverviewMode('helper')"],
+      ['마무리','sendOfficialFinishMode']
+    ].map(([label,marker])=>({label,pos:summarySrc.indexOf(marker)}));
+    grouped.slice(1).forEach((cur,i)=>assert(cur.pos>grouped[i].pos,
+      `묶음 순서가 어긋났습니다: ${grouped[i].label} 다음에 ${cur.label} 가 와야 합니다.`));
   }
   // 직접 짠 대진은 목록에서 잘리면 안 됩니다(운영자 2026-08-13 "예약할 경우
   // 리스트업 해줘"). 관리자 게시는 목표 수 밖의 수동 편성도 싣고, 임원 화면의
@@ -445,10 +446,13 @@ this.club=officialPrimaryClub();`,legacy);
       return checkin.slice(s,Math.min(...ends));})();
     assert(/if\(q\?\.manualComposed\)return true;/.test(nextListSrc),
       '임원 화면 표시 제한도 수동 편성은 통과시켜야 합니다.');
-    assert(checkin.includes('function manualComposedBadge')&&checkin.includes('직접 예약'),
-      '직접 예약 딱지가 있어야 합니다.');
-    assert(checkin.includes('${manualComposedBadge(m)}')&&checkin.includes('${manualComposedBadge(q)}'),
+    assert(checkin.includes('function manualComposedBadge')&&checkin.includes('>예약<'),
+      '예약 딱지가 있어야 합니다.');
+    assert(checkin.includes('${canOfficialOperate?manualComposedBadge(m):\'\'}')&&checkin.includes('${manualComposedBadge(q)}'),
       '다음 대진 카드와 편성 시트의 예약현황 양쪽에 딱지를 붙여야 합니다.');
+    // 일반 회원에게는 운영 사정일 뿐입니다(운영자 2026-08-13).
+    assert(!checkin.includes('${manualComposedBadge(m)}'),
+      '예약 딱지는 임원 화면에서만 보여야 합니다.');
     // 실제로 잘리지 않는지 실행해 확인합니다(코트 3 · 자동 3 + 수동 1).
     const vm=require('vm');
     const sandbox={session:{event:{courts:3,next:[

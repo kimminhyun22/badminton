@@ -2651,14 +2651,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 /* 도구는 눌러야 하는 것들이니 버튼처럼 보이게 둡니다(운영자 2026-08-13
    "버튼 형태로, 중요도 순"). 회색 판 위 글자만 있으면 눌리는지 안 보입니다.
    순서가 곧 중요도라 색은 늘리지 않습니다 — 켜진 것만 채우고, 제외만 붉게. */
-.official-overview-tools{gap:6px;padding:0;border-radius:0;background:transparent;flex-wrap:wrap;}
+/* 3열 고정 — 감싸기에 맡기면 라벨 길이에 따라 묶음이 흐트러집니다(윗줄 명단
+   셋 / 아랫줄 운영 설정 셋). */
+.official-overview-tools{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;padding:0;border-radius:0;background:transparent;
+}
 .official-overview-tool{
   flex:0 1 auto;
   border:1px solid var(--ob-hairline);border-radius:11px;background:#fff;color:var(--ob-ink);
   /* 전역 button 이 flex-direction:column 이라 이모지가 윗줄로 올라갑니다
      (2026-08-13 실측 — HANDOFF 에 적힌 그 함정). 행 방향을 명시합니다. */
   display:inline-flex;flex-direction:row;align-items:center;justify-content:center;
-  min-height:40px;padding:9px 14px;font-size:14.5px;font-weight:900;
+  min-height:40px;padding:9px 8px;font-size:14px;font-weight:900;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   box-shadow:0 1px 2px rgba(20,32,50,.05);
 }
@@ -2666,7 +2671,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 .official-overview-tool:disabled{opacity:.4;}
 /* 이모지는 글자보다 살짝 크게, 한 칸 띄워서. 컬러 이모지라 파랑으로 채워진
    상태에서도 그대로 보입니다. */
-.official-overview-tool .ot-emo{margin-right:5px;font-size:15px;line-height:1;}
+.official-overview-tool .ot-emo{margin-right:4px;font-size:14px;line-height:1;flex:none;}
 /* 직접 예약 딱지 — 자동 편성과 한눈에 구분되게 파랑 계열로. */
 .event-partner-badge.manual{background:var(--ob-blue-tint);border-color:#bcd3f3;color:var(--ob-blue-deep);}
 .replace-picker-current .event-partner-badge.manual{margin:0 0 0 auto;flex-shrink:0;}
@@ -2757,7 +2762,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 }
 
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.552">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.553">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2772,7 +2777,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.552</span>
+    <span class="version-chip" id="appVersion">v1.10.553</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2832,7 +2837,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.552';
+const APP_VERSION='1.10.553';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3499,19 +3504,20 @@ function officialOperationsSummaryHtml(player){
   const helperCount=(session?.players||[]).filter(row=>row?.isTemporaryOfficial&&!row.isClubOfficial).length;
   const rosterToolsOn=player.isClubOfficial;   // 관리자 동일 기능(2026-08-10)
   const blocked=eventFlowPaused()||!!sendingKey||claimingOfficial;
-  // 중요도 순(운영자 2026-08-13): 지각자 받는 선수 추가가 제일 잦고, 마무리는
-  // 매 세션 반드시 한 번, 코트 수는 가끔, 도우미·이름 변경·제외는 예외 처리.
+  // 쓰임새로 묶습니다(운영자 2026-08-13 "사용자 관점에서"): 윗줄은 명단을
+  // 다루는 셋(선수 추가·이름 변경·제외), 아랫줄은 운영 설정 셋(코트 수·
+  // 운영 도우미·마무리). 3열 두 줄로 고정해 묶음이 흐트러지지 않게 합니다.
   // 파트너 지정은 「다음 대진 짜기」가 대신하므로 뺐습니다.
   // 이모지는 글자 앞 한 칸(운영자 2026-08-13 "이모티콘으로 시각적 개선").
   // 스크린리더가 이름을 두 번 읽지 않도록 aria-hidden 으로 감춥니다.
   const emo=ch=>`<span class="ot-emo" aria-hidden="true">${ch}</span>`;
   const tools=[
     rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='add'?'active':''}" onclick="setOfficialOverviewMode('add')" aria-pressed="${officialOverviewMode==='add'?'true':'false'}">${emo('🙋')}선수 추가</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool ${session?.event?.finishMode?'active':''}" ${blocked?'disabled':''} onclick="sendOfficialFinishMode('${esc(player.id)}')" aria-pressed="${session?.event?.finishMode?'true':'false'}">${emo('🏁')}${session?.event?.finishMode?'마무리 해제':'마무리'}</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool" ${blocked?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}')">${emo('🏸')}코트 ${Math.max(1,parseInt(session?.event?.courts,10)||1)}</button>`:'',
-    helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">${emo('🤝')}운영 도우미${helperCount?` ${helperCount}`:''}</button>`:'',
     rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='rename'?'active':''}" onclick="setOfficialOverviewMode('rename')" aria-pressed="${officialOverviewMode==='rename'?'true':'false'}">${emo('✏️')}이름 변경</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool danger ${officialOverviewMode==='remove'?'active':''}" onclick="setOfficialOverviewMode('remove')" aria-pressed="${officialOverviewMode==='remove'?'true':'false'}">${emo('🚫')}제외</button>`:''
+    rosterToolsOn?`<button type="button" class="official-overview-tool danger ${officialOverviewMode==='remove'?'active':''}" onclick="setOfficialOverviewMode('remove')" aria-pressed="${officialOverviewMode==='remove'?'true':'false'}">${emo('🚫')}제외</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool" ${blocked?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}')">${emo('🏸')}코트 ${Math.max(1,parseInt(session?.event?.courts,10)||1)}</button>`:'',
+    helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">${emo('🤝')}도우미${helperCount?` ${helperCount}`:''}</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${session?.event?.finishMode?'active':''}" ${blocked?'disabled':''} onclick="sendOfficialFinishMode('${esc(player.id)}')" aria-pressed="${session?.event?.finishMode?'true':'false'}">${emo('🏁')}${session?.event?.finishMode?'마무리 해제':'마무리'}</button>`:''
   ].filter(Boolean).join('');
   // 파트너 지정 도구는 은퇴했지만(「다음 대진 짜기」가 대신), 모드 자체는
   // 남겨 둡니다 — 회원 게임신청 접수 경로가 같은 코드를 씁니다.
@@ -3721,8 +3727,9 @@ function fairnessCorrectionBadge(item){
 }
 // 임원이 「다음 대진 짜기」로 직접 짠 대진임을 알리는 딱지(운영자 2026-08-13).
 // 자동 편성과 섞여 있으면 누가 왜 그렇게 짰는지 알 수 없습니다.
+// **임원 화면에서만** 붙입니다 — 일반 회원에게는 운영 사정일 뿐입니다.
 function manualComposedBadge(item){
-  return item?.manualComposed?'<span class="event-partner-badge manual">직접 예약</span>':'';
+  return item?.manualComposed?'<span class="event-partner-badge manual">예약</span>':'';
 }
 function myCurrentMatchHtml(playerId){
   const m=currentMatchForPlayer(playerId);
@@ -4051,7 +4058,7 @@ function renderEvent(){
     <div class="event-row-main">
       <div class="event-rank-badge">${esc(String(m.idx||''))}</div>
       <div>
-        ${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}${manualComposedBadge(m)}
+        ${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}${canOfficialOperate?manualComposedBadge(m):''}
         <div class="event-teams next-teams">${nextTeamLine(m,canOfficialOperate?selectedPlayer?.id:'')}</div>
         ${cueText&&!cueInline?`<small class="event-cue">${esc(cueText)}</small>`:''}
         ${cueInline
