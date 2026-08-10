@@ -2768,7 +2768,7 @@ button.event-court-badge.editable:active{transform:scale(.96);}
 }
 
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.559">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.560">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2783,7 +2783,7 @@ button.event-court-badge.editable:active{transform:scale(.96);}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.559</span>
+    <span class="version-chip" id="appVersion">v1.10.560</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2843,7 +2843,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.559';
+const APP_VERSION='1.10.560';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -5853,10 +5853,11 @@ async function sendOfficialCourtRenumber(actorId,matchId){
   const match=(session?.event?.active||[]).find(m=>String(m?.id||'')===String(matchId));
   if(!match)return toast('진행 중인 경기를 다시 확인해 주세요.');
   const current=Math.max(1,parseInt(match.court,10)||1);
-  const raw=prompt(`현재 ${current}코트입니다.\n실제 진행 중인 코트 번호를 입력하세요 (1~12).`,String(current));
+  const limit=Math.max(1,parseInt(session?.event?.courts,10)||1);
+  const raw=prompt(`현재 ${current}코트입니다.\n실제 진행 중인 코트 번호를 입력하세요 (1~${limit}).\n더 큰 번호가 필요하면 「코트 ${limit}」에서 코트 수를 먼저 늘려주세요.`,String(current));
   if(raw==null)return;
   const next=parseInt(String(raw).trim(),10);
-  if(!Number.isFinite(next)||next<1||next>12)return toast('코트 번호는 1~12 사이 숫자로 입력해 주세요.');
+  if(!Number.isFinite(next)||next<1||next>limit)return toast(`코트 번호는 1~${limit} 사이로 입력해 주세요.`);
   if(next===current)return;
   const occupant=(session?.event?.active||[]).find(m=>m!==match&&parseInt(m?.court,10)===next);
   if(occupant&&!confirm(`${next}코트에는 이미 진행 중인 경기가 있습니다.\n두 경기의 코트 번호를 서로 바꿀까요?`))return;

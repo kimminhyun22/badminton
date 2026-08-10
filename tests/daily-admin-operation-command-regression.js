@@ -219,9 +219,14 @@ function send(session, request, {admin = true} = {}){
     s.players.forEach(p=>{if(['p1','p2','p3','p4','p5','p6','p7','p8'].includes(p.id)){p.status='playing';p.currentMatchId=['p1','p2','p3','p4'].includes(p.id)?'m1':'m2';}});
     return s;
   };
-  const moved=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:5,expectedCourt:1},{admin:false});
+  // 2026-08-13(시뮬 발견): 코트 수 밖 번호는 거절합니다. 원래 번호가 '빈 코트'가
+  // 되어 시스템이 새 경기를 자동 투입해 코트 수보다 많은 경기가 서기 때문입니다.
+  const wide=withCourts(); wide.event.courts=5; wide.event.queuePolicy={official:5,auto:true};
+  const moved=send(wide,{type:'official-court-renumber',matchId:'m1',court:5,expectedCourt:1},{admin:false});
   assert.strictEqual(moved.status,'applied',`코트 번호 정정이 적용되어야 합니다: ${moved.reason||''}`);
   assert.strictEqual(moved.session.event.active.find(m=>m.id==='m1').court,5,'새 번호로 바뀌어야 합니다.');
+  const outOfRange=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:5,expectedCourt:1},{admin:false});
+  assert.strictEqual(outOfRange.status,'rejected','코트 수(2) 밖 번호는 거절되어야 합니다.');
   // 이미 쓰는 번호로 옮기면 서로 맞바꿉니다(관리자 화면과 같은 규칙).
   const swap=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:2,expectedCourt:1,allowSwap:true},{admin:false});
   assert.strictEqual(swap.status,'applied',`맞바꾸기가 적용되어야 합니다: ${swap.reason||''}`);
@@ -234,8 +239,8 @@ function send(session, request, {admin = true} = {}){
   const stale=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:5,expectedCourt:3},{admin:false});
   assert.strictEqual(stale.status,'rejected','기대 번호가 다르면 거절되어야 합니다.');
   const bad=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:13,expectedCourt:1},{admin:false});
-  assert.strictEqual(bad.status,'rejected','1~12 밖 번호는 거절되어야 합니다.');
-  console.log('  코트 번호 정정: applied · 맞바꾸기 · 동의 없으면 거절 · 경합/범위 거절');
+  assert.strictEqual(bad.status,'rejected','범위 밖 번호는 거절되어야 합니다.');
+  console.log('  코트 번호 정정: applied · 맞바꾸기 · 동의 없으면 거절 · 경합/코트 수 밖 거절');
 }
 
 // 7c) 도착 되돌리기(운영자 2026-08-13). 잘못 참가 등록된 사람을 도착 전으로.

@@ -2156,7 +2156,13 @@ function applyCourtRenumber(session, request, now, operation){
   const match = (event.active || []).find(row=>text(row?.id) === matchId);
   if(!match)return '코트 번호를 바꿀 경기를 찾지 못했습니다.';
   const next = number(request.court);
-  if(!Number.isInteger(next) || next < 1 || next > 12)return '코트 번호는 1~12 사이로 정해 주세요.';
+  // 운영 중인 코트 수 밖의 번호로 옮기면 원래 번호가 '빈 코트'가 되어 시스템이
+  // 새 경기를 자동 투입합니다 — 3코트에 4경기가 서는 사고(2026-08-13 시뮬 발견).
+  // 더 큰 번호를 쓰려면 코트 수부터 늘려야 합니다.
+  const courtLimit = Math.max(1, number(event.courts, 1));
+  if(!Number.isInteger(next) || next < 1 || next > courtLimit){
+    return `코트 번호는 1~${courtLimit} 사이로 정해 주세요. 더 큰 번호를 쓰려면 코트 수를 먼저 늘려주세요.`;
+  }
   const current = number(match.court);
   if(Object.prototype.hasOwnProperty.call(request, 'expectedCourt')
     && number(request.expectedCourt) !== current){
