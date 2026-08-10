@@ -398,6 +398,26 @@ this.club=officialPrimaryClub();`,legacy);
     });
     assert(/officialOverviewMode==='add'/.test(summarySrc)&&summarySrc.includes('official-add-player'),
       '선수 추가 폼은 모드를 켰을 때만 펼쳐야 합니다 — 상시 노출은 화면을 길게 만듭니다.');
+    // 파트너 지정 도구는 은퇴(운영자 2026-08-13 "다음 대진 짜기가 있어서 필요 없다").
+    assert(!summarySrc.includes('>파트너 지정</button>'),
+      '파트너 지정 도구 버튼은 없어야 합니다 — 다음 대진 짜기가 대신합니다.');
+    // 일시정지된 대진의 「조금 쉬고」 알약은 뺐습니다(운영자 2026-08-13):
+    // 상태 문구가 이미 말하는데 알약이 버튼처럼 보여 누르게 됩니다.
+    assert(!/event-wait-pill">조금 쉬고/.test(checkin),
+      '일시정지 대진에 「조금 쉬고」 알약을 다시 띄우면 안 됩니다.');
+    // 도구는 중요도 순으로 놓입니다: 선수 추가 → 마무리 → 코트 → 도우미 → 이름 변경 → 제외.
+    // 라벨이 삼항식 안에 있는 것도 있어 각 도구의 고유 호출로 위치를 잽니다.
+    const seq=[
+      ['선수 추가',"setOfficialOverviewMode('add')"],
+      ['마무리','sendOfficialFinishMode'],
+      ['코트 수','sendOfficialSettingsCourts'],
+      ['운영 도우미',"setOfficialOverviewMode('helper')"],
+      ['이름 변경',"setOfficialOverviewMode('rename')"],
+      ['제외',"setOfficialOverviewMode('remove')"]
+    ].map(([label,marker])=>({label,pos:summarySrc.indexOf(marker)}));
+    seq.forEach(({label,pos})=>assert(pos>=0,`${label} 도구가 있어야 합니다.`));
+    seq.slice(1).forEach((cur,i)=>assert(cur.pos>seq[i].pos,
+      `중요도 순이 어긋났습니다: ${seq[i].label} 다음에 ${cur.label} 가 와야 합니다.`));
     const supportSrc=(()=>{const s=checkin.indexOf('function officialSupportHtml');
       const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
       return s<0?'':checkin.slice(s,Math.min(...ends));})();
