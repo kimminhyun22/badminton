@@ -2655,12 +2655,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 .official-overview-tool{
   flex:0 1 auto;
   border:1px solid var(--ob-hairline);border-radius:11px;background:#fff;color:var(--ob-ink);
-  min-height:36px;padding:8px 13px;font-size:12.5px;font-weight:900;
+  /* 전역 button 이 flex-direction:column 이라 이모지가 윗줄로 올라갑니다
+     (2026-08-13 실측 — HANDOFF 에 적힌 그 함정). 행 방향을 명시합니다. */
+  display:inline-flex;flex-direction:row;align-items:center;justify-content:center;
+  min-height:40px;padding:9px 14px;font-size:14.5px;font-weight:900;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   box-shadow:0 1px 2px rgba(20,32,50,.05);
 }
 .official-overview-tool.danger{color:var(--ob-red);}
 .official-overview-tool:disabled{opacity:.4;}
+/* 이모지는 글자보다 살짝 크게, 한 칸 띄워서. 컬러 이모지라 파랑으로 채워진
+   상태에서도 그대로 보입니다. */
+.official-overview-tool .ot-emo{margin-right:5px;font-size:15px;line-height:1;}
+/* 직접 예약 딱지 — 자동 편성과 한눈에 구분되게 파랑 계열로. */
+.event-partner-badge.manual{background:var(--ob-blue-tint);border-color:#bcd3f3;color:var(--ob-blue-deep);}
+.replace-picker-current .event-partner-badge.manual{margin:0 0 0 auto;flex-shrink:0;}
+/* 상태 문구 + 아이콘 줄을 한 줄에. 문구가 왼쪽, 아이콘이 오른쪽 — 제 줄을
+   쓰던 「일시정지」가 차지하던 세로 여백이 사라집니다(2026-08-13). */
+.event-next-actionbar{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:6px;min-width:0;
+}
+.event-next-actionbar .event-official-icon-row{margin-top:0;flex:none;}
+.event-cue.inline{
+  margin:0;flex:1 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
 /* 모드 안내 줄과 명부 불러오기도 같은 언어로 — 보라 틴트·초록 점선을 걷어냅니다. */
 .official-overview-pick{background:#f7f9fc;border:1px solid var(--ob-hairline);color:var(--ob-mut);}
 .official-overview-pick button{border:1px solid var(--ob-hairline);background:#fff;color:var(--ob-mut);}
@@ -2737,7 +2757,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 }
 
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.550">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.552">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2752,7 +2772,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.550</span>
+    <span class="version-chip" id="appVersion">v1.10.552</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2812,7 +2832,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.550';
+const APP_VERSION='1.10.552';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3482,13 +3502,16 @@ function officialOperationsSummaryHtml(player){
   // 중요도 순(운영자 2026-08-13): 지각자 받는 선수 추가가 제일 잦고, 마무리는
   // 매 세션 반드시 한 번, 코트 수는 가끔, 도우미·이름 변경·제외는 예외 처리.
   // 파트너 지정은 「다음 대진 짜기」가 대신하므로 뺐습니다.
+  // 이모지는 글자 앞 한 칸(운영자 2026-08-13 "이모티콘으로 시각적 개선").
+  // 스크린리더가 이름을 두 번 읽지 않도록 aria-hidden 으로 감춥니다.
+  const emo=ch=>`<span class="ot-emo" aria-hidden="true">${ch}</span>`;
   const tools=[
-    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='add'?'active':''}" onclick="setOfficialOverviewMode('add')" aria-pressed="${officialOverviewMode==='add'?'true':'false'}">선수 추가</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool ${session?.event?.finishMode?'active':''}" ${blocked?'disabled':''} onclick="sendOfficialFinishMode('${esc(player.id)}')" aria-pressed="${session?.event?.finishMode?'true':'false'}">${session?.event?.finishMode?'마무리 해제':'마무리'}</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool" ${blocked?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}')">코트 ${Math.max(1,parseInt(session?.event?.courts,10)||1)}</button>`:'',
-    helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">운영 도우미${helperCount?` ${helperCount}`:''}</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='rename'?'active':''}" onclick="setOfficialOverviewMode('rename')" aria-pressed="${officialOverviewMode==='rename'?'true':'false'}">이름 변경</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool danger ${officialOverviewMode==='remove'?'active':''}" onclick="setOfficialOverviewMode('remove')" aria-pressed="${officialOverviewMode==='remove'?'true':'false'}">제외</button>`:''
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='add'?'active':''}" onclick="setOfficialOverviewMode('add')" aria-pressed="${officialOverviewMode==='add'?'true':'false'}">${emo('🙋')}선수 추가</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${session?.event?.finishMode?'active':''}" ${blocked?'disabled':''} onclick="sendOfficialFinishMode('${esc(player.id)}')" aria-pressed="${session?.event?.finishMode?'true':'false'}">${emo('🏁')}${session?.event?.finishMode?'마무리 해제':'마무리'}</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool" ${blocked?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}')">${emo('🏸')}코트 ${Math.max(1,parseInt(session?.event?.courts,10)||1)}</button>`:'',
+    helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">${emo('🤝')}운영 도우미${helperCount?` ${helperCount}`:''}</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='rename'?'active':''}" onclick="setOfficialOverviewMode('rename')" aria-pressed="${officialOverviewMode==='rename'?'true':'false'}">${emo('✏️')}이름 변경</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool danger ${officialOverviewMode==='remove'?'active':''}" onclick="setOfficialOverviewMode('remove')" aria-pressed="${officialOverviewMode==='remove'?'true':'false'}">${emo('🚫')}제외</button>`:''
   ].filter(Boolean).join('');
   // 파트너 지정 도구는 은퇴했지만(「다음 대진 짜기」가 대신), 모드 자체는
   // 남겨 둡니다 — 회원 게임신청 접수 경로가 같은 코드를 씁니다.
@@ -3696,6 +3719,11 @@ function partnerMatchBadge(item){
 function fairnessCorrectionBadge(item){
   return item?.fairnessCorrection?'<span class="event-partner-badge correction">공정 보정</span>':'';
 }
+// 임원이 「다음 대진 짜기」로 직접 짠 대진임을 알리는 딱지(운영자 2026-08-13).
+// 자동 편성과 섞여 있으면 누가 왜 그렇게 짰는지 알 수 없습니다.
+function manualComposedBadge(item){
+  return item?.manualComposed?'<span class="event-partner-badge manual">직접 예약</span>':'';
+}
 function myCurrentMatchHtml(playerId){
   const m=currentMatchForPlayer(playerId);
   if(!m)return '';
@@ -3728,7 +3756,15 @@ function eventNextList(){
   const publishedTarget=parseInt(session?.event?.nextTarget,10)||0;
   const courtFallback=parseInt(session?.event?.courts,10)||0;
   const visibleLimit=Math.max(0,courtFallback||publishedTarget||list.length);
-  const visible=list.slice(0,visibleLimit);
+  // 직접 짠 대진(manualComposed)은 코트 수 제한 밖에 붙습니다 — 잘라내면
+  // 임원이 방금 예약한 대진이 목록에서 사라집니다(운영자 2026-08-13).
+  let autoTaken=0;
+  const visible=list.filter(q=>{
+    if(q?.manualComposed)return true;
+    if(autoTaken>=visibleLimit)return false;
+    autoTaken++;
+    return true;
+  });
   visible.forEach((q,i)=>{q.idx=i+1;});
   return visible;
 }
@@ -4007,14 +4043,20 @@ function renderEvent(){
     if(actionButtons.length)actionParts.push(`<div class="event-complete-action">${actionButtons.join('')}</div>`);
     const officialActions=officialQueueCardActionsHtml(canOfficialOperate?selectedPlayer:null,m,index,nextList);
     if(officialActions)actionParts.push(officialActions);
+    // 상태 문구는 아이콘 줄 왼쪽에 함께 놓습니다(운영자 2026-08-13 "일시정지
+    // 표시를 재생 아이콘 옆에 두면 더 직관적이고 위아래 여백도 준다").
+    // 아이콘 줄이 없는 회원 화면에서는 예전처럼 제 줄에 남습니다.
+    const cueInline=cueText&&officialActions;
     return `<div class="event-row next ${index===0?'priority ':''}${esc(m.cueState||'')}">
     <div class="event-row-main">
       <div class="event-rank-badge">${esc(String(m.idx||''))}</div>
       <div>
-        ${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}
+        ${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}${manualComposedBadge(m)}
         <div class="event-teams next-teams">${nextTeamLine(m,canOfficialOperate?selectedPlayer?.id:'')}</div>
-        ${cueText?`<small class="event-cue">${esc(cueText)}</small>`:''}
-        ${actionParts.join('')}
+        ${cueText&&!cueInline?`<small class="event-cue">${esc(cueText)}</small>`:''}
+        ${cueInline
+          ? `<div class="event-next-actionbar"><small class="event-cue inline">${esc(cueText)}</small>${actionParts.join('')}</div>`
+          : actionParts.join('')}
       </div>
     </div>
   </div>`;
@@ -5483,7 +5525,8 @@ function _officialComposeRender(){
       const waitingOn=(q.playerIds||[]).map(id=>(session?.players||[]).find(pp=>String(pp.id)===String(id)))
         .filter(pp=>pp&&(pp.status==='playing'||pp.currentMatchId)).map(pp=>pp.name);
       const tag=waitingOn.length?` · ${waitingOn.join('·')} 경기 종료 후`:(q.restPass?' · 일시정지':'');
-      return `<div class="replace-picker-current"><b>${i+1}순위</b><span>${esc(names)}${esc(tag)}</span></div>`;
+      // 직접 짠 대진에는 딱지를 붙여 자동 편성과 구분합니다(운영자 2026-08-13).
+      return `<div class="replace-picker-current"><b>${i+1}순위</b><span>${esc(names)}${esc(tag)}</span>${manualComposedBadge(q)}</div>`;
     }).join('');
     const st=list.scrollTop;
     list.innerHTML=`${current?`<div class="replace-picker-group">현재 다음 대진 — 새 대진은 ${eventNextList().length+1}순위로 추가</div>${current}`:''}

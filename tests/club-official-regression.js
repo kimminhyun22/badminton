@@ -224,6 +224,7 @@ function officialQueueCueText(){return '';}
 function officialQueueCardActionsHtml(){return '';}
 function partnerMatchBadge(){return '';}
 function fairnessCorrectionBadge(){return '';}
+function manualComposedBadge(){return '';}
 ${memberEventBoard}
 this.rendered=()=>{renderEvent();return eventPanel.innerHTML;};
 `,memberEventRenderSandbox);

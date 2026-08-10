@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.550';
+const APP_VERSION = '1.10.552';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5266,6 +5266,7 @@ function _dailyPublicEvent(){
     return {
       idx:idx+1,type:m.type,teamMode:!!(q.teamMode||m.teamMode),
       queueId:q.id,
+      manualComposed:q.manualComposed===true,
       levelDiff:Number(q.levelDiff||m.levelDiff||0),
       team1Level:Number(q.team1Level||m.team1Level||0),
       team2Level:Number(q.team2Level||m.team2Level||0),
@@ -5297,7 +5298,17 @@ function _dailyPublicEvent(){
       expected:!!extra
     };
   };
-  const next=_dailyQueue.slice(0,cap.target).map((q,idx)=>queuePayload(q,idx,false)).filter(Boolean);
+  // 자동 편성은 목표 수까지, 임원이 직접 짠 대진(manualComposed)은 그 밖에
+  // 붙어도 반드시 싣습니다. 예전에는 slice(0,target) 이 잘라내서 방금 짠
+  // 대진이 임원 화면에 아예 안 떴습니다(운영자 2026-08-13 "리스트업 해줘").
+  let _dailyPublishedAutoQueue=0;
+  const next=_dailyQueue.map((q,idx)=>{
+    if(q?.manualComposed!==true){
+      if(_dailyPublishedAutoQueue>=cap.target)return null;
+      _dailyPublishedAutoQueue++;
+    }
+    return queuePayload(q,idx,false);
+  }).filter(Boolean);
   const expectedGoal=_dailyExpectedQueueTarget(cap);
   const expected=[];
   const serverStandby=[];
@@ -10207,7 +10218,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.550&from=daily';
+  location.href='team.html?v=1.10.552&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
