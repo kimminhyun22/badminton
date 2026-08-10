@@ -163,6 +163,35 @@ function countByName(player, key, name){
   return map && typeof map === 'object' && !Array.isArray(map) ? number(map[name]) : 0;
 }
 
+// 반복 카운터(partnerCount·opponentCount)는 **경기가 끝나야** 오릅니다. 그래서
+// 코트에서 뛰는 중이거나 대기표에 이미 잡힌 조합은 다음 대진을 짤 때 보이지
+// 않습니다. 4코트면 진행 4 + 대기 4 = 32석이 완료 전에 잡히므로, 한 라운드를
+// 자기 자신에 대해 눈감고 짜게 됩니다 — 2026-08-13 실측에서 파트너 중복이
+// 무작위의 4~5배로 나온 주된 이유입니다.
+// 자동 편성(replenishPrepared) 동안만 이 '아직 안 끝난 조합'을 함께 셉니다.
+let PENDING_PAIRS = null;
+function buildPendingPairs(session){
+  const partner = new Map(), opponent = new Map();
+  const bump = (map, a, b)=>{
+    const k = [text(a), text(b)].sort().join('|');
+    if(k.includes('|'))map.set(k, number(map.get(k)) + 1);
+  };
+  const collect = item=>{
+    const t1 = team1Ids(item), t2 = team2Ids(item);
+    if(t1.length === 2)bump(partner, t1[0], t1[1]);
+    if(t2.length === 2)bump(partner, t2[0], t2[1]);
+    t1.forEach(a=>t2.forEach(b=>bump(opponent, a, b)));
+  };
+  (session.event?.active || []).forEach(collect);
+  (session.event?.next || []).forEach(collect);
+  return {partner, opponent};
+}
+function pendingCount(kind, first, second){
+  if(!PENDING_PAIRS)return 0;
+  const k = [text(playerId(first)), text(playerId(second))].sort().join('|');
+  return number(PENDING_PAIRS[kind]?.get(k));
+}
+
 function countAgainst(player, key, other){
   const byId = player?.[`${key}ById`];
   if(byId && typeof byId === 'object' && !Array.isArray(byId)){
@@ -319,12 +348,14 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
     score += MIXED_PENALTY * (1 - Math.min(1, behind / FAIR_FORCE_GAP));
   }
   [pairing.team1, pairing.team2].forEach(team=>{
-    score += partnerRepeatPenalty(countAgainst(team[0], 'partnerCount', team[1]));
+    score += partnerRepeatPenalty(countAgainst(team[0], 'partnerCount', team[1])
+      + pendingCount('partner', team[0], team[1]));
     score += partnerGapPenalty(team);
   });
   score += levelSpreadPenalty(all);
   pairing.team1.forEach(first=>pairing.team2.forEach(second=>{
-    score += opponentRepeatPenalty(countAgainst(first, 'opponentCount', second));
+    score += opponentRepeatPenalty(countAgainst(first, 'opponentCount', second)
+      + pendingCount('opponent', first, second));
   }));
   const runtime = session.serverRuntime || {};
   score += number(runtime.fourCounts?.[fourKeyFromIds(all.map(playerId))]) * 1600;
@@ -596,6 +627,10 @@ function desiredNextTarget(session, waitingCount){
   const courts = Math.max(1, number(event.courts, 1));
   const official = Math.max(0, Math.min(courts, number(event.queuePolicy?.official, courts)));
   if(!official)return 0;
+  // 대기표가 대기 인원을 전부 삼키면 다음 대진을 짤 때 고를 사람이 없습니다.
+  // 32명·4코트면 진행 16 + 대기 16 = 전원이 묶여, 방금 같이 끝난 4명이 그대로
+  // 다시 묶이는 일이 반복됐습니다(2026-08-13 실측). 최소 한 경기분(4명)은
+  // 풀에 남겨 선택지를 만듭니다 — 코트가 빌 때 쓸 대진은 그대로 유지합니다.
   const maxGames = Math.floor(waitingCount / 4);
   const target = Math.min(official, maxGames);
   event.nextTarget = target;
@@ -622,6 +657,10 @@ function replenishPrepared(session, options = {}){
   )return {generated:[]};
   const reference = eligiblePlayers(session);
   const target = desiredNextTarget(session, reference.length);
+  // 아직 끝나지 않은 조합(진행 중·대기표)도 반복으로 셉니다. 이 블록 안에서만
+  // 켜고 finally 로 반드시 끕니다 — 세션에 남기면 저장 페이로드가 오염됩니다.
+  PENDING_PAIRS = buildPendingPairs(session);
+  try{
   const used = new Set();
   (session.event?.active || []).forEach(match=>activeIds(match).forEach(id=>used.add(id)));
   (session.event?.next || []).forEach(item=>queueIds(item).forEach(id=>used.add(id)));
@@ -660,6 +699,9 @@ function replenishPrepared(session, options = {}){
     generated.push(item);
   }
   return {generated};
+  }finally{
+    PENDING_PAIRS = null;
+  }
 }
 
 function recordCompletedMatchHistory(session, match){

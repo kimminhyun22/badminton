@@ -115,6 +115,7 @@ for(let wave=1;wave<=WAVES;wave++){
   const final=wave===WAVES;
   if(final)S(ctx).event.finishMode=true;
   const matches=S(ctx).event.active.slice().sort((a,b)=>a.court-b.court);
+  if(!final&&wave>1&&matches.length<COURTS)ctx.idle=(ctx.idle||0)+(COURTS-matches.length);
   for(const m of matches){
     ctx.matches.push({wave,t1:[...m.t1Ids],t2:[...m.t2Ids]});
     submit(ctx,{type:'official-court-complete',token:`c_${wave}_${m.court}`,matchId:m.id,
@@ -149,6 +150,22 @@ const perPlayerRepeat=map=>{
   return m;
 };
 const pRep=perPlayerRepeat(partner), oRep=perPlayerRepeat(opponent);
+// 인당 '전체 경기 중 파트너가 반복된 경기'의 비율(운영자 2026-08-13).
+// 시간 순으로 훑어 그 선수에게 '이미 뛴 적 있는 파트너'면 반복 1회로 셉니다.
+const seenPartner=new Map();   // playerId -> Set(partnerId)
+const repeatGames=new Map();   // playerId -> 반복 경기 수
+ctx.matches.forEach(m=>{
+  [[m.t1[0],m.t1[1]],[m.t1[1],m.t1[0]],[m.t2[0],m.t2[1]],[m.t2[1],m.t2[0]]].forEach(([me,mate])=>{
+    if(!seenPartner.has(me))seenPartner.set(me,new Set());
+    const set=seenPartner.get(me);
+    if(set.has(mate))repeatGames.set(me,(repeatGames.get(me)||0)+1);
+    else set.add(mate);
+  });
+});
+const rateRows=players.map(p=>({name:p.name,g:games.get(p.id)||0,r:repeatGames.get(p.id)||0}))
+  .filter(r=>r.g>0);
+const totalG=rateRows.reduce((a,r)=>a+r.g,0), totalR=rateRows.reduce((a,r)=>a+r.r,0);
+const worstRate=rateRows.slice().sort((a,b)=>(b.r/b.g)-(a.r/a.g)||b.r-a.r).slice(0,3);
 const avg=a=>a.length?(a.reduce((x,y)=>x+y,0)/a.length):0;
 const perP=players.map(p=>pRep.get(p.id)||0), perO=players.map(p=>oRep.get(p.id)||0);
 
@@ -158,12 +175,16 @@ const expPartnerRepeatPerPlayer=(gpp*(gpp-1)/2)/(N-1);
 const expOppRepeatPerPlayer=((2*gpp)*(2*gpp-1)/2)/(N-1);
 
 console.log(`\n=== ${ROSTER.length}명 · ${COURTS}코트 · ${WAVES}파동(${WAVES*MATCH_MIN}분) 자동 운영 ===`);
+console.log(`빈 코트 누적 ${ctx.idle||0}회`);
 console.log(`경기 수 ${ctx.matches.length} · 뛴 인원 ${played}/${N}`);
 console.log(`1인 경기 수: 최소 ${Math.min(...g)} · 최대 ${Math.max(...g)} · 평균 ${gpp.toFixed(2)}`);
 console.log(`\n[파트너] 서로 다른 조합 ${pairsSeen}쌍 · 2회 이상 만난 쌍 ${repeatPartnerPairs}쌍`);
 console.log(`  분포(만난 횟수:쌍 수) ${JSON.stringify(pHist)}`);
 console.log(`  1인당 '또 만난 파트너' 평균 ${avg(perP).toFixed(2)}명 (최대 ${Math.max(...perP)}명)`);
 console.log(`  무작위 배정이면 ${expPartnerRepeatPerPlayer.toFixed(2)}명 예상`);
+console.log(`\n[파트너 반복률] 전체 ${totalR}/${totalG}경기 = ${(100*totalR/totalG).toFixed(1)}%`);
+console.log(`  1인당 평균 ${(totalR/rateRows.length).toFixed(2)}회 반복 / ${(totalG/rateRows.length).toFixed(2)}경기`);
+console.log(`  가장 심한 선수: ${worstRate.map(r=>`${r.name} ${r.r}/${r.g}(${Math.round(100*r.r/r.g)}%)`).join(' · ')}`);
 console.log(`\n[상대] 서로 다른 조합 ${oppSeen}쌍 · 2회 이상 만난 쌍 ${repeatOppPairs}쌍`);
 console.log(`  분포(만난 횟수:쌍 수) ${JSON.stringify(oHist)}`);
 console.log(`  1인당 '또 만난 상대' 평균 ${avg(perO).toFixed(2)}명 (최대 ${Math.max(...perO)}명)`);

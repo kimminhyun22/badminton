@@ -1,21 +1,12 @@
 // network-first 서비스워커: PWA(홈 화면 설치본)도 항상 최신 코드를 받도록 함
-const CACHE = 'badminton-v1.10.556';
+const CACHE = 'badminton-v1.10.233';
 const FILES = [
   '/badminton/',
   '/badminton/index.html',
   '/badminton/team.html',
   '/badminton/rsvp.html',
   '/badminton/view.html',
-  '/badminton/checkin.html',
-  '/badminton/css/app.css',
-  '/badminton/css/team.css',
-  '/badminton/css/live.css',
-  '/badminton/css/member-shell.css',
-  '/badminton/js/storage.js',
-  '/badminton/js/match-quality.js',
-  '/badminton/js/daily.js',
-  '/badminton/js/team.js',
-  '/badminton/js/live-view.js'
+  '/badminton/checkin.html'
 ];
 
 self.addEventListener('install', e => {
@@ -41,18 +32,6 @@ self.addEventListener('message', e => {
 // network-first: 네트워크 최신 우선, 오프라인이면 캐시 폴백
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  const url = new URL(e.request.url);
-  const isHtml = e.request.mode === 'navigate'
-    || url.pathname === '/badminton/'
-    || url.pathname.endsWith('.html');
-  if (isHtml) {
-    e.respondWith(
-      fetch(new Request(e.request, { cache: 'no-store' }))
-        .then(res => res)
-        .catch(() => caches.match(e.request, { ignoreSearch: true }))
-    );
-    return;
-  }
   e.respondWith(
     fetch(e.request)
       .then(res => {
@@ -62,6 +41,6 @@ self.addEventListener('fetch', e => {
         }
         return res;
       })
-      .catch(() => caches.match(e.request, { ignoreSearch: true }))
+      .catch(() => caches.match(e.request))
   );
 });
