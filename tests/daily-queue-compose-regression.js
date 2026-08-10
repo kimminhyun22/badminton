@@ -365,6 +365,21 @@ this.club=officialPrimaryClub();`,legacy);
       '전체 게시에 오늘 클럽 이름이 실려야 합니다.');
     assert(daily.includes("'/session/arrivalClub'"),
       '후보 부분 동기화도 오늘 클럽 이름을 함께 써야 합니다 — 라이브 중에는 전체 게시가 없습니다.');
+    // 대진 카드 높이(운영자 2026-08-13 "대진 당 상하로 너무 길어지지 않게"):
+    // 이름 붙은 버튼은 자주 쓰는 입장 처리 계열만, 순서·편집은 아이콘 한 줄.
+    const cardActions=(()=>{const s=checkin.indexOf('function officialQueueCardActionsHtml');
+      const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
+      return checkin.slice(s,Math.min(...ends));})();
+    assert(!/▲ 위로|▼ 아래로/.test(cardActions),'순서 변경은 글자 버튼이 아니라 아이콘이어야 합니다.');
+    assert(/event-official-icon-row/.test(cardActions)&&/obIcon\('up'\)/.test(cardActions)&&/obIcon\('down'\)/.test(cardActions),
+      '위·아래는 아이콘 줄로 접혀야 합니다.');
+    ['다시 짜기','삭제'].forEach(label=>{
+      assert(!new RegExp(`>[^<]*${label}</button>`).test(cardActions),
+        `${label} 도 아이콘이어야 합니다 — 이름 붙은 버튼이 쌓이면 대진 카드가 길어집니다.`);
+    });
+    assert(/title="위로"/.test(cardActions)&&/aria-label="한 칸 위로"/.test(cardActions),
+      '아이콘 버튼은 title·aria-label 로 뜻을 남겨야 합니다.');
+    assert(checkin.includes('.event-official-icon{'),'아이콘 버튼 스타일이 있어야 합니다.');
   }
   const createSrc=(()=>{const s=checkin.indexOf('async function sendOfficialPlayerCreate');
     const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);

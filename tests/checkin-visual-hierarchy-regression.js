@@ -1,4 +1,17 @@
 const assert = require('assert');
+// 이름 크기(운영자 2026-08-13 "진행 중 코트 선수 이름이 가장 중요한 정보").
+// 진행 중이 가장 크고, 다음 대진이 그 다음, 조작 버튼은 그보다 작습니다.
+{
+  const fs2=require('fs'), path2=require('path');
+  const src=fs2.readFileSync(path2.join(__dirname,'..','checkin.html'),'utf8');
+  // 좁은 화면(360px 이하)용 축소 규칙과 섞이지 않게 기본 선언만 봅니다.
+  const size=re=>{const m=src.match(re); return m?parseFloat(m[1]):0;};
+  const active=size(/\.event-active-player\{font-size:(\d+(?:\.\d+)?)px;line-height:1\.16/);
+  const next=size(/\.event-next-line\{font-size:(\d+(?:\.\d+)?)px;letter-spacing:-\.04em/);
+  assert(active>=20,`진행 중 이름은 20px 이상이어야 합니다(현재 ${active}).`);
+  assert(next>=17,`다음 대진 이름은 17px 이상이어야 합니다(현재 ${next}).`);
+  assert(active>next,'진행 중 이름이 다음 대진보다 커야 위계가 보입니다.');
+}
 const fs = require('fs');
 const path = require('path');
 
