@@ -312,7 +312,16 @@ console.log(`  옛 관리자 전용 ${formerlyAdminOnly.length}종: 임원 권�
 // 9) 확장 옵션도 임원에게 열렸습니다(운영자 2026-08-10 "다음 대진 순서 변경도
 //    할 수 있게" — 임원의 게임 설정 자유는 최대 보장, 시스템은 사후 균형).
 {
-  const session = seededSession();
+  // 2026-08-13: 대기표는 대기 인원을 통째로 삼키지 않고 한 경기분 여유를 둡니다
+  // (파트너 반복 수리). 순서 이동을 보려면 대기표가 2개는 되어야 하므로
+  // 이 검사만 인원·코트를 넉넉히 둡니다.
+  const wide = makeSession();
+  ['p10','p11','p12','p13','p14','p15','p16'].forEach((id,i)=>wide.players.push(player(id,`추가${i+1}선수`)));
+  wide.event.courts = 3; wide.event.nextTarget = 3; wide.event.queuePolicy = {official:3, auto:true};
+  const {replenishPrepared:fill} = require('../functions/daily-server-matchmaker');
+  fill(wide, {now:NOW, requestId:'seed_wide'});
+  refreshEvent(wide, NOW);
+  const session = wide;
   const target = session.event.next[0];
   const secondId = String((session.event.next[1]||{}).queueId||(session.event.next[1]||{}).id||'');
   const free = send(session, {

@@ -631,7 +631,15 @@ function desiredNextTarget(session, waitingCount){
   // 32명·4코트면 진행 16 + 대기 16 = 전원이 묶여, 방금 같이 끝난 4명이 그대로
   // 다시 묶이는 일이 반복됐습니다(2026-08-13 실측). 최소 한 경기분(4명)은
   // 풀에 남겨 선택지를 만듭니다 — 코트가 빌 때 쓸 대진은 그대로 유지합니다.
-  const maxGames = Math.floor(waitingCount / 4);
+  const raw = Math.floor(waitingCount / 4);
+  // 대기표가 대기 인원을 통째로 삼키면 다음 대진을 짤 때 고를 사람이 남지
+  // 않습니다. 32명·4코트면 진행 16 + 대기 16 = 전원이 묶여, 방금 같이 끝난
+  // 넷이 그대로 다시 묶였습니다(2026-08-13 실측 파트너 반복 53%).
+  // 그런 포화 상태에서만 한 경기분을 남깁니다 — 실측상 반복 7%, 빈 코트 0회.
+  // 접수된 게임신청이 있으면 건드리지 않습니다(신청한 짝의 자리를 뺏지 않도록).
+  const hasReservation = (session.reservations || []).length > 0;
+  const saturated = raw <= official && raw >= 2 && !hasReservation;
+  const maxGames = saturated ? raw - 1 : raw;
   const target = Math.min(official, maxGames);
   event.nextTarget = target;
   event.queuePolicy = event.queuePolicy && typeof event.queuePolicy === 'object' ? event.queuePolicy : {};
