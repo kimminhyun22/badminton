@@ -388,6 +388,23 @@ this.club=officialPrimaryClub();`,legacy);
     assert(/const icons=\[\.\.\.holdIcons\]/.test(cardActions),
       '일시정지 아이콘은 아이콘 줄 맨 앞에 놓여야 합니다.');
     assert(checkin.includes('.event-official-icon{'),'아이콘 버튼 스타일이 있어야 합니다.');
+    // 선수 추가·코트 수·마무리는 운영 현황 도구 줄로(운영자 2026-08-13).
+    // 패널 아래 상시 노출되던 폼·버튼은 없어야 합니다.
+    const summarySrc=(()=>{const s=checkin.indexOf('function officialOperationsSummaryHtml');
+      const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
+      return checkin.slice(s,Math.min(...ends));})();
+    ['setOfficialOverviewMode(\'add\')','sendOfficialSettingsCourts','sendOfficialFinishMode'].forEach(marker=>{
+      assert(summarySrc.includes(marker),`운영 현황 도구 줄에 ${marker} 가 있어야 합니다.`);
+    });
+    assert(/officialOverviewMode==='add'/.test(summarySrc)&&summarySrc.includes('official-add-player'),
+      '선수 추가 폼은 모드를 켰을 때만 펼쳐야 합니다 — 상시 노출은 화면을 길게 만듭니다.');
+    const supportSrc=(()=>{const s=checkin.indexOf('function officialSupportHtml');
+      const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
+      return s<0?'':checkin.slice(s,Math.min(...ends));})();
+    if(supportSrc){
+      assert(!supportSrc.includes('official-add-player')&&!supportSrc.includes('official-courts-button')&&!supportSrc.includes('official-finish-toggle'),
+        '임원 패널 아래에 선수 추가 폼·코트 수·마무리 버튼이 다시 생기면 안 됩니다.');
+    }
   }
   const createSrc=(()=>{const s=checkin.indexOf('async function sendOfficialPlayerCreate');
     const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);

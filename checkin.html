@@ -2648,10 +2648,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
   background:var(--ob-red-tint)!important;color:var(--ob-red)!important;
 }
 /* 5) 운영 도구 4모드 — 세그먼트 컨트롤 */
-.official-overview-tools{gap:0;padding:3px;border-radius:11px;background:#eef1f5;}
+/* 도구가 일곱이라 한 줄에 안 들어갑니다 — 늘리지 말고 감싸게 둡니다
+   (2026-08-13 실측: flex:1 이면 좁은 폰에서 「파트너 지정」이 잘려 나갔습니다). */
+.official-overview-tools{gap:2px;padding:3px;border-radius:11px;background:#eef1f5;flex-wrap:wrap;}
 .official-overview-tool{
+  flex:0 1 auto;
   border:0;border-radius:9px;background:transparent;color:var(--ob-mut);
-  min-height:32px;padding:6px 2px;font-size:11px;font-weight:800;
+  min-height:32px;padding:6px 9px;font-size:11px;font-weight:800;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .official-overview-tool.active{
@@ -2717,7 +2720,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 }
 
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.547">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.548">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2732,7 +2735,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.547</span>
+    <span class="version-chip" id="appVersion">v1.10.548</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2792,7 +2795,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.547';
+const APP_VERSION='1.10.548';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3459,11 +3462,17 @@ function officialOperationsSummaryHtml(player){
   const helperOn=player.isClubOfficial&&session?.capabilities?.temporaryOfficialV1===true;
   const helperCount=(session?.players||[]).filter(row=>row?.isTemporaryOfficial&&!row.isClubOfficial).length;
   const rosterToolsOn=player.isClubOfficial;   // 관리자 동일 기능(2026-08-10)
+  const blocked=eventFlowPaused()||!!sendingKey||claimingOfficial;
   const tools=[
     partnerOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='partner'?'active':''}" onclick="setOfficialOverviewMode('partner')" aria-pressed="${officialOverviewMode==='partner'?'true':'false'}">파트너 지정</button>`:'',
     helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">운영 도우미${helperCount?` ${helperCount}`:''}</button>`:'',
     rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='rename'?'active':''}" onclick="setOfficialOverviewMode('rename')" aria-pressed="${officialOverviewMode==='rename'?'true':'false'}">이름 변경</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='remove'?'active':''}" onclick="setOfficialOverviewMode('remove')" aria-pressed="${officialOverviewMode==='remove'?'true':'false'}">제외</button>`:''
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='remove'?'active':''}" onclick="setOfficialOverviewMode('remove')" aria-pressed="${officialOverviewMode==='remove'?'true':'false'}">제외</button>`:'',
+    // 선수 추가·코트 수·마무리도 같은 줄로 모읍니다(운영자 2026-08-13).
+    // 패널 아래에 따로 놓인 폼·버튼이 화면을 길게 만들고 있었습니다.
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='add'?'active':''}" onclick="setOfficialOverviewMode('add')" aria-pressed="${officialOverviewMode==='add'?'true':'false'}">선수 추가</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool" ${blocked?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}')">코트 ${Math.max(1,parseInt(session?.event?.courts,10)||1)}</button>`:'',
+    rosterToolsOn?`<button type="button" class="official-overview-tool ${session?.event?.finishMode?'active':''}" ${blocked?'disabled':''} onclick="sendOfficialFinishMode('${esc(player.id)}')" aria-pressed="${session?.event?.finishMode?'true':'false'}">${session?.event?.finishMode?'마무리 해제':'마무리'}</button>`:''
   ].filter(Boolean).join('');
   const picked=officialPartnerPickId?(session?.players||[]).find(row=>String(row.id)===String(officialPartnerPickId)):null;
   const modeNote=officialOverviewMode==='partner'
@@ -3474,15 +3483,33 @@ function officialOperationsSummaryHtml(player){
       ? '오늘만 운영을 도울 회원을 <b>지정</b>하세요. 운동이 끝나면 자동으로 해제됩니다.'
       : officialOverviewMode==='rename'
         ? '이름을 바꿀 선수의 <b>이름 변경</b>을 누르세요.'
+        : officialOverviewMode==='add'
+          ? '명부에서 불러오거나, 이름을 직접 입력해 추가하세요.'
         : officialOverviewMode==='remove'
           ? '명단에서 뺄 선수의 <b>제외</b>를 누르세요. 경기중 선수는 경기를 먼저 정리해야 합니다.'
           : '';
   const modeBanner=modeNote?`<div class="official-overview-pick">${modeNote}<button type="button" onclick="setOfficialOverviewMode('${officialOverviewMode}')">닫기</button></div>`:'';
+  // 선수 추가는 폼이라 모드를 켰을 때만 펼칩니다(평소에는 줄 하나도 안 씁니다).
+  const addForm=(rosterToolsOn&&officialOverviewMode==='add')?`<div class="official-add-player">
+    <button type="button" class="official-roster-browse" data-official-action ${blocked?'disabled':''} onclick="openOfficialRosterPick('${esc(player.id)}')">명부에서 불러오기</button>
+    <div class="official-add-grid">
+      <input type="text" id="officialAddName_${esc(player.id)}" placeholder="이름" maxlength="20"
+        onkeydown="if(event.key==='Enter')sendOfficialPlayerCreate('${esc(player.id)}')">
+      <select id="officialAddGrade_${esc(player.id)}">
+        <option value="E">E</option><option value="D">D</option><option value="C" selected>C</option>
+        <option value="B">B</option><option value="A">A</option><option value="S">S</option>
+      </select>
+      <select id="officialAddGender_${esc(player.id)}"><option value="남">남</option><option value="여">여</option></select>
+      <label class="official-add-guest"><input type="checkbox" id="officialAddGuest_${esc(player.id)}">게스트</label>
+      <button type="button" data-official-action ${blocked?'disabled':''} onclick="sendOfficialPlayerCreate('${esc(player.id)}')">추가</button>
+    </div>
+  </div>`:'';
   return `<div class="official-overview">
     <div class="official-overview-head"><b>운영 현황</b><span>현장 ${summary.current}명</span></div>
     <div class="official-overview-grid">${cards.map(card=>`<button type="button" class="official-overview-stat ${card.cls||''} ${officialOverviewFilter===card.key?'active':''}" onclick="setOfficialOverviewFilter('${card.key}')" aria-pressed="${officialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
     ${tools?`<div class="official-overview-tools">${tools}</div>`:''}
     ${modeBanner}
+    ${addForm}
     ${detail}
   </div>`;
 }
@@ -4570,35 +4597,12 @@ function officialSupportHtml(p){
     ${connectingGrant?'':`<button type="button" onclick="retryOfficialInvite()">다시 연결</button>`}
   </div>`:'';
   const roleLabel=p.isClubOfficial?'클럽 임원 운영':'운영 도우미';
-  // 마무리 전환(운영자 2026-08-10 실전 피드백 "관리자의 마무리 기능도 임원에게").
-  // 세션 전체의 흐름을 바꾸는 스위치라 클럽 임원에게만 보입니다.
-  const finishOn=!!session?.event?.finishMode;
-  const pendingFinish=officialRequests.some(r=>r.type==='official-finish-mode'&&officialRequestPending(r));
-  const finishButton=p.isClubOfficial?`<button type="button" class="official-finish-toggle ${finishOn?'undo':''}" data-official-action ${disabled||pendingFinish?'disabled':''} onclick="sendOfficialFinishMode('${esc(p.id)}')">${pendingFinish?'마무리 확인 중':finishOn?'마무리 해제':'마무리 전환'}<small>${finishOn?'다음 대진 자동 생성을 다시 시작합니다':'새 대진 생성을 멈추고 남은 대진만 진행합니다'}</small></button>`:'';
-  // 관리자 동일 기능(2026-08-10): 선수 추가 폼 + 코트 수 변경. 클럽 임원 전용.
-  const courts=Math.max(1,parseInt(session?.event?.courts,10)||1);
-  const adminTools=p.isClubOfficial?`<div class="official-add-player">
-    <b>선수 추가 — 명부에 없는 선수·게스트</b>
-    <button type="button" class="official-roster-browse" data-official-action ${disabled} onclick="openOfficialRosterPick('${esc(p.id)}')">명부에서 불러오기</button>
-    <div class="official-add-grid">
-      <input type="text" id="officialAddName_${esc(p.id)}" placeholder="이름" maxlength="20"
-        onkeydown="if(event.key==='Enter')sendOfficialPlayerCreate('${esc(p.id)}')">
-      <select id="officialAddGrade_${esc(p.id)}">
-        <option value="E">E</option><option value="D">D</option><option value="C" selected>C</option>
-        <option value="B">B</option><option value="A">A</option><option value="S">S</option>
-      </select>
-      <select id="officialAddGender_${esc(p.id)}"><option value="남">남</option><option value="여">여</option></select>
-      <label class="official-add-guest"><input type="checkbox" id="officialAddGuest_${esc(p.id)}">게스트</label>
-      <button type="button" data-official-action ${disabled} onclick="sendOfficialPlayerCreate('${esc(p.id)}')">추가</button>
-    </div>
-  </div>
-  <button type="button" class="official-courts-button" data-official-action ${disabled} onclick="sendOfficialSettingsCourts('${esc(p.id)}')">코트 수 변경<small>현재 ${courts}코트</small></button>`:'';
+  // 선수 추가·코트 수·마무리는 운영 현황 도구 줄로 옮겼습니다(운영자
+  // 2026-08-13). 패널 아래 따로 놓인 폼·버튼이 화면을 길게 만들었습니다.
   return `<section class="official-support">
     <div class="official-support-head"><b>${roleLabel}</b><span id="officialConnection" class="official-connection ${connected?'':'offline'}">${serverReady?'서버 즉시 처리':connected?'관리자 자동 처리':'연결 복구 중'}</span></div>
     <span class="official-fairness ${fair.count?'warn':''}">${esc(fair.label)}</span>
     ${officialOperationsSummaryHtml(p)}
-    ${adminTools}
-    ${finishButton}
     ${grantRecovery}
     ${officialRequestStateHtml(p.id)}
     ${officialLiveAdditionToolsHtml(p,disabled)}
