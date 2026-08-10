@@ -379,6 +379,14 @@ this.club=officialPrimaryClub();`,legacy);
     });
     assert(/title="위로"/.test(cardActions)&&/aria-label="한 칸 위로"/.test(cardActions),
       '아이콘 버튼은 title·aria-label 로 뜻을 남겨야 합니다.');
+    // 일시정지·재시작도 아이콘 줄로(운영자 2026-08-13). 이름 붙은 버튼은
+    // 입장 처리 계열만 남아야 합니다 — 상태는 카드의 「조금 쉬고 입장」이 말합니다.
+    assert(/obIcon\('pause'\)/.test(cardActions)&&/obIcon\('play'\)/.test(cardActions),
+      '일시정지·재시작은 아이콘이어야 합니다.');
+    assert(!/>\s*(일시정지|재시작)\s*<\/button>/.test(cardActions),
+      '일시정지·재시작이 글자 버튼으로 남아 있으면 카드가 다시 길어집니다.');
+    assert(/const icons=\[\.\.\.holdIcons\]/.test(cardActions),
+      '일시정지 아이콘은 아이콘 줄 맨 앞에 놓여야 합니다.');
     assert(checkin.includes('.event-official-icon{'),'아이콘 버튼 스타일이 있어야 합니다.');
   }
   const createSrc=(()=>{const s=checkin.indexOf('async function sendOfficialPlayerCreate');
