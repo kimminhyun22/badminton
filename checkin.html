@@ -2672,6 +2672,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 /* 이모지는 글자보다 살짝 크게, 한 칸 띄워서. 컬러 이모지라 파랑으로 채워진
    상태에서도 그대로 보입니다. */
 .official-overview-tool .ot-emo{margin-right:4px;font-size:14px;line-height:1;flex:none;}
+/* 코트 번호 정정 버튼 — 평소 배지와 같은 모습이되 누를 수 있음을 옅게 알립니다. */
+button.event-court-badge.editable{
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  outline:1px dashed rgba(22,34,52,.22);outline-offset:2px;
+}
+button.event-court-badge.editable:active{transform:scale(.96);}
 /* 직접 예약 딱지 — 자동 편성과 한눈에 구분되게 파랑 계열로. */
 .event-partner-badge.manual{background:var(--ob-blue-tint);border-color:#bcd3f3;color:var(--ob-blue-deep);}
 .replace-picker-current .event-partner-badge.manual{margin:0 0 0 auto;flex-shrink:0;}
@@ -2762,7 +2768,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 }
 
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.553">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.554">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2777,7 +2783,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>현재 경기와 다음 순서</strong>를 볼 수 있어요.</div>
-    <span class="version-chip" id="appVersion">v1.10.553</span>
+    <span class="version-chip" id="appVersion">v1.10.554</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2837,7 +2843,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.553';
+const APP_VERSION='1.10.554';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3429,7 +3435,11 @@ function officialOverviewStatusButtons(actor,target,viewKey){
   if(officialOverviewMode==='remove'){
     if(viewKey==='party')return '';
     if(target.status==='playing'||target.currentMatchId)return '<span class="official-overview-hint">경기중 — 경기 정리 후</span>';
+    // 잘못 등록한 사람은 명단에서 아주 빼는 것보다 도착 전으로 되돌리는 편이
+    // 나은 경우가 많습니다(운영자 2026-08-13). 아직 안 뛴 사람만 고를 수 있게 둡니다.
+    const canUnarrive=!['invited','planned'].includes(String(target.status||''))&&Number(target.games||0)===0;
     return `<span class="official-overview-actions">
+      ${canUnarrive?`<button type="button" ${dis} onclick="sendOfficialUnarrive('${esc(actor.id)}','${esc(target.id)}')">도착 전</button>`:''}
       <button type="button" class="remove" ${dis} onclick="sendOfficialPlayerRemove('${esc(actor.id)}','${esc(target.id)}')">제외</button>
     </span>`;
   }
@@ -3528,7 +3538,7 @@ function officialOperationsSummaryHtml(player){
         : officialOverviewMode==='add'
           ? '명부에서 불러오거나, 이름을 직접 입력해 추가하세요.'
         : officialOverviewMode==='remove'
-          ? '명단에서 뺄 선수의 <b>제외</b>를 누르세요. 경기중 선수는 경기를 먼저 정리해야 합니다.'
+          ? '아직 안 온 사람은 <b>도착 전</b>, 명단에서 아주 뺄 사람은 <b>제외</b>를 누르세요. 경기중 선수는 경기를 먼저 정리해야 합니다.'
           : '';
   const modeBanner=modeNote?`<div class="official-overview-pick">${modeNote}<button type="button" onclick="setOfficialOverviewMode('${officialOverviewMode}')">닫기</button></div>`:'';
   // 선수 추가는 폼이라 모드를 켰을 때만 펼칩니다(평소에는 줄 하나도 안 씁니다).
@@ -3678,10 +3688,16 @@ function nextTeamLine(row,actorId){
     <span class="event-next-pair b">${b.slice(0,2).map((n,i)=>player(n,t2Ids[i]||ids[i+2])).join('')}</span>
   </div>${playingNames.length?`<div class="event-next-playing-note">${esc(playingNames.join(', '))} 경기중 — 경기 종료 후 투입</div>`:''}`;
 }
-function courtBadge(label){
+function courtBadge(label,editCtx){
   const text=String(label||'대기');
   const m=text.match(/(\d+)\s*코트/);
-  if(m)return `<div class="event-court-badge"><b>${esc(m[1])}</b><span>코트</span></div>`;
+  if(m){
+    // 임원이면 번호를 눌러 실제 코트로 정정할 수 있습니다(운영자 2026-08-13).
+    if(editCtx&&editCtx.actorId&&editCtx.matchId){
+      return `<button type="button" class="event-court-badge editable" title="코트 번호 정정" aria-label="${esc(m[1])}코트 번호 정정" onclick="sendOfficialCourtRenumber('${esc(editCtx.actorId)}','${esc(editCtx.matchId)}')"><b>${esc(m[1])}</b><span>코트</span></button>`;
+    }
+    return `<div class="event-court-badge"><b>${esc(m[1])}</b><span>코트</span></div>`;
+  }
   return `<div class="event-court-badge"><b>대기</b><span>순번</span></div>`;
 }
 function activeMatchById(matchId){
@@ -4017,7 +4033,7 @@ function renderEvent(){
     const activeYieldButton=canOfficialOperate&&officialActiveYieldAvailable(m)?`<button type="button" class="event-official-active-yield" data-official-action data-official-pending="${pendingActiveYield?'true':'false'}" ${completeDisabled} onclick="sendOfficialActiveYield('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingActiveYield?'처리 중':'이번만 뒤로'}<small>${activeYieldSeconds}초</small></button>`:`<em>${esc(remainText(m))}</em>`;
     return `<div class="event-row event-active ${state}">
     <div class="event-row-main">
-      ${courtBadge(`${m.court}코트`)}
+      ${courtBadge(`${m.court}코트`,canOfficialOperate&&selectedPlayer?.isClubOfficial?{actorId:selectedPlayer.id,matchId:m.id}:null)}
       <div>
         ${(()=>{
           // 「진행중」 글자는 뺍니다(운영자 2026-08-13). 남은 시간 배지와 코트
@@ -5800,6 +5816,55 @@ async function sendOfficialSettingsCourts(actorId){
     observedUpdatedAt:session.updatedAt||0,
     source:'club-official-settings'
   },`코트 ${current}→${next} 변경`);
+}
+// 진행 중인 경기의 코트 번호 정정(운영자 2026-08-13). 화면 번호와 실제로 쓰는
+// 코트가 어긋났을 때. 대상 번호에 다른 경기가 있으면 물어보고 맞바꿉니다.
+async function sendOfficialCourtRenumber(actorId,matchId){
+  const actor=officialActor(actorId);
+  if(!actor||!actor.isClubOfficial)return toast('코트 번호 변경은 클럽 임원만 할 수 있어요.');
+  const match=(session?.event?.active||[]).find(m=>String(m?.id||'')===String(matchId));
+  if(!match)return toast('진행 중인 경기를 다시 확인해 주세요.');
+  const current=Math.max(1,parseInt(match.court,10)||1);
+  const raw=prompt(`현재 ${current}코트입니다.\n실제 진행 중인 코트 번호를 입력하세요 (1~12).`,String(current));
+  if(raw==null)return;
+  const next=parseInt(String(raw).trim(),10);
+  if(!Number.isFinite(next)||next<1||next>12)return toast('코트 번호는 1~12 사이 숫자로 입력해 주세요.');
+  if(next===current)return;
+  const occupant=(session?.event?.active||[]).find(m=>m!==match&&parseInt(m?.court,10)===next);
+  if(occupant&&!confirm(`${next}코트에는 이미 진행 중인 경기가 있습니다.\n두 경기의 코트 번호를 서로 바꿀까요?`))return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-court-renumber',
+    operationId:createOfficialOperationId('renumber'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    matchId:String(matchId),
+    court:next,
+    expectedCourt:current,
+    allowSwap:true,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-court-renumber'
+  },`${current}→${next}코트 정정`);
+}
+// 잘못 참가 등록된 선수를 도착 전으로 되돌립니다(운영자 2026-08-13).
+async function sendOfficialUnarrive(actorId,playerId){
+  const actor=officialActor(actorId);
+  if(!actor||!actor.isClubOfficial)return toast('도착 전 되돌리기는 클럽 임원만 할 수 있어요.');
+  const target=(session?.players||[]).find(p=>String(p?.id||'')===String(playerId));
+  if(!target)return toast('선수를 다시 확인해 주세요.');
+  if(Number(target.games||0)>0)return toast('이미 경기를 뛴 선수는 「경기 후 종료」로 처리해 주세요.');
+  if(!confirm(`${target.name}님을 도착 전으로 되돌릴까요?\n대진·게임신청에서 빠지고, 도착하면 다시 참가 등록하면 됩니다.`))return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-player-unarrive',
+    operationId:createOfficialOperationId('unarrive'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    playerId:String(playerId),
+    expectedName:target.name,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-unarrive'
+  },`${target.name} 도착 전 되돌리기`);
 }
 // 마무리 전환·해제(운영자 2026-08-10 실전 피드백). 클럽 임원 전용.
 async function sendOfficialFinishMode(actorId){

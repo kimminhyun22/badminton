@@ -205,6 +205,63 @@ function send(session, request, {admin = true} = {}){
   console.log(`  중복 마무리 전환: rejected (${dup.reason})`);
 }
 
+// 7b) 코트 번호 정정(운영자 2026-08-13 "코트 번호 정정 추가해").
+//     화면 번호와 실제 코트가 어긋났을 때 임원이 고칩니다.
+{
+  const withCourts=()=>{
+    const s=makeSession();
+    s.event.active=[
+      {id:'m1',court:1,seq:1,type:'남복',startedAt:NOW-5*60_000,expectedMinutes:15,endAt:NOW+10*60_000,
+       playerIds:['p1','p2','p3','p4'],t1Ids:['p1','p2'],t2Ids:['p3','p4'],t1:['가선수','나선수'],t2:['다선수','라선수']},
+      {id:'m2',court:2,seq:2,type:'남복',startedAt:NOW-5*60_000,expectedMinutes:15,endAt:NOW+10*60_000,
+       playerIds:['p5','p6','p7','p8'],t1Ids:['p5','p6'],t2Ids:['p7','p8'],t1:['마선수','바선수'],t2:['사선수','아선수']}
+    ];
+    s.players.forEach(p=>{if(['p1','p2','p3','p4','p5','p6','p7','p8'].includes(p.id)){p.status='playing';p.currentMatchId=['p1','p2','p3','p4'].includes(p.id)?'m1':'m2';}});
+    return s;
+  };
+  const moved=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:5,expectedCourt:1},{admin:false});
+  assert.strictEqual(moved.status,'applied',`코트 번호 정정이 적용되어야 합니다: ${moved.reason||''}`);
+  assert.strictEqual(moved.session.event.active.find(m=>m.id==='m1').court,5,'새 번호로 바뀌어야 합니다.');
+  // 이미 쓰는 번호로 옮기면 서로 맞바꿉니다(관리자 화면과 같은 규칙).
+  const swap=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:2,expectedCourt:1,allowSwap:true},{admin:false});
+  assert.strictEqual(swap.status,'applied',`맞바꾸기가 적용되어야 합니다: ${swap.reason||''}`);
+  assert.strictEqual(swap.session.event.active.find(m=>m.id==='m1').court,2,'대상 경기가 2코트로 가야 합니다.');
+  assert.strictEqual(swap.session.event.active.find(m=>m.id==='m2').court,1,'있던 경기는 1코트로 와야 합니다.');
+  // 맞바꿈을 허용하지 않으면 거절 — 두 경기가 같은 번호에 서면 안 됩니다.
+  const blocked=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:2,expectedCourt:1},{admin:false});
+  assert.strictEqual(blocked.status,'rejected','맞바꿈 동의 없이 점유된 번호로 옮기면 거절되어야 합니다.');
+  // 경합: 그 사이 번호가 이미 바뀌었으면 거절.
+  const stale=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:5,expectedCourt:3},{admin:false});
+  assert.strictEqual(stale.status,'rejected','기대 번호가 다르면 거절되어야 합니다.');
+  const bad=send(withCourts(),{type:'official-court-renumber',matchId:'m1',court:13,expectedCourt:1},{admin:false});
+  assert.strictEqual(bad.status,'rejected','1~12 밖 번호는 거절되어야 합니다.');
+  console.log('  코트 번호 정정: applied · 맞바꾸기 · 동의 없으면 거절 · 경합/범위 거절');
+}
+
+// 7c) 도착 되돌리기(운영자 2026-08-13). 잘못 참가 등록된 사람을 도착 전으로.
+{
+  const r=send(makeSession(),{type:'official-player-unarrive',playerId:'p1',expectedName:'가선수'},{admin:false});
+  assert.strictEqual(r.status,'applied',`도착 되돌리기가 적용되어야 합니다: ${r.reason||''}`);
+  const p=r.session.players.find(x=>x.id==='p1');
+  assert.strictEqual(p.status,'planned','도착 전 상태여야 합니다.');
+  assert.strictEqual(p.preArrivalVisible,true,'도착 전 명단에 보여야 합니다.');
+  // 이미 뛴 사람은 「경기 후 종료」가 맞는 처리입니다.
+  const played=makeSession();
+  played.players.find(x=>x.id==='p1').games=2;
+  const tooLate=send(played,{type:'official-player-unarrive',playerId:'p1'},{admin:false});
+  assert.strictEqual(tooLate.status,'rejected','경기를 뛴 선수는 거절되어야 합니다.');
+  // 경기중인 사람도 거절 — 경기를 먼저 정리해야 합니다.
+  const busy=makeSession();
+  const bp=busy.players.find(x=>x.id==='p1');
+  bp.status='playing'; bp.currentMatchId='m1';
+  const playing=send(busy,{type:'official-player-unarrive',playerId:'p1'},{admin:false});
+  assert.strictEqual(playing.status,'rejected','경기중 선수는 거절되어야 합니다.');
+  // 이미 도착 전이면 중복 처리하지 않습니다.
+  const dup=send(r.session,{type:'official-player-unarrive',playerId:'p1'},{admin:false});
+  assert.strictEqual(dup.status,'rejected','이미 도착 전이면 거절되어야 합니다.');
+  console.log('  도착 되돌리기: applied · 뛴 선수/경기중/중복 거절');
+}
+
 // 8) 운영 명령은 임원에게 전부 열렸습니다(운영자 2026-08-10 "관리자와 동일한
 //    기능 제공"). 관리자 전용으로 남는 것은 임원 자격 부여뿐입니다 —
 //    보안 경계라 자유권 대상이 아닙니다.
@@ -303,6 +360,9 @@ const wired = [
   ['대기 경기 재생성', "type:'official-queue-regenerate'"],
   ['게임신청 반영', "type:'official-reservation-promote'"],
   ['마무리 전환', "type:'official-finish-mode'"],
+  // 2026-08-13: 임원 화면에서 보낸 두 명령을 관리자 원본이 받아 재생해야 합니다.
+  ['코트 번호 정정 재생', "req.type==='official-court-renumber'"],
+  ['도착 되돌리기 재생', "req.type==='official-player-unarrive'"],
   ['교체 선수 지정', 'inPlayerId:newId'],
   ['순서 임의 이동', 'allowFreeMove:true']
 ];

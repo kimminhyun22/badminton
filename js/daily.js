@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.553';
+const APP_VERSION = '1.10.554';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -8284,7 +8284,9 @@ function _dailyOfficialRequestError(req){
     'official-queue-delete',
     'official-queue-regenerate',
     'official-reservation-promote',
-    'official-finish-mode'
+    'official-finish-mode',
+    'official-court-renumber',
+    'official-player-unarrive'
   ].includes(req.type)){
     return req.serverAppliedAt?'':'서버가 아직 처리하지 않은 관리자 운영 요청입니다.';
   }
@@ -8349,6 +8351,30 @@ function _dailyApplyOfficialStatus(req){
 function _dailyApplyAdminOperation(req){
   const result=req.serverResult||{};
   const at=Number(req.serverAppliedAt||req.createdAt||_dailyNow());
+  // 코트 번호 정정(2026-08-13): 서버가 정한 결과를 그대로 옮깁니다. 맞바꾼
+  // 상대 경기가 있으면 그 번호도 함께 되돌려 놔야 두 경기가 같은 번호에 섭니다.
+  if(req.type==='official-court-renumber'){
+    const info=result.courtRenumber;
+    const target=_dailyMatches.find(x=>x.id===String(info?.matchId||req.matchId||''));
+    if(!target||!info)return false;
+    const swapped=info.swappedMatchId?_dailyMatches.find(x=>x.id===String(info.swappedMatchId)):null;
+    if(swapped)swapped.court=Number(info.from);
+    target.court=Number(info.to);
+    return true;
+  }
+  // 도착 되돌리기(2026-08-13): 제외와 같은 정리(게임신청·대기표) 뒤 도착 전으로.
+  if(req.type==='official-player-unarrive'){
+    const id=String(result.playerUnarrive?.playerId||req.playerId||'');
+    const p=id?_dailyPlayer(id):null;
+    if(!p)return false;
+    _dailyCancelReservationsForPlayer(id,`${p.name}님이 도착 전으로 바뀌어 게임신청이 취소됐습니다.`,'official-unarrive');
+    if(_dailyIsQueued(id)&&!_dailyTryReplaceQueuedPlayer(id,`${p.name}님이 도착 전으로 바뀌어 대기표가 조정됐습니다.`)){
+      _dailyRemoveQueuedPlayer(id,`${p.name}님이 도착 전으로 바뀌어 대기표가 취소됐습니다.`);
+    }
+    _dailyApplyPlayerStatus(p,'planned',at);
+    p.preArrivalVisible=true;
+    return true;
+  }
   if(req.type==='official-court-cancel'){
     const matchId=String(result.courtCancel?.matchId||req.matchId||'');
     const m=_dailyMatches.find(x=>x.id===matchId);
@@ -8700,7 +8726,8 @@ function dailyProcessCheckinRequests(){
         if(['official-player-remove','official-player-rename','official-player-create',
             'official-player-official',
             'official-queue-delete','official-queue-regenerate','official-reservation-promote',
-            'official-finish-mode','official-court-cancel','official-manual-match'].includes(req.type)){
+            'official-finish-mode','official-court-cancel','official-manual-match',
+            'official-court-renumber','official-player-unarrive'].includes(req.type)){
           const ok=_dailyApplyAdminOperation(req);
           if(ok)changed=true;
           finishOfficial(req,ok,'관리자 운영 동작을 원본에 연결하지 못했습니다.',true);
@@ -10218,7 +10245,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.553&from=daily';
+  location.href='team.html?v=1.10.554&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

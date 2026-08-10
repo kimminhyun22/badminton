@@ -61,7 +61,9 @@ const SUPPORTED_TYPES = new Set([
   'official-reservation-promote',
   'official-finish-mode',
   'official-court-complete-undo',
-  'official-operation-undo'
+  'official-operation-undo',
+  'official-court-renumber',
+  'official-player-unarrive'
 ]);
 
 const UNDOABLE_TYPES = new Set([
@@ -95,7 +97,8 @@ const PAUSED_FLOW_TYPES = new Set([
   'official-player-create',
   'official-queue-delete',
   'official-queue-regenerate',
-  'official-reservation-promote'
+  'official-reservation-promote',
+  'official-player-unarrive'
 ]);
 
 function clone(value){
@@ -2144,6 +2147,65 @@ function applyPlayerRemove(session, request, now, operation){
   return '';
 }
 
+// 진행 중인 경기의 코트 번호 정정(운영자 2026-08-13). 화면 번호와 실제로 쓰는
+// 코트가 어긋났을 때 고칩니다. 대상 번호에 다른 경기가 있으면 서로 맞바꿉니다 —
+// 관리자 화면(dailyEditActiveCourt)과 같은 규칙입니다.
+function applyCourtRenumber(session, request, now, operation){
+  const event = session.event;
+  const matchId = text(request.matchId);
+  const match = (event.active || []).find(row=>text(row?.id) === matchId);
+  if(!match)return '코트 번호를 바꿀 경기를 찾지 못했습니다.';
+  const next = number(request.court);
+  if(!Number.isInteger(next) || next < 1 || next > 12)return '코트 번호는 1~12 사이로 정해 주세요.';
+  const current = number(match.court);
+  if(Object.prototype.hasOwnProperty.call(request, 'expectedCourt')
+    && number(request.expectedCourt) !== current){
+    return '코트 번호가 이미 바뀌었습니다.';
+  }
+  if(next === current)return '이미 같은 코트입니다.';
+  const occupant = (event.active || []).find(row=>row !== match && number(row?.court) === next);
+  if(occupant){
+    if(request.allowSwap !== true)return `${next}코트에는 이미 진행 중인 경기가 있습니다.`;
+    occupant.court = current;
+  }
+  match.court = next;
+  if(operation){
+    operation.result = {courtRenumber:{matchId, from:current, to:next,
+      swappedMatchId:occupant ? text(occupant.id) : ''}};
+  }
+  refreshEvent(session, now);
+  return '';
+}
+
+// 잘못 참가 등록된 선수를 도착 전으로 되돌립니다(운영자 2026-08-13).
+// 아직 한 경기도 안 뛴 사람만 — 뛴 사람은 「종료」가 맞는 처리입니다.
+function applyPlayerUnarrive(session, request, now, operation){
+  const player = playerById(session, request.playerId);
+  if(!player)return '되돌릴 선수를 찾지 못했습니다.';
+  if(text(request.expectedName) && text(request.expectedName) !== text(player.name)){
+    return '선수 정보가 이미 바뀌었습니다.';
+  }
+  if(['invited', 'planned'].includes(normalizeStatus(player.status)))return '이미 도착 전 명단입니다.';
+  if(normalizeStatus(player.status) === 'playing' || player.currentMatchId){
+    return '경기중 선수는 먼저 경기 완료 또는 취소를 해주세요.';
+  }
+  if(number(player.games) > 0)return '이미 경기를 뛴 선수는 「경기 후 종료」로 처리해 주세요.';
+  const playerId = text(player.id);
+  const queueRepair = repairPreparedForUnavailablePlayer(session, playerId, now);
+  removePlayerReservations(session, playerId);
+  player.status = 'planned';
+  player.statusLabel = statusLabel('planned');
+  player.locked = false;
+  player.currentMatchId = '';
+  player.afterMatchStatus = '';
+  player.lastStatusAt = now;
+  player.restPausedMs = 0;
+  player.preArrivalVisible = true;
+  promotePrepared(session);
+  if(operation)operation.result = {playerUnarrive:{playerId, name:text(player.name), queueRepair}};
+  return '';
+}
+
 function applyPlayerRename(session, request, now, operation){
   const player = playerById(session, request.playerId);
   if(!player)return '이름을 바꿀 선수를 찾지 못했습니다.';
@@ -2562,6 +2624,8 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-temporary-grant': return applyTemporaryOfficial(session, request, now, operation, true);
     case 'official-temporary-revoke': return applyTemporaryOfficial(session, request, now, operation, false);
     case 'official-settings-update': return applySettingsUpdate(session, request, now, operation);
+    case 'official-court-renumber': return applyCourtRenumber(session, request, now, operation);
+    case 'official-player-unarrive': return applyPlayerUnarrive(session, request, now, operation);
     case 'official-court-cancel': return applyCourtCancel(session, request, now, operation);
     case 'official-active-replace': return applyActiveReplace(session, request, now, operation);
     case 'official-manual-match': return applyManualMatch(session, request, now, requestId, operation);
