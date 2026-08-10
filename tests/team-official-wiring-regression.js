@@ -88,4 +88,30 @@ assert(/text\(m\?\.win\) === 't1'\)blueWins/.test(engine),
 assert(/delete session\.resultConflicts\[key\]/.test(engine),
   '임원이 결론을 냈으면 그 경기의 승패 확인 대기도 함께 정리해야 합니다.');
 
-console.log('team official wiring regression ok — 서버 callable · 화면 진입점 · 권한 · 지문 · AI 후보 · 승패 정정');
+// 10) 임원 버튼이 전역 `!important` 유틸리티에 먹히면 안 됩니다.
+//     v566 의 「대체 필요」 버튼은 클래스 이름을 `sub` 로 두는 바람에
+//     `.sub{color:var(--dim)!important}` 가 **!important 로 이겨서** 파란 버튼에
+//     회색 글씨로 나갔습니다(폰 리그 실측으로 발견). 이름이 겹치는지 자동으로 봅니다.
+const liveCss = fs.readFileSync(path.join(root, 'css', 'live.css'), 'utf8');
+const dimTokens = new Set();
+liveCss.replace(/([^{}]+)\{[^{}]*color\s*:\s*[^;{}]*!important[^{}]*\}/g, (_, sel) => {
+  sel.split(',').forEach(one => {
+    const t = one.trim();
+    if(/^\.[A-Za-z0-9_-]+$/.test(t))dimTokens.add(t.slice(1));
+  });
+  return '';
+});
+assert(dimTokens.has('sub'), '전제 확인: `.sub` 는 실제로 !important 유틸리티입니다.');
+const officialButtonClasses = [...liveView.matchAll(/class="(team-official-overview-conflict[^"]*)"/g)]
+  .map(m => m[1]);
+assert(officialButtonClasses.length >= 2, '임원 진입 버튼이 둘 이상 있어야 합니다(대체·정정).');
+officialButtonClasses.forEach(cls => {
+  cls.split(/\s+/).filter(Boolean).forEach(token => {
+    assert(!dimTokens.has(token),
+      `임원 버튼의 클래스 "${token}" 가 전역 !important 유틸리티와 겹칩니다 — 글씨가 회색으로 먹힙니다.`);
+  });
+});
+assert(liveCss.includes('.team-official-overview-conflict.act{'),
+  '대체 투입 버튼 스타일은 겹치지 않는 이름(.act)으로 있어야 합니다.');
+
+console.log('team official wiring regression ok — 서버 callable · 화면 진입점 · 권한 · 지문 · AI 후보 · 승패 정정 · 버튼 대비');

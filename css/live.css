@@ -2178,8 +2178,11 @@ button.team-official-overview-conflict.quiet{
 .team-sub-row.warn .team-sub-who b{color:#a52a22;}
 .team-sub-row.warn .team-sub-who small{color:#a5564e;}
 
-/* 대체 투입 시트 (2026-08-13) — 임원이 현장에서 바로 메울 수 있게. */
-.team-official-overview-conflict.sub{
+/* 대체 투입 시트 (2026-08-13) — 임원이 현장에서 바로 메울 수 있게.
+   클래스 이름을 `.sub` 로 두면 안 된다: 위쪽 `.sub{color:var(--dim)!important}`
+   유틸리티가 **!important 로 이겨서** 파란 버튼에 회색 글씨가 나온다(v566 이후
+   줄곧 그렇게 나가고 있었다 — 폰 리그 실측으로 잡음). */
+.team-official-overview-conflict.act{
   width:100%;margin-top:6px;border:0;border-radius:11px;
   background:#0a6cff;color:#fff;font:inherit;font-weight:900;
   padding:11px 12px;cursor:pointer;text-align:center;

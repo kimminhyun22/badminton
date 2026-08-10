@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.569';
+const APP_VERSION='1.10.570';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1285,7 +1285,7 @@ function _substituteAlertHtml(d){
   if(!_canSubstitute(d))return '';
   const pending=_pendingSubstitutions(d);
   if(!pending.length)return '';
-  return `<button type="button" class="team-official-overview-conflict sub" onclick="openTeamSubstitutePanel()">
+  return `<button type="button" class="team-official-overview-conflict act" onclick="openTeamSubstitutePanel()">
     대체 필요 ${pending.length}건 · 눌러서 바로 교체</button>`;
 }
 function openTeamSubstitutePanel(){
