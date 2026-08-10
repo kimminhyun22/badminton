@@ -3215,3 +3215,11 @@ html,body{overscroll-behavior-y:none;}
   color:#7a8798;font-size:11px;font-weight:1000;line-height:1;
 }
 .daily-court-stack .daily-court-vs{font-weight:1000;color:#8b97a6;}
+
+/* 「+」가 이름과 떨어져 보이던 문제(2026-08-13 실측): 이름은 vs 쪽으로 붙여
+   정렬(오른쪽/왼쪽)돼 있는데 「+」만 열 가운데라 서로 어긋났다.
+   임원 화면 카드처럼 **열 전체를 가운데 정렬**로 통일한다. */
+.daily-court-stack .daily-court-team-name:first-child,
+.daily-court-stack .daily-court-team-name.b{text-align:center;justify-items:center;}
+.daily-court-stack .daily-court-team-name .daily-active-player{text-align:center;}
+.daily-court-plus{width:100%;}
