@@ -3,12 +3,12 @@
  * 대체 투입의 **문**과 **범위** (운영자 2026-08-14).
  *
  *   "대진표의 지각자를 눌러서 선수교체하는 방식으로 처리해.
- *    지각자는 어쨌든 오고 있는 사람이니까 모든 경기를 대체할 필요 없어.
- *    지각에서 불참으로 변경되는 경우도 대체선수 투입하는 방식으로"
+ *    지각자는 어쨌든 오고 있는 사람이니까 모든 경기를 대체할 필요 없어."
+ *   "불참이라 해도 완전 대체할 사람은 없으니 지각자와 다를 바 없는 것 같아."
  *
  * 여기서 고정하는 것:
- *   1) 지각은 **지금 라운드만** — 오고 있는 사람의 뒷 경기까지 갈아치우지 않는다
- *   2) 불참은 **남은 경기 전부** — 안 오는 사람이다
+ *   1) 출결은 **지각 하나** — 불참을 따로 두지 않는다(벤치가 얇아 실익이 없다)
+ *   2) 교체는 **지금 라운드만** — 뒷 경기까지 미리 갈아치우지 않는다
  *   3) 끝난 경기·권한 없는 사람에게는 문이 열리지 않는다
  *   4) 이름은 `<div role=button>` 이어야 한다 — `<button>` 은 이름 글꼴을 흐트러뜨린다
  */
@@ -34,8 +34,7 @@ function _canSubstitute(){ return canOperate; }
 ${cut('function _attKey(name)', 'function _lateMapFromData')}
 ${cut('function _replaceableInMatch', 'function buildLiveMatchCard')}
 ${cut('function _substituteHintHtml', 'function openTeamSubstitutePanel')}
-this.api={_replaceableInMatch,_playerLine,_pendingSubstitutions,_substituteHintHtml,
-  _attendanceState,_attendanceLabel,_attendanceCycleLabel,
+this.api={_replaceableInMatch,_playerLine,_pendingSubstitutions,_substituteHintHtml,_lateOn,
   setLate(map){ window._liveLate = map; }, setOperate(v){ canOperate = v; }};
 `, sandbox);
 const api = sandbox.api;
@@ -51,26 +50,28 @@ const d = {
   ]
 };
 api.setLate({
-  [attKey('지각이')]: {name: '지각이', status: 'late'},
+  [attKey('지각이')]: {name: '지각이'},
+  // 옛 데이터에 남아 있는 status 칸은 그냥 무시하고 지각으로 봅니다.
   [attKey('불참이')]: {name: '불참이', status: 'absent'}
 });
 
-// 1) 지각은 지금 라운드만. 뒷 라운드는 그냥 둔다 — 오고 있는 사람이다.
+// 1) 교체는 지금 라운드만. 뒷 라운드는 그냥 둔다.
 {
   assert.strictEqual(api._replaceableInMatch(d, d.matches[0], '지각이'), true,
     '지금 라운드의 지각자는 교체할 수 있어야 합니다.');
   assert.strictEqual(api._replaceableInMatch(d, d.matches[2], '지각이'), false,
-    '다음 라운드까지 미리 갈아치우면 안 됩니다 — 오고 있는 사람입니다.');
-  console.log('  지각: 지금 라운드만');
+    '다음 라운드까지 미리 갈아치우면 안 됩니다.');
+  console.log('  교체 범위: 지금 라운드만');
 }
 
-// 2) 불참은 남은 경기 전부.
+// 2) 출결은 한 가지뿐 — 옛 데이터의 `status:absent` 도 그냥 지각으로 봅니다.
 {
+  assert.strictEqual(api._lateOn('불참이'), true, '옛 status 칸이 있어도 지각으로 봐야 합니다.');
   assert.strictEqual(api._replaceableInMatch(d, d.matches[1], '불참이'), true,
-    '지금 라운드의 불참자는 교체 대상입니다.');
-  assert.strictEqual(api._replaceableInMatch(d, d.matches[2], '불참이'), true,
-    '불참자는 남은 경기 전부가 교체 대상이어야 합니다 — 안 오는 사람입니다.');
-  console.log('  불참: 남은 경기 전부');
+    '지금 라운드면 교체 대상입니다.');
+  assert.strictEqual(api._replaceableInMatch(d, d.matches[2], '불참이'), false,
+    '불참을 따로 두지 않으므로 뒷 라운드는 대상이 아닙니다.');
+  console.log('  출결 한 가지: 옛 불참 표시도 지각으로');
 }
 
 // 3) 끝난 경기 · 출결 표시 없는 사람 · 권한 없는 사람에게는 문이 없습니다.
@@ -86,14 +87,13 @@ api.setLate({
   console.log('  끝난 경기 · 정상 출석 · 일반 회원: 문 없음');
 }
 
-// 4) 세어 보면 지금 라운드 2자리 + 불참자의 다음 라운드 1자리 = 3.
+// 4) 세어 보면 지금 라운드의 두 자리뿐입니다.
 {
   const pending = api._pendingSubstitutions(d);
-  assert.strictEqual(pending.length, 3, `메울 자리 수가 규칙과 같아야 합니다: ${JSON.stringify(pending)}`);
+  assert.strictEqual(pending.length, 2, `메울 자리 수가 규칙과 같아야 합니다: ${JSON.stringify(pending)}`);
   const names = pending.map(p => `${p.num}:${p.name}`).sort();
-  assert.deepEqual(names, ['1:지각이', '2:불참이', '3:불참이'],
-    '지각은 지금 라운드 한 자리, 불참은 두 경기 모두여야 합니다.');
-  console.log(`  메울 자리 ${pending.length}곳 (지각 1 · 불참 2)`);
+  assert.deepEqual(names, ['1:지각이', '2:불참이'], '지금 라운드의 두 자리여야 합니다.');
+  console.log(`  메울 자리 ${pending.length}곳 (지금 라운드만)`);
 }
 
 // 5) 이름 마크업 — 눌리는 이름과 안 눌리는 이름의 **클래스가 같아야** 모양이 안 갈라집니다.
@@ -109,10 +109,9 @@ api.setLate({
   assert(/class="live-player"/.test(plain), '평범한 이름은 그대로여야 합니다.');
   assert(!/role="button"/.test(plain), '평범한 이름은 눌리면 안 됩니다.');
 
-  const out = api._playerLine('불참이', d, d.matches[1]);
-  assert(/is-out/.test(out), '불참은 눈에 다르게 보여야 합니다.');
-  assert(/불참 · 교체/.test(out), '무엇을 할 수 있는지 이름 옆에 적어야 합니다.');
-  console.log('  이름 마크업: div+role · 같은 클래스 · 불참 표시');
+  assert(/지각 · 교체/.test(tappable), '무엇을 할 수 있는지 이름 옆에 적어야 합니다.');
+  assert(!/불참/.test(tappable), '불참 표기는 더 이상 쓰지 않습니다.');
+  console.log('  이름 마크업: div+role · 같은 클래스 · 지각 표시');
 }
 
 // 6) 안내 한 줄 — 버튼이 아니어야 합니다(누를 곳은 대진표의 이름 하나뿐).
@@ -126,15 +125,11 @@ api.setLate({
   console.log('  안내: 문구만 · 임원에게만');
 }
 
-// 7) 출결 3단계 — 버튼에는 **다음에 될 상태**를 적습니다.
+// 7) 출결은 켜고 끄는 하나입니다.
 {
-  assert.strictEqual(api._attendanceState('청하나'), '');
-  assert.strictEqual(api._attendanceState('지각이'), 'late');
-  assert.strictEqual(api._attendanceState('불참이'), 'absent');
-  assert.strictEqual(api._attendanceCycleLabel('청하나'), '지각');
-  assert.strictEqual(api._attendanceCycleLabel('지각이'), '불참으로');
-  assert.strictEqual(api._attendanceCycleLabel('불참이'), '도착 확인');
-  console.log('  출결 순환: 지각 → 불참으로 → 도착 확인');
+  assert.strictEqual(api._lateOn('청하나'), false);
+  assert.strictEqual(api._lateOn('지각이'), true);
+  console.log('  출결: 지각 하나 (켜기/끄기)');
 }
 
 console.log('\nteam substitute entry regression ok');

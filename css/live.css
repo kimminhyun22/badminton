@@ -1181,13 +1181,22 @@ body{
   color:#222b3a;font-size:1rem;font-weight:900;padding:13px 14px;outline:none;
 }
 .viewer-search-input:focus{border-color:#b8cff7;box-shadow:0 0 0 4px rgba(91,141,239,.08);}
-.viewer-candidates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
-.viewer-name-card{
-  border:1px solid #dfe7f3;background:#fff;border-radius:16px;padding:11px 12px;text-align:left;
-  display:flex;flex-direction:column;gap:3px;min-height:58px;font-family:'Noto Sans KR',sans-serif;
+/* 전원을 보여 주되 목록이 대진표를 밀어내지 않게 — 넘치면 이 안에서만 스크롤. */
+.viewer-candidates{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;
+  max-height:44vh;overflow-y:auto;padding:1px;
 }
-.viewer-name-card b{font-size:.98rem;font-weight:1000;color:#222b3a;letter-spacing:-.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.viewer-name-card span{font-size:.72rem;font-weight:900;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.viewer-name-card{
+  border:1px solid #dfe7f3;background:#fff;border-radius:13px;padding:9px 8px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  min-height:46px;font-family:'Noto Sans KR',sans-serif;
+}
+/* 청/홍은 `!important` 로 못 박는다 — 아래쪽 `.viewer-identity button{background:…!important}`
+   가 모든 이름칸을 파랑 한 색으로 눌러 버려서, 그냥 두면 홍팀도 파랗게 나온다. */
+.viewer-name-card.blue{border-color:#c7d9fb!important;background:#f5f9ff!important;}
+.viewer-name-card.red{border-color:#f6cdcb!important;background:#fff7f6!important;}
+.viewer-name-card b{font-size:.94rem;font-weight:1000;color:#222b3a;letter-spacing:-.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.viewer-name-card span{font-size:.64rem;font-weight:900;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .viewer-name-card:active{transform:scale(.985);}
 .viewer-empty-result{grid-column:1/-1;border:1px dashed #d8e3f4;border-radius:16px;padding:18px;text-align:center;font-size:.86rem;font-weight:900;color:#7a8798;}
 .viewer-status-actions{display:grid;grid-template-columns:minmax(0,1.15fr) auto minmax(0,1fr);gap:8px;align-items:center;margin:12px 0 10px;}
@@ -1651,7 +1660,7 @@ body{
   .viewer-next-line{font-size:.9rem;}
   .viewer-record-grid{gap:6px;}
   .viewer-record-chip{padding:8px 5px;}
-  .viewer-candidates{grid-template-columns:1fr;}
+  .viewer-candidates{grid-template-columns:repeat(3,minmax(0,1fr));}
   .viewer-schedule-list{grid-template-columns:1fr;}
 }
 @media(max-width:360px){
@@ -2191,9 +2200,6 @@ button.team-official-overview-conflict.quiet{
 }
 .live-player.swap .ready-badge{font-size:.66rem;padding:2px 6px;}
 .live-player.swap:focus-visible{outline:2px solid #0a6cff;outline-offset:2px;}
-.live-player.is-out{opacity:.72;}
-.live-player.is-out>span:not(.ready-badge),.live-player.is-out{text-decoration:line-through;}
-.live-player.is-out .ready-badge{text-decoration:none;opacity:1;}
 .team-official-overview-hint{
   margin-top:8px;padding:8px 10px;border-radius:11px;
   border:1px solid rgba(22,34,52,.14);background:#fff;

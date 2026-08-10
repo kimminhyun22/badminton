@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.571';
+const APP_VERSION='1.10.572';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -868,28 +868,13 @@ function _attKey(name){
   return encodeURIComponent(String(name||'')).replace(/[.#$\[\]\/']/g,'_');
 }
 
+/* 출결은 **지각 하나**입니다 (운영자 2026-08-14 재확인).
+     "불참이라 해도 완전 대체할 사람은 없으니 지각자와 다를 바 없는 것 같아"
+   벤치가 두껍지 않아 불참자의 남은 경기를 미리 다 갈아치울 수가 없습니다.
+   결국 그때그때 그 경기만 메우게 되니, 지각과 나눌 실익이 없어 한 상태로 되돌렸습니다.
+   (v571 에서 잠깐 불참을 뒀다가 접었습니다 — 옛 데이터의 status 칸은 그냥 무시합니다) */
 function _lateOn(name){
-  return !!_attendanceState(name);
-}
-
-/* 출결은 세 가지입니다: 없음 · 지각 · 불참 (운영자 2026-08-14).
-     "지각자는 어쨌든 오고 있는 사람이니까 모든 경기를 대체할 필요 없어.
-      지각에서 불참으로 변경되는 경우도 대체선수 투입하는 방식으로"
-   그래서 메우는 범위가 다릅니다 — 지각은 **지금 라운드만**, 불참은 **남은 경기 전부**.
-   저장 형태는 기존 `late` 지도를 그대로 쓰고 `status` 한 칸만 더합니다(옛 데이터 호환). */
-function _attendanceState(name){
-  const row=window._liveLate&&window._liveLate[_attKey(name)];
-  if(!row)return '';
-  return String(row.status||'')==='absent'?'absent':'late';
-}
-function _absentOn(name){ return _attendanceState(name)==='absent'; }
-function _attendanceLabel(state){
-  return state==='absent'?'불참':state==='late'?'지각':'';
-}
-// 버튼에는 **다음에 눌렀을 때 되는 상태**를 적습니다(지금 상태가 아니라).
-function _attendanceCycleLabel(name){
-  const state=_attendanceState(name);
-  return state==='absent'?'도착 확인':state==='late'?'불참으로':'지각';
+  return !!(window._liveLate && window._liveLate[_attKey(name)]);
 }
 
 function _partyOn(name){
@@ -1204,21 +1189,18 @@ function _teamOfficialOverviewData(d){
     if(name)currentNames.add(String(name));
   }));
   const isLate=player=>!!lateMap[_attKey(player.n)];
-  const isAbsent=player=>String((lateMap[_attKey(player.n)]||{}).status||'')==='absent';
   const isParty=player=>!!partyMap[_attKey(player.n)];
   const onSite=members.filter(player=>!isLate(player));
   const playing=onSite.filter(player=>currentNames.has(String(player.n)));
   const waiting=onSite.filter(player=>!currentNames.has(String(player.n)));
-  // 지각(오는 중)과 불참(안 옴)은 다르게 셉니다 — 메워야 하는 범위가 다릅니다.
-  const late=members.filter(player=>isLate(player)&&!isAbsent(player));
-  const absent=members.filter(isAbsent);
+  const late=members.filter(isLate);
   const operators=members.filter(player=>player.isClubOfficial||(!_usesFixedTeams(d)&&player.isTemporaryOperator));
   const party=members.filter(isParty);
   const conflictCount=Object.values(d&&d.resultConflicts||{}).reduce((sum,row)=>{
     return sum+Object.keys(row&&typeof row==='object'?row:{}).length;
   },0);
   return {
-    members,onSite,playing,waiting,late,absent,operators,party,currentMatches,currentRound,
+    members,onSite,playing,waiting,late,operators,party,currentMatches,currentRound,
     completedMatches:matches.filter(m=>m.win).length,
     totalMatches:matches.length,
     conflictCount
@@ -1232,7 +1214,6 @@ function _teamOfficialOverviewMembers(data,key){
     playing:data.playing,
     waiting:data.waiting,
     late:data.late,
-    absent:data.absent,
     operators:data.operators,
     party:data.party
   };
@@ -1246,7 +1227,6 @@ function _teamOfficialOverviewMemberMeta(player,data,d,key){
     if(match)return `${match.court||'-'}코트 · 경기중`;
   }
   if(key==='late')return '지각';
-  if(key==='absent')return '불참 · 대체 필요';
   if(key==='party')return '뒷풀이 참석';
   const team=player.team==='blue'?liveTeamLabel(d,'blue'):player.team==='red'?liveTeamLabel(d,'red'):'참가자';
   const matches=_viewerMatches(d,player.n);
@@ -1273,7 +1253,6 @@ function buildTeamOfficialOverview(d){
     {key:'playing',label:'경기중',value:data.playing.length},
     {key:'waiting',label:'대기',value:data.waiting.length},
     {key:'late',label:'지각',value:data.late.length,cls:data.late.length?'alert':''},
-    {key:'absent',label:'불참',value:data.absent.length,cls:data.absent.length?'alert':''},
     {key:'operators',label:'운영진',value:data.operators.length,cls:'operator'},
     {key:'party',label:'뒷풀이',value:data.party.length,cls:'party'}
   ];
@@ -1337,14 +1316,13 @@ function openTeamSubstitutePanel(matchNum,outName){
     document.body.appendChild(el);
     return el;
   })();
-  const state=_attendanceState(name);
   const cands=_substituteCandidates(d,match,name);
   box.innerHTML=`<div class="team-sub-card">
     <div class="team-sub-head"><b>${esc(name)} 대신 넣기</b>
       <button type="button" onclick="closeTeamSubstitutePanel()" aria-label="닫기">✕</button></div>
     <div class="team-sub-body">
       <div class="team-sub-row">
-        <div class="team-sub-who"><b>${esc(_attendanceLabel(state)||'교체')} · ${match.round}라운드 ${match.court}코트</b>
+        <div class="team-sub-who"><b>지각 · ${match.round}라운드 ${match.court}코트</b>
           <small>${esc([...(match.t1||[])].join(' · '))} vs ${esc([...(match.t2||[])].join(' · '))}</small></div>
         ${cands.length?`<div class="team-sub-cands">${cands.map(c=>
           `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''}"
@@ -1508,8 +1486,8 @@ function _viewerStatusButtons(current){
   const canOperate=_canOperateAttendance(window._lastLiveData||{});
   return '<div class="viewer-status-actions">'
     +(canOperate
-      ?'<button type="button" class="viewer-state-btn ready '+(lateOn?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+_attendanceCycleLabel(current.n)+'</button>'
-      :(lateOn?'<span class="viewer-state-view on">'+_attendanceLabel(_attendanceState(current.n))+'</span>':''))
+      ?'<button type="button" class="viewer-state-btn ready '+(lateOn?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(lateOn?'도착 확인':'지각')+'</button>'
+      :(lateOn?'<span class="viewer-state-view on">지각</span>':''))
     +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
   +'</div>';
 }
@@ -1537,23 +1515,29 @@ function buildViewerIdentity(d){
       +_viewerScheduleHtml(d,current)
     +'</section>';
   }
+  /* 참가자는 이름 하나만 누르면 끝이어야 합니다 (운영자 2026-08-14
+     "참가자는 이름만 입력하면 본인 및 대진표 보기를 할 수 있도록 간소화").
+     그래서 **전원을 다 보여 줍니다** — 예전에는 앞 12명만 나와서, 가나다 뒤쪽
+     사람은 자기 이름이 없는 줄 알고 검색을 해야 했습니다. 대신 칸을 작게 만들고
+     목록에 높이 제한을 둬서, 이름 고르기가 대진표를 화면 밖으로 밀지 않게 합니다. */
   const sorted=all.sort((a,b)=>String(a.n).localeCompare(String(b.n),'ko'));
   const q=String(_viewerSearchTerm||'').trim().toLowerCase();
-  const filtered=(q?sorted.filter(p=>_viewerSearchText(p,d).includes(q)):sorted).slice(0,12);
+  const filtered=q?sorted.filter(p=>_viewerSearchText(p,d).includes(q)):sorted;
   const cards=filtered.map(p=>{
-    const team=p.team==='blue'?liveTeamLabel(d,'blue'):p.team==='red'?liveTeamLabel(d,'red'):'참가자';
+    const teamCls=p.team==='blue'?'blue':p.team==='red'?'red':'';
     const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
     const memberArg=JSON.stringify(String(p.id||p.memberId||'')).replace(/"/g,'&quot;');
-    const partnerText=_viewerPartnerText(p);
-    return '<button type="button" class="viewer-name-card" onclick="setLiveViewerName('+nameArg+','+memberArg+')">'
+    // 팀은 색으로, 역할은 단장·부단장만. 나머지 설명은 이름 고르기에 필요 없습니다.
+    const role=p.isLeader?'단장':p.isSub?'부단장':'';
+    return '<button type="button" class="viewer-name-card '+teamCls+'" onclick="setLiveViewerName('+nameArg+','+memberArg+')">'
       +'<b>'+esc(p.n)+'</b>'
-      +'<span>'+esc(team)+' · '+esc(_viewerRoleText(p))+(partnerText?' · '+esc(partnerText):'')+'</span>'
+      +(role?'<span>'+esc(role)+'</span>':'')
     +'</button>';
   }).join('');
   return '<section class="viewer-identity">'
     +'<div class="viewer-picker">'
-      +'<div class="viewer-picker-title">내 이름 찾기</div>'
-      +'<input id="liveViewerSearch" class="viewer-search-input" value="'+esc(_viewerSearchTerm||'')+'" oninput="setLiveViewerSearch(this.value)" placeholder="초성 또는 이름 검색">'
+      +'<div class="viewer-picker-title">내 이름을 누르세요</div>'
+      +'<input id="liveViewerSearch" class="viewer-search-input" value="'+esc(_viewerSearchTerm||'')+'" oninput="setLiveViewerSearch(this.value)" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ">'
       +'<div class="viewer-candidates">'
         +(cards||'<div class="viewer-empty-result">검색 결과가 없습니다.</div>')
       +'</div>'
@@ -1887,23 +1871,15 @@ async function toggleMemberLate(name, team){
   }
   const key=_attKey(name);
   const ref=liveDb.ref('live/'+liveId+'/late/'+key);
-  // 없음 → 지각 → 불참 → 없음. 오다가 못 오게 되는 흐름을 버튼 하나로 따라갑니다.
-  const state=_attendanceState(name);
   try{
-    if(state==='absent'){
+    if(_lateOn(name)){
       await ref.remove();
       return;
     }
-    if(state==='late'){
-      if(!confirm(name+'님을 불참으로 바꿀까요?\n\n남은 경기의 이름을 눌러 대체 선수를 넣을 수 있습니다.')) return;
-      await ref.update({status:'absent',ts:firebase.database.ServerValue.TIMESTAMP});
-      return;
-    }
-    if(!confirm(name+'님을 지각으로 표시할까요?')) return;
+    if(!confirm(name+'님을 지각으로 표시할까요?\n\n대진표에서 이름을 눌러 대체 선수를 넣을 수 있습니다.')) return;
     await ref.set({
       name:name,
       team:team||'',
-      status:'late',
       source:'member-late',
       ts:firebase.database.ServerValue.TIMESTAMP
     });
@@ -1987,8 +1963,8 @@ function buildTeamRosterCard(d){
         +badges
         +'<div class="team-member-actions">'
           +(canOperate
-            ?'<button type="button" class="team-member-att '+(on?'on':'')+(_absentOn(p.n)?' out':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+_attendanceCycleLabel(p.n)+'</button>'
-            :'<span class="team-member-att-view '+(on?'on':'')+'">'+_attendanceLabel(_attendanceState(p.n))+'</span>')
+            ?'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(on?'도착 확인':'지각')+'</button>'
+            :'<span class="team-member-att-view '+(on?'on':'')+'">'+(on?'지각':'')+'</span>')
           +((canOperate||_isSelf(d,p.n))
             ?'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
             :'<span class="team-member-party-view '+(partyOn?'on':'')+'">'+(partyOn?'뒷풀이':'')+'</span>')
@@ -2032,18 +2008,16 @@ function _isImminentMatch(m){
 function _replaceableInMatch(d,m,name){
   if(!m||m.win)return false;
   if(!_canSubstitute(d))return false;
-  const state=_attendanceState(name);
-  if(!state)return false;
-  // 불참은 안 오는 사람이라 남은 경기 전부, 지각은 오고 있으니 지금 라운드만.
-  if(state==='absent')return true;
+  if(!_lateOn(name))return false;
+  // 지금 라운드만. 벤치가 얇아 뒷 경기까지 미리 갈아치울 수 없고, 갈아치울 필요도 없다.
   return Number(m.round)===Number(d&&d.currentRound||0);
 }
 function _playerLine(name,d,m){
   const n=String(name||'');
   if(!n) return '<div class="live-player">-</div>';
-  const state=d?_attendanceState(n):'';
-  const label=_attendanceLabel(state);
-  const cls='live-player'+(state?' not-ready':'')+(state==='absent'?' is-out':'');
+  const flag=!!(d&&_lateOn(n));
+  const label=flag?'지각':'';
+  const cls='live-player'+(flag?' not-ready':'');
   if(_replaceableInMatch(d,m,n)){
     // `<div>` 그대로 두고 버튼 역할만 입힙니다. `<button>` 으로 바꾸면 이름에 걸린
     // `!important` 규칙들과 버튼 기본 글꼴이 싸워서 **이름 크기·굵기가 흐트러집니다**

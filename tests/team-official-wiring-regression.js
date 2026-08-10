@@ -40,34 +40,34 @@ assert(/onclick="openTeamSubstitutePanel\('\+Number\(m\.num\|\|0\)\+','\+arg\+'\
   || /openTeamSubstitutePanel\('\+Number\(m\.num/.test(playerLine),
   '대진표의 이름을 누르면 그 경기·그 선수로 시트가 열려야 합니다.');
 assert(/class="'\+cls\+' swap" role="button" tabindex="0"/.test(playerLine),
-  '지각·불참자 이름은 눌리는 버튼 역할이어야 합니다.');
+  '지각자 이름은 눌리는 버튼 역할이어야 합니다.');
 // 태그를 <button> 으로 바꾸면 이름에 걸린 !important 규칙과 버튼 기본 글꼴이 싸워
 // 코트 이름 크기·굵기가 흐트러집니다(이 화면에서 가장 중요한 정보입니다).
 assert(!/<button[^>]*class="'\+cls/.test(playerLine),
   '이름은 <div> 로 남아야 합니다 — <button> 은 글꼴 규칙과 충돌합니다.');
 assert(/onkeydown=/.test(playerLine), '키보드로도 열 수 있어야 합니다.');
-assert(/const cls='live-player'\+\(state\?' not-ready':''\)/.test(playerLine),
+assert(/const cls='live-player'\+\(flag\?' not-ready':''\);/.test(playerLine),
   '눌리는 이름과 안 눌리는 이름은 같은 클래스를 써야 모양이 갈라지지 않습니다.');
 // 배너 버튼을 되살리면 진입점이 둘이 됩니다 — 운영자가 싫어하는 형태입니다.
 assert(!/onclick="openTeamSubstitutePanel\(\)"/.test(liveView),
   '인자 없는 대체 배너 버튼이 남아 있으면 안 됩니다(진입점 1곳).');
 assert(liveView.includes('function _substituteHintHtml'), '운영 현황에는 안내 한 줄만 둡니다.');
 
-// 3-1) 메우는 범위 — 지각은 지금 라운드만, 불참은 남은 경기 전부.
+// 3-1) 메우는 범위 — 지금 라운드만.
 const scope = liveView.slice(liveView.indexOf('function _replaceableInMatch'),
   liveView.indexOf('function _playerLine'));
-assert(/if\(state==='absent'\)return true;/.test(scope),
-  '불참은 남은 경기를 전부 메울 수 있어야 합니다.');
 assert(/Number\(m\.round\)===Number\(d&&d\.currentRound\|\|0\)/.test(scope),
-  '지각은 지금 라운드만 대상이어야 합니다 — 오고 있는 사람입니다.');
+  '교체는 지금 라운드만 대상이어야 합니다.');
+assert(!/absent/.test(scope), '불참을 따로 두지 않습니다.');
 assert(/if\(!m\|\|m\.win\)return false;/.test(scope), '끝난 경기는 교체 대상이 아닙니다.');
 
-// 3-2) 출결은 세 상태이고, 버튼 하나로 순환해야 합니다.
+// 3-2) 출결은 지각 하나입니다(운영자 2026-08-14 "불참도 지각자와 다를 바 없다").
 const cycle = liveView.slice(liveView.indexOf('async function toggleMemberLate'),
   liveView.indexOf('async function toggleMemberParty'));
-assert(/status:'absent'/.test(cycle), '지각에서 불참으로 넘어갈 수 있어야 합니다.');
-assert(/ref\.remove\(\)/.test(cycle), '불참에서 도착 확인으로 되돌릴 수 있어야 합니다.');
-assert(/status:'late'/.test(cycle), '새로 표시할 때는 지각으로 시작해야 합니다.');
+assert(!/absent/.test(cycle), '불참 상태를 다시 만들면 안 됩니다.');
+assert(/ref\.remove\(\)/.test(cycle), '도착 확인으로 되돌릴 수 있어야 합니다.');
+assert(/_canOperateAttendance/.test(cycle),
+  '지각 표시는 임원·단장만 — 참가자는 대진표를 보는 정도입니다.');
 
 // 4) 권한 — 임원만. 일반 회원 화면에는 뜨지 않아야 합니다.
 const canSub = liveView.slice(liveView.indexOf('function _canSubstitute'),
