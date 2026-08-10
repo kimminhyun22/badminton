@@ -194,7 +194,7 @@ this.out=_dailyOfficialArrivalCandidates();`,sandbox);
     _dailyCheckinId:'TESTID',
     _dailyCheckinOwnershipVerified:true,
     _dailyCheckinPath:()=>'live/checkin_TESTID',
-    _fbDb:{ref:path=>({set:async value=>{writes.push({path,count:value.length});}})},
+    _fbDb:{ref:path=>({set:async value=>{writes.push({path,count:value?.length,value});}})},
     _dailyArrivalCandidatesSyncedHash:'',
     console
   });
@@ -208,10 +208,13 @@ this.sync=_dailySyncArrivalCandidates;`,sandbox);
     const second=await sandbox.sync();
     assert.strictEqual(first,true,'후보 동기화가 성공해야 합니다.');
     assert.strictEqual(second,true,'같은 내용의 재동기화도 성공(생략)해야 합니다.');
-    assert.strictEqual(writes.length,1,'내용이 같으면 서버에 다시 쓰면 안 됩니다.');
-    assert.strictEqual(writes[0].path,'live/checkin_TESTID/session/arrivalCandidates',
-      '전체 게시가 아니라 후보 노드만 부분 쓰기해야 합니다 — 통째 쓰기는 8일 밤 사고의 경로입니다.');
-    assert(writes[0].count>0,'후보가 실제로 실려야 합니다.');
+    // v545: 오늘 클럽 이름도 함께 씁니다(임원 화면이 순서로 추측하지 않도록).
+    assert.strictEqual(writes.length,2,'내용이 같으면 서버에 다시 쓰면 안 됩니다.');
+    const paths=writes.map(w=>w.path);
+    assert.deepStrictEqual(paths,['live/checkin_TESTID/session/arrivalClub','live/checkin_TESTID/session/arrivalCandidates'],
+      '전체 게시가 아니라 오늘 클럽·후보 노드만 부분 쓰기해야 합니다 — 통째 쓰기는 8일 밤 사고의 경로입니다.');
+    assert.strictEqual(writes[0].value,'일만클럽','부분 동기화가 기록된 오늘 클럽을 실어야 합니다.');
+    assert(writes[1].count>0,'후보가 실제로 실려야 합니다.');
     console.log('  후보 부분 동기화: 관리자 열림 시 1회 쓰기 · 중복 생략 · 부분 경로');
   })();
 

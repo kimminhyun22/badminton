@@ -324,6 +324,47 @@ function extractFunction(src, name){
       return checkin.slice(s,Math.min(...ends));})();
     assert(/primaryClub/.test(toolsSrc),'지각 등록 셀렉트도 오늘 클럽만 보여야 합니다.');
     assert(checkin.includes('function officialPrimaryClub'),'오늘 클럽 판정 함수가 있어야 합니다.');
+    // 2026-08-13 실전 원인: 위 배선 검사는 전부 통과하는데도 미르클럽만 나왔다.
+    // officialArrivalPlayers() 가 목록을 이름순으로 정렬한 뒤 그 첫 항목에서
+    // 클럽을 읽어서, '가나다 앞선 이름이 속한 클럽'이 오늘 클럽이 됐다.
+    // 배선이 아니라 결과를 실행해서 고정한다.
+    {
+      const vm=require('vm');
+      const sandbox={session:{
+        capabilities:{officialArrivalV1:true},
+        event:{},
+        players:[],
+        // 관리자 게시 순서: 오늘 클럽(일만) 먼저. 하지만 이름순으로는 미르 회원이 앞선다.
+        arrivalClub:'일만클럽',
+        arrivalCandidates:[
+          {candidateKey:'roster:i1',kind:'roster',name:'하일만',club:'일만클럽'},
+          {candidateKey:'roster:m1',kind:'roster',name:'가미르',club:'미르클럽'}
+        ]
+      }};
+      vm.createContext(sandbox);
+      vm.runInContext(`${extractFunction(checkin,'officialArrivalPlayers')}
+${extractFunction(checkin,'officialPrimaryClub')}
+this.club=officialPrimaryClub();
+this.sortedFirst=officialArrivalPlayers()[0].club;`,sandbox);
+      assert.strictEqual(sandbox.sortedFirst,'미르클럽',
+        '전제 확인: 이름순 정렬이면 미르 회원이 앞섭니다(이 순서로 클럽을 정하면 안 됩니다).');
+      assert.strictEqual(sandbox.club,'일만클럽',
+        '오늘 클럽은 관리자가 실어 보낸 이름을 그대로 써야 합니다 — 목록 순서로 추측하면 이름순 정렬에 뒤집힙니다.');
+      // 옛 세션(arrivalClub 없음)은 정렬 전 원본 순서의 첫 명부 후보를 씁니다.
+      const legacy={session:{...sandbox.session}};
+      delete legacy.session.arrivalClub;
+      vm.createContext(legacy);
+      vm.runInContext(`${extractFunction(checkin,'officialArrivalPlayers')}
+${extractFunction(checkin,'officialPrimaryClub')}
+this.club=officialPrimaryClub();`,legacy);
+      assert.strictEqual(legacy.club,'일만클럽',
+        '옛 게시도 정렬 전 원본 순서(관리자가 오늘 클럽을 앞에 둠)를 봐야 합니다.');
+    }
+    // 관리자는 오늘 클럽을 이름 필드로 실어 보내야 합니다(전체 게시·부분 동기화 양쪽).
+    assert(/arrivalClub:String\(_dailyOfficialArrivalRoster\(\)\?\.name\|\|''\)/.test(daily),
+      '전체 게시에 오늘 클럽 이름이 실려야 합니다.');
+    assert(daily.includes("'/session/arrivalClub'"),
+      '후보 부분 동기화도 오늘 클럽 이름을 함께 써야 합니다 — 라이브 중에는 전체 게시가 없습니다.');
   }
   const createSrc=(()=>{const s=checkin.indexOf('async function sendOfficialPlayerCreate');
     const ends=[checkin.indexOf('\nfunction ',s+10),checkin.indexOf('\nasync function ',s+10)].filter(i=>i>0);
