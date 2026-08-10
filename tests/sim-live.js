@@ -202,3 +202,17 @@ console.log(`다음 대진 평균 ${qAvg.toFixed(2)}개 · 빈 코트 ${ctx.idle
 console.log(`1인 경기 수: 최소 ${Math.min(...gv)} · 최대 ${Math.max(...gv)} · 평균 ${(totalG/rows.length).toFixed(2)}`);
 console.log(`파트너 반복률 ${totalR}/${totalG} = ${(100*totalR/totalG).toFixed(1)}%`);
 console.log(`  가장 심한 선수: ${worst.map(r=>`${r.name} ${r.r}/${r.g}`).join(' · ')}`);
+// 사람별 분포 — '몇 명이 몇 번이나 같은 파트너를 만났나'
+{
+  const dist={};
+  rows.forEach(r=>{dist[r.r]=(dist[r.r]||0)+1;});
+  const keys=Object.keys(dist).map(Number).sort((a,b)=>a-b);
+  console.log('  반복 횟수별 인원: '+keys.map(k=>`${k}회 ${dist[k]}명`).join(' · '));
+  const hit=rows.filter(r=>r.r>=2).length;
+  console.log(`  2회 이상 겪은 사람: ${hit}명 / ${rows.length}명 (${Math.round(100*hit/rows.length)}%)`);
+}
+// TIMELINE=1 이면 상시 인원 변화에 따라 대기표가 어떻게 따라가는지 찍습니다.
+if(process.env.TIMELINE==='1'){
+  console.log('\n  시각   상시인원  대기표');
+  ctx.queueLens.forEach(q=>console.log(`  ${String(q.at).padStart(3)}분   ${String(q.live).padStart(4)}명   ${q.queue}개`));
+}
