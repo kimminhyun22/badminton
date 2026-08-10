@@ -3207,3 +3207,11 @@ html,body{overscroll-behavior-y:none;}
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;
 }
 #dailyDashboardTools .daily-player-tool{width:100%;}
+
+/* 같은 팀임을 「+」로 못박습니다(운영자 2026-08-13 "파트너가 위아래인지 좌우인지
+   헷갈려"). 팀은 좌우 열, 파트너는 같은 열에서 + 로 묶입니다 — 임원 화면과 동일. */
+.daily-court-plus{
+  display:block;margin:1px 0;text-align:center;
+  color:#7a8798;font-size:11px;font-weight:1000;line-height:1;
+}
+.daily-court-stack .daily-court-vs{font-weight:1000;color:#8b97a6;}

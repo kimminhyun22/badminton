@@ -18,6 +18,15 @@ const assert = require('assert');
     '진행 중 이름 크기 규칙은 .replaceable 버튼까지 함께 걸어야 합니다.');
   assert(/\.event-next-player,\s*\n\.event-next-player\.replaceable\{font-size:/.test(src),
     '다음 대진 이름 크기 규칙도 .replaceable 버튼까지 함께 걸어야 합니다.');
+  // 관리자 진행 코트도 파트너를 「+」로 못박습니다(운영자 2026-08-13 "위아래인지
+  // 좌우인지 헷갈려"). 팀은 좌우 열, 파트너는 같은 열 — 임원 화면과 같은 문법.
+  {
+    const daily=fs2.readFileSync(path2.join(__dirname,'..','js','daily.js'),'utf8');
+    assert(daily.includes(`join('<span class="daily-court-plus" aria-hidden="true">+</span>')`),
+      '관리자 진행 코트에 파트너 「+」 표시가 있어야 합니다.');
+    const css=fs2.readFileSync(path2.join(__dirname,'..','css','app.css'),'utf8');
+    assert(css.includes('.daily-court-plus{'),'「+」 표시 스타일이 있어야 합니다.');
+  }
   // 「진행중」 글자는 뺐습니다(남은 시간 배지·코트 번호가 이미 말합니다).
   assert(!/event-match-title">진행중</.test(src),
     '진행 중 카드에 「진행중」 글자를 다시 넣으면 안 됩니다.');
