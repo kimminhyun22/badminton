@@ -25,13 +25,26 @@ function abort(failureCode, failureMessage){
   return {action:'abort', failureCode, failureMessage};
 }
 
+/**
+ * 운영할 수 있는 사람 = 클럽 임원 · 운영 도우미 · **단장/부단장**.
+ *
+ * 단장·부단장은 `officials.leaders` 로도 실리지만, 그 필드가 없던 시절에 시작한
+ * 팀전도 있습니다. 그때는 팀원 명단의 `isLeader`/`isSub` 표시가 유일한 근거라
+ * 여기서 함께 봅니다 — 안 그러면 **정작 팀전을 이끄는 사람이 자기 폰에서
+ * 아무것도 못 합니다.**
+ */
 function officialRows(session){
   const officials = session?.officials || {};
+  const members = session?.members || {};
+  const captains = [...(members.blue || []), ...(members.red || []), ...(members.all || [])]
+    .filter(m => m && (m.isLeader || m.isSub))
+    .map(m => ({name:m.name || m.n || '', memberId:m.memberId || m.id || ''}));
   return [
     ...(officials.clubOfficials || []),
     ...(officials.temporaryOperators || []),
-    ...(officials.leaders || [])
-  ].filter(Boolean);
+    ...(officials.leaders || []),
+    ...captains
+  ].filter(row => row && text(row.name));
 }
 
 /**

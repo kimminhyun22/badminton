@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.568';
+const APP_VERSION = '1.10.569';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2266,6 +2266,7 @@ const TEAM_LIVE_STORAGE_KEY='badminton_team_liveId';
 const LEGACY_LIVE_STORAGE_KEY='badminton_liveId';
 let _liveLate={}, _liveParty={}, _liveResultInputs={}, _liveResultConflicts={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
 let _liveSubstitutions=[];   // 임원이 현장에서 한 대체 투입 기록(서버가 남긴다)
+let _liveApplyingServer=false;   // 서버 상태를 반영하는 동안 게시를 멈춘다(되쏘기 방지)
 
 /* 대회 고유 ID 생성 (6자리) */
 function _genLiveId(){
@@ -2425,7 +2426,7 @@ function _buildLiveState(){
   const liveMember=p=>{
     const memberId=_teamEnsureMemberId(p);
     return {
-      id:memberId,n:p.name||'',l:p.level||0,g:p.gender||'',
+      id:memberId,n:p.name||'',l:p.level||0,g:p.gender||'',gr:p.grade||'',
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial,
       partnerName:p.partnerName||getPartnerOf(p.name)||'',
@@ -2453,7 +2454,12 @@ function _buildLiveState(){
     members: {blue:membersBlue, red:membersRed, all:membersAll},
     officials:{
       temporaryOperators:resolvedTemporaryOperators.map(liveOfficial).filter(Boolean),
-      clubOfficials:currentParticipants.filter(p=>p&&p.isClubOfficial).map(liveOfficial)
+      clubOfficials:currentParticipants.filter(p=>p&&p.isClubOfficial).map(liveOfficial),
+      // 단장·부단장도 운영자다 — 이 줄이 없으면 정작 팀전을 이끄는 사람이
+      // 서버에서 임원으로 인정되지 않아 자기 폰에서 아무것도 못 한다.
+      leaders:(isTeam?[_leaderBlue,_subBlue,_leaderWhite,_subWhite]:[])
+        .map(name=>currentParticipants.find(p=>p&&p.name===name))
+        .map(liveOfficial).filter(Boolean)
     },
     isTeam: !!isTeam, teamBlue:bn2, teamWhite:wn2,
     blueWins:bW||0, whiteWins:wW||0,
@@ -2718,9 +2724,13 @@ function _bindLiveAdminListener(){
     _liveSubstitutions=Array.isArray(data.substitutions)?data.substitutions:[];
     temporaryOperators=_teamNormalizeTemporaryOperators(data.officials?.temporaryOperators);
     _teamResolveTemporaryOperators(currentParticipants);
-    // 임원 교체를 먼저 받아 적는다 — 그래야 아래 승패 동기화와 재게시가 옳은 명단 위에서 돈다.
-    _teamAdoptServerMatchesAndRender(data);
-    _syncLiveWinsFromData(data);
+    // 임원 교체를 먼저 받아 적는다 — 그래야 승패 동기화가 옳은 명단 위에서 돈다.
+    // 반영하는 동안은 게시를 멈춘다(서버가 진실이므로 되쏠 이유가 없다).
+    _liveApplyingServer=true;
+    try{
+      _teamAdoptServerMatchesAndRender(data);
+      _syncLiveWinsFromData(data);
+    }finally{ _liveApplyingServer=false; }
     _renderLiveOpsSummary();
     renderTeamTemporaryOperatorPanel();
     renderAutoFlowDashboard();
@@ -2904,6 +2914,10 @@ async function resumeTeamLiveBroadcast(){
 
 /* 실시간 상태 갱신 (점수 입력 시 자동 호출) */
 async function pushLiveState(){
+  // 서버에서 받은 걸 화면에 반영하는 중에는 **되쏘지 않는다.** 그대로 두면
+  // 임원이 방금 바꾼 것을 관리자가 옛 값으로 한 번 덮었다가 되돌리는 왕복이
+  // 생기고, 그 찰나에 다른 조작이 끼면 진짜로 지워진다.
+  if(_liveApplyingServer) return;
   if(!_liveOn || !_liveId || !_fbDb) return;
   try{ await _fbDb.ref('live/'+_liveId).update(_buildLiveState()); }catch(e){ /* 조용히 무시 */ }
   rsvpPushEventState();

@@ -16,7 +16,8 @@
  */
 
 const SUPPORTED_TYPES = new Set([
-  'team-official-substitute'
+  'team-official-substitute',
+  'team-official-result'
 ]);
 
 function text(value){ return String(value == null ? '' : value); }
@@ -49,16 +50,47 @@ function memberList(session){
   if(Array.isArray(members.all) && members.all.length)return members.all;
   return [...(members.blue || []), ...(members.red || [])];
 }
+/* 게시된 팀원 한 줄은 `{id, n, l, g, gr}` 로 줄여 실립니다(`_buildLiveState`
+   의 `liveMember`). 여기서 `name`/`level` 만 읽으면 **실제 팀전에서는 아무도
+   못 찾습니다** — 시험용 픽스처만 통과하고 현장에서는 전부 실패합니다.
+   그래서 두 표기를 모두 받습니다. */
+function memberName(row){ return text(row?.name || row?.n); }
+function memberLevel(row){
+  const raw = row?.level != null ? row.level : row?.l;
+  return number(raw, 4);
+}
+/* 급수는 옛 게시본에 아예 없습니다. 그럴 땐 대진에 적힌 급수(t1g/t2g)에서
+   그 사람 자리를 찾아 씁니다 — 교체 뒤 급수 표시가 빈칸이 되지 않도록. */
+function memberGrade(session, name){
+  const row = memberByName(session, name);
+  const direct = text(row?.grade || row?.gr);
+  if(direct)return direct;
+  const key = nameKey(name);
+  let found = '';
+  matchList(session).some(m => {
+    const sides = [['t1', 't1g'], ['t2', 't2g']];
+    return sides.some(([side, gradeKey]) => {
+      const idx = (m?.[side] || []).findIndex(n => nameKey(n) === key);
+      if(idx < 0)return false;
+      found = text((m?.[gradeKey] || [])[idx]);
+      return !!found;
+    });
+  });
+  return found;
+}
 function memberByName(session, name){
   const key = nameKey(name);
-  return memberList(session).find(m => nameKey(m?.name) === key) || null;
+  return memberList(session).find(m => nameKey(memberName(m)) === key) || null;
 }
 function teamOf(session, name){
   const key = nameKey(name);
   const members = session?.members || {};
-  if((members.blue || []).some(m => nameKey(m?.name) === key))return 'blue';
-  if((members.red || []).some(m => nameKey(m?.name) === key))return 'red';
-  return '';
+  if((members.blue || []).some(m => nameKey(memberName(m)) === key))return 'blue';
+  if((members.red || []).some(m => nameKey(memberName(m)) === key))return 'red';
+  // 팀 구분 없이 `all` 한 줄로만 실린 자유대진 게시본도 있습니다.
+  const row = (members.all || []).find(m => nameKey(memberName(m)) === key);
+  const team = text(row?.team);
+  return team === 'blue' || team === 'red' ? team : '';
 }
 // 그 사람이 지금 뛰고 있거나 같은 라운드에 이미 잡혀 있으면 또 넣을 수 없습니다.
 function conflictingMatch(session, name, round, exceptNum){
@@ -93,6 +125,11 @@ function bracketKey(session){
   ]).sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]) || String(a[2]).localeCompare(String(b[2]))));
 }
 
+/**
+ * 운영할 수 있는 사람 = 클럽 임원 · 운영 도우미 · **단장/부단장**.
+ * `officials.leaders` 가 없던 시절 팀전에서는 팀원 명단의 `isLeader`/`isSub`
+ * 표시가 유일한 근거라 함께 봅니다(연결 판정 `team-official-claim` 과 같은 기준).
+ */
 function isOfficial(session, playerName){
   const key = nameKey(playerName);
   if(!key)return false;
@@ -102,7 +139,9 @@ function isOfficial(session, playerName){
     ...(officials.temporaryOperators || []),
     ...(officials.leaders || [])
   ];
-  return rows.some(row => nameKey(row?.name) === key);
+  if(rows.some(row => nameKey(row?.name) === key))return true;
+  return memberList(session).some(m => m && (m.isLeader || m.isSub)
+    && nameKey(m.name || m.n) === key);
 }
 
 /**
@@ -119,7 +158,7 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
   const limit = Math.max(1, number(options.limit, 6));
   const outMember = memberByName(session, outName);
   const outTeam = teamOf(session, outName);
-  const outLevel = number(outMember?.level, 4);
+  const outLevel = memberLevel(outMember);
   const inMatch = new Set(matchPlayers(match).map(nameKey));
   const played = new Map();
   matchList(session).forEach(m => matchPlayers(m).forEach(p => {
@@ -127,18 +166,19 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
     played.set(k, (played.get(k) || 0) + 1);
   }));
   return memberList(session)
-    .filter(m => m && m.name)
-    .filter(m => !inMatch.has(nameKey(m.name)))
-    .filter(m => !conflictingMatch(session, m.name, match.round, match.num))
+    .filter(m => memberName(m))
+    .filter(m => !inMatch.has(nameKey(memberName(m))))
+    .filter(m => !conflictingMatch(session, memberName(m), match.round, match.num))
     .map(m => {
-      const team = teamOf(session, m.name);
+      const name = memberName(m);
+      const team = teamOf(session, name);
       return {
-        name: text(m.name),
+        name,
         team,
         crossTeam: !!outTeam && !!team && team !== outTeam,
-        level: number(m.level, 4),
-        levelGap: Math.abs(number(m.level, 4) - outLevel),
-        games: played.get(nameKey(m.name)) || 0
+        level: memberLevel(m),
+        levelGap: Math.abs(memberLevel(m) - outLevel),
+        games: played.get(nameKey(name)) || 0
       };
     })
     .sort((a, b) =>
@@ -190,12 +230,13 @@ function applySubstitute(session, request, now, operation){
 
   const index = (match[side] || []).findIndex(n => nameKey(n) === nameKey(outName));
   if(index < 0)return '빠지는 선수를 이 경기에서 찾지 못했습니다.';
+  const inDisplayName = memberName(inMember);
   const gradeKey = side === 't1' ? 't1g' : 't2g';
   match[side] = [...(match[side] || [])];
-  match[side][index] = text(inMember.name);
+  match[side][index] = inDisplayName;
   if(Array.isArray(match[gradeKey])){
     match[gradeKey] = [...match[gradeKey]];
-    match[gradeKey][index] = text(inMember.grade || '');
+    match[gradeKey][index] = memberGrade(session, inDisplayName);
   }
   // 누가 언제 무엇을 바꿨는지 남깁니다 — 현장에서 되짚을 수 있어야 합니다.
   session.substitutions = Array.isArray(session.substitutions) ? session.substitutions : [];
@@ -204,7 +245,7 @@ function applySubstitute(session, request, now, operation){
     matchNum: number(match.num, 0),
     round: number(match.round, 0),
     out: outName,
-    in: text(inMember.name),
+    in: inDisplayName,
     crossTeam,
     by: text(request.actorPlayerName || ''),
     reason: text(request.reason || '')
@@ -216,10 +257,93 @@ function applySubstitute(session, request, now, operation){
         round: number(match.round, 0),
         side,
         out: outName,
-        in: text(inMember.name),
+        in: inDisplayName,
         crossTeam
       }
     };
+  }
+  return '';
+}
+
+/* 회원 화면과 **같은 규칙**으로 다시 셉니다(live-view 의 승패 입력 트랜잭션과
+   한 글자도 다르면 안 됩니다): t1 = 청팀, 현재 라운드 = 아직 안 끝난 첫 라운드. */
+function matchKey(match){
+  return `${number(match?.round, 0)}_${number(match?.court, 0)}`;
+}
+function usesFixedTeams(session){
+  if(!session)return false;
+  if(text(session.matchMode) === 'free')return false;
+  if(text(session.matchMode) === 'team')return true;
+  return !!session.isTeam;
+}
+function recountSession(session){
+  const rows = matchList(session);
+  let blueWins = 0, whiteWins = 0;
+  if(usesFixedTeams(session)){
+    rows.forEach(m => {
+      if(text(m?.win) === 't1')blueWins += 1;
+      else if(text(m?.win) === 't2')whiteWins += 1;
+    });
+  }
+  session.blueWins = blueWins;
+  session.whiteWins = whiteWins;
+  const rounds = [...new Set(rows.map(m => number(m?.round, 0)).filter(Boolean))].sort((a, b) => a - b);
+  session.currentRound = rounds.find(r => rows.filter(m => number(m?.round, 0) === r).some(m => !text(m?.win))) || 0;
+}
+
+/**
+ * 승패 정정 (운영자 2026-08-13, 4단계에서 드러난 막다른 길).
+ *
+ * 회원·임원이 승패를 한 번 넣으면 그 뒤로는 **아무도 못 고칩니다** — 다른 값을
+ * 넣으면 「관리자 확인으로 보냈어요」로 넘어갈 뿐입니다. 그런데 관리자는 이제
+ * 최초 생성만 하고 손을 뗍니다. 현장에서 잘못 눌린 승패가 **영원히 굳는다**는
+ * 뜻이라, 임원이 자기 폰에서 고칠 수 있어야 합니다.
+ *
+ * 라운드 제한을 두지 않습니다 — 지난 라운드를 바로잡는 것이 이 명령의 목적입니다.
+ */
+function applyResult(session, request, now, operation){
+  const match = findMatch(session, request.matchNum);
+  if(!match)return '정정할 경기를 찾지 못했습니다.';
+  const want = text(request.win);
+  if(want && want !== 't1' && want !== 't2')return '승패 값이 올바르지 않습니다.';
+  const before = text(match.win);
+  // 지문 — 내가 본 화면과 서버가 같은지. 그 사이 누가 바꿨으면 되돌립니다.
+  if(request.expectedWin !== undefined && text(request.expectedWin) !== before){
+    return '그 사이 다른 결과가 입력됐습니다. 화면을 새로 고친 뒤 다시 봐 주세요.';
+  }
+  if(want === before)return '이미 같은 결과입니다.';
+
+  if(want){
+    match.win = want;
+    match.winAt = number(now, Date.now());
+    match.winBy = text(request.actorPlayerName || '');
+    match.winByRole = 'officialCorrection';
+  }else{
+    delete match.win;
+    delete match.winAt;
+    delete match.winBy;
+    delete match.winByMemberId;
+    delete match.winByRole;
+  }
+  // 임원이 결론을 냈으므로 이 경기의 '승패 확인' 대기는 함께 정리합니다.
+  const key = matchKey(match);
+  if(session.resultConflicts && session.resultConflicts[key]){
+    session.resultConflicts = {...session.resultConflicts};
+    delete session.resultConflicts[key];
+  }
+  recountSession(session);
+  session.resultEdits = Array.isArray(session.resultEdits) ? session.resultEdits : [];
+  session.resultEdits.push({
+    at: number(now, Date.now()),
+    matchNum: number(match.num, 0),
+    round: number(match.round, 0),
+    from: before,
+    to: want,
+    by: text(request.actorPlayerName || '')
+  });
+  if(operation){
+    operation.result = {result: {matchNum: number(match.num, 0), from: before, to: want,
+      blueWins: number(session.blueWins, 0), whiteWins: number(session.whiteWins, 0)}};
   }
   return '';
 }
@@ -251,6 +375,9 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
   switch(text(request.type)){
     case 'team-official-substitute':
       reason = applySubstitute(session, request, now, operation);
+      break;
+    case 'team-official-result':
+      reason = applyResult(session, request, now, operation);
       break;
     default:
       reason = '지원하지 않는 팀전 운영 요청입니다.';

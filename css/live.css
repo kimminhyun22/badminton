@@ -2164,6 +2164,20 @@ body{
   .next-panel .live-match{min-height:auto!important;}
 }
 
+/* 승패 정정 시트 (2026-08-13) — 한 번 들어간 승패를 임원이 고칠 수 있게.
+   버튼으로 쓰이므로 폭·커서·글꼴을 명시한다(div 시절 스타일을 그대로 물려받음). */
+button.team-official-overview-conflict{
+  display:block;width:100%;padding:11px 12px;border-radius:11px;
+  font:inherit;font-weight:900;cursor:pointer;
+}
+button.team-official-overview-conflict.quiet{
+  border-color:rgba(22,34,52,.14);background:#fff;color:#2a3646;
+}
+.team-sub-cand.on{border-color:#0a6cff;background:#eef5ff;color:#0a4fbf;}
+.team-sub-cand.clear{border-style:dashed;color:#5c6a7a;}
+.team-sub-row.warn .team-sub-who b{color:#a52a22;}
+.team-sub-row.warn .team-sub-who small{color:#a5564e;}
+
 /* 대체 투입 시트 (2026-08-13) — 임원이 현장에서 바로 메울 수 있게. */
 .team-official-overview-conflict.sub{
   width:100%;margin-top:6px;border:0;border-radius:11px;

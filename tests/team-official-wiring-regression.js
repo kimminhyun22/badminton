@@ -63,4 +63,29 @@ assert(/_bookedInRound\(d,p\.name,match\.round,match\.num\)/.test(cands),
   '같은 라운드에 이미 잡힌 사람은 후보에서 빼야 합니다.');
 assert(/filter\(c=>!c\.late\)/.test(cands), '늦은 사람을 대체 후보로 올리면 안 됩니다.');
 
-console.log('team official wiring regression ok — 서버 callable · 화면 진입점 · 권한 · 지문 · AI 후보');
+// 8) 승패 정정 — 한 번 들어간 승패를 임원이 고칠 수 있어야 합니다(2026-08-13).
+//    관리자가 손을 뗀 뒤에는 이 길이 없으면 잘못된 승패가 영원히 굳습니다.
+assert(liveView.includes('function openTeamResultPanel'), '승패 정정 시트가 있어야 합니다.');
+assert(/onclick="openTeamResultPanel\(\)"/.test(liveView),
+  '승패 확인 알림은 눌러서 여는 버튼이어야 합니다 — 문구만 있으면 손을 못 씁니다.');
+const fixResult = liveView.slice(liveView.indexOf('async function submitTeamResult'),
+  liveView.indexOf('function _viewerNextHtml'));
+assert(/type:'team-official-result'/.test(fixResult), '정정도 서버 명령으로 보내야 합니다.');
+assert(/grantToken/.test(fixResult), '정정에도 서명된 권한을 실어야 합니다.');
+assert(/expectedWin:String\(expectedWin\|\|''\)/.test(fixResult),
+  '내가 본 결과를 지문으로 보내야 그 사이 바뀐 값을 덮어쓰지 않습니다.');
+assert(/confirm\(/.test(fixResult), '한 번의 오클릭으로 승패가 바뀌면 안 됩니다.');
+const alertHtml = liveView.slice(liveView.indexOf('function _resultAlertHtml'),
+  liveView.indexOf('function openTeamResultPanel'));
+assert(/_canFixResult\(d\)/.test(alertHtml), '알림 자체가 권한을 먼저 봐야 합니다.');
+
+// 9) 서버 — 정정이 팀 점수·현재 라운드를 회원 화면과 **같은 규칙**으로 다시 세야 합니다.
+const engine = fs.readFileSync(path.join(root, 'functions', 'team-official-engine.js'), 'utf8');
+assert(engine.includes("'team-official-result'"), '엔진이 정정 명령을 알아야 합니다.');
+assert(/function recountSession/.test(engine), '정정 뒤 점수를 다시 세야 합니다.');
+assert(/text\(m\?\.win\) === 't1'\)blueWins/.test(engine),
+  't1 은 청팀 — 회원 화면 집계와 같은 규칙이어야 합니다.');
+assert(/delete session\.resultConflicts\[key\]/.test(engine),
+  '임원이 결론을 냈으면 그 경기의 승패 확인 대기도 함께 정리해야 합니다.');
+
+console.log('team official wiring regression ok — 서버 callable · 화면 진입점 · 권한 · 지문 · AI 후보 · 승패 정정');

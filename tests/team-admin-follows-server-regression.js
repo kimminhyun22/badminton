@@ -182,6 +182,12 @@ function fresh(){
   const listener = slice('_liveAdminHandler=snap=>{', '_liveAdminRef.on(');
   assert(/_teamAdoptServerMatchesAndRender\(data\)[\s\S]*_syncLiveWinsFromData\(data\)/.test(listener),
     '중계 중에는 승패 동기화보다 먼저 교체를 받아 적어야 합니다.');
+  // 서버에서 받은 것을 되쏘면 임원의 조작을 한 번 덮었다가 되돌리는 왕복이 생깁니다.
+  assert(/_liveApplyingServer=true;[\s\S]*finally\{ _liveApplyingServer=false; \}/.test(listener),
+    '서버 상태를 반영하는 동안에는 게시를 멈춰야 합니다.');
+  const push = slice('async function pushLiveState', 'function _showCopyFallback');
+  assert(/if\(_liveApplyingServer\) return;/.test(push),
+    '게시 함수가 그 표시를 실제로 봐야 합니다.');
 
   const resume = slice('async function _tryResumeLive', 'async function resumeTeamLiveBroadcast');
   assert(/_teamAdoptServerMatchesAndRender\(data\);\s*\n\s*if\(!_teamValidateLiveDataForCurrent\(data\)\)/.test(resume),

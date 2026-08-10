@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.568';
+const APP_VERSION='1.10.569';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1235,7 +1235,11 @@ function setTeamOfficialOverviewFilter(key){
 
 function buildTeamOfficialOverview(d){
   const viewer=_viewerInfo(d);
-  const canOperate=!!(viewer&&(viewer.isClubOfficial||(!_usesFixedTeams(d)&&viewer.isTemporaryOperator)));
+  // 팀전을 실제로 이끄는 사람은 단장·부단장이다. 이들을 빼면 대체 투입·승패
+  // 정정 버튼이 **화면에 아예 뜨지 않아** 서버 권한만 있고 손이 없는 꼴이 된다.
+  const canOperate=!!(viewer&&(viewer.isClubOfficial
+    ||(!_usesFixedTeams(d)&&viewer.isTemporaryOperator)
+    ||(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub))));
   if(!canOperate)return '';
   const data=_teamOfficialOverviewData(d);
   const cards=[
@@ -1259,7 +1263,7 @@ function buildTeamOfficialOverview(d){
   return `<section class="team-official-overview" aria-label="팀전 운영 현황">
     <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
     <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
-    ${data.conflictCount?`<div class="team-official-overview-conflict">승패 확인 ${data.conflictCount}건</div>`:''}
+    ${_resultAlertHtml(d)}
     ${_substituteAlertHtml(d)}
     ${detail}
   </section>`;
@@ -1319,6 +1323,114 @@ function openTeamSubstitutePanel(){
 function closeTeamSubstitutePanel(){
   const box=document.getElementById('teamSubstitutePanel');
   if(box)box.classList.remove('show');
+}
+
+// ── 승패 정정 (운영자 2026-08-13, 4단계에서 드러난 막다른 길) ────────────────
+// 승패는 한 번 들어가면 아무도 못 고쳤다 — 다른 값을 넣으면 「관리자 확인으로
+// 보냈어요」로 넘어갈 뿐이고, 그 관리자는 이제 최초 생성만 하고 손을 뗀다.
+// 현장에서 잘못 눌린 승패가 영원히 굳는다는 뜻이라, 임원이 자기 폰에서 고친다.
+function _canFixResult(d){
+  return _canSubstitute(d);
+}
+function _resultConflictKeys(d){
+  const rows=(d&&d.resultConflicts)||{};
+  return new Set(Object.keys(rows).filter(k=>Object.keys(rows[k]||{}).length));
+}
+// 정정 대상: 결과가 들어간 경기 + 서로 다르게 입력돼 확인이 걸린 경기.
+function _fixableResults(d){
+  const conflicts=_resultConflictKeys(d);
+  return ((d&&d.matches)||[])
+    .map(m=>({m,conflict:conflicts.has(_matchKey(m))}))
+    .filter(x=>x.m&&(x.m.win||x.conflict))
+    // 확인이 걸린 경기가 먼저, 그 다음은 최근 라운드부터.
+    .sort((a,b)=>(Number(b.conflict)-Number(a.conflict))
+      ||(Number(b.m.round||0)-Number(a.m.round||0))
+      ||(Number(a.m.court||0)-Number(b.m.court||0)));
+}
+function _resultAlertHtml(d){
+  if(!_canFixResult(d))return '';
+  const rows=_fixableResults(d);
+  if(!rows.length)return '';
+  const conflicts=rows.filter(x=>x.conflict).length;
+  const label=conflicts
+    ?`승패 확인 ${conflicts}건 · 눌러서 바로 정정`
+    :`승패 정정 (${rows.length}경기)`;
+  return `<button type="button" class="team-official-overview-conflict ${conflicts?'':'quiet'}"
+    onclick="openTeamResultPanel()">${esc(label)}</button>`;
+}
+function openTeamResultPanel(){
+  const d=window._lastLiveData;
+  if(!d)return;
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원만 승패를 정정할 수 있어요.');
+  const rows=_fixableResults(d);
+  if(!rows.length)return alert('아직 정정할 승패가 없습니다.');
+  const box=document.getElementById('teamResultPanel')||(()=>{
+    const el=document.createElement('div');
+    el.id='teamResultPanel';
+    el.className='team-sub-panel';
+    document.body.appendChild(el);
+    return el;
+  })();
+  const blueLabel=liveTeamLabel(d,'blue'), redLabel=liveTeamLabel(d,'red');
+  box.innerHTML=`<div class="team-sub-card">
+    <div class="team-sub-head"><b>승패 정정</b>
+      <button type="button" onclick="closeTeamResultPanel()" aria-label="닫기">✕</button></div>
+    <div class="team-sub-body">${rows.map(({m,conflict})=>{
+      const num=Number(m.num);
+      const win=String(m.win||'');
+      const t1=(m.t1||[]).filter(Boolean).join(' · ');
+      const t2=(m.t2||[]).filter(Boolean).join(' · ');
+      const cur=win==='t1'?blueLabel:win==='t2'?redLabel:'결과 없음';
+      return `<div class="team-sub-row${conflict?' warn':''}">
+        <div class="team-sub-who"><b>${conflict?'⚠ ':''}${m.round}라운드 ${m.court}코트 · ${num}번</b>
+          <small>${esc(t1)} vs ${esc(t2)} · 지금 ${esc(cur)}${conflict?' · 서로 다르게 입력됨':''}</small></div>
+        <div class="team-sub-cands">
+          <button type="button" class="team-sub-cand ${win==='t1'?'on':''}"
+            onclick="submitTeamResult(${num},'t1','${esc(win)}')">${esc(blueLabel)}<small>승</small></button>
+          <button type="button" class="team-sub-cand ${win==='t2'?'on':''}"
+            onclick="submitTeamResult(${num},'t2','${esc(win)}')">${esc(redLabel)}<small>승</small></button>
+          ${win?`<button type="button" class="team-sub-cand clear"
+            onclick="submitTeamResult(${num},'','${esc(win)}')">결과 지움<small>다시 입력</small></button>`:''}
+        </div>
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+  box.classList.add('show');
+}
+function closeTeamResultPanel(){
+  const box=document.getElementById('teamResultPanel');
+  if(box)box.classList.remove('show');
+}
+async function submitTeamResult(matchNum,win,expectedWin){
+  const d=window._lastLiveData;
+  const match=_matchByNum(d,matchNum);
+  const viewer=_viewerInfo(d);
+  if(!match||!viewer)return alert('경기를 다시 확인해주세요.');
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원만 승패를 정정할 수 있어요.');
+  const blueLabel=liveTeamLabel(d,'blue'), redLabel=liveTeamLabel(d,'red');
+  const to=win==='t1'?blueLabel+' 승':win==='t2'?redLabel+' 승':'결과 없음';
+  if(!confirm(`${match.round}라운드 ${match.court}코트 ${matchNum}번 경기를\n「${to}」 로 바꿀까요?`))return;
+  if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
+  try{
+    const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
+    const grantToken=await ensureTeamOfficialGrant(d);
+    if(!grantToken)return alert('임원 운영 연결을 확인하지 못했습니다.\n내 이름을 다시 선택한 뒤 시도해주세요.');
+    const res=await callable({liveId,grantToken,command:{
+      type:'team-official-result',
+      operationId:'tres_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
+      actorPlayerName:viewer.n||viewer.name||'',
+      matchNum:Number(matchNum), win:String(win||''),
+      expectedWin:String(expectedWin||''),
+      expiresAt:Date.now()+10*60*1000
+    }});
+    const data=res&&res.data;
+    if(data&&data.ok){
+      closeTeamResultPanel();
+      alert(`${matchNum}번 경기를 「${to}」 로 바꿨습니다.`);
+    }else alert((data&&data.reason)||'승패를 정정하지 못했습니다.');
+  }catch(err){
+    alert('승패 정정을 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
 }
 
 function _viewerNextHtml(d,current){
@@ -1452,18 +1564,25 @@ function _bookedInRound(d,name,round,exceptNum){
   });
 }
 // AI 보조: 같은 팀 → 급수 근접 → 덜 뛴 순. 서버 엔진과 같은 기준입니다.
+// 게시된 팀원 한 줄은 급수를 `l` 로 줄여 싣습니다(`_buildLiveState` 의 liveMember).
+// `level` 만 읽으면 전원이 기본값 4가 되어 "급수 근접" 정렬이 죽습니다.
+function _memberLevel(p){
+  const raw=p&&(p.level!=null?p.level:p.l);
+  const n=Number(raw);
+  return Number.isFinite(n)&&n>0?n:4;
+}
 function _substituteCandidates(d,match,outName){
   const inMatch=new Set([...(match.t1||[]),...(match.t2||[])].map(_attKey));
   const outTeam=_teamOfName(d,outName);
   const all=_allLiveMembers(d)||[];
   const outMember=all.find(p=>_attKey(p.n||p.name)===_attKey(outName));
-  const outLevel=Number(outMember&&outMember.level)||4;
+  const outLevel=_memberLevel(outMember);
   const games=new Map();
   ((d&&d.matches)||[]).forEach(m=>[...(m.t1||[]),...(m.t2||[])].forEach(n=>{
     const k=_attKey(n); games.set(k,(games.get(k)||0)+1);
   }));
   return all
-    .map(p=>({name:p.n||p.name,level:Number(p.level)||4}))
+    .map(p=>({name:p.n||p.name,level:_memberLevel(p)}))
     .filter(p=>p.name&&!inMatch.has(_attKey(p.name)))
     .filter(p=>!_bookedInRound(d,p.name,match.round,match.num))
     .map(p=>{
