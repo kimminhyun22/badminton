@@ -49,6 +49,9 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(`
 function _attKey(name){return String(name||'');}
+// 대체 투입 알림(2026-08-13)은 이 검사 범위 밖입니다. 실제 함수가 추출 범위에
+// 함께 들어오므로, 권한 판정만 막아 알림이 안 뜨게 둡니다.
+function _canSubstitute(){return false;}
 function _usesFixedTeams(d){return d&&d.matchMode!=='free';}
 function _lateMapFromData(d){return d&&d.late||{};}
 function _viewerInfo(){return viewer;}

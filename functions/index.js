@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 const {onCall, HttpsError} = require('firebase-functions/v2/https');
+const {applyTeamOfficialRequest} = require('./team-official-engine');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {defineSecret} = require('firebase-functions/params');
 const {
@@ -294,6 +295,58 @@ exports.getDailyOfficialReconcile = onCall(FUNCTION_OPTIONS, async request=>{
    여기서 지워도 영향이 없습니다. */
 const LIVE_RETAIN_AFTER_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_RETAIN_WITHOUT_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * 팀전 임원 운영 요청 (운영자 2026-08-13 "임원 운영을 중심으로 서버 동기화").
+ * 팀전 라이브는 `live/<liveId>` 에 페이로드가 통째로 들어갑니다(민턴LIVE 처럼
+ * `session` 하위가 아님) — 그래서 전용 트랜잭션을 씁니다.
+ *
+ * 신원은 아직 **이름 기준**입니다: 게시된 임원 명단(officials)에 있는 이름만
+ * 통과합니다. 팀전에는 아직 서명된 권한(grant)이 없어, 민턴LIVE 수준의 위조
+ * 방지는 다음 단계입니다. 그래도 클라이언트가 대진을 직접 덮어쓰던 것보다는
+ * 안전합니다 — 규칙 검사를 화면에서 지울 수 없습니다.
+ */
+exports.submitTeamOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
+  const liveId = String(request.data?.liveId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+  if(!liveId)throw new HttpsError('invalid-argument', '팀전 링크를 확인하지 못했습니다.');
+  const operationId = safeOperationId(request.data?.command?.operationId);
+  const command = request.data?.command || {};
+  const canonicalCommand = canonicalJson(command);
+  if(Buffer.byteLength(canonicalCommand, 'utf8') > MAX_COMMAND_BYTES){
+    throw new HttpsError('invalid-argument', '운영 요청 내용이 너무 큽니다.');
+  }
+  const now = Date.now();
+  const ref = admin.database().ref(`live/${liveId}`);
+  let terminal = null;
+  let alreadyDone = null;
+
+  const result = await ref.transaction(current=>{
+    if(current == null)return;
+    // 같은 요청을 두 번 눌러도 한 번만 적용합니다(재시도·중복 탭 대비).
+    const prior = current.officialOps && current.officialOps[operationId];
+    if(prior){ alreadyDone = prior; return current; }
+    const outcome = applyTeamOfficialRequest(current, {...command, operationId}, {now});
+    terminal = {status:outcome.status, reason:outcome.reason, result:outcome.result};
+    const next = outcome.status === 'applied' ? outcome.session : {...current};
+    next.officialOps = {...(current.officialOps || {}), [operationId]:{
+      at:now,
+      status:outcome.status,
+      reason:outcome.reason || '',
+      type:String(command.type || ''),
+      by:String(command.actorPlayerName || '')
+    }};
+    return next;
+  }, undefined, false);
+
+  if(!result.committed)throw new HttpsError('aborted', '서버 상태를 다시 확인한 뒤 한 번 더 눌러 주세요.');
+  if(!result.snapshot.exists())throw new HttpsError('not-found', '종료되었거나 없는 팀전입니다.');
+  if(alreadyDone){
+    return {ok:alreadyDone.status === 'applied', requestId:operationId,
+      status:alreadyDone.status, reason:alreadyDone.reason || '', repeated:true};
+  }
+  if(!terminal)throw new HttpsError('aborted', '요청을 처리하지 못했습니다.');
+  return {ok:terminal.status === 'applied', requestId:operationId, ...terminal};
+});
 
 exports.cleanupExpiredLive = onSchedule({
   region:REGION,

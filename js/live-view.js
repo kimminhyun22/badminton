@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.565';
+const APP_VERSION='1.10.566';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1260,8 +1260,65 @@ function buildTeamOfficialOverview(d){
     <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
     <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
     ${data.conflictCount?`<div class="team-official-overview-conflict">승패 확인 ${data.conflictCount}건</div>`:''}
+    ${_substituteAlertHtml(d)}
     ${detail}
   </section>`;
+}
+
+// 지각·불참으로 다음 경기에 구멍이 난 곳을 찾아 임원에게 알립니다.
+// 예전에는 「대체 확인 없음」이라는 문구만 있었고 누를 수가 없었습니다.
+function _pendingSubstitutions(d){
+  const out=[];
+  ((d&&d.matches)||[]).forEach(m=>{
+    if(m.win)return;
+    const missing=[...(m.t1||[]),...(m.t2||[])].filter(n=>n&&_lateOn(n));
+    missing.forEach(name=>out.push({num:Number(m.num),round:Number(m.round),
+      court:Number(m.court),name}));
+  });
+  return out;
+}
+function _substituteAlertHtml(d){
+  if(!_canSubstitute(d))return '';
+  const pending=_pendingSubstitutions(d);
+  if(!pending.length)return '';
+  return `<button type="button" class="team-official-overview-conflict sub" onclick="openTeamSubstitutePanel()">
+    대체 필요 ${pending.length}건 · 눌러서 바로 교체</button>`;
+}
+function openTeamSubstitutePanel(){
+  const d=window._lastLiveData;
+  if(!d)return;
+  if(!_canSubstitute(d))return alert('단장·부단장·클럽 임원만 대체 투입을 할 수 있어요.');
+  const pending=_pendingSubstitutions(d);
+  if(!pending.length)return alert('지금은 대체가 필요한 경기가 없습니다.');
+  const box=document.getElementById('teamSubstitutePanel')||(()=>{
+    const el=document.createElement('div');
+    el.id='teamSubstitutePanel';
+    el.className='team-sub-panel';
+    document.body.appendChild(el);
+    return el;
+  })();
+  box.innerHTML=`<div class="team-sub-card">
+    <div class="team-sub-head"><b>대체 투입</b>
+      <button type="button" onclick="closeTeamSubstitutePanel()" aria-label="닫기">✕</button></div>
+    <div class="team-sub-body">${pending.map(p=>{
+      const match=_matchByNum(d,p.num);
+      const cands=_substituteCandidates(d,match,p.name);
+      return `<div class="team-sub-row">
+        <div class="team-sub-who"><b>${esc(p.name)}</b>
+          <small>${p.round}라운드 ${p.court}코트 · ${p.num}번 경기</small></div>
+        ${cands.length?`<div class="team-sub-cands">${cands.map(c=>
+          `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''}"
+            onclick="submitTeamSubstitute(${p.num},'${esc(p.name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'}})">
+            ${esc(c.name)}<small>${c.crossTeam?'상대 팀':(c.games+'게임')}</small></button>`).join('')}</div>`
+          :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다.</div>'}
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+  box.classList.add('show');
+}
+function closeTeamSubstitutePanel(){
+  const box=document.getElementById('teamSubstitutePanel');
+  if(box)box.classList.remove('show');
 }
 
 function _viewerNextHtml(d,current){
@@ -1364,6 +1421,89 @@ function _canSubmitResult(m,d){
   if(_isTeamLiveData(d)&&viewer.isClubOfficial)return true;
   if(_isTeamLiveData(d)&&!_usesFixedTeams(d)&&viewer.isTemporaryOperator)return true;
   return !!(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub));
+}
+
+// ── 팀전 대체 투입 (운영자 2026-08-13) ────────────────────────────────
+// "갑작스런 불참 및 인원 변경… 땜방으로 진행하는 수밖에" — 임원이 현장에서
+// 바로 메울 수 있어야 합니다. AI 는 후보를 좁혀 주고, 결정은 임원이 합니다.
+function _canSubstitute(d){
+  const viewer=_viewerInfo(d);
+  if(!viewer||!_isTeamLiveData(d))return false;
+  return !!(viewer.isClubOfficial||viewer.isLeader||viewer.isSub||viewer.isTemporaryOperator);
+}
+function _teamOfName(d,name){
+  const key=_attKey(name);
+  const mem=(d&&d.members)||{};
+  if((mem.blue||[]).some(p=>_attKey(p.n||p.name)===key))return 'blue';
+  if((mem.red||[]).some(p=>_attKey(p.n||p.name)===key))return 'red';
+  return '';
+}
+function _matchByNum(d,num){
+  return ((d&&d.matches)||[]).find(m=>Number(m&&m.num)===Number(num))||null;
+}
+// 같은 라운드에 이미 잡혀 있으면 후보에서 뺍니다(이중 출전 방지).
+function _bookedInRound(d,name,round,exceptNum){
+  const key=_attKey(name);
+  return ((d&&d.matches)||[]).some(m=>{
+    if(Number(m.num)===Number(exceptNum))return false;
+    if(Number(m.round)!==Number(round))return false;
+    if(m.win)return false;
+    return [...(m.t1||[]),...(m.t2||[])].some(n=>_attKey(n)===key);
+  });
+}
+// AI 보조: 같은 팀 → 급수 근접 → 덜 뛴 순. 서버 엔진과 같은 기준입니다.
+function _substituteCandidates(d,match,outName){
+  const inMatch=new Set([...(match.t1||[]),...(match.t2||[])].map(_attKey));
+  const outTeam=_teamOfName(d,outName);
+  const all=_allLiveMembers(d)||[];
+  const outMember=all.find(p=>_attKey(p.n||p.name)===_attKey(outName));
+  const outLevel=Number(outMember&&outMember.level)||4;
+  const games=new Map();
+  ((d&&d.matches)||[]).forEach(m=>[...(m.t1||[]),...(m.t2||[])].forEach(n=>{
+    const k=_attKey(n); games.set(k,(games.get(k)||0)+1);
+  }));
+  return all
+    .map(p=>({name:p.n||p.name,level:Number(p.level)||4}))
+    .filter(p=>p.name&&!inMatch.has(_attKey(p.name)))
+    .filter(p=>!_bookedInRound(d,p.name,match.round,match.num))
+    .map(p=>{
+      const team=_teamOfName(d,p.name);
+      return {...p,team,crossTeam:!!outTeam&&!!team&&team!==outTeam,
+        levelGap:Math.abs(p.level-outLevel),games:games.get(_attKey(p.name))||0,
+        late:_lateOn(p.name)};
+    })
+    .filter(c=>!c.late)
+    .sort((a,b)=>Number(a.crossTeam)-Number(b.crossTeam)||a.levelGap-b.levelGap
+      ||a.games-b.games||String(a.name).localeCompare(String(b.name),'ko'))
+    .slice(0,8);
+}
+async function submitTeamSubstitute(matchNum,outName,inName,opts){
+  const d=window._lastLiveData;
+  const match=_matchByNum(d,matchNum);
+  const viewer=_viewerInfo(d);
+  if(!match||!viewer)return alert('경기를 다시 확인해주세요.');
+  if(!_canSubstitute(d))return alert('단장·부단장·클럽 임원만 대체 투입을 할 수 있어요.');
+  const crossTeam=!!(opts&&opts.crossTeam);
+  if(crossTeam&&!confirm(inName+' 선수는 상대 팀입니다.\n그래도 이 경기에 넣을까요?\n\n팀 전력이 달라집니다.'))return;
+  if(match.startAt&&!confirm('이미 시작한 경기입니다.\n그래도 선수를 바꿀까요?'))return;
+  if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
+  try{
+    const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
+    const res=await callable({liveId,command:{
+      type:'team-official-substitute',
+      operationId:'tsub_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
+      actorPlayerName:viewer.n||viewer.name||'',
+      matchNum:Number(matchNum), outName:String(outName), inName:String(inName),
+      allowCrossTeam:crossTeam, allowStarted:!!match.startAt,
+      expectedT1:[...(match.t1||[])], expectedT2:[...(match.t2||[])],
+      expiresAt:Date.now()+10*60*1000
+    }});
+    const data=res&&res.data;
+    if(data&&data.ok)alert(outName+' → '+inName+' 로 바꿨습니다.');
+    else alert((data&&data.reason)||'대체 투입을 반영하지 못했습니다.');
+  }catch(err){
+    alert('대체 투입을 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
 }
 
 function _resultRoleForSubmit(d,m){

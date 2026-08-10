@@ -2163,3 +2163,31 @@ body{
   .current-panel .live-match,
   .next-panel .live-match{min-height:auto!important;}
 }
+
+/* 대체 투입 시트 (2026-08-13) — 임원이 현장에서 바로 메울 수 있게. */
+.team-official-overview-conflict.sub{
+  width:100%;margin-top:6px;border:0;border-radius:11px;
+  background:#0a6cff;color:#fff;font:inherit;font-weight:900;
+  padding:11px 12px;cursor:pointer;text-align:center;
+}
+.team-sub-panel{position:fixed;inset:0;z-index:90;display:none;
+  align-items:flex-end;justify-content:center;background:rgba(15,23,42,.42);}
+.team-sub-panel.show{display:flex;}
+.team-sub-card{width:100%;max-width:520px;max-height:82vh;overflow:auto;
+  background:#fff;border-radius:20px 20px 0 0;padding:14px 14px 22px;}
+.team-sub-head{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;margin-bottom:10px;}
+.team-sub-head b{font-size:17px;}
+.team-sub-head button{width:34px;height:34px;border:0;border-radius:50%;
+  background:#eef1f5;color:#5c6a7a;font-size:17px;cursor:pointer;}
+.team-sub-row{padding:11px 0;border-top:1px solid rgba(22,34,52,.12);}
+.team-sub-who b{font-size:16px;font-weight:1000;}
+.team-sub-who small{display:block;margin-top:2px;color:#5c6a7a;font-size:12px;font-weight:800;}
+.team-sub-cands{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.team-sub-cand{display:inline-flex;flex-direction:column;align-items:center;
+  min-height:44px;padding:7px 12px;border:1px solid rgba(22,34,52,.14);
+  border-radius:11px;background:#fff;color:#0f172a;font:inherit;font-weight:900;cursor:pointer;}
+.team-sub-cand small{margin-top:1px;color:#5c6a7a;font-size:11px;font-weight:800;}
+.team-sub-cand.cross{border-color:#f0c9a8;background:#fffaf3;}
+.team-sub-cand.cross small{color:#9a6a12;}
+.team-sub-empty{margin-top:8px;color:#5c6a7a;font-size:13px;font-weight:800;}
