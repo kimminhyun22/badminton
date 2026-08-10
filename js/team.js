@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.567';
+const APP_VERSION = '1.10.568';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -42,13 +42,24 @@ function _balanceQualityStats(matches,settings={}){
   return {avgLD,maxLD,cautionCount,hardCount,severeCount,weightedPenalty,
     roundBiasMax:roundBias.maxBias,roundBiasTotal:roundBias.totalBias};
 }
+/* 이 경기에서 1번 자리가 청팀인가.
+   대진 생성이 "team1 은 항상 청팀"을 보장하므로 평소에는 team1A 의 소속을 그대로
+   읽으면 된다. 다만 임원이 **상대 팀 선수를 땜방으로** 넣으면(v1.10.565~) 그
+   자리의 사람만 홍팀이 된다 — 그때 경기의 청/홍까지 뒤집히면 팀 점수가 반대로
+   붙는다. 그래서 교체를 받아 적을 때 원래 소속을 `team1Side` 에 적어 두고,
+   여기서는 그 기록을 먼저 본다(회원 화면도 t1=청팀으로 집계한다). */
+function _teamMatchIsBlueFirst(m){
+  const side=m&&m.team1Side;
+  if(side)return side==='청팀';
+  return !!(m&&m.team1A&&m.team1A.team==='청팀');
+}
 function _teamRoundLevelBias(matches){
   const byRound={};
   (matches||[]).forEach(m=>{
     if(!m||!m.round||!m.team1A||!m.team2C)return;
     const t1=Number.isFinite(+m.team1Level)?+m.team1Level:effLevel(m.team1A)+effLevel(m.team1B);
     const t2=Number.isFinite(+m.team2Level)?+m.team2Level:effLevel(m.team2C)+effLevel(m.team2D);
-    const blueDelta=m.team1A.team==='청팀'?t1-t2:t2-t1;
+    const blueDelta=_teamMatchIsBlueFirst(m)?t1-t2:t2-t1;
     byRound[m.round]=(byRound[m.round]||0)+blueDelta;
   });
   const vals=Object.values(byRound).map(v=>Math.abs(v));
@@ -247,7 +258,7 @@ function onSbNameChange(side){
 }
 function refreshScoreLabels(){
   currentMatches.forEach((m,i)=>{
-    const t1b=m.team1A.team==='청팀';
+    const t1b=_teamMatchIsBlueFirst(m);
     const sl1=currentSettings.teamMode?(t1b?teamNames.blue:teamNames.white):'A';
     const sl2=currentSettings.teamMode?(t1b?teamNames.white:teamNames.blue):'B';
     const el1=document.getElementById('sl1_'+i);
@@ -2199,7 +2210,7 @@ function updateScores(){
       card.classList.add('win-s1');
       resEl.className='score-result sr-b';
       if(isTeam){
-        const t1b=m.team1A.team==='청팀';
+        const t1b=_teamMatchIsBlueFirst(m);
         resEl.textContent='';
         if(t1b){bW++;wL++;}else{wW++;bL++;}
       }else{ resEl.textContent='A팀 승'; }
@@ -2209,7 +2220,7 @@ function updateScores(){
       card.classList.add('win-s2');
       resEl.className='score-result sr-w';
       if(isTeam){
-        const t1b=m.team1A.team==='청팀';
+        const t1b=_teamMatchIsBlueFirst(m);
         resEl.textContent='';
         if(t1b){wW++;bL++;}else{bW++;wL++;}
       }else{ resEl.textContent='B팀 승'; }
@@ -2254,6 +2265,7 @@ let _liveId=null, _liveOn=false, _liveMatchStartedAt=null;
 const TEAM_LIVE_STORAGE_KEY='badminton_team_liveId';
 const LEGACY_LIVE_STORAGE_KEY='badminton_liveId';
 let _liveLate={}, _liveParty={}, _liveResultInputs={}, _liveResultConflicts={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
+let _liveSubstitutions=[];   // 임원이 현장에서 한 대체 투입 기록(서버가 남긴다)
 
 /* 대회 고유 ID 생성 (6자리) */
 function _genLiveId(){
@@ -2351,9 +2363,12 @@ function _teamValidateLiveDataForCurrent(data){
     _teamResetLocalLiveState(_liveId);
     return false;
   }
-  const liveSig=data.bracketKey||_teamLiveSignatureFromData(data);
+  // 지문은 둘 다 본다. 서버가 대진을 고치면(임원 대체 투입) 저장된 `bracketKey` 가
+  // 잠시 옛것일 수 있는데, 그걸로 "다른 대진"이라 판정하면 관리자가 자기 팀전에서
+  // 튕겨 나간다. 하나라도 맞으면 같은 대진으로 본다.
+  const liveSigs=[data.bracketKey,_teamLiveSignatureFromData(data)].filter(Boolean);
   const currentSig=_teamLiveSignature();
-  if(liveSig&&currentSig&&liveSig!==currentSig){
+  if(liveSigs.length&&currentSig&&!liveSigs.includes(currentSig)){
     alert(_teamLiveMismatchMessage());
     _teamResetLocalLiveState(_liveId);
     return false;
@@ -2561,6 +2576,11 @@ function _renderLiveOpsSummary(){
   const partyNames=names.filter(n=>_liveHas(_liveParty,n));
   const dups=_duplicateNames(currentParticipants);
   const conflictCount=Object.values(_liveResultConflicts||{}).reduce((sum,v)=>sum+Object.keys(v||{}).length,0);
+  // 임원이 현장에서 한 대체 투입 — 최근 것부터 보여줍니다(누가 바꿨는지 되짚을 수 있게).
+  const subs=Array.isArray(_liveSubstitutions)?_liveSubstitutions:[];
+  const subPreview=subs.slice(-3).reverse()
+    .map(s=>`${s&&s.matchNum?`${s.matchNum}번 `:''}${(s&&s.out)||'?'}→${(s&&s.in)||'?'}${s&&s.by?` (${s.by})`:''}`)
+    .join(' · ')||'교체 없음';
   el.classList.remove('hidden');
   el.innerHTML=`
     <div class="live-ops-card ${lateNames.length?'warn':''}">
@@ -2582,6 +2602,11 @@ function _renderLiveOpsSummary(){
       <div class="live-ops-l">승패 확인</div>
       <div class="live-ops-v">${conflictCount}건</div>
       <div class="live-ops-names">서로 다른 승패 입력이 있어 확인 필요</div>
+    </div>`:''}
+    ${subs.length?`<div class="live-ops-card">
+      <div class="live-ops-l">임원 교체</div>
+      <div class="live-ops-v">${subs.length}건</div>
+      <div class="live-ops-names">${esc(subPreview)}</div>
     </div>`:''}
     ${dups.length?`<div class="live-ops-dups">동명이인: ${_liveNamesPreview(dups,8)} · 늦음/뒷풀이 표시가 합쳐질 수 있어 이름 뒤에 A/B 같은 구분자를 붙여주세요.</div>`:''}`;
 }
@@ -2610,6 +2635,68 @@ function _syncLiveWinsFromData(data){
   if(changed) updateScores();
 }
 
+/* ── 임원 운영을 서버에서 받아 적기 (v1.10.568) ─────────────────────────────
+   운영자 2026-08-13: "관리자는 최초 게임을 생성하는 역할만 하고 이후는 임원이
+   모두 운영하는 민턴라이브 방식… 임원 운영을 중심으로 서버 동기화".
+
+   임원이 대체 투입을 하면 **서버의 대진이 바뀐다.** 관리자 화면은 자기 로컬
+   대진을 그대로 들고 있어서, 손대지 않으면 두 가지가 깨진다:
+     1) 승패를 하나 누르는 순간 `pushLiveState()` 가 **옛 명단으로 덮어쓴다**
+        — 임원이 현장에서 한 교체가 소리 없이 사라진다
+     2) 앱을 다시 열면 대진 지문이 달라 "다른 대진입니다"로 **연결이 끊긴다**
+        (`_teamValidateLiveDataForCurrent`)
+
+   그래서 서버를 진실로 보고 로컬을 맞춘다. 다만 **구조가 같을 때만** — 경기
+   수·번호·라운드·코트가 그대로이고 바뀐 이름이 오늘 명단 안에 있을 때만
+   받아 적는다. 정말 다른 대진이면 기존 경고가 그대로 떠야 하기 때문이다. */
+const _TEAM_MATCH_SLOTS=[['team1A','t1',0],['team1B','t1',1],['team2C','t2',0],['team2D','t2',1]];
+function _teamAdoptServerMatches(data){
+  const rows=(data&&Array.isArray(data.matches))?data.matches:null;
+  const skip={applied:false,changed:0,swaps:[]};
+  if(!rows||!rows.length||!currentMatches.length)return skip;
+  if(rows.length!==currentMatches.length)return skip;
+  const byNum=new Map();
+  rows.forEach((row,i)=>{ if(row)byNum.set(Number(row.num)||(i+1),row); });
+  const plan=[];
+  for(let i=0;i<currentMatches.length;i++){
+    const local=currentMatches[i];
+    const row=byNum.get(Number(local.matchNumber)||(i+1));
+    if(!row)return skip;
+    if(Number(row.round||0)!==Number(local.round||0))return skip;
+    if(Number(row.court||0)!==Number(local.court||0))return skip;
+    for(const [slot,side,pos] of _TEAM_MATCH_SLOTS){
+      const want=_teamLiveSigName((row[side]||[])[pos]);
+      const have=_teamLiveSigName(local[slot]&&local[slot].name);
+      if(!want||want===have)continue;
+      const player=currentParticipants.find(p=>_teamLiveSigName(p&&p.name)===want);
+      // 오늘 명단에 없는 이름이면 교체가 아니라 다른 대진일 수 있다 — 받아 적지 않는다.
+      if(!player)return skip;
+      plan.push({index:i,slot,player,out:(local[slot]&&local[slot].name)||'',in:player.name});
+    }
+  }
+  plan.forEach(({index,slot,player})=>{
+    const local=currentMatches[index];
+    // 청/홍은 대진이 만들어질 때 정해진 그대로 둔다(상대 팀 땜방이 팀 점수를 뒤집지 않게).
+    if(!local.team1Side)local.team1Side=(local.team1A&&local.team1A.team)||'';
+    local[slot]=player;
+  });
+  return {applied:true,changed:plan.length,swaps:plan.map(p=>({out:p.out,in:p.in}))};
+}
+/* 받아 적은 뒤 화면·점수·저장까지 맞춥니다. 바뀐 게 없으면 아무것도 하지 않습니다. */
+function _teamAdoptServerMatchesAndRender(data,opts={}){
+  const outcome=_teamAdoptServerMatches(data);
+  if(!outcome.changed)return outcome;
+  if(currentMatches.length)renderResults(currentMatches,currentParticipants,currentSettings);
+  updateScores();   // 팀 합계 재계산 + 저장 예약 + (중계 중이면) 바뀐 명단으로 재게시
+  saveState();
+  if(opts.notify!==false){
+    const preview=outcome.swaps.slice(0,3).map(s=>`${s.out}→${s.in}`).join(', ');
+    const more=outcome.swaps.length>3?` 외 ${outcome.swaps.length-3}건`:'';
+    showWarn(`임원이 현장에서 대체 투입했습니다 — ${preview}${more}. 대진을 서버 기준으로 맞췄습니다.`);
+  }
+  return outcome;
+}
+
 function _unbindLiveAdminListener(){
   if(_liveAdminRef&&_liveAdminHandler){
     try{_liveAdminRef.off('value',_liveAdminHandler);}catch(e){}
@@ -2628,8 +2715,11 @@ function _bindLiveAdminListener(){
     _liveParty=data.party||{};
     _liveResultInputs=data.resultInputs||{};
     _liveResultConflicts=data.resultConflicts||{};
+    _liveSubstitutions=Array.isArray(data.substitutions)?data.substitutions:[];
     temporaryOperators=_teamNormalizeTemporaryOperators(data.officials?.temporaryOperators);
     _teamResolveTemporaryOperators(currentParticipants);
+    // 임원 교체를 먼저 받아 적는다 — 그래야 아래 승패 동기화와 재게시가 옳은 명단 위에서 돈다.
+    _teamAdoptServerMatchesAndRender(data);
     _syncLiveWinsFromData(data);
     _renderLiveOpsSummary();
     renderTeamTemporaryOperatorPanel();
@@ -2651,6 +2741,7 @@ async function startLiveBroadcast(){
     const liveRef=_fbDb.ref('live/'+_liveId);
     const prev=await liveRef.once('value').catch(()=>null);
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
+    _teamAdoptServerMatchesAndRender(prevData);
     if(!_teamValidateLiveDataForCurrent(prevData))return;
     _liveOn=true;
     temporaryOperators=_teamNormalizeTemporaryOperators(prevData.officials?.temporaryOperators);
@@ -2725,6 +2816,8 @@ async function _tryResumeLive(opts={}){
       return false;
     }
     _liveId=savedId;
+    // 임원 교체를 먼저 받아 적는다 — 안 그러면 대진 지문이 달라져 "다른 대진"으로 끊긴다.
+    _teamAdoptServerMatchesAndRender(data);
     if(!_teamValidateLiveDataForCurrent(data)){_updateLiveUI();return false;}
     _liveId=null;
     const ownerRsvpId=_currentBracketRsvpId();
@@ -2827,6 +2920,7 @@ function _teamResetLocalLiveState(liveId){
   _liveParty={};
   _liveResultInputs={};
   _liveResultConflicts={};
+  _liveSubstitutions=[];
   Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);
   temporaryOperators=[];
   _liveOn=false;
@@ -3432,7 +3526,7 @@ function renderResults(matches,participants,settings){
       const tc=m.type==='여복'?'women':m.type==='남복'?'men':m.type==='보정'?'adjust':'mixed';
       const tbc=m.type==='여복'?'tb-w':m.type==='남복'?'tb-m':m.type==='보정'?'tb-a':'tb-x';
       const ts=m.type+(m.isFiller?'(보완)':'');
-      const t1b=isTeam&&m.team1A.team==='청팀';
+      const t1b=isTeam&&_teamMatchIsBlueFirst(m);
       const p1label=isTeam?(t1b?teamNames.blue:teamNames.white):'A';
       const p2label=isTeam?(t1b?teamNames.white:teamNames.blue):'B';
       const p1cls=isTeam?(t1b?'tm-blue':'tm-white'):'tm-a';
@@ -3693,7 +3787,7 @@ function buildPrintHtml(mode, isTeam, bn, wn){
         const tc=m.type==='여복'?'p-women':m.type==='남복'?'p-men':m.type==='보정'?'p-adjust':'p-mixed';
         const ptc=m.type==='여복'?'pw':m.type==='남복'?'pm':m.type==='보정'?'pa':'px';
         const ts=m.type+(m.isFiller?'(보완)':'');
-        const t1b=isTeam&&m.team1A.team==='청팀';
+        const t1b=isTeam&&_teamMatchIsBlueFirst(m);
         const p1label=isTeam?(t1b?bn:wn):'A';
         const p2label=isTeam?(t1b?wn:bn):'B';
         const p1side=isTeam?(t1b?'pb':'pw2'):'pa';
@@ -4287,6 +4381,7 @@ function saveState(){
       matchNumber:m.matchNumber,round:m.round,court:m.court,
       type:m.type,isFiller:m.isFiller||false,levelDiff:m.levelDiff,
       team1Level:m.team1Level,team2Level:m.team2Level,
+      team1Side:m.team1Side||'',   // 임원이 상대 팀 선수를 넣어도 청/홍이 뒤집히지 않게
       team1A:slim(m.team1A),team1B:slim(m.team1B),
       team2C:slim(m.team2C),team2D:slim(m.team2D)
     })),
@@ -4508,6 +4603,7 @@ function restoreState(opts={}){
         matchNumber:m.matchNumber,round:m.round,court:m.court,
         type:m.type,isFiller:m.isFiller||false,levelDiff:m.levelDiff,
         team1Level:m.team1Level,team2Level:m.team2Level,
+        team1Side:m.team1Side||'',
         team1A:findP(m.team1A.name),team1B:findP(m.team1B.name),
         team2C:findP(m.team2C.name),team2D:findP(m.team2D.name)
       };

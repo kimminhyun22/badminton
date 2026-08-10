@@ -74,6 +74,25 @@ function idsFingerprint(list){
   return (list || []).map(nameKey).filter(Boolean).sort((a, b) => a.localeCompare(b)).join('|');
 }
 
+/**
+ * 대진 지문 — 관리자 화면의 `_teamLiveSignatureFromData` 와 **같은 문자열**을
+ * 만들어야 합니다.
+ *
+ * 관리자 앱은 다시 열릴 때 이 지문으로 "내가 만든 그 대진이 맞나"를 봅니다.
+ * 교체로 명단이 바뀌었는데 지문을 옛것 그대로 두면, 관리자는 자기 팀전에서
+ * **"다른 대진입니다"로 튕겨 나갑니다.** 그래서 바꾼 쪽이 다시 적습니다.
+ */
+function sigName(name){ return text(name).replace(/\s+/g, '').trim(); }
+function bracketKey(session){
+  return JSON.stringify(matchList(session).map(m => [
+    number(m?.round, 0),
+    number(m?.court, 0),
+    text(m?.type),
+    (m?.t1 || []).map(sigName).sort(),
+    (m?.t2 || []).map(sigName).sort()
+  ]).sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]) || String(a[2]).localeCompare(String(b[2]))));
+}
+
 function isOfficial(session, playerName){
   const key = nameKey(playerName);
   if(!key)return false;
@@ -237,12 +256,15 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
       reason = '지원하지 않는 팀전 운영 요청입니다.';
   }
   if(reason)return {status: 'rejected', reason, session: rawSession, result: null};
+  // 대진이 바뀌었으면 지문도 함께 고쳐 둡니다(관리자가 튕기지 않도록).
+  if(matchList(session).length)session.bracketKey = bracketKey(session);
   session.updatedAt = now;
   return {status: 'applied', reason: '', session, result: operation.result || null};
 }
 
 module.exports = {
   SUPPORTED_TYPES,
+  bracketKey,
   applyTeamOfficialRequest,
   suggestSubstitutes,
   teamOf,
