@@ -30,19 +30,55 @@ assert(viewHtml.includes('firebase-functions-compat.js'),
 assert(/httpsCallable\('submitTeamOfficialRequest'\)/.test(liveView),
   '임원 화면이 팀전 callable 을 호출해야 합니다.');
 
-// 3) 진입점 — 「대체 확인」이 눌리는 버튼이어야 합니다(예전에는 안내 문구뿐이었음).
-assert(liveView.includes('function _pendingSubstitutions'), '구멍 난 경기를 찾아내야 합니다.');
-assert(/onclick="openTeamSubstitutePanel\(\)"/.test(liveView),
-  '대체 알림은 눌러서 여는 버튼이어야 합니다 — 문구만 있으면 손을 못 씁니다.');
+// 3) 진입점 — **대진표의 이름 자체**가 교체 버튼입니다(운영자 2026-08-14
+//    "대진표의 지각자를 눌러서 선수교체하는 방식으로 처리해"). 진입점은 한 곳입니다.
+assert(liveView.includes('function _pendingSubstitutions'), '메워야 할 자리를 셀 수 있어야 합니다.');
 assert(liveView.includes('function openTeamSubstitutePanel'), '대체 시트가 있어야 합니다.');
+const playerLine = liveView.slice(liveView.indexOf('function _playerLine'),
+  liveView.indexOf('function buildLiveMatchCard'));
+assert(/onclick="openTeamSubstitutePanel\('\+Number\(m\.num\|\|0\)\+','\+arg\+'\)"/.test(playerLine)
+  || /openTeamSubstitutePanel\('\+Number\(m\.num/.test(playerLine),
+  '대진표의 이름을 누르면 그 경기·그 선수로 시트가 열려야 합니다.');
+assert(/class="'\+cls\+' swap" role="button" tabindex="0"/.test(playerLine),
+  '지각·불참자 이름은 눌리는 버튼 역할이어야 합니다.');
+// 태그를 <button> 으로 바꾸면 이름에 걸린 !important 규칙과 버튼 기본 글꼴이 싸워
+// 코트 이름 크기·굵기가 흐트러집니다(이 화면에서 가장 중요한 정보입니다).
+assert(!/<button[^>]*class="'\+cls/.test(playerLine),
+  '이름은 <div> 로 남아야 합니다 — <button> 은 글꼴 규칙과 충돌합니다.');
+assert(/onkeydown=/.test(playerLine), '키보드로도 열 수 있어야 합니다.');
+assert(/const cls='live-player'\+\(state\?' not-ready':''\)/.test(playerLine),
+  '눌리는 이름과 안 눌리는 이름은 같은 클래스를 써야 모양이 갈라지지 않습니다.');
+// 배너 버튼을 되살리면 진입점이 둘이 됩니다 — 운영자가 싫어하는 형태입니다.
+assert(!/onclick="openTeamSubstitutePanel\(\)"/.test(liveView),
+  '인자 없는 대체 배너 버튼이 남아 있으면 안 됩니다(진입점 1곳).');
+assert(liveView.includes('function _substituteHintHtml'), '운영 현황에는 안내 한 줄만 둡니다.');
+
+// 3-1) 메우는 범위 — 지각은 지금 라운드만, 불참은 남은 경기 전부.
+const scope = liveView.slice(liveView.indexOf('function _replaceableInMatch'),
+  liveView.indexOf('function _playerLine'));
+assert(/if\(state==='absent'\)return true;/.test(scope),
+  '불참은 남은 경기를 전부 메울 수 있어야 합니다.');
+assert(/Number\(m\.round\)===Number\(d&&d\.currentRound\|\|0\)/.test(scope),
+  '지각은 지금 라운드만 대상이어야 합니다 — 오고 있는 사람입니다.');
+assert(/if\(!m\|\|m\.win\)return false;/.test(scope), '끝난 경기는 교체 대상이 아닙니다.');
+
+// 3-2) 출결은 세 상태이고, 버튼 하나로 순환해야 합니다.
+const cycle = liveView.slice(liveView.indexOf('async function toggleMemberLate'),
+  liveView.indexOf('async function toggleMemberParty'));
+assert(/status:'absent'/.test(cycle), '지각에서 불참으로 넘어갈 수 있어야 합니다.');
+assert(/ref\.remove\(\)/.test(cycle), '불참에서 도착 확인으로 되돌릴 수 있어야 합니다.');
+assert(/status:'late'/.test(cycle), '새로 표시할 때는 지각으로 시작해야 합니다.');
 
 // 4) 권한 — 임원만. 일반 회원 화면에는 뜨지 않아야 합니다.
 const canSub = liveView.slice(liveView.indexOf('function _canSubstitute'),
   liveView.indexOf('function _teamOfName'));
 assert(/isClubOfficial\|\|viewer\.isLeader\|\|viewer\.isSub\|\|viewer\.isTemporaryOperator/.test(canSub),
   '단장·부단장·클럽 임원·운영 도우미만 대체 투입을 볼 수 있어야 합니다.');
-assert(/_canSubstitute\(d\)/.test(liveView.slice(liveView.indexOf('function _substituteAlertHtml'))),
-  '알림 자체가 권한을 먼저 봐야 합니다.');
+assert(/_canSubstitute\(d\)/.test(scope),
+  '교체 가능 판정이 권한을 먼저 봐야 합니다 — 일반 회원에게 버튼이 뜨면 안 됩니다.');
+assert(/_canSubstitute\(d\)/.test(liveView.slice(liveView.indexOf('function _substituteHintHtml'),
+  liveView.indexOf('function _pendingSubstitutions'))),
+  '안내 한 줄도 권한을 먼저 봐야 합니다.');
 
 // 5) 팀을 넘는 투입은 화면에서도 한 번 더 확인합니다(운영자 확정).
 assert(/상대 팀입니다/.test(liveView), '상대 팀 선수를 넣을 때 확인창이 있어야 합니다.');
@@ -104,7 +140,7 @@ liveCss.replace(/([^{}]+)\{[^{}]*color\s*:\s*[^;{}]*!important[^{}]*\}/g, (_, se
 assert(dimTokens.has('sub'), '전제 확인: `.sub` 는 실제로 !important 유틸리티입니다.');
 const officialButtonClasses = [...liveView.matchAll(/class="(team-official-overview-conflict[^"]*)"/g)]
   .map(m => m[1]);
-assert(officialButtonClasses.length >= 2, '임원 진입 버튼이 둘 이상 있어야 합니다(대체·정정).');
+assert(officialButtonClasses.length >= 1, '임원 진입 버튼(승패 정정)이 있어야 합니다.');
 officialButtonClasses.forEach(cls => {
   cls.split(/\s+/).filter(Boolean).forEach(token => {
     assert(!dimTokens.has(token),
