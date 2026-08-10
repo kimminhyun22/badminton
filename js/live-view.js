@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.572';
+const APP_VERSION='1.10.573';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1286,7 +1286,7 @@ function _substituteHintHtml(d){
   const names=[...new Set(pending.map(p=>p.name))];
   const shown=names.slice(0,3).map(esc).join(' · ');
   const more=names.length>3?` 외 ${names.length-3}명`:'';
-  return `<div class="team-official-overview-hint">${shown}${more} — 대진표에서 이름을 누르면 교체합니다</div>`;
+  return `<div class="team-official-overview-hint">${shown}${more} — 지금·다음 대진에서 이름을 누르면 교체</div>`;
 }
 function _pendingSubstitutions(d){
   const out=[];
@@ -1325,10 +1325,10 @@ function openTeamSubstitutePanel(matchNum,outName){
         <div class="team-sub-who"><b>지각 · ${match.round}라운드 ${match.court}코트</b>
           <small>${esc([...(match.t1||[])].join(' · '))} vs ${esc([...(match.t2||[])].join(' · '))}</small></div>
         ${cands.length?`<div class="team-sub-cands">${cands.map(c=>
-          `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''}"
-            onclick="submitTeamSubstitute(${Number(match.num)},'${esc(name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'}})">
-            ${esc(c.name)}<small>${c.crossTeam?'상대 팀':(c.games+'게임')}</small></button>`).join('')}</div>`
-          :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 지각·불참이 아닌 대기 선수가 있어야 합니다.</div>'}
+          `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''} ${c.balanceGap>=TEAM_BALANCE_WARN_GAP?'tilt':''}"
+            onclick="submitTeamSubstitute(${Number(match.num)},'${esc(name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balanceGap:${Number(c.balanceGap)||0}})">
+            ${esc(c.name)}<small>${esc(_balanceLabel(c.balanceGap))}${c.crossTeam?' · 상대 팀':''}</small></button>`).join('')}</div>`
+          :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 지각이 아닌 대기 선수가 있어야 합니다.</div>'}
       </div>
     </div>
   </div>`;
@@ -1591,6 +1591,27 @@ function _memberLevel(p){
   const n=Number(raw);
   return Number.isFinite(n)&&n>0?n:4;
 }
+/* 넣고 난 뒤 두 팀 급수 합이 얼마나 벌어지는가 (운영자 2026-08-14
+   "지각자 대체 시 급수 밸런스가 맞아야 해. 아무나 투입하면 상대에겐 불공정한
+   게임이 되잖아"). 서버 엔진 `balanceGapAfter` 와 **같은 계산**입니다. */
+function _levelOfName(d,name){
+  const all=_allLiveMembers(d)||[];
+  return _memberLevel(all.find(p=>_attKey(p.n||p.name)===_attKey(name)));
+}
+function _sideOfPlayer(match,name){
+  const key=_attKey(name);
+  if((match&&match.t1||[]).some(n=>_attKey(n)===key))return 't1';
+  if((match&&match.t2||[]).some(n=>_attKey(n)===key))return 't2';
+  return '';
+}
+function _balanceGapAfter(d,match,outName,inLevel){
+  const side=_sideOfPlayer(match,outName);
+  if(!side)return 0;
+  const other=side==='t1'?'t2':'t1';
+  const sum=(list,swapName,swapLevel)=>(list||[]).reduce((s,n)=>
+    s+(swapName&&_attKey(n)===_attKey(swapName)?Number(swapLevel)||4:_levelOfName(d,n)),0);
+  return Math.abs(sum(match[side],outName,inLevel)-sum(match[other],'',0));
+}
 function _substituteCandidates(d,match,outName){
   const inMatch=new Set([...(match.t1||[]),...(match.t2||[])].map(_attKey));
   const outTeam=_teamOfName(d,outName);
@@ -1608,13 +1629,24 @@ function _substituteCandidates(d,match,outName){
     .map(p=>{
       const team=_teamOfName(d,p.name);
       return {...p,team,crossTeam:!!outTeam&&!!team&&team!==outTeam,
-        levelGap:Math.abs(p.level-outLevel),games:games.get(_attKey(p.name))||0,
+        levelGap:Math.abs(p.level-outLevel),
+        balanceGap:_balanceGapAfter(d,match,outName,p.level),
+        games:games.get(_attKey(p.name))||0,
         late:_lateOn(p.name)};
     })
     .filter(c=>!c.late)
-    .sort((a,b)=>Number(a.crossTeam)-Number(b.crossTeam)||a.levelGap-b.levelGap
+    // 같은 팀 먼저 → **경기가 가장 안 기우는 사람** → 덜 뛴 사람 (서버 엔진과 같은 기준)
+    .sort((a,b)=>Number(a.crossTeam)-Number(b.crossTeam)||a.balanceGap-b.balanceGap
       ||a.games-b.games||String(a.name).localeCompare(String(b.name),'ko'))
     .slice(0,8);
+}
+// 급수 합 차이를 사람 말로. 0~1 은 팽팽함, 2 는 조금 기욺, 3 이상은 확실히 기욺.
+const TEAM_BALANCE_WARN_GAP=3;
+function _balanceLabel(gap){
+  const g=Number(gap)||0;
+  if(g<=1)return '균형';
+  if(g<TEAM_BALANCE_WARN_GAP)return '±'+g;
+  return '±'+g+' 기욺';
 }
 // 서명된 운영 권한 — 본인 이름을 고르면 서버가 내주고, 조작마다 함께 보냅니다.
 // 이름만 실어 보내던 이전 단계의 위조 여지를 없앱니다(민턴LIVE 와 같은 구조).
@@ -1661,6 +1693,16 @@ async function submitTeamSubstitute(matchNum,outName,inName,opts){
   if(!_canSubstitute(d))return alert('단장·부단장·클럽 임원만 대체 투입을 할 수 있어요.');
   const crossTeam=!!(opts&&opts.crossTeam);
   if(crossTeam&&!confirm(inName+' 선수는 상대 팀입니다.\n그래도 이 경기에 넣을까요?\n\n팀 전력이 달라집니다.'))return;
+  // 급수가 크게 기울면 한 번 물어봅니다. 막지는 않습니다 — 판단은 임원 몫입니다.
+  const gap=Number(opts&&opts.balanceGap)||0;
+  if(gap>=TEAM_BALANCE_WARN_GAP){
+    const t1=(match.t1||[]).map(n=>_attKey(n)===_attKey(outName)?inName:n);
+    const sum=list=>list.reduce((s,n)=>s+_levelOfName(d,n),0);
+    const mine=_sideOfPlayer(match,outName)==='t1'?sum(t1):sum(match.t2||[]);
+    const theirs=_sideOfPlayer(match,outName)==='t1'?sum(match.t2||[]):sum(t1);
+    if(!confirm(inName+' 선수를 넣으면 급수 합이 '+gap+' 차이납니다.'
+      +'\n('+mine+' vs '+theirs+')\n\n상대에게 불리하거나 유리한 경기가 될 수 있어요.\n그래도 넣을까요?'))return;
+  }
   if(match.startAt&&!confirm('이미 시작한 경기입니다.\n그래도 선수를 바꿀까요?'))return;
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
@@ -2005,12 +2047,23 @@ function _isImminentMatch(m){
 /* 대진표의 이름이 곧 교체 버튼입니다 (운영자 2026-08-14 "대진표의 지각자를
    눌러서 선수교체하는 방식으로 처리해"). 별도 알림 버튼으로 한 번 더 들어가지
    않습니다 — 진입점은 한 곳 [[dashboard-first-admin-ui]]. */
+/* 미리 손댈 수 있는 라운드 = **지금 라운드 + 다음 라운드** (운영자 2026-08-14
+   "당장 코트에 투입하는 경우뿐 아니라 다음 대진에서도 미리 처리할 수 있어야 해").
+   그 뒤 라운드까지 열지는 않습니다 — 지각자는 오고 있는 사람이라, 먼 경기를 미리
+   갈아치울 필요가 없습니다("모든 경기를 대체할 필요 없어"). */
+function _swappableRounds(d){
+  const rows=(d&&d.matches)||[];
+  const open=[...new Set(rows.filter(m=>m&&!m.win).map(m=>Number(m.round)||0))]
+    .filter(Boolean).sort((a,b)=>a-b);
+  const cur=Number(d&&d.currentRound||0)||open[0]||0;
+  const next=open.find(r=>r>cur)||0;
+  return [cur,next].filter(Boolean);
+}
 function _replaceableInMatch(d,m,name){
   if(!m||m.win)return false;
   if(!_canSubstitute(d))return false;
   if(!_lateOn(name))return false;
-  // 지금 라운드만. 벤치가 얇아 뒷 경기까지 미리 갈아치울 수 없고, 갈아치울 필요도 없다.
-  return Number(m.round)===Number(d&&d.currentRound||0);
+  return _swappableRounds(d).includes(Number(m.round));
 }
 function _playerLine(name,d,m){
   const n=String(name||'');

@@ -2235,4 +2235,7 @@ button.team-official-overview-conflict.quiet{
 .team-sub-cand small{margin-top:1px;color:#5c6a7a;font-size:11px;font-weight:800;}
 .team-sub-cand.cross{border-color:#f0c9a8;background:#fffaf3;}
 .team-sub-cand.cross small{color:#9a6a12;}
+/* 급수가 크게 기우는 후보는 눈에 띄게 — 누를 수는 있고, 확인창이 한 번 더 뜬다. */
+.team-sub-cand.tilt{border-color:#f1c9c7;background:#fff5f4;}
+.team-sub-cand.tilt small{color:#a52a22;}
 .team-sub-empty{margin-top:8px;color:#5c6a7a;font-size:13px;font-weight:800;}

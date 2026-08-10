@@ -145,10 +145,41 @@ function isOfficial(session, playerName){
 }
 
 /**
+ * 이 선수를 넣으면 두 팀 급수 합이 얼마나 벌어지는가 (운영자 2026-08-14
+ * "지각자 대체 시 급수 밸런스가 맞아야 해. 아무나 투입하면 상대에겐 불공정한
+ * 게임이 되잖아").
+ *
+ * 빠지는 사람과 급수가 가까운 사람을 고르는 것만으로는 부족합니다 — 원래 경기가
+ * 기울어 있었다면 그 기울기를 그대로 물려받습니다. 그래서 **투입한 뒤의 경기**를
+ * 직접 재서 고릅니다.
+ */
+function sideOfPlayer(match, name){
+  const key = nameKey(name);
+  if((match?.t1 || []).some(n => nameKey(n) === key))return 't1';
+  if((match?.t2 || []).some(n => nameKey(n) === key))return 't2';
+  return '';
+}
+function sideLevelSum(session, list, replaceName, replaceLevel){
+  const key = nameKey(replaceName);
+  return (list || []).reduce((sum, n) => {
+    if(replaceName && nameKey(n) === key)return sum + number(replaceLevel, 4);
+    return sum + memberLevel(memberByName(session, n));
+  }, 0);
+}
+function balanceGapAfter(session, match, outName, inLevel){
+  const side = sideOfPlayer(match, outName);
+  if(!side)return 0;
+  const other = side === 't1' ? 't2' : 't1';
+  const mine = sideLevelSum(session, match[side], outName, inLevel);
+  const theirs = sideLevelSum(session, match[other], '', 0);
+  return Math.abs(mine - theirs);
+}
+
+/**
  * AI 보조 — 대체 후보를 골라 줍니다(운영자: "ai는 운영의 중심에서 안정적 지원
  * 및 보조 역할"). 결정은 임원이 합니다. 순서:
  *   1) 같은 팀 먼저 (팀 승부의 공정성)
- *   2) 급수가 가까운 사람
+ *   2) **넣고 난 뒤 두 팀 급수 합이 가장 덜 벌어지는 사람**
  *   3) 덜 뛴 사람
  * 같은 라운드에 이미 잡힌 사람은 후보에서 뺍니다.
  */
@@ -178,12 +209,14 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
         crossTeam: !!outTeam && !!team && team !== outTeam,
         level: memberLevel(m),
         levelGap: Math.abs(memberLevel(m) - outLevel),
+        // 넣고 난 뒤 두 팀 급수 합의 차이. 작을수록 공정한 경기가 됩니다.
+        balanceGap: balanceGapAfter(session, match, outName, memberLevel(m)),
         games: played.get(nameKey(name)) || 0
       };
     })
     .sort((a, b) =>
       Number(a.crossTeam) - Number(b.crossTeam) ||
-      a.levelGap - b.levelGap ||
+      a.balanceGap - b.balanceGap ||
       a.games - b.games ||
       a.name.localeCompare(b.name, 'ko'))
     .slice(0, limit);
@@ -231,6 +264,9 @@ function applySubstitute(session, request, now, operation){
   const index = (match[side] || []).findIndex(n => nameKey(n) === nameKey(outName));
   if(index < 0)return '빠지는 선수를 이 경기에서 찾지 못했습니다.';
   const inDisplayName = memberName(inMember);
+  // 넣고 난 뒤 두 팀 급수 합이 얼마나 벌어지는지 — 되짚을 수 있게 남깁니다.
+  // 막지는 않습니다. 임원 자유가 먼저고, 시스템은 재서 알려 줄 뿐입니다.
+  const balanceGap = balanceGapAfter(session, match, outName, memberLevel(inMember));
   const gradeKey = side === 't1' ? 't1g' : 't2g';
   match[side] = [...(match[side] || [])];
   match[side][index] = inDisplayName;
@@ -247,6 +283,7 @@ function applySubstitute(session, request, now, operation){
     out: outName,
     in: inDisplayName,
     crossTeam,
+    balanceGap,
     by: text(request.actorPlayerName || ''),
     reason: text(request.reason || '')
   });
@@ -258,7 +295,8 @@ function applySubstitute(session, request, now, operation){
         side,
         out: outName,
         in: inDisplayName,
-        crossTeam
+        crossTeam,
+        balanceGap
       }
     };
   }
@@ -392,6 +430,7 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
 module.exports = {
   SUPPORTED_TYPES,
   bracketKey,
+  balanceGapAfter,
   applyTeamOfficialRequest,
   suggestSubstitutes,
   teamOf,

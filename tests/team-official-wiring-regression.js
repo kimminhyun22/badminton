@@ -53,11 +53,13 @@ assert(!/onclick="openTeamSubstitutePanel\(\)"/.test(liveView),
   '인자 없는 대체 배너 버튼이 남아 있으면 안 됩니다(진입점 1곳).');
 assert(liveView.includes('function _substituteHintHtml'), '운영 현황에는 안내 한 줄만 둡니다.');
 
-// 3-1) 메우는 범위 — 지금 라운드만.
-const scope = liveView.slice(liveView.indexOf('function _replaceableInMatch'),
+// 3-1) 메우는 범위 — 지금 라운드 + 다음 라운드(미리 처리).
+const scope = liveView.slice(liveView.indexOf('function _swappableRounds'),
   liveView.indexOf('function _playerLine'));
-assert(/Number\(m\.round\)===Number\(d&&d\.currentRound\|\|0\)/.test(scope),
-  '교체는 지금 라운드만 대상이어야 합니다.');
+assert(/_swappableRounds\(d\)\.includes\(Number\(m\.round\)\)/.test(scope),
+  '교체 범위는 지금·다음 라운드여야 합니다.');
+assert(/const next=open\.find\(r=>r>cur\)/.test(liveView),
+  '다음 대진도 미리 처리할 수 있어야 합니다(운영자 2026-08-14).');
 assert(!/absent/.test(scope), '불참을 따로 두지 않습니다.');
 assert(/if\(!m\|\|m\.win\)return false;/.test(scope), '끝난 경기는 교체 대상이 아닙니다.');
 
@@ -92,8 +94,15 @@ assert(/expectedT1:\[\.\.\.\(match\.t1\|\|\[\]\)\]/.test(liveView),
 // 7) AI 보조 — 후보 정렬 기준이 서버 엔진과 같아야 합니다.
 const cands = liveView.slice(liveView.indexOf('function _substituteCandidates'),
   liveView.indexOf('async function submitTeamSubstitute'));
-assert(/Number\(a\.crossTeam\)-Number\(b\.crossTeam\)\|\|a\.levelGap-b\.levelGap/.test(cands),
-  '후보는 같은 팀 → 급수 근접 순이어야 합니다(서버 엔진과 같은 기준).');
+// 2026-08-14 계약 갱신: 빠지는 사람과 급수가 가까운 순이 아니라, **넣은 뒤 경기가
+// 가장 안 기우는 순**입니다("아무나 투입하면 상대에겐 불공정한 게임이 되잖아").
+assert(/Number\(a\.crossTeam\)-Number\(b\.crossTeam\)\|\|a\.balanceGap-b\.balanceGap/.test(cands),
+  '후보는 같은 팀 → 급수 균형 순이어야 합니다(서버 엔진과 같은 기준).');
+const engineSrc = fs.readFileSync(path.join(root, 'functions', 'team-official-engine.js'), 'utf8');
+assert(/a\.balanceGap - b\.balanceGap/.test(engineSrc),
+  '서버 엔진도 같은 기준으로 정렬해야 합니다.');
+assert(/function balanceGapAfter/.test(engineSrc) && /function _balanceGapAfter/.test(liveView),
+  '균형 계산이 서버·화면 양쪽에 있어야 합니다.');
 assert(/a\.games-b\.games/.test(cands), '그 다음은 덜 뛴 순이어야 합니다.');
 assert(/_bookedInRound\(d,p\.name,match\.round,match\.num\)/.test(cands),
   '같은 라운드에 이미 잡힌 사람은 후보에서 빼야 합니다.');
