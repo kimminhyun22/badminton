@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.576';
+const APP_VERSION='1.10.577';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1672,15 +1672,34 @@ function _balanceMark(c){
 // 이름만 실어 보내던 이전 단계의 위조 여지를 없앱니다(민턴LIVE 와 같은 구조).
 let _teamGrantToken='', _teamGrantName='', _teamGrantExpiresAt=0, _teamGrantPending=null;
 let _teamGrantError='';   // 서버가 알려 준 거절 사유(현장 진단용)
+/* 기기 식별자 — 서버(`cleanClientId`)가 **16자 이상**만 받습니다. 그보다 짧으면
+   교체를 눌렀을 때 「임원 기기 연결 정보를 다시 확인해 주세요」로 거절됩니다.
+   예전 코드에는 그 길이를 못 맞추는 길이 둘 있었습니다(2026-08-14):
+     · 저장이 막힌 브라우저(카톡 인앱·사생활 모드)의 대체값 `'tc_fallback'` = 11자
+     · `Math.random().toString(36).slice(2,10)` 이 짧게 나오는 드문 경우
+   이제 길이를 **보장해서** 만들고, 저장이 막혀도 이 탭 안에서는 같은 값을 씁니다. */
+let _teamClientIdMemo='';
 function _teamClientId(){
+  if(_teamClientIdMemo)return _teamClientIdMemo;
+  const clean=v=>String(v||'').replace(/[^a-zA-Z0-9_-]/g,'');
+  const make=()=>{
+    let s='';
+    while(s.length<24)s+=Math.random().toString(36).slice(2);
+    return clean('tc'+s).slice(0,32);
+  };
   try{
-    let id=localStorage.getItem('kokmatch_team_client');
+    let id=clean(localStorage.getItem('kokmatch_team_client'));
+    if(id.length<16)id='';            // 옛 짧은 값은 버리고 새로 만듭니다
     if(!id){
-      id='tc_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
+      id=make();
       localStorage.setItem('kokmatch_team_client',id);
     }
+    _teamClientIdMemo=id;
     return id;
-  }catch(e){ return 'tc_fallback'; }
+  }catch(e){
+    _teamClientIdMemo=make();
+    return _teamClientIdMemo;
+  }
 }
 async function ensureTeamOfficialGrant(d){
   const viewer=_viewerInfo(d);
@@ -1689,7 +1708,11 @@ async function ensureTeamOfficialGrant(d){
   const fresh=_teamGrantToken&&_teamGrantName===name&&Date.now()<_teamGrantExpiresAt-60_000;
   if(fresh)return _teamGrantToken;
   if(_teamGrantPending)return _teamGrantPending;
-  if(!liveId||!window.firebase||!firebase.functions)return '';
+  if(!liveId||!window.firebase||!firebase.functions){
+    // 사유 없이 조용히 실패하면 현장에서 원인을 알 수 없습니다.
+    _teamGrantError=!liveId?'팀전 링크를 읽지 못했습니다.':'서버 연결 모듈이 로드되지 않았습니다.';
+    return '';
+  }
   _teamGrantPending=(async()=>{
     try{
       const callable=firebase.functions().httpsCallable('claimTeamOfficialInvite');
