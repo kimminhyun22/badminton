@@ -39,7 +39,7 @@ ${cut('function _normalizeMembers', 'function _viewerInfo')}
 ${cut('function _teamOfName', 'async function submitTeamSubstitute')}
 ${cut('function _substituteHintHtml', 'function openTeamSubstitutePanel')}
 this.api={_replaceableInMatch,_playerLine,_pendingSubstitutions,_substituteHintHtml,_lateOn,_swappableRounds,
-  _substituteCandidates,_balanceMark,_balanceGapAfter,_balanceAfter,
+  _substituteCandidates,_balanceMark,_balanceGapAfter,_balanceAfter,_isMatchUnderway,
   setLate(map){ window._liveLate = map; }, setOperate(v){ canOperate = v; }};
 `, sandbox);
 const api = sandbox.api;
@@ -232,6 +232,25 @@ api.setLate({
     [attKey('불참이')]: {name: '불참이', status: 'absent'}
   });
   console.log(`  같은 라운드 이중 출전: 진행 중·이미 끝남 모두 제외 (후보 ${names.join(', ')})`);
+}
+
+// 10) 다음 대진을 미리 손볼 때 "이미 시작한 경기" 팝업이 뜨면 안 됩니다
+//     (운영자 2026-08-14 실기기). `startAt` 은 코트 차례가 된 시각이라 다음 라운드에도 붙습니다.
+{
+  const live = {currentRound: 1};
+  const nowPlaying = {num: 1, round: 1, court: 1, startAt: 1000};
+  const upNext = {num: 2, round: 2, court: 1, startAt: 1000};
+  const notYet = {num: 3, round: 2, court: 2};
+  assert.strictEqual(api._isMatchUnderway(live, nowPlaying), true,
+    '지금 라운드에서 코트에 올라간 경기는 진행 중입니다.');
+  assert.strictEqual(api._isMatchUnderway(live, upNext), false,
+    '다음 라운드 경기는 코트가 비었을 뿐 아직 진행 중이 아닙니다.');
+  assert.strictEqual(api._isMatchUnderway(live, notYet), false, 'startAt 이 없으면 아닙니다.');
+  assert.strictEqual(api._isMatchUnderway({currentRound: 2}, upNext), true,
+    '그 라운드가 되면 진행 중입니다.');
+  // 옛 게시본(currentRound 없음)은 예전처럼 startAt 만 봅니다.
+  assert.strictEqual(api._isMatchUnderway({}, upNext), true, '옛 데이터는 보수적으로 봅니다.');
+  console.log('  시작 판정: 지금 라운드만 · 옛 데이터 보수적');
 }
 
 console.log('\nteam substitute entry regression ok');

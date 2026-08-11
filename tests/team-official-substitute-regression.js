@@ -188,4 +188,31 @@ function send(session, request, opts){
   console.log('  같은 라운드 이중 출전: 진행 중·종료 모두 차단 · 다른 라운드는 허용');
 }
 
+// 9) 「이미 시작한 경기」는 **지금 라운드**의 경기만 (운영자 2026-08-14 실기기:
+//    "다음 대진에 있는 선수 교체할 때도 이미 진행 중인 게임인데 교체할거냐고 팝업이 뜨네").
+//    `startAt` 은 그 코트가 이 경기 차례가 된 시각이라 다음 라운드 경기에도 붙습니다.
+{
+  const s = makeSession();
+  s.currentRound = 1;
+  s.matches[0].win = 't1';
+  s.matches[0].winAt = 1000;
+  s.matches[2].startAt = 1000;          // 3번은 2라운드 · 코트가 비어 차례가 됨
+  const ahead = send(s, {type:'team-official-substitute', matchNum:3,
+    outName:'청다섯', inName:'청세모'});
+  assert.strictEqual(ahead.status, 'applied',
+    `다음 라운드 경기는 확인 없이 미리 손볼 수 있어야 합니다: ${ahead.reason}`);
+
+  const now = makeSession();
+  now.currentRound = 2;
+  now.matches[2].startAt = 1000;         // 같은 경기지만 이제 그 라운드가 진행 중
+  const underway = send(now, {type:'team-official-substitute', matchNum:3,
+    outName:'청다섯', inName:'청세모'});
+  assert.strictEqual(underway.status, 'rejected', '지금 뛰는 경기는 확인을 받아야 합니다.');
+  assert(/이미 시작한 경기/.test(underway.reason), `이유: ${underway.reason}`);
+  const confirmed = send(now, {type:'team-official-substitute', matchNum:3,
+    outName:'청다섯', inName:'청세모', allowStarted:true});
+  assert.strictEqual(confirmed.status, 'applied', `확인하면 바꿀 수 있어야 합니다: ${confirmed.reason}`);
+  console.log('  시작 판정: 다음 라운드는 그냥 · 지금 라운드만 확인');
+}
+
 console.log('\nteam official substitute regression ok');

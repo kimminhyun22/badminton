@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.578';
+const APP_VERSION='1.10.579';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1740,6 +1740,16 @@ function _teamGrantFailMessage(){
   return '임원 운영 연결을 확인하지 못했습니다.'+why
     +'\n\n내 이름을 다시 선택한 뒤 시도해 주세요.';
 }
+/* 「이미 시작한 경기」 = **지금 코트에서 뛰고 있는** 경기.
+   `startAt` 은 그 코트가 이 경기 차례가 된 시각이라 **다음 라운드 경기에도 붙습니다**
+   (「대진 임박」 안내가 그 값을 씁니다). 그래서 지금 라운드인지까지 함께 봅니다 —
+   안 그러면 다음 대진을 미리 손볼 때마다 "이미 시작한 경기입니다"가 떴습니다
+   (운영자 2026-08-14 실기기). `currentRound` 가 없는 옛 게시본은 예전처럼 봅니다. */
+function _isMatchUnderway(d,m){
+  if(!m||!m.startAt)return false;
+  const cur=Number(d&&d.currentRound||0);
+  return !cur||Number(m.round)===cur;
+}
 async function submitTeamSubstitute(matchNum,outName,inName,opts){
   const d=window._lastLiveData;
   const match=_matchByNum(d,matchNum);
@@ -1764,7 +1774,7 @@ async function submitTeamSubstitute(matchNum,outName,inName,opts){
     if(!confirm(inName+' 선수를 넣으면 이 팀이 −'+Math.abs(balance)+' 로 약해집니다.'
       +'\n(우리 '+mine+' vs 상대 '+theirs+')\n\n승부가 기울 수 있어요.\n그래도 넣을까요?'))return;
   }
-  if(match.startAt&&!confirm('이미 시작한 경기입니다.\n그래도 선수를 바꿀까요?'))return;
+  if(_isMatchUnderway(d,match)&&!confirm('이미 시작한 경기입니다.\n그래도 선수를 바꿀까요?'))return;
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
     const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
@@ -1775,7 +1785,7 @@ async function submitTeamSubstitute(matchNum,outName,inName,opts){
       operationId:'tsub_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
       actorPlayerName:viewer.n||viewer.name||'',
       matchNum:Number(matchNum), outName:String(outName), inName:String(inName),
-      allowCrossTeam:crossTeam, allowStarted:!!match.startAt,
+      allowCrossTeam:crossTeam, allowStarted:_isMatchUnderway(d,match),
       expectedT1:[...(match.t1||[])], expectedT2:[...(match.t2||[])],
       expiresAt:Date.now()+10*60*1000
     }});

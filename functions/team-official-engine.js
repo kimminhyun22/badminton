@@ -41,9 +41,16 @@ function findMatch(session, num){
 function isDecided(match){
   return !!text(match?.win);
 }
-// 이미 시작한 경기는 코트에서 뛰고 있다는 뜻입니다(같은 코트 앞 경기가 끝난 시각).
-function isStarted(match){
-  return !!number(match?.startAt) || isDecided(match);
+/* 이미 시작한 경기 = **지금 코트에서 뛰고 있는** 경기.
+   `startAt` 은 그 코트가 이 경기 차례가 된 시각이라 다음 라운드 경기에도 붙습니다.
+   그래서 지금 라운드인지까지 봅니다 — 안 그러면 다음 대진을 미리 손볼 때마다
+   "이미 시작한 경기"로 걸립니다(화면 `_isMatchUnderway` 와 같은 규칙).
+   `currentRound` 가 없는 옛 게시본은 예전처럼 startAt 만 봅니다. */
+function isStarted(session, match){
+  if(isDecided(match))return true;
+  if(!number(match?.startAt))return false;
+  const current = number(session?.currentRound, 0);
+  return !current || number(match?.round, -1) === current;
 }
 function memberList(session){
   const members = session?.members || {};
@@ -249,7 +256,7 @@ function applySubstitute(session, request, now, operation){
   const match = findMatch(session, request.matchNum);
   if(!match)return '교체할 경기를 찾지 못했습니다.';
   if(isDecided(match))return '이미 결과가 입력된 경기입니다.';
-  if(request.allowStarted !== true && isStarted(match)){
+  if(request.allowStarted !== true && isStarted(session, match)){
     return '이미 시작한 경기입니다. 그래도 바꾸려면 다시 확인해 주세요.';
   }
   // 지문 — 그 사이 대진이 바뀌었으면 되돌립니다(민턴LIVE와 같은 규칙).
