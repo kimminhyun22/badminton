@@ -2241,12 +2241,32 @@ button.team-official-overview-conflict.quiet{
 .team-sub-cand small{margin-top:1px;color:#5c6a7a;font-size:11px;font-weight:800;}
 .team-sub-cand.cross{border-color:#f0c9a8;background:#fffaf3;}
 .team-sub-cand.cross small{color:#9a6a12;}
-/* 기울기는 부호와 색으로 (운영자 2026-08-14 "+는 레드, -는 블루").
-   `over` = 교체한 팀이 세짐(+, 상대에게 불합리) · `under` = 약해짐(−, 감수하는 쪽).
-   **글자색은 부호, 카드색은 팀** — 두 신호가 서로를 덮지 않게 나눠 둔다.
-   상대 팀 카드(주황)는 배경을 그대로 두고 숫자만 부호 색으로 쓴다. */
-.team-sub-cand.over:not(.cross){border-color:#f1c9c7;background:#fff5f4;}
-.team-sub-cand.under:not(.cross){border-color:#c7d9fb;background:#f5f9ff;}
+/* 기울기는 **글자색**으로만 (운영자 2026-08-14 "+는 레드, -는 블루").
+   카드 색까지 쓰면 청·홍 팀 색과 부딪혀 "파란 카드가 청팀인가 급수인가"가 됩니다.
+   그래서 **팀은 묶음 제목과 테두리, 급수는 숫자 색**으로 나눠 둡니다. */
 .team-sub-cand.over small{color:#c0392b;}
 .team-sub-cand.under small{color:#1d4ed8;}
+.team-sub-cand.team-blue{border-color:#c7d9fb;background:#f7faff;}
+.team-sub-cand.team-red{border-color:#f6cdcb;background:#fffaf9;}
+
+/* 대시보드 바로가기 — 세 곳으로만. 새 화면이 아니라 있는 자리로 보낸다. */
+.team-official-jump{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px;}
+.team-official-jump button{
+  min-height:42px;padding:8px 6px;border:1px solid rgba(22,34,52,.14);border-radius:11px;
+  background:#fff;color:#2a3646;font:inherit;font-size:.74rem;font-weight:900;
+  cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.team-official-jump button:active{transform:scale(.985);}
+
+/* 후보 묶음 — 우리 팀 / 상대 팀을 제목으로 갈라 한눈에 보이게. */
+.team-sub-group{margin-top:10px;}
+.team-sub-group-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:.78rem;font-weight:1000;color:#2a3646;letter-spacing:-.02em;
+  padding:6px 9px;border-radius:9px;background:#eef2f7;
+}
+.team-sub-group-head em{font-style:normal;font-size:.72rem;font-weight:900;color:#5c6a7a;}
+.team-sub-group.same .team-sub-group-head{background:#eaf1ff;color:#1d4ed8;}
+.team-sub-group.other .team-sub-group-head{background:#fff2e8;color:#9a5808;}
+.team-sub-group .team-sub-cands{max-height:none;margin-top:6px;}
 .team-sub-empty{margin-top:8px;color:#5c6a7a;font-size:13px;font-weight:800;}

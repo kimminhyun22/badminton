@@ -180,6 +180,32 @@ assert(/function pushLog/.test(engineForLog) && /officialLog/.test(engineForLog)
 assert(/session\.officialLog = current\.slice\(0, lastIndex\)/.test(engineForLog),
   '되돌린 기록은 지금 배열에서 떼어내야 합니다 — 옛 참조를 자르면 아무것도 안 지워집니다.');
 
+// 7-3) 대체 후보는 **팀으로 묶어** 보여야 합니다 (운영자 2026-08-14 "우리팀/상대팀
+//      한 눈에 구분", "대신 넣을 때 한눈에 안들어 옴").
+const groups = liveView.slice(liveView.indexOf('function _substituteGroupsHtml'),
+  liveView.indexOf('function openTeamSubstitutePanel'));
+assert(/같은 팀/.test(groups) && /상대 팀/.test(groups), '두 묶음으로 갈라야 합니다.');
+assert(/team-sub-group/.test(groups), '묶음에 제목 줄이 있어야 합니다.');
+assert(/team-\$\{team\}/.test(groups), '카드에 팀 색을 달아야 합니다.');
+const liveCssForTeam = fs.readFileSync(path.join(root, 'css', 'live.css'), 'utf8');
+// 급수 색이 카드 배경을 물들이면 청·홍 팀 색과 헷갈립니다 — 글자색으로만 씁니다.
+assert(!/\.team-sub-cand\.over:not\(\.cross\)\{[^}]*background/.test(liveCssForTeam)
+  && !/\.team-sub-cand\.under:not\(\.cross\)\{[^}]*background/.test(liveCssForTeam),
+  '급수 기울기를 카드 배경색으로 쓰면 팀 색과 부딪힙니다.');
+assert(/\.team-sub-cand\.team-blue\{/.test(liveCssForTeam)
+  && /\.team-sub-cand\.team-red\{/.test(liveCssForTeam), '팀 색이 카드에 있어야 합니다.');
+
+// 7-4) 대시보드 바로가기 — 자주 가는 세 곳으로(2026-08-14).
+assert(/function _officialJumpHtml/.test(liveView), '바로가기 줄이 있어야 합니다.');
+['roster','current','bracket'].forEach(k=>{
+  // 소스에서는 따옴표가 이스케이프돼 있습니다(문자열 안의 onclick).
+  assert(new RegExp(`jumpToLiveSection\\(\\\\?'${k}\\\\?'\\)`).test(liveView),
+    `${k} 바로가기가 있어야 합니다.`);
+});
+assert(/getElementById\('teamRoster'\)/.test(liveView) && /getElementById\('fullBracket'\)/.test(liveView),
+  '실제로 있는 자리로 보내야 합니다 — 새 화면을 만들지 않습니다.');
+assert(/scrollIntoView/.test(liveView), '그 자리로 스크롤해야 합니다.');
+
 // 8) 승패 정정 — 한 번 들어간 승패를 임원이 고칠 수 있어야 합니다(2026-08-13).
 //    관리자가 손을 뗀 뒤에는 이 길이 없으면 잘못된 승패가 영원히 굳습니다.
 assert(liveView.includes('function openTeamResultPanel'), '승패 정정 시트가 있어야 합니다.');

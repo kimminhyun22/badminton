@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.583';
+const APP_VERSION='1.10.584';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1274,6 +1274,7 @@ function buildTeamOfficialOverview(d){
     ${_resultAlertHtml(d)}
     ${_undoHintHtml(d)}
     ${_substituteHintHtml(d)}
+    ${_officialJumpHtml(d)}
     ${detail}
   </section>`;
 }
@@ -1281,6 +1282,32 @@ function buildTeamOfficialOverview(d){
 /* 지금 메워야 하는 자리 — 대진표에서 이름이 눌리는 자리와 **같은 규칙**입니다.
    지각은 지금 라운드만, 불참은 남은 경기 전부(운영자 2026-08-14).
    숫자는 운영 현황 타일로만 쓰고, 들어가는 문은 대진표의 이름 하나뿐입니다. */
+/* 대시보드에서 자주 가는 곳으로 바로 가기 (운영자 2026-08-14 "대시보드에 팀명단 등
+   바로가기"). 접혀 있으면 펴고, 그 자리로 스크롤합니다 — 임원이 폰에서 아래로
+   한참 내리지 않아도 되게. 새 화면을 만들지 않고 **있는 자리로 보냅니다**. */
+function _officialJumpHtml(d){
+  if(!_canFixResult(d))return '';
+  const roster=_usesFixedTeams(d)?'팀 명단':'명단';
+  return '<div class="team-official-jump">'
+    +'<button type="button" onclick="jumpToLiveSection(\'roster\')">🧑‍🤝‍🧑 '+esc(roster)+'</button>'
+    +'<button type="button" onclick="jumpToLiveSection(\'current\')">🏸 지금 경기</button>'
+    +'<button type="button" onclick="jumpToLiveSection(\'bracket\')">🗂 전체 대진표</button>'
+  +'</div>';
+}
+function jumpToLiveSection(key){
+  const open=el=>{ if(el&&el.tagName==='DETAILS'&&!el.open){ el.open=true;
+    if(el.id==='teamRoster')_teamRosterOpen=true;
+    if(el.id==='fullBracket')_viewerDetailsOpen.fullBracket=true; } };
+  let el=null;
+  if(key==='roster')el=document.getElementById('teamRoster');
+  else if(key==='bracket')el=document.getElementById('fullBracket');
+  else el=document.querySelector('.current-panel')||document.querySelector('.next-panel');
+  if(!el)return;
+  open(el);
+  try{ el.scrollIntoView({behavior:'smooth',block:'start'}); }
+  catch(e){ el.scrollIntoView(); }
+}
+
 /* 마지막 조작을 되돌리는 자리. 되돌릴 게 있을 때만 나옵니다. */
 function _undoHintHtml(d){
   if(!_canFixResult(d))return '';
@@ -1313,6 +1340,32 @@ function _pendingSubstitutions(d){
 }
 /* 누른 그 자리 하나만 다룹니다 — 대진표에서 이름을 눌러 들어오기 때문에
    "어느 경기의 누구"가 이미 정해져 있습니다(운영자 2026-08-14). */
+/* 후보를 **팀으로 묶어** 보여 줍니다 (운영자 2026-08-14 "우리팀/상대팀 한 눈에").
+   급수 부호는 글자색(+빨강/−파랑)이라 청·홍 팀 색과 부딪히기 때문에, 팀 구분은
+   **묶음 제목과 카드 테두리**로 못박고 카드 배경에는 급수 색을 쓰지 않습니다. */
+function _substituteGroupsHtml(d,match,outName,cands){
+  const outTeam=_teamOfName(d,outName);
+  const sameLabel=outTeam==='red'?liveTeamLabel(d,'red'):outTeam==='blue'?liveTeamLabel(d,'blue'):'';
+  const otherLabel=outTeam==='red'?liveTeamLabel(d,'blue'):outTeam==='blue'?liveTeamLabel(d,'red'):'';
+  const sameCls=outTeam==='red'?'red':'blue';
+  const otherCls=outTeam==='red'?'blue':'red';
+  const chip=c=>{
+    const mark=_balanceMark(c);
+    const team=c.crossTeam?otherCls:sameCls;
+    return `<button type="button" class="team-sub-cand team-${team} ${c.crossTeam?'cross':''} ${mark.cls}"
+      onclick="submitTeamSubstitute(${Number(match.num)},'${esc(outName)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balance:${Number(c.balance)||0}})">
+      ${esc(c.name)}<small>${esc(mark.text)} · ${Number(c.games)||0}경기</small></button>`;
+  };
+  const block=(title,cls,list)=>list.length
+    ?`<div class="team-sub-group ${cls}"><div class="team-sub-group-head">${esc(title)}<em>${list.length}명</em></div>
+       <div class="team-sub-cands">${list.map(chip).join('')}</div></div>`
+    :'';
+  const mine=cands.filter(c=>!c.crossTeam);
+  const theirs=cands.filter(c=>c.crossTeam);
+  if(!outTeam)return `<div class="team-sub-cands">${cands.map(chip).join('')}</div>`;
+  return block(`같은 팀${sameLabel?' · '+sameLabel:''}`,'same',mine)
+    +block(`상대 팀${otherLabel?' · '+otherLabel:''}`,'other',theirs);
+}
 function openTeamSubstitutePanel(matchNum,outName){
   const d=window._lastLiveData;
   if(!d)return;
@@ -1336,11 +1389,7 @@ function openTeamSubstitutePanel(matchNum,outName){
       <div class="team-sub-row">
         <div class="team-sub-who"><b>지각 · ${match.round}라운드 ${match.court}코트</b>
           <small>${esc([...(match.t1||[])].join(' · '))} vs ${esc([...(match.t2||[])].join(' · '))}</small></div>
-        ${cands.length?`<div class="team-sub-cands">${cands.map(c=>{
-          const mark=_balanceMark(c);
-          return `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''} ${mark.cls}"
-            onclick="submitTeamSubstitute(${Number(match.num)},'${esc(name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balance:${Number(c.balance)||0}})">
-            ${esc(c.name)}<small>${esc(mark.text)} · ${Number(c.games)||0}경기${c.crossTeam?' · 상대 팀':''}</small></button>`;}).join('')}</div>`
+        ${cands.length?_substituteGroupsHtml(d,match,name,cands)
           :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 지각이 아닌 대기 선수가 있어야 합니다.</div>'}
       </div>
     </div>
@@ -2093,6 +2142,7 @@ window.submitTeamVoid=submitTeamVoid;
 window.renameTeamPlayer=renameTeamPlayer;
 window.changeTeamCourt=changeTeamCourt;
 window.undoTeamOfficialAction=undoTeamOfficialAction;
+window.jumpToLiveSection=jumpToLiveSection;
 window.setViewerDetailsOpen=setViewerDetailsOpen;
 window.setTeamOfficialOverviewFilter=setTeamOfficialOverviewFilter;
 
