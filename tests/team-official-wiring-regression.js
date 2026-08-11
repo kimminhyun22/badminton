@@ -88,9 +88,23 @@ assert(/if\(!m\|\|m\.win\)return false;/.test(scope), '끝난 경기는 교체 �
 const cycle = liveView.slice(liveView.indexOf('async function toggleMemberLate'),
   liveView.indexOf('async function toggleMemberParty'));
 assert(!/absent/.test(cycle), '불참 상태를 다시 만들면 안 됩니다.');
-assert(/ref\.remove\(\)/.test(cycle), '도착 확인으로 되돌릴 수 있어야 합니다.');
+assert(/late:!on/.test(cycle), '켜기·끄기 한 버튼이어야 합니다.');
 assert(/_canOperateAttendance/.test(cycle),
   '지각 표시는 임원·단장만 — 참가자는 대진표를 보는 정도입니다.');
+
+// 3-3) 팀전은 **브라우저가 데이터베이스에 직접 쓰지 않습니다** (운영자 2026-08-14).
+//      승패도 지각도 서버 명령 한 길로 모여야 권한·기록이 한 곳에 남습니다.
+assert(/type:'team-official-late'/.test(liveView), '지각 표시는 서버 명령이어야 합니다.');
+assert(!/liveDb\.ref\('live\/'\+liveId\+'\/late\//.test(liveView),
+  '지각을 직접 쓰던 경로가 남아 있으면 안 됩니다.');
+const winEntry = liveView.slice(liveView.indexOf('async function submitLiveWin'),
+  liveView.indexOf('async function toggleMemberLate'));
+assert(/if\(_usesFixedTeams\(d\)\)return submitTeamResult\(/.test(winEntry),
+  '청홍 팀전의 승패 입력은 서버 명령(정정과 같은 길)으로 가야 합니다.');
+const canSubmit = liveView.slice(liveView.indexOf('function _canSubmitResult'),
+  liveView.indexOf('// ── 팀전 대체 투입'));
+assert(/if\(_usesFixedTeams\(d\)\)return !!\(viewer\.isClubOfficial\|\|viewer\.isLeader\|\|viewer\.isSub\)/.test(canSubmit),
+  '청홍 팀전은 임원·단장만 승패를 입력합니다 — 참가자는 보기만 합니다.');
 
 // 4) 권한 — 임원만. 일반 회원 화면에는 뜨지 않아야 합니다.
 const canSub = liveView.slice(liveView.indexOf('function _canSubstitute'),

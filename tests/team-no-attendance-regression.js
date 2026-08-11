@@ -49,7 +49,14 @@ assert(!teamSrc.includes("_autoFlowAction('참가자 불러오기'"), '회원 �
 assert(teamSrc.includes("lateMode:'explicit'"), '새 LIVE 데이터는 명시적 늦음 방식이어야 합니다.');
 assert(teamSrc.includes('late:_liveLate'), '새 LIVE 송출에는 늦음 지도만 포함해야 합니다.');
 assert(teamSrc.includes('attendance:null'), '새 LIVE 송출 시 구 출석 데이터를 제거해야 합니다.');
-assert(liveSrc.includes("ref=liveDb.ref('live/'+liveId+'/late/'"), '실중계 늦음 토글은 late 경로를 사용해야 합니다.');
+// 2026-08-14 계약 갱신: 늦음 표시는 브라우저가 직접 쓰지 않고 **서버 명령**으로 갑니다
+// (운영자 "민턴라이브와 동일한 방식"). 저장 위치는 그대로 `late` 지도입니다.
+assert(!liveSrc.includes("liveDb.ref('live/'+liveId+'/late/'"),
+  '늦음 표시를 브라우저가 직접 쓰면 안 됩니다 — 링크만 알면 남의 출결을 바꿀 수 있습니다.');
+assert(/type:'team-official-late'/.test(liveSrc), '늦음 표시는 서버 명령으로 보내야 합니다.');
+assert(/session\.late = late;/.test(
+  require('fs').readFileSync(require('path').join(__dirname,'..','functions','team-official-engine.js'),'utf8')),
+  '서버가 같은 `late` 지도에 기록해야 화면 표시가 그대로 유지됩니다.');
 assert(liveSrc.includes('function _lateMapFromData'), '구 저장본을 위한 늦음 변환 경로가 있어야 합니다.');
 
 const liveCompatCode = [

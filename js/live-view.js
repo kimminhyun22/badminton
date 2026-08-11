@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.579';
+const APP_VERSION='1.10.580';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1424,7 +1424,11 @@ async function submitTeamResult(matchNum,win,expectedWin){
   if(!_canFixResult(d))return alert('단장·부단장·클럽 임원만 승패를 정정할 수 있어요.');
   const blueLabel=liveTeamLabel(d,'blue'), redLabel=liveTeamLabel(d,'red');
   const to=win==='t1'?blueLabel+' 승':win==='t2'?redLabel+' 승':'결과 없음';
-  if(!confirm(`${match.round}라운드 ${match.court}코트 ${matchNum}번 경기를\n「${to}」 로 바꿀까요?`))return;
+  const where=`${match.round}라운드 ${match.court}코트 ${matchNum}번 경기`;
+  const ask=String(expectedWin||'')
+    ? `${where}를\n「${to}」 로 바꿀까요?`
+    : `${where}\n승자를 「${to}」 로 입력할까요?`;
+  if(!confirm(ask))return;
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
     const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
@@ -1441,7 +1445,9 @@ async function submitTeamResult(matchNum,win,expectedWin){
     const data=res&&res.data;
     if(data&&data.ok){
       closeTeamResultPanel();
-      alert(`${matchNum}번 경기를 「${to}」 로 바꿨습니다.`);
+      alert(String(expectedWin||'')
+        ? `${matchNum}번 경기를 「${to}」 로 바꿨습니다.`
+        : `${matchNum}번 경기 승자를 「${to}」 로 입력했습니다.`);
     }else alert((data&&data.reason)||'승패를 정정하지 못했습니다.');
   }catch(err){
     alert('승패 정정을 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
@@ -1546,14 +1552,18 @@ function buildViewerIdentity(d){
   +'</section>';
 }
 
+/* 청홍 팀전에서는 **임원·단장만** 승패를 입력합니다 (운영자 2026-08-14:
+   "참가자는 그저 대진표를 보는 정도… 운영관리는 임원과 단장 위주로").
+   자유대진은 예전 그대로 — 뛰는 선수가 직접 넣습니다. */
 function _canSubmitResult(m,d){
   const viewer=_viewerInfo(d);
   if(!viewer || !m || m.win) return false;
+  if(_usesFixedTeams(d))return !!(viewer.isClubOfficial||viewer.isLeader||viewer.isSub);
   const names=[...(m.t1||[]),...(m.t2||[])].filter(Boolean);
   if(names.includes(viewer.n)) return true;
   if(_isTeamLiveData(d)&&viewer.isClubOfficial)return true;
-  if(_isTeamLiveData(d)&&!_usesFixedTeams(d)&&viewer.isTemporaryOperator)return true;
-  return !!(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub));
+  if(_isTeamLiveData(d)&&viewer.isTemporaryOperator)return true;
+  return false;
 }
 
 // ── 팀전 대체 투입 (운영자 2026-08-13) ────────────────────────────────
@@ -1822,6 +1832,10 @@ async function submitLiveWin(matchIdx,side){
     alert('내 이름을 먼저 선택해주세요.');
     return;
   }
+  /* 청홍 팀전은 **입력도 정정도 서버 명령 한 길**로 갑니다 (운영자 2026-08-14
+     "민턴라이브와 동일한 방식"). 브라우저가 데이터베이스에 직접 쓰지 않으므로
+     권한·기록·중복 방지가 서버 한 곳에 모입니다. 자유대진은 아래 예전 경로. */
+  if(_usesFixedTeams(d))return submitTeamResult(Number(m.num), side, String(m.win||''));
   if(!_canSubmitResult(m,d)){
     alert('이 경기 선수·단장/부단장·클럽 임원·자유대진 운영 도우미만 승패를 입력할 수 있어요.');
     return;
@@ -1970,34 +1984,35 @@ function closeTeamRoster(){
   }
 }
 
+/* 지각 표시도 **서버 명령**으로 보냅니다 (운영자 2026-08-14 "민턴라이브와 동일한
+   방식"). 예전에는 브라우저가 `live/<id>/late/…` 에 직접 썼는데, 그러면 링크만
+   아는 사람이 남의 출결을 바꿀 수 있어 서명 권한이 무의미해집니다. */
 async function toggleMemberLate(name, team){
   if(!name) return;
-  // 버튼을 감추는 것만으로는 부족합니다. 저장하는 자리에서도 막습니다.
-  // 권한 확인이 먼저입니다 — 연결 상태와 무관하게 막아야 안내가 헷갈리지 않습니다.
-  if(!_canOperateAttendance(window._lastLiveData||{})){
+  const d=window._lastLiveData;
+  if(!_canOperateAttendance(d||{})){
     alert('지각·도착 확인은 단장·부단장·클럽 임원·운영 도우미가 처리합니다.');
     return;
   }
-  if(!liveDb || !liveId){
-    alert('지각 표시를 저장할 수 없습니다. 잠시 후 다시 시도해주세요.');
-    return;
-  }
-  const key=_attKey(name);
-  const ref=liveDb.ref('live/'+liveId+'/late/'+key);
+  const viewer=_viewerInfo(d);
+  const on=_lateOn(name);
+  if(!on&&!confirm(name+'님을 지각으로 표시할까요?\n\n대진표에서 이름을 눌러 대체 선수를 넣을 수 있습니다.'))return;
+  if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
-    if(_lateOn(name)){
-      await ref.remove();
-      return;
-    }
-    if(!confirm(name+'님을 지각으로 표시할까요?\n\n대진표에서 이름을 눌러 대체 선수를 넣을 수 있습니다.')) return;
-    await ref.set({
-      name:name,
-      team:team||'',
-      source:'member-late',
-      ts:firebase.database.ServerValue.TIMESTAMP
-    });
+    const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
+    const grantToken=await ensureTeamOfficialGrant(d);
+    if(!grantToken)return alert(_teamGrantFailMessage());
+    const res=await callable({liveId,grantToken,command:{
+      type:'team-official-late',
+      operationId:'tlate_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
+      actorPlayerName:viewer&&(viewer.n||viewer.name)||'',
+      playerName:String(name), late:!on,
+      expiresAt:Date.now()+10*60*1000
+    }});
+    const data=res&&res.data;
+    if(!(data&&data.ok))alert((data&&data.reason)||'지각 표시를 바꾸지 못했습니다.');
   }catch(e){
-    alert('지각 표시 저장 실패: '+e.message);
+    alert('지각 표시를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 }
 

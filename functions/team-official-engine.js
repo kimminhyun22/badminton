@@ -17,7 +17,8 @@
 
 const SUPPORTED_TYPES = new Set([
   'team-official-substitute',
-  'team-official-result'
+  'team-official-result',
+  'team-official-late'
 ]);
 
 function text(value){ return String(value == null ? '' : value); }
@@ -391,7 +392,8 @@ function applyResult(session, request, now, operation){
     match.win = want;
     match.winAt = number(now, Date.now());
     match.winBy = text(request.actorPlayerName || '');
-    match.winByRole = 'officialCorrection';
+    // 처음 넣은 것과 고친 것을 구분해 둡니다(기록을 나중에 읽을 때 헷갈리지 않게).
+    match.winByRole = before ? 'officialCorrection' : 'official';
   }else{
     delete match.win;
     delete match.winAt;
@@ -419,6 +421,39 @@ function applyResult(session, request, now, operation){
     operation.result = {result: {matchNum: number(match.num, 0), from: before, to: want,
       blueWins: number(session.blueWins, 0), whiteWins: number(session.whiteWins, 0)}};
   }
+  return '';
+}
+
+/**
+ * 지각 표시 (운영자 2026-08-14 "운영관리는 임원과 단장 위주로").
+ *
+ * 예전에는 회원 화면이 `live/<id>/late/<키>` 에 **직접 썼습니다.** 그러면 링크만
+ * 아는 사람은 누구나 남의 출결을 바꿀 수 있고, 서명 권한도 무의미해집니다.
+ * 이제 다른 조작과 같은 문으로 들어옵니다.
+ *
+ * 키는 화면(`_attKey`)과 **같은 방식**으로 만들어야 같은 칸을 가리킵니다.
+ */
+function attendanceKey(name){
+  return encodeURIComponent(text(name)).replace(/[.#$[\]/']/g, '_');
+}
+function applyLate(session, request, now){
+  const name = text(request.playerName).trim();
+  if(!name)return '누구인지 지정해 주세요.';
+  const member = memberByName(session, name);
+  if(!member)return '명단에서 그 선수를 찾지 못했습니다.';
+  const key = attendanceKey(memberName(member));
+  const late = {...(session.late || {})};
+  if(request.late === true){
+    late[key] = {
+      name: memberName(member),
+      team: teamOf(session, name) === 'red' ? 'red' : (teamOf(session, name) || ''),
+      source: 'official-late',
+      ts: number(now, Date.now())
+    };
+  }else{
+    delete late[key];
+  }
+  session.late = late;
   return '';
 }
 
@@ -453,6 +488,9 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
     case 'team-official-result':
       reason = applyResult(session, request, now, operation);
       break;
+    case 'team-official-late':
+      reason = applyLate(session, request, now);
+      break;
     default:
       reason = '지원하지 않는 팀전 운영 요청입니다.';
   }
@@ -466,6 +504,7 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
 module.exports = {
   SUPPORTED_TYPES,
   bracketKey,
+  attendanceKey,
   balanceAfter,
   balanceGapAfter,
   applyTeamOfficialRequest,
