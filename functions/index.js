@@ -121,11 +121,25 @@ function holdReferenceValue(ref){
   });
 }
 
-async function runExistingSessionTransaction(ref, update){
+/**
+ * 존재하는 노드에만 트랜잭션을 겁니다.
+ *
+ * RTDB 트랜잭션은 **로컬 캐시가 비어 있으면 콜백을 `null` 로 먼저 부릅니다.**
+ * 거기서 `return;`(중단) 하면 서버 값으로 다시 부르지 않고 그대로 끝나며,
+ * 결과 스냅샷도 비어 있어 **"없는 세션"으로 오인**됩니다. 그래서 값을 먼저
+ * 붙잡아 캐시를 채우고, 빈 캐시를 본 경우에는 한 번 더 돌립니다.
+ *
+ * `exists` 는 payload 모양이 달라서 받습니다 — 민턴LIVE 는 `session` 하위,
+ * 팀전은 노드 바로 아래에 대진이 있습니다.
+ */
+async function runExistingSessionTransaction(ref, update, options={}){
+  const exists = typeof options.exists === 'function'
+    ? options.exists
+    : snapshot => snapshot.child('session').exists();
   for(let attempt=0;attempt<2;attempt+=1){
     const observed=await holdReferenceValue(ref);
     try{
-      if(!observed.snapshot.child('session').exists())return {missing:true,result:null};
+      if(!exists(observed.snapshot))return {missing:true,result:null};
       let sawEmptyCache=false;
       const result=await ref.transaction(current=>{
         if(current==null){sawEmptyCache=true;return;}
@@ -138,6 +152,8 @@ async function runExistingSessionTransaction(ref, update){
   }
   throw new HttpsError('aborted', '서버 상태를 다시 확인한 뒤 한 번 더 눌러 주세요.');
 }
+// 팀전 노드는 대진이 바로 아래에 있습니다(민턴LIVE 는 `session` 하위).
+const teamSessionExists = snapshot => snapshot.exists() && snapshot.child('matches').exists();
 
 exports.claimDailyOfficialInvite = onCall(FUNCTION_OPTIONS, async request=>{
   const checkinId = cleanCheckinId(request.data?.checkinId);
@@ -327,13 +343,15 @@ exports.claimTeamOfficialInvite = onCall(FUNCTION_OPTIONS, async request=>{
   const ref = admin.database().ref(`live/${liveId}`);
   let outcome = null;
 
-  const result = await ref.transaction(current=>{
-    if(current == null)return;
+  // 민턴LIVE 와 **같은 헬퍼**를 씁니다 — 직접 트랜잭션을 걸면 빈 캐시 첫 호출에서
+  // 중단돼 멀쩡한 팀전이 "없는 팀전"으로 거절됩니다(2026-08-14 실기기에서 재현).
+  const transaction = await runExistingSessionTransaction(ref, current=>{
     outcome = applyTeamOfficialClaim(current, {clientId, requestedName, now, maxGrantMs:MAX_GRANT_MS, claimNonce});
     return outcome.action === 'commit' ? outcome.current : undefined;
-  }, undefined, false);
+  }, {exists: teamSessionExists});
 
-  if(!result.snapshot.exists())throw new HttpsError('not-found', '종료되었거나 없는 팀전입니다.');
+  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 없는 팀전입니다.');
+  const result = transaction.result;
   if(!result.committed){
     throw new HttpsError(outcome?.failureCode || 'permission-denied',
       outcome?.failureMessage || '임원 운영 연결을 만들지 못했습니다.');
@@ -371,8 +389,7 @@ exports.submitTeamOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
   let terminal = null;
   let alreadyDone = null;
 
-  const result = await ref.transaction(current=>{
-    if(current == null)return;
+  const transaction = await runExistingSessionTransaction(ref, current=>{
     // 같은 요청을 두 번 눌러도 한 번만 적용합니다(재시도·중복 탭 대비).
     const prior = current.officialOps && current.officialOps[operationId];
     if(prior){ alreadyDone = prior; return current; }
@@ -387,10 +404,11 @@ exports.submitTeamOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
       by:String(command.actorPlayerName || '')
     }};
     return next;
-  }, undefined, false);
+  }, {exists: teamSessionExists});
 
+  if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 없는 팀전입니다.');
+  const result = transaction.result;
   if(!result.committed)throw new HttpsError('aborted', '서버 상태를 다시 확인한 뒤 한 번 더 눌러 주세요.');
-  if(!result.snapshot.exists())throw new HttpsError('not-found', '종료되었거나 없는 팀전입니다.');
   if(alreadyDone){
     return {ok:alreadyDone.status === 'applied', requestId:operationId,
       status:alreadyDone.status, reason:alreadyDone.reason || '', repeated:true};

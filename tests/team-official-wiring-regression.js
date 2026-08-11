@@ -24,6 +24,27 @@ assert(/const prior = current\.officialOps && current\.officialOps\[operationId\
   '같은 요청을 두 번 눌러도 한 번만 적용해야 합니다(중복 탭·재시도 대비).');
 assert(index.includes('officialOps'), '처리 결과를 기록해 재시도에 답할 수 있어야 합니다.');
 
+// 1-1) 팀전 트랜잭션도 **민턴LIVE 와 같은 헬퍼**를 써야 합니다 (실기기 2026-08-14).
+//      RTDB 는 로컬 캐시가 비면 콜백을 `null` 로 먼저 부르는데, 거기서 중단하면
+//      서버 값으로 다시 부르지 않습니다. 멀쩡한 팀전이 매번 "종료되었거나 없는
+//      팀전입니다"로 거절됐습니다 — 직접 트랜잭션을 걸면 재발합니다.
+const teamCallables = ['exports.claimTeamOfficialInvite', 'exports.submitTeamOfficialRequest'];
+teamCallables.forEach(name => {
+  const start = index.indexOf(name);
+  assert(start >= 0, `${name} 이 있어야 합니다.`);
+  const body = index.slice(start, index.indexOf('exports.', start + name.length));
+  assert(/runExistingSessionTransaction\(ref/.test(body),
+    `${name} 은 빈 캐시에서 재시도하는 헬퍼를 써야 합니다.`);
+  assert(/\{exists: teamSessionExists\}/.test(body),
+    `${name} 은 팀전 모양(session 하위가 아님)으로 존재 확인을 해야 합니다.`);
+  assert(!/ref\.transaction\(/.test(body),
+    `${name} 이 직접 트랜잭션을 걸면 안 됩니다 — 빈 캐시 첫 호출에서 중단됩니다.`);
+  assert(/transaction\.missing\)throw new HttpsError\('not-found'/.test(body),
+    `${name} 은 헬퍼가 알려 준 부재만 not-found 로 답해야 합니다.`);
+});
+assert(/const teamSessionExists = snapshot => snapshot\.exists\(\) && snapshot\.child\('matches'\)\.exists\(\)/.test(index),
+  '팀전 존재 확인은 노드 바로 아래 `matches` 를 봐야 합니다.');
+
 // 2) 회원 화면 — 서버 함수를 부를 수 있어야 합니다(SDK 가 없으면 조용히 실패).
 assert(viewHtml.includes('firebase-functions-compat.js'),
   'view.html 이 functions SDK 를 실어야 임원 요청을 보낼 수 있습니다.');
