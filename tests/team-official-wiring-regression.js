@@ -222,6 +222,20 @@ assert(/openTeamResultPanel\(\)/.test(jump) && /undoTeamOfficialAction\(\)/.test
 assert(/_fixableResults\(d\)\.length/.test(jump) && /_lastOfficialAction\(d\)/.test(jump),
   '필요할 때만 붙어야 합니다.');
 
+// 7-6) 맨 위로 — 임원 화면이 길어서(운영자 2026-08-15). 부드러운 스크롤을 **조용히
+//      무시하는** 브라우저(카톡 인앱·옛 iOS)가 있어 안 움직이면 바로 올려야 합니다.
+assert(/function _ensureScrollTopButton/.test(liveView), '맨 위로 버튼이 있어야 합니다.');
+assert(/id='liveScrollTop'|btn\.id='liveScrollTop'/.test(liveView), '버튼에 id 가 있어야 합니다.');
+assert(/function _smoothScroll/.test(liveView), '부드러운 스크롤 실패를 대비해야 합니다.');
+assert(/if\(Math\.abs\(now-before\)<4\)check\(\);/.test(liveView),
+  '안 움직였으면 바로 올려야 합니다 — try/catch 로는 못 잡습니다(예외가 안 납니다).');
+assert(/_smoothScroll\(\(\)=>el\.scrollIntoView/.test(liveView),
+  '바로가기 스크롤도 같은 보호를 써야 합니다.');
+const scrollCss = fs.readFileSync(path.join(root, 'css', 'live.css'), 'utf8');
+assert(/\.live-scroll-top\{[^}]*z-index:80/.test(scrollCss),
+  '시트(z-index 90)보다 아래여야 시트가 열렸을 때 가리지 않습니다.');
+assert(/\.live-scroll-top\.show\{display:flex;\}/.test(scrollCss), '내려갔을 때만 보여야 합니다.');
+
 // 8) 승패 정정 — 한 번 들어간 승패를 임원이 고칠 수 있어야 합니다(2026-08-13).
 //    관리자가 손을 뗀 뒤에는 이 길이 없으면 잘못된 승패가 영원히 굳습니다.
 assert(liveView.includes('function openTeamResultPanel'), '승패 정정 시트가 있어야 합니다.');

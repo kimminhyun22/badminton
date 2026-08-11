@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.585';
+const APP_VERSION='1.10.586';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1315,8 +1315,8 @@ function jumpToLiveSection(key){
   else el=document.querySelector('.current-panel')||document.querySelector('.next-panel');
   if(!el)return;
   open(el);
-  try{ el.scrollIntoView({behavior:'smooth',block:'start'}); }
-  catch(e){ el.scrollIntoView(); }
+  _smoothScroll(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),
+                ()=>el.scrollIntoView());
 }
 
 /* 버튼이 아니라 **안내 한 줄**입니다. 누를 곳은 대진표의 이름이니,
@@ -2444,8 +2444,44 @@ function buildNextPanel(nextMatches,d){
   return html;
 }
 
+/* 맨 위로 (운영자 2026-08-15 "임원 페이지가 길어지니 우측 하단에 맨 위로").
+   임원 화면은 운영 현황·경기·명단·전체 대진표가 이어져 꽤 길어집니다.
+   조금이라도 내려갔을 때만 나타나고, 시트(z-index 90)가 열리면 그 아래로 덮입니다. */
+/* 부드러운 스크롤을 **조용히 무시하는** 브라우저가 있습니다(카톡 인앱·옛 iOS).
+   예외를 던지지 않고 그냥 안 움직여서, try/catch 로는 못 잡습니다. 그래서
+   잠깐 뒤에 정말 움직였는지 보고 안 움직였으면 바로 올립니다. */
+function _smoothScroll(run, check){
+  const before=window.scrollY||document.documentElement.scrollTop||0;
+  try{ run(); }catch(e){}
+  setTimeout(()=>{
+    const now=window.scrollY||document.documentElement.scrollTop||0;
+    if(Math.abs(now-before)<4)check();
+  },260);
+}
+function _scrollToTop(){
+  _smoothScroll(()=>window.scrollTo({top:0,behavior:'smooth'}),()=>window.scrollTo(0,0));
+}
+function _ensureScrollTopButton(){
+  if(document.getElementById('liveScrollTop'))return;
+  const btn=document.createElement('button');
+  btn.id='liveScrollTop';
+  btn.type='button';
+  btn.className='live-scroll-top';
+  btn.setAttribute('aria-label','맨 위로 이동');
+  btn.innerHTML='↑<span>맨 위</span>';
+  btn.addEventListener('click',()=>_scrollToTop());
+  document.body.appendChild(btn);
+  const sync=()=>{
+    const y=window.scrollY||document.documentElement.scrollTop||0;
+    btn.classList.toggle('show',y>420);
+  };
+  window.addEventListener('scroll',sync,{passive:true});
+  sync();
+}
+
 function render(d){
   document.body.classList.toggle('team-live-view',_isTeamLiveData(d));
+  _ensureScrollTopButton();
   // 임원이면 운영 권한을 미리 받아 둡니다 — 첫 조작에서 기다리지 않도록.
   if(typeof ensureTeamOfficialGrant==='function'&&_canSubstitute(d))ensureTeamOfficialGrant(d);
   _randomizeViewerGender();

@@ -2219,6 +2219,21 @@ button.team-official-overview-conflict.quiet{
   background:#0a6cff;color:#fff;font:inherit;font-weight:900;
   padding:11px 12px;cursor:pointer;text-align:center;
 }
+/* 맨 위로 — 조금 내려갔을 때만 뜬다. 시트(z-index 90)보다 아래라 시트가 열리면 덮인다.
+   버튼 기본 글꼴·정렬이 이기지 않도록 값을 명시한다. */
+.live-scroll-top{
+  position:fixed;right:14px;z-index:80;
+  bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  width:52px;height:52px;border-radius:50%;
+  border:1px solid rgba(22,34,52,.14);background:rgba(255,255,255,.97);
+  color:#2a3646;font:inherit;font-size:1.05rem;font-weight:1000;line-height:1;
+  box-shadow:0 6px 18px rgba(15,23,42,.18);cursor:pointer;
+}
+.live-scroll-top.show{display:flex;}
+.live-scroll-top span{font-size:.54rem;font-weight:900;letter-spacing:-.02em;}
+.live-scroll-top:active{transform:scale(.94);}
+
 .team-sub-panel{position:fixed;inset:0;z-index:90;display:none;
   align-items:flex-end;justify-content:center;background:rgba(15,23,42,.42);}
 .team-sub-panel.show{display:flex;}
