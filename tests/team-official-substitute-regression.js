@@ -243,4 +243,45 @@ function send(session, request, opts){
   console.log('  경기 미실시: 라운드 넘김 · 집계 제외 · 되돌리기 · 결과 있으면 거절');
 }
 
+// 11) 이름 수정 · 코트 번호 · 되돌리기 (운영자 2026-08-14 ③단계 마무리)
+{
+  const s = makeSession();
+  s.courts = 2;
+  s.currentRound = 1;
+
+  // 이름은 명단·대진표에서 **한꺼번에** 바뀌어야 합니다. 한 군데만 바뀌면 두 사람이 됩니다.
+  const renamed = send(s, {type:'team-official-rename', fromName:'청두리', toName:'청두리A'});
+  assert.strictEqual(renamed.status, 'applied', `이름 수정: ${renamed.reason}`);
+  assert(renamed.session.matches[0].t1.includes('청두리A'), '대진표가 바뀌어야 합니다.');
+  assert(renamed.session.members.blue.some(m => m.name === '청두리A'), '명단도 바뀌어야 합니다.');
+  const dup = send(renamed.session, {type:'team-official-rename', fromName:'청하나', toName:'청두리A'});
+  assert.strictEqual(dup.status, 'rejected', '이미 있는 이름으로는 바꿀 수 없습니다.');
+
+  // 코트 번호 — 같은 라운드에 겹치면 확인 뒤 맞바꿉니다.
+  const clash = send(renamed.session, {type:'team-official-court', matchNum:1, court:2});
+  assert.strictEqual(clash.status, 'rejected', '겹치면 확인을 받아야 합니다.');
+  const swapped = send(renamed.session, {type:'team-official-court', matchNum:1, court:2, allowSwap:true});
+  assert.strictEqual(swapped.status, 'applied', `코트 맞바꿈: ${swapped.reason}`);
+  assert.strictEqual(swapped.session.matches[0].court, 2);
+  assert.strictEqual(swapped.session.matches[1].court, 1, '상대 경기가 원래 번호로 와야 합니다.');
+  const over = send(renamed.session, {type:'team-official-court', matchNum:1, court:9, allowSwap:true});
+  assert.strictEqual(over.status, 'rejected', '코트 수를 넘으면 거절해야 합니다.');
+
+  // 되돌리기 — 마지막 조작 하나를 그대로 뒤집습니다.
+  const undo1 = send(swapped.session, {type:'team-official-undo'});
+  assert.strictEqual(undo1.status, 'applied', `되돌리기: ${undo1.reason}`);
+  assert.strictEqual(undo1.session.matches[0].court, 1, '코트가 돌아와야 합니다.');
+  const undo2 = send(undo1.session, {type:'team-official-undo'});
+  assert.strictEqual(undo2.status, 'applied');
+  assert(undo2.session.matches[0].t1.includes('청두리'), '이름도 돌아와야 합니다.');
+  const none = send(undo2.session, {type:'team-official-undo'});
+  assert.strictEqual(none.status, 'rejected', '더 되돌릴 게 없으면 거절합니다.');
+  assert(/되돌릴 조작이 없습니다/.test(none.reason), `이유: ${none.reason}`);
+
+  // 그 사이 다른 조작이 있었으면 되돌리지 않습니다(지문).
+  const again = send(swapped.session, {type:'team-official-undo', expectedLabel:'엉뚱한 것'});
+  assert.strictEqual(again.status, 'rejected', '지문이 어긋나면 거절해야 합니다.');
+  console.log('  이름 수정 · 코트 맞바꿈 · 되돌리기 3종');
+}
+
 console.log('\nteam official substitute regression ok');

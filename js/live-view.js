@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.582';
+const APP_VERSION='1.10.583';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1272,6 +1272,7 @@ function buildTeamOfficialOverview(d){
     <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
     <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
     ${_resultAlertHtml(d)}
+    ${_undoHintHtml(d)}
     ${_substituteHintHtml(d)}
     ${detail}
   </section>`;
@@ -1280,6 +1281,14 @@ function buildTeamOfficialOverview(d){
 /* 지금 메워야 하는 자리 — 대진표에서 이름이 눌리는 자리와 **같은 규칙**입니다.
    지각은 지금 라운드만, 불참은 남은 경기 전부(운영자 2026-08-14).
    숫자는 운영 현황 타일로만 쓰고, 들어가는 문은 대진표의 이름 하나뿐입니다. */
+/* 마지막 조작을 되돌리는 자리. 되돌릴 게 있을 때만 나옵니다. */
+function _undoHintHtml(d){
+  if(!_canFixResult(d))return '';
+  const last=_lastOfficialAction(d);
+  if(!last)return '';
+  return `<button type="button" class="team-official-overview-conflict quiet"
+    onclick="undoTeamOfficialAction()">되돌리기 · ${esc(last.label)}</button>`;
+}
 /* 버튼이 아니라 **안내 한 줄**입니다. 누를 곳은 대진표의 이름이니,
    여기에 또 버튼을 두면 진입점이 둘이 됩니다. 메울 자리가 있을 때만 나옵니다. */
 function _substituteHintHtml(d){
@@ -1427,6 +1436,75 @@ function closeTeamResultPanel(){
   const box=document.getElementById('teamResultPanel');
   if(box)box.classList.remove('show');
 }
+/* 임원 명령 한 줄 보내기 — 교체·정정·미실시·이름·코트·되돌리기가 모두 이 길을 씁니다. */
+async function _sendTeamOfficialCommand(kind, command, okMessage){
+  const d=window._lastLiveData;
+  const viewer=_viewerInfo(d);
+  if(!viewer)return alert('내 이름을 먼저 선택해주세요.');
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
+  try{
+    const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
+    const grantToken=await ensureTeamOfficialGrant(d);
+    if(!grantToken)return alert(_teamGrantFailMessage());
+    const res=await callable({liveId,grantToken,command:{
+      operationId:kind+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
+      actorPlayerName:viewer.n||viewer.name||'',
+      expiresAt:Date.now()+10*60*1000,
+      ...command
+    }});
+    const data=res&&res.data;
+    if(data&&data.ok){ if(okMessage)alert(okMessage); return true; }
+    alert((data&&data.reason)||'처리하지 못했습니다.');
+  }catch(err){
+    alert('요청을 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
+  return false;
+}
+
+/* 이름 수정 — 명단·대진표·지각 표시에 흩어진 이름을 한 번에 바꿉니다. */
+async function renameTeamPlayer(name){
+  const d=window._lastLiveData;
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  const next=(prompt(`${name} 선수의 이름을 바꿉니다.\n새 이름을 입력해 주세요.`, name)||'').trim();
+  if(!next||next===name)return;
+  await _sendTeamOfficialCommand('trn', {type:'team-official-rename', fromName:String(name), toName:next},
+    `${name} → ${next} 로 바꿨습니다.`);
+}
+
+/* 코트 번호 정정 — 실제로 쓰는 코트와 화면이 다를 때. */
+async function changeTeamCourt(matchNum){
+  const d=window._lastLiveData;
+  const match=_matchByNum(d,matchNum);
+  if(!match)return alert('경기를 다시 확인해주세요.');
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  const courts=Math.max(1,Number(d&&d.courts)||0);
+  const raw=prompt(`${match.round}라운드 ${matchNum}번 경기의 코트 번호를 바꿉니다.`
+    +`\n1 ~ ${courts} 중에서 입력해 주세요.`, String(match.court||''));
+  const to=Number((raw||'').trim());
+  if(!to||to===Number(match.court))return;
+  const clash=((d&&d.matches)||[]).find(m=>Number(m.round)===Number(match.round)
+    && Number(m.court)===to && Number(m.num)!==Number(matchNum));
+  if(clash&&!confirm(`${to}코트는 ${clash.num}번 경기가 씁니다.\n두 경기의 코트를 맞바꿀까요?`))return;
+  await _sendTeamOfficialCommand('tct', {type:'team-official-court', matchNum:Number(matchNum),
+    court:to, allowSwap:!!clash}, `${matchNum}번 경기를 ${to}코트로 옮겼습니다.`);
+}
+
+/* 되돌리기 — 마지막 조작 하나. 무엇을 되돌리는지 이름으로 확인받습니다. */
+function _lastOfficialAction(d){
+  const log=(d&&d.officialLog)||[];
+  const last=Array.isArray(log)?log[log.length-1]:null;
+  return last&&last.label?last:null;
+}
+async function undoTeamOfficialAction(){
+  const d=window._lastLiveData;
+  const last=_lastOfficialAction(d);
+  if(!last)return alert('되돌릴 조작이 없습니다.');
+  if(!confirm(`마지막 조작을 되돌립니다.\n\n「${last.label}」\n\n되돌릴까요?`))return;
+  await _sendTeamOfficialCommand('tundo', {type:'team-official-undo', expectedLabel:String(last.label)},
+    `되돌렸습니다 — ${last.label}`);
+}
+
 /* 경기 미실시 — 치르지 않기로 한 경기를 표시해 **라운드를 넘깁니다**
    (운영자 2026-08-14 ③단계). 승패 집계에는 들어가지 않습니다. */
 async function submitTeamVoid(matchNum,voided){
@@ -2012,6 +2090,9 @@ window.selectLiveViewer=selectLiveViewer;
 window.setLiveViewerSearch=setLiveViewerSearch;
 window.submitLiveWin=submitLiveWin;
 window.submitTeamVoid=submitTeamVoid;
+window.renameTeamPlayer=renameTeamPlayer;
+window.changeTeamCourt=changeTeamCourt;
+window.undoTeamOfficialAction=undoTeamOfficialAction;
 window.setViewerDetailsOpen=setViewerDetailsOpen;
 window.setTeamOfficialOverviewFilter=setTeamOfficialOverviewFilter;
 
@@ -2143,6 +2224,9 @@ function buildTeamRosterCard(d){
           +(canOperate
             ?'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(on?'도착 확인':'지각')+'</button>'
             :'<span class="team-member-att-view '+(on?'on':'')+'">'+(on?'지각':'')+'</span>')
+          +(canOperate
+            ?'<button type="button" class="team-member-att rename" title="이름 바꾸기" onclick="renameTeamPlayer('+nameArg+')">✏️</button>'
+            :'')
           +((canOperate||_isSelf(d,p.n))
             ?'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
             :'<span class="team-member-party-view '+(partyOn?'on':'')+'">'+(partyOn?'뒷풀이':'')+'</span>')
@@ -2230,6 +2314,13 @@ function buildLiveMatchCard(m,d,opts){
   const t1=m.t1||[], t2=m.t2||[];
   const t1win=m.win==='t1', t2win=m.win==='t2';
   const courtLabel=(opts.next?'R'+esc(String(m.round||''))+' · ':'')+esc(String(m.court||''))+'코트';
+  // 임원은 코트 라벨을 눌러 번호를 고칠 수 있습니다(실제 쓰는 코트와 다를 때).
+  const courtTag=(_canFixResult(d)&&!_settled(m)&&Number(m.num))
+    ?'<span class="live-court editable" role="button" tabindex="0" title="코트 번호 바꾸기"'
+      +' onclick="changeTeamCourt('+Number(m.num)+')"'
+      +' onkeydown="if(event.key===\'Enter\'){event.preventDefault();changeTeamCourt('+Number(m.num)+');}">'
+      +courtLabel+'</span>'
+    :'<span class="live-court">'+courtLabel+'</span>';
   const typeLabel=(opts.next?'대기 · ':'')+esc(m.type||'경기')+(m.isFiller?' · 보완':'');
   const imminent=opts.next && _isImminentMatch(m);
   const resultControls=buildResultInputControls(m,d,opts);
@@ -2239,7 +2330,7 @@ function buildLiveMatchCard(m,d,opts){
   return '<article class="live-match '+tc+(opts.current?' is-current':'')+(imminent?' is-imminent':'')+(resultControls?' has-result':'')+'">'
     +(imminent?'<div class="imminent-banner">대진 임박 · 다음 경기 준비해주세요</div>':'')
     +'<div class="live-match-top">'
-      +'<span class="live-court">'+courtLabel+'</span>'
+      +courtTag
       +'<span class="live-type '+tc+'">'+typeLabel+'</span>'
     +'</div>'
     +'<div class="live-versus">'

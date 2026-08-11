@@ -165,6 +165,21 @@ assert(/\.\.\.\(m\.voided\?\{voided:true\}:\{\}\)/.test(teamSrcForVoid),
 assert(/if\(currentMatches\[idx\]&&currentMatches\[idx\]\.voided\)return true;/.test(teamSrcForVoid),
   '관리자 진행 계산도 미실시를 끝난 것으로 세야 합니다.');
 
+// 7-2) 이름 수정 · 코트 번호 · 되돌리기 (③단계 마무리, 2026-08-14)
+['team-official-rename','team-official-court','team-official-undo'].forEach(t=>{
+  assert(liveView.includes(`type:'${t}'`), `${t} 을 화면에서 보낼 수 있어야 합니다.`);
+});
+assert(/onclick="renameTeamPlayer\(/.test(liveView), '명단에서 이름을 고칠 수 있어야 합니다.');
+assert(/onclick="changeTeamCourt\(/.test(liveView), '코트 라벨을 눌러 번호를 고칠 수 있어야 합니다.');
+assert(/onclick="undoTeamOfficialAction\(\)"/.test(liveView), '되돌리기 진입점이 있어야 합니다.');
+assert(/expectedLabel:String\(last\.label\)/.test(liveView),
+  '되돌리기는 무엇을 되돌리는지 지문으로 확인해야 합니다.');
+const engineForLog = fs.readFileSync(path.join(root, 'functions', 'team-official-engine.js'), 'utf8');
+assert(/function pushLog/.test(engineForLog) && /officialLog/.test(engineForLog),
+  '조작마다 되돌릴 명령을 기록해야 합니다.');
+assert(/session\.officialLog = current\.slice\(0, lastIndex\)/.test(engineForLog),
+  '되돌린 기록은 지금 배열에서 떼어내야 합니다 — 옛 참조를 자르면 아무것도 안 지워집니다.');
+
 // 8) 승패 정정 — 한 번 들어간 승패를 임원이 고칠 수 있어야 합니다(2026-08-13).
 //    관리자가 손을 뗀 뒤에는 이 길이 없으면 잘못된 승패가 영원히 굳습니다.
 assert(liveView.includes('function openTeamResultPanel'), '승패 정정 시트가 있어야 합니다.');

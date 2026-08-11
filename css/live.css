@@ -2192,6 +2192,10 @@ button.team-official-overview-conflict.quiet{
    `!important` 규칙들(`.current-panel .live-player{font-size:…!important}`)과
    버튼 기본 글꼴이 싸워서 이름 크기·굵기가 흐트러진다. 여기서는 **손가락에
    보이는 표시**만 더한다. */
+/* 코트 번호를 임원이 눌러 고칠 수 있다는 표시(점선 밑줄) — 회원에게는 안 붙는다. */
+.live-court.editable{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+.live-court.editable:focus-visible{outline:2px solid #0a6cff;outline-offset:2px;}
+.team-member-att.rename{min-width:38px;padding-left:6px;padding-right:6px;}
 .live-player.swap{
   cursor:pointer;
   /* 손가락으로 누르는 자리다. 이름 한 줄은 22px 밖에 안 되니 눌리는 이름만

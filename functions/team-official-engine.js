@@ -19,7 +19,10 @@ const SUPPORTED_TYPES = new Set([
   'team-official-substitute',
   'team-official-result',
   'team-official-late',
-  'team-official-void'
+  'team-official-void',
+  'team-official-rename',
+  'team-official-court',
+  'team-official-undo'
 ]);
 
 function text(value){ return String(value == null ? '' : value); }
@@ -318,6 +321,10 @@ function applySubstitute(session, request, now, operation){
   }
   // 누가 언제 무엇을 바꿨는지 남깁니다 — 현장에서 되짚을 수 있어야 합니다.
   session.substitutions = Array.isArray(session.substitutions) ? session.substitutions : [];
+  pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+    type:'substitute', label:`${number(match.num,0)}번 ${outName}→${inDisplayName}`,
+    undo:{type:'team-official-substitute', matchNum:number(match.num, 0),
+      outName:inDisplayName, inName:outName, allowCrossTeam:true, allowStarted:true}});
   session.substitutions.push({
     at: number(now, Date.now()),
     matchNum: number(match.num, 0),
@@ -418,6 +425,9 @@ function applyResult(session, request, now, operation){
   }
   recountSession(session);
   session.resultEdits = Array.isArray(session.resultEdits) ? session.resultEdits : [];
+  pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+    type:'result', label:`${number(match.num,0)}번 승패 ${before||'없음'}→${want||'없음'}`,
+    undo:{type:'team-official-result', matchNum:number(match.num, 0), win:before, expectedWin:want}});
   session.resultEdits.push({
     at: number(now, Date.now()),
     matchNum: number(match.num, 0),
@@ -463,6 +473,9 @@ function applyLate(session, request, now){
     delete late[key];
   }
   session.late = late;
+  pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+    type:'late', label:`${memberName(member)} 지각 ${request.late === true ? '표시' : '해제'}`,
+    undo:{type:'team-official-late', playerName:memberName(member), late:request.late !== true}});
   return '';
 }
 
@@ -493,6 +506,9 @@ function applyVoid(session, request, now, operation){
     delete match.voidedAt;
   }
   recountSession(session);
+  pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+    type:'void', label:`${number(match.num,0)}번 ${want ? '미실시' : '미실시 해제'}`,
+    undo:{type:'team-official-void', matchNum:number(match.num, 0), voided:!want}});
   session.resultEdits = Array.isArray(session.resultEdits) ? session.resultEdits : [];
   session.resultEdits.push({
     at: number(now, Date.now()),
@@ -506,6 +522,100 @@ function applyVoid(session, request, now, operation){
     operation.result = {void:{matchNum:number(match.num, 0), voided:want,
       currentRound:number(session.currentRound, 0)}};
   }
+  return '';
+}
+
+/* ── 되돌리기용 기록 ───────────────────────────────────────────────────────
+   조작마다 **되돌릴 명령**을 함께 적어 둡니다. 그래야 마지막 조작 하나를
+   그대로 뒤집을 수 있습니다(운영자 2026-08-14 ③단계). 최근 50건만 남깁니다. */
+function pushLog(session, entry){
+  session.officialLog = Array.isArray(session.officialLog) ? session.officialLog : [];
+  session.officialLog.push(entry);
+  if(session.officialLog.length > 50){
+    session.officialLog = session.officialLog.slice(-50);
+  }
+}
+
+/**
+ * 이름 수정 (오타·동명이인 구분).
+ * 명단·대진표·지각·뒷풀이에 흩어진 이름을 **한 번에** 바꿉니다. 한 군데만 바꾸면
+ * 그 사람이 두 사람이 되어 교체·집계가 어긋납니다.
+ */
+function renameEverywhere(session, from, to){
+  const key = nameKey(from);
+  const setName = row => {
+    if(!row)return;
+    if(row.name != null)row.name = to;
+    if(row.n != null)row.n = to;
+  };
+  const members = session.members || {};
+  ['blue', 'red', 'all'].forEach(side => {
+    (members[side] || []).forEach(row => { if(nameKey(memberName(row)) === key)setName(row); });
+  });
+  ['clubOfficials', 'temporaryOperators', 'leaders'].forEach(group => {
+    ((session.officials || {})[group] || []).forEach(row => {
+      if(nameKey(row?.name) === key)row.name = to;
+    });
+  });
+  matchList(session).forEach(m => {
+    ['t1', 't2'].forEach(side => {
+      m[side] = (m[side] || []).map(n => nameKey(n) === key ? to : n);
+    });
+    if(nameKey(m.winBy) === key)m.winBy = to;
+  });
+  // 지각·뒷풀이는 이름으로 키를 만들므로 칸을 옮겨 줍니다.
+  ['late', 'party'].forEach(mapName => {
+    const map = session[mapName];
+    if(!map || typeof map !== 'object')return;
+    Object.keys(map).forEach(k => {
+      if(nameKey(map[k]?.name) !== key)return;
+      const row = {...map[k], name: to};
+      delete map[k];
+      map[attendanceKey(to)] = row;
+    });
+  });
+}
+function applyRename(session, request, now, operation){
+  const from = text(request.fromName).trim();
+  const to = text(request.toName).trim();
+  if(!from || !to)return '바꿀 이름과 새 이름을 함께 지정해 주세요.';
+  if(nameKey(from) === nameKey(to))return '같은 이름입니다.';
+  if(!memberByName(session, from))return '명단에서 그 선수를 찾지 못했습니다.';
+  if(memberByName(session, to))return `${to} 은(는) 이미 명단에 있는 이름입니다.`;
+  renameEverywhere(session, from, to);
+  if(matchList(session).length)session.bracketKey = bracketKey(session);
+  pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+    type:'rename', label:`${from} → ${to}`,
+    undo:{type:'team-official-rename', fromName:to, toName:from}});
+  if(operation)operation.result = {rename:{from, to}};
+  return '';
+}
+
+/**
+ * 코트 번호 정정 — 실제로 쓰는 코트와 화면이 다를 때.
+ * 같은 라운드에 그 번호를 쓰는 경기가 있으면 **맞바꿉니다**(확인을 받은 뒤).
+ */
+function applyCourt(session, request, now, operation){
+  const match = findMatch(session, request.matchNum);
+  if(!match)return '경기를 찾지 못했습니다.';
+  const to = number(request.court, 0);
+  const from = number(match.court, 0);
+  if(!to || to < 1)return '코트 번호가 올바르지 않습니다.';
+  const courts = number(session.courts, 0);
+  if(courts && to > courts)return `코트는 ${courts}개까지 있습니다.`;
+  if(to === from)return '같은 코트입니다.';
+  const clash = matchList(session).find(m => number(m?.round, -1) === number(match.round, -1)
+    && number(m?.court, -1) === to && number(m?.num, -2) !== number(match.num, -1));
+  if(clash && request.allowSwap !== true){
+    return `${to}코트는 같은 라운드 ${number(clash.num, 0)}번 경기가 씁니다. 맞바꾸려면 확인이 필요합니다.`;
+  }
+  match.court = to;
+  if(clash)clash.court = from;
+  if(matchList(session).length)session.bracketKey = bracketKey(session);
+  pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+    type:'court', label:`${number(match.num, 0)}번 경기 ${from}→${to}코트`,
+    undo:{type:'team-official-court', matchNum:number(match.num, 0), court:from, allowSwap:true}});
+  if(operation)operation.result = {court:{matchNum:number(match.num, 0), from, to, swapped:!!clash}};
   return '';
 }
 
@@ -523,6 +633,60 @@ function validate(session, request, options = {}){
 }
 
 /**
+ * 되돌리기 — **마지막 조작 하나**를 그대로 뒤집습니다.
+ * 각 명령이 남긴 `undo` 를 그대로 실행하고, 그 되돌리기 자체는 기록에 남기지
+ * 않습니다(되돌리기를 또 되돌리는 고리를 만들지 않기 위해).
+ */
+function applyUndo(session, request, now, operation){
+  const log = Array.isArray(session.officialLog) ? session.officialLog : [];
+  const lastIndex = log.length - 1;
+  const last = log[lastIndex];
+  if(!last || !last.undo)return '되돌릴 조작이 없습니다.';
+  if(request.expectedLabel !== undefined && text(request.expectedLabel) !== text(last.label)){
+    return '그 사이 다른 조작이 있었습니다. 화면을 새로 고친 뒤 다시 봐 주세요.';
+  }
+  const inverse = {...last.undo, actorPlayerName: text(request.actorPlayerName || '')};
+  const reason = runCommand(session, inverse, now, {}, {silent:true});
+  if(reason)return `되돌리지 못했습니다: ${reason}`;
+  /* `log` 는 되돌리기 실행 중에 push 로 **같은 배열이 늘어났다가** 잘려 나갑니다.
+     그래서 옛 참조를 슬라이스하면 아무것도 안 지워집니다(2026-08-14에 잡음).
+     지금 배열에서 그 자리만 떼어냅니다. */
+  const current = Array.isArray(session.officialLog) ? session.officialLog : [];
+  session.officialLog = current.slice(0, lastIndex);
+  if(operation)operation.result = {undo:{type:text(last.type), label:text(last.label)}};
+  return '';
+}
+
+/* 명령 하나를 실행합니다. `silent` 면 기록을 남기지 않습니다(되돌리기 전용). */
+function runCommand(session, request, now, operation, options = {}){
+  const before = Array.isArray(session.officialLog) ? session.officialLog.length : 0;
+  let reason;
+  switch(text(request.type)){
+    case 'team-official-substitute':
+      reason = applySubstitute(session, request, now, operation); break;
+    case 'team-official-result':
+      reason = applyResult(session, request, now, operation); break;
+    case 'team-official-late':
+      reason = applyLate(session, request, now); break;
+    case 'team-official-void':
+      reason = applyVoid(session, request, now, operation); break;
+    case 'team-official-rename':
+      reason = applyRename(session, request, now, operation); break;
+    case 'team-official-court':
+      reason = applyCourt(session, request, now, operation); break;
+    case 'team-official-undo':
+      reason = applyUndo(session, request, now, operation); break;
+    default:
+      reason = '지원하지 않는 팀전 운영 요청입니다.';
+  }
+  if(!reason && options.silent && Array.isArray(session.officialLog)
+     && session.officialLog.length > before){
+    session.officialLog = session.officialLog.slice(0, before);
+  }
+  return reason;
+}
+
+/**
  * 임원 요청 하나를 세션에 적용합니다.
  * 반환: {status:'applied'|'rejected', reason, session, result}
  */
@@ -532,23 +696,7 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
   const invalid = validate(session, request, options);
   if(invalid)return {status: 'rejected', reason: invalid, session: rawSession, result: null};
   const operation = {};
-  let reason = '';
-  switch(text(request.type)){
-    case 'team-official-substitute':
-      reason = applySubstitute(session, request, now, operation);
-      break;
-    case 'team-official-result':
-      reason = applyResult(session, request, now, operation);
-      break;
-    case 'team-official-late':
-      reason = applyLate(session, request, now);
-      break;
-    case 'team-official-void':
-      reason = applyVoid(session, request, now, operation);
-      break;
-    default:
-      reason = '지원하지 않는 팀전 운영 요청입니다.';
-  }
+  const reason = runCommand(session, request, now, operation);
   if(reason)return {status: 'rejected', reason, session: rawSession, result: null};
   // 대진이 바뀌었으면 지문도 함께 고쳐 둡니다(관리자가 튕기지 않도록).
   if(matchList(session).length)session.bracketKey = bracketKey(session);
