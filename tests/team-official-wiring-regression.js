@@ -195,16 +195,32 @@ assert(!/\.team-sub-cand\.over:not\(\.cross\)\{[^}]*background/.test(liveCssForT
 assert(/\.team-sub-cand\.team-blue\{/.test(liveCssForTeam)
   && /\.team-sub-cand\.team-red\{/.test(liveCssForTeam), '팀 색이 카드에 있어야 합니다.');
 
-// 7-4) 대시보드 바로가기 — 자주 가는 세 곳으로(2026-08-14).
+// 7-4) 대시보드 바로가기 — MVP 포함 네 곳 + 필요할 때만 붙는 처리 둘(2026-08-15).
 assert(/function _officialJumpHtml/.test(liveView), '바로가기 줄이 있어야 합니다.');
-['roster','current','bracket'].forEach(k=>{
+['mvp','roster','current','bracket'].forEach(k=>{
   // 소스에서는 따옴표가 이스케이프돼 있습니다(문자열 안의 onclick).
   assert(new RegExp(`jumpToLiveSection\\(\\\\?'${k}\\\\?'\\)`).test(liveView),
     `${k} 바로가기가 있어야 합니다.`);
 });
-assert(/getElementById\('teamRoster'\)/.test(liveView) && /getElementById\('fullBracket'\)/.test(liveView),
+assert(/getElementById\('teamRoster'\)/.test(liveView) && /getElementById\('fullBracket'\)/.test(liveView)
+  && /getElementById\('mvpBoard'\)/.test(liveView),
   '실제로 있는 자리로 보내야 합니다 — 새 화면을 만들지 않습니다.');
+assert(/id="mvpBoard"/.test(liveView), 'MVP 자리에 id 가 있어야 바로가기가 닿습니다.');
 assert(/scrollIntoView/.test(liveView), '그 자리로 스크롤해야 합니다.');
+
+// 7-5) 대시보드는 **늘 떠 있는 배너**를 만들지 않습니다(운영자 2026-08-15
+//      "승패 미실시 처리/되돌리기는 별 필요 없지 않아?"). 기능은 남기되 자리를 내렸습니다.
+assert(!/function _undoHintHtml/.test(liveView), '되돌리기 전용 배너는 없어야 합니다.');
+const resultAlert = liveView.slice(liveView.indexOf('function _resultAlertHtml'),
+  liveView.indexOf('function openTeamResultPanel'));
+assert(/if\(!conflicts\)return '';/.test(resultAlert),
+  '승패 알림은 서로 다르게 입력된 경우에만 떠야 합니다.');
+const jump = liveView.slice(liveView.indexOf('function _officialJumpHtml'),
+  liveView.indexOf('function jumpToLiveSection'));
+assert(/openTeamResultPanel\(\)/.test(jump) && /undoTeamOfficialAction\(\)/.test(jump),
+  '두 처리는 바로가기 격자 안에 있어야 합니다 — 없애면 고칠 길이 사라집니다.');
+assert(/_fixableResults\(d\)\.length/.test(jump) && /_lastOfficialAction\(d\)/.test(jump),
+  '필요할 때만 붙어야 합니다.');
 
 // 8) 승패 정정 — 한 번 들어간 승패를 임원이 고칠 수 있어야 합니다(2026-08-13).
 //    관리자가 손을 뗀 뒤에는 이 길이 없으면 잘못된 승패가 영원히 굳습니다.

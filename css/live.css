@@ -2257,6 +2257,8 @@ button.team-official-overview-conflict.quiet{
   cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .team-official-jump button:active{transform:scale(.985);}
+/* 처리(승패·되돌리기)는 이동 버튼과 구분되게 살짝 진하게. */
+.team-official-jump button.act{background:#f4f7fb;border-color:rgba(22,34,52,.2);}
 
 /* 후보 묶음 — 우리 팀 / 상대 팀을 제목으로 갈라 한눈에 보이게. */
 .team-sub-group{margin-top:10px;}

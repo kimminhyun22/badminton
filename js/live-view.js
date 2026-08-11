@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.584';
+const APP_VERSION='1.10.585';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1272,7 +1272,6 @@ function buildTeamOfficialOverview(d){
     <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
     <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
     ${_resultAlertHtml(d)}
-    ${_undoHintHtml(d)}
     ${_substituteHintHtml(d)}
     ${_officialJumpHtml(d)}
     ${detail}
@@ -1288,11 +1287,22 @@ function buildTeamOfficialOverview(d){
 function _officialJumpHtml(d){
   if(!_canFixResult(d))return '';
   const roster=_usesFixedTeams(d)?'팀 명단':'명단';
-  return '<div class="team-official-jump">'
-    +'<button type="button" onclick="jumpToLiveSection(\'roster\')">🧑‍🤝‍🧑 '+esc(roster)+'</button>'
-    +'<button type="button" onclick="jumpToLiveSection(\'current\')">🏸 지금 경기</button>'
-    +'<button type="button" onclick="jumpToLiveSection(\'bracket\')">🗂 전체 대진표</button>'
-  +'</div>';
+  const cells=[
+    '<button type="button" onclick="jumpToLiveSection(\'mvp\')">🏆 MVP</button>',
+    '<button type="button" onclick="jumpToLiveSection(\'roster\')">🧑‍🤝‍🧑 '+esc(roster)+'</button>',
+    '<button type="button" onclick="jumpToLiveSection(\'current\')">🏸 지금 경기</button>',
+    '<button type="button" onclick="jumpToLiveSection(\'bracket\')">🗂 전체 대진표</button>'
+  ];
+  // 처리 두 가지는 **필요할 때만** 같은 격자에 붙습니다(늘 떠 있지 않게).
+  if(_fixableResults(d).length){
+    cells.push('<button type="button" class="act" onclick="openTeamResultPanel()">⚖️ 승패·미실시</button>');
+  }
+  const last=_lastOfficialAction(d);
+  if(last){
+    cells.push('<button type="button" class="act" onclick="undoTeamOfficialAction()" title="'
+      +esc(last.label)+'">↩️ 되돌리기</button>');
+  }
+  return '<div class="team-official-jump">'+cells.join('')+'</div>';
 }
 function jumpToLiveSection(key){
   const open=el=>{ if(el&&el.tagName==='DETAILS'&&!el.open){ el.open=true;
@@ -1301,6 +1311,7 @@ function jumpToLiveSection(key){
   let el=null;
   if(key==='roster')el=document.getElementById('teamRoster');
   else if(key==='bracket')el=document.getElementById('fullBracket');
+  else if(key==='mvp')el=document.getElementById('mvpBoard');
   else el=document.querySelector('.current-panel')||document.querySelector('.next-panel');
   if(!el)return;
   open(el);
@@ -1308,14 +1319,6 @@ function jumpToLiveSection(key){
   catch(e){ el.scrollIntoView(); }
 }
 
-/* 마지막 조작을 되돌리는 자리. 되돌릴 게 있을 때만 나옵니다. */
-function _undoHintHtml(d){
-  if(!_canFixResult(d))return '';
-  const last=_lastOfficialAction(d);
-  if(!last)return '';
-  return `<button type="button" class="team-official-overview-conflict quiet"
-    onclick="undoTeamOfficialAction()">되돌리기 · ${esc(last.label)}</button>`;
-}
 /* 버튼이 아니라 **안내 한 줄**입니다. 누를 곳은 대진표의 이름이니,
    여기에 또 버튼을 두면 진입점이 둘이 됩니다. 메울 자리가 있을 때만 나옵니다. */
 function _substituteHintHtml(d){
@@ -1430,12 +1433,13 @@ function _resultAlertHtml(d){
   if(!_canFixResult(d))return '';
   const rows=_fixableResults(d);
   if(!rows.length)return '';
+  // 서로 다르게 입력된 것만 **붉은 알림**으로 올립니다. 평상시 「승패·미실시」는
+  // 아래 도구 줄에 있습니다 — 늘 떠 있으면 대시보드가 시끄럽습니다
+  // (운영자 2026-08-15 "승패 미실시 처리/되돌리기는 별 필요 없지 않아?").
   const conflicts=rows.filter(x=>x.conflict).length;
-  const label=conflicts
-    ?`승패 확인 ${conflicts}건 · 눌러서 바로 정정`
-    :`승패 · 미실시 처리 (${rows.length}경기)`;
-  return `<button type="button" class="team-official-overview-conflict ${conflicts?'':'quiet'}"
-    onclick="openTeamResultPanel()">${esc(label)}</button>`;
+  if(!conflicts)return '';
+  return `<button type="button" class="team-official-overview-conflict"
+    onclick="openTeamResultPanel()">승패 확인 ${conflicts}건 · 눌러서 바로 정정</button>`;
 }
 function openTeamResultPanel(){
   const d=window._lastLiveData;
