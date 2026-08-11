@@ -39,7 +39,7 @@ ${cut('function _normalizeMembers', 'function _viewerInfo')}
 ${cut('function _teamOfName', 'async function submitTeamSubstitute')}
 ${cut('function _substituteHintHtml', 'function openTeamSubstitutePanel')}
 this.api={_replaceableInMatch,_playerLine,_pendingSubstitutions,_substituteHintHtml,_lateOn,_swappableRounds,
-  _substituteCandidates,_balanceMark,_balanceGapAfter,
+  _substituteCandidates,_balanceMark,_balanceGapAfter,_balanceAfter,
   setLate(map){ window._liveLate = map; }, setOperate(v){ canOperate = v; }};
 `, sandbox);
 const api = sandbox.api;
@@ -160,34 +160,33 @@ api.setLate({
   const cands = api._substituteCandidates(bal, bal.matches[0], '지각넷');
   const byName = Object.fromEntries(cands.map(c => [c.name, c]));
   // 청여섯(6) + X  vs  홍여섯(6)+홍넷(4)=10
-  assert.strictEqual(byName['청넷'].balanceGap, 0, '6+4=10 이면 딱 맞습니다.');
-  assert.strictEqual(byName['청둘'].balanceGap, 2, '6+2=8 이면 2 차이입니다.');
-  assert.strictEqual(byName['청일곱'].balanceGap, 3, '6+7=13 이면 3 차이입니다.');
-  assert.strictEqual(byName['청일곱'].swing, 3, '빠지는 4보다 3 높습니다.');
-  assert.strictEqual(byName['청둘'].swing, -2, '빠지는 4보다 2 낮습니다.');
+  // 부호가 방향을 말합니다: 양수 = 교체한 팀이 셈, 음수 = 약해짐.
+  assert.strictEqual(byName['청넷'].balance, 0, '6+4=10 vs 10 이면 균형입니다.');
+  assert.strictEqual(byName['청둘'].balance, -2, '6+2=8 vs 10 이면 우리가 2 약합니다.');
+  assert.strictEqual(byName['청일곱'].balance, 3, '6+7=13 vs 10 이면 우리가 3 셉니다.');
   assert.strictEqual(cands[0].name, '청넷',
-    `가장 안 기우는 사람이 먼저여야 합니다: ${cands.map(c => c.name + '(' + c.balanceGap + ')')}`);
-  // 교체로 팀이 세지는 사람(청일곱)은 **같은 팀이어도 뒤로** 밀려야 합니다.
-  assert(cands.indexOf(byName['청일곱']) > cands.indexOf(byName['청둘']),
-    `교체로 강해지는 후보는 약해지는 후보보다 뒤여야 합니다: ${cands.map(c => c.name)}`);
+    `0 에 가장 가까운 사람이 먼저여야 합니다: ${cands.map(c => c.name + '(' + c.balance + ')')}`);
+  // 같은 크기면 **덜 유리한 쪽**(음수)이 먼저 — 사람이 빠진 팀이 이득 보면 불합리.
+  assert(cands.indexOf(byName['청둘']) < cands.indexOf(byName['청일곱']),
+    `약해지는 쪽이 세지는 쪽보다 먼저여야 합니다: ${cands.map(c => c.name)}`);
   const cross = cands.find(c => c.crossTeam);
   assert(cands.indexOf(cross) > cands.indexOf(byName['청넷']),
     '상대 팀은 균형이 좋아도 같은 팀 뒤에 옵니다.');
 
-  assert.strictEqual(api._balanceMark({balanceGap:0,swing:0}).text, '균형');
-  assert.strictEqual(api._balanceMark({balanceGap:1,swing:-1}).text, '±1',
-    '차이 1 도 적어야 합니다 — 승부가 기웁니다.');
-  assert.strictEqual(api._balanceMark({balanceGap:1,swing:-1}).cls, 'lean');
-  assert.strictEqual(api._balanceMark({balanceGap:3,swing:-3}).text, '±3 기욺');
-  const up = api._balanceMark({balanceGap:0,swing:2});
-  assert.strictEqual(up.text, '+2 강해짐', '교체로 세지는 건 균형이어도 짚어야 합니다.');
-  assert.strictEqual(up.cls, 'tilt', '가장 불합리한 경우라 붉게 표시합니다.');
+  // 표기 — 「기욺」 같은 말 대신 부호와 색으로(운영자 2026-08-14).
+  assert.strictEqual(api._balanceMark({balance:0}).text, '균형');
+  assert.strictEqual(api._balanceMark({balance:2}).text, '+2', '세지면 + 로 적습니다.');
+  assert.strictEqual(api._balanceMark({balance:2}).cls, 'over', '+ 는 빨강입니다.');
+  assert.strictEqual(api._balanceMark({balance:-2}).text, '−2', '약해지면 − 로 적습니다.');
+  assert.strictEqual(api._balanceMark({balance:-2}).cls, 'under', '− 는 파랑입니다.');
+  assert(!/기욺|강해짐/.test([api._balanceMark({balance:3}).text,
+    api._balanceMark({balance:-3}).text].join(' ')), '헷갈리는 말은 쓰지 않습니다.');
 
   api.setLate({
     [attKey('지각이')]: {name: '지각이'},
     [attKey('불참이')]: {name: '불참이', status: 'absent'}
   });
-  console.log('  급수 밸런스: 균형 우선 · 강해지는 후보는 뒤로 · ±1 도 표시');
+  console.log('  급수 밸런스: 0 우선 · 같은 크기면 음수 먼저 · +빨강/−파랑');
 }
 
 // 9) 같은 라운드에 이미 뛰는(또는 뛴) 사람은 후보가 아닙니다

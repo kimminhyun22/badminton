@@ -92,22 +92,27 @@ assert(/expectedT1:\[\.\.\.\(match\.t1\|\|\[\]\)\]/.test(liveView),
   '요청에 현재 구성(지문)을 실어 보내야 합니다.');
 
 // 7) AI 보조 — 후보 정렬 기준이 서버 엔진과 같아야 합니다.
+const liveCssForBalance = fs.readFileSync(path.join(root, 'css', 'live.css'), 'utf8');
 const cands = liveView.slice(liveView.indexOf('function _substituteCandidates'),
   liveView.indexOf('async function submitTeamSubstitute'));
 // 2026-08-14 계약 갱신: 빠지는 사람과 급수가 가까운 순이 아니라, **넣은 뒤 경기가
 // 가장 안 기우는 순**입니다("아무나 투입하면 상대에겐 불공정한 게임이 되잖아").
 // 교체는 팀 패널티다 — 사람이 빠진 팀이 교체로 **더 세지면** 상대가 불합리하다
 // (운영자 2026-08-14). 그래서 강해지는 후보는 균형이 좋아도 뒤로 민다.
-assert(/Number\(a\.swing>0\)-Number\(b\.swing>0\)/.test(cands),
-  '교체로 강해지는 후보는 뒤로 밀려야 합니다.');
-assert(/a\.balanceGap-b\.balanceGap/.test(cands),
-  '그 다음은 경기가 덜 기우는 순이어야 합니다.');
+assert(/Math\.abs\(a\.balance\)-Math\.abs\(b\.balance\)/.test(cands),
+  '후보는 기울기가 0 에 가까운 순이어야 합니다.');
+assert(/Number\(a\.balance>0\)-Number\(b\.balance>0\)/.test(cands),
+  '같은 크기면 교체로 강해지는 쪽이 뒤여야 합니다.');
 const engineSrc = fs.readFileSync(path.join(root, 'functions', 'team-official-engine.js'), 'utf8');
-assert(/Number\(a\.swing > 0\) - Number\(b\.swing > 0\)/.test(engineSrc)
-  && /a\.balanceGap - b\.balanceGap/.test(engineSrc),
+assert(/Math\.abs\(a\.balance\) - Math\.abs\(b\.balance\)/.test(engineSrc)
+  && /Number\(a\.balance > 0\) - Number\(b\.balance > 0\)/.test(engineSrc),
   '서버 엔진도 같은 기준으로 정렬해야 합니다.');
-assert(/function balanceGapAfter/.test(engineSrc) && /function _balanceGapAfter/.test(liveView),
-  '균형 계산이 서버·화면 양쪽에 있어야 합니다.');
+assert(/function balanceAfter/.test(engineSrc) && /function _balanceAfter/.test(liveView),
+  '부호 있는 기울기 계산이 서버·화면 양쪽에 있어야 합니다.');
+// 색은 부호를 따릅니다 — + 빨강 / − 파랑(운영자 2026-08-14).
+assert(/\.team-sub-cand\.over small\{color:#c0392b/.test(liveCssForBalance)
+  && /\.team-sub-cand\.under small\{color:#1d4ed8/.test(liveCssForBalance),
+  '+ 는 빨강, − 는 파랑이어야 합니다.');
 assert(/a\.games-b\.games/.test(cands), '그 다음은 덜 뛴 순이어야 합니다.');
 assert(/_bookedInRound\(d,p\.name,match\.round,match\.num\)/.test(cands),
   '같은 라운드에 이미 잡힌 사람은 후보에서 빼야 합니다.');

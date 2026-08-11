@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.575';
+const APP_VERSION='1.10.576';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1327,7 +1327,7 @@ function openTeamSubstitutePanel(matchNum,outName){
         ${cands.length?`<div class="team-sub-cands">${cands.map(c=>{
           const mark=_balanceMark(c);
           return `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''} ${mark.cls}"
-            onclick="submitTeamSubstitute(${Number(match.num)},'${esc(name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balanceGap:${Number(c.balanceGap)||0},swing:${Number(c.swing)||0}})">
+            onclick="submitTeamSubstitute(${Number(match.num)},'${esc(name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balance:${Number(c.balance)||0}})">
             ${esc(c.name)}<small>${esc(mark.text)}${c.crossTeam?' · 상대 팀':''}</small></button>`;}).join('')}</div>`
           :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 지각이 아닌 대기 선수가 있어야 합니다.</div>'}
       </div>
@@ -1607,13 +1607,19 @@ function _sideOfPlayer(match,name){
   if((match&&match.t2||[]).some(n=>_attKey(n)===key))return 't2';
   return '';
 }
-function _balanceGapAfter(d,match,outName,inLevel){
+/* **부호가 있는** 기울기: 교체하는 쪽 급수 합 − 상대 급수 합.
+   양수면 교체한 팀이 세고(상대에게 불합리), 음수면 그 팀이 약합니다.
+   서버 엔진 `balanceAfter` 와 같은 계산입니다. */
+function _balanceAfter(d,match,outName,inLevel){
   const side=_sideOfPlayer(match,outName);
   if(!side)return 0;
   const other=side==='t1'?'t2':'t1';
   const sum=(list,swapName,swapLevel)=>(list||[]).reduce((s,n)=>
     s+(swapName&&_attKey(n)===_attKey(swapName)?Number(swapLevel)||4:_levelOfName(d,n)),0);
-  return Math.abs(sum(match[side],outName,inLevel)-sum(match[other],'',0));
+  return sum(match[side],outName,inLevel)-sum(match[other],'',0);
+}
+function _balanceGapAfter(d,match,outName,inLevel){
+  return Math.abs(_balanceAfter(d,match,outName,inLevel));
 }
 function _substituteCandidates(d,match,outName){
   const inMatch=new Set([...(match.t1||[]),...(match.t2||[])].map(_attKey));
@@ -1633,6 +1639,7 @@ function _substituteCandidates(d,match,outName){
       const team=_teamOfName(d,p.name);
       return {...p,team,crossTeam:!!outTeam&&!!team&&team!==outTeam,
         levelGap:Math.abs(p.level-outLevel),
+        balance:_balanceAfter(d,match,outName,p.level),
         balanceGap:_balanceGapAfter(d,match,outName,p.level),
         // 빠지는 사람보다 세면 그 팀이 교체로 이득을 봅니다(양수 = 강해짐).
         swing:p.level-outLevel,
@@ -1640,26 +1647,26 @@ function _substituteCandidates(d,match,outName){
         late:_lateOn(p.name)};
     })
     .filter(c=>!c.late)
-    // 같은 팀 → **교체로 더 세지지 않을 것** → 경기가 덜 기우는 순 → 덜 뛴 순
+    // 같은 팀 → 0 에 가까운 순 → 같은 크기면 **덜 유리한 쪽**(음수) 먼저 → 덜 뛴 순
     // (서버 엔진과 같은 기준)
     .sort((a,b)=>Number(a.crossTeam)-Number(b.crossTeam)
-      ||Number(a.swing>0)-Number(b.swing>0)
-      ||a.balanceGap-b.balanceGap
+      ||Math.abs(a.balance)-Math.abs(b.balance)
+      ||Number(a.balance>0)-Number(b.balance>0)
       ||a.games-b.games||String(a.name).localeCompare(String(b.name),'ko'))
     .slice(0,8);
 }
-/* 급수 차이를 사람 말로 (운영자 2026-08-14 "급수 차가 1 이상 나면 승부가 기울어").
-   1 도 그냥 넘기지 않고 눈에 보이게 적습니다. 그리고 **교체로 그 팀이 세지는
-   경우**가 가장 나쁩니다 — "교체는 팀 패널티인데 패널티를 받는 팀이 교체로 더
-   유리해지는 것은 불합리". 막지는 않고, 표시하고 한 번 물어봅니다. */
-const TEAM_BALANCE_WARN_GAP=2;   // 이 이상 벌어지면 확인창
+/* 기울기를 **부호**로 보여 줍니다 (운영자 2026-08-14 "기울이라고 되어 있는데
+   헷갈려. +, - 로 표기하고 컬러는 +는 레드, -는 블루").
+     +N (빨강) = 교체한 팀이 N 만큼 **세짐** → 사람이 빠진 팀이 이득을 보는 꼴이라
+                 상대에게 불합리하다
+     −N (파랑) = 교체한 팀이 N 만큼 **약해짐** → 감수하는 쪽이니 경고까지는 아니다
+   막지는 않고, 표시하고 한 번 물어봅니다. */
+const TEAM_BALANCE_WARN_GAP=2;   // 이만큼 벌어지면 확인창
 function _balanceMark(c){
-  const gap=Number(c&&c.balanceGap)||0;
-  const swing=Number(c&&c.swing)||0;
-  if(swing>0)return {text:'+'+swing+' 강해짐',cls:'tilt'};
-  if(gap===0)return {text:'균형',cls:''};
-  if(gap<TEAM_BALANCE_WARN_GAP)return {text:'±'+gap,cls:'lean'};
-  return {text:'±'+gap+' 기욺',cls:'tilt'};
+  const b=Number(c&&c.balance)||0;
+  if(b===0)return {text:'균형',cls:''};
+  if(b>0)return {text:'+'+b,cls:'over'};
+  return {text:'−'+Math.abs(b),cls:'under'};
 }
 // 서명된 운영 권한 — 본인 이름을 고르면 서버가 내주고, 조작마다 함께 보냅니다.
 // 이름만 실어 보내던 이전 단계의 위조 여지를 없앱니다(민턴LIVE 와 같은 구조).
@@ -1719,21 +1726,20 @@ async function submitTeamSubstitute(matchNum,outName,inName,opts){
   const crossTeam=!!(opts&&opts.crossTeam);
   if(crossTeam&&!confirm(inName+' 선수는 상대 팀입니다.\n그래도 이 경기에 넣을까요?\n\n팀 전력이 달라집니다.'))return;
   // 급수가 기울면 한 번 물어봅니다. 막지는 않습니다 — 판단은 임원 몫입니다.
-  const gap=Number(opts&&opts.balanceGap)||0;
-  const swing=Number(opts&&opts.swing)||0;
+  const balance=Number(opts&&opts.balance)||0;
   const side=_sideOfPlayer(match,outName);
   const swapped=(match[side]||[]).map(n=>_attKey(n)===_attKey(outName)?inName:n);
   const sum=list=>list.reduce((s,n)=>s+_levelOfName(d,n),0);
   const mine=sum(swapped), theirs=sum(match[side==='t1'?'t2':'t1']||[]);
-  if(swing>0){
+  if(balance>0){
     // 가장 나쁜 경우 — 사람이 빠진 팀이 교체로 오히려 세집니다.
-    if(!confirm(inName+' 선수는 '+outName+' 선수보다 급수가 '+swing+' 높습니다.'
-      +'\n교체한 팀이 오히려 강해집니다 ('+mine+' vs '+theirs+').'
+    if(!confirm(inName+' 선수를 넣으면 이 팀이 +'+balance+' 로 더 셉니다.'
+      +'\n(우리 '+mine+' vs 상대 '+theirs+')'
       +'\n\n교체는 원래 그 팀이 감수하는 것이라, 이러면 상대가 불합리합니다.'
       +'\n그래도 넣을까요?'))return;
-  }else if(gap>=TEAM_BALANCE_WARN_GAP){
-    if(!confirm(inName+' 선수를 넣으면 급수 합이 '+gap+' 차이납니다.'
-      +'\n('+mine+' vs '+theirs+')\n\n승부가 기울 수 있어요.\n그래도 넣을까요?'))return;
+  }else if(Math.abs(balance)>=TEAM_BALANCE_WARN_GAP){
+    if(!confirm(inName+' 선수를 넣으면 이 팀이 −'+Math.abs(balance)+' 로 약해집니다.'
+      +'\n(우리 '+mine+' vs 상대 '+theirs+')\n\n승부가 기울 수 있어요.\n그래도 넣을까요?'))return;
   }
   if(match.startAt&&!confirm('이미 시작한 경기입니다.\n그래도 선수를 바꿀까요?'))return;
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');

@@ -2235,9 +2235,12 @@ button.team-official-overview-conflict.quiet{
 .team-sub-cand small{margin-top:1px;color:#5c6a7a;font-size:11px;font-weight:800;}
 .team-sub-cand.cross{border-color:#f0c9a8;background:#fffaf3;}
 .team-sub-cand.cross small{color:#9a6a12;}
-/* 급수가 기우는 후보는 눈에 띄게 — 누를 수는 있고, 확인창이 한 번 더 뜬다.
-   `lean` = 한 끗 차이(±1), `tilt` = 크게 기울거나 **교체로 그 팀이 세지는 경우**. */
-.team-sub-cand.lean small{color:#8a5808;}
-.team-sub-cand.tilt{border-color:#f1c9c7;background:#fff5f4;}
-.team-sub-cand.tilt small{color:#a52a22;}
+/* 기울기는 부호와 색으로 (운영자 2026-08-14 "+는 레드, -는 블루").
+   `over` = 교체한 팀이 세짐(+, 상대에게 불합리) · `under` = 약해짐(−, 감수하는 쪽).
+   **글자색은 부호, 카드색은 팀** — 두 신호가 서로를 덮지 않게 나눠 둔다.
+   상대 팀 카드(주황)는 배경을 그대로 두고 숫자만 부호 색으로 쓴다. */
+.team-sub-cand.over:not(.cross){border-color:#f1c9c7;background:#fff5f4;}
+.team-sub-cand.under:not(.cross){border-color:#c7d9fb;background:#f5f9ff;}
+.team-sub-cand.over small{color:#c0392b;}
+.team-sub-cand.under small{color:#1d4ed8;}
 .team-sub-empty{margin-top:8px;color:#5c6a7a;font-size:13px;font-weight:800;}

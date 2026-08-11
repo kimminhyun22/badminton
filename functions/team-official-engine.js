@@ -175,13 +175,19 @@ function sideLevelSum(session, list, replaceName, replaceLevel){
     return sum + memberLevel(memberByName(session, n));
   }, 0);
 }
-function balanceGapAfter(session, match, outName, inLevel){
+/* **부호가 있는** 기울기: 교체하는 쪽 급수 합 − 상대 급수 합.
+   양수면 교체한 팀이 세고(상대에게 불합리), 음수면 그 팀이 약합니다.
+   운영자 2026-08-14: "+, - 로 표기하고 컬러는 +는 레드, -는 블루" */
+function balanceAfter(session, match, outName, inLevel){
   const side = sideOfPlayer(match, outName);
   if(!side)return 0;
   const other = side === 't1' ? 't2' : 't1';
   const mine = sideLevelSum(session, match[side], outName, inLevel);
   const theirs = sideLevelSum(session, match[other], '', 0);
-  return Math.abs(mine - theirs);
+  return mine - theirs;
+}
+function balanceGapAfter(session, match, outName, inLevel){
+  return Math.abs(balanceAfter(session, match, outName, inLevel));
 }
 
 /**
@@ -220,7 +226,8 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
         crossTeam: !!outTeam && !!team && team !== outTeam,
         level: memberLevel(m),
         levelGap: Math.abs(memberLevel(m) - outLevel),
-        // 넣고 난 뒤 두 팀 급수 합의 차이. 작을수록 공정한 경기가 됩니다.
+        // 넣고 난 뒤의 기울기. 0 이 가장 공정하고, 양수면 교체한 팀이 셉니다.
+        balance: balanceAfter(session, match, outName, memberLevel(m)),
         balanceGap: balanceGapAfter(session, match, outName, memberLevel(m)),
         // 빠지는 사람보다 세면 그 팀이 교체로 이득을 봅니다(양수 = 강해짐).
         swing: memberLevel(m) - outLevel,
@@ -229,8 +236,10 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
     })
     .sort((a, b) =>
       Number(a.crossTeam) - Number(b.crossTeam) ||
-      Number(a.swing > 0) - Number(b.swing > 0) ||
-      a.balanceGap - b.balanceGap ||
+      // 0 에 가까운 순. 같은 크기면 **덜 유리한 쪽**(음수)을 먼저 — 사람이 빠진 팀이
+      // 교체로 이득을 보면 상대가 불합리합니다(운영자 2026-08-14).
+      Math.abs(a.balance) - Math.abs(b.balance) ||
+      Number(a.balance > 0) - Number(b.balance > 0) ||
       a.games - b.games ||
       a.name.localeCompare(b.name, 'ko'))
     .slice(0, limit);
@@ -280,7 +289,8 @@ function applySubstitute(session, request, now, operation){
   const inDisplayName = memberName(inMember);
   // 넣고 난 뒤 두 팀 급수 합이 얼마나 벌어지는지 — 되짚을 수 있게 남깁니다.
   // 막지는 않습니다. 임원 자유가 먼저고, 시스템은 재서 알려 줄 뿐입니다.
-  const balanceGap = balanceGapAfter(session, match, outName, memberLevel(inMember));
+  const balance = balanceAfter(session, match, outName, memberLevel(inMember));
+  const balanceGap = Math.abs(balance);
   const swing = memberLevel(inMember) - memberLevel(memberByName(session, outName));
   const gradeKey = side === 't1' ? 't1g' : 't2g';
   match[side] = [...(match[side] || [])];
@@ -298,6 +308,7 @@ function applySubstitute(session, request, now, operation){
     out: outName,
     in: inDisplayName,
     crossTeam,
+    balance,
     balanceGap,
     swing,
     by: text(request.actorPlayerName || ''),
@@ -312,6 +323,7 @@ function applySubstitute(session, request, now, operation){
         out: outName,
         in: inDisplayName,
         crossTeam,
+        balance,
         balanceGap,
         swing
       }
@@ -447,6 +459,7 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
 module.exports = {
   SUPPORTED_TYPES,
   bracketKey,
+  balanceAfter,
   balanceGapAfter,
   applyTeamOfficialRequest,
   suggestSubstitutes,
