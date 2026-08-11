@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.574';
+const APP_VERSION='1.10.575';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1574,13 +1574,15 @@ function _teamOfName(d,name){
 function _matchByNum(d,num){
   return ((d&&d.matches)||[]).find(m=>Number(m&&m.num)===Number(num))||null;
 }
-// 같은 라운드에 이미 잡혀 있으면 후보에서 뺍니다(이중 출전 방지).
+/* 같은 라운드에 이미 이름이 올라간 사람은 후보에서 뺍니다(이중 출전 방지).
+   **끝난 경기도 셉니다** — 방금 1코트에서 뛰고 나온 사람을 2코트에 넣으면
+   그 라운드에 두 경기를 뛰게 됩니다(운영자 2026-08-14 확인). 서버 엔진의
+   `conflictingMatch` 와 같은 규칙입니다. */
 function _bookedInRound(d,name,round,exceptNum){
   const key=_attKey(name);
   return ((d&&d.matches)||[]).some(m=>{
     if(Number(m.num)===Number(exceptNum))return false;
     if(Number(m.round)!==Number(round))return false;
-    if(m.win)return false;
     return [...(m.t1||[]),...(m.t2||[])].some(n=>_attKey(n)===key);
   });
 }

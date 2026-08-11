@@ -18,6 +18,7 @@ const assert = require('assert');
 const {
   applyTeamOfficialRequest,
   suggestSubstitutes,
+  conflictingMatch,
   teamOf
 } = require('../functions/team-official-engine');
 
@@ -160,6 +161,31 @@ function send(session, request, opts){
       '다른 팀 후보는 같은 팀 후보 뒤에 와야 합니다.');
   }
   console.log(`  AI 후보: ${list.slice(0,4).map(c=>`${c.name}${c.crossTeam?'(상대팀)':''}`).join(' · ')}`);
+}
+
+// 8) 같은 라운드 이중 출전 — **끝난 경기도 셉니다** (운영자 2026-08-14
+//    "교체 인원은 해당 라운드에 뛰는 선수는 아니겠지?" · "다음 대진선수 교체도 마찬가지").
+//    예전에는 결과가 입력된 경기를 건너뛰어, 방금 뛰고 나온 사람이 후보로 떴습니다.
+{
+  const s = makeSession();
+  s.matches[1].win = 't1';           // 2번(1라운드 2코트) 종료 — 청세모·청네모가 뛰었음
+  assert(conflictingMatch(s, '청세모', 1, 1),
+    '같은 라운드에서 이미 뛴 사람은 충돌로 잡혀야 합니다.');
+  const names = suggestSubstitutes(s, 1, '청두리').map(c => c.name);
+  assert(!names.includes('청세모'),
+    `끝난 경기라도 같은 라운드면 후보가 아닙니다: ${names.join(', ')}`);
+
+  const blocked = send(s, {type:'team-official-substitute', matchNum:1,
+    outName:'청두리', inName:'청세모'});
+  assert.strictEqual(blocked.status, 'rejected', '서버도 막아야 합니다.');
+  assert(/같은 라운드/.test(blocked.reason), `이유가 분명해야 합니다: ${blocked.reason}`);
+
+  // 다른 라운드(2라운드) 경기에는 넣을 수 있어야 합니다 — 그 라운드에는 안 뛰니까.
+  const ok = send(s, {type:'team-official-substitute', matchNum:3,
+    outName:'청다섯', inName:'청세모'});
+  assert.strictEqual(ok.status, 'applied',
+    `다른 라운드에는 넣을 수 있어야 합니다: ${ok.reason}`);
+  console.log('  같은 라운드 이중 출전: 진행 중·종료 모두 차단 · 다른 라운드는 허용');
 }
 
 console.log('\nteam official substitute regression ok');

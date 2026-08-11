@@ -92,13 +92,19 @@ function teamOf(session, name){
   const team = text(row?.team);
   return team === 'blue' || team === 'red' ? team : '';
 }
-// 그 사람이 지금 뛰고 있거나 같은 라운드에 이미 잡혀 있으면 또 넣을 수 없습니다.
+/**
+ * 그 라운드에 이미 이름이 올라간 사람은 대체로 넣을 수 없습니다.
+ *
+ * **끝난 경기도 셉니다** (운영자 2026-08-14 "교체 인원은 해당 라운드에 뛰는
+ * 선수는 아니겠지?"). 예전에는 같은 라운드라도 이미 결과가 입력된 경기는 건너뛰어서,
+ * **1코트에서 방금 뛰고 나온 사람이 2코트 교체 후보로 떴습니다.** 한 라운드에 두
+ * 경기를 뛰게 되고, 그만큼 남의 경기 수를 가져갑니다.
+ */
 function conflictingMatch(session, name, round, exceptNum){
   const key = nameKey(name);
   return matchList(session).find(m => {
     if(number(m?.num, -1) === number(exceptNum, -2))return false;
     if(number(m?.round, -1) !== number(round, -1))return false;
-    if(isDecided(m))return false;
     return matchPlayers(m).some(p => nameKey(p) === key);
   }) || null;
 }

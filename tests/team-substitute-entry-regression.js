@@ -190,4 +190,49 @@ api.setLate({
   console.log('  급수 밸런스: 균형 우선 · 강해지는 후보는 뒤로 · ±1 도 표시');
 }
 
+// 9) 같은 라운드에 이미 뛰는(또는 뛴) 사람은 후보가 아닙니다
+//    (운영자 2026-08-14 "교체 인원은 해당 라운드에 뛰는 선수는 아니겠지?").
+//    **끝난 경기도 셉니다** — 방금 1코트에서 뛰고 나온 사람을 2코트에 넣으면
+//    그 라운드에 두 경기를 뛰고, 그만큼 남의 경기를 가져갑니다.
+{
+  const round = {
+    currentRound: 1,
+    members: {
+      blue: [{id:'b1',n:'청A',l:4},{id:'b2',n:'지각',l:4},{id:'b3',n:'진행중',l:4},
+             {id:'b4',n:'방금끝남',l:4},{id:'b5',n:'쉬는중',l:4},{id:'b6',n:'다음라운드',l:4}],
+      red: [{id:'r1',n:'홍A',l:4},{id:'r2',n:'홍B',l:4},{id:'r3',n:'홍C',l:4},{id:'r4',n:'홍D',l:4}],
+      all: []
+    },
+    matches: [
+      M(1, 1, 1, ['청A', '지각'], ['홍A', '홍B']),
+      M(2, 1, 2, ['진행중', '홍C'], ['홍D', '청A']),
+      M(3, 1, 3, ['방금끝남', '홍A'], ['홍B', '홍C'], 't1'),   // 같은 라운드 · 이미 끝남
+      M(4, 2, 1, ['다음라운드', '쉬는중'], ['홍A', '홍B'])      // 다음 라운드
+    ]
+  };
+  api.setLate({[attKey('지각')]: {name: '지각'}});
+  const names = api._substituteCandidates(round, round.matches[0], '지각').map(c => c.name);
+  assert(!names.includes('진행중'), '지금 다른 코트에서 뛰는 사람은 후보가 아닙니다.');
+  assert(!names.includes('방금끝남'),
+    `같은 라운드에서 이미 뛴 사람도 후보가 아닙니다: ${names.join(', ')}`);
+  assert(names.includes('쉬는중'), '그 라운드에 안 뛰는 사람은 후보여야 합니다.');
+  assert(names.includes('다음라운드'), '다음 라운드에만 있는 사람은 지금 라운드에 넣을 수 있습니다.');
+
+  // **다음 대진을 미리 교체할 때도 같은 규칙** (운영자 2026-08-14 "다음 대진선수
+  // 교체도 마찬가지"). 이때 기준은 **그 경기가 속한 라운드**여야 합니다.
+  api.setLate({[attKey('다음라운드')]: {name: '다음라운드'}});
+  const nextNames = api._substituteCandidates(round, round.matches[3], '다음라운드').map(c => c.name);
+  assert(!nextNames.includes('쉬는중'),
+    `2라운드 경기에 그 라운드에서 이미 뛰는 사람을 넣으면 안 됩니다: ${nextNames.join(', ')}`);
+  assert(nextNames.includes('진행중'),
+    '1라운드에서 뛰는 사람은 2라운드 경기에는 넣을 수 있어야 합니다.');
+  assert(nextNames.includes('방금끝남'), '1라운드에서 끝난 사람도 2라운드에는 넣을 수 있습니다.');
+
+  api.setLate({
+    [attKey('지각이')]: {name: '지각이'},
+    [attKey('불참이')]: {name: '불참이', status: 'absent'}
+  });
+  console.log(`  같은 라운드 이중 출전: 진행 중·이미 끝남 모두 제외 (후보 ${names.join(', ')})`);
+}
+
 console.log('\nteam substitute entry regression ok');
