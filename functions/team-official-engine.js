@@ -140,7 +140,10 @@ function isOfficial(session, playerName){
     ...(officials.leaders || [])
   ];
   if(rows.some(row => nameKey(row?.name) === key))return true;
-  return memberList(session).some(m => m && (m.isLeader || m.isSub)
+  // 화면이 버튼을 띄우는 근거(팀원 줄의 표시)와 **같은 것**을 봅니다.
+  // 여기가 어긋나면 "버튼은 보이는데 누르면 거절"이 됩니다.
+  return memberList(session).some(m => m
+    && (m.isLeader || m.isSub || m.isClubOfficial || m.isTemporaryOperator)
     && nameKey(m.name || m.n) === key);
 }
 
@@ -179,8 +182,10 @@ function balanceGapAfter(session, match, outName, inLevel){
  * AI 보조 — 대체 후보를 골라 줍니다(운영자: "ai는 운영의 중심에서 안정적 지원
  * 및 보조 역할"). 결정은 임원이 합니다. 순서:
  *   1) 같은 팀 먼저 (팀 승부의 공정성)
- *   2) **넣고 난 뒤 두 팀 급수 합이 가장 덜 벌어지는 사람**
- *   3) 덜 뛴 사람
+ *   2) **교체로 그 팀이 더 세지지 않을 것** — 운영자 2026-08-14:
+ *      "교체는 팀 패널티인데 패널티를 받는 팀이 교체로 더 유리해지는 것은 불합리"
+ *   3) 넣고 난 뒤 두 팀 급수 합이 가장 덜 벌어지는 사람 (차이 1도 승부를 기울인다)
+ *   4) 덜 뛴 사람
  * 같은 라운드에 이미 잡힌 사람은 후보에서 뺍니다.
  */
 function suggestSubstitutes(session, matchNum, outName, options = {}){
@@ -211,11 +216,14 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
         levelGap: Math.abs(memberLevel(m) - outLevel),
         // 넣고 난 뒤 두 팀 급수 합의 차이. 작을수록 공정한 경기가 됩니다.
         balanceGap: balanceGapAfter(session, match, outName, memberLevel(m)),
+        // 빠지는 사람보다 세면 그 팀이 교체로 이득을 봅니다(양수 = 강해짐).
+        swing: memberLevel(m) - outLevel,
         games: played.get(nameKey(name)) || 0
       };
     })
     .sort((a, b) =>
       Number(a.crossTeam) - Number(b.crossTeam) ||
+      Number(a.swing > 0) - Number(b.swing > 0) ||
       a.balanceGap - b.balanceGap ||
       a.games - b.games ||
       a.name.localeCompare(b.name, 'ko'))
@@ -267,6 +275,7 @@ function applySubstitute(session, request, now, operation){
   // 넣고 난 뒤 두 팀 급수 합이 얼마나 벌어지는지 — 되짚을 수 있게 남깁니다.
   // 막지는 않습니다. 임원 자유가 먼저고, 시스템은 재서 알려 줄 뿐입니다.
   const balanceGap = balanceGapAfter(session, match, outName, memberLevel(inMember));
+  const swing = memberLevel(inMember) - memberLevel(memberByName(session, outName));
   const gradeKey = side === 't1' ? 't1g' : 't2g';
   match[side] = [...(match[side] || [])];
   match[side][index] = inDisplayName;
@@ -284,6 +293,7 @@ function applySubstitute(session, request, now, operation){
     in: inDisplayName,
     crossTeam,
     balanceGap,
+    swing,
     by: text(request.actorPlayerName || ''),
     reason: text(request.reason || '')
   });
@@ -296,7 +306,8 @@ function applySubstitute(session, request, now, operation){
         out: outName,
         in: inDisplayName,
         crossTeam,
-        balanceGap
+        balanceGap,
+        swing
       }
     };
   }

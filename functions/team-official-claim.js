@@ -28,22 +28,24 @@ function abort(failureCode, failureMessage){
 /**
  * 운영할 수 있는 사람 = 클럽 임원 · 운영 도우미 · **단장/부단장**.
  *
- * 단장·부단장은 `officials.leaders` 로도 실리지만, 그 필드가 없던 시절에 시작한
- * 팀전도 있습니다. 그때는 팀원 명단의 `isLeader`/`isSub` 표시가 유일한 근거라
- * 여기서 함께 봅니다 — 안 그러면 **정작 팀전을 이끄는 사람이 자기 폰에서
- * 아무것도 못 합니다.**
+ * **판정 근거를 화면과 똑같이 맞춥니다.** 화면(`_canSubstitute`)은 팀원 한 줄에
+ * 실린 `isClubOfficial/isLeader/isSub/isTemporaryOperator` 표시를 보고 버튼을
+ * 띄우는데, 서버가 `officials.*` 목록만 보면 **버튼은 보이는데 누르면 거절**되는
+ * 최악의 조합이 나옵니다(2026-08-14 실전: "임원 운영 연결을 확인하지 못했습니다").
+ * 두 목록은 만들어지는 출처가 달라(`currentParticipants` vs `teamAssignment`)
+ * 언제든 어긋날 수 있으므로, 여기서는 **둘 다** 받습니다.
  */
 function officialRows(session){
   const officials = session?.officials || {};
   const members = session?.members || {};
-  const captains = [...(members.blue || []), ...(members.red || []), ...(members.all || [])]
-    .filter(m => m && (m.isLeader || m.isSub))
+  const flagged = [...(members.blue || []), ...(members.red || []), ...(members.all || [])]
+    .filter(m => m && (m.isLeader || m.isSub || m.isClubOfficial || m.isTemporaryOperator))
     .map(m => ({name:m.name || m.n || '', memberId:m.memberId || m.id || ''}));
   return [
     ...(officials.clubOfficials || []),
     ...(officials.temporaryOperators || []),
     ...(officials.leaders || []),
-    ...captains
+    ...flagged
   ].filter(row => row && text(row.name));
 }
 

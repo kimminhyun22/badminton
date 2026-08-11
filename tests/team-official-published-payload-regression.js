@@ -182,4 +182,52 @@ const published = JSON.parse(JSON.stringify(sandbox.api.build()));
   console.log('  승패 입력·정정: 팀 점수 재계산');
 }
 
+// 7) **버튼은 보이는데 누르면 거절**되면 안 됩니다 (실전 2026-08-14:
+//    "교체 시도하니 임원 운영 연결을 확인하지 못했다는 팝업이 떠").
+//
+//    화면은 팀원 한 줄의 `isClubOfficial/isLeader/isSub` 표시를 보고 버튼을 띄우고,
+//    서버는 `officials.*` 목록을 봤습니다. 두 목록은 만들어지는 출처가 달라
+//    (`currentParticipants` vs `teamAssignment`) 언제든 어긋날 수 있습니다.
+//    어긋난 게시본으로도 연결과 조작이 되어야 합니다.
+{
+  const drifted = JSON.parse(JSON.stringify(published));
+  drifted.officials = {clubOfficials: [], temporaryOperators: [], leaders: []};   // 목록이 비었지만
+  drifted.members.blue[2].isClubOfficial = true;                                  // 팀원 줄에는 표시가 남음
+  const who = drifted.members.blue[2].n;
+
+  assert.strictEqual(isOfficial(drifted, who), true,
+    `${who} 는 팀원 줄에 임원 표시가 있으므로 서버도 임원으로 봐야 합니다.`);
+  const claim = applyTeamOfficialClaim(drifted, {clientId: 'c-drift', requestedName: who,
+    now: Date.now(), maxGrantMs: 3600_000, claimNonce: 'n'});
+  assert.strictEqual(claim.action, 'commit',
+    `연결이 돼야 합니다(안 되면 현장에서 팝업만 뜹니다): ${claim.failureMessage || ''}`);
+
+  const out = applyTeamOfficialRequest(drifted, {
+    type: 'team-official-substitute', actorPlayerName: who,
+    matchNum: 1, outName: '청부단', inName: '청벤치'
+  }, {now: Date.now()});
+  assert.strictEqual(out.status, 'applied', `조작도 돼야 합니다: ${out.reason}`);
+
+  // 그래도 아무나 되면 안 됩니다.
+  const stranger = applyTeamOfficialClaim(drifted, {clientId: 'c-x', requestedName: '청벤치',
+    now: Date.now(), maxGrantMs: 3600_000, claimNonce: 'n'});
+  assert.strictEqual(stranger.action, 'abort', '표시가 없는 팀원은 여전히 거절돼야 합니다.');
+  console.log('  목록이 어긋난 게시본: 연결·조작 성공 · 일반 팀원은 거절');
+}
+
+// 8) 교체 패널티 — 사람이 빠진 팀이 교체로 더 세지면 상대가 불합리합니다.
+{
+  const out = applyTeamOfficialRequest(published, {
+    type: 'team-official-substitute', actorPlayerName: '청단장',
+    matchNum: 1, outName: '청부단', inName: '청벤치'
+  }, {now: Date.now()});
+  assert.strictEqual(out.status, 'applied');
+  const last = out.session.substitutions.at(-1);
+  assert.strictEqual(typeof last.balanceGap, 'number', '경기가 얼마나 기울었는지 남아야 합니다.');
+  assert.strictEqual(typeof last.swing, 'number', '그 팀이 세졌는지 약해졌는지 남아야 합니다.');
+  // 청부단(4) → 청벤치(5) 이므로 +1 강해짐
+  assert.strictEqual(last.swing, 1, `빠진 사람보다 급수가 높으면 양수여야 합니다: ${last.swing}`);
+  console.log(`  교체 기록: 균형 ${last.balanceGap} · 전력 변화 ${last.swing > 0 ? '+' : ''}${last.swing}`);
+}
+
 console.log('\nteam official published payload regression ok');

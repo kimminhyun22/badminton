@@ -39,7 +39,7 @@ ${cut('function _normalizeMembers', 'function _viewerInfo')}
 ${cut('function _teamOfName', 'async function submitTeamSubstitute')}
 ${cut('function _substituteHintHtml', 'function openTeamSubstitutePanel')}
 this.api={_replaceableInMatch,_playerLine,_pendingSubstitutions,_substituteHintHtml,_lateOn,_swappableRounds,
-  _substituteCandidates,_balanceLabel,_balanceGapAfter,
+  _substituteCandidates,_balanceMark,_balanceGapAfter,
   setLate(map){ window._liveLate = map; }, setOperate(v){ canOperate = v; }};
 `, sandbox);
 const api = sandbox.api;
@@ -142,8 +142,9 @@ api.setLate({
   console.log('  출결: 지각 하나 (켜기/끄기)');
 }
 
-// 8) 급수 밸런스 — 넣고 난 뒤 경기가 덜 기우는 사람이 먼저 와야 합니다
-//    (운영자 2026-08-14 "아무나 투입하면 상대에겐 불공정한 게임이 되잖아").
+// 8) 급수 밸런스와 **교체 패널티** (운영자 2026-08-14).
+//    "급수 차가 1 이상 나면 승부가 기울어"
+//    "교체는 팀 패널티인데 패널티를 받는 팀이 교체로 더 유리해지는 것은 불합리"
 {
   const bal = {
     currentRound: 1,
@@ -162,18 +163,31 @@ api.setLate({
   assert.strictEqual(byName['청넷'].balanceGap, 0, '6+4=10 이면 딱 맞습니다.');
   assert.strictEqual(byName['청둘'].balanceGap, 2, '6+2=8 이면 2 차이입니다.');
   assert.strictEqual(byName['청일곱'].balanceGap, 3, '6+7=13 이면 3 차이입니다.');
+  assert.strictEqual(byName['청일곱'].swing, 3, '빠지는 4보다 3 높습니다.');
+  assert.strictEqual(byName['청둘'].swing, -2, '빠지는 4보다 2 낮습니다.');
   assert.strictEqual(cands[0].name, '청넷',
     `가장 안 기우는 사람이 먼저여야 합니다: ${cands.map(c => c.name + '(' + c.balanceGap + ')')}`);
+  // 교체로 팀이 세지는 사람(청일곱)은 **같은 팀이어도 뒤로** 밀려야 합니다.
+  assert(cands.indexOf(byName['청일곱']) > cands.indexOf(byName['청둘']),
+    `교체로 강해지는 후보는 약해지는 후보보다 뒤여야 합니다: ${cands.map(c => c.name)}`);
   const cross = cands.find(c => c.crossTeam);
-  assert(cands.indexOf(cross) > cands.indexOf(byName['청일곱']),
+  assert(cands.indexOf(cross) > cands.indexOf(byName['청넷']),
     '상대 팀은 균형이 좋아도 같은 팀 뒤에 옵니다.');
-  assert.strictEqual(api._balanceLabel(0), '균형');
-  assert.strictEqual(api._balanceLabel(3), '±3 기욺', '크게 기울면 눈에 띄게 적어야 합니다.');
+
+  assert.strictEqual(api._balanceMark({balanceGap:0,swing:0}).text, '균형');
+  assert.strictEqual(api._balanceMark({balanceGap:1,swing:-1}).text, '±1',
+    '차이 1 도 적어야 합니다 — 승부가 기웁니다.');
+  assert.strictEqual(api._balanceMark({balanceGap:1,swing:-1}).cls, 'lean');
+  assert.strictEqual(api._balanceMark({balanceGap:3,swing:-3}).text, '±3 기욺');
+  const up = api._balanceMark({balanceGap:0,swing:2});
+  assert.strictEqual(up.text, '+2 강해짐', '교체로 세지는 건 균형이어도 짚어야 합니다.');
+  assert.strictEqual(up.cls, 'tilt', '가장 불합리한 경우라 붉게 표시합니다.');
+
   api.setLate({
     [attKey('지각이')]: {name: '지각이'},
     [attKey('불참이')]: {name: '불참이', status: 'absent'}
   });
-  console.log('  급수 밸런스: 균형 0 우선 · 기욺 표시 · 상대 팀은 뒤로');
+  console.log('  급수 밸런스: 균형 우선 · 강해지는 후보는 뒤로 · ±1 도 표시');
 }
 
 console.log('\nteam substitute entry regression ok');

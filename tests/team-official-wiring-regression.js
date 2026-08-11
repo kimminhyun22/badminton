@@ -96,10 +96,15 @@ const cands = liveView.slice(liveView.indexOf('function _substituteCandidates'),
   liveView.indexOf('async function submitTeamSubstitute'));
 // 2026-08-14 계약 갱신: 빠지는 사람과 급수가 가까운 순이 아니라, **넣은 뒤 경기가
 // 가장 안 기우는 순**입니다("아무나 투입하면 상대에겐 불공정한 게임이 되잖아").
-assert(/Number\(a\.crossTeam\)-Number\(b\.crossTeam\)\|\|a\.balanceGap-b\.balanceGap/.test(cands),
-  '후보는 같은 팀 → 급수 균형 순이어야 합니다(서버 엔진과 같은 기준).');
+// 교체는 팀 패널티다 — 사람이 빠진 팀이 교체로 **더 세지면** 상대가 불합리하다
+// (운영자 2026-08-14). 그래서 강해지는 후보는 균형이 좋아도 뒤로 민다.
+assert(/Number\(a\.swing>0\)-Number\(b\.swing>0\)/.test(cands),
+  '교체로 강해지는 후보는 뒤로 밀려야 합니다.');
+assert(/a\.balanceGap-b\.balanceGap/.test(cands),
+  '그 다음은 경기가 덜 기우는 순이어야 합니다.');
 const engineSrc = fs.readFileSync(path.join(root, 'functions', 'team-official-engine.js'), 'utf8');
-assert(/a\.balanceGap - b\.balanceGap/.test(engineSrc),
+assert(/Number\(a\.swing > 0\) - Number\(b\.swing > 0\)/.test(engineSrc)
+  && /a\.balanceGap - b\.balanceGap/.test(engineSrc),
   '서버 엔진도 같은 기준으로 정렬해야 합니다.');
 assert(/function balanceGapAfter/.test(engineSrc) && /function _balanceGapAfter/.test(liveView),
   '균형 계산이 서버·화면 양쪽에 있어야 합니다.');

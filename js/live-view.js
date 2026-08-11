@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.573';
+const APP_VERSION='1.10.574';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1324,10 +1324,11 @@ function openTeamSubstitutePanel(matchNum,outName){
       <div class="team-sub-row">
         <div class="team-sub-who"><b>지각 · ${match.round}라운드 ${match.court}코트</b>
           <small>${esc([...(match.t1||[])].join(' · '))} vs ${esc([...(match.t2||[])].join(' · '))}</small></div>
-        ${cands.length?`<div class="team-sub-cands">${cands.map(c=>
-          `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''} ${c.balanceGap>=TEAM_BALANCE_WARN_GAP?'tilt':''}"
-            onclick="submitTeamSubstitute(${Number(match.num)},'${esc(name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balanceGap:${Number(c.balanceGap)||0}})">
-            ${esc(c.name)}<small>${esc(_balanceLabel(c.balanceGap))}${c.crossTeam?' · 상대 팀':''}</small></button>`).join('')}</div>`
+        ${cands.length?`<div class="team-sub-cands">${cands.map(c=>{
+          const mark=_balanceMark(c);
+          return `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''} ${mark.cls}"
+            onclick="submitTeamSubstitute(${Number(match.num)},'${esc(name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balanceGap:${Number(c.balanceGap)||0},swing:${Number(c.swing)||0}})">
+            ${esc(c.name)}<small>${esc(mark.text)}${c.crossTeam?' · 상대 팀':''}</small></button>`;}).join('')}</div>`
           :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 지각이 아닌 대기 선수가 있어야 합니다.</div>'}
       </div>
     </div>
@@ -1428,7 +1429,7 @@ async function submitTeamResult(matchNum,win,expectedWin){
   try{
     const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
     const grantToken=await ensureTeamOfficialGrant(d);
-    if(!grantToken)return alert('임원 운영 연결을 확인하지 못했습니다.\n내 이름을 다시 선택한 뒤 시도해주세요.');
+    if(!grantToken)return alert(_teamGrantFailMessage());
     const res=await callable({liveId,grantToken,command:{
       type:'team-official-result',
       operationId:'tres_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
@@ -1631,26 +1632,37 @@ function _substituteCandidates(d,match,outName){
       return {...p,team,crossTeam:!!outTeam&&!!team&&team!==outTeam,
         levelGap:Math.abs(p.level-outLevel),
         balanceGap:_balanceGapAfter(d,match,outName,p.level),
+        // 빠지는 사람보다 세면 그 팀이 교체로 이득을 봅니다(양수 = 강해짐).
+        swing:p.level-outLevel,
         games:games.get(_attKey(p.name))||0,
         late:_lateOn(p.name)};
     })
     .filter(c=>!c.late)
-    // 같은 팀 먼저 → **경기가 가장 안 기우는 사람** → 덜 뛴 사람 (서버 엔진과 같은 기준)
-    .sort((a,b)=>Number(a.crossTeam)-Number(b.crossTeam)||a.balanceGap-b.balanceGap
+    // 같은 팀 → **교체로 더 세지지 않을 것** → 경기가 덜 기우는 순 → 덜 뛴 순
+    // (서버 엔진과 같은 기준)
+    .sort((a,b)=>Number(a.crossTeam)-Number(b.crossTeam)
+      ||Number(a.swing>0)-Number(b.swing>0)
+      ||a.balanceGap-b.balanceGap
       ||a.games-b.games||String(a.name).localeCompare(String(b.name),'ko'))
     .slice(0,8);
 }
-// 급수 합 차이를 사람 말로. 0~1 은 팽팽함, 2 는 조금 기욺, 3 이상은 확실히 기욺.
-const TEAM_BALANCE_WARN_GAP=3;
-function _balanceLabel(gap){
-  const g=Number(gap)||0;
-  if(g<=1)return '균형';
-  if(g<TEAM_BALANCE_WARN_GAP)return '±'+g;
-  return '±'+g+' 기욺';
+/* 급수 차이를 사람 말로 (운영자 2026-08-14 "급수 차가 1 이상 나면 승부가 기울어").
+   1 도 그냥 넘기지 않고 눈에 보이게 적습니다. 그리고 **교체로 그 팀이 세지는
+   경우**가 가장 나쁩니다 — "교체는 팀 패널티인데 패널티를 받는 팀이 교체로 더
+   유리해지는 것은 불합리". 막지는 않고, 표시하고 한 번 물어봅니다. */
+const TEAM_BALANCE_WARN_GAP=2;   // 이 이상 벌어지면 확인창
+function _balanceMark(c){
+  const gap=Number(c&&c.balanceGap)||0;
+  const swing=Number(c&&c.swing)||0;
+  if(swing>0)return {text:'+'+swing+' 강해짐',cls:'tilt'};
+  if(gap===0)return {text:'균형',cls:''};
+  if(gap<TEAM_BALANCE_WARN_GAP)return {text:'±'+gap,cls:'lean'};
+  return {text:'±'+gap+' 기욺',cls:'tilt'};
 }
 // 서명된 운영 권한 — 본인 이름을 고르면 서버가 내주고, 조작마다 함께 보냅니다.
 // 이름만 실어 보내던 이전 단계의 위조 여지를 없앱니다(민턴LIVE 와 같은 구조).
 let _teamGrantToken='', _teamGrantName='', _teamGrantExpiresAt=0, _teamGrantPending=null;
+let _teamGrantError='';   // 서버가 알려 준 거절 사유(현장 진단용)
 function _teamClientId(){
   try{
     let id=localStorage.getItem('kokmatch_team_client');
@@ -1678,12 +1690,23 @@ async function ensureTeamOfficialGrant(d){
         _teamGrantToken=data.grantToken;
         _teamGrantName=data.playerName||name;
         _teamGrantExpiresAt=Number(data.expiresAt)||0;
+        _teamGrantError='';
         return _teamGrantToken;
       }
-    }catch(e){ /* 연결 실패는 조작 시점에 안내합니다 */ }
+    }catch(e){
+      // 서버가 말해 준 이유를 그대로 들고 있습니다. 삼켜 버리면 현장에서
+      // "확인하지 못했습니다"만 보고 원인을 알 길이 없습니다(2026-08-14).
+      _teamGrantError=String(e&&(e.message||e.code)||'').trim();
+    }
     return '';
   })().finally(()=>{ _teamGrantPending=null; });
   return _teamGrantPending;
+}
+// 연결이 안 될 때 띄울 문장 — 서버가 준 이유를 붙여 줍니다.
+function _teamGrantFailMessage(){
+  const why=_teamGrantError?('\n\n사유: '+_teamGrantError):'';
+  return '임원 운영 연결을 확인하지 못했습니다.'+why
+    +'\n\n내 이름을 다시 선택한 뒤 시도해 주세요.';
 }
 async function submitTeamSubstitute(matchNum,outName,inName,opts){
   const d=window._lastLiveData;
@@ -1693,22 +1716,29 @@ async function submitTeamSubstitute(matchNum,outName,inName,opts){
   if(!_canSubstitute(d))return alert('단장·부단장·클럽 임원만 대체 투입을 할 수 있어요.');
   const crossTeam=!!(opts&&opts.crossTeam);
   if(crossTeam&&!confirm(inName+' 선수는 상대 팀입니다.\n그래도 이 경기에 넣을까요?\n\n팀 전력이 달라집니다.'))return;
-  // 급수가 크게 기울면 한 번 물어봅니다. 막지는 않습니다 — 판단은 임원 몫입니다.
+  // 급수가 기울면 한 번 물어봅니다. 막지는 않습니다 — 판단은 임원 몫입니다.
   const gap=Number(opts&&opts.balanceGap)||0;
-  if(gap>=TEAM_BALANCE_WARN_GAP){
-    const t1=(match.t1||[]).map(n=>_attKey(n)===_attKey(outName)?inName:n);
-    const sum=list=>list.reduce((s,n)=>s+_levelOfName(d,n),0);
-    const mine=_sideOfPlayer(match,outName)==='t1'?sum(t1):sum(match.t2||[]);
-    const theirs=_sideOfPlayer(match,outName)==='t1'?sum(match.t2||[]):sum(t1);
+  const swing=Number(opts&&opts.swing)||0;
+  const side=_sideOfPlayer(match,outName);
+  const swapped=(match[side]||[]).map(n=>_attKey(n)===_attKey(outName)?inName:n);
+  const sum=list=>list.reduce((s,n)=>s+_levelOfName(d,n),0);
+  const mine=sum(swapped), theirs=sum(match[side==='t1'?'t2':'t1']||[]);
+  if(swing>0){
+    // 가장 나쁜 경우 — 사람이 빠진 팀이 교체로 오히려 세집니다.
+    if(!confirm(inName+' 선수는 '+outName+' 선수보다 급수가 '+swing+' 높습니다.'
+      +'\n교체한 팀이 오히려 강해집니다 ('+mine+' vs '+theirs+').'
+      +'\n\n교체는 원래 그 팀이 감수하는 것이라, 이러면 상대가 불합리합니다.'
+      +'\n그래도 넣을까요?'))return;
+  }else if(gap>=TEAM_BALANCE_WARN_GAP){
     if(!confirm(inName+' 선수를 넣으면 급수 합이 '+gap+' 차이납니다.'
-      +'\n('+mine+' vs '+theirs+')\n\n상대에게 불리하거나 유리한 경기가 될 수 있어요.\n그래도 넣을까요?'))return;
+      +'\n('+mine+' vs '+theirs+')\n\n승부가 기울 수 있어요.\n그래도 넣을까요?'))return;
   }
   if(match.startAt&&!confirm('이미 시작한 경기입니다.\n그래도 선수를 바꿀까요?'))return;
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
     const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
     const grantToken=await ensureTeamOfficialGrant(d);
-    if(!grantToken)return alert('임원 운영 연결을 확인하지 못했습니다.\n내 이름을 다시 선택한 뒤 시도해주세요.');
+    if(!grantToken)return alert(_teamGrantFailMessage());
     const res=await callable({liveId,grantToken,command:{
       type:'team-official-substitute',
       operationId:'tsub_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
