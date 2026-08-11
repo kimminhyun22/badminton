@@ -89,6 +89,7 @@ function _viewerInfo(){return viewer;}
 function _isTeamLiveData(d){return !!d&&d.kind==='teamLive';}
 ${functionSource(liveSrc, '_canSubmitResult', '_resultRoleForSubmit')}
 ${functionSource(liveSrc, '_resultRoleForSubmit', 'submitLiveWin').replace(/\s*async\s*$/,'')}
+${liveSrc.slice(liveSrc.indexOf('function _settled(m)'), liveSrc.indexOf('function _matchKey'))}
 this.api={
   can(m,d,v){viewer=v;return _canSubmitResult(m,d);},
   role(m,d,v){viewer=v;return _resultRoleForSubmit(d,m);}
@@ -166,6 +167,7 @@ assert(submitSource.includes('permissionRevoked'), '해제된 오래된 화면�
 assert(submitSource.includes('resultConflicts'), '반대 결과 동시 입력은 관리자 확인 건으로 남겨야 합니다.');
 
 const transactionCode = `
+${liveSrc.slice(liveSrc.indexOf('function _settled(m)'), liveSrc.indexOf('function _matchKey'))}
 var _viewerName='운영자',_viewerMemberId='helper';
 var liveId='live-test',alerts=[],remoteData=null;
 var window={_lastLiveData:null};

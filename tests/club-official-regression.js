@@ -98,6 +98,7 @@ assert(checkin.includes("source:'club-official-support'"),'임원 요청을 일�
 const officialOverviewSandbox={};
 vm.createContext(officialOverviewSandbox);
 vm.runInContext(`
+${liveSrc.slice(liveSrc.indexOf('function _settled(m)'), liveSrc.indexOf('function _matchKey'))}
 let officialOverviewFilter='';
 let session={capabilities:{officialPartnerOpsV1:true,temporaryOfficialV1:true},reservations:[],event:{},players:[
   {id:'o',name:'운영임원',status:'wait',games:2,isClubOfficial:true},
@@ -208,6 +209,7 @@ assert(memberEventBoard.includes('sendQueueRestPass'),'일반 회원 상황판�
 const memberEventRenderSandbox={};
 vm.createContext(memberEventRenderSandbox);
 vm.runInContext(`
+${liveSrc.slice(liveSrc.indexOf('function _settled(m)'), liveSrc.indexOf('function _matchKey'))}
 const eventPanel={className:'',innerHTML:''};
 const nextRows=Array.from({length:5},(_,index)=>({
   idx:index+1,queueId:'q'+(index+1),cueState:index===4?'free':'ready',
@@ -246,6 +248,7 @@ assert(!memberEventBoard.includes('ev.expected'),'회원 LIVE 현황은 변경 �
 const eventNextListSandbox={};
 vm.createContext(eventNextListSandbox);
 vm.runInContext(`
+${liveSrc.slice(liveSrc.indexOf('function _settled(m)'), liveSrc.indexOf('function _matchKey'))}
 let session={event:{courts:3,nextTarget:3,next:Array.from({length:5},(_,index)=>({queueId:'q'+(index+1),playerIds:['p'+index]}))}};
 let queueYieldRequests=[];
 function queueIdentity(q){return String(q?.queueId||q?.id||'');}
@@ -271,6 +274,7 @@ assert(!officialQueueCue.includes('targetCourt')&&!officialQueueCue.includes('�
 const cueSandbox={};
 vm.createContext(cueSandbox);
 vm.runInContext(`
+${liveSrc.slice(liveSrc.indexOf('function _settled(m)'), liveSrc.indexOf('function _matchKey'))}
 ${functionSource(checkin,'memberQueueCueText','officialQueueCueText')}
 ${officialQueueCue}
 this.memberCue=memberQueueCueText;
@@ -601,6 +605,7 @@ var viewer=null;
 function _viewerInfo(){return viewer;}
 function _isTeamLiveData(){return true;}
 function _usesFixedTeams(){return false;}
+${liveSrc.slice(liveSrc.indexOf('function _settled(m)'), liveSrc.indexOf('function _matchKey'))}
 ${functionSource(liveSrc,'_canSubmitResult','_resultRoleForSubmit')}
 this.api={can:_canSubmitResult,set:v=>viewer=v};`;
 const permissionSandbox={};

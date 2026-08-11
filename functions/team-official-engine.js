@@ -18,7 +18,8 @@
 const SUPPORTED_TYPES = new Set([
   'team-official-substitute',
   'team-official-result',
-  'team-official-late'
+  'team-official-late',
+  'team-official-void'
 ]);
 
 function text(value){ return String(value == null ? '' : value); }
@@ -42,6 +43,10 @@ function findMatch(session, num){
 function isDecided(match){
   return !!text(match?.win);
 }
+/* 치르지 않기로 한 경기(미실시). 결과는 없지만 **끝난 것으로 셉니다** —
+   안 그러면 그 라운드가 영원히 안 넘어갑니다(운영자 2026-08-14). */
+function isVoided(match){ return match?.voided === true; }
+function isSettled(match){ return isDecided(match) || isVoided(match); }
 /* 이미 시작한 경기 = **지금 코트에서 뛰고 있는** 경기.
    `startAt` 은 그 코트가 이 경기 차례가 된 시각이라 다음 라운드 경기에도 붙습니다.
    그래서 지금 라운드인지까지 봅니다 — 안 그러면 다음 대진을 미리 손볼 때마다
@@ -113,6 +118,7 @@ function conflictingMatch(session, name, round, exceptNum){
   return matchList(session).find(m => {
     if(number(m?.num, -1) === number(exceptNum, -2))return false;
     if(number(m?.round, -1) !== number(round, -1))return false;
+    if(isVoided(m))return false;   // 안 치르는 경기는 자리를 차지하지 않습니다
     return matchPlayers(m).some(p => nameKey(p) === key);
   }) || null;
 }
@@ -256,6 +262,7 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
 function applySubstitute(session, request, now, operation){
   const match = findMatch(session, request.matchNum);
   if(!match)return '교체할 경기를 찾지 못했습니다.';
+  if(isVoided(match))return '치르지 않기로 한 경기입니다.';
   if(isDecided(match))return '이미 결과가 입력된 경기입니다.';
   if(request.allowStarted !== true && isStarted(session, match)){
     return '이미 시작한 경기입니다. 그래도 바꾸려면 다시 확인해 주세요.';
@@ -363,7 +370,7 @@ function recountSession(session){
   session.blueWins = blueWins;
   session.whiteWins = whiteWins;
   const rounds = [...new Set(rows.map(m => number(m?.round, 0)).filter(Boolean))].sort((a, b) => a - b);
-  session.currentRound = rounds.find(r => rows.filter(m => number(m?.round, 0) === r).some(m => !text(m?.win))) || 0;
+  session.currentRound = rounds.find(r => rows.filter(m => number(m?.round, 0) === r).some(m => !isSettled(m))) || 0;
 }
 
 /**
@@ -457,6 +464,49 @@ function applyLate(session, request, now){
   return '';
 }
 
+/**
+ * 경기 미실시 (운영자 2026-08-14 ③단계).
+ *
+ * 시간이 모자라거나 도저히 못 치르는 경기가 생기면, 그대로 두면 **그 라운드가
+ * 끝나지 않아 다음 라운드로 넘어가지 못합니다.** 결과를 지어내지 않고 "안 치름"
+ * 으로 표시해 진행만 넘깁니다. 승패 집계에는 들어가지 않습니다.
+ */
+function applyVoid(session, request, now, operation){
+  const match = findMatch(session, request.matchNum);
+  if(!match)return '표시할 경기를 찾지 못했습니다.';
+  const want = request.voided !== false;
+  if(want && isDecided(match)){
+    return '결과가 입력된 경기입니다. 결과를 먼저 지운 뒤 미실시로 표시해 주세요.';
+  }
+  if(want === isVoided(match)){
+    return want ? '이미 미실시로 표시된 경기입니다.' : '미실시가 아닌 경기입니다.';
+  }
+  if(want){
+    match.voided = true;
+    match.voidedBy = text(request.actorPlayerName || '');
+    match.voidedAt = number(now, Date.now());
+  }else{
+    delete match.voided;
+    delete match.voidedBy;
+    delete match.voidedAt;
+  }
+  recountSession(session);
+  session.resultEdits = Array.isArray(session.resultEdits) ? session.resultEdits : [];
+  session.resultEdits.push({
+    at: number(now, Date.now()),
+    matchNum: number(match.num, 0),
+    round: number(match.round, 0),
+    from: want ? '' : 'void',
+    to: want ? 'void' : '',
+    by: text(request.actorPlayerName || '')
+  });
+  if(operation){
+    operation.result = {void:{matchNum:number(match.num, 0), voided:want,
+      currentRound:number(session.currentRound, 0)}};
+  }
+  return '';
+}
+
 function validate(session, request, options = {}){
   if(!SUPPORTED_TYPES.has(text(request?.type)))return '지원하지 않는 팀전 운영 요청입니다.';
   const adminClaim = options.adminClaim === true;
@@ -491,6 +541,9 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
     case 'team-official-late':
       reason = applyLate(session, request, now);
       break;
+    case 'team-official-void':
+      reason = applyVoid(session, request, now, operation);
+      break;
     default:
       reason = '지원하지 않는 팀전 운영 요청입니다.';
   }
@@ -504,6 +557,7 @@ function applyTeamOfficialRequest(rawSession, request, options = {}){
 module.exports = {
   SUPPORTED_TYPES,
   bracketKey,
+  isSettled,
   attendanceKey,
   balanceAfter,
   balanceGapAfter,

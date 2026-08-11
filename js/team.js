@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.580';
+const APP_VERSION = '1.10.581';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2388,6 +2388,8 @@ function _buildLiveState(){
     return {
       round:m.round||0, court:m.court||0, type:_s(m.type), num:m.matchNumber||(i+1),
       isFiller:!!m.isFiller,
+      // 임원이 「미실시」로 표시한 경기 — 안 실으면 관리자 게시가 되돌려 버린다.
+      ...(m.voided?{voided:true}:{}),
       t1:[_s(m.team1A&&m.team1A.name), _s(m.team1B&&m.team1B.name)],
       t2:[_s(m.team2C&&m.team2C.name), _s(m.team2D&&m.team2D.name)],
       t1g:[_s(m.team1A&&m.team1A.grade), _s(m.team1B&&m.team1B.grade)],
@@ -2680,13 +2682,24 @@ function _teamAdoptServerMatches(data){
       plan.push({index:i,slot,player,out:(local[slot]&&local[slot].name)||'',in:player.name});
     }
   }
+  // 미실시 표시도 서버를 따라갑니다(임원이 표시한 것을 관리자가 지우지 않도록).
+  let voidChanged=0;
+  currentMatches.forEach((local,i)=>{
+    const row=byNum.get(Number(local.matchNumber)||(i+1));
+    if(!row)return;
+    const want=row.voided===true;
+    if(want!==(local.voided===true)){
+      if(want)local.voided=true; else delete local.voided;
+      voidChanged++;
+    }
+  });
   plan.forEach(({index,slot,player})=>{
     const local=currentMatches[index];
     // 청/홍은 대진이 만들어질 때 정해진 그대로 둔다(상대 팀 땜방이 팀 점수를 뒤집지 않게).
     if(!local.team1Side)local.team1Side=(local.team1A&&local.team1A.team)||'';
     local[slot]=player;
   });
-  return {applied:true,changed:plan.length,swaps:plan.map(p=>({out:p.out,in:p.in}))};
+  return {applied:true,changed:plan.length+voidChanged,swaps:plan.map(p=>({out:p.out,in:p.in}))};
 }
 /* 받아 적은 뒤 화면·점수·저장까지 맞춥니다. 바뀐 게 없으면 아무것도 하지 않습니다. */
 function _teamAdoptServerMatchesAndRender(data,opts={}){
@@ -4396,6 +4409,7 @@ function saveState(){
       type:m.type,isFiller:m.isFiller||false,levelDiff:m.levelDiff,
       team1Level:m.team1Level,team2Level:m.team2Level,
       team1Side:m.team1Side||'',   // 임원이 상대 팀 선수를 넣어도 청/홍이 뒤집히지 않게
+      voided:m.voided===true,
       team1A:slim(m.team1A),team1B:slim(m.team1B),
       team2C:slim(m.team2C),team2D:slim(m.team2D)
     })),
@@ -4618,6 +4632,7 @@ function restoreState(opts={}){
         type:m.type,isFiller:m.isFiller||false,levelDiff:m.levelDiff,
         team1Level:m.team1Level,team2Level:m.team2Level,
         team1Side:m.team1Side||'',
+        ...(m.voided?{voided:true}:{}),
         team1A:findP(m.team1A.name),team1B:findP(m.team1B.name),
         team2C:findP(m.team2C.name),team2D:findP(m.team2D.name)
       };
@@ -4959,6 +4974,8 @@ let _cpFromRound=null; // 선택한 라운드 (이 라운드부터 재생성). n
 let _lockedBeforeRound=null; // 이 라운드 미만은 대진 잠금 (중간 투입 시 설정)
 
 function _isMatchDone(idx){
+  // 임원이 「미실시」로 표시한 경기는 치르지 않으므로 끝난 것으로 셉니다.
+  if(currentMatches[idx]&&currentMatches[idx].voided)return true;
   const s1=parseInt(document.getElementById('s1_'+idx)?.value)||0;
   const s2=parseInt(document.getElementById('s2_'+idx)?.value)||0;
   const wo=winOverride[idx];

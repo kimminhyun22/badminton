@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.580';
+const APP_VERSION='1.10.581';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -547,7 +547,7 @@ function buildBriefing(matches, d){
 
   // 진행 중 라운드 출전 선수
   const curRound=d.currentRound||0;
-  const curMatches=matches.filter(m=>m.round===curRound&&!m.win);
+  const curMatches=matches.filter(m=>m.round===curRound&&!_settled(m));
   const curBlue=[], curRed=[];
   curMatches.forEach(m=>{
     [m.t1[0],m.t1[1]].forEach(n=>{ if(n&&bNames.has(n)&&!curBlue.includes(n))curBlue.push(n); });
@@ -934,6 +934,10 @@ function _sortMembers(list){
   });
 }
 
+/* 끝난 경기 = 결과가 있거나 **치르지 않기로 한(미실시)** 경기.
+   진행(라운드 넘김)에 관한 판정은 전부 이걸 씁니다. 통계(`filter(m=>m.win)`)는
+   그대로 둡니다 — 미실시는 승패가 없으니 자연히 빠집니다. */
+function _settled(m){ return !!(m && (m.win || m.voided)); }
 function _matchKey(m){
   return (m&&m.round||0)+'_'+(m&&m.court||0);
 }
@@ -1148,7 +1152,7 @@ function _viewerMatches(d,name){
 }
 
 function _viewerNextMatch(d,name){
-  const matches=_viewerMatches(d,name).filter(m=>!m.win);
+  const matches=_viewerMatches(d,name).filter(m=>!_settled(m));
   const cur=Number(d&&d.currentRound||0);
   return matches.sort((a,b)=>{
     const ac=a.round===cur?0:1, bc=b.round===cur?0:1;
@@ -1178,11 +1182,11 @@ function _teamOfficialOverviewData(d){
   const partyMap=d&&d.party||{};
   const matches=(d&&Array.isArray(d.matches)?d.matches:[]).map((m,i)=>({...m,_idx:i}));
   const rounds=[...new Set(matches.map(m=>Number(m.round)||0).filter(Boolean))].sort((a,b)=>a-b);
-  const firstOpenRound=rounds.find(round=>matches.some(m=>Number(m.round)===round&&!m.win))||0;
+  const firstOpenRound=rounds.find(round=>matches.some(m=>Number(m.round)===round&&!_settled(m)))||0;
   let currentRound=Number(d&&d.currentRound)||firstOpenRound;
-  if(!matches.some(m=>Number(m.round)===currentRound&&!m.win))currentRound=firstOpenRound;
+  if(!matches.some(m=>Number(m.round)===currentRound&&!_settled(m)))currentRound=firstOpenRound;
   const currentMatches=currentRound
-    ?matches.filter(m=>Number(m.round)===currentRound&&!m.win)
+    ?matches.filter(m=>Number(m.round)===currentRound&&!_settled(m))
     :[];
   const currentNames=new Set();
   currentMatches.forEach(m=>[...(m.t1||[]),...(m.t2||[])].forEach(name=>{
@@ -1201,7 +1205,7 @@ function _teamOfficialOverviewData(d){
   },0);
   return {
     members,onSite,playing,waiting,late,operators,party,currentMatches,currentRound,
-    completedMatches:matches.filter(m=>m.win).length,
+    completedMatches:matches.filter(_settled).length,
     totalMatches:matches.length,
     conflictCount
   };
@@ -1351,12 +1355,15 @@ function _resultConflictKeys(d){
   const rows=(d&&d.resultConflicts)||{};
   return new Set(Object.keys(rows).filter(k=>Object.keys(rows[k]||{}).length));
 }
-// 정정 대상: 결과가 들어간 경기 + 서로 다르게 입력돼 확인이 걸린 경기.
+/* 손볼 수 있는 경기: 결과가 들어간 경기 · 확인이 걸린 경기 · **미실시로 표시된
+   경기**(되돌리려면 보여야 함) · 아직 안 치른 지금·다음 라운드 경기(미실시로
+   표시하려면 보여야 함). */
 function _fixableResults(d){
   const conflicts=_resultConflictKeys(d);
+  const open=_swappableRounds(d);
   return ((d&&d.matches)||[])
     .map(m=>({m,conflict:conflicts.has(_matchKey(m))}))
-    .filter(x=>x.m&&(x.m.win||x.conflict))
+    .filter(x=>x.m&&(x.m.win||x.conflict||x.m.voided||open.includes(Number(x.m.round))))
     // 확인이 걸린 경기가 먼저, 그 다음은 최근 라운드부터.
     .sort((a,b)=>(Number(b.conflict)-Number(a.conflict))
       ||(Number(b.m.round||0)-Number(a.m.round||0))
@@ -1369,7 +1376,7 @@ function _resultAlertHtml(d){
   const conflicts=rows.filter(x=>x.conflict).length;
   const label=conflicts
     ?`승패 확인 ${conflicts}건 · 눌러서 바로 정정`
-    :`승패 정정 (${rows.length}경기)`;
+    :`승패 · 미실시 처리 (${rows.length}경기)`;
   return `<button type="button" class="team-official-overview-conflict ${conflicts?'':'quiet'}"
     onclick="openTeamResultPanel()">${esc(label)}</button>`;
 }
@@ -1388,25 +1395,30 @@ function openTeamResultPanel(){
   })();
   const blueLabel=liveTeamLabel(d,'blue'), redLabel=liveTeamLabel(d,'red');
   box.innerHTML=`<div class="team-sub-card">
-    <div class="team-sub-head"><b>승패 정정</b>
+    <div class="team-sub-head"><b>승패 · 미실시</b>
       <button type="button" onclick="closeTeamResultPanel()" aria-label="닫기">✕</button></div>
     <div class="team-sub-body">${rows.map(({m,conflict})=>{
       const num=Number(m.num);
       const win=String(m.win||'');
       const t1=(m.t1||[]).filter(Boolean).join(' · ');
       const t2=(m.t2||[]).filter(Boolean).join(' · ');
-      const cur=win==='t1'?blueLabel:win==='t2'?redLabel:'결과 없음';
+      const voided=m.voided===true;
+      const cur=voided?'미실시':win==='t1'?blueLabel:win==='t2'?redLabel:'결과 없음';
+      const actions=voided
+        ? `<button type="button" class="team-sub-cand clear"
+             onclick="submitTeamVoid(${num},false)">미실시 해제<small>다시 치름</small></button>`
+        : `<button type="button" class="team-sub-cand ${win==='t1'?'on':''}"
+             onclick="submitTeamResult(${num},'t1','${esc(win)}')">${esc(blueLabel)}<small>승</small></button>
+           <button type="button" class="team-sub-cand ${win==='t2'?'on':''}"
+             onclick="submitTeamResult(${num},'t2','${esc(win)}')">${esc(redLabel)}<small>승</small></button>
+           ${win?`<button type="button" class="team-sub-cand clear"
+             onclick="submitTeamResult(${num},'','${esc(win)}')">결과 지움<small>다시 입력</small></button>`
+                :`<button type="button" class="team-sub-cand clear"
+             onclick="submitTeamVoid(${num},true)">미실시<small>안 치름</small></button>`}`;
       return `<div class="team-sub-row${conflict?' warn':''}">
         <div class="team-sub-who"><b>${conflict?'⚠ ':''}${m.round}라운드 ${m.court}코트 · ${num}번</b>
           <small>${esc(t1)} vs ${esc(t2)} · 지금 ${esc(cur)}${conflict?' · 서로 다르게 입력됨':''}</small></div>
-        <div class="team-sub-cands">
-          <button type="button" class="team-sub-cand ${win==='t1'?'on':''}"
-            onclick="submitTeamResult(${num},'t1','${esc(win)}')">${esc(blueLabel)}<small>승</small></button>
-          <button type="button" class="team-sub-cand ${win==='t2'?'on':''}"
-            onclick="submitTeamResult(${num},'t2','${esc(win)}')">${esc(redLabel)}<small>승</small></button>
-          ${win?`<button type="button" class="team-sub-cand clear"
-            onclick="submitTeamResult(${num},'','${esc(win)}')">결과 지움<small>다시 입력</small></button>`:''}
-        </div>
+        <div class="team-sub-cands">${actions}</div>
       </div>`;
     }).join('')}</div>
   </div>`;
@@ -1415,6 +1427,40 @@ function openTeamResultPanel(){
 function closeTeamResultPanel(){
   const box=document.getElementById('teamResultPanel');
   if(box)box.classList.remove('show');
+}
+/* 경기 미실시 — 치르지 않기로 한 경기를 표시해 **라운드를 넘깁니다**
+   (운영자 2026-08-14 ③단계). 승패 집계에는 들어가지 않습니다. */
+async function submitTeamVoid(matchNum,voided){
+  const d=window._lastLiveData;
+  const match=_matchByNum(d,matchNum);
+  const viewer=_viewerInfo(d);
+  if(!match||!viewer)return alert('경기를 다시 확인해주세요.');
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원만 처리할 수 있어요.');
+  const where=`${match.round}라운드 ${match.court}코트 ${matchNum}번 경기`;
+  const ask=voided
+    ? `${where}를\n치르지 않은 것으로 표시할까요?\n\n승패에는 들어가지 않고, 남은 라운드로 넘어갑니다.`
+    : `${where}의\n미실시 표시를 풀까요?`;
+  if(!confirm(ask))return;
+  if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
+  try{
+    const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
+    const grantToken=await ensureTeamOfficialGrant(d);
+    if(!grantToken)return alert(_teamGrantFailMessage());
+    const res=await callable({liveId,grantToken,command:{
+      type:'team-official-void',
+      operationId:'tvoid_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
+      actorPlayerName:viewer.n||viewer.name||'',
+      matchNum:Number(matchNum), voided:!!voided,
+      expiresAt:Date.now()+10*60*1000
+    }});
+    const data=res&&res.data;
+    if(data&&data.ok){
+      closeTeamResultPanel();
+      alert(voided?`${matchNum}번 경기를 미실시로 표시했습니다.`:`${matchNum}번 경기의 미실시를 풀었습니다.`);
+    }else alert((data&&data.reason)||'미실시 표시를 바꾸지 못했습니다.');
+  }catch(err){
+    alert('미실시 표시를 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
 }
 async function submitTeamResult(matchNum,win,expectedWin){
   const d=window._lastLiveData;
@@ -1474,7 +1520,7 @@ function _viewerNextHtml(d,current){
 }
 
 function _viewerScheduleHtml(d,current){
-  const future=_viewerMatches(d,current.n).filter(m=>!m.win).sort((a,b)=>(a.round-b.round)||(a.court-b.court));
+  const future=_viewerMatches(d,current.n).filter(m=>!_settled(m)).sort((a,b)=>(a.round-b.round)||(a.court-b.court));
   if(future.length<=1) return '';
   return '<details class="viewer-schedule" '+(_viewerDetailsOpen.schedule?'open':'')+' ontoggle="setViewerDetailsOpen(\'schedule\',this.open)">'
     +'<summary>전체 예정 경기 '+future.length+'개</summary>'
@@ -1557,7 +1603,7 @@ function buildViewerIdentity(d){
    자유대진은 예전 그대로 — 뛰는 선수가 직접 넣습니다. */
 function _canSubmitResult(m,d){
   const viewer=_viewerInfo(d);
-  if(!viewer || !m || m.win) return false;
+  if(!viewer || !m || _settled(m)) return false;
   if(_usesFixedTeams(d))return !!(viewer.isClubOfficial||viewer.isLeader||viewer.isSub);
   const names=[...(m.t1||[]),...(m.t2||[])].filter(Boolean);
   if(names.includes(viewer.n)) return true;
@@ -1593,6 +1639,7 @@ function _bookedInRound(d,name,round,exceptNum){
   return ((d&&d.matches)||[]).some(m=>{
     if(Number(m.num)===Number(exceptNum))return false;
     if(Number(m.round)!==Number(round))return false;
+    if(m.voided)return false;   // 안 치르는 경기는 자리를 차지하지 않습니다
     return [...(m.t1||[]),...(m.t2||[])].some(n=>_attKey(n)===key);
   });
 }
@@ -1875,7 +1922,7 @@ async function submitLiveWin(matchIdx,side){
       confirmedMemberId=freshMemberId||memberId;
       confirmedRole=_resultRoleForSubmit(data,{...liveMatch,win:null});
       const rounds=[...new Set(data.matches.map(x=>x&&x.round).filter(Boolean))].sort((a,b)=>a-b);
-      const currentRound=Number(data.currentRound)||rounds.find(r=>data.matches.filter(x=>x&&x.round===r).some(x=>!x.win))||0;
+      const currentRound=Number(data.currentRound)||rounds.find(r=>data.matches.filter(x=>x&&x.round===r).some(x=>!_settled(x)))||0;
       if(Number(liveMatch.round)!==Number(currentRound)){
         notCurrentMatch=true;
         return;
@@ -1908,7 +1955,7 @@ async function submitLiveWin(matchIdx,side){
       }
       data.blueWins=blueWins;
       data.whiteWins=whiteWins;
-      data.currentRound=rounds.find(r=>data.matches.filter(x=>x&&x.round===r).some(x=>!x.win))||0;
+      data.currentRound=rounds.find(r=>data.matches.filter(x=>x&&x.round===r).some(x=>!_settled(x)))||0;
       data.updatedAt=now;
       return data;
     });
@@ -1944,6 +1991,7 @@ function _resultSideLabel(d,side){
 
 function buildResultInputControls(m,d,opts){
   if(!opts || !opts.current) return '';
+  if(m.voided)return '<div class="result-entry-done">미실시 · 치르지 않음</div>';
   if(m.win){
     const winner=_resultSideLabel(d,m.win);
     return '<div class="result-entry-done">입력 완료 · '+esc(winner)+'</div>';
@@ -1962,6 +2010,7 @@ window.setLiveViewerName=setLiveViewerName;
 window.selectLiveViewer=selectLiveViewer;
 window.setLiveViewerSearch=setLiveViewerSearch;
 window.submitLiveWin=submitLiveWin;
+window.submitTeamVoid=submitTeamVoid;
 window.setViewerDetailsOpen=setViewerDetailsOpen;
 window.setTeamOfficialOverviewFilter=setTeamOfficialOverviewFilter;
 
@@ -2139,14 +2188,14 @@ function _isImminentMatch(m){
    갈아치울 필요가 없습니다("모든 경기를 대체할 필요 없어"). */
 function _swappableRounds(d){
   const rows=(d&&d.matches)||[];
-  const open=[...new Set(rows.filter(m=>m&&!m.win).map(m=>Number(m.round)||0))]
+  const open=[...new Set(rows.filter(m=>m&&!_settled(m)).map(m=>Number(m.round)||0))]
     .filter(Boolean).sort((a,b)=>a-b);
   const cur=Number(d&&d.currentRound||0)||open[0]||0;
   const next=open.find(r=>r>cur)||0;
   return [cur,next].filter(Boolean);
 }
 function _replaceableInMatch(d,m,name){
-  if(!m||m.win)return false;
+  if(!m||_settled(m))return false;
   if(!_canSubstitute(d))return false;
   if(!_lateOn(name))return false;
   return _swappableRounds(d).includes(Number(m.round));
@@ -2263,18 +2312,18 @@ function render(d){
   const rounds=Object.keys(byRound).map(Number).sort((a,b)=>a-b);
   const totalR=rounds.length;
   let doneR=0;
-  rounds.forEach(r=>{ if((byRound[r]||[]).every(m=>m.win)) doneR++; });
-  const allDone=totalR>0 && matches.length>0 && matches.every(m=>m.win);
-  const firstOpenRound=rounds.find(r=>(byRound[r]||[]).some(m=>!m.win));
+  rounds.forEach(r=>{ if((byRound[r]||[]).every(_settled)) doneR++; });
+  const allDone=totalR>0 && matches.length>0 && matches.every(_settled);
+  const firstOpenRound=rounds.find(r=>(byRound[r]||[]).some(m=>!_settled(m)));
   let curRound=d.currentRound||null;
-  if(!curRound || !byRound[curRound] || ((byRound[curRound]||[]).every(m=>m.win) && firstOpenRound)){
+  if(!curRound || !byRound[curRound] || ((byRound[curRound]||[]).every(_settled) && firstOpenRound)){
     curRound=firstOpenRound || curRound || rounds[0] || null;
   }
   const curRoundMatches=curRound?(byRound[curRound]||[]): [];
-  const curOpen=curRoundMatches.filter(m=>!m.win);
+  const curOpen=curRoundMatches.filter(m=>!_settled(m));
   const curDisplay=curOpen.length?curOpen:curRoundMatches;
   const nextMatches=matches
-    .filter(m=>!m.win && m.round!==curRound)
+    .filter(m=>!_settled(m) && m.round!==curRound)
     .sort((a,b)=>(a.round-b.round)||(a.court-b.court));
 
   if(d.members) window._rosterData=d.members;

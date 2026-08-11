@@ -82,7 +82,8 @@ assert(/_swappableRounds\(d\)\.includes\(Number\(m\.round\)\)/.test(scope),
 assert(/const next=open\.find\(r=>r>cur\)/.test(liveView),
   '다음 대진도 미리 처리할 수 있어야 합니다(운영자 2026-08-14).');
 assert(!/absent/.test(scope), '불참을 따로 두지 않습니다.');
-assert(/if\(!m\|\|m\.win\)return false;/.test(scope), '끝난 경기는 교체 대상이 아닙니다.');
+assert(/if\(!m\|\|_settled\(m\)\)return false;/.test(scope),
+  '끝났거나 미실시인 경기는 교체 대상이 아닙니다.');
 
 // 3-2) 출결은 지각 하나입니다(운영자 2026-08-14 "불참도 지각자와 다를 바 없다").
 const cycle = liveView.slice(liveView.indexOf('async function toggleMemberLate'),
@@ -152,6 +153,17 @@ assert(/a\.games-b\.games/.test(cands), '그 다음은 덜 뛴 순이어야 합�
 assert(/_bookedInRound\(d,p\.name,match\.round,match\.num\)/.test(cands),
   '같은 라운드에 이미 잡힌 사람은 후보에서 빼야 합니다.');
 assert(/filter\(c=>!c\.late\)/.test(cands), '늦은 사람을 대체 후보로 올리면 안 됩니다.');
+
+// 7-1) 경기 미실시 — 못 치른 경기로 라운드가 멈추지 않게(운영자 2026-08-14 ③단계).
+assert(/type:'team-official-void'/.test(liveView), '미실시도 서버 명령이어야 합니다.');
+assert(/onclick="submitTeamVoid\(/.test(liveView), '시트에서 눌러 처리할 수 있어야 합니다.');
+assert(/function _settled\(m\)\{ return !!\(m && \(m\.win \|\| m\.voided\)\); \}/.test(liveView),
+  '진행 판정은 결과와 미실시를 함께 봐야 합니다.');
+const teamSrcForVoid = fs.readFileSync(path.join(root, 'js', 'team.js'), 'utf8');
+assert(/\.\.\.\(m\.voided\?\{voided:true\}:\{\}\)/.test(teamSrcForVoid),
+  '관리자 게시가 미실시 표시를 실어야 임원이 표시한 것이 지워지지 않습니다.');
+assert(/if\(currentMatches\[idx\]&&currentMatches\[idx\]\.voided\)return true;/.test(teamSrcForVoid),
+  '관리자 진행 계산도 미실시를 끝난 것으로 세야 합니다.');
 
 // 8) 승패 정정 — 한 번 들어간 승패를 임원이 고칠 수 있어야 합니다(2026-08-13).
 //    관리자가 손을 뗀 뒤에는 이 길이 없으면 잘못된 승패가 영원히 굳습니다.

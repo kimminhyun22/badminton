@@ -52,6 +52,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(`
+${liveSrc.slice(liveSrc.indexOf('function _settled(m)'), liveSrc.indexOf('function _matchKey'))}
 function _attKey(name){return String(name||'');}
 // 대체 투입 알림(2026-08-13)은 이 검사 범위 밖입니다. 실제 함수가 추출 범위에
 // 함께 들어오므로, 권한 판정만 막아 알림이 안 뜨게 둡니다.

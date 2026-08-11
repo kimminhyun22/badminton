@@ -215,4 +215,32 @@ function send(session, request, opts){
   console.log('  시작 판정: 다음 라운드는 그냥 · 지금 라운드만 확인');
 }
 
+// 10) 경기 미실시 — 못 치른 경기 때문에 라운드가 멈추지 않아야 합니다
+//     (운영자 2026-08-14 ③단계).
+{
+  const s = makeSession();
+  s.currentRound = 1;
+  s.matches[0].win = 't1';                 // 1라운드 1번은 끝남
+  const voided = send(s, {type:'team-official-void', matchNum:2, voided:true});
+  assert.strictEqual(voided.status, 'applied', `미실시 표시가 돼야 합니다: ${voided.reason}`);
+  assert.strictEqual(voided.session.currentRound, 2,
+    '남은 경기를 안 치르기로 했으면 다음 라운드로 넘어가야 합니다.');
+  assert.strictEqual(voided.session.blueWins, 1, '미실시는 승패 집계에 들어가지 않습니다.');
+  assert.strictEqual(voided.session.matches[1].voided, true);
+  assert.strictEqual(voided.session.resultEdits.at(-1).to, 'void', '기록이 남아야 합니다.');
+
+  const back = send(voided.session, {type:'team-official-void', matchNum:2, voided:false});
+  assert.strictEqual(back.status, 'applied', '되돌릴 수 있어야 합니다.');
+  assert.strictEqual(back.session.currentRound, 1, '되돌리면 그 라운드로 돌아옵니다.');
+
+  const decided = send(voided.session, {type:'team-official-void', matchNum:1, voided:true});
+  assert.strictEqual(decided.status, 'rejected', '결과가 있는 경기는 먼저 지워야 합니다.');
+  assert(/결과를 먼저 지운/.test(decided.reason), `안내가 분명해야 합니다: ${decided.reason}`);
+
+  const swap = send(voided.session, {type:'team-official-substitute', matchNum:2,
+    outName:'청세모', inName:'청다섯'});
+  assert.strictEqual(swap.status, 'rejected', '안 치르는 경기는 교체 대상이 아닙니다.');
+  console.log('  경기 미실시: 라운드 넘김 · 집계 제외 · 되돌리기 · 결과 있으면 거절');
+}
+
 console.log('\nteam official substitute regression ok');
