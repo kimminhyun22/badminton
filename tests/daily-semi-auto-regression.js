@@ -76,7 +76,14 @@ assert(operationStart < finishTransition.indexOf('dailyEnsureQueue()', operation
 assert(operationStart < finishTransition.indexOf('dailyMaybeAutoAssign()', operationStart), '대진 게시 전에는 빈 코트 자동 투입을 시작하면 안 됩니다.');
 
 assert(!checkinSrc.includes('출석'), '회원 화면에는 자가 출석 개념이 남아 있으면 안 됩니다.');
-assert(checkinSrc.includes('현재 경기와 다음 순서'), '회원 첫 화면은 경기 확인 목적을 바로 알려야 합니다.');
+// 2026-08-15 계약 갱신: 이제 **대진이 먼저 보이고**(이름 선택 전에도), 이름을 고르면
+// 내 경기가 표시됩니다 — 예전 문구는 "선택해야 볼 수 있다"는 뜻이라 맞지 않습니다.
+assert(checkinSrc.includes('내 경기와 다음 순서'), '회원 첫 화면은 이름 선택이 무엇을 더해 주는지 알려야 합니다.');
+// 첫 선택은 확인창 없이 — 이 휴대폰에 이미 다른 사람이 저장돼 있을 때만 묻습니다.
+const identity = extractFunction(checkinSrc, 'confirmPlayerIdentity', 'confirmStatusChange');
+assert(identity.includes('if(!last||!last.playerId)return true;'),
+  '처음 고르는 기기에서는 확인창 없이 바로 들어가야 합니다.');
+assert(identity.includes('confirm('), '남의 선택을 바꿀 때는 여전히 물어야 합니다.');
 const statusActionKeys = extractFunction(checkinSrc, 'statusActionKeys', 'statusButtons');
 const actionSandbox = {getSelectedStatus: player => player.status};
 vm.createContext(actionSandbox);
@@ -90,7 +97,17 @@ assert(renderMyCard.includes("preArrival?'':statusButtons"), '도착 전 회원�
 assert(renderMyCard.includes('현장에 도착하면 클럽 임원이 대진 참가로 전환합니다.'), '도착 전 회원에게 임원 확인 흐름을 짧게 안내해야 합니다.');
 
 const renderEvent = extractFunction(checkinSrc, 'renderEvent', 'statusButtonSpec');
-assert(renderEvent.includes('if(!viewer||!viewer.playerId)'), '본인 이름 선택 전에는 전체 경기판을 기본 노출하면 안 됩니다.');
+/* 2026-08-15 계약 뒤집음(운영자 지시): "이름만 검색 후 선택만 하면 바로 대진…
+   뎁스를 최소화". 링크를 연 사람에게 대진을 숨기는 것이 오히려 한 단계였습니다.
+   팀전은 이미 링크만 있으면 대진이 보였고, 두 화면을 같은 방식으로 맞춥니다.
+   (링크를 아는 사람에게만 보이는 것은 그대로 — 세션 밖 데이터는 여전히 닫혀 있고
+    `live-privacy-regression` 이 그쪽을 지킵니다.) */
+assert(!renderEvent.includes('if(!viewer||!viewer.playerId)'),
+  '이름 선택 전이라고 대진을 숨기면 안 됩니다 — 그게 없애기로 한 한 단계입니다.');
+assert(renderEvent.includes('const viewer=getLastSent()||{}'),
+  '뷰어가 없어도 대진은 그려야 합니다.');
+assert(renderEvent.includes("const selectedId=viewer.playerId||''"),
+  '뷰어가 없을 때도 안전하게 읽어야 합니다.');
 assert(checkinSrc.includes("checkinId=officialLink.checkinId||qs('id')||(sampleMode?'SAMPLE':'')"), '회원 샘플 화면은 별도 링크 ID 없이도 열려야 합니다.');
 const payload = extractFunction(dailySrc, '_dailyCheckinPayload', 'dailyEnsureCheckinId');
 assert(payload.includes('lastStatusAt:p.lastStatusAt||0'), '회원 화면은 관리자 상태 변경 시각을 받아 오래된 요청 표시를 덮어써야 합니다.');
