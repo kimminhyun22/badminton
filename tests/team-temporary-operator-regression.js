@@ -106,8 +106,10 @@ const helper={id:'helper',n:'도우미',isTemporaryOperator:true};
 
 assert.strictEqual(permissionSandbox.api.can(openMatch,free,helper),true,
   '자유대진 운영 도우미는 전체 경기 승패를 입력할 수 있어야 합니다.');
-assert.strictEqual(permissionSandbox.api.can(openMatch,team,helper),false,
-  '청홍팀전에서는 남아 있는 임시 플래그로 권한을 얻으면 안 됩니다.');
+// 2026-08-14 계약 갱신: 운영 도우미는 **팀전에서도** 둘 수 있습니다(운영자
+// "꼭 필수는 아니니까 설정해둬도 좋을 듯"). 단장 혼자 여러 코트를 돌지 않아도 됩니다.
+assert.strictEqual(permissionSandbox.api.can(openMatch,team,helper),true,
+  '팀전에서도 운영 도우미는 승패를 입력할 수 있어야 합니다.');
 assert.strictEqual(permissionSandbox.api.can(openMatch,team,{n:'단장',isLeader:true}),true,
   '청홍팀전 단장은 기존 전체 경기 권한을 유지해야 합니다.');
 assert.strictEqual(permissionSandbox.api.can(openMatch,free,{n:'단장',isLeader:true}),false,

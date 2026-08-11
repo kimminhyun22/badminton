@@ -17,10 +17,10 @@ const overviewSource = liveSrc.slice(overviewStart, overviewEnd);
 
 // 2026-08-13 계약 갱신: 팀전을 실제로 이끄는 사람은 단장·부단장입니다. 서버는
 // 이미 이들에게 운영 권한을 주는데 화면이 가려 두면 버튼이 아예 안 뜹니다.
-assert(overviewSource.includes("viewer.isClubOfficial")
-  && overviewSource.includes("(!_usesFixedTeams(d)&&viewer.isTemporaryOperator)")
+// 2026-08-14 계약 갱신: 운영 도우미는 자유대진·팀전 **양쪽**에서 운영합니다.
+assert(overviewSource.includes("viewer.isClubOfficial||viewer.isTemporaryOperator")
   && overviewSource.includes("(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub))"),
-  '정식 임원·자유대진 운영 도우미·청홍팀전 단장/부단장이 운영 현황을 볼 수 있어야 합니다.');
+  '정식 임원·운영 도우미·청홍팀전 단장/부단장이 운영 현황을 볼 수 있어야 합니다.');
 ['등록','현장','경기중','대기','지각','운영진','뒷풀이'].forEach(label=>{
   assert(overviewSource.includes(`label:'${label}'`), `운영 현황에 ${label} 항목이 있어야 합니다.`);
 });
@@ -132,8 +132,9 @@ assert(sandbox.api.build(liveData).includes('운영 현황'),
   '자유대진 운영 도우미에게도 같은 운영 현황을 보여야 합니다.');
 
 const fixedData = {...liveData,matchMode:'team',isTeam:true};
-assert.strictEqual(sandbox.api.build(fixedData),'',
-  '청홍팀전에서는 남아 있는 임시 도우미 플래그로 운영 현황을 열면 안 됩니다.');
+sandbox.api.setViewer({id:'helper',n:'운영도우미',isTemporaryOperator:true});
+assert(sandbox.api.build(fixedData).includes('운영 현황'),
+  '팀전에서도 운영 도우미에게 운영 현황을 보여야 합니다.');
 
 // 단장·부단장은 청홍팀전의 운영자입니다(2026-08-13). 자유대진에서는 아닙니다.
 sandbox.api.setViewer({id:'leader',n:'청단장',isLeader:true});

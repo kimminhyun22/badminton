@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.581';
+const APP_VERSION='1.10.582';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1246,8 +1246,7 @@ function buildTeamOfficialOverview(d){
   const viewer=_viewerInfo(d);
   // 팀전을 실제로 이끄는 사람은 단장·부단장이다. 이들을 빼면 대체 투입·승패
   // 정정 버튼이 **화면에 아예 뜨지 않아** 서버 권한만 있고 손이 없는 꼴이 된다.
-  const canOperate=!!(viewer&&(viewer.isClubOfficial
-    ||(!_usesFixedTeams(d)&&viewer.isTemporaryOperator)
+  const canOperate=!!(viewer&&(viewer.isClubOfficial||viewer.isTemporaryOperator
     ||(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub))));
   if(!canOperate)return '';
   const data=_teamOfficialOverviewData(d);
@@ -1332,7 +1331,7 @@ function openTeamSubstitutePanel(matchNum,outName){
           const mark=_balanceMark(c);
           return `<button type="button" class="team-sub-cand ${c.crossTeam?'cross':''} ${mark.cls}"
             onclick="submitTeamSubstitute(${Number(match.num)},'${esc(name)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balance:${Number(c.balance)||0}})">
-            ${esc(c.name)}<small>${esc(mark.text)}${c.crossTeam?' · 상대 팀':''}</small></button>`;}).join('')}</div>`
+            ${esc(c.name)}<small>${esc(mark.text)} · ${Number(c.games)||0}경기${c.crossTeam?' · 상대 팀':''}</small></button>`;}).join('')}</div>`
           :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 지각이 아닌 대기 선수가 있어야 합니다.</div>'}
       </div>
     </div>
@@ -1604,7 +1603,7 @@ function buildViewerIdentity(d){
 function _canSubmitResult(m,d){
   const viewer=_viewerInfo(d);
   if(!viewer || !m || _settled(m)) return false;
-  if(_usesFixedTeams(d))return !!(viewer.isClubOfficial||viewer.isLeader||viewer.isSub);
+  if(_usesFixedTeams(d))return !!(viewer.isClubOfficial||viewer.isLeader||viewer.isSub||viewer.isTemporaryOperator);
   const names=[...(m.t1||[]),...(m.t2||[])].filter(Boolean);
   if(names.includes(viewer.n)) return true;
   if(_isTeamLiveData(d)&&viewer.isClubOfficial)return true;
@@ -1709,8 +1708,10 @@ function _substituteCandidates(d,match,outName){
     .sort((a,b)=>Number(a.crossTeam)-Number(b.crossTeam)
       ||Math.abs(a.balance)-Math.abs(b.balance)
       ||Number(a.balance>0)-Number(b.balance>0)
-      ||a.games-b.games||String(a.name).localeCompare(String(b.name),'ko'))
-    .slice(0,8);
+      ||a.games-b.games||String(a.name).localeCompare(String(b.name),'ko'));
+  // 자르지 않습니다 — 라운드를 동시에 끝내고 투입하면 그 순간 자유로운 사람이
+  // 많아지는데(20명·2코트면 12명), 8명에서 잘라 내면 임원이 고를 수가 없습니다
+  // (운영자 2026-08-14 "후보군을 보다 다양하게"). 추천 순서는 그대로 앞에 옵니다.
 }
 /* 기울기를 **부호**로 보여 줍니다 (운영자 2026-08-14 "기울이라고 되어 있는데
    헷갈려. +, - 로 표기하고 컬러는 +는 레드, -는 블루").

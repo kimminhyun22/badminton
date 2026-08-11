@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.581';
+const APP_VERSION = '1.10.582';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2423,7 +2423,9 @@ function _buildLiveState(){
   const _subBlue=captains?.blue?.sub||null;
   const _leaderWhite=captains?.white?.leader||null;
   const _subWhite=captains?.white?.sub||null;
-  const resolvedTemporaryOperators=isTeam?[]:_teamResolveTemporaryOperators(currentParticipants);
+  // 운영 도우미는 팀전에서도 둘 수 있습니다(운영자 2026-08-14 "꼭 필수는 아니니까
+  // 설정해둬도 좋을 듯"). 단장 혼자 3코트를 도는 대신 손을 나눌 수 있습니다.
+  const resolvedTemporaryOperators=_teamResolveTemporaryOperators(currentParticipants);
   const temporaryOperatorIds=new Set(resolvedTemporaryOperators.map(_teamEnsureMemberId).filter(Boolean));
   const liveMember=p=>{
     const memberId=_teamEnsureMemberId(p);
@@ -2432,7 +2434,7 @@ function _buildLiveState(){
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial,
       partnerName:p.partnerName||getPartnerOf(p.name)||'',
-      isTemporaryOperator:!isTeam&&temporaryOperatorIds.has(memberId)
+      isTemporaryOperator:temporaryOperatorIds.has(memberId)
     };
   };
   const membersBlue=isTeam?(teamAssignment?.blue||[]).map(p=>({
@@ -5794,10 +5796,6 @@ function _teamResolveTemporaryOperators(players=_directPlayers){
 
 async function setTeamTemporaryOperator(memberId,enabled){
   if(_teamTemporaryOperatorBusy)return false;
-  if(_teamUsesFixedTeams()){
-    alert('운영 도우미는 자유대진에서만 지정할 수 있습니다.');
-    return false;
-  }
   if(!_liveOn||!_liveId){
     alert('자유대진 LIVE를 시작한 뒤 운영 도우미를 지정해 주세요.');
     return false;
@@ -5860,7 +5858,7 @@ function renderTeamTemporaryOperatorPanel(){
   const players=(_directPlayers||[]).filter(p=>p&&p.name);
   players.forEach(_teamEnsureMemberId);
   _teamResolveTemporaryOperators(players);
-  if(!players.length||_teamUsesFixedTeams()||!_liveOn){
+  if(!players.length||!_liveOn){
     panel.classList.add('hidden');
     panel.innerHTML='';
     return;

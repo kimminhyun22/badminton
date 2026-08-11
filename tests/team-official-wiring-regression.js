@@ -104,8 +104,8 @@ assert(/if\(_usesFixedTeams\(d\)\)return submitTeamResult\(/.test(winEntry),
   '청홍 팀전의 승패 입력은 서버 명령(정정과 같은 길)으로 가야 합니다.');
 const canSubmit = liveView.slice(liveView.indexOf('function _canSubmitResult'),
   liveView.indexOf('// ── 팀전 대체 투입'));
-assert(/if\(_usesFixedTeams\(d\)\)return !!\(viewer\.isClubOfficial\|\|viewer\.isLeader\|\|viewer\.isSub\)/.test(canSubmit),
-  '청홍 팀전은 임원·단장만 승패를 입력합니다 — 참가자는 보기만 합니다.');
+assert(/if\(_usesFixedTeams\(d\)\)return !!\(viewer\.isClubOfficial\|\|viewer\.isLeader\|\|viewer\.isSub\|\|viewer\.isTemporaryOperator\)/.test(canSubmit),
+  '청홍 팀전은 임원·단장·운영 도우미만 승패를 입력합니다 — 참가자는 보기만 합니다.');
 
 // 4) 권한 — 임원만. 일반 회원 화면에는 뜨지 않아야 합니다.
 const canSub = liveView.slice(liveView.indexOf('function _canSubstitute'),

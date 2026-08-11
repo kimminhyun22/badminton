@@ -2228,7 +2228,9 @@ button.team-official-overview-conflict.quiet{
 .team-sub-row{padding:11px 0;border-top:1px solid rgba(22,34,52,.12);}
 .team-sub-who b{font-size:16px;font-weight:1000;}
 .team-sub-who small{display:block;margin-top:2px;color:#5c6a7a;font-size:12px;font-weight:800;}
-.team-sub-cands{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+/* 후보를 자르지 않으므로(운영자 2026-08-14) 많아질 수 있다. 목록만 스크롤해서
+   시트가 화면을 넘지 않게 한다. */
+.team-sub-cands{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:46vh;overflow-y:auto;padding:1px;}
 .team-sub-cand{display:inline-flex;flex-direction:column;align-items:center;
   min-height:44px;padding:7px 12px;border:1px solid rgba(22,34,52,.14);
   border-radius:11px;background:#fff;color:#0f172a;font:inherit;font-weight:900;cursor:pointer;}

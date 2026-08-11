@@ -217,7 +217,9 @@ function balanceGapAfter(session, match, outName, inLevel){
 function suggestSubstitutes(session, matchNum, outName, options = {}){
   const match = findMatch(session, matchNum);
   if(!match)return [];
-  const limit = Math.max(1, number(options.limit, 6));
+  // 기본은 **전원**입니다. 자르면 임원이 고를 수 있는 폭이 줄어듭니다
+  // (운영자 2026-08-14). 부르는 쪽이 원하면 limit 으로 줄일 수 있습니다.
+  const limit = Math.max(1, number(options.limit, Number.MAX_SAFE_INTEGER));
   const outMember = memberByName(session, outName);
   const outTeam = teamOf(session, outName);
   const outLevel = memberLevel(outMember);
