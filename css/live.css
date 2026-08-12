@@ -1270,7 +1270,10 @@ body{
 .viewer-pair.right{text-align:right;}
 .viewer-pair span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .viewer-vs{font-size:.74rem;font-weight:1000;color:#8a94a5;}
-.viewer-record-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+/* 세 칸 → 두 칸 (출전+남은 경기를 한 칸으로 합쳤습니다). 칸이 넓어져 「출전 ·
+   3경기 남음」 같은 말이 한 줄에 들어갑니다. */
+.viewer-record-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+.viewer-record-chip span{white-space:nowrap;}
 .viewer-record-chip{border:1px solid #e6edf7;border-radius:14px;background:#fff;padding:9px 7px;text-align:center;}
 .viewer-record-chip b{display:block;font-size:1.05rem;font-weight:1000;color:#222b3a;line-height:1;}
 .viewer-record-chip span{display:block;margin-top:4px;font-size:.68rem;font-weight:900;color:#7a8798;}

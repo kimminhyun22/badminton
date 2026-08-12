@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.596';
+const APP_VERSION='1.10.597';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1178,12 +1178,15 @@ function _viewerRecordHtml(d,name){
   const done=matches.filter(m=>m.win);
   const wins=done.filter(m=>m.win===m._side).length;
   const losses=done.length-wins;
+  /* 세 칸 중 「출전 1/4」과 「남은 경기 3」은 **같은 것을 두 번 말합니다** —
+     4경기 중 1경기를 뛰었으면 남은 건 3경기입니다 (운영자 2026-08-12).
+     남은 경기 수가 궁금한 것이므로 출전 칸에 그 말을 붙여 한 칸으로 합칩니다. */
   const remain=matches.length-done.length;
   return '<div class="viewer-record-card">'
     +'<div class="viewer-record-grid">'
-      +'<div class="viewer-record-chip"><b>'+done.length+'/'+matches.length+'</b><span>출전</span></div>'
+      +'<div class="viewer-record-chip"><b>'+done.length+'/'+matches.length+'</b>'
+        +'<span>'+(remain>0?'출전 · '+remain+'경기 남음':'출전 완료')+'</span></div>'
       +'<div class="viewer-record-chip"><b>'+wins+'승 '+losses+'패</b><span>기록</span></div>'
-      +'<div class="viewer-record-chip"><b>'+remain+'</b><span>남은 경기</span></div>'
     +'</div>'
   +'</div>';
 }
