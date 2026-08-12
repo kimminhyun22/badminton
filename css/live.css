@@ -1214,7 +1214,12 @@ body{
 .viewer-name-card span{font-size:.64rem;font-weight:900;color:#718096;line-height:1.5;padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .viewer-name-card:active{transform:scale(.985);}
 .viewer-empty-result{grid-column:1/-1;border:1px dashed #d8e3f4;border-radius:16px;padding:18px;text-align:center;font-size:.86rem;font-weight:900;color:#7a8798;}
-.viewer-status-actions{display:grid;grid-template-columns:minmax(0,1.15fr) auto minmax(0,1fr);gap:8px;align-items:center;margin:12px 0 10px;}
+/* 지각 버튼을 뺀 뒤로 이 줄에는 「뒷풀이」 하나만 남습니다. 격자로 두면 버튼이
+   왼쪽 칸만 차지하고 오른쪽이 비어 반쪽짜리로 보였습니다 — 남은 것이 폭을
+   다 쓰도록 flex 로 바꿉니다. 지각으로 찍혔을 때 붙는 표시만 제 폭을 씁니다. */
+.viewer-status-actions{display:flex;align-items:center;gap:8px;margin:12px 0 10px;}
+.viewer-status-actions>.viewer-state-btn{flex:1 1 auto;min-width:0;}
+.viewer-status-actions>.viewer-state-view{flex:0 0 auto;}
 .viewer-state-btn{
   position:relative;
   display:inline-flex;
@@ -1852,7 +1857,6 @@ body{
 }
 
 /* 팀전LIVE는 정상 참가를 기본값으로 두고 늦음만 예외로 표시한다. */
-.viewer-status-actions{grid-template-columns:minmax(0,1fr) minmax(82px,.72fr);}
 .viewer-state-btn.party{
   min-height:44px!important;
   align-self:center;
@@ -1895,11 +1899,10 @@ body{
   box-shadow:0 0 0 4px rgba(217,45,32,.10),0 14px 32px rgba(180,35,24,.14)!important;
 }
 /* 내 다음 경기 카드는 **「지금 경기」 딱지 하나로** 충분합니다 (운영자 2026-08-12
-   "너무 요란해. 지금 경기 딱지만 있어도 충분할 것 같아"). 2px 붉은 테두리에
-   분홍 채움에 4px 글로우까지 두르면 카드 하나가 경고문이 됩니다. */
-.team-live-view .viewer-next-card.is-current{
-  border-color:var(--live-alert-border)!important;
-}
+   "너무 요란해. 지금 경기 딱지만 있어도 충분할 것 같아" → "레드선 삭제").
+   2px 붉은 테두리·분홍 채움·4px 글로우를 걷어냈고, 남아 있던 붉은 테두리 색까지
+   뺐습니다 — 이 카드는 위쪽 한 줄만 그어지는 모양이라 그 색이 **빨간 줄 하나**로
+   보였습니다. 구분선은 다른 카드와 같은 회색으로 둡니다. */
 .team-live-view .viewer-next-card.is-current .viewer-next-label{
   display:inline-flex;
   align-items:center;
