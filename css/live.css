@@ -1189,14 +1189,28 @@ body{
 .viewer-name-card{
   border:1px solid #dfe7f3;background:#fff;border-radius:13px;padding:9px 8px;text-align:center;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  min-height:46px;font-family:'Noto Sans KR',sans-serif;
+  min-height:56px;font-family:'Noto Sans KR',sans-serif;
+}
+/* 검색 전 안내 — 이름칸을 깔아 두지 않는 대신 무엇을 치면 되는지 알려 줍니다. */
+.viewer-search-guide{
+  border:1px dashed var(--bdr2);border-radius:16px;padding:16px 14px;text-align:center;
+  color:var(--dim);font-size:.86rem;font-weight:900;line-height:1.5;
+  word-break:keep-all;   /* 「주세/요」처럼 낱말 가운데서 끊기지 않게 */
+}
+.viewer-search-guide b{color:var(--bl-deep);font-weight:1000;}
+.viewer-search-guide small{
+  display:block;margin-top:6px;color:var(--dim2);font-size:.76rem;font-weight:800;
 }
 /* 청/홍은 `!important` 로 못 박는다 — 아래쪽 `.viewer-identity button{background:…!important}`
    가 모든 이름칸을 파랑 한 색으로 눌러 버려서, 그냥 두면 홍팀도 파랗게 나온다. */
 .viewer-name-card.blue{border-color:#c7d9fb!important;background:#f5f9ff!important;}
 .viewer-name-card.red{border-color:#f6cdcb!important;background:#fff7f6!important;}
-.viewer-name-card b{font-size:.94rem;font-weight:1000;color:#222b3a;letter-spacing:-.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
-.viewer-name-card span{font-size:.64rem;font-weight:900;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* 줄 높이를 넉넉히 둡니다. 말줄임 때문에 `overflow:hidden` 이 걸려 있어서,
+   줄 상자가 글자보다 조금이라도 낮으면 **받침이 잘려 나갑니다** — 아이폰
+   Safari 처럼 Noto 대신 애플 한글 글꼴로 떨어지는 환경에서 실제로 났습니다
+   (단장·부단장처럼 두 줄인 칸에서만 보였습니다). */
+.viewer-name-card b{font-size:.94rem;font-weight:1000;color:#222b3a;letter-spacing:-.04em;line-height:1.5;padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.viewer-name-card span{font-size:.64rem;font-weight:900;color:#718096;line-height:1.5;padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .viewer-name-card:active{transform:scale(.985);}
 .viewer-empty-result{grid-column:1/-1;border:1px dashed #d8e3f4;border-radius:16px;padding:18px;text-align:center;font-size:.86rem;font-weight:900;color:#7a8798;}
 .viewer-status-actions{display:grid;grid-template-columns:minmax(0,1.15fr) auto minmax(0,1fr);gap:8px;align-items:center;margin:12px 0 10px;}
@@ -1761,7 +1775,8 @@ body{
   font-size:.92rem!important;
 }
 .viewer-name-card span{
-  line-height:1.25;
+  /* 1.25 였습니다 — 애플 한글 글꼴에서 「부단장」 받침이 잘렸습니다. */
+  line-height:1.5;
 }
 
 /* 팀전LIVE 실전 피드백: 청/홍 구분과 승패 입력 유도 */

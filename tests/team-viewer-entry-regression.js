@@ -7,8 +7,10 @@
  *   "참가자는 그저 대진표를 보는 정도, 투표는 뒷풀이만"
  *
  * 여기서 지키는 것:
- *   1) 링크를 열면 **전원**이 보인다 — 앞 12명만 보이면 뒤쪽 사람은 자기 이름이
- *      없는 줄 안다
+ *   1) 검색하기 전에는 **아무 이름도 안 보인다** (운영자 2026-08-12 계약 갱신:
+ *      "그냥 초성 입력 검색토록 해줘. 카드가 있으니까 다른 이름을 눌러 볼 것 같아")
+ *      — 이름칸을 깔아 두면 자기 이름을 찾기보다 눈에 띄는 이름을 눌러 본다.
+ *      검색하면 걸린 사람은 **전원** 나온다(앞 12명만 자르지 않는다)
  *   2) 이름칸이 대진표를 화면 밖으로 밀지 않는다(작은 칸 · 목록만 스크롤)
  *   3) 청/홍이 눈에 구분된다 — 전역 `!important` 버튼 규칙에 먹히지 않아야 한다
  *   4) 참가자가 만질 수 있는 건 **뒷풀이뿐**. 지각은 임원·단장 몫이다
@@ -63,17 +65,17 @@ const d = {
   officials: {}
 };
 
-// 1) 링크를 열면 전원이 보여야 합니다.
+// 1) 검색 전에는 이름칸이 하나도 없어야 합니다.
 {
   const html = sandbox.api.build(d);
   const cards = (html.match(/viewer-name-card/g) || []).length;
-  assert.strictEqual(cards, 20,
-    `명단 20명이면 20칸이 보여야 합니다(잘라내면 뒤쪽 사람이 자기 이름을 못 찾습니다): ${cards}`);
-  assert(!/\.slice\(0,\s*12\)/.test(cut('function buildViewerIdentity', 'function _canSubmitResult')),
-    '후보 목록을 12개로 자르면 안 됩니다.');
-  assert(/내 이름을 누르세요/.test(html), '무엇을 해야 하는지 제목이 말해야 합니다.');
+  assert.strictEqual(cards, 0,
+    `검색 전에는 이름칸을 깔지 않아야 합니다(남의 이름을 눌러 보게 됩니다): ${cards}`);
+  assert(/viewer-search-guide/.test(html), '무엇을 치면 되는지 안내가 있어야 합니다.');
+  assert(/오늘 20명/.test(html), '오늘 몇 명인지는 알려 줘야 합니다.');
+  assert(/내 이름 찾기/.test(html), '무엇을 해야 하는지 제목이 말해야 합니다.');
   assert(/예\) 김민현, ㄱㅁㅎ/.test(html), '민턴LIVE 와 같은 검색 예시를 보여야 합니다.');
-  console.log(`  링크 진입: 전원 ${cards}칸 · 검색 예시 안내`);
+  console.log('  링크 진입: 이름칸 0개 · 검색 안내');
 }
 
 // 2) 이름·초성 어느 쪽으로도 찾아집니다.
@@ -84,16 +86,24 @@ const d = {
   const byName = (sandbox.api.build(d).match(/viewer-name-card/g) || []).length;
   sandbox.api.setQuery('없는사람');
   const none = sandbox.api.build(d);
+  // 여러 명이 걸리면 전부 나와야 합니다 — 여기서 자르면 뒤쪽 사람이 못 찾습니다.
+  sandbox.api.setQuery('ㅈ');
+  const bySurname = (sandbox.api.build(d).match(/viewer-name-card/g) || []).length;
   sandbox.api.setQuery('');
   assert.strictEqual(byInitials, 1, '초성으로 찾아져야 합니다.');
   assert.strictEqual(byName, 1, '이름으로도 찾아져야 합니다.');
-  assert(/검색 결과가 없습니다/.test(none), '없으면 없다고 말해야 합니다.');
+  assert(bySurname >= 2, `성으로 치면 걸린 사람이 모두 나와야 합니다: ${bySurname}`);
+  assert(!/\.slice\(0,\s*12\)/.test(cut('function buildViewerIdentity', 'function _canSubmitResult')),
+    '검색 결과를 12개로 자르면 안 됩니다.');
+  assert(/찾은 이름이 없습니다/.test(none), '없으면 없다고 말해야 합니다.');
   console.log('  검색: 초성 · 이름 · 빈 결과 안내');
 }
 
 // 3) 청/홍이 눈에 구분돼야 합니다 — 이름칸에 팀 표시가 실려야 합니다.
 {
+  sandbox.api.setQuery('ㅈ');   // 검색해야 이름칸이 나옵니다
   const html = sandbox.api.build(d);
+  sandbox.api.setQuery('');
   assert(/viewer-name-card blue/.test(html) && /viewer-name-card red/.test(html),
     '이름칸이 팀을 달고 나와야 합니다.');
   // 아래쪽 `.viewer-identity button{background:…!important}` 가 모든 칸을 파랑으로
@@ -105,6 +115,29 @@ const d = {
   assert(/\.viewer-identity button[^{]*\{[^}]*!important/.test(css),
     '전제 확인: 그 전역 규칙이 실제로 존재합니다.');
   console.log('  팀 색: 청/홍 구분 · 전역 규칙보다 우선');
+}
+
+// 3-1) 이름칸 글자가 잘리지 않아야 합니다.
+// 말줄임 때문에 `overflow:hidden` 이 걸려 있어서, 줄 상자가 글자보다 낮으면
+// **받침이 잘려 나갑니다.** 아이폰 Safari 처럼 Noto 대신 애플 한글 글꼴로
+// 떨어지는 환경에서 「부단장」이 「브다자」로 보였습니다(단장·부단장처럼 두 줄인
+// 칸에서만). 줄 높이와 안쪽 여백 두 겹으로 막습니다.
+{
+  const nameRule = (css.match(/\.viewer-name-card b\{[^}]*\}/) || [''])[0];
+  const roleRule = (css.match(/\.viewer-name-card span\{[^}]*\}/) || [''])[0];
+  [['이름', nameRule], ['역할', roleRule]].forEach(([what, rule]) => {
+    assert(/overflow:hidden/.test(rule), `전제 확인: ${what}칸은 말줄임 때문에 잘라 냅니다.`);
+    const lh = Number((rule.match(/line-height:([\d.]+)/) || [])[1] || 0);
+    assert(lh >= 1.45, `${what}칸 줄 높이가 ${lh} 입니다 — 1.45 아래면 받침이 잘립니다.`);
+    assert(/padding:1px 0/.test(rule), `${what}칸에 위아래 여백이 있어야 잘림에 여유가 생깁니다.`);
+  });
+  // 나중에 덮어쓰는 규칙이 다시 낮추면 소용이 없습니다.
+  const later = css.match(/\.viewer-name-card span\{\s*(?:\/\*[^*]*\*\/\s*)?line-height:([\d.]+)/g) || [];
+  later.forEach(hit => {
+    const lh = Number((hit.match(/line-height:([\d.]+)/) || [])[1] || 0);
+    assert(lh >= 1.45, `뒤에서 줄 높이를 ${lh} 로 다시 낮추면 안 됩니다.`);
+  });
+  console.log('  이름칸: 줄 높이·여백으로 받침 잘림 방지');
 }
 
 // 4) 이름 고르기가 대진표를 밀어내지 않아야 합니다.

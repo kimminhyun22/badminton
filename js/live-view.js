@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.589';
+const APP_VERSION='1.10.590';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1826,7 +1826,11 @@ function buildViewerIdentity(d){
      목록에 높이 제한을 둬서, 이름 고르기가 대진표를 화면 밖으로 밀지 않게 합니다. */
   const sorted=all.sort((a,b)=>String(a.n).localeCompare(String(b.n),'ko'));
   const q=String(_viewerSearchTerm||'').trim().toLowerCase();
-  const filtered=q?sorted.filter(p=>_viewerSearchText(p,d).includes(q)):sorted;
+  /* **검색하기 전에는 아무 이름도 보여 주지 않습니다** (운영자 2026-08-12
+     "그냥 초성 입력 검색토록 해줘. 카드가 있으니까 다른 이름을 눌러 볼 것 같아").
+     스무 명이 넘는 이름칸을 깔아 두면 자기 이름을 찾기보다 눈에 띄는 이름을
+     눌러 보게 됩니다 — 그 순간 남의 이름으로 화면이 열립니다. */
+  const filtered=q?sorted.filter(p=>_viewerSearchText(p,d).includes(q)):[];
   const cards=filtered.map(p=>{
     const teamCls=p.team==='blue'?'blue':p.team==='red'?'red':'';
     const nameArg=JSON.stringify(p.n).replace(/"/g,'&quot;');
@@ -1838,13 +1842,17 @@ function buildViewerIdentity(d){
       +(role?'<span>'+esc(role)+'</span>':'')
     +'</button>';
   }).join('');
+  const body=q
+    ? '<div class="viewer-candidates">'
+        +(cards||'<div class="viewer-empty-result">「'+esc(_viewerSearchTerm)+'」 로 찾은 이름이 없습니다.</div>')
+      +'</div>'
+    : '<div class="viewer-search-guide">내 이름을 찾으려면 <b>초성</b>이나 <b>이름</b>을 입력해 주세요'
+      +'<small>예) ㄱㅁㅎ · 김민 · 민현 — 오늘 '+all.length+'명</small></div>';
   return '<section class="viewer-identity">'
     +'<div class="viewer-picker">'
-      +'<div class="viewer-picker-title">내 이름을 누르세요</div>'
+      +'<div class="viewer-picker-title">내 이름 찾기</div>'
       +'<input id="liveViewerSearch" class="viewer-search-input" value="'+esc(_viewerSearchTerm||'')+'" oninput="setLiveViewerSearch(this.value)" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ">'
-      +'<div class="viewer-candidates">'
-        +(cards||'<div class="viewer-empty-result">검색 결과가 없습니다.</div>')
-      +'</div>'
+      +body
     +'</div>'
   +'</section>';
 }
@@ -2661,6 +2669,16 @@ function render(d){
   window._lastLiveData=d;
   window._liveLate=_lateMapFromData(d);
   window._liveParty=d.party||{};
+  /* **본인 이름을 찾기 전에는 아무것도 보여 주지 않습니다** (운영자 2026-08-12
+     "본인 이름을 검색하지 않으면 볼 수 없게 해야 할 것 같아").
+     링크는 단톡방에 돌아다닙니다. 이름 하나만 고르면 되는 가벼운 문턱이지만,
+     그 문턱이 있어야 대진표·명단이 아무에게나 열리지 않습니다.
+     문턱은 여기 하나뿐입니다 — 고른 다음에는 곧장 대진표로 들어갑니다. */
+  const identityGate=buildViewerIdentity(d);
+  if(!_viewerInfo(d) && identityGate){
+    if(content)content.innerHTML='<div class="live-board">'+identityGate+'</div>';
+    return;
+  }
   const matches=(d.matches||[]).map((m,i)=>Object.assign({},m,{_idx:i,_key:_matchKey(m)}));
   const byRound={};
   matches.forEach(m=>{ (byRound[m.round]=byRound[m.round]||[]).push(m); });
