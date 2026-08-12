@@ -75,9 +75,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .brief-say.t1side{background:#e8f0fd;border-left:3px solid var(--bl);}
 .brief-say.t2side{background:#fdf0ef;border-left:3px solid var(--red);}
 
-/* ── 명언 카드 (파스텔 그라디언트로 통일) ── */
-  border:1.5px solid #d0d8f8;border-radius:16px;padding:16px 20px;
-  margin-bottom:14px;text-align:center;}
+/* 명언 카드 규칙은 **선택자 없이 선언만** 남아 있었습니다(7e4feb1 부터).
+   브라우저는 `border:1.5px …` 을 선택자로 읽기 시작해 다음 `{` 까지 삼키므로,
+   바로 뒤에 오는 `.progress` 규칙이 통째로 먹혔습니다. 붙일 선택자를 알 수 없어
+   추측하지 않고 지웁니다 — 지우면 뒤 규칙이 살아납니다. */
 
 
 
@@ -1893,11 +1894,11 @@ body{
   border:2px solid var(--live-alert-border)!important;
   box-shadow:0 0 0 4px rgba(217,45,32,.10),0 14px 32px rgba(180,35,24,.14)!important;
 }
+/* 내 다음 경기 카드는 **「지금 경기」 딱지 하나로** 충분합니다 (운영자 2026-08-12
+   "너무 요란해. 지금 경기 딱지만 있어도 충분할 것 같아"). 2px 붉은 테두리에
+   분홍 채움에 4px 글로우까지 두르면 카드 하나가 경고문이 됩니다. */
 .team-live-view .viewer-next-card.is-current{
-  border:2px solid var(--live-alert-border)!important;
-  background:linear-gradient(180deg,var(--live-alert-soft),#fffafa)!important;
-  box-shadow:0 0 0 4px rgba(217,45,32,.14),0 12px 26px rgba(180,35,24,.14)!important;
-  animation:teamLiveResultReminder 1.15s ease-in-out 4;
+  border-color:var(--live-alert-border)!important;
 }
 .team-live-view .viewer-next-card.is-current .viewer-next-label{
   display:inline-flex;
@@ -1907,9 +1908,6 @@ body{
   border-radius:999px;
   background:var(--live-alert)!important;
   color:#fff!important;
-}
-.team-live-view .viewer-next-card.is-current .viewer-next-where{
-  color:#8f1d18!important;
 }
 /* 지금 경기 카드는 **한 겹 테두리**로만 표시합니다. 붉은 테두리에 붉은 글로우까지
    두르니 카드 넉 장이 전부 경고처럼 보였습니다 — 「진행 중」 배지와 ROUND 제목이
@@ -2100,8 +2098,7 @@ body{
 }
 @media (prefers-reduced-motion:reduce){
   .team-live-view .current-badge,
-  .team-live-view .now,
-  .team-live-view .viewer-next-card.is-current,
+  .team-live-view .now{animation:none!important;}
 }
 
 /* Mobile safe areas, long-name wrapping, and field-size touch targets. */
@@ -2284,3 +2281,58 @@ button.team-official-overview-conflict.quiet{
 .team-sub-group.other .team-sub-group-head{background:#fff2e8;color:#9a5808;}
 .team-sub-group .team-sub-cands{max-height:none;margin-top:6px;}
 .team-sub-empty{margin-top:8px;color:#5c6a7a;font-size:13px;font-weight:800;}
+
+/* ── 전체 대진표 간략판 (운영자 2026-08-12) ────────────────────────────────
+   "경기가 많아서 세로 스크롤을 많이 해야 하니 간략히 볼 수 있게… 중복제거하고
+   바둑판식으로." 큰 카드는 경기마다 청/홍 딱지·VS·종목 칩·코트 태그를 되풀이해
+   40경기면 세로 여덟 화면이 됩니다. 여기서는 **왼쪽이 청, 오른쪽이 홍**이라는
+   자리로 팀을 말하고 딱지를 지웁니다. 이긴 쪽만 색으로 남깁니다. */
+.bracket-grid{display:grid;gap:5px;}
+.bracket-row{
+  display:grid;
+  grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) auto;
+  align-items:center;gap:7px;
+  padding:7px 9px;
+  border:1px solid var(--bdr);border-radius:12px;background:var(--sur);
+}
+.bracket-court{
+  color:var(--dim);font-size:.72rem;font-weight:1000;text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+.bracket-side{min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:3px;}
+.bracket-side i{font-style:normal;color:var(--dim2);font-size:.7rem;}
+.bracket-name{
+  min-width:0;font-size:.82rem;font-weight:800;color:var(--txt);letter-spacing:-.03em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5;padding:1px 0;
+}
+/* 지각자 이름은 눌러서 교체 — 큰 카드와 같은 규칙입니다. */
+.bracket-name.swap{
+  border-bottom:1px dashed var(--amber);cursor:pointer;
+}
+.bracket-name.late{color:#b45309;}
+.bracket-side.won .bracket-name{color:var(--bl-deep);font-weight:1000;}
+.bracket-side.red.won .bracket-name{color:var(--red-deep,#a93f45);}
+.bracket-side.lost .bracket-name{color:var(--dim);font-weight:700;}
+.bracket-name.late,.bracket-side.lost .bracket-name.late{color:#b45309;}
+.bracket-result{
+  min-width:22px;text-align:center;color:var(--dim2);
+  font-size:.74rem;font-weight:1000;
+}
+.bracket-result.done{color:var(--txt);}
+.bracket-result.void{color:var(--dim);font-size:.68rem;}
+/* 임원은 여기서도 바로 고칩니다 — 작은 칩 두 개. 다시 누르면 지워집니다. */
+.bracket-pick{display:inline-flex;gap:4px;}
+.bracket-pick button{
+  /* 촘촘한 목록이라 44px 는 못 씁니다. 다만 잘못 누르면 승패가 바뀌므로
+     36px 아래로는 내리지 않습니다(이름은 잘리지 않는 선에서 재봤습니다). */
+  min-width:36px;min-height:36px;padding:0;
+  border:1px solid var(--bdr);border-radius:9px;background:var(--sur2);
+  font:inherit;font-size:.72rem;font-weight:1000;color:var(--dim);cursor:pointer;
+}
+.bracket-pick button.blue.on{background:var(--bl);border-color:var(--bl-deep);color:#fff;}
+.bracket-pick button.red.on{background:var(--red);border-color:#c74744;color:#fff;}
+.bracket-row.decided{background:var(--sur2);}
+@media(max-width:360px){
+  .bracket-row{grid-template-columns:18px minmax(0,1fr) minmax(0,1fr) auto;gap:5px;padding:6px 7px;}
+  .bracket-name{font-size:.78rem;}
+}

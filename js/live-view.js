@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.594';
+const APP_VERSION='1.10.595';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -2475,6 +2475,62 @@ function _replaceableInMatch(d,m,name){
   if(!_lateOn(name))return false;
   return _swappableRounds(d).includes(Number(m.round));
 }
+/**
+ * 전체 대진표 한 줄 — **간략판** (운영자 2026-08-12 "경기가 많아서 세로 스크롤을
+ * 많이 해야 하니 간략히 볼 수 있게… 중복제거하고 바둑판식으로").
+ *
+ * 큰 카드에는 경기마다 같은 것이 되풀이됩니다 — 청팀/홍팀 딱지, VS, 종목 칩,
+ * 코트 태그. 40경기면 그 되풀이가 화면 여덟 개 분량이 됩니다. 여기서는
+ * **왼쪽이 청, 오른쪽이 홍**이라는 자리로 팀을 말하고, 딱지를 지웁니다.
+ * 이긴 쪽만 색으로 표시합니다.
+ *
+ * 이름은 큰 카드와 **같은 규칙으로** 눌립니다 — 지금·다음 라운드의 지각자를
+ * 누르면 교체 시트가 열립니다. 임원은 승패도 여기서 바로 고칩니다.
+ */
+function _bracketSideHtml(names,d,m,side,win){
+  const list=(names||[]).filter(Boolean);
+  const cls='bracket-side '+(side==='t1'?'blue':'red')+(win===side?' won':'')
+    +(win&&win!==side?' lost':'');
+  const inner=list.length
+    ? list.map(n=>_bracketNameHtml(n,d,m)).join('<i>·</i>')
+    : '<span class="bracket-name">-</span>';
+  return '<div class="'+cls+'">'+inner+'</div>';
+}
+function _bracketNameHtml(name,d,m){
+  const n=String(name||'');
+  const late=!!(d&&_lateOn(n));
+  if(_replaceableInMatch(d,m,n)){
+    const arg=JSON.stringify(n).replace(/"/g,'&quot;');
+    const open='openTeamSubstitutePanel('+Number(m.num||0)+','+arg+')';
+    return '<span class="bracket-name swap'+(late?' late':'')+'" role="button" tabindex="0"'
+      +' onclick="'+open+'"'
+      +' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+open+';}"'
+      +' aria-label="'+esc(n)+' · 눌러서 대체 선수 넣기">'+esc(n)+'</span>';
+  }
+  return '<span class="bracket-name'+(late?' late':'')+'">'+esc(n)+'</span>';
+}
+function buildBracketRow(m,d){
+  const num=Number(m.num);
+  const win=String(m.win||'');
+  const canFix=_usesFixedTeams(d)&&_canFixResult(d);
+  const result=m.voided
+    ? '<span class="bracket-result void">미실시</span>'
+    : canFix
+      ? '<span class="bracket-pick">'
+          +'<button type="button" class="blue'+(win==='t1'?' on':'')+'" aria-label="'+num+'번 청 승"'
+          +' onclick="toggleTeamWin('+num+',\'t1\')">청</button>'
+          +'<button type="button" class="red'+(win==='t2'?' on':'')+'" aria-label="'+num+'번 홍 승"'
+          +' onclick="toggleTeamWin('+num+',\'t2\')">홍</button>'
+        +'</span>'
+      : '<span class="bracket-result'+(win?' done':'')+'">'+(win?(win==='t1'?'청':'홍'):'·')+'</span>';
+  return '<div class="bracket-row'+(win?' decided':'')+(m.voided?' void':'')+'">'
+    +'<span class="bracket-court">'+(Number(m.court)||'-')+'</span>'
+    +_bracketSideHtml(m.t1,d,m,'t1',win)
+    +_bracketSideHtml(m.t2,d,m,'t2',win)
+    +result
+  +'</div>';
+}
+
 function _playerLine(name,d,m){
   const n=String(name||'');
   if(!n) return '<div class="live-player">-</div>';
@@ -2695,8 +2751,10 @@ function render(d){
     html+='<div class="round'+(isCur?' cur':'')+'" id="round_all_'+r+'">';
     html+='<div class="round-h"><span class="round-badge">ROUND '+r+'</span>'
       +(isCur&&!allDone?'<span class="now">● 현재</span>':'')+'<span class="round-line"></span></div>';
-    (byRound[r]||[]).sort((a,b)=>a.court-b.court).forEach(m=>{ html+=buildLiveMatchCard(m,d,{current:isCur&&!m.win&&!allDone}); });
-    html+='</div>';
+    // 큰 카드 대신 한 줄짜리 간략판 — 40경기면 세로 여덟 화면이 두 화면이 됩니다.
+    html+='<div class="bracket-grid">';
+    (byRound[r]||[]).sort((a,b)=>a.court-b.court).forEach(m=>{ html+=buildBracketRow(m,d); });
+    html+='</div></div>';
   });
   html+='</div></details>';
   html+='</div>';
