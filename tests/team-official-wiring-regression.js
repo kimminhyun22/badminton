@@ -154,22 +154,35 @@ assert(/_bookedInRound\(d,p\.name,match\.round,match\.num\)/.test(cands),
   '같은 라운드에 이미 잡힌 사람은 후보에서 빼야 합니다.');
 assert(/filter\(c=>!c\.late\)/.test(cands), '늦은 사람을 대체 후보로 올리면 안 됩니다.');
 
-// 7-1) 경기 미실시 — 못 치른 경기로 라운드가 멈추지 않게(운영자 2026-08-14 ③단계).
-assert(/type:'team-official-void'/.test(liveView), '미실시도 서버 명령이어야 합니다.');
-assert(/onclick="submitTeamVoid\(/.test(liveView), '시트에서 눌러 처리할 수 있어야 합니다.');
+// 7-1) 미실시는 **화면에서 사라졌습니다** (운영자 2026-08-12 "미실시 경기는
+// 구조적으로 발생하지 않아. 어떤 식으로든 결정을 해야 다음 라운드로 넘어가는
+// 구조니까"). 옛 게시본에 남은 표시는 사실대로 읽기만 합니다 — 새로 만들 수는
+// 없고, 서버 명령과 집계 규칙은 그대로 두어 옛 데이터가 깨지지 않게 합니다.
+assert(!/type:'team-official-void'/.test(liveView),
+  '화면에서 미실시를 새로 만들 수 없어야 합니다.');
+assert(!/onclick="submitTeamVoid\(/.test(liveView),
+  '미실시 버튼이 다시 생기면 안 됩니다.');
+assert(/미실시 · 치르지 않음/.test(liveView),
+  '옛 데이터에 미실시가 남아 있으면 사실대로 보여 줘야 합니다.');
 assert(/function _settled\(m\)\{ return !!\(m && \(m\.win \|\| m\.voided\)\); \}/.test(liveView),
-  '진행 판정은 결과와 미실시를 함께 봐야 합니다.');
+  '진행 판정은 옛 미실시 표시도 끝난 것으로 세야 합니다.');
 const teamSrcForVoid = fs.readFileSync(path.join(root, 'js', 'team.js'), 'utf8');
 assert(/\.\.\.\(m\.voided\?\{voided:true\}:\{\}\)/.test(teamSrcForVoid),
   '관리자 게시가 미실시 표시를 실어야 임원이 표시한 것이 지워지지 않습니다.');
 assert(/if\(currentMatches\[idx\]&&currentMatches\[idx\]\.voided\)return true;/.test(teamSrcForVoid),
   '관리자 진행 계산도 미실시를 끝난 것으로 세야 합니다.');
 
-// 7-2) 이름 수정 · 코트 번호 · 되돌리기 (③단계 마무리, 2026-08-14)
-['team-official-rename','team-official-court','team-official-undo'].forEach(t=>{
+// 7-2) 코트 번호 · 되돌리기 (③단계 마무리, 2026-08-14)
+['team-official-court','team-official-undo'].forEach(t=>{
   assert(liveView.includes(`type:'${t}'`), `${t} 을 화면에서 보낼 수 있어야 합니다.`);
 });
-assert(/onclick="renameTeamPlayer\(/.test(liveView), '명단에서 이름을 고칠 수 있어야 합니다.');
+// 2026-08-12 계약 갱신(운영자 "이름 변경 필요 없어, 삭제 기능도 필요 없어"):
+// 현장에서 대진을 짜므로 이름 오타도 불참자도 거의 없고, 불참이면 어차피 대체
+// 투입을 합니다. 명단 40여 줄마다 붙어 있던 버튼 두 개를 뗐습니다.
+assert(!/onclick="renameTeamPlayer\(/.test(liveView),
+  '이름 수정 버튼이 다시 생기면 안 됩니다.');
+assert(!/onclick="removeTeamPlayer\(/.test(liveView),
+  '명단 제외 버튼이 다시 생기면 안 됩니다.');
 assert(/onclick="changeTeamCourt\(/.test(liveView), '코트 라벨을 눌러 번호를 고칠 수 있어야 합니다.');
 assert(/onclick="undoTeamOfficialAction\(\)"/.test(liveView), '되돌리기 진입점이 있어야 합니다.');
 assert(/expectedLabel:String\(last\.label\)/.test(liveView),
@@ -261,10 +274,10 @@ assert(/const canEnter=!!\(win \|\| nowRound \|\| opts\.current\);/.test(control
 // 2026-08-12 계약 갱신(운영자 "미실시 딱지 떼"): 안 치르는 경기는 드문데 버튼은
 // 열린 카드마다 붙어 있었습니다. 카드에서는 떼고, 안 치른 경기가 남은 채로 끝내는
 // 건 마무리에서 확인 한 번으로 처리합니다.
-assert(!/submitTeamVoid\([^)]*,true\)/.test(controls),
+assert(!/submitTeamVoid\(/.test(controls),
   '카드에 미실시 버튼을 다시 달면 안 됩니다.');
-assert(/submitTeamVoid\([^)]*,false\)/.test(controls),
-  '이미 미실시로 찍힌 경기는 카드에서 해제할 수 있어야 합니다.');
+assert(/if\(m\.voided\)return '<div class="result-entry-done">미실시/.test(controls),
+  '옛 데이터의 미실시는 사실대로 보여만 줘야 합니다.');
 assert(/if\(!canEnter\) return '';/.test(controls),
   '승패를 넣거나 고칠 수 없는 카드에는 아무것도 붙지 않아야 합니다.');
 // 카드에서 미실시를 뗐으므로, 마무리가 「전부 끝남」에만 걸리면 영영 안 뜹니다.

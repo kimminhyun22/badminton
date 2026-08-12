@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.593';
+const APP_VERSION='1.10.594';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1484,15 +1484,14 @@ function _resultConflictKeys(d){
   const rows=(d&&d.resultConflicts)||{};
   return new Set(Object.keys(rows).filter(k=>Object.keys(rows[k]||{}).length));
 }
-/* 손볼 수 있는 경기: 결과가 들어간 경기 · 확인이 걸린 경기 · **미실시로 표시된
-   경기**(되돌리려면 보여야 함) · 아직 안 치른 지금·다음 라운드 경기(미실시로
-   표시하려면 보여야 함). */
+/* 이 시트에서 손볼 수 있는 경기 = **결과가 들어간 경기**와 **서로 다르게 입력된
+   경기**. 아직 안 치른 경기는 카드에서 바로 넣으므로 여기 모을 이유가 없습니다
+   (미실시가 없어진 뒤로는 더더욱 — 안 치른 경기에 여기서 할 일이 없습니다). */
 function _fixableResults(d){
   const conflicts=_resultConflictKeys(d);
-  const open=_swappableRounds(d);
   return ((d&&d.matches)||[])
     .map(m=>({m,conflict:conflicts.has(_matchKey(m))}))
-    .filter(x=>x.m&&(x.m.win||x.conflict||x.m.voided||open.includes(Number(x.m.round))))
+    .filter(x=>x.m&&(x.m.win||x.conflict))
     // 확인이 걸린 경기가 먼저, 그 다음은 최근 라운드부터.
     .sort((a,b)=>(Number(b.conflict)-Number(a.conflict))
       ||(Number(b.m.round||0)-Number(a.m.round||0))
@@ -1525,26 +1524,20 @@ function openTeamResultPanel(){
   })();
   const blueLabel=liveTeamLabel(d,'blue'), redLabel=liveTeamLabel(d,'red');
   box.innerHTML=`<div class="team-sub-card">
-    <div class="team-sub-head"><b>승패 · 미실시</b>
+    <div class="team-sub-head"><b>승패 정정</b>
       <button type="button" onclick="closeTeamResultPanel()" aria-label="닫기">✕</button></div>
     <div class="team-sub-body">${rows.map(({m,conflict})=>{
       const num=Number(m.num);
       const win=String(m.win||'');
       const t1=(m.t1||[]).filter(Boolean).join(' · ');
       const t2=(m.t2||[]).filter(Boolean).join(' · ');
-      const voided=m.voided===true;
-      const cur=voided?'미실시':win==='t1'?blueLabel:win==='t2'?redLabel:'결과 없음';
-      const actions=voided
-        ? `<button type="button" class="team-sub-cand clear"
-             onclick="submitTeamVoid(${num},false)">미실시 해제<small>다시 치름</small></button>`
-        : `<button type="button" class="team-sub-cand ${win==='t1'?'on':''}"
+      const cur=win==='t1'?blueLabel:win==='t2'?redLabel:'결과 없음';
+      const actions=`<button type="button" class="team-sub-cand ${win==='t1'?'on':''}"
              onclick="submitTeamResult(${num},'t1','${esc(win)}')">${esc(blueLabel)}<small>승</small></button>
            <button type="button" class="team-sub-cand ${win==='t2'?'on':''}"
              onclick="submitTeamResult(${num},'t2','${esc(win)}')">${esc(redLabel)}<small>승</small></button>
            ${win?`<button type="button" class="team-sub-cand clear"
-             onclick="submitTeamResult(${num},'','${esc(win)}')">결과 지움<small>다시 입력</small></button>`
-                :`<button type="button" class="team-sub-cand clear"
-             onclick="submitTeamVoid(${num},true)">미실시<small>안 치름</small></button>`}`;
+             onclick="submitTeamResult(${num},'','${esc(win)}')">결과 지움<small>다시 입력</small></button>`:''}`;
       return `<div class="team-sub-row${conflict?' warn':''}">
         <div class="team-sub-who"><b>${conflict?'⚠ ':''}${m.round}라운드 ${m.court}코트 · ${num}번</b>
           <small>${esc(t1)} vs ${esc(t2)} · 지금 ${esc(cur)}${conflict?' · 서로 다르게 입력됨':''}</small></div>
@@ -1582,16 +1575,6 @@ async function _sendTeamOfficialCommand(kind, command, okMessage){
     alert('요청을 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
   return false;
-}
-
-/* 이름 수정 — 명단·대진표·지각 표시에 흩어진 이름을 한 번에 바꿉니다. */
-async function renameTeamPlayer(name){
-  const d=window._lastLiveData;
-  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
-  const next=(prompt(`${name} 선수의 이름을 바꿉니다.\n새 이름을 입력해 주세요.`, name)||'').trim();
-  if(!next||next===name)return;
-  await _sendTeamOfficialCommand('trn', {type:'team-official-rename', fromName:String(name), toName:next},
-    `${name} → ${next} 로 바꿨습니다.`);
 }
 
 /* 코트 번호 정정 — 실제로 쓰는 코트와 화면이 다를 때. */
@@ -1657,14 +1640,6 @@ async function addTeamPlayer(){
   await _sendTeamOfficialCommand('trs', {type:'team-official-roster', action:'add',
     playerName:name, team, level, grade}, `${name} 선수를 명단에 넣었습니다.`);
 }
-async function removeTeamPlayer(name){
-  const d=window._lastLiveData;
-  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
-  if(!confirm(`${name} 선수를 명단에서 뺄까요?\n남은 경기에 이름이 있으면 대체 투입이 먼저입니다.`))return;
-  await _sendTeamOfficialCommand('trs', {type:'team-official-roster', action:'remove',
-    playerName:String(name)}, `${name} 선수를 명단에서 뺐습니다.`);
-}
-
 /* 되돌리기 — 마지막 조작 하나. 무엇을 되돌리는지 이름으로 확인받습니다. */
 function _lastOfficialAction(d){
   const log=(d&&d.officialLog)||[];
@@ -1680,40 +1655,6 @@ async function undoTeamOfficialAction(){
     `되돌렸습니다 — ${last.label}`);
 }
 
-/* 경기 미실시 — 치르지 않기로 한 경기를 표시해 **라운드를 넘깁니다**
-   (운영자 2026-08-14 ③단계). 승패 집계에는 들어가지 않습니다. */
-async function submitTeamVoid(matchNum,voided){
-  const d=window._lastLiveData;
-  const match=_matchByNum(d,matchNum);
-  const viewer=_viewerInfo(d);
-  if(!match||!viewer)return alert('경기를 다시 확인해주세요.');
-  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원만 처리할 수 있어요.');
-  const where=`${match.round}라운드 ${match.court}코트 ${matchNum}번 경기`;
-  const ask=voided
-    ? `${where}를\n치르지 않은 것으로 표시할까요?\n\n승패에는 들어가지 않고, 남은 라운드로 넘어갑니다.`
-    : `${where}의\n미실시 표시를 풀까요?`;
-  if(!confirm(ask))return;
-  if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
-  try{
-    const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
-    const grantToken=await ensureTeamOfficialGrant(d);
-    if(!grantToken)return alert(_teamGrantFailMessage());
-    const res=await callable({liveId,grantToken,command:{
-      type:'team-official-void',
-      operationId:'tvoid_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
-      actorPlayerName:viewer.n||viewer.name||'',
-      matchNum:Number(matchNum), voided:!!voided,
-      expiresAt:Date.now()+10*60*1000
-    }});
-    const data=res&&res.data;
-    if(data&&data.ok){
-      closeTeamResultPanel();
-      alert(voided?`${matchNum}번 경기를 미실시로 표시했습니다.`:`${matchNum}번 경기의 미실시를 풀었습니다.`);
-    }else alert((data&&data.reason)||'미실시 표시를 바꾸지 못했습니다.');
-  }catch(err){
-    alert('미실시 표시를 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
-  }
-}
 /* 같은 팀을 다시 누르면 지웁니다 — 상태는 누르는 순간의 데이터에서 읽습니다
    (버튼 HTML 에 박아 두면 화면이 갱신되기 전 옛 값으로 보낼 수 있습니다). */
 async function toggleTeamWin(matchNum,side){
@@ -2281,13 +2222,11 @@ function buildResultInputControls(m,d,opts){
   const fixed=_usesFixedTeams(d);
   const canFix=fixed&&_canFixResult(d);
   const num=Number(m.num);
-  if(m.voided){
-    if(!canFix)return '<div class="result-entry-done">미실시 · 치르지 않음</div>';
-    return '<div class="result-entry voided">'
-      +'<div class="result-entry-label">미실시 · 치르지 않음</div>'
-      +'<button type="button" class="result-clear" onclick="submitTeamVoid('+num+',false)">미실시 해제</button>'
-    +'</div>';
-  }
+  /* 미실시는 화면에서 완전히 뺐습니다 (운영자 2026-08-12 "미실시 경기는 구조적으로
+     발생하지 않아. 어떤 식으로든 결정을 해야 다음 라운드로 넘어가는 구조니까").
+     옛 데이터에 남아 있을 수는 있으니 **읽기는** 그대로 둡니다 — 서버도 표시를
+     이해하고, 여기서는 그렇게 찍힌 경기를 사실대로 보여만 줍니다. */
+  if(m.voided)return '<div class="result-entry-done">미실시 · 치르지 않음</div>';
   if(canFix){
     const win=String(m.win||'');
     const nowRound=Number(m.round)===Number((d&&d.currentRound)||0);
@@ -2333,14 +2272,11 @@ window.setLiveViewerName=setLiveViewerName;
 window.selectLiveViewer=selectLiveViewer;
 window.setLiveViewerSearch=setLiveViewerSearch;
 window.submitLiveWin=submitLiveWin;
-window.submitTeamVoid=submitTeamVoid;
 window.toggleTeamWin=toggleTeamWin;
-window.renameTeamPlayer=renameTeamPlayer;
 window.changeTeamCourt=changeTeamCourt;
 window.undoTeamOfficialAction=undoTeamOfficialAction;
 window.finishTeamLive=finishTeamLive;
 window.addTeamPlayer=addTeamPlayer;
-window.removeTeamPlayer=removeTeamPlayer;
 window.jumpToLiveSection=jumpToLiveSection;
 window.setViewerDetailsOpen=setViewerDetailsOpen;
 window.setTeamOfficialOverviewFilter=setTeamOfficialOverviewFilter;
@@ -2473,10 +2409,11 @@ function buildTeamRosterCard(d){
           +(canOperate
             ?'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(on?'도착 확인':'지각')+'</button>'
             :'<span class="team-member-att-view '+(on?'on':'')+'">'+(on?'지각':'')+'</span>')
-          +(canOperate
-            ?'<button type="button" class="team-member-att rename" title="이름 바꾸기" onclick="renameTeamPlayer('+nameArg+')">✏️</button>'
-              +'<button type="button" class="team-member-att rename" title="명단에서 빼기" onclick="removeTeamPlayer('+nameArg+')">✖️</button>'
-            :'')
+          /* 이름 수정(✏️)·명단 제외(✖️) 버튼은 뺐습니다 (운영자 2026-08-12
+             "어차피 현장에서 대진을 짜니까 이름 수정이나 불참자 발생은 거의 없어.
+             지각하다가 불참으로 전환되어도 어쨌든 대체 선수 투입은 불가피하니까
+             달라지는 건 없어"). 명단 40여 줄에 네 칸씩 붙어 있던 버튼입니다 —
+             한 해에 몇 번 쓸까 말까 한 기능이 매 줄의 폭을 먹고 있었습니다. */
           +((canOperate||_isSelf(d,p.n))
             ?'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
             :'<span class="team-member-party-view '+(partyOn?'on':'')+'">'+(partyOn?'뒷풀이':'')+'</span>')

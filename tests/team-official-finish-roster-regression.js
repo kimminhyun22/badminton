@@ -196,8 +196,11 @@ function settleAll(session){
   // 명단 고치기는 명단을 보는 그 자리에서.
   assert(viewSrc.includes('onclick="addTeamPlayer()"') && viewSrc.includes('＋ 선수 추가'),
     '명단 카드에서 선수를 추가할 수 있어야 합니다.');
-  assert(viewSrc.includes('onclick="removeTeamPlayer('),
-    '명단 줄에서 선수를 뺄 수 있어야 합니다.');
+  // 2026-08-12 계약 갱신(운영자 "삭제 기능도 필요 없어"): 명단에서 빼는 버튼은
+  // 뗐습니다 — 불참이면 어차피 대체 투입을 하므로 명단에서 지워도 달라지는 게
+  // 없습니다. 서버 명령은 남겨 둡니다(추가와 같은 명령을 씁니다).
+  assert(!viewSrc.includes('onclick="removeTeamPlayer('),
+    '명단 제외 버튼이 다시 생기면 안 됩니다.');
 
   // 조작 기록 — 서버에는 쌓이는데 화면에서 볼 수 없었습니다.
   assert(viewSrc.includes('function _officialLogHtml'), '운영 기록 화면이 있어야 합니다.');
@@ -208,7 +211,7 @@ function settleAll(session){
   assert(log.includes('_canFixResult(d)'), '운영 기록은 임원에게만 보여야 합니다.');
   assert(viewSrc.includes('${_officialLogHtml(d)}'), '운영 현황 안에 붙어야 합니다.');
 
-  ['finishTeamLive','addTeamPlayer','removeTeamPlayer'].forEach(fn=>{
+  ['finishTeamLive','addTeamPlayer'].forEach(fn=>{
     assert(viewSrc.includes('window.'+fn+'='+fn), `${fn} 은 onclick 에서 부를 수 있어야 합니다.`);
   });
   console.log('  화면: 마무리 노출 조건 · 명단 고치기 진입점 · 운영 기록');
