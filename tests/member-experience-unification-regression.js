@@ -32,7 +32,14 @@ assert(!rsvp.includes('KOKMATCH TEAM LIVE'), '회원 이름 확인 화면에 서
 assert(!live.includes('선수용 라이브 보드'), '실중계 화면에 서비스 설명용 보조 헤더를 노출하면 안 됩니다.');
 assert(live.includes('<div class="viewer-identity-k">내 경기</div>'), '실중계 개인 영역은 MY PAGE 대신 내 경기로 표시해야 합니다.');
 
-const renderSource = functionSource(live, 'render', 'toggleRoster');
+// `render` 는 이제 파일의 마지막 함수입니다(죽은 함수 정리, 2026-08-12).
+// 뒤따르는 함수 이름을 끝 지표로 쓰면 그 함수가 사라질 때 조용히 파일 끝까지
+// 잘라 검사가 헐거워집니다 — 서비스 워커 IIFE 를 지표로 씁니다.
+const _renderStart = live.indexOf('function render(d)');
+assert(_renderStart >= 0, 'render 함수를 찾을 수 있어야 합니다.');
+const _renderEnd = live.indexOf('\n(function(){', _renderStart);
+assert(_renderEnd > _renderStart, 'render 뒤의 끝 지표를 찾을 수 있어야 합니다.');
+const renderSource = live.slice(_renderStart, _renderEnd);
 // 순서는 역할별로 갈립니다(2026-08-04). 회원 순서만 여기서 봅니다.
 const memberOrder = (renderSource.match(/:\s*(identity\+overview\+[A-Za-z+]+)/) || [])[1] || '';
 assert(

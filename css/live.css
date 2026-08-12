@@ -17,63 +17,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .head h1{font-size:1.2rem;font-weight:900;}
 .live-dot{width:10px;height:10px;border-radius:50%;background:var(--red);animation:pulse 1.4s ease-in-out infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.live-label{font-size:.76rem;color:var(--red);font-weight:700;}
 .status{text-align:center;padding:44px 16px;color:var(--dim);font-size:1rem;}
 .title{font-size:1.05rem;font-weight:800;text-align:center;margin-bottom:14px;color:var(--txt);}
-
-/* ── 팀 스코어 ── */
-.team-score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
-  background:var(--sur);border:1px solid var(--bdr);border-radius:18px;
-  padding:20px 16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(45,55,75,.07);}
-.ts-side{text-align:center;}
-.ts-name{font-size:.88rem;font-weight:700;color:var(--dim);margin-bottom:4px;}
-.ts-wins{font-size:2.6rem;font-weight:900;line-height:1;}
-.ts-blue .ts-wins{color:var(--bl-deep);}
-.ts-white .ts-wins{color:var(--amber);}
-.ts-vs{font-size:.9rem;font-weight:700;color:var(--dim2);}
-.ts-lead{text-align:center;font-size:.84rem;font-weight:700;margin-bottom:14px;
-  padding:9px;border-radius:10px;background:var(--bl-soft);color:var(--bl-deep);}
-.ts-lead.tie{background:var(--sur2);color:var(--dim);}
-.ts-lead.white-lead{background:#fdf5e4;color:var(--amber);}
-
-/* ── 게이지 ── */
-.gauge-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:14px;}
-.gauge-sec{animation:secIn .6s ease-out both;}
 @keyframes secIn{from{opacity:0;}to{opacity:1;}}
-.gauge-arc{animation:arcIn .6s ease-out both;}
 @keyframes arcIn{from{opacity:0;}to{opacity:1;}}
-.needle-grp{transform-origin:150px 158px;transform:rotate(0deg);}
-.gauge-svg{width:100%;max-width:300px;height:auto;}
-.gauge-needle{transform-origin:140px 130px;}
 .gauge-needle.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}
-.gauge-title{font-size:.76rem;font-weight:700;color:var(--dim);letter-spacing:1px;margin-bottom:2px;}
-.gauge-caption{font-size:.86rem;font-weight:800;color:var(--dim);margin-top:4px;}
 .gauge-caption.blue{color:var(--bl-deep);}
-.gauge-caption.red{color:#c73230;}
-
-/* ── 브리핑 ── */
-.briefing{background:linear-gradient(135deg,#eef4ff,#f5efff);
-  border:1.5px solid #d4e3fb;border-radius:18px;padding:18px;margin-bottom:14px;}
-.brief-title{font-size:.72rem;font-weight:800;color:var(--dim);letter-spacing:1.8px;margin-bottom:10px;text-transform:uppercase;}
-.brief-extras{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
-.brief-extra{font-size:.84rem;font-weight:600;color:var(--txt);
-  background:linear-gradient(135deg,#fff9ec,#fff4e0);
-  border:1px solid #fde8b8;border-radius:9px;padding:8px 11px;line-height:1.55;}
-.brief-situation{font-size:1.15rem;font-weight:900;color:var(--txt);margin-bottom:12px;letter-spacing:-.3px;}
-.brief-row{font-size:.88rem;font-weight:600;color:var(--txt);padding:4px 0;display:flex;align-items:center;gap:7px;}
-.brief-dot-b{color:var(--bl);font-size:.65rem;}
-.brief-dot-r{color:var(--red);font-size:.65rem;}
-.brief-momentum{margin-top:10px;font-size:.82rem;font-weight:700;color:var(--dim);
-  border-top:1px solid var(--bdr);padding-top:10px;}
-.brief-b{color:var(--bl-deep);}
-.brief-r{color:var(--red);}
-.brief-says{margin-top:12px;border-top:1px solid var(--bdr);padding-top:12px;display:flex;flex-direction:column;gap:8px;}
-.cheer-bar{display:flex;flex-direction:column;gap:8px;margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.7);border:1px solid var(--bdr);}
-.cheer-blue{font-size:.84rem;font-weight:600;color:var(--txt);line-height:1.6;padding:9px 12px;border-radius:10px;background:#e8f0fd;border-left:3px solid #5b8def;}
-.cheer-red{font-size:.84rem;font-weight:600;color:var(--txt);line-height:1.6;padding:9px 12px;border-radius:10px;background:#fdf0ef;border-left:3px solid #e8736f;}
-.brief-say{font-size:.84rem;font-weight:600;color:var(--txt);line-height:1.6;padding:9px 12px;border-radius:10px;}
-.brief-say.t1side{background:#e8f0fd;border-left:3px solid var(--bl);}
-.brief-say.t2side{background:#fdf0ef;border-left:3px solid var(--red);}
 
 /* 명언 카드 규칙은 **선택자 없이 선언만** 남아 있었습니다(7e4feb1 부터).
    브라우저는 `border:1.5px …` 을 선택자로 읽기 시작해 다음 `{` 까지 삼키므로,
@@ -119,17 +68,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
   text-shadow:0 2px 8px rgba(76,29,149,.4);}
 .finale-sub{font-size:.88rem;font-weight:700;color:rgba(255,255,255,.92);margin-top:10px;}
 #confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999;}
-
-/* ── 연승 스트릭 ── */
-.streak-box{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:14px;}
-.streak-chip{display:inline-flex;align-items:center;gap:5px;
-  background:linear-gradient(135deg,#ffece0,#ffd9c2);border:1px solid #f5c4a8;
-  border-radius:999px;padding:7px 14px;font-size:.84rem;font-weight:700;color:#c2511e;
-  box-shadow:0 1px 4px rgba(224,100,40,.12);}
-.streak-fire{font-size:1rem;animation:flicker 1.1s ease-in-out infinite;}
 @keyframes flicker{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.18);opacity:.85;}}
-.streak-n{font-weight:900;}
-.streak-hot{background:linear-gradient(135deg,#ffe0e0,#ffc2c2);border-color:#f5a8a8;color:#d8362f;}
 
 /* ── 순위 ── */
 .rank-box{background:var(--sur);border:1px solid var(--bdr);border-radius:16px;padding:6px;margin-bottom:14px;}
@@ -141,34 +80,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .rank-name{flex:1;font-weight:700;font-size:.95rem;}
 .rank-rec{font-size:.8rem;color:var(--dim);}
 .rank-rate{font-weight:800;color:var(--bl-deep);min-width:44px;text-align:right;font-size:.9rem;}
-
-/* ── 명단 ── */
-.roster-bar{display:flex;gap:8px;margin-bottom:10px;}
-.roster-btn{flex:1;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:12px;
-  background:var(--sur);font-family:'Noto Sans KR',sans-serif;
-  font-size:.84rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;}
-.roster-btn.t1side{border-color:#b3cef7;color:var(--bl-deep);background:var(--bl-soft);}
-.roster-btn.t2side{border-color:#f7c3c2;color:var(--red);background:#fdf0ef;}
-.roster-panel{background:var(--sur);border:1.5px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:10px;}
-.roster-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.roster-panel-title{font-size:.82rem;font-weight:800;color:var(--dim);letter-spacing:.5px;}
-.roster-sort-btns{display:flex;gap:4px;}
-.rsort-btn{font-family:'Noto Sans KR',sans-serif;font-size:.72rem;font-weight:700;
-  padding:4px 10px;border:1.5px solid var(--bdr);border-radius:7px;background:var(--sur2);color:var(--dim);cursor:pointer;}
 .rsort-btn.active{background:var(--bl);color:#fff;border-color:var(--bl);}
-.roster-names{font-size:.86rem;line-height:1.3;}
-.roster-row{display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--bdr);}
-.roster-row:last-child{border-bottom:none;}
-.roster-gender{font-size:.72rem;font-weight:900;min-width:24px;text-align:center;border-radius:999px;padding:2px 5px;}
-.roster-m{color:#1d4ed8;background:#dbeafe;border:1px solid #bfdbfe;}
-.roster-f{color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;}
 .roster-name{flex:1;font-size:.95rem;font-weight:700;color:var(--txt);}
-.roster-divider{height:1px;background:var(--bdr2);margin:6px 0;}
-.roster-dot-b{color:var(--bl);font-size:.72rem;}
-.roster-dot-r{color:var(--red);font-size:.72rem;}
-.roster-cap-badge{font-size:.64rem;font-weight:800;border-radius:5px;padding:1px 6px;margin:0 2px;}
 .roster-cap-badge.leader{background:#ffd700;color:#7a5800;}
-.roster-cap-badge.sub{background:#e0e0e0;color:#555;}
 .roster-row.is-leader .roster-name{font-weight:900;color:var(--txt);}
 
 /* ── 라운드 블록 ── */
@@ -206,43 +120,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt)
 .match.men{border-left:4px solid #7fa8f2;}
 .match.mixed{border-left:4px solid #b3a0db;}
 .match.adjust{border-left:4px solid #f59e0b;}
-.m-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-.m-type{font-size:.76rem;font-weight:700;padding:3px 11px;border-radius:7px;}
 .m-type.women{background:var(--women-soft);color:#b06b85;}
-.m-type.men{background:var(--men-soft);color:var(--bl-deep);}
 .m-type.mixed{background:var(--mixed-soft);color:#7d68b0;}
 .m-type.adjust{background:var(--adjust-soft);color:#b45309;}
-.m-court{font-size:1rem;font-weight:900;color:var(--txt);background:var(--sur2);
-  border:2px solid var(--bdr2);border-radius:9px;padding:4px 14px;
-  letter-spacing:.5px;min-width:62px;text-align:center;}
-.m-body{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
-.m-team{padding:11px;border-radius:11px;}
-.m-team.t1side{background:#e8f0fd;}
-.m-team.t2side{background:#fdf0ef;}
-.m-team.t1side.win{background:#d0e2ff;border:2px solid var(--bl);}
-.m-team.t2side.win{background:#fddcdb;border:2px solid var(--red);}
-.m-team{position:relative;overflow:hidden;}
 /* 선수 이름: 4~50대 가독성 최우선 */
 .m-player{font-size:1.12rem;font-weight:900;line-height:1.75;color:var(--txt);letter-spacing:-.3px;}
-.m-grade{font-size:.72rem;color:var(--dim2);font-weight:500;}
 .m-vs{font-size:.76rem;font-weight:700;color:var(--dim2);text-align:center;padding:0 2px;}
-.m-team-label{font-size:.72rem;font-weight:900;letter-spacing:.8px;margin-bottom:5px;opacity:.8;}
-.m-team.t1side .m-team-label{color:var(--bl-deep);}
-.m-team.t2side .m-team-label{color:var(--red);}
-.win-stamp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-14deg);
-  border:3px solid #e0463f;color:#e0463f;border-radius:10px;
-  font-family:'Noto Sans KR',sans-serif;font-weight:900;font-size:1.15rem;letter-spacing:2px;
-  padding:3px 12px;background:rgba(255,255,255,.4);
-  box-shadow:0 0 0 2px rgba(224,70,63,.12);
-  pointer-events:none;white-space:nowrap;
-  animation:stampIn .35s cubic-bezier(.2,1.3,.6,1) both;}
 @keyframes stampIn{0%{transform:translate(-50%,-50%) rotate(-14deg) scale(2.2);opacity:0;}
   60%{opacity:1;}100%{transform:translate(-50%,-50%) rotate(-14deg) scale(1);opacity:1;}}
 
 /* ── 푸터 ── */
 .foot{text-align:center;font-size:.72rem;color:var(--dim2);padding:18px 0 14px;line-height:2;}
 .foot b{color:var(--txt);font-weight:700;}
-.refresh-note{text-align:center;font-size:.72rem;color:var(--dim);margin-top:4px;}
 
 /* ── v2 모바일 라이브 보드 ── */
 body{
@@ -256,14 +145,9 @@ body{
   background:rgba(8,17,31,.82);backdrop-filter:blur(16px);
   border-bottom:1px solid rgba(255,255,255,.08);}
 .head h1{font-size:.98rem;letter-spacing:-.2px;color:#fff;}
-.live-label{font-size:.68rem;letter-spacing:.8px;color:#fecaca;}
 .status{color:#cbd5e1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:18px;}
 .title{font-size:.86rem;color:#cbd5e1;text-align:left;margin:4px 2px 10px;font-weight:800;}
 .live-board{display:flex;flex-direction:column;gap:12px;}
-.live-top{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#cbd5e1;font-size:.72rem;font-weight:800;letter-spacing:.2px;}
-.live-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;
-  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);}
-.live-dot-mini{width:7px;height:7px;border-radius:50%;background:#fb7185;box-shadow:0 0 0 5px rgba(251,113,133,.14);}
 .score-hero{position:relative;overflow:hidden;border-radius:24px;padding:18px;
   background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
   border:1px solid rgba(255,255,255,.14);box-shadow:0 22px 48px rgba(0,0,0,.24);}
@@ -277,8 +161,6 @@ body{
 .score-team.blue .score-num{color:#93c5fd;text-shadow:0 0 28px rgba(59,130,246,.32);}
 .score-team.red .score-num{color:#fca5a5;text-shadow:0 0 28px rgba(239,68,68,.28);}
 .score-vs{font-size:.78rem;font-weight:900;color:#64748b;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:4px 8px;}
-.score-lead{position:relative;margin-top:14px;padding-top:13px;border-top:1px solid rgba(255,255,255,.1);
-  color:#e2e8f0;font-size:.82rem;font-weight:800;display:flex;justify-content:space-between;gap:8px;}
 .score-progress{height:7px;margin-top:12px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden;}
 .score-progress span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#60a5fa,#f87171);}
 .section-kicker{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 8px;color:#cbd5e1;}
@@ -324,8 +206,7 @@ body{
 .info-details>summary:after{content:"펼치기";font-size:.68rem;color:#93c5fd;}
 .info-details[open]>summary:after{content:"접기";}
 .info-body{padding:0 12px 12px;}
-.progress{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);color:#cbd5e1;}
-.briefing,.rank-box,.roster-panel{box-shadow:none;}
+.progress{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1);color:#cbd5e1;}.rank-box{box-shadow:none;}
 .round{margin-bottom:12px;}
 .round:not(.cur){opacity:.76;}
 .round-h{margin:14px 2px 9px;}
@@ -345,17 +226,10 @@ body{
   .live-versus{gap:6px;}
   .live-side{padding:10px 8px;}
 }
-
-/* ── v3 선수 FAQ 중심 라이브 화면 ── */
-.live-top span:last-child{color:#93c5fd;}
 .score-hero{padding:16px 16px 14px;}
 .score-hero .section-kicker{position:relative;margin:0 0 10px;color:#bfdbfe;}
 .score-hero .section-kicker b{font-size:.74rem;}
-.score-lead{align-items:center;}
-.score-lead b{font-size:1rem;color:#fff;}
 .score-lead.blue b{color:#93c5fd;}
-.score-lead.red b{color:#fca5a5;}
-.score-lead.tie b{color:#fde68a;}
 .mvp-card.live-mvp,.mvp-card.mvp-empty{margin-bottom:0;border-radius:22px;padding:15px 14px;
   background:linear-gradient(135deg,#fbbf24 0%,#f59e0b 58%,#b45309 100%);
   box-shadow:0 18px 38px rgba(180,83,9,.26);}
@@ -382,7 +256,6 @@ body{
 .team-member-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .team-member-badge{font-size:.6rem;color:#fff;border-radius:999px;padding:2px 5px;background:#f59e0b;white-space:nowrap;}
 .team-member-g{font-size:.68rem;width:14px;text-align:center;color:#bfdbfe;}
-.team-roster-more{margin-top:7px;font-size:.68rem;color:#bfdbfe;font-weight:900;}
 .faq-note{font-size:.72rem;line-height:1.6;color:#94a3b8;padding:0 2px;}
 .info-details.primary{background:rgba(255,255,255,.1);}
 .info-details.primary>summary{font-size:.88rem;}
@@ -413,16 +286,8 @@ body{
 }
 .head h1{font-size:1.03rem;font-weight:800;letter-spacing:.2px;color:var(--txt);}
 .live-dot{background:var(--red);box-shadow:0 0 0 5px rgba(232,115,111,.12);}
-.live-label{font-size:.7rem;color:var(--red-deep);font-weight:800;letter-spacing:.8px;}
 .status{background:#fff;border:1px solid var(--bdr);box-shadow:var(--shadow);color:var(--dim);}
 .live-board{gap:11px;}
-.live-top{color:var(--dim);font-size:.7rem;}
-.live-top span:last-child{color:var(--dim2);}
-.live-pill{
-  background:var(--red-soft);border:1px solid #f7c3c2;color:var(--red-deep);
-  box-shadow:var(--shadow);
-}
-.live-dot-mini{background:var(--red);box-shadow:0 0 0 4px rgba(232,115,111,.12);}
 .title{
   color:var(--txt);font-size:1rem;text-align:left;font-weight:900;margin:0 2px 2px;
   letter-spacing:-.3px;
@@ -447,18 +312,8 @@ body{
 .score-team.blue .score-num{color:var(--bl-deep);text-shadow:none;}
 .score-team.red .score-num{color:var(--red-deep);text-shadow:none;}
 .score-vs{background:var(--sur2);border:1px solid var(--bdr);color:var(--dim2);}
-.score-lead{
-  margin-top:13px;padding:11px 12px;border:1px solid var(--bdr);border-radius:12px;
-  background:var(--sur2);color:var(--txt);
-}
-.score-lead span{font-weight:900;}
-.score-lead b{font-size:1rem;color:var(--txt);}
 .score-lead.blue{background:var(--bl-soft);border-color:var(--bl-softbdr);}
 .score-lead.blue b{color:var(--bl-deep);}
-.score-lead.red{background:var(--red-soft);border-color:#f7c3c2;}
-.score-lead.red b{color:var(--red-deep);}
-.score-lead.tie{background:#fff8ed;border-color:#f4d6a8;}
-.score-lead.tie b{color:#9a650c;}
 .score-progress{background:var(--sur2);height:8px;}
 .score-progress span{background:linear-gradient(90deg,var(--bl),var(--red));}
 .score-hero .progress,.progress{
@@ -558,7 +413,6 @@ body{
 .finale{
   background:linear-gradient(135deg,var(--bl),#7fa8f2);box-shadow:var(--shadow-md);
 }
-.streak-box{margin-bottom:0;}
 .foot{color:var(--dim2);}
 .foot b{color:var(--txt);}
 .foot a{color:var(--bl-deep)!important;}
@@ -576,7 +430,6 @@ body{
 .score-row{margin-top:2px;}
 .score-name{font-size:.82rem;font-weight:900;color:var(--dim);}
 .score-num{font-size:3.18rem;letter-spacing:-1.5px;}
-.score-lead{margin-top:10px;}
 .score-hero .progress{font-size:.76rem;padding:8px;}
 .current-panel{border-color:var(--bl-softbdr);box-shadow:0 0 0 3px rgba(91,141,239,.06),var(--shadow);}
 .current-head{margin-bottom:9px;}
@@ -609,14 +462,11 @@ body{
 body{max-width:680px;font-size:18px;line-height:1.55;}
 .head{padding:15px 18px;}
 .head h1{font-size:1.18rem;}
-.live-label{font-size:.82rem;}
 .live-board{gap:14px;}
 .title{font-size:1.18rem;line-height:1.35;margin:2px 4px 0;}
 .score-hero{border-radius:22px;padding:18px;}
 .score-name{font-size:1rem;color:#414957;}
 .score-num{font-size:3.45rem;}
-.score-lead{font-size:1rem;padding:13px 14px;}
-.score-lead b{font-size:1.18rem;}
 .current-panel{border-width:2px;border-radius:22px;padding:16px;}
 .current-round{font-size:1.34rem;}
 .current-badge{font-size:.8rem;padding:6px 12px;}
@@ -666,7 +516,6 @@ body{max-width:680px;font-size:18px;line-height:1.55;}
 .next-panel .live-match.is-imminent{border-color:#f59e0b;background:#fffdf6;}
 .next-panel .live-court{background:#fff8ed;border-color:#f4d6a8;color:#9a650c;}
 .next-panel .live-type{background:#fff8ed;border-color:#f4d6a8;color:#8a5808;}
-.next-wait-note{font-size:.82rem;font-weight:800;color:#9a650c;margin-bottom:9px;}
 .team-roster-card{border-radius:22px;border-width:2px;}
 .team-roster-head{padding:15px 16px;gap:10px;align-items:flex-start;}
 .team-roster-head b{font-size:1.08rem;}
@@ -863,11 +712,10 @@ body{
 .score-name{color:#626c7a!important;font-weight:800!important;}
 .score-team.blue .score-num{color:#557ecf!important;}
 .score-team.red .score-num{color:#bf6c70!important;}
-.score-lead.blue,.live-side.blue,.team-roster-side.blue,.m-team.t1side{
+.score-lead.blue,.live-side.blue,.team-roster-side.blue{
   background:#f5f8ff!important;
   border-color:#dce9fb!important;
-}
-.score-lead.red,.live-side.red,.team-roster-side.red,.m-team.t2side{
+}.live-side.red,.team-roster-side.red{
   background:#fff6f6!important;
   border-color:#f4d0d0!important;
 }
@@ -898,13 +746,7 @@ body{
   border-color:#e78a8a!important;
   box-shadow:none!important;
 }
-.live-dot,.live-dot-mini{background:#e78a8a!important;}
-.live-label,.live-pill{color:#b85b60!important;}
-.live-pill{
-  background:#fff6f6!important;
-  border-color:#f4d0d0!important;
-  box-shadow:none!important;
-}
+.live-dot{background:#e78a8a!important;}
 .mvp-card.live-mvp,.mvp-card.mvp-empty{
   background:#fffaf2!important;
   border-color:#efd9b1!important;
@@ -934,17 +776,12 @@ body{
   .score-num{font-size:3rem!important;}
   .live-player{font-size:1.12rem!important;}
   .live-court{font-size:1.08rem!important;}
-}
-
-/* ── v1.10.186: 파스텔 블루/레드/그린 역할 분리 ── */
-.score-lead.tie,.team-att-summary{
+}.team-att-summary{
   background:var(--green-soft)!important;
   border-color:var(--green-bdr)!important;
   color:var(--green-deep)!important;
 }
-.score-lead.tie b{color:var(--green-deep)!important;}
-.score-hero .section-kicker span:before,
-.live-dot-mini{
+.score-hero .section-kicker span:before{
   background:var(--green)!important;
 }
 .score-progress span{
@@ -955,17 +792,17 @@ body{
   color:var(--green-deep)!important;
   border-color:var(--green-bdr)!important;
 }
-.team-member-att.on,.roster-cap-badge.sub{
+.team-member-att.on{
   background:var(--green)!important;
   border-color:var(--green)!important;
   color:#fff!important;
 }
-.team-member-g.male,.roster-m{
+.team-member-g.male{
   color:#557ecf!important;
   background:var(--bl-soft)!important;
   border-color:var(--bl-softbdr)!important;
 }
-.team-member-g.female,.roster-f{
+.team-member-g.female{
   color:#b85b60!important;
   background:var(--red-soft)!important;
   border-color:#f4d0d0!important;
@@ -1007,21 +844,9 @@ body{
 .head h1{
   color:#2f3745!important;
 }
-.live-label{
-  color:#a85f63!important;
-}
 .live-dot{
   background:#e9a0a2!important;
   box-shadow:0 0 0 5px rgba(233,160,162,.16)!important;
-}
-.live-pill{
-  background:#fff8f8!important;
-  border-color:#f2d8d9!important;
-  color:#a85f63!important;
-}
-.live-dot-mini{
-  background:#9bd7b2!important;
-  box-shadow:0 0 0 4px rgba(155,215,178,.18)!important;
 }
 .score-team.blue .score-num{
   color:#5878bd!important;
@@ -1033,14 +858,12 @@ body{
   background:linear-gradient(90deg,#8fb1ed,#9bd7b2)!important;
 }
 .live-side.blue,
-.team-roster-side.blue,
-.m-team.t1side{
+.team-roster-side.blue{
   background:#f7faff!important;
   border-color:#e1ebfb!important;
 }
 .live-side.red,
-.team-roster-side.red,
-.m-team.t2side{
+.team-roster-side.red{
   background:#fff8f8!important;
   border-color:#f2d8d9!important;
 }
@@ -1072,14 +895,12 @@ body{
   color:#9a6a24!important;
   border-color:#ead2a8!important;
 }
-.team-member-g.male,
-.roster-m{
+.team-member-g.male{
   color:#4f73b8!important;
   background:#f7faff!important;
   border-color:#d9e7fb!important;
 }
-.team-member-g.female,
-.roster-f{
+.team-member-g.female{
   color:#a85f63!important;
   background:#fff8f8!important;
   border-color:#f2d8d9!important;
@@ -1100,13 +921,6 @@ body{
 .team-member-badge{
   background:#c99a58!important;
 }
-.score-lead.red{
-  background:#fff8f8!important;
-  border-color:#f2d8d9!important;
-}
-.score-lead.red b{
-  color:#a85f63!important;
-}
 .score-lead.blue{
   background:#f7faff!important;
   border-color:#e1ebfb!important;
@@ -1114,7 +928,7 @@ body{
 .score-lead.blue b{
   color:#4f73b8!important;
 }
-.next-title,.next-wait-note{
+.next-title{
   color:var(--green-deep)!important;
 }
 .next-panel .live-match,
@@ -1127,13 +941,10 @@ body{
   border-color:var(--green-bdr)!important;
   color:var(--green-deep)!important;
 }
-/* ── v1.10.195: 팀 라벨 대비 보강 ── */
-.m-team-label,
 .live-team-label,
 .team-roster-title{
   text-shadow:none!important;
 }
-.m-team.t1side .m-team-label,
 .live-side.blue .live-team-label,
 .team-roster-side.blue .team-roster-title{
   color:#4f73b8!important;
@@ -1144,7 +955,6 @@ body{
   max-width:100%;
   padding:4px 9px!important;
 }
-.m-team.t2side .m-team-label,
 .live-side.red .live-team-label,
 .team-roster-side.red .team-roster-title{
   color:#a85f63!important;
@@ -1291,7 +1101,6 @@ body{
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
 }
 .result-entry-label{display:none;}
-.result-entry-actions{display:contents;}
 .result-entry button{
   border:1px solid #ccd9ea;background:#fff;border-radius:16px;padding:10px 8px;
   font-size:.84rem;font-weight:1000;min-width:0;width:100%;text-align:center;
@@ -1354,24 +1163,19 @@ body{
   box-shadow:0 10px 28px rgba(35,55,90,.08)!important;
 }
 .score-hero:before{opacity:.2!important;}
-.live-label,.live-pill{color:var(--red-deep)!important;}
 .live-dot{
   background:var(--red)!important;
   box-shadow:0 0 0 5px rgba(227,91,85,.13)!important;
 }
-.live-pill{
-  background:var(--red-soft)!important;
-  border-color:#f2d3d3!important;
-}
-.live-side,.m-team{
+.live-side{
   border-radius:18px!important;
   box-shadow:none!important;
 }
-.live-side.blue,.score-lead.blue,.team-roster-side.blue,.m-team.t1side{
+.live-side.blue,.score-lead.blue,.team-roster-side.blue{
   background:#f7fbff!important;
   border-color:var(--bl-softbdr)!important;
 }
-.live-side.red,.score-lead.red,.team-roster-side.red,.m-team.t2side{
+.live-side.red,.team-roster-side.red{
   background:#fff8f8!important;
   border-color:#f2d3d3!important;
 }
@@ -1383,18 +1187,16 @@ body{
 }
 .live-side.red .live-team-label,
 .team-roster-side.red .team-roster-title,
-.score-team.red .score-num,
-.score-lead.red b{
+.score-team.red .score-num{
   color:var(--red-deep)!important;
 }
-.live-team-label,.m-team-label{
+.live-team-label{
   background:rgba(255,255,255,.78)!important;
   color:var(--dim)!important;
   border-color:var(--bdr)!important;
   font-weight:900!important;
 }
-.score-name,.viewer-identity-role,.viewer-identity-k,.team-roster-head span,
-.next-wait-note,.sub,.meta,.empty{
+.score-name,.viewer-identity-role,.viewer-identity-k,.team-roster-head span,.sub,.meta,.empty{
   color:var(--dim)!important;
 }
 .live-court,.next-court{
@@ -1516,12 +1318,12 @@ body{
   color:#fff!important;
   box-shadow:0 0 0 3px rgba(240,167,58,.14)!important;
 }
-.team-member-g.male,.roster-m{
+.team-member-g.male{
   color:var(--bl-deep)!important;
   background:var(--bl-soft)!important;
   border-color:var(--bl-softbdr)!important;
 }
-.team-member-g.female,.roster-f{
+.team-member-g.female{
   color:var(--red-deep)!important;
   background:var(--red-soft)!important;
   border-color:#f2d3d3!important;

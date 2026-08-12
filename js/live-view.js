@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.598';
+const APP_VERSION='1.10.599';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -140,75 +140,6 @@ if(!liveId){
   }
 }
 
-function buildGauge(bW, wW, blueName, whiteName){
-  var tot=bW+wW;
-  var bShare = tot>0 ? bW/tot : 0.5;
-  var cx=150, cy=162, r=100, sw=58;
-  var A0=150, A1=390;
-  var span=A1-A0;
-  function pt(deg, rad){ var a=deg*Math.PI/180; return [cx+rad*Math.cos(a), cy+rad*Math.sin(a)]; }
-  function arcPath(d0, d1, rad){ var p0=pt(d0,rad), p1=pt(d1,rad); var large=(d1-d0)>180?1:0; return "M "+p0[0].toFixed(1)+" "+p0[1].toFixed(1)+" A "+rad+" "+rad+" 0 "+large+" 1 "+p1[0].toFixed(1)+" "+p1[1].toFixed(1); }
-  var boundary=A0+span*bShare;
-  var ticks='';
-  var nT=16;
-  for(var t=0;t<=nT;t++){ var td=A0+span*(t/nT); var o=pt(td,r+sw/2-2), i2=pt(td,r-sw/2+2); ticks+='<line x1="'+o[0].toFixed(1)+'" y1="'+o[1].toFixed(1)+'" x2="'+i2[0].toFixed(1)+'" y2="'+i2[1].toFixed(1)+'" stroke="var(--bg)" stroke-width="3.5"/>'; }
-  var bluePart = tot>0 && bW>0 ? arcPath(A0, boundary, r) : "";
-  var redPart = tot>0 && wW>0 ? arcPath(boundary, A1, r) : "";
-  var fullPart = arcPath(A0, A1, r);
-  var needleLen = r+sw/2+4;
-  var settleDeg = boundary - 270;
-  var svg='<svg class="gauge-svg" viewBox="0 0 300 285" xmlns="http://www.w3.org/2000/svg">'
-    +'<defs>'
-    +'<linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#aac6f7"/><stop offset="45%" stop-color="#5b8def"/><stop offset="100%" stop-color="#1f47a0"/></linearGradient>'
-    +'<linearGradient id="gRed" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f9b3af"/><stop offset="45%" stop-color="#ea5b55"/><stop offset="100%" stop-color="#a81f1a"/></linearGradient>'
-    +'<filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
-    +'</defs>'
-    +'<path d="'+fullPart+'" fill="none" stroke="var(--sur2)" stroke-width="'+sw+'" stroke-linecap="butt"/>'
-    +(bluePart? '<path d="'+bluePart+'" fill="none" stroke="url(#gBlue)" stroke-width="'+sw+'" stroke-linecap="butt" opacity="0.22" filter="url(#glow)"/>':'')
-    +(redPart? '<path d="'+redPart+'" fill="none" stroke="url(#gRed)" stroke-width="'+sw+'" stroke-linecap="butt" opacity="0.22" filter="url(#glow)"/>':'')
-    +(bluePart? '<path class="gauge-arc" d="'+bluePart+'" fill="none" stroke="url(#gBlue)" stroke-width="'+sw+'" stroke-linecap="butt"/>':'')
-    +(redPart? '<path class="gauge-arc" d="'+redPart+'" fill="none" stroke="url(#gRed)" stroke-width="'+sw+'" stroke-linecap="butt"/>':'')
-    +ticks
-    +'<text x="150" y="154" text-anchor="middle" font-size="58" font-weight="900" letter-spacing="-2">'
-      +'<tspan fill="#2f5fc0">'+bW+'</tspan>'
-      +'<tspan fill="var(--dim2)" font-size="34" dx="4" dy="-3"> : </tspan>'
-      +'<tspan fill="#d3332e" dy="3">'+wW+'</tspan>'
-    +'</text>'
-    +'<text x="150" y="183" text-anchor="middle" font-size="12" font-weight="700" fill="var(--dim2)" letter-spacing="3">VS</text>'
-    +'<g class="needle-grp" id="needleGrp" style="transform-origin:150px 162px;">'
-    +'<line x1="150" y1="162" x2="150" y2="'+(162-needleLen).toFixed(1)+'" stroke="#9aa1ad" stroke-width="4.5" stroke-linecap="round"/>'
-    +'<line x1="150" y1="162" x2="150" y2="178" stroke="#c2c8d2" stroke-width="4.5" stroke-linecap="round"/>'
-    +'</g>'
-    +'<circle cx="150" cy="162" r="11" fill="#9aa1ad"/><circle cx="150" cy="162" r="5" fill="var(--sur)"/>'
-    +'</svg>';
-  setTimeout(function(){ var g=document.getElementById("needleGrp"); if(!g) return;
-    var seq=[ -60, 50, -40, 30, -18, 10, 0 ]; var idx=0;
-    function step(){ if(idx>=seq.length){ g.style.transition="transform .55s cubic-bezier(.34,1.45,.6,1)"; g.style.transform="rotate("+settleDeg+"deg)"; return; }
-      g.style.transition="transform .15s ease-in-out"; g.style.transform="rotate("+seq[idx]+"deg)"; idx++; setTimeout(step,150); }
-    step();
-  }, 150);
-  return '<div class="gauge-wrap" id="scoreBoard">'+svg+'</div>';
-}
-
-function buildStreaks(matches){
-  const ordered=[...matches].filter(m=>m.win).sort((a,b)=>(a.round-b.round)||(a.court-b.court));
-  const streak={};
-  ordered.forEach(m=>{
-    const winners=m.win==='t1'?[m.t1[0],m.t1[1]]:[m.t2[0],m.t2[1]];
-    const losers=m.win==='t1'?[m.t2[0],m.t2[1]]:[m.t1[0],m.t1[1]];
-    winners.forEach(n=>{ if(n)streak[n]=(streak[n]||0)+1; });
-    losers.forEach(n=>{ if(n)streak[n]=0; });
-  });
-  const hot=Object.entries(streak).filter(([n,c])=>c>=2).sort((a,b)=>b[1]-a[1]);
-  if(!hot.length) return '';
-  let html='<div class="streak-box">';
-  hot.forEach(([n,c])=>{
-    const isHot=c>=3;
-    html+='<span class="streak-chip'+(isHot?' streak-hot':'')+'"><span class="streak-fire">🔥</span>'+esc(n)+' <span class="streak-n">'+c+'연승</span></span>';
-  });
-  html+='</div>';
-  return html;
-}
 
 /* AI 브리핑: 청/홍팀 현황 요약 */
 /* 명언 + 팀 한마디 */
@@ -220,11 +151,7 @@ function _firstName(name){
   return (name&&name.length>=3)?name.slice(1):(name||'');
 }
 // 받침 유무
-function _hasBatchim(str){
-  if(!str) return false;
-  const c=str.charCodeAt(str.length-1);
-  return c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28!==0;
-}
+
 // 호칭 문자열: "재관 오빠", "은하 언니", "미라 언니"
 // 관전자 성별 전역 변수 (렌더 시마다 랜덤)
 // 'F': 여성 → 오빠/언니  |  'M': 남성 → 형/누나
@@ -242,15 +169,6 @@ function _hn(name){
   return `${fn} ${title}`;
 }
 // 호칭+조사: josa='이/가','은/는','을/를','이/'
-function _hnJ(name, josa){
-  const h=_hn(name);
-  if(!h) return '';
-  const last=h.slice(-1);
-  const code=last.charCodeAt(0);
-  const batchim=(code>=0xAC00&&code<=0xD7A3)?(code-0xAC00)%28:0;
-  const map={'이/가':batchim?'이':'가','은/는':batchim?'은':'는','을/를':batchim?'을':'를','이/':batchim?'이':''};
-  return h+(map[josa]||josa);
-}
 
 // ── 명언 / 오만방자 (이름 플레이스홀더 포함) ──
 // {HA}=호칭포함 에이스, {HB}=호칭포함 상대, {HW}=호칭포함 최근승자
@@ -311,19 +229,6 @@ const _SRCS_AF=['익명의 미녀','어느 여왕의 속삭임','승자의 여�
   '이미 이긴 사람','오늘의 MVP (자칭)','코트의 지배자','우아하게 이기는 법을 아는 자'];
 const _SRCS_AM=['익명의 형','코트 위의 왕자','승자의 여유','여기서 제일 잘하는 사람',
   '이미 이긴 사람','오늘의 MVP (자칭)','코트의 지배자','이미 해본 사람'];
-function _getQuote(matches, players){
-  const done=matches.filter(m=>m.win).length;
-  const q=_QUOTES[(done+Math.floor(Date.now()/300000))%_QUOTES.length];
-  const filled=_fillQuote(q, players||{});
-  // 오만방자 계열은 미녀/여왕 출처, 승부욕 계열은 다른 출처
-  const isArrogant=q.t.includes('편해서')||q.t.includes('안 보여서')||
-    q.t.includes('컨디션')||q.t.includes('봐주는')||q.t.includes('집중하게')||
-    q.t.includes('결과는 제가')||q.t.includes('성격이 아니라서')||q.t.includes('멈춰드릴게요');
-  const isM2=_viewerGender==='M';
-  const srcs=isArrogant?(isM2?_SRCS_AM:_SRCS_AF):(isM2?_SRCS_NM:_SRCS_NF);
-  const src=srcs[(done+Math.floor(Date.now()/180000))%srcs.length];
-  return {t:filled, src};
-}
 
 // ── 팀 한마디: 청팀/홍팀 응원단 ──
 function _getTeamLine(team,diff,rec,top,curPlayers){
@@ -467,23 +372,6 @@ function _getTeamLine(team,diff,rec,top,curPlayers){
 
 
 // ── 경기 타이틀 자동 생성 ──
-function _matchTitle(type, t1, t2){
-  const gof=(names)=>names.map(n=>_gMap[n]).filter(Boolean);
-  const g1=gof(t1), g2=gof(t2);
-  const allM=[...g1,...g2].every(g=>g==='M');
-  const allF=[...g1,...g2].every(g=>g==='F');
-  if(type==='남복'||allM){
-    const titles=['오빠들의 남복 한판 승부 ⚡','남자들의 자존심 대결 💪','형들의 스매시 배틀 🔥'];
-    return titles[Math.floor(Date.now()/700000)%titles.length];
-  }
-  if(type==='여복'||allF){
-    const titles=['언니들의 여복 자존심 대결 👑','언니들이 진짜다 🌟','여왕의 코트에 오신 걸 환영해요 💅'];
-    return titles[Math.floor(Date.now()/700000)%titles.length];
-  }
-  // 혼복
-  const titles=['오빠+언니 혼복 최강자 결정전 🏸','혼복 케미 대결 — 누가 더 잘 맞나? ✨','팀 케미스트리 총력전 💥'];
-  return titles[Math.floor(Date.now()/700000)%titles.length];
-}
 
 // ── 최근 완료 경기 리액션 ──
 function _lastMatchReaction(matches, bNames, rNames){
@@ -529,127 +417,6 @@ function _streakComment(matches, bNames, rNames){
   return msgs[Math.floor(Date.now()/550000)%msgs.length];
 }
 
-function buildBriefing(matches, d){
-  if(!_usesFixedTeams(d)) return '';
-  const bW=d.blueWins||0, wW=d.whiteWins||0;
-  const total=bW+wW;
-  const bn=esc(d.teamBlue||'청팀'), wn=esc(d.teamWhite||'홍팀');
-  if(total===0) return '';
-
-  // members 파싱 + genderMap 빌드
-  const members=d.members||{};
-  const bMemberObjs=(members.blue||[]).map(x=>typeof x==='string'?{n:x}:x);
-  const rMemberObjs=(members.red||[]).map(x=>typeof x==='string'?{n:x}:x);
-  _gMap={};
-  [...bMemberObjs,...rMemberObjs].forEach(x=>{ if(x.n&&x.g) _gMap[x.n]=x.g; });
-  const bNames=new Set(bMemberObjs.map(x=>x.n));
-  const rNames=new Set(rMemberObjs.map(x=>x.n));
-
-  // 진행 중 라운드 출전 선수
-  const curRound=d.currentRound||0;
-  const curMatches=matches.filter(m=>m.round===curRound&&!_settled(m));
-  const curBlue=[], curRed=[];
-  curMatches.forEach(m=>{
-    [m.t1[0],m.t1[1]].forEach(n=>{ if(n&&bNames.has(n)&&!curBlue.includes(n))curBlue.push(n); });
-    [m.t2[0],m.t2[1]].forEach(n=>{ if(n&&rNames.has(n)&&!curRed.includes(n))curRed.push(n); });
-    [m.t1[0],m.t1[1]].forEach(n=>{ if(n&&rNames.has(n)&&!curRed.includes(n))curRed.push(n); });
-    [m.t2[0],m.t2[1]].forEach(n=>{ if(n&&bNames.has(n)&&!curBlue.includes(n))curBlue.push(n); });
-  });
-
-  // 최근 승자
-  const recentWin=[...matches].filter(m=>m.win).sort((a,b)=>(b.round-a.round)||(b.court-a.court));
-  const lastWinMatch=recentWin[0];
-  const lastWinner=lastWinMatch
-    ?(lastWinMatch.win==='t1'?[lastWinMatch.t1[0],lastWinMatch.t1[1]]:[lastWinMatch.t2[0],lastWinMatch.t2[1]])
-    :[];
-
-  // 팀별 승/패 집계
-  const bPlayers={}, rPlayers={};
-  matches.filter(m=>m.win).forEach(m=>{
-    const winners=m.win==='t1'?[m.t1[0],m.t1[1]]:[m.t2[0],m.t2[1]];
-    const losers =m.win==='t1'?[m.t2[0],m.t2[1]]:[m.t1[0],m.t1[1]];
-    [...winners,...losers].forEach((n,i)=>{
-      const isWin=i<2;
-      const tgt=bNames.has(n)?bPlayers:rPlayers;
-      if(!tgt[n])tgt[n]={w:0,l:0};
-      isWin?tgt[n].w++:tgt[n].l++;
-    });
-  });
-  const topPlayer=stat=>{
-    const arr=Object.entries(stat).filter(([,s])=>s.w>0).sort((a,b)=>b[1].w-a[1].w||a[1].l-b[1].l);
-    return arr.length?{name:arr[0][0],...arr[0][1]}:null;
-  };
-  const bTop=topPlayer(bPlayers), rTop=topPlayer(rPlayers);
-
-  // 최근 흐름
-  const recent=[...matches].filter(m=>m.win).sort((a,b)=>(b.round-a.round)||(b.court-a.court)).slice(0,5);
-  let bRec=0,rRec=0;
-  recent.forEach(m=>{
-    const isT1blue=bNames.has(m.t1[0])||bNames.has(m.t1[1]);
-    const winner=m.win==='t1'?isT1blue:!isT1blue;
-    winner?bRec++:rRec++;
-  });
-
-  const gap=Math.abs(bW-wW);
-  let situation='';
-  if(bW>wW) situation=`<b class="brief-b">${bn}</b> ${gap}승 앞서는 중`;
-  else if(wW>bW) situation=`<b class="brief-r">${wn}</b> ${gap}승 앞서는 중`;
-  else situation='동점 팽팽';
-
-  const momentum=bRec>rRec?`<b class="brief-b">${bn}</b> 최근 흐름 우세`
-    :rRec>bRec?`<b class="brief-r">${wn}</b> 최근 흐름 우세`:'양팀 팽팽히 맞서는 중';
-
-  let bLine=`${bn} ${bW}승 ${wW>bW?'(추격 중)':bW>wW?'(선두)':'(동점)'}`;
-  let rLine=`${wn} ${wW}승 ${bW>wW?'(추격 중)':wW>bW?'(선두)':'(동점)'}`;
-   if(bTop) bLine+=` 🏅 ${bTop.name} ${bTop.w}승`;
-   if(rTop) rLine+=` 🏅 ${rTop.name} ${rTop.w}승`;
-
-  const bDiff=bW-wW, rDiff=wW-bW;
-  const _qpB=bTop?bTop.name:(curBlue.length?curBlue[0]:null);
-  const _qpR=rTop?rTop.name:(curRed.length?curRed[0]:null);
-  const _qpW=lastWinner.length?lastWinner[0]:null;
-  const qPlayers={
-    a:_qpB, b:_qpR, w:_qpW,
-    ha:_qpB?_hn(_qpB):null,
-    hb:_qpR?_hn(_qpR):null,
-    hw:_qpW?_hn(_qpW):null,
-
-  };
-  // 진행 중 선수 중 에이스 우선, 없으면 curPlayers 중 승수 가장 많은 선수
-  const _curTop=(curList, topName)=>{
-    if(topName && curList.includes(topName)) return topName; // 에이스가 현재 뛰는 중
-    // 진행 중 선수 중 에이스가 없으면 curList 자체를 top으로 사용 (PP에서 선택)
-    return null;
-  };
-  const bSay=_getTeamLine('blue',bDiff,bRec,_curTop(curBlue,bTop?bTop.name:null),curBlue);
-  const rSay=_getTeamLine('red',rDiff,rRec,_curTop(curRed,rTop?rTop.name:null),curRed);
-
-  // 연승 코멘트
-  const streak=_streakComment(matches, bNames, rNames);
-
-  // 최근 경기 리액션
-  const reaction=_lastMatchReaction(matches, bNames, rNames);
-
-  // 브리핑 조합
-  const extras=[streak, reaction].filter(Boolean);
-  const extraHtml=extras.length
-    ?'<div class="brief-extras">'+extras.map(e=>'<div class="brief-extra">'+e+'</div>').join('')+'</div>'
-    :'';
-
-  // 응원단 메시지 전역 저장 (라운드 렌더링 시 DOM 의존 없이 직접 참조)
-  window._cheerBSay  = bSay  || '';
-  window._cheerRSay  = rSay  || '';
-  window._cheerTeamB = d.teamBlue  || '청팀';
-  window._cheerTeamW = d.teamWhite || '홍팀';
-  return '<div class="briefing">'
-    +'<div class="brief-title">📢 지금 현황</div>'
-    +'<div class="brief-situation">'+situation+'</div>'
-    +'<div class="brief-row brief-row-b"><span class="brief-dot-b">●</span>'+bLine+'</div>'
-    +'<div class="brief-row brief-row-r"><span class="brief-dot-r">●</span>'+rLine+'</div>'
-    +'<div class="brief-momentum">'+momentum+'</div>'
-    +extraHtml
-    +'</div>'
-}
 
 function collectLivePlayerStats(matches, d){
   const goal=(typeof d.gamesPerPlayer==='number'&&d.gamesPerPlayer>0)?d.gamesPerPlayer:4;
@@ -1129,11 +896,6 @@ function _matchSideForName(m,name){
   return '';
 }
 
-function _matchPlayersLine(m,side){
-  const mine=side==='t2'?(m.t2||[]):(m.t1||[]);
-  const opp=side==='t2'?(m.t1||[]):(m.t2||[]);
-  return esc(mine.filter(Boolean).join(' / ')||'-')+' <b>vs</b> '+esc(opp.filter(Boolean).join(' / ')||'-');
-}
 
 function setViewerDetailsOpen(key,open){
   if(!_viewerDetailsOpen)_viewerDetailsOpen={};
@@ -2763,34 +2525,6 @@ function render(d){
   html+='</div>';
 
   content.innerHTML=html;
-}
-
-function toggleRoster(team){
-  const el=document.getElementById('roster-'+team);
-  if(!el) return;
-  const isOpen=el.style.display!=='none';
-  // 모두 닫기
-  ['blue','red'].forEach(t=>{
-    const p=document.getElementById('roster-'+t);
-    if(p) p.style.display='none';
-  });
-  // 클릭한 게 닫혀있었으면 열기 (이미 열려있었으면 그냥 닫힌 채로)
-  if(!isOpen) el.style.display='block';
-}
-
-function rosterSort(team,sortBy,btn){
-  if(!window._rosterData) return;
-  const list=window._rosterData[team==='blue'?'blue':'red']||[];
-  const arr=(list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x);
-  const males=[...arr].filter(p=>p.g==='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
-  const females=[...arr].filter(p=>p.g!=='M').sort((a,b)=>sortBy==='level'?(b.l-a.l||a.n.localeCompare(b.n,'ko')):a.n.localeCompare(b.n,'ko'));
-  const row=p=>'<div class="roster-row"><span class="roster-gender '+(p.g==='M'?'roster-m':'roster-f')+'">'+(p.g==='M'?'남':'여')+'</span><span class="roster-name">'+p.n+'</span></div>';
-  const html=males.map(row).join('')+(males.length&&females.length?'<div class="roster-divider"></div>':'')+females.map(row).join('');
-  const el=document.getElementById('roster-names-'+team);
-  if(el) el.innerHTML=html;
-  // 버튼 active 상태
-  const wrap=btn.closest('.roster-sort-btns');
-  if(wrap) wrap.querySelectorAll('.rsort-btn').forEach(b=>b.classList.toggle('active',b===btn));
 }
 
 

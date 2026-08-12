@@ -37,7 +37,12 @@ assert(overviewSource.includes('resultConflicts')&&overviewSource.includes('승�
 // 2026-08-04 설계 변경: 운영진에게는 운영 현황이 '내 카드 직후'가 아니라 '맨 앞'입니다.
 // 민턴LIVE 와 같은 원칙 — 임원은 본인 이름표보다 운영 대시보드를 먼저 봅니다.
 const renderStart = liveSrc.indexOf('function render(d)');
-const renderBlock = liveSrc.slice(renderStart, liveSrc.indexOf('\nfunction toggleRoster', renderStart));
+// `render` 는 이제 파일의 마지막 함수입니다(죽은 함수 정리, 2026-08-12).
+// 뒤따르는 함수 이름을 끝 지표로 쓰면 그 함수가 사라질 때 조용히 파일 끝까지
+// 잘라 검사가 헐거워집니다 — 서비스 워커 IIFE 를 지표로 씁니다.
+const _end = liveSrc.indexOf('\n(function(){', renderStart);
+assert(_end > renderStart, 'render 뒤의 끝 지표를 찾을 수 있어야 합니다.');
+const renderBlock = liveSrc.slice(renderStart, _end);
 const operatorOrder = (renderBlock.match(/\?\s*(overview\+scoreboard\+[A-Za-z+]+)/) || [])[1] || '';
 assert(operatorOrder.indexOf('overview') === 0,
   '임원은 운영 현황을 가장 먼저 봐야 합니다.');

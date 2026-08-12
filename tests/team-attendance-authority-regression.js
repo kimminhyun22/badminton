@@ -66,7 +66,12 @@ console.log('  승패 입력: 경기 선수 권한 유지');
 //    운영진의 일이 승패 입력과 출결 확인이라 그 둘이 위에 있어야 합니다.
 {
   const renderStart = live.indexOf('function render(d)');
-  const renderSrc = live.slice(renderStart, live.indexOf('\nfunction toggleRoster', renderStart));
+  // `render` 는 이제 파일의 마지막 함수입니다(죽은 함수 정리, 2026-08-12).
+// 뒤따르는 함수 이름을 끝 지표로 쓰면 그 함수가 사라질 때 조용히 파일 끝까지
+// 잘라 검사가 헐거워집니다 — 서비스 워커 IIFE 를 지표로 씁니다.
+const _end = live.indexOf('\n(function(){', renderStart);
+  assert(_end > renderStart, 'render 뒤의 끝 지표를 찾을 수 있어야 합니다.');
+  const renderSrc = live.slice(renderStart, _end);
 
   assert(/const forOperator\s*=\s*_canOperateAttendance\(d\)/.test(renderSrc),
     '보는 사람이 운영진인지에 따라 순서를 바꿔야 합니다.');
