@@ -1510,6 +1510,31 @@ body{
   background:#fff8f8!important;
   white-space:nowrap!important;word-break:keep-all!important;line-height:1.1!important;
 }
+/* 고른 팀은 **꽉 찬 색**으로. 위의 연한 배경 규칙이 !important 라 여기도 같은
+   무게로 눌러야 이깁니다 [[inserted-blocks-carry-own-style]]. */
+.result-entry .blue-win.on{
+  color:#fff!important;background:var(--bl)!important;border-color:var(--bl-deep)!important;
+  box-shadow:0 6px 14px rgba(91,141,239,.28)!important;
+}
+.result-entry .red-win.on{
+  color:#fff!important;background:var(--red)!important;border-color:#c74744!important;
+  box-shadow:0 6px 14px rgba(224,90,88,.26)!important;
+}
+/* 다시 누르면 꺼진다는 걸 글로도 알려 줍니다 — 버튼만 봐서는 알 수 없습니다. */
+.result-entry.decided .result-entry-label,
+.result-entry.voided .result-entry-label{
+  display:block!important;grid-column:1/-1;margin-bottom:-2px;
+  color:var(--dim)!important;font-size:.72rem;font-weight:900;text-align:center;
+}
+/* 미실시는 드문 처리라 조용하게 — 다만 손가락이 닿는 크기는 지킵니다. */
+.result-entry .result-void,
+.result-entry .result-clear{
+  grid-column:1/-1;min-height:40px;
+  color:var(--dim)!important;border-color:var(--bdr)!important;background:var(--sur2)!important;
+  font-size:.74rem!important;font-weight:900!important;padding:8px!important;
+}
+.result-entry.voided,
+.result-entry.void-only{grid-template-columns:1fr;}
 .current-grid,
 .next-list{
   display:grid!important;

@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.588';
+const APP_VERSION='1.10.589';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1307,10 +1307,9 @@ function _officialJumpHtml(d){
     '<button type="button" onclick="jumpToLiveSection(\'current\')">🏸 지금 경기</button>',
     '<button type="button" onclick="jumpToLiveSection(\'bracket\')">🗂 전체 대진표</button>'
   ];
-  // 처리 두 가지는 **필요할 때만** 같은 격자에 붙습니다(늘 떠 있지 않게).
-  if(_fixableResults(d).length){
-    cells.push('<button type="button" class="act" onclick="openTeamResultPanel()">⚖️ 승패·미실시</button>');
-  }
+  // 「승패·미실시」 칸은 없앴습니다 — 승패는 이제 **경기 카드에서 바로** 누르고,
+  // 다시 누르면 지워집니다(운영자 2026-08-12). 시트는 서로 다르게 입력된 경기를
+  // 모아 보여 줄 때만 붉은 알림을 통해 열립니다.
   const last=_lastOfficialAction(d);
   if(last){
     cells.push('<button type="button" class="act" onclick="undoTeamOfficialAction()" title="'
@@ -1702,6 +1701,16 @@ async function submitTeamVoid(matchNum,voided){
     alert('미실시 표시를 보내지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 }
+/* 같은 팀을 다시 누르면 지웁니다 — 상태는 누르는 순간의 데이터에서 읽습니다
+   (버튼 HTML 에 박아 두면 화면이 갱신되기 전 옛 값으로 보낼 수 있습니다). */
+async function toggleTeamWin(matchNum,side){
+  const d=window._lastLiveData;
+  const m=_matchByNum(d,matchNum);
+  if(!m)return alert('경기를 다시 확인해주세요.');
+  const cur=String(m.win||'');
+  return submitTeamResult(Number(matchNum), cur===side?'':side, cur);
+}
+
 async function submitTeamResult(matchNum,win,expectedWin){
   const d=window._lastLiveData;
   const match=_matchByNum(d,matchNum);
@@ -1711,9 +1720,11 @@ async function submitTeamResult(matchNum,win,expectedWin){
   const blueLabel=liveTeamLabel(d,'blue'), redLabel=liveTeamLabel(d,'red');
   const to=win==='t1'?blueLabel+' 승':win==='t2'?redLabel+' 승':'결과 없음';
   const where=`${match.round}라운드 ${match.court}코트 ${matchNum}번 경기`;
-  const ask=String(expectedWin||'')
-    ? `${where}를\n「${to}」 로 바꿀까요?`
-    : `${where}\n승자를 「${to}」 로 입력할까요?`;
+  const ask=!win
+    ? `${where}의\n승패를 지울까요?`
+    : String(expectedWin||'')
+      ? `${where}를\n「${to}」 로 바꿀까요?`
+      : `${where}\n승자를 「${to}」 로 입력할까요?`;
   if(!confirm(ask))return;
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
@@ -2231,9 +2242,53 @@ function _resultSideLabel(d,side){
   return side==='t1'?'A 승':'B 승';
 }
 
+/**
+ * 승패 입력 — **누른 버튼을 다시 누르면 꺼집니다** (운영자 2026-08-12).
+ *
+ *   "청팀 이긴 걸로 잘못 눌렀을 시 홍팀을 누르거나 … 다시 청팀을 눌러서
+ *    버튼 꺼지게 하는 방식으로 승패 초기화하면 되잖아"
+ *
+ * 예전에는 결과가 한 번 들어가면 그 자리에 「입력 완료 · 청 승」 이라는 **글자만**
+ * 남고, 고치려면 따로 「승패·미실시」 시트를 열어야 했습니다. 잘못 누른 걸
+ * 알아차리는 곳과 고치는 곳이 달랐던 셈입니다. 이제 틀린 걸 본 그 자리에서
+ * 바로 누릅니다 — 다른 팀을 누르면 바뀌고, 같은 팀을 누르면 지워집니다.
+ *
+ * 임원에게는 **지난 라운드 경기에서도** 이 버튼이 뜹니다(전체 대진표 포함).
+ * 시트가 있던 진짜 이유가 "지난 경기에 손이 닿지 않아서" 였기 때문입니다.
+ */
 function buildResultInputControls(m,d,opts){
+  const fixed=_usesFixedTeams(d);
+  const canFix=fixed&&_canFixResult(d);
+  const num=Number(m.num);
+  if(m.voided){
+    if(!canFix)return '<div class="result-entry-done">미실시 · 치르지 않음</div>';
+    return '<div class="result-entry voided">'
+      +'<div class="result-entry-label">미실시 · 치르지 않음</div>'
+      +'<button type="button" class="result-clear" onclick="submitTeamVoid('+num+',false)">미실시 해제</button>'
+    +'</div>';
+  }
+  if(canFix){
+    const win=String(m.win||'');
+    const nowRound=Number(m.round)===Number((d&&d.currentRound)||0);
+    // 승패 버튼: 결과가 있으면 어디서든(전체 대진표 포함) 고칩니다. 없으면 **지금
+    // 치르는 경기**에서만 넣습니다 — 아직 안 한 경기의 승패를 미리 넣을 일은 없습니다.
+    const canEnter=!!(win || nowRound || opts.current);
+    // 미실시: 지금·다음 대진에서만. 전체 대진표까지 달면 카드마다 버튼이 하나씩
+    // 더 붙어 방금 걷어낸 잡음이 그대로 되돌아옵니다.
+    const canVoid=!win && !!(opts.current || opts.next || nowRound);
+    if(!canEnter && !canVoid) return '';
+    const btn=side=>'<button type="button" class="'+(side==='t1'?'blue-win':'red-win')+(win===side?' on':'')+'"'
+      +' aria-pressed="'+(win===side?'true':'false')+'"'
+      +' onclick="toggleTeamWin('+num+',\''+side+'\')">'+_resultSideLabel(d,side)+'</button>';
+    const label=win?'다시 누르면 지워집니다':canEnter?'경기 후 승패 입력':'';
+    return '<div class="result-entry'+(!win&&opts.current?' needs-result':'')+(win?' decided':'')
+        +(canEnter?'':' void-only')+'">'
+      +(label?'<div class="result-entry-label">'+label+'</div>':'')
+      +(canEnter?btn('t1')+btn('t2'):'')
+      +(canVoid?'<button type="button" class="result-void" onclick="submitTeamVoid('+num+',true)">미실시 — 안 치름</button>':'')
+    +'</div>';
+  }
   if(!opts || !opts.current) return '';
-  if(m.voided)return '<div class="result-entry-done">미실시 · 치르지 않음</div>';
   if(m.win){
     const winner=_resultSideLabel(d,m.win);
     return '<div class="result-entry-done">입력 완료 · '+esc(winner)+'</div>';
@@ -2253,6 +2308,7 @@ window.selectLiveViewer=selectLiveViewer;
 window.setLiveViewerSearch=setLiveViewerSearch;
 window.submitLiveWin=submitLiveWin;
 window.submitTeamVoid=submitTeamVoid;
+window.toggleTeamWin=toggleTeamWin;
 window.renameTeamPlayer=renameTeamPlayer;
 window.changeTeamCourt=changeTeamCourt;
 window.undoTeamOfficialAction=undoTeamOfficialAction;

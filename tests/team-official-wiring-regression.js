@@ -216,11 +216,42 @@ const resultAlert = liveView.slice(liveView.indexOf('function _resultAlertHtml')
 assert(/if\(!conflicts\)return '';/.test(resultAlert),
   '승패 알림은 서로 다르게 입력된 경우에만 떠야 합니다.');
 const jump = liveView.slice(liveView.indexOf('function _officialJumpHtml'),
-  liveView.indexOf('function jumpToLiveSection'));
-assert(/openTeamResultPanel\(\)/.test(jump) && /undoTeamOfficialAction\(\)/.test(jump),
-  '두 처리는 바로가기 격자 안에 있어야 합니다 — 없애면 고칠 길이 사라집니다.');
-assert(/_fixableResults\(d\)\.length/.test(jump) && /_lastOfficialAction\(d\)/.test(jump),
-  '필요할 때만 붙어야 합니다.');
+  liveView.indexOf('function _officialLogTime'));
+// 2026-08-12 계약 갱신(운영자 "승패 미실시는 의미가 있는지 모르겠어… 버튼을 한번 더
+// 누르면 되는 방식"): 승패는 **경기 카드에서 직접** 누릅니다. 격자에서 시트로
+// 들어가는 칸은 없앴습니다 — 알림(서로 다르게 입력됨)만 시트를 엽니다.
+assert(!/openTeamResultPanel\(\)/.test(jump),
+  '승패는 경기 카드에서 바로 눌러야 합니다 — 격자에 시트 칸을 두지 않습니다.');
+assert(/undoTeamOfficialAction\(\)/.test(jump), '되돌리기는 격자에 남습니다.');
+assert(/_lastOfficialAction\(d\)/.test(jump), '되돌릴 게 있을 때만 붙어야 합니다.');
+assert(/openTeamResultPanel\(\)/.test(resultAlert),
+  '서로 다르게 입력된 경기는 알림에서 시트로 모아 봐야 합니다.');
+
+// 7-5-1) 승패 토글 — 같은 팀을 다시 누르면 지워집니다.
+const controls = liveView.slice(liveView.indexOf('function buildResultInputControls'),
+  liveView.indexOf('window.setLiveViewerName'));
+assert(/toggleTeamWin\(/.test(controls), '승패 버튼은 토글이어야 합니다.');
+assert(/win===side\?' on':''/.test(controls), '고른 팀이 눌린 상태로 보여야 합니다.');
+assert(/aria-pressed/.test(controls), '눌림 상태를 읽어 줄 수 있어야 합니다.');
+assert(/다시 누르면 지워집니다/.test(controls), '다시 누르면 꺼진다는 걸 글로도 알려야 합니다.');
+const toggle = liveView.slice(liveView.indexOf('async function toggleTeamWin'),
+  liveView.indexOf('async function submitTeamResult'));
+assert(/const cur=String\(m\.win\|\|''\);/.test(toggle) && /cur===side\?'':side/.test(toggle),
+  '누르는 순간의 데이터에서 상태를 읽어야 합니다 — HTML 에 박으면 옛 값을 보냅니다.');
+// 임원은 지난 라운드도 그 자리에서 고칩니다(시트가 있던 진짜 이유).
+assert(/const canEnter=!!\(win \|\| nowRound \|\| opts\.current\);/.test(controls),
+  '결과가 들어간 경기는 어디서든 고칠 수 있어야 합니다(전체 대진표 포함).');
+// 미실시를 카드마다 달면 방금 걷어낸 잡음이 되돌아옵니다.
+assert(/const canVoid=!win && !!\(opts\.current \|\| opts\.next \|\| nowRound\);/.test(controls),
+  '미실시는 지금·다음 대진에서만 떠야 합니다.');
+// 다음 라운드 카드는 승패 버튼 없이 미실시만 — 안 치른 경기의 승패를 미리 넣지 않습니다.
+assert(/if\(!canEnter && !canVoid\) return '';/.test(controls)
+  && /\(canEnter\?btn\('t1'\)\+btn\('t2'\):''\)/.test(controls),
+  '다음 라운드 카드에는 미실시만 떠야 합니다.');
+assert(/\.result-entry \.blue-win\.on\{/.test(liveCssForBalance) && /\.result-entry \.red-win\.on\{/.test(liveCssForBalance),
+  '고른 팀은 꽉 찬 색으로 구분되어야 합니다.');
+assert(/color:#fff!important;background:var\(--bl\)!important/.test(liveCssForBalance),
+  '연한 배경 규칙이 !important 라 눌린 상태도 같은 무게여야 이깁니다.');
 
 // 7-6) 맨 위로 — 임원 화면이 길어서(운영자 2026-08-15). 부드러운 스크롤을 **조용히
 //      무시하는** 브라우저(카톡 인앱·옛 iOS)가 있어 안 움직이면 바로 올려야 합니다.
