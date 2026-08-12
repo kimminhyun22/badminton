@@ -195,9 +195,15 @@ assert(!/\.team-sub-cand\.over:not\(\.cross\)\{[^}]*background/.test(liveCssForT
 assert(/\.team-sub-cand\.team-blue\{/.test(liveCssForTeam)
   && /\.team-sub-cand\.team-red\{/.test(liveCssForTeam), '팀 색이 카드에 있어야 합니다.');
 
-// 7-4) 대시보드 바로가기 — MVP 포함 네 곳 + 필요할 때만 붙는 처리 둘(2026-08-15).
+// 7-4) 대시보드 바로가기 — 세 곳 + 필요할 때만 붙는 처리(2026-08-15, 08-12 갱신).
+// 2026-08-12 계약 갱신(운영자 "대시보드에서 지금 경기 필요없고"): 「지금 경기」는
+// 운영 현황 **바로 아래**가 이미 지금 경기라, 스스로에게 가는 버튼이었습니다.
 assert(/function _officialJumpHtml/.test(liveView), '바로가기 줄이 있어야 합니다.');
-['mvp','roster','current','bracket'].forEach(k=>{
+const jumpCells = liveView.slice(liveView.indexOf('function _officialJumpHtml'),
+  liveView.indexOf('function _officialLogTime'));
+assert(!/jumpToLiveSection\(\\?'current\\?'\)/.test(jumpCells),
+  '「지금 경기」 칸은 바로 아래 자기 자신을 가리켜 뺐습니다.');
+['mvp','roster','bracket'].forEach(k=>{
   // 소스에서는 따옴표가 이스케이프돼 있습니다(문자열 안의 onclick).
   assert(new RegExp(`jumpToLiveSection\\(\\\\?'${k}\\\\?'\\)`).test(liveView),
     `${k} 바로가기가 있어야 합니다.`);
@@ -207,6 +213,17 @@ assert(/getElementById\('teamRoster'\)/.test(liveView) && /getElementById\('full
   '실제로 있는 자리로 보내야 합니다 — 새 화면을 만들지 않습니다.');
 assert(/id="mvpBoard"/.test(liveView), 'MVP 자리에 id 가 있어야 바로가기가 닿습니다.');
 assert(/scrollIntoView/.test(liveView), '그 자리로 스크롤해야 합니다.');
+
+// 7-4-1) 확인해야 할 사람은 **운영 기록 바로 위**입니다(운영자 2026-08-12).
+// 위쪽은 숫자·바로가기로 훑는 자리, 아래쪽이 읽고 손보는 자리입니다.
+const overviewBlock = liveView.slice(liveView.indexOf('function buildTeamOfficialOverview'),
+  liveView.indexOf('function _pendingSubstitutions'));
+const posJump = overviewBlock.indexOf('${_officialJumpHtml(d)}');
+const posHint = overviewBlock.indexOf('${_substituteHintHtml(d)}');
+const posLog = overviewBlock.indexOf('${_officialLogHtml(d)}');
+assert(posJump > 0 && posHint > 0 && posLog > 0, '세 조각이 모두 운영 현황 안에 있어야 합니다.');
+assert(posJump < posHint && posHint < posLog,
+  '대체 안내는 바로가기 아래·운영 기록 바로 위여야 합니다.');
 
 // 7-5) 대시보드는 **늘 떠 있는 배너**를 만들지 않습니다(운영자 2026-08-15
 //      "승패 미실시 처리/되돌리기는 별 필요 없지 않아?"). 기능은 남기되 자리를 내렸습니다.

@@ -154,8 +154,13 @@ const d = {
 // 5) 참가자가 만질 수 있는 건 뒷풀이뿐입니다.
 {
   const statusButtons = cut('function _viewerStatusButtons', 'function buildViewerIdentity');
-  assert(/canOperate\s*\?/.test(statusButtons) && /toggleMemberLate/.test(statusButtons),
-    '지각 버튼은 운영진에게만 보여야 합니다.');
+  // 2026-08-12 계약 갱신(운영자 "임원 외 운영자 지각 버튼 삭제"): 지각은 **남을**
+  // 대상으로 하는 운영 행위라 팀 명단에서 합니다. 내 카드에 두면 임원이 자기
+  // 지각을 누르는 이상한 버튼이 됩니다. 찍혀 있으면 표시만 합니다.
+  assert(!/toggleMemberLate/.test(statusButtons),
+    '내 카드에서는 지각을 누를 수 없어야 합니다 — 팀 명단에서 합니다.');
+  assert(/viewer-state-view on">지각/.test(statusButtons),
+    '내가 지각으로 찍혀 있으면 그 사실은 보여야 합니다.');
   assert(/toggleMemberParty/.test(statusButtons), '뒷풀이는 본인이 누를 수 있어야 합니다.');
   const idx = statusButtons.indexOf('toggleMemberParty');
   assert(!/canOperate/.test(statusButtons.slice(idx - 120, idx)),

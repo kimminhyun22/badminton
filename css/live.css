@@ -1809,64 +1809,10 @@ body{
 .viewer-pair.mine .viewer-side-badge{
   box-shadow:0 0 0 3px rgba(91,141,239,.10);
 }
-.result-entry.needs-result{
-  position:relative;
-  margin-top:14px!important;
-  padding:13px 12px 12px!important;
-  border:2px solid #fb923c!important;
-  border-radius:20px!important;
-  background:linear-gradient(180deg,#fff7ed,#fffdf7)!important;
-  box-shadow:0 0 0 4px rgba(251,146,60,.18),0 12px 26px rgba(194,65,12,.14)!important;
-  animation:resultReminder 1.15s ease-in-out infinite;
-}
-.result-entry.needs-result:before{
-  content:'입력 필요';
-  position:absolute;
-  top:-13px;
-  left:14px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-height:26px;
-  padding:0 11px;
-  border-radius:999px;
-  background:#ea580c;
-  color:#fff;
-  font-size:.72rem;
-  font-weight:1000;
-  letter-spacing:-.02em;
-  box-shadow:0 6px 14px rgba(234,88,12,.25);
-}
-.result-entry.needs-result .result-entry-label{
-  color:#9a3412!important;
-  font-size:.92rem!important;
-  font-weight:1000!important;
-  margin-top:2px;
-}
-.result-entry.needs-result button{
-  min-height:56px!important;
-  border-width:2px!important;
-  font-size:1rem!important;
-  box-shadow:0 7px 16px rgba(15,23,42,.08)!important;
-}
-.result-entry.needs-result .blue-win{
-  background:#eaf2ff!important;
-  border-color:#7ca7ed!important;
-  color:#245fb8!important;
-}
-.result-entry.needs-result .red-win{
-  background:#fff0f0!important;
-  border-color:#efa2a2!important;
-  color:#a93f45!important;
-}
-@keyframes resultReminder{
-  0%,100%{
-    box-shadow:0 0 0 4px rgba(251,146,60,.18),0 12px 26px rgba(194,65,12,.14);
-  }
-  50%{
-    box-shadow:0 0 0 8px rgba(251,146,60,.32),0 16px 34px rgba(194,65,12,.22);
-  }
-}
+/* 「입력 필요」 배지·주황 테두리·깜빡임을 걷어냈습니다 (운영자 2026-08-12
+   "예전에 사람들이 입력 안해서 그랬는데 이제 임원들에게도 권한 부여했으니
+   이렇게 요란할 필요 없을 것 같아"). 승패를 넣을 사람이 정해져 있으면 화면이
+   재촉할 이유가 없습니다 — 버튼 두 개로 충분합니다. */
 .mvp-card.party-spotlight{
   margin-top:12px!important;
   margin-bottom:0!important;
@@ -1965,10 +1911,13 @@ body{
 .team-live-view .viewer-next-card.is-current .viewer-next-where{
   color:#8f1d18!important;
 }
+/* 지금 경기 카드는 **한 겹 테두리**로만 표시합니다. 붉은 테두리에 붉은 글로우까지
+   두르니 카드 넉 장이 전부 경고처럼 보였습니다 — 「진행 중」 배지와 ROUND 제목이
+   이미 어느 라운드인지 말합니다 (운영자 2026-08-12 "진행 중 대진표가 너무 요란해"). */
 .team-live-view .round.cur,
 .team-live-view .live-match.is-current{
   border-color:var(--live-alert-border)!important;
-  box-shadow:0 0 0 3px rgba(217,45,32,.12),0 10px 24px rgba(180,35,24,.12)!important;
+  box-shadow:0 6px 16px rgba(45,55,75,.06)!important;
 }
 .team-live-view .current-badge,
 .team-live-view .round.cur .round-badge,
@@ -1981,19 +1930,6 @@ body{
 .team-live-view .current-badge,
 .team-live-view .now{
   animation:teamLiveAlertPulse 1.15s ease-in-out 4;
-}
-.team-live-view .result-entry.needs-result{
-  border-color:var(--live-alert-border)!important;
-  background:linear-gradient(180deg,var(--live-alert-soft),#fffafa)!important;
-  box-shadow:0 0 0 4px rgba(217,45,32,.16),0 12px 26px rgba(180,35,24,.16)!important;
-  animation:teamLiveResultReminder 1.15s ease-in-out 4;
-}
-.team-live-view .result-entry.needs-result:before{
-  background:var(--live-alert)!important;
-  box-shadow:0 6px 14px rgba(180,35,24,.28)!important;
-}
-.team-live-view .result-entry.needs-result .result-entry-label{
-  color:#8f1d18!important;
 }
 /* 임원 운영 콘솔은 민턴LIVE 회원 화면과 **같은 시각 언어**를 씁니다.
    예전에는 이 블록만 초록(#f8fcfa/#d8e8df)이라 같은 앱 안에서 혼자 떠 보였습니다.
@@ -2162,15 +2098,10 @@ body{
   0%,100%{box-shadow:0 0 0 5px rgba(180,35,24,.16);transform:scale(1);}
   50%{box-shadow:0 0 0 9px rgba(217,45,32,.28);transform:scale(1.03);}
 }
-@keyframes teamLiveResultReminder{
-  0%,100%{box-shadow:0 0 0 4px rgba(217,45,32,.16),0 12px 26px rgba(180,35,24,.16);}
-  50%{box-shadow:0 0 0 8px rgba(217,45,32,.30),0 16px 34px rgba(180,35,24,.22);}
-}
 @media (prefers-reduced-motion:reduce){
   .team-live-view .current-badge,
   .team-live-view .now,
   .team-live-view .viewer-next-card.is-current,
-  .team-live-view .result-entry.needs-result{animation:none!important;}
 }
 
 /* Mobile safe areas, long-name wrapping, and field-size touch targets. */
@@ -2306,6 +2237,9 @@ button.team-official-overview-conflict.quiet{
 
 /* 대시보드 바로가기 — 세 곳으로만. 새 화면이 아니라 있는 자리로 보낸다. */
 .team-official-jump{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:10px;}
+/* 처리(되돌리기·마무리)는 아래 줄에서 폭을 나눠 갖습니다 — 이동 격자에 섞으면
+   한 개일 때 셋째 칸 옆에 혼자 남아 줄이 어중간하게 빕니다. */
+.team-official-jump.acts{grid-template-columns:repeat(auto-fit,minmax(0,1fr));margin-top:7px;}
 /* 손가락으로 누르는 버튼은 44px 아래로 내려가지 않게. 예전 42px 은 폰에서
    옆 버튼을 같이 누르기 쉬웠습니다. */
 .team-official-jump button{

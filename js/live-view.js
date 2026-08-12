@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.590';
+const APP_VERSION='1.10.591';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1285,9 +1285,12 @@ function buildTeamOfficialOverview(d){
     <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
     <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
     ${_resultAlertHtml(d)}
-    ${_substituteHintHtml(d)}
     ${_officialJumpHtml(d)}
     ${detail}
+    ${/* 확인해야 할 사람(대체가 필요한 자리)은 **운영 기록 바로 위**에 둡니다
+         — 운영자 2026-08-12. 위쪽은 숫자와 바로가기로 훑는 자리고, 아래쪽이
+         "무슨 일이 있었나 · 무엇을 손봐야 하나"를 읽는 자리입니다. */''}
+    ${_substituteHintHtml(d)}
     ${_officialLogHtml(d)}
   </section>`;
 }
@@ -1304,15 +1307,19 @@ function _officialJumpHtml(d){
   const cells=[
     '<button type="button" onclick="jumpToLiveSection(\'mvp\')">🏆 MVP</button>',
     '<button type="button" onclick="jumpToLiveSection(\'roster\')">🧑‍🤝‍🧑 '+esc(roster)+'</button>',
-    '<button type="button" onclick="jumpToLiveSection(\'current\')">🏸 지금 경기</button>',
+    // 「지금 경기」는 뺐습니다 — 운영 현황 바로 아래가 이미 지금 경기라
+    // 스스로에게 가는 버튼이었습니다(운영자 2026-08-12).
     '<button type="button" onclick="jumpToLiveSection(\'bracket\')">🗂 전체 대진표</button>'
   ];
   // 「승패·미실시」 칸은 없앴습니다 — 승패는 이제 **경기 카드에서 바로** 누르고,
   // 다시 누르면 지워집니다(운영자 2026-08-12). 시트는 서로 다르게 입력된 경기를
   // 모아 보여 줄 때만 붉은 알림을 통해 열립니다.
+  // 이동(위 줄)과 처리(아래 줄)를 갈라 둡니다. 한 격자에 섞으면 처리 버튼이
+  // 셋째 칸 옆에 혼자 남아 줄이 어중간하게 비었습니다.
+  const acts=[];
   const last=_lastOfficialAction(d);
   if(last){
-    cells.push('<button type="button" class="act" onclick="undoTeamOfficialAction()" title="'
+    acts.push('<button type="button" class="act" onclick="undoTeamOfficialAction()" title="'
       +esc(last.label)+'">↩️ 되돌리기</button>');
   }
   // 마무리는 **끝이 보일 때만** 뜹니다. 못 치른 경기가 남았으면 그 경기를
@@ -1320,11 +1327,12 @@ function _officialJumpHtml(d){
   const matches=(d&&d.matches)||[];
   const done=matches.length&&matches.every(_settled);
   if(_liveFinished(d)){
-    cells.push('<button type="button" class="act" onclick="finishTeamLive()">🔓 마무리 해제</button>');
+    acts.push('<button type="button" class="act" onclick="finishTeamLive()">🔓 마무리 해제</button>');
   }else if(done){
-    cells.push('<button type="button" class="act" onclick="finishTeamLive()">🏁 팀전 마무리</button>');
+    acts.push('<button type="button" class="act" onclick="finishTeamLive()">🏁 팀전 마무리</button>');
   }
-  return '<div class="team-official-jump">'+cells.join('')+'</div>';
+  return '<div class="team-official-jump">'+cells.join('')+'</div>'
+    +(acts.length?'<div class="team-official-jump acts">'+acts.join('')+'</div>':'');
 }
 /**
  * 운영 기록 — **누가 언제 무엇을 바꿨는지**.
@@ -1786,12 +1794,12 @@ function _viewerStatusButtons(current){
   const teamKey=current.team||'';
   const lateOn=_lateOn(current.n);
   const partyOn=_partyOn(current.n);
-  // 지각·도착은 운영진이 확인합니다. 회원에게는 현재 상태만 보여 줍니다.
-  const canOperate=_canOperateAttendance(window._lastLiveData||{});
+  /* 내 카드에서는 **지각을 누르지 않습니다** (운영자 2026-08-12 "임원 외 운영자
+     지각 버튼 삭제"). 지각은 남을 대상으로 하는 운영 행위라 팀 명단에서 합니다 —
+     내 카드에 두면 임원이 자기 지각을 누르는 이상한 버튼이 됩니다.
+     내가 지각으로 찍혀 있으면 그 사실만 알려 줍니다. */
   return '<div class="viewer-status-actions">'
-    +(canOperate
-      ?'<button type="button" class="viewer-state-btn ready '+(lateOn?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(lateOn?'도착 확인':'지각')+'</button>'
-      :(lateOn?'<span class="viewer-state-view on">지각</span>':''))
+    +(lateOn?'<span class="viewer-state-view on">지각</span>':'')
     +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
   +'</div>';
 }
@@ -2288,12 +2296,16 @@ function buildResultInputControls(m,d,opts){
     const btn=side=>'<button type="button" class="'+(side==='t1'?'blue-win':'red-win')+(win===side?' on':'')+'"'
       +' aria-pressed="'+(win===side?'true':'false')+'"'
       +' onclick="toggleTeamWin('+num+',\''+side+'\')">'+_resultSideLabel(d,side)+'</button>';
-    const label=win?'다시 누르면 지워집니다':canEnter?'경기 후 승패 입력':'';
-    return '<div class="result-entry'+(!win&&opts.current?' needs-result':'')+(win?' decided':'')
-        +(canEnter?'':' void-only')+'">'
+    /* 「입력 필요」 배지·주황 테두리·깜빡임은 걷어냈습니다 (운영자 2026-08-12
+       "예전에 사람들이 입력 안해서 그랬는데 이제 임원들에게도 권한 부여했으니
+       이렇게 요란할 필요 없을 것 같아"). 입력할 사람이 정해져 있으면 화면이
+       재촉할 이유가 없습니다. 버튼 두 개면 무엇을 하는 자리인지 압니다.
+       설명은 **모르면 못 알아채는 것**에만 답니다 — 다시 눌러 지우는 규칙. */
+    const label=win?'다시 누르면 지워집니다':'';
+    return '<div class="result-entry'+(win?' decided':'')+(canEnter?'':' void-only')+'">'
       +(label?'<div class="result-entry-label">'+label+'</div>':'')
       +(canEnter?btn('t1')+btn('t2'):'')
-      +(canVoid?'<button type="button" class="result-void" onclick="submitTeamVoid('+num+',true)">미실시 — 안 치름</button>':'')
+      +(canVoid?'<button type="button" class="result-void" onclick="submitTeamVoid('+num+',true)">미실시</button>':'')
     +'</div>';
   }
   if(!opts || !opts.current) return '';
@@ -2304,8 +2316,8 @@ function buildResultInputControls(m,d,opts){
   if(!_canSubmitResult(m,d)) return '';
   const idx=Number(m._idx);
   if(!Number.isFinite(idx) || idx<0) return '';
-  return '<div class="result-entry '+(opts.current?'needs-result':'')+'">'
-    +'<div class="result-entry-label">'+(opts.current?'경기 후 승패 입력':'이긴 팀 선택')+'</div>'
+  return '<div class="result-entry">'
+    +'<div class="result-entry-label">이긴 팀 선택</div>'
     +'<button type="button" class="blue-win" onclick="submitLiveWin('+idx+',\'t1\')">'+_resultSideLabel(d,'t1')+'</button>'
     +'<button type="button" class="red-win" onclick="submitLiveWin('+idx+',\'t2\')">'+_resultSideLabel(d,'t2')+'</button>'
   +'</div>';
