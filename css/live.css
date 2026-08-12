@@ -1955,13 +1955,16 @@ body{
 .team-live-view .result-entry.needs-result .result-entry-label{
   color:#8f1d18!important;
 }
+/* 임원 운영 콘솔은 민턴LIVE 회원 화면과 **같은 시각 언어**를 씁니다.
+   예전에는 이 블록만 초록(#f8fcfa/#d8e8df)이라 같은 앱 안에서 혼자 떠 보였습니다.
+   색은 토큰으로만 쓰고, 강조는 파랑 한 계열 + 경고 빨강으로 제한합니다. */
 .team-official-overview{
   margin:0 0 12px;
-  padding:13px;
-  border:1px solid #d8e8df;
+  padding:14px;
+  border:1px solid var(--bdr);
   border-radius:20px;
-  background:#f8fcfa;
-  box-shadow:0 6px 18px rgba(31,41,55,.05);
+  background:var(--sur);
+  box-shadow:0 10px 28px rgba(35,55,90,.08);
 }
 .team-official-overview-head{
   display:flex;
@@ -1973,74 +1976,70 @@ body{
 .team-official-overview-head>div{min-width:0;}
 .team-official-overview-head b{
   display:block;
-  color:#273f35;
+  color:var(--txt);
   font-size:.96rem;
   font-weight:1000;
 }
 .team-official-overview-head span{
   display:block;
-  margin-top:2px;
-  color:#718078;
-  font-size:.7rem;
+  margin-top:3px;
+  color:var(--dim);
+  font-size:.72rem;
   font-weight:900;
 }
 .team-official-overview-head em{
   flex:0 0 auto;
-  padding:5px 9px;
+  padding:6px 11px;
   border-radius:999px;
-  background:#e4f3ea;
-  color:#24724d;
-  font-size:.68rem;
+  background:var(--bl-soft);
+  border:1px solid var(--bl-softbdr);
+  color:var(--bl-deep);
+  font-size:.7rem;
   font-style:normal;
   font-weight:1000;
   white-space:nowrap;
 }
+/* 타일 다섯 개를 한 줄에 밀어 넣으면 폰에서 한 칸이 57px까지 좁아집니다.
+   위 줄은 **인원 흐름**(등록·경기중·대기) 셋, 아래 줄은 **챙길 것**(지각·뒷풀이)
+   둘로 나눠 칸을 넓게 씁니다. 6칸 격자에 2칸씩·3칸씩 걸치는 방식입니다. */
 .team-official-overview-grid{
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:7px;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:8px;
 }
 .team-official-overview-stat{
+  grid-column:span 2;
   min-width:0;
-  min-height:54px;
-  padding:8px 4px;
-  border:1px solid #dfe7f3;
-  border-radius:14px;
-  background:#fff;
-  color:#64748b;
+  min-height:58px;
+  padding:9px 4px;
+  border:1px solid var(--bdr);
+  border-radius:15px;
+  background:var(--sur);
+  color:var(--dim);
   font-family:'Noto Sans KR',sans-serif;
   text-align:center;
 }
+.team-official-overview-stat:nth-child(n+4){grid-column:span 3;}
 .team-official-overview-stat b{
   display:block;
-  color:#315f9d;
-  font-size:1.02rem;
+  color:var(--bl-deep);
+  font-size:1.06rem;
   font-weight:1000;
   line-height:1;
 }
 .team-official-overview-stat span{
   display:block;
-  margin-top:5px;
-  font-size:.66rem;
+  margin-top:6px;
+  font-size:.68rem;
   font-weight:900;
   white-space:nowrap;
 }
-.team-official-overview-stat.current{
-  border-color:#cfe6d9;
-  background:#edf8f2;
-}
-.team-official-overview-stat.current b,
-.team-official-overview-stat.operator b{color:#24724d;}
 .team-official-overview-stat.alert{
   border-color:#f1c9c7;
   background:#fff3f2;
 }
 .team-official-overview-stat.alert b{color:#b42318;}
-.team-official-overview-stat.party{
-  border-color:#efdbb6;
-  background:#fffaf1;
-}
-.team-official-overview-stat.party b{color:#9a650c;}
+.team-official-overview-stat.party b{color:var(--dim);}
 .team-official-overview-stat.active{
   border-color:#5b8def;
   box-shadow:0 0 0 3px rgba(91,141,239,.13);
@@ -2163,7 +2162,8 @@ body{
   .viewer-state-btn.ready{min-height:44px!important;}
 }
 @media(max-width:360px){
-  .team-official-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  /* 3+2 배치는 320px 에서도 한 칸이 81px 라 따로 줄일 필요가 없습니다.
+     (4열 시절에는 좁아서 3열로 접어야 했습니다.) */
   .team-official-overview-list{grid-template-columns:1fr;}
 }
 @media(max-width:375px){
@@ -2265,15 +2265,38 @@ button.team-official-overview-conflict.quiet{
 .team-sub-cand.team-red{border-color:#f6cdcb;background:#fffaf9;}
 
 /* 대시보드 바로가기 — 세 곳으로만. 새 화면이 아니라 있는 자리로 보낸다. */
-.team-official-jump{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px;}
+.team-official-jump{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:10px;}
+/* 손가락으로 누르는 버튼은 44px 아래로 내려가지 않게. 예전 42px 은 폰에서
+   옆 버튼을 같이 누르기 쉬웠습니다. */
 .team-official-jump button{
-  min-height:42px;padding:8px 6px;border:1px solid rgba(22,34,52,.14);border-radius:11px;
-  background:#fff;color:#2a3646;font:inherit;font-size:.74rem;font-weight:900;
+  min-height:44px;padding:9px 6px;border:1px solid var(--bdr);border-radius:14px;
+  background:var(--sur);color:var(--txt);font:inherit;font-size:.74rem;font-weight:900;
   cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .team-official-jump button:active{transform:scale(.985);}
-/* 처리(승패·되돌리기)는 이동 버튼과 구분되게 살짝 진하게. */
-.team-official-jump button.act{background:#f4f7fb;border-color:rgba(22,34,52,.2);}
+/* 처리(승패·되돌리기)는 이동 버튼과 구분되게 파랑 계열로. */
+.team-official-jump button.act{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
+
+/* 운영 기록 — 접힌 채로, 기록이 있을 때만. */
+.team-official-log{margin-top:10px;border:1px solid var(--bdr);border-radius:14px;background:var(--sur2);}
+.team-official-log>summary{
+  list-style:none;cursor:pointer;padding:11px 12px;
+  color:var(--dim);font-size:.76rem;font-weight:900;
+}
+.team-official-log>summary::-webkit-details-marker{display:none;}
+.team-official-log>summary:after{content:"▾";float:right;color:var(--dim2);}
+.team-official-log[open]>summary{color:var(--txt);border-bottom:1px solid var(--bdr);}
+.team-official-log[open]>summary:after{content:"▴";}
+.team-official-log-list{list-style:none;margin:0;padding:6px;display:grid;gap:4px;}
+.team-official-log-list li{
+  display:flex;align-items:baseline;gap:8px;
+  padding:8px 9px;border-radius:10px;background:var(--sur);
+}
+/* 시각은 --dim2(#9ea8b8) 로 두면 흰 바탕에서 2.4:1 밖에 안 나옵니다. */
+.team-official-log-when{flex:0 0 auto;color:var(--dim);font-size:.72rem;font-weight:900;font-variant-numeric:tabular-nums;}
+.team-official-log-list li b{flex:1 1 auto;min-width:0;color:var(--txt);font-size:.8rem;font-weight:800;}
+.team-official-log-list li small{flex:0 0 auto;color:var(--dim);font-size:.7rem;font-weight:900;}
+.team-official-log-more{padding:2px 12px 10px;color:var(--dim);font-size:.7rem;font-weight:800;}
 
 /* 후보 묶음 — 우리 팀 / 상대 팀을 제목으로 갈라 한눈에 보이게. */
 .team-sub-group{margin-top:10px;}

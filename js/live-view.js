@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.587';
+const APP_VERSION='1.10.588';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -843,6 +843,15 @@ function formatUpdatedAgo(ts){
   return '오래 전 업데이트';
 }
 
+/* 진행 상황 한 줄 — 경기 수가 있으면 경기 단위로, 없으면 라운드 단위로. */
+function _liveProgressText(d,totalR,doneR){
+  const total=Number(d&&d.totalMatches)||0;
+  const done=Number(d&&d.completedMatches)||0;
+  const round=Number(d&&d.currentRound)||0;
+  if(total)return (round?'R'+round+' · ':'')+done+'/'+total+'경기';
+  return doneR+'/'+totalR+'라운드';
+}
+
 function buildLiveScore(d,totalR,doneR){
   const bW=d.blueWins||0, wW=d.whiteWins||0;
   const blueName=esc(liveTeamLabel(d,'blue'));
@@ -858,7 +867,10 @@ function buildLiveScore(d,totalR,doneR){
       +'<div class="score-vs">VS</div>'
       +'<div class="score-team red"><div class="score-name">'+redName+'</div><div class="score-num">'+wW+'</div></div>'
     +'</div>'
-    +'<div class="score-summary'+leadCls+'"><b>'+lead+'</b><span>'+leadDetail+' · '+doneR+'/'+totalR+'라운드'
+    // 진행 상황을 **여기 한 곳에서만** 말합니다. 예전에는 운영 현황 머리말
+    // (R1 · 0/2경기) · 이 줄(0/2라운드) · 지금 볼 경기(ROUND 1)가 같은 것을
+    // 세 번 말했고, 단위마저 경기/라운드로 달라 더 헷갈렸습니다.
+    +'<div class="score-summary'+leadCls+'"><b>'+lead+'</b><span>'+leadDetail+' · '+_liveProgressText(d,totalR,doneR)
       +(d.pointSystem?' · '+esc(d.pointSystem)+'점':'')+'</span></div>'
     +'<div class="score-progress"><span style="width:'+pct+'%"></span></div>'
     +'</section>';
@@ -1250,13 +1262,14 @@ function buildTeamOfficialOverview(d){
     ||(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub))));
   if(!canOperate)return '';
   const data=_teamOfficialOverviewData(d);
+  // 일곱 개는 많았습니다. **현장**은 등록−지각이고 **대기**는 현장−경기중이라
+  // 둘 다 다른 타일에서 계산되는 값이고, **운영진**은 경기 중에 누를 일이 없습니다.
+  // 실제로 손이 가는 다섯 개만 남깁니다(운영자 2026-08-12).
   const cards=[
     {key:'total',label:'등록',value:data.members.length},
-    {key:'current',label:'현장',value:data.onSite.length,cls:'current'},
     {key:'playing',label:'경기중',value:data.playing.length},
     {key:'waiting',label:'대기',value:data.waiting.length},
     {key:'late',label:'지각',value:data.late.length,cls:data.late.length?'alert':''},
-    {key:'operators',label:'운영진',value:data.operators.length,cls:'operator'},
     {key:'party',label:'뒷풀이',value:data.party.length,cls:'party'}
   ];
   const selected=cards.find(card=>card.key===_teamOfficialOverviewFilter);
@@ -1265,9 +1278,9 @@ function buildTeamOfficialOverview(d){
     <div class="team-official-overview-detail-head"><b>${esc(selected.label)} ${detailMembers.length}명</b><button type="button" onclick="setTeamOfficialOverviewFilter('${selected.key}')" aria-label="${esc(selected.label)} 명단 닫기">×</button></div>
     <div class="team-official-overview-list">${detailMembers.length?detailMembers.map(player=>`<span class="team-official-overview-player"><b>${esc(player.n)}</b><small>${esc(_teamOfficialOverviewMemberMeta(player,data,d,selected.key))}</small></span>`).join(''):'<span class="team-official-overview-player"><b>해당 선수 없음</b></span>'}</div>
   </div>`:'';
-  const progress=data.totalMatches
-    ?`${data.currentRound?`R${data.currentRound}`:'완료'} · ${data.completedMatches}/${data.totalMatches}경기`
-    :'대진 준비';
+  // 진행 상황은 바로 아래 점수판이 말합니다. 여기서 또 말하면 두 줄이 같은
+  // 것을 서로 다른 단위(경기/라운드)로 말해 오히려 헷갈렸습니다.
+  const progress=data.totalMatches?'임원 운영':'대진 준비';
   return `<section class="team-official-overview" aria-label="팀전 운영 현황">
     <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
     <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
@@ -1275,6 +1288,7 @@ function buildTeamOfficialOverview(d){
     ${_substituteHintHtml(d)}
     ${_officialJumpHtml(d)}
     ${detail}
+    ${_officialLogHtml(d)}
   </section>`;
 }
 
@@ -1302,8 +1316,51 @@ function _officialJumpHtml(d){
     cells.push('<button type="button" class="act" onclick="undoTeamOfficialAction()" title="'
       +esc(last.label)+'">↩️ 되돌리기</button>');
   }
+  // 마무리는 **끝이 보일 때만** 뜹니다. 못 치른 경기가 남았으면 그 경기를
+  // 「미실시」로 먼저 표시하는 게 순서입니다 — 그래야 기록에 구멍이 안 남습니다.
+  const matches=(d&&d.matches)||[];
+  const done=matches.length&&matches.every(_settled);
+  if(_liveFinished(d)){
+    cells.push('<button type="button" class="act" onclick="finishTeamLive()">🔓 마무리 해제</button>');
+  }else if(done){
+    cells.push('<button type="button" class="act" onclick="finishTeamLive()">🏁 팀전 마무리</button>');
+  }
   return '<div class="team-official-jump">'+cells.join('')+'</div>';
 }
+/**
+ * 운영 기록 — **누가 언제 무엇을 바꿨는지**.
+ *
+ * 서버에는 조작마다 기록이 쌓이는데 화면에서는 마지막 하나(되돌리기 이름표)밖에
+ * 볼 수 없었습니다. 임원이 여럿이면 "이 경기 승패 누가 고쳤지?"를 물을 데가
+ * 없어 결국 관리자를 부르게 됩니다. 기록이 있을 때만 접힌 채로 붙습니다.
+ */
+function _officialLogTime(at){
+  const t=Number(at)||0;
+  if(!t)return '';
+  const dt=new Date(t);
+  if(isNaN(dt.getTime()))return '';
+  return ('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2);
+}
+function _officialLogHtml(d){
+  if(!_canFixResult(d))return '';
+  const log=(d&&Array.isArray(d.officialLog))?d.officialLog:[];
+  const rows=log.filter(e=>e&&e.label);
+  if(!rows.length)return '';
+  const recent=rows.slice(-20).reverse();
+  const items=recent.map(e=>{
+    const time=_officialLogTime(e.at);
+    const by=String(e.by||'').trim();
+    return '<li><span class="team-official-log-when">'+esc(time||'·')+'</span>'
+      +'<b>'+esc(String(e.label))+'</b>'
+      +(by?'<small>'+esc(by)+'</small>':'')+'</li>';
+  }).join('');
+  const more=rows.length>recent.length?'<div class="team-official-log-more">최근 '+recent.length+'건만 보여 줍니다 (전체 '+rows.length+'건)</div>':'';
+  return '<details class="team-official-log"'+(_officialLogOpen?' open':'')
+    +' ontoggle="_officialLogOpen=this.open"><summary>운영 기록 '+rows.length+'건</summary>'
+    +'<ol class="team-official-log-list">'+items+'</ol>'+more+'</details>';
+}
+var _officialLogOpen=false;
+
 function jumpToLiveSection(key){
   const open=el=>{ if(el&&el.tagName==='DETAILS'&&!el.open){ el.open=true;
     if(el.id==='teamRoster')_teamRosterOpen=true;
@@ -1541,6 +1598,59 @@ async function changeTeamCourt(matchNum){
   if(clash&&!confirm(`${to}코트는 ${clash.num}번 경기가 씁니다.\n두 경기의 코트를 맞바꿀까요?`))return;
   await _sendTeamOfficialCommand('tct', {type:'team-official-court', matchNum:Number(matchNum),
     court:to, allowSwap:!!clash}, `${matchNum}번 경기를 ${to}코트로 옮겼습니다.`);
+}
+
+/**
+ * 팀전 마무리 — 임원이 끝을 선언합니다.
+ * 관리자의 「팀전 종료」와 다릅니다: 데이터를 지우지 않으므로 최종 점수와
+ * 뒷풀이 명단은 회원 링크에 그대로 남습니다.
+ */
+function _liveFinished(d){ return !!Number(d&&d.finishedAt); }
+async function finishTeamLive(){
+  const d=window._lastLiveData;
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  if(_liveFinished(d)){
+    if(!confirm('마무리를 해제하고 다시 운영할까요?'))return;
+    return void await _sendTeamOfficialCommand('tfin', {type:'team-official-finish', finished:false},
+      '마무리를 해제했습니다.');
+  }
+  const left=((d&&d.matches)||[]).filter(m=>!_settled(m));
+  if(left.length&&!confirm(`아직 결과가 없는 경기가 ${left.length}개 있습니다.\n그대로 마무리할까요?`))return;
+  if(!left.length&&!confirm('팀전을 마무리할까요?\n최종 결과가 회원 화면에 그대로 남습니다.'))return;
+  await _sendTeamOfficialCommand('tfin', {type:'team-official-finish', finished:true,
+    allowUnfinished:true}, '팀전을 마무리했습니다.');
+}
+
+/**
+ * 명단 고치기 — 갑자기 한 명 더 오거나, 못 오게 됐을 때.
+ * 뺄 때는 서버가 「아직 안 끝난 경기에 이름이 있으면」 막습니다(대체 투입이 먼저).
+ */
+async function addTeamPlayer(){
+  const d=window._lastLiveData;
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  const name=(prompt('명단에 추가할 선수 이름을 입력해 주세요.')||'').trim();
+  if(!name)return;
+  const fixed=_usesFixedTeams(d);
+  let team='';
+  if(fixed){
+    const blue=liveTeamLabel(d,'blue')||'청 팀';
+    const red=liveTeamLabel(d,'red')||'홍 팀';
+    const pick=(prompt(`${name} 선수를 어느 팀에 넣을까요?\n1 = ${blue}\n2 = ${red}`,'1')||'').trim();
+    if(pick!=='1'&&pick!=='2')return;
+    team=pick==='2'?'red':'blue';
+  }
+  const level=Number((prompt(`${name} 선수의 급수를 숫자로 입력해 주세요. (예: 4)`,'4')||'').trim());
+  if(!level||level<1)return alert('급수를 숫자로 입력해 주세요.');
+  const grade=(prompt(`${name} 선수의 등급을 입력해 주세요. (없으면 비워 두세요)`,'')||'').trim();
+  await _sendTeamOfficialCommand('trs', {type:'team-official-roster', action:'add',
+    playerName:name, team, level, grade}, `${name} 선수를 명단에 넣었습니다.`);
+}
+async function removeTeamPlayer(name){
+  const d=window._lastLiveData;
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  if(!confirm(`${name} 선수를 명단에서 뺄까요?\n남은 경기에 이름이 있으면 대체 투입이 먼저입니다.`))return;
+  await _sendTeamOfficialCommand('trs', {type:'team-official-roster', action:'remove',
+    playerName:String(name)}, `${name} 선수를 명단에서 뺐습니다.`);
 }
 
 /* 되돌리기 — 마지막 조작 하나. 무엇을 되돌리는지 이름으로 확인받습니다. */
@@ -2146,6 +2256,9 @@ window.submitTeamVoid=submitTeamVoid;
 window.renameTeamPlayer=renameTeamPlayer;
 window.changeTeamCourt=changeTeamCourt;
 window.undoTeamOfficialAction=undoTeamOfficialAction;
+window.finishTeamLive=finishTeamLive;
+window.addTeamPlayer=addTeamPlayer;
+window.removeTeamPlayer=removeTeamPlayer;
 window.jumpToLiveSection=jumpToLiveSection;
 window.setViewerDetailsOpen=setViewerDetailsOpen;
 window.setTeamOfficialOverviewFilter=setTeamOfficialOverviewFilter;
@@ -2280,6 +2393,7 @@ function buildTeamRosterCard(d){
             :'<span class="team-member-att-view '+(on?'on':'')+'">'+(on?'지각':'')+'</span>')
           +(canOperate
             ?'<button type="button" class="team-member-att rename" title="이름 바꾸기" onclick="renameTeamPlayer('+nameArg+')">✏️</button>'
+              +'<button type="button" class="team-member-att rename" title="명단에서 빼기" onclick="removeTeamPlayer('+nameArg+')">✖️</button>'
             :'')
           +((canOperate||_isSelf(d,p.n))
             ?'<button type="button" class="team-member-party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
@@ -2298,7 +2412,10 @@ function buildTeamRosterCard(d){
       +'<section class="team-roster-card">'
         +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>지각 '+lateCount+'명 · 뒷풀이 '+partyCount+'명</span></div>'
         +'<div class="team-att-summary"><b>지각</b> · <b>뒷풀이</b> 확인</div>'
-        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','지각')+sortBtn('role','역할')+sortBtn('level','급수')+'</div>'
+        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','지각')+sortBtn('role','역할')+sortBtn('level','급수')
+          // 갑자기 한 명 더 왔을 때 — 명단을 보는 그 자리에서 바로. 임원에게만.
+          +(canOperate?'<button type="button" class="team-roster-sort add" onclick="addTeamPlayer()">＋ 선수 추가</button>':'')
+        +'</div>'
         +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
           +(showTeam
             ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>지각 '+blue.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(blue,'blue')+'</div>'
@@ -2495,7 +2612,8 @@ function render(d){
   const totalR=rounds.length;
   let doneR=0;
   rounds.forEach(r=>{ if((byRound[r]||[]).every(_settled)) doneR++; });
-  const allDone=totalR>0 && matches.length>0 && matches.every(_settled);
+  // 임원이 마무리를 선언했으면 남은 경기가 있어도 결과 화면으로 넘어갑니다.
+  const allDone=matches.length>0 && (_liveFinished(d) || (totalR>0 && matches.every(_settled)));
   const firstOpenRound=rounds.find(r=>(byRound[r]||[]).some(m=>!_settled(m)));
   let curRound=d.currentRound||null;
   if(!curRound || !byRound[curRound] || ((byRound[curRound]||[]).every(_settled) && firstOpenRound)){
@@ -2525,12 +2643,22 @@ function render(d){
     ? buildFinale(matches,d)
     : buildCurrentPanel(curRound,curDisplay,d)+buildNextPanel(nextMatches,d);
   const roster=buildTeamRosterCard(d);
-  const extras=buildMvpSpotlight(matches,d)+buildPartySpotlight(d);
+  // 임원에게는 뒷풀이가 세 번 나왔습니다 — 타일, 이 스포트라이트, 명단 요약.
+  // 운영 현황이 떠 있는 사람에게는 타일(누르면 명단)로 충분하니 여기서는 뺍니다.
+  // 운영 현황이 없는 참가자에게는 그대로 보여 줍니다.
+  const extras=buildMvpSpotlight(matches,d)+(overview?'':buildPartySpotlight(d));
+
+  // 성적 이야기(MVP·전적 순위)는 붙여 둡니다. 예전에는 전체 대진표가 둘 사이를
+  // 갈라놓아 같은 내용을 두 번 보는 것처럼 느껴졌습니다.
+  const rankingHtml=buildRanking(matches,d);
+  const ranking=rankingHtml
+    ? '<details class="info-details" '+(_viewerDetailsOpen.ranking?'open':'')+' ontoggle="setViewerDetailsOpen(\'ranking\',this.open)"><summary>전적 순위 보기</summary><div class="info-body">'+rankingHtml+'</div></details>'
+    : '';
 
   let html='<div class="live-board">';
   html+=forOperator
-    ? overview+scoreboard+matchPanels+roster+identity+extras
-    : identity+overview+scoreboard+matchPanels+extras+roster;
+    ? overview+scoreboard+matchPanels+roster+identity+extras+ranking
+    : identity+overview+scoreboard+matchPanels+extras+ranking+roster;
 
   html+='<details class="info-details primary" id="fullBracket" '+(_viewerDetailsOpen.fullBracket?'open':'')+' ontoggle="setViewerDetailsOpen(\'fullBracket\',this.open)"><summary>전체 대진표 보기</summary><div class="info-body">';
   rounds.forEach(r=>{
@@ -2542,10 +2670,6 @@ function render(d){
     html+='</div>';
   });
   html+='</div></details>';
-  const rankingHtml=buildRanking(matches,d);
-  if(rankingHtml){
-    html+='<details class="info-details" '+(_viewerDetailsOpen.ranking?'open':'')+' ontoggle="setViewerDetailsOpen(\'ranking\',this.open)"><summary>전적 순위 보기</summary><div class="info-body">'+rankingHtml+'</div></details>';
-  }
   html+='</div>';
 
   content.innerHTML=html;

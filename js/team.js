@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.587';
+const APP_VERSION = '1.10.588';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2703,17 +2703,77 @@ function _teamAdoptServerMatches(data){
   });
   return {applied:true,changed:plan.length+voidChanged,swaps:plan.map(p=>({out:p.out,in:p.in}))};
 }
+/**
+ * 임원이 현장에서 고친 **명단**을 관리자도 따라갑니다.
+ *
+ * 이게 없으면 임원이 넣은 선수가 다음 게시 한 번에 지워집니다 — `_buildLiveState`
+ * 는 명단을 관리자 쪽 `teamAssignment` 에서 다시 만들기 때문입니다. 게다가
+ * 관리자가 모르는 이름이 대진에 있으면 `_teamAdoptServerMatches` 가 통째로
+ * 포기해서, **대체 투입 반영까지 같이 멈춥니다.**
+ *
+ * `rosterEdits` 는 서버에 순서대로 쌓이는 목록입니다. 매번 처음부터 훑어
+ * "이미 반영됐으면 건너뛰기" 로 처리하므로 몇 번을 읽어도 결과가 같습니다.
+ */
+function _teamAdoptServerRoster(data){
+  const edits=(data&&Array.isArray(data.rosterEdits))?data.rosterEdits:[];
+  const outcome={applied:false,added:[],removed:[]};
+  if(!edits.length) return outcome;
+  const has=name=>currentParticipants.some(p=>_teamLiveSigName(p&&p.name)===_teamLiveSigName(name));
+  edits.forEach(edit=>{
+    const name=String((edit&&edit.name)||'').trim();
+    if(!name) return;
+    if(edit.action==='add'){
+      if(has(name)) return;
+      const side=String(edit.team||'')==='red'?'red':'blue';
+      const teamLabel=side==='red'?(teamNames&&teamNames.white||'홍팀'):(teamNames&&teamNames.blue||'청팀');
+      const player={name,level:Number(edit.level)||4,grade:String(edit.grade||''),
+        gender:String(edit.gender||''),isGuest:true,isClubOfficial:false,
+        team:currentSettings&&currentSettings.teamMode?teamLabel:''};
+      _teamEnsureMemberId(player);
+      currentParticipants.push(player);
+      if(teamAssignment){
+        const bucket=side==='red'?'white':'blue';
+        teamAssignment[bucket]=Array.isArray(teamAssignment[bucket])?teamAssignment[bucket]:[];
+        teamAssignment[bucket].push(player);
+      }
+      outcome.added.push(name);
+    }else if(edit.action==='remove'){
+      if(!has(name)) return;
+      const keep=p=>_teamLiveSigName(p&&p.name)!==_teamLiveSigName(name);
+      currentParticipants=currentParticipants.filter(keep);
+      if(teamAssignment){
+        ['blue','white'].forEach(bucket=>{
+          if(Array.isArray(teamAssignment[bucket]))teamAssignment[bucket]=teamAssignment[bucket].filter(keep);
+        });
+      }
+      outcome.removed.push(name);
+    }
+  });
+  outcome.applied=!!(outcome.added.length||outcome.removed.length);
+  return outcome;
+}
+
 /* 받아 적은 뒤 화면·점수·저장까지 맞춥니다. 바뀐 게 없으면 아무것도 하지 않습니다. */
 function _teamAdoptServerMatchesAndRender(data,opts={}){
+  // 명단이 먼저입니다. 대진에 실린 새 이름을 관리자가 알아야 교체가 반영됩니다.
+  const roster=_teamAdoptServerRoster(data);
   const outcome=_teamAdoptServerMatches(data);
-  if(!outcome.changed)return outcome;
+  if(!outcome.changed && !roster.applied)return outcome;
   if(currentMatches.length)renderResults(currentMatches,currentParticipants,currentSettings);
   updateScores();   // 팀 합계 재계산 + 저장 예약 + (중계 중이면) 바뀐 명단으로 재게시
   saveState();
   if(opts.notify!==false){
-    const preview=outcome.swaps.slice(0,3).map(s=>`${s.out}→${s.in}`).join(', ');
-    const more=outcome.swaps.length>3?` 외 ${outcome.swaps.length-3}건`:'';
-    showWarn(`임원이 현장에서 대체 투입했습니다 — ${preview}${more}. 대진을 서버 기준으로 맞췄습니다.`);
+    if(roster.applied){
+      const bits=[];
+      if(roster.added.length)bits.push(`추가 ${roster.added.join(', ')}`);
+      if(roster.removed.length)bits.push(`제외 ${roster.removed.join(', ')}`);
+      showWarn(`임원이 명단을 고쳤습니다 — ${bits.join(' · ')}. 관리자 명단도 맞췄습니다.`);
+    }
+    if(outcome.swaps.length){
+      const preview=outcome.swaps.slice(0,3).map(s=>`${s.out}→${s.in}`).join(', ');
+      const more=outcome.swaps.length>3?` 외 ${outcome.swaps.length-3}건`:'';
+      showWarn(`임원이 현장에서 대체 투입했습니다 — ${preview}${more}. 대진을 서버 기준으로 맞췄습니다.`);
+    }
   }
   return outcome;
 }

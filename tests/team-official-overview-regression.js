@@ -21,8 +21,15 @@ const overviewSource = liveSrc.slice(overviewStart, overviewEnd);
 assert(overviewSource.includes("viewer.isClubOfficial||viewer.isTemporaryOperator")
   && overviewSource.includes("(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub))"),
   '정식 임원·운영 도우미·청홍팀전 단장/부단장이 운영 현황을 볼 수 있어야 합니다.');
-['등록','현장','경기중','대기','지각','운영진','뒷풀이'].forEach(label=>{
+// 2026-08-12 계약 갱신(운영자 "중복이나 불필요한 요소를 체킹"): 타일 일곱 개 중
+// **현장**(등록−지각)과 **대기**(현장−경기중)는 서로에게서 계산되는 값이고,
+// **운영진**은 경기 중에 누를 일이 없었습니다. 손이 실제로 가는 다섯 개만 둡니다.
+['등록','경기중','대기','지각','뒷풀이'].forEach(label=>{
   assert(overviewSource.includes(`label:'${label}'`), `운영 현황에 ${label} 항목이 있어야 합니다.`);
+});
+['현장','운영진'].forEach(label=>{
+  assert(!overviewSource.includes(`label:'${label}'`),
+    `${label} 타일은 다른 타일에서 계산되거나 쓰이지 않아 뺐습니다.`);
 });
 assert(overviewSource.includes('resultConflicts')&&overviewSource.includes('승패 확인'),
   '서로 다른 승패 입력은 임원 현황에서 확인 건으로 보여야 합니다.');
@@ -37,10 +44,15 @@ assert(operatorOrder.indexOf('overview') === 0,
 assert(operatorOrder.indexOf('scoreboard') > 0 && operatorOrder.indexOf('identity') > operatorOrder.indexOf('scoreboard'),
   '임원 화면에서 본인 이름표는 점수·경기 현황보다 뒤여야 합니다.');
 
-assert(liveCss.includes('grid-template-columns:repeat(4,minmax(0,1fr))'),
-  '모바일 운영 현황은 한눈에 보이는 4열 요약이어야 합니다.');
-assert(liveCss.includes('@media(max-width:360px)')&&liveCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),
-  '아주 좁은 화면에서는 운영 현황을 3열로 줄여야 합니다.');
+// 다섯 개를 한 줄에 밀어 넣으면 폰에서 한 칸이 57px 까지 좁아집니다. 6칸 격자에
+// 위 줄 셋(2칸씩)·아래 줄 둘(3칸씩)로 걸쳐 칸을 넓게 씁니다.
+const gridBlock = liveCss.slice(liveCss.indexOf('.team-official-overview-grid{'),
+  liveCss.indexOf('.team-official-overview-stat b{'));
+assert(gridBlock.includes('grid-template-columns:repeat(6,minmax(0,1fr))'),
+  '운영 현황 타일은 6칸 격자 위에 놓여야 합니다.');
+assert(gridBlock.includes('grid-column:span 2')
+  && gridBlock.includes('.team-official-overview-stat:nth-child(n+4){grid-column:span 3;}'),
+  '앞 세 개는 2칸, 뒤 두 개는 3칸을 차지해 3+2 두 줄이 되어야 합니다.');
 
 const sandbox = {
   viewer:null,
@@ -124,8 +136,12 @@ assert.strictEqual(summary.conflictCount,2,'승패 충돌 입력 수를 정확�
 
 sandbox.api.setViewer({id:'official',n:'정식임원',isClubOfficial:true});
 const officialHtml = sandbox.api.build(liveData);
-assert(officialHtml.includes('team-official-overview')&&officialHtml.includes('R1 · 0/2경기'),
-  '정식 임원에게 현재 라운드와 운영 현황을 보여야 합니다.');
+// 2026-08-12 계약 갱신: 진행 상황(R1 · 0/2경기)은 **바로 아래 점수판**이 말합니다.
+// 여기서 또 말하면 붙어 있는 두 줄이 같은 것을 경기/라운드로 단위만 바꿔 되풀이합니다.
+assert(officialHtml.includes('team-official-overview')&&officialHtml.includes('운영 현황'),
+  '정식 임원에게 운영 현황을 보여야 합니다.');
+assert(!officialHtml.includes('R1 · 0/2경기'),
+  '진행 상황은 점수판 한 곳에서만 말해야 합니다.');
 
 sandbox.api.setViewer({id:'helper',n:'운영도우미',isTemporaryOperator:true});
 assert(sandbox.api.build(liveData).includes('운영 현황'),

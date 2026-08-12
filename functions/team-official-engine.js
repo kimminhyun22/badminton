@@ -22,6 +22,8 @@ const SUPPORTED_TYPES = new Set([
   'team-official-void',
   'team-official-rename',
   'team-official-court',
+  'team-official-finish',
+  'team-official-roster',
   'team-official-undo'
 ]);
 
@@ -619,6 +621,120 @@ function applyCourt(session, request, now, operation){
   return '';
 }
 
+/**
+ * 팀전 마무리 — **임원이 끝을 선언합니다**.
+ *
+ * 지금까지 끝을 낼 수 있는 사람은 관리자뿐이었고, 관리자의 「팀전 종료」는 회원
+ * 링크의 데이터를 **지웁니다**. 그러면 최종 점수도 뒷풀이 명단도 같이 사라집니다.
+ * 여기서는 지우지 않고 마무리만 표시해, 결과 화면은 그대로 남깁니다.
+ *
+ * 결과가 없는 경기가 남았으면 한 번 되묻습니다(시간이 모자라 못 치른 경우가
+ * 있어 막지는 않습니다 — 운영자 판단이 우선).
+ */
+function applyFinish(session, request, now, operation){
+  const want = request.finished !== false;
+  const already = !!number(session.finishedAt);
+  if(want === already)return want ? '이미 마무리한 팀전입니다.' : '마무리하지 않은 팀전입니다.';
+  if(want){
+    const left = matchList(session).filter(m => !isSettled(m));
+    if(left.length && request.allowUnfinished !== true){
+      return `아직 결과가 없는 경기가 ${left.length}개 있습니다. 그대로 마무리하려면 확인이 필요합니다.`;
+    }
+    session.finishedAt = number(now, Date.now());
+    session.finishedBy = text(request.actorPlayerName || '');
+  }else{
+    delete session.finishedAt;
+    delete session.finishedBy;
+  }
+  pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+    type:'finish', label:want ? '팀전 마무리' : '마무리 해제',
+    undo:{type:'team-official-finish', finished:!want, allowUnfinished:true}});
+  if(operation)operation.result = {finish:{finished:want}};
+  return '';
+}
+
+/**
+ * 명단 고치기 — 갑자기 한 명 더 오거나, 못 오게 됐을 때.
+ *
+ * 지금까지는 관리자 화면에서만 됐습니다. 임원이 현장에서 고칠 수 있어야 관리자를
+ * 부르지 않습니다.
+ *
+ * 뺄 때는 **아직 안 끝난 경기에 이름이 있으면 막습니다.** 그냥 빼면 대진표에
+ * 이름만 남아 그 자리가 비었는지 아닌지 아무도 모르게 됩니다. 대체 투입이 먼저입니다.
+ *
+ * 관리자 화면이 따라올 수 있도록 `rosterEdits` 에 순서대로 적어 둡니다
+ * (관리자는 이 목록을 처음부터 다시 훑어 반영하므로 몇 번을 읽어도 같은 결과입니다).
+ */
+function pushRosterEdit(session, entry){
+  session.rosterEdits = Array.isArray(session.rosterEdits) ? session.rosterEdits : [];
+  session.rosterEdits.push(entry);
+  if(session.rosterEdits.length > 50)session.rosterEdits = session.rosterEdits.slice(-50);
+}
+function applyRoster(session, request, now, operation){
+  const action = text(request.action);
+  const name = text(request.playerName).trim();
+  if(!name)return '누구인지 지정해 주세요.';
+  if(action !== 'add' && action !== 'remove')return '명단을 어떻게 고칠지 지정해 주세요.';
+  const members = session.members && typeof session.members === 'object' ? session.members : {};
+  session.members = members;
+  const fixedTeams = usesFixedTeams(session);
+
+  if(action === 'add'){
+    if(memberByName(session, name))return `${name} 은(는) 이미 명단에 있습니다.`;
+    const side = text(request.team) === 'red' ? 'red' : 'blue';
+    const level = number(request.level, 4);
+    const grade = text(request.grade || '');
+    const row = {
+      id: 'field_' + number(now, Date.now()).toString(36) + '_' + nameKey(name),
+      n: name, l: level, g: text(request.gender || ''), gr: grade,
+      isGuest: true, addedByOfficial: true
+    };
+    if(fixedTeams){
+      members[side] = Array.isArray(members[side]) ? members[side] : [];
+      members[side].push(row);
+      // `all` 을 쓰는 게시본이라면 거기에도 넣어야 합니다. `memberList` 는 `all`
+      // 이 차 있으면 그것만 보므로, 한쪽만 넣으면 **넣은 사람을 아무도 못 찾습니다**
+      // (대체 후보·팀 판정·이름 수정이 전부 빗나갑니다).
+      if(Array.isArray(members.all) && members.all.length)members.all.push({...row, team:side});
+    }else{
+      members.all = Array.isArray(members.all) ? members.all : [];
+      members.all.push(row);
+    }
+    pushRosterEdit(session, {at:number(now, Date.now()), action:'add', name,
+      team:fixedTeams ? side : '', level, grade, gender:text(request.gender || ''),
+      by:text(request.actorPlayerName || '')});
+    pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+      type:'roster', label:`${name} 명단 추가${fixedTeams ? ` (${side === 'red' ? '홍' : '청'}팀)` : ''}`,
+      undo:{type:'team-official-roster', action:'remove', playerName:name}});
+    if(operation)operation.result = {roster:{action:'add', name, team:fixedTeams ? side : ''}};
+    return '';
+  }
+
+  const member = memberByName(session, name);
+  if(!member)return '명단에서 그 선수를 찾지 못했습니다.';
+  const pending = matchList(session).find(m => !isSettled(m)
+    && matchPlayers(m).some(n => nameKey(n) === nameKey(name)));
+  if(pending){
+    return `${name} 은(는) ${number(pending.num, 0)}번 경기에 들어 있습니다. 대체 투입을 먼저 해 주세요.`;
+  }
+  const side = teamOf(session, name);
+  const level = memberLevel(member);
+  const grade = memberGrade(session, name);
+  const key = nameKey(name);
+  ['blue', 'red', 'all'].forEach(group => {
+    if(!Array.isArray(members[group]))return;
+    members[group] = members[group].filter(row => nameKey(memberName(row)) !== key);
+  });
+  pushRosterEdit(session, {at:number(now, Date.now()), action:'remove', name,
+    team:side, level, grade, by:text(request.actorPlayerName || '')});
+  pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
+    type:'roster', label:`${name} 명단 제외`,
+    undo:{type:'team-official-roster', action:'add', playerName:name, team:side,
+      level, grade, gender:text(member.gender || member.g || '')}});
+  if(operation)operation.result = {roster:{action:'remove', name, team:side}};
+  return '';
+}
+
 function validate(session, request, options = {}){
   if(!SUPPORTED_TYPES.has(text(request?.type)))return '지원하지 않는 팀전 운영 요청입니다.';
   const adminClaim = options.adminClaim === true;
@@ -674,6 +790,10 @@ function runCommand(session, request, now, operation, options = {}){
       reason = applyRename(session, request, now, operation); break;
     case 'team-official-court':
       reason = applyCourt(session, request, now, operation); break;
+    case 'team-official-finish':
+      reason = applyFinish(session, request, now, operation); break;
+    case 'team-official-roster':
+      reason = applyRoster(session, request, now, operation); break;
     case 'team-official-undo':
       reason = applyUndo(session, request, now, operation); break;
     default:
