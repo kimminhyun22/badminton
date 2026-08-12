@@ -1305,16 +1305,21 @@ body{
 }
 
 /* 민턴LIVE 톤앤매너 최종 통합 */
+/* 흐린 글자색과 진한 파랑은 **AA 문턱(4.5:1) 바로 아래**였습니다 — 운영자 화면을
+   렌더해 재보니 흰 바탕의 --dim 은 4.35, 연파랑 배지 위의 --bl-deep 은 4.29 였고,
+   운영 현황 부제·타일 라벨·기록 시각·역할 배지·처리 버튼 다섯 군데가 모두 걸렸습니다.
+   글자 크기는 그대로 두고 이 두 값만 낮춰 한 번에 넘깁니다(운영자 2026-08-12).
+   --dim 5.18 / --bl-deep 5.19(연파랑 위)·5.89(흰 바탕). */
 :root{
   --txt:#18202d;
   --txt-strong:#18202d;
-  --dim:#6f7a8a;
+  --dim:#646e7a;
   --bdr:#e3e9f3;
   --bdr2:#d8e1ee;
   --sur:#fff;
   --sur2:#f8fbff;
   --bl:#5b8def;
-  --bl-deep:#406fc7;
+  --bl-deep:#3862b3;
   --bl-soft:#eaf1fe;
   --bl-softbdr:#c9daf8;
   --red:#e35b55;
@@ -1897,9 +1902,11 @@ body{
   background:var(--live-alert-border)!important;
   box-shadow:0 0 0 5px rgba(217,45,32,.18)!important;
 }
+/* 패널은 「진행 중」 배지와 안쪽 카드 테두리에 자리를 내주고 물러납니다 —
+   2px 붉은 테두리에 붉은 글로우까지 두르면 셋이 같은 말을 합니다. */
 .team-live-view .current-panel{
-  border:2px solid var(--live-alert-border)!important;
-  box-shadow:0 0 0 4px rgba(217,45,32,.10),0 14px 32px rgba(180,35,24,.14)!important;
+  border:1px solid var(--bdr)!important;
+  box-shadow:0 10px 28px rgba(35,55,90,.08)!important;
 }
 /* 내 다음 경기 카드는 **「지금 경기」 딱지 하나로** 충분합니다 (운영자 2026-08-12
    "너무 요란해. 지금 경기 딱지만 있어도 충분할 것 같아" → "레드선 삭제").
@@ -1918,6 +1925,9 @@ body{
 /* 지금 경기 카드는 **한 겹 테두리**로만 표시합니다. 붉은 테두리에 붉은 글로우까지
    두르니 카드 넉 장이 전부 경고처럼 보였습니다 — 「진행 중」 배지와 ROUND 제목이
    이미 어느 라운드인지 말합니다 (운영자 2026-08-12 "진행 중 대진표가 너무 요란해"). */
+/* 「지금」을 세 번 말하고 있었습니다 — 패널 테두리 + 「진행 중」 배지 + 카드
+   테두리. 패널은 회색으로 물러나고, 배지와 카드 테두리 두 겹만 남깁니다
+   (운영자 2026-08-12 "너무 요란해"). */
 .team-live-view .round.cur,
 .team-live-view .live-match.is-current{
   border-color:var(--live-alert-border)!important;
@@ -1943,7 +1953,9 @@ body{
   padding:14px;
   border:1px solid var(--bdr);
   border-radius:20px;
-  background:var(--sur);
+  /* 바탕을 한 단계 낮춥니다. 콘솔 안이 전부 흰색이라 타일·버튼·안내가 모두
+     같은 높이로 붙어 보였습니다 — 색을 늘리지 않고 층만 만듭니다. */
+  background:var(--sur2);
   box-shadow:0 10px 28px rgba(35,55,90,.08);
 }
 .team-official-overview-head{
@@ -1957,24 +1969,26 @@ body{
 .team-official-overview-head b{
   display:block;
   color:var(--txt);
-  font-size:.96rem;
+  font-size:16px;
   font-weight:1000;
 }
 .team-official-overview-head span{
   display:block;
   margin-top:3px;
   color:var(--dim);
-  font-size:.72rem;
+  font-size:12px;
   font-weight:900;
 }
 .team-official-overview-head em{
   flex:0 0 auto;
   padding:6px 11px;
   border-radius:999px;
-  background:var(--bl-soft);
-  border:1px solid var(--bl-softbdr);
-  color:var(--bl-deep);
-  font-size:.7rem;
+  /* 못 누르는 표시입니다. 파란 알약으로 두면 「되돌리기」 버튼과 배경·글자·
+     테두리가 전부 같아 눌리는 것처럼 보였습니다(실측 확인). */
+  background:var(--sur);
+  border:1px solid var(--bdr2);
+  color:var(--dim);
+  font-size:12px;
   font-style:normal;
   font-weight:1000;
   white-space:nowrap;
@@ -2003,14 +2017,14 @@ body{
 .team-official-overview-stat b{
   display:block;
   color:var(--bl-deep);
-  font-size:1.06rem;
+  font-size:19px;
   font-weight:1000;
   line-height:1;
 }
 .team-official-overview-stat span{
   display:block;
   margin-top:6px;
-  font-size:.68rem;
+  font-size:12px;
   font-weight:900;
   white-space:nowrap;
 }
@@ -2151,7 +2165,7 @@ body{
    버튼으로 쓰이므로 폭·커서·글꼴을 명시한다(div 시절 스타일을 그대로 물려받음). */
 button.team-official-overview-conflict{
   display:block;width:100%;padding:11px 12px;border-radius:11px;
-  font:inherit;font-weight:900;cursor:pointer;
+  font:inherit;font-size:13px;font-weight:900;cursor:pointer;
 }
 button.team-official-overview-conflict.quiet{
   border-color:rgba(22,34,52,.14);background:#fff;color:#2a3646;
@@ -2181,7 +2195,7 @@ button.team-official-overview-conflict.quiet{
 .team-official-overview-hint{
   margin-top:8px;padding:8px 10px;border-radius:11px;
   border:1px solid rgba(22,34,52,.14);background:#fff;
-  color:#2a3646;font-size:.72rem;font-weight:800;text-align:center;line-height:1.5;
+  color:var(--txt);font-size:13px;font-weight:800;text-align:center;line-height:1.5;
 }
 
 /* 대체 투입 시트 (2026-08-13) — 임원이 현장에서 바로 메울 수 있게.
@@ -2247,7 +2261,7 @@ button.team-official-overview-conflict.quiet{
    옆 버튼을 같이 누르기 쉬웠습니다. */
 .team-official-jump button{
   min-height:44px;padding:9px 6px;border:1px solid var(--bdr);border-radius:14px;
-  background:var(--sur);color:var(--txt);font:inherit;font-size:.74rem;font-weight:900;
+  background:var(--sur);color:var(--txt);font:inherit;font-size:13px;font-weight:900;
   cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .team-official-jump button:active{transform:scale(.985);}
@@ -2258,7 +2272,7 @@ button.team-official-overview-conflict.quiet{
 .team-official-log{margin-top:10px;border:1px solid var(--bdr);border-radius:14px;background:var(--sur2);}
 .team-official-log>summary{
   list-style:none;cursor:pointer;padding:11px 12px;
-  color:var(--dim);font-size:.76rem;font-weight:900;
+  color:var(--dim);font-size:13px;font-weight:900;
 }
 .team-official-log>summary::-webkit-details-marker{display:none;}
 .team-official-log>summary:after{content:"▾";float:right;color:var(--dim2);}
@@ -2270,10 +2284,10 @@ button.team-official-overview-conflict.quiet{
   padding:8px 9px;border-radius:10px;background:var(--sur);
 }
 /* 시각은 --dim2(#9ea8b8) 로 두면 흰 바탕에서 2.4:1 밖에 안 나옵니다. */
-.team-official-log-when{flex:0 0 auto;color:var(--dim);font-size:.72rem;font-weight:900;font-variant-numeric:tabular-nums;}
-.team-official-log-list li b{flex:1 1 auto;min-width:0;color:var(--txt);font-size:.8rem;font-weight:800;}
-.team-official-log-list li small{flex:0 0 auto;color:var(--dim);font-size:.7rem;font-weight:900;}
-.team-official-log-more{padding:2px 12px 10px;color:var(--dim);font-size:.7rem;font-weight:800;}
+.team-official-log-when{flex:0 0 auto;color:var(--dim);font-size:12px;font-weight:900;font-variant-numeric:tabular-nums;}
+.team-official-log-list li b{flex:1 1 auto;min-width:0;color:var(--txt);font-size:13px;font-weight:800;}
+.team-official-log-list li small{flex:0 0 auto;color:var(--dim);font-size:12px;font-weight:900;}
+.team-official-log-more{padding:2px 12px 10px;color:var(--dim);font-size:12px;font-weight:800;}
 
 /* 후보 묶음 — 우리 팀 / 상대 팀을 제목으로 갈라 한눈에 보이게. */
 .team-sub-group{margin-top:10px;}
