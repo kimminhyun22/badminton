@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.592';
+const APP_VERSION='1.10.593';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1322,13 +1322,18 @@ function _officialJumpHtml(d){
     acts.push('<button type="button" class="act" onclick="undoTeamOfficialAction()" title="'
       +esc(last.label)+'">↩️ 되돌리기</button>');
   }
-  // 마무리는 **끝이 보일 때만** 뜹니다. 못 치른 경기가 남았으면 그 경기를
-  // 「미실시」로 먼저 표시하는 게 순서입니다 — 그래야 기록에 구멍이 안 남습니다.
+  /* 마무리는 **끝이 보일 때** 뜹니다 — 경기가 다 끝났거나, 마지막 라운드에
+     들어섰을 때. 예전에는 전부 끝나야만 떴는데, 카드에서 「미실시」를 뗀 뒤로는
+     못 치른 경기를 그렇게 표시할 길이 없어 마무리 자체가 영영 안 뜨게 됩니다.
+     안 치른 경기가 남았으면 마무리에서 몇 경기인지 알려 주고 한 번 묻습니다. */
   const matches=(d&&d.matches)||[];
-  const done=matches.length&&matches.every(_settled);
+  const done=!!(matches.length&&matches.every(_settled));
+  const rounds=matches.map(m=>Number(m&&m.round)||0);
+  const lastRound=rounds.length?Math.max(...rounds):0;
+  const onLastRound=!!(lastRound&&Number((d&&d.currentRound)||0)>=lastRound);
   if(_liveFinished(d)){
     acts.push('<button type="button" class="act" onclick="finishTeamLive()">🔓 마무리 해제</button>');
-  }else if(done){
+  }else if(done||onLastRound){
     acts.push('<button type="button" class="act" onclick="finishTeamLive()">🏁 팀전 마무리</button>');
   }
   return '<div class="team-official-jump">'+cells.join('')+'</div>'
@@ -2289,10 +2294,12 @@ function buildResultInputControls(m,d,opts){
     // 승패 버튼: 결과가 있으면 어디서든(전체 대진표 포함) 고칩니다. 없으면 **지금
     // 치르는 경기**에서만 넣습니다 — 아직 안 한 경기의 승패를 미리 넣을 일은 없습니다.
     const canEnter=!!(win || nowRound || opts.current);
-    // 미실시: 지금·다음 대진에서만. 전체 대진표까지 달면 카드마다 버튼이 하나씩
-    // 더 붙어 방금 걷어낸 잡음이 그대로 되돌아옵니다.
-    const canVoid=!win && !!(opts.current || opts.next || nowRound);
-    if(!canEnter && !canVoid) return '';
+    /* 「미실시」 딱지는 카드에서 뗐습니다 (운영자 2026-08-12 "미실시 딱지 떼").
+       안 치르는 경기는 드문데 버튼은 열린 카드마다 붙어 있었습니다 — 방금 걷어낸
+       잡음이 이름만 바꿔 돌아온 셈입니다. 안 치른 경기가 남은 채로 끝내려면
+       **마무리에서 한 번 확인**하면 됩니다. 이미 미실시로 찍힌 경기는 위에서
+       해제할 수 있고, 모아 보고 고치는 건 승패 정정 시트에 그대로 있습니다. */
+    if(!canEnter) return '';
     const btn=side=>'<button type="button" class="'+(side==='t1'?'blue-win':'red-win')+(win===side?' on':'')+'"'
       +' aria-pressed="'+(win===side?'true':'false')+'"'
       +' onclick="toggleTeamWin('+num+',\''+side+'\')">'+_resultSideLabel(d,side)+'</button>';
@@ -2302,10 +2309,9 @@ function buildResultInputControls(m,d,opts){
        재촉할 이유가 없습니다. 버튼 두 개면 무엇을 하는 자리인지 압니다.
        설명은 **모르면 못 알아채는 것**에만 답니다 — 다시 눌러 지우는 규칙. */
     const label=win?'다시 누르면 지워집니다':'';
-    return '<div class="result-entry'+(win?' decided':'')+(canEnter?'':' void-only')+'">'
+    return '<div class="result-entry'+(win?' decided':'')+'">'
       +(label?'<div class="result-entry-label">'+label+'</div>':'')
-      +(canEnter?btn('t1')+btn('t2'):'')
-      +(canVoid?'<button type="button" class="result-void" onclick="submitTeamVoid('+num+',true)">미실시</button>':'')
+      +btn('t1')+btn('t2')
     +'</div>';
   }
   if(!opts || !opts.current) return '';

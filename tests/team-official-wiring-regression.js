@@ -258,13 +258,20 @@ assert(/const cur=String\(m\.win\|\|''\);/.test(toggle) && /cur===side\?'':side/
 // 임원은 지난 라운드도 그 자리에서 고칩니다(시트가 있던 진짜 이유).
 assert(/const canEnter=!!\(win \|\| nowRound \|\| opts\.current\);/.test(controls),
   '결과가 들어간 경기는 어디서든 고칠 수 있어야 합니다(전체 대진표 포함).');
-// 미실시를 카드마다 달면 방금 걷어낸 잡음이 되돌아옵니다.
-assert(/const canVoid=!win && !!\(opts\.current \|\| opts\.next \|\| nowRound\);/.test(controls),
-  '미실시는 지금·다음 대진에서만 떠야 합니다.');
-// 다음 라운드 카드는 승패 버튼 없이 미실시만 — 안 치른 경기의 승패를 미리 넣지 않습니다.
-assert(/if\(!canEnter && !canVoid\) return '';/.test(controls)
-  && /\(canEnter\?btn\('t1'\)\+btn\('t2'\):''\)/.test(controls),
-  '다음 라운드 카드에는 미실시만 떠야 합니다.');
+// 2026-08-12 계약 갱신(운영자 "미실시 딱지 떼"): 안 치르는 경기는 드문데 버튼은
+// 열린 카드마다 붙어 있었습니다. 카드에서는 떼고, 안 치른 경기가 남은 채로 끝내는
+// 건 마무리에서 확인 한 번으로 처리합니다.
+assert(!/submitTeamVoid\([^)]*,true\)/.test(controls),
+  '카드에 미실시 버튼을 다시 달면 안 됩니다.');
+assert(/submitTeamVoid\([^)]*,false\)/.test(controls),
+  '이미 미실시로 찍힌 경기는 카드에서 해제할 수 있어야 합니다.');
+assert(/if\(!canEnter\) return '';/.test(controls),
+  '승패를 넣거나 고칠 수 없는 카드에는 아무것도 붙지 않아야 합니다.');
+// 카드에서 미실시를 뗐으므로, 마무리가 「전부 끝남」에만 걸리면 영영 안 뜹니다.
+const finishGate = liveView.slice(liveView.indexOf('const matches=(d&&d.matches)||[];',
+  liveView.indexOf('function _officialJumpHtml')), liveView.indexOf('function _officialLogTime'));
+assert(/const onLastRound=/.test(finishGate) && /done\|\|onLastRound/.test(finishGate),
+  '마지막 라운드에 들어서면 마무리가 떠야 합니다 — 안 그러면 못 치른 경기 하나에 막힙니다.');
 assert(/\.result-entry \.blue-win\.on\{/.test(liveCssForBalance) && /\.result-entry \.red-win\.on\{/.test(liveCssForBalance),
   '고른 팀은 꽉 찬 색으로 구분되어야 합니다.');
 assert(/color:#fff!important;background:var\(--bl\)!important/.test(liveCssForBalance),
