@@ -32,8 +32,11 @@ assert(enterLiveSource.includes("session?.phase!=='live'||!session.liveUrl"), '�
 assert(enterLiveSource.includes('location.assign(liveUrlWithViewer(session.liveUrl))'), '자동 진입 주소에는 선택한 회원 정보가 포함되어야 합니다.');
 assert(selectIdentitySource.indexOf('setLast(') < selectIdentitySource.indexOf('if(enterActiveLive())return;'), '회원 정보를 저장한 뒤 실중계로 이동해야 합니다.');
 assert(selectIdentitySource.indexOf('if(enterActiveLive())return;') < selectIdentitySource.indexOf('render();'), '자동 진입에 성공하면 중간 MY PAGE를 다시 그리지 않아야 합니다.');
-assert(rsvpHtml.includes('toggleLateStatus'), '회원은 늦음만 예외 상태로 표시할 수 있어야 합니다.');
-assert(rsvpHtml.includes("'/late/'" ) || rsvpHtml.includes("+'/late/'"), '회원 늦음은 LIVE late 경로에도 반영되어야 합니다.');
+// 2026-08-12 계약 갱신(운영자 "늦음 삭제"): 참가자는 이 화면에서 아무것도 누르지
+// 않습니다. 지각은 그날 현장에서 임원이 팀 명단으로 표시하고 대체를 넣습니다 —
+// 미리 눌러 두는 값이 아니었습니다. 자세한 계약은 rsvp-entry-only-regression.
+assert(!rsvpHtml.includes('toggleLateStatus'),
+  '회원이 늦음을 누르는 버튼은 없어야 합니다 — 현장에서 임원이 표시합니다.');
 assert(!rsvpHtml.includes('sendSelectedStatus'), '회원 이름 확인이 출석 전송으로 이어지면 안 됩니다.');
 const memberCardSource = functionSource(rsvpHtml, 'memberCard', 'responseFor');
 assert(!memberCardSource.includes('saveGuest'), '회원이 관리자 확정 명단에 게스트를 추가하면 안 됩니다.');
