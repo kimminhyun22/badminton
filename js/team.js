@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.606';
+const APP_VERSION = '1.10.607';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2430,7 +2430,11 @@ function _buildLiveState(){
   const liveMember=p=>{
     const memberId=_teamEnsureMemberId(p);
     return {
-      id:memberId,n:p.name||'',l:p.level||0,g:p.gender||'',gr:p.grade||'',
+      /* `a`(나이대)를 함께 싣습니다. 이게 없어서 임원 화면의 교체 기울기가
+         **나이를 못 보고** 있었습니다 — 관리자 대진 생성은 `effLevel` 로 나이를
+         반영하는데 교체는 급수 숫자만 봐서, 30대 C를 40대 C로 바꿔도 "그대로"로
+         나왔습니다(운영자 2026-08-12 실전 제보). */
+      id:memberId,n:p.name||'',l:p.level||0,g:p.gender||'',gr:p.grade||'',a:p.ageGroup||'',
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial,
       partnerName:p.partnerName||getPartnerOf(p.name)||'',
@@ -7807,7 +7811,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.606) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.607) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''

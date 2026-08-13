@@ -77,6 +77,27 @@ function memberLevel(row){
   const raw = row?.level != null ? row.level : row?.l;
   return number(raw, 4);
 }
+/**
+ * 실효 급수 — **관리자 대진 생성과 같은 식**입니다 (`effLevel` / `MATCH_QUALITY`).
+ *
+ * 급수 숫자만 보면 나이가 통째로 빠집니다. 30대 C(4)와 40대 C(4)가 같은 값이라,
+ * 실전에서 40대로 교체해 놓고 "기울기 그대로"라고 나왔습니다(운영자 2026-08-12).
+ * 관리자는 그 둘을 3.8 과 3.5 로 봅니다 — 두 화면이 다른 잣대를 쓰면 교체 판단이
+ * 대진 생성 기준과 어긋납니다.
+ *
+ * 여성 보정(−0.5)도 관리자와 **그대로** 맞춥니다. 급수→급수숫자 변환에서 이미
+ * 여성에게 −1 이 들어가 있어 이중으로 깎이는 셈인데, 그건 대진 생성 전체가
+ * 그렇게 돌아온 값이라 여기서만 다르게 하면 두 화면이 갈라집니다. 별건으로 둡니다.
+ */
+const AGE_BONUS = {'20대':0, '30대':-0.2, '40대':-0.5, '50대':-1.2, '60대+':-2.0};
+function memberEffLevel(row){
+  const level = memberLevel(row);
+  const gender = text(row?.gender || row?.g);
+  const female = gender === 'F' || gender === '여';
+  const age = AGE_BONUS[text(row?.ageGroup || row?.a)] || 0;
+  return Math.round((level - (female ? 0.5 : 0) + age) * 10) / 10;
+}
+function round1(v){ return Math.round((Number(v) || 0) * 10) / 10; }
 /* 급수는 옛 게시본에 아예 없습니다. 그럴 땐 대진에 적힌 급수(t1g/t2g)에서
    그 사람 자리를 찾아 씁니다 — 교체 뒤 급수 표시가 빈칸이 되지 않도록. */
 function memberGrade(session, name){
@@ -189,10 +210,10 @@ function sideOfPlayer(match, name){
 }
 function sideLevelSum(session, list, replaceName, replaceLevel){
   const key = nameKey(replaceName);
-  return (list || []).reduce((sum, n) => {
+  return round1((list || []).reduce((sum, n) => {
     if(replaceName && nameKey(n) === key)return sum + number(replaceLevel, 4);
-    return sum + memberLevel(memberByName(session, n));
-  }, 0);
+    return sum + memberEffLevel(memberByName(session, n));
+  }, 0));
 }
 /* **부호가 있는** 기울기: 교체하는 쪽 급수 합 − 상대 급수 합.
    양수면 교체한 팀이 세고(상대에게 불합리), 음수면 그 팀이 약합니다.
@@ -203,7 +224,7 @@ function balanceAfter(session, match, outName, inLevel){
   const other = side === 't1' ? 't2' : 't1';
   const mine = sideLevelSum(session, match[side], outName, inLevel);
   const theirs = sideLevelSum(session, match[other], '', 0);
-  return mine - theirs;
+  return round1(mine - theirs);
 }
 function balanceGapAfter(session, match, outName, inLevel){
   return Math.abs(balanceAfter(session, match, outName, inLevel));
@@ -227,7 +248,8 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
   const limit = Math.max(1, number(options.limit, Number.MAX_SAFE_INTEGER));
   const outMember = memberByName(session, outName);
   const outTeam = teamOf(session, outName);
-  const outLevel = memberLevel(outMember);
+  // 실효 급수로 잽니다 — 급수·성별·나이를 함께 본 값(관리자 대진 생성과 같은 식).
+  const outLevel = memberEffLevel(outMember);
   const inMatch = new Set(matchPlayers(match).map(nameKey));
   const played = new Map();
   matchList(session).forEach(m => matchPlayers(m).forEach(p => {
@@ -245,13 +267,15 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
         name,
         team,
         crossTeam: !!outTeam && !!team && team !== outTeam,
-        level: memberLevel(m),
-        levelGap: Math.abs(memberLevel(m) - outLevel),
+        level: memberEffLevel(m),
+        grade: text(m?.grade || m?.gr),
+        age: text(m?.ageGroup || m?.a),
+        levelGap: round1(Math.abs(memberEffLevel(m) - outLevel)),
         // 넣고 난 뒤의 기울기. 0 이 가장 공정하고, 양수면 교체한 팀이 셉니다.
-        balance: balanceAfter(session, match, outName, memberLevel(m)),
-        balanceGap: balanceGapAfter(session, match, outName, memberLevel(m)),
+        balance: round1(balanceAfter(session, match, outName, memberEffLevel(m))),
+        balanceGap: round1(balanceGapAfter(session, match, outName, memberEffLevel(m))),
         // 빠지는 사람보다 세면 그 팀이 교체로 이득을 봅니다(양수 = 강해짐).
-        swing: memberLevel(m) - outLevel,
+        swing: round1(memberEffLevel(m) - outLevel),
         games: played.get(nameKey(name)) || 0
       };
     })
@@ -311,7 +335,7 @@ function applySubstitute(session, request, now, operation){
   const inDisplayName = memberName(inMember);
   // 넣고 난 뒤 두 팀 급수 합이 얼마나 벌어지는지 — 되짚을 수 있게 남깁니다.
   // 막지는 않습니다. 임원 자유가 먼저고, 시스템은 재서 알려 줄 뿐입니다.
-  const balance = balanceAfter(session, match, outName, memberLevel(inMember));
+  const balance = round1(balanceAfter(session, match, outName, memberEffLevel(inMember)));
   const balanceGap = Math.abs(balance);
   const swing = memberLevel(inMember) - memberLevel(memberByName(session, outName));
   const gradeKey = side === 't1' ? 't1g' : 't2g';

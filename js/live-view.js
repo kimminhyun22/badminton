@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.606';
+const APP_VERSION='1.10.607';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1788,12 +1788,26 @@ function _memberLevel(p){
   const n=Number(raw);
   return Number.isFinite(n)&&n>0?n:4;
 }
+/* 실효 급수 — 급수 숫자에 **성별·나이**를 얹은 값입니다. 관리자 대진 생성
+   (`effLevel`/`match-quality.js`)·서버 엔진(`memberEffLevel`)과 **같은 식**이라야
+   세 곳이 같은 답을 냅니다.
+   예전에는 급수 숫자만 봐서 30대 C(4)와 40대 C(4)가 같은 값이었습니다 — 실전에서
+   40대로 교체해 놓고 "기울기 그대로"로 나왔습니다(운영자 2026-08-12). */
+var _LIVE_AGE_BONUS={'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2.0};
+function _round1(v){ return Math.round((Number(v)||0)*10)/10; }
+function _memberEffLevel(p){
+  const level=_memberLevel(p);
+  const g=String((p&&(p.gender||p.g))||'');
+  const female=g==='F'||g==='여';
+  const age=_LIVE_AGE_BONUS[String((p&&(p.ageGroup||p.a))||'')]||0;
+  return _round1(level-(female?0.5:0)+age);
+}
 /* 넣고 난 뒤 두 팀 급수 합이 얼마나 벌어지는가 (운영자 2026-08-14
    "지각자 대체 시 급수 밸런스가 맞아야 해. 아무나 투입하면 상대에겐 불공정한
    게임이 되잖아"). 서버 엔진 `balanceGapAfter` 와 **같은 계산**입니다. */
 function _levelOfName(d,name){
   const all=_allLiveMembers(d)||[];
-  return _memberLevel(all.find(p=>_attKey(p.n||p.name)===_attKey(name)));
+  return _memberEffLevel(all.find(p=>_attKey(p.n||p.name)===_attKey(name)));
 }
 function _sideOfPlayer(match,name){
   const key=_attKey(name);
@@ -1820,23 +1834,24 @@ function _substituteCandidates(d,match,outName){
   const outTeam=_teamOfName(d,outName);
   const all=_allLiveMembers(d)||[];
   const outMember=all.find(p=>_attKey(p.n||p.name)===_attKey(outName));
-  const outLevel=_memberLevel(outMember);
+  const outLevel=_memberEffLevel(outMember);
   const games=new Map();
   ((d&&d.matches)||[]).forEach(m=>[...(m.t1||[]),...(m.t2||[])].forEach(n=>{
     const k=_attKey(n); games.set(k,(games.get(k)||0)+1);
   }));
   return all
-    .map(p=>({name:p.n||p.name,level:_memberLevel(p)}))
+    .map(p=>({name:p.n||p.name,level:_memberEffLevel(p),
+      grade:String(p.grade||p.gr||''),age:String(p.ageGroup||p.a||'')}))
     .filter(p=>p.name&&!inMatch.has(_attKey(p.name)))
     .filter(p=>!_bookedInRound(d,p.name,match.round,match.num))
     .map(p=>{
       const team=_teamOfName(d,p.name);
       return {...p,team,crossTeam:!!outTeam&&!!team&&team!==outTeam,
-        levelGap:Math.abs(p.level-outLevel),
-        balance:_balanceAfter(d,match,outName,p.level),
-        balanceGap:_balanceGapAfter(d,match,outName,p.level),
+        levelGap:_round1(Math.abs(p.level-outLevel)),
+        balance:_round1(_balanceAfter(d,match,outName,p.level)),
+        balanceGap:_round1(_balanceGapAfter(d,match,outName,p.level)),
         // 빠지는 사람보다 세면 그 팀이 교체로 이득을 봅니다(양수 = 강해짐).
-        swing:p.level-outLevel,
+        swing:_round1(p.level-outLevel),
         games:games.get(_attKey(p.name))||0,
         late:_lateOn(p.name)};
     })
@@ -1858,11 +1873,15 @@ function _substituteCandidates(d,match,outName){
      −N (파랑) = 교체한 팀이 N 만큼 **약해짐** → 감수하는 쪽이니 경고까지는 아니다
    막지는 않고, 표시하고 한 번 물어봅니다. */
 const TEAM_BALANCE_WARN_GAP=2;   // 이만큼 벌어지면 확인창
+/* 실효 급수가 소수라 기울기도 소수입니다(30대 C 3.8 vs 40대 C 3.5).
+   0.05 미만은 사실상 균형이라 「균형」으로 읽습니다. */
 function _balanceMark(c){
-  const b=Number(c&&c.balance)||0;
-  if(b===0)return {text:'균형',cls:''};
-  if(b>0)return {text:'+'+b,cls:'over'};
-  return {text:'−'+Math.abs(b),cls:'under'};
+  const b=_round1(Number(c&&c.balance)||0);
+  const n=Math.abs(b);
+  const txt=Number.isInteger(n)?String(n):n.toFixed(1);
+  if(n<0.05)return {text:'균형',cls:''};
+  if(b>0)return {text:'+'+txt,cls:'over'};
+  return {text:'−'+txt,cls:'under'};
 }
 // 서명된 운영 권한 — 본인 이름을 고르면 서버가 내주고, 조작마다 함께 보냅니다.
 // 이름만 실어 보내던 이전 단계의 위조 여지를 없앱니다(민턴LIVE 와 같은 구조).
