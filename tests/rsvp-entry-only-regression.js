@@ -33,7 +33,10 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'rsvp.html'), 'utf8');
 {
   // 설명 주석에는 「늦음 현황」이라는 말이 남습니다 — 코드에 남은 것만 봅니다.
   const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  ['summaryPanel', 'summaryActions', 'toggleSummary', 'renderSummaryPanel', 'summaryNames']
+  // 2026-08-12: 늦음·뒷풀이를 뺀 뒤 그 전송 함수도 부르는 곳이 없어졌습니다.
+  // 앞선 커밋에서 `sendStatus` 는 남는다고 적었는데 사실이 아니었습니다.
+  ['summaryPanel', 'summaryActions', 'toggleSummary', 'renderSummaryPanel', 'summaryNames',
+   'sendStatus', 'toggleParty']
     .forEach(token => {
       assert(!code.includes(token), `${token} 이 남아 있으면 안 됩니다 — 집계 화면은 뺐습니다.`);
     });

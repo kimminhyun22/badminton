@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.603';
+const APP_VERSION = '1.10.604';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7427,9 +7427,13 @@ function rsvpRefreshSummaryBits(){
   const guestLimit=_rsvpGuestLimit();
   const guestText=guestLimit?`${counts.guest}/${guestLimit}`:String(counts.guest);
   const summary=document.getElementById('rsvpSummary');
-  if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정 · 늦음 ${counts.late||0}명 · 뒷풀이 ${counts.party||0}명)`:'';
+  /* 제목 옆 요약은 카드를 **접었을 때** 보는 것입니다. 펼치면 바로 아래 본문이
+   같은 말을 하므로 인원만 남깁니다 (운영자 2026-08-12 "뭔가 중복 아냐?").
+   「늦음」은 뺐습니다 — 참가자가 늦음을 설정할 경로가 없어(v1.10.592) 늘 0입니다.
+   현장 지각은 임원이 팀 명단에서 표시하고, 그 수는 임원 콘솔이 보여 줍니다. */
+if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정)`:'';
   const currentMeta=document.querySelector('.rsvp-current-meta');
-  if(currentMeta)currentMeta.textContent=`선수 ${counts.total}명 · 늦음 ${counts.late||0}명 · 뒷풀이 ${counts.party||0}명`;
+  if(currentMeta)currentMeta.textContent=`선수 ${counts.total}명 확정`;
 }
 function rsvpRefreshAdminContext(snapshot){
   const state=snapshot||_rsvpAdminViewSnapshot();
@@ -7934,7 +7938,11 @@ function rsvpRender(){
   rsvpRenderClubSelect();
   rsvpRenderSavedBox();
   const {members,responses,counts}=_rsvpStats();
-  if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정 · 늦음 ${counts.late||0}명 · 뒷풀이 ${counts.party||0}명)`:'';
+  /* 제목 옆 요약은 카드를 **접었을 때** 보는 것입니다. 펼치면 바로 아래 본문이
+   같은 말을 하므로 인원만 남깁니다 (운영자 2026-08-12 "뭔가 중복 아냐?").
+   「늦음」은 뺐습니다 — 참가자가 늦음을 설정할 경로가 없어(v1.10.592) 늘 0입니다.
+   현장 지각은 임원이 팀 명단에서 표시하고, 그 수는 임원 콘솔이 보여 줍니다. */
+if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정)`:'';
   if(!members.length){
     box.className='rsvp-panel';
     box.innerHTML=`<div class="rsvp-create-box">
@@ -7951,7 +7959,7 @@ function rsvpRender(){
       <div class="rsvp-current-top">
         <div>
           <div class="rsvp-current-k">${_rsvpId?'팀전 링크':'링크 공유 준비'}</div>
-          <div class="rsvp-current-meta">선수 ${counts.total}명 · 늦음 ${counts.late||0}명 · 뒷풀이 ${counts.party||0}명</div>
+          <div class="rsvp-current-meta">선수 ${counts.total}명 확정</div>
         </div>
       </div>
       <div class="rsvp-current-actions">
