@@ -45,6 +45,8 @@ function getPartnerOf(){ return ''; }
 function _teamLiveEventLabel(){ return '팀전'; }
 function _teamLiveSignature(){ return 'sig'; }
 function _currentBracketRsvpId(){ return ''; }
+// 품질 요약은 관리자가 대진을 그린 뒤 채웁니다(2026-08-12) — 여기서는 비어 있습니다.
+var _teamQualitySummary = null;
 ${buildLiveState}
 this.api={
   setup(participants, matches, assignment, caps){

@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.600';
+const APP_VERSION='1.10.601';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1112,6 +1112,7 @@ function buildTeamOfficialOverview(d){
          — 운영자 2026-08-12. 위쪽은 숫자와 바로가기로 훑는 자리고, 아래쪽이
          "무슨 일이 있었나 · 무엇을 손봐야 하나"를 읽는 자리입니다. */''}
     ${_substituteHintHtml(d)}
+    ${_officialQualityHtml(d)}
     ${_officialLogHtml(d)}
   </section>`;
 }
@@ -1129,6 +1130,12 @@ function _officialPaceHtml(d){
   const done=matches.filter(_settled).length;
   const pct=Math.max(0, Math.min(100, Math.round(done/matches.length*100)));
   const t=_liveTimeLeft(d);
+  /* 숫자는 **남은/전체**로 읽습니다 (운영자 2026-08-12 "21/25경기 이런 식으로",
+     "관리자. 임원운영진 포함"). 관리자 대시보드와 방향을 맞춥니다 — 두 화면이
+     같은 자리에서 반대 방향으로 세면 임원이 관리자에게 다른 숫자를 말하게 됩니다.
+     완료된 양은 아래 막대가 보여 줍니다. */
+  const leftMatches=matches.length-done;
+  const rounds=[...new Set(matches.map(m=>Number(m&&m.round)||0))].filter(Boolean);
   // 근거(「라운드당 18분 실측」)는 **잘리면 안 됩니다** — 그 한마디가 숫자를
   // 믿을지 말지를 정합니다. 오른쪽 칸에 욱여넣지 않고 아래 줄을 통째로 씁니다.
   const sub=(t&&t.left>0)
@@ -1136,14 +1143,62 @@ function _officialPaceHtml(d){
     : '';
   return '<div class="team-official-pace">'
     +'<div class="team-official-pace-top">'
-      +'<span><b>'+done+'/'+matches.length+'</b><small>경기</small></span>'
-      +(t&&t.left>0?'<span><b>'+t.left+'</b><small>라운드 남음</small></span>':'')
+      +'<span><b>'+leftMatches+'/'+matches.length+'</b><small>남은 경기</small></span>'
+      +(t&&t.left>0?'<span><b>'+t.left+'/'+rounds.length+'</b><small>남은 라운드</small></span>':'')
       +'<em>'+(!t?'':t.left<=0?'<b class="done">경기 종료</b>'
               :'<b>'+esc(_fmtMinutes(t.minutes))+' 남음</b>')+'</em>'
     +'</div>'
     +(sub?'<div class="team-official-pace-sub">'+sub+'</div>':'')
     +'<div class="team-official-pace-bar"><span style="width:'+pct+'%"></span></div>'
   +'</div>';
+}
+
+/**
+ * 대진 품질 — 관리자 화면의 「품질 점검」을 임원에게도 (운영자 2026-08-12
+ * "품질 점검의 정보를 모두 추가해줘 보게").
+ *
+ * 종목 분포와 경기·라운드 수는 대진에서 직접 셉니다. 등급·상태·실전 특이사항은
+ * 참가자 이력과 급수차로 계산되는 값이라 회원 화면에서는 다시 만들 수 없어,
+ * 관리자가 낸 결과를 게시본(`quality`)에서 그대로 읽습니다.
+ * 경기 중에 늘 펼쳐 둘 정보는 아니라 **접어 둡니다**.
+ */
+var _officialQualityOpen=false;
+function _officialQualityHtml(d){
+  if(!_canFixResult(d))return '';
+  const matches=(d&&Array.isArray(d.matches))?d.matches:[];
+  if(!matches.length)return '';
+  const q=(d&&d.quality)||null;
+  const rounds=[...new Set(matches.map(m=>Number(m&&m.round)||0))].filter(Boolean).length;
+  const types={};
+  matches.forEach(m=>{ const t=String((m&&m.type)||'경기'); types[t]=(types[t]||0)+1; });
+  const t=_liveTimeLeft(d);
+  const cells=[
+    ['총 경기', matches.length],
+    ['라운드', rounds],
+    ['예상 시간', t?_fmtMinutes(rounds*(t.perRound||0)):'—']
+  ].concat(Object.keys(types).map(k=>[k, types[k]]));
+  const grid=cells.map(([l,v])=>'<span><b>'+esc(String(v))+'</b><small>'+esc(l)+'</small></span>').join('');
+  const badge=q&&q.grade
+    ? '<div class="team-official-quality-badge q-'+esc(q.grade)+'">'
+        +'<b>'+esc(String(q.score))+'</b><small>'+esc(q.grade)+' · '+esc(q.gradeLabel||'')+'</small></div>'
+    : '';
+  const status=q&&q.opTitle
+    ? '<div class="team-official-quality-status '+esc(q.opClass||'ok')+'">'
+        +'<b>'+esc(q.opTitle)+'</b><small>'+esc(q.opSub||'')+'</small></div>'
+    : '';
+  const issues=(q&&Array.isArray(q.issues)&&q.issues.length)
+    ? '<div class="team-official-quality-issues"><div class="t">실전 특이사항</div>'
+        +q.issues.map(x=>'<div>'+esc(x)+'</div>').join('')+'</div>'
+    : '';
+  const head=q&&q.sub?esc(q.sub):'대진 구성 요약';
+  return '<details class="team-official-quality"'+(_officialQualityOpen?' open':'')
+    +' ontoggle="_officialQualityOpen=this.open"><summary>대진 품질 점검</summary>'
+    +'<div class="team-official-quality-body">'
+      +(badge||status?'<div class="team-official-quality-head">'+badge+status+'</div>':'')
+      +'<div class="team-official-quality-sub">'+head+'</div>'
+      +'<div class="team-official-quality-grid">'+grid+'</div>'
+      +issues
+    +'</div></details>';
 }
 
 /* 지금 메워야 하는 자리 — 대진표에서 이름이 눌리는 자리와 **같은 규칙**입니다.

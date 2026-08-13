@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.600';
+const APP_VERSION = '1.10.601';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2470,6 +2470,7 @@ function _buildLiveState(){
     currentRound: (cur==null?0:cur), matches,
     courts: (currentSettings&&currentSettings.courts)||parseInt(document.getElementById('courts')?.value||'3',10)||3,
     pointSystem: (typeof _pointSystem!=='undefined'?_pointSystem:25),
+    quality: _teamQualitySummary||null,
     gamesPerPlayer: (currentSettings&&currentSettings.gamesPerPlayer)||4,
     matchStartedAt: _liveMatchStartedAt||null,
     expiresAt: _liveMatchStartedAt?(_liveMatchStartedAt+LIVE_TTL_MS):null,
@@ -3350,6 +3351,7 @@ function _qualityAssessment(matches,participants,settings){
 }
 
 /* ═══ 대진 품질 대시보드 ═══ */
+var _teamQualitySummary=null;
 function renderQualityDashboard(matches,participants,settings){
   const el=document.getElementById('qualDash');
   if(!el) return;
@@ -3526,6 +3528,16 @@ function renderQualityDashboard(matches,participants,settings){
   if(!issueItems.length)issueItems.push('특이사항 없음: 바로 1라운드 진행해도 됩니다.');
   const issueHtml=issueItems.map(x=>`<div class="op-issue">${x}</div>`).join('');
 
+  /* 이 요약을 **임원 화면에도** 실어 보냅니다 (운영자 2026-08-12 "품질 점검의
+     정보를 모두 추가해줘 보게", "관리자. 임원운영진 포함"). 등급·상태·특이사항은
+     참가자 이력과 급수차로 계산되는 값이라 회원 화면에서는 다시 못 만듭니다 —
+     관리자가 계산한 그대로 보냅니다. 태그는 떼고 글자만 보냅니다. */
+  _teamQualitySummary={
+    score:total, grade, gradeLabel, sub:subText,
+    opClass, opTitle:String(opTitle).replace(/^[^가-힣A-Za-z]+/,'').trim(), opSub,
+    issues:issueItems.map(x=>String(x).replace(/<[^>]*>/g,'').trim()).filter(Boolean).slice(0,12)
+  };
+
   el.innerHTML=`
     <div class="qd-header">
       <div class="qd-badge qd-${grade}">
@@ -3608,9 +3620,23 @@ function renderResults(matches,participants,settings){
   const altText=[25,21,15].filter(p=>p!==_pointSystem)
     .map(p=>`${p}점 ${fmtMin(rounds*_POINT_MINUTES[p])}`).join(' · ');
 
+  /* 진행이 시작되면 **남은 양**을 함께 보여 줍니다 (운영자 2026-08-12
+     "4경기 끝나면 총 경기 및 남은 경기는 21/25경기 이런 식으로"). 총 경기 수만
+     있으면 지금 어디쯤인지 알 수 없습니다 — 라벨에 「남은」을 붙여 두 숫자의
+     뜻을 못 헷갈리게 합니다(임원 화면의 진행률은 완료/전체라 방향이 반대입니다). */
+  const doneCount=matches.filter((m,i)=>_isMatchDone(i)).length;
+  const doneRoundCount=(()=>{
+    const rs=[...new Set(matches.map(m=>Number(m&&m.round)||0))].filter(Boolean);
+    return rs.filter(r=>matches.every((m,i)=>Number(m.round)!==r||_isMatchDone(i))).length;
+  })();
+  const started=doneCount>0;
   const sumItems=[
-    ['총 경기',matches.length,'sv-bl'],
-    ['라운드',rounds,'sv-bl'],
+    started
+      ? ['총 경기<span class="sv-sub">남은/전체</span>',`${matches.length-doneCount}/${matches.length}`,'sv-bl']
+      : ['총 경기',matches.length,'sv-bl'],
+    started
+      ? ['라운드<span class="sv-sub">남은/전체</span>',`${rounds-doneRoundCount}/${rounds}`,'sv-bl']
+      : ['라운드',rounds,'sv-bl'],
     [`예상 시간<span class="sv-sub">${_pointSystem}점 기준</span>`,timeStr,'sv-time'],
     ['여복',wD,'sv-wo'],['남복',mD,'sv-me'],['혼복',xD,'sv-mx'],
   ];

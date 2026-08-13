@@ -2167,13 +2167,14 @@ button.team-official-overview-conflict.quiet{
   border:1px solid var(--bdr);border-radius:15px;background:var(--sur);
 }
 .team-official-pace-top{
-  display:flex;align-items:baseline;gap:12px;
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
 }
 .team-official-pace-top>span{display:flex;align-items:baseline;gap:4px;flex:0 0 auto;}
 .team-official-pace-top>span b{color:var(--txt);font-size:15px;font-weight:1000;}
-.team-official-pace-top>span small{color:var(--dim);font-size:12px;font-weight:900;}
+.team-official-pace-top>span small{color:var(--dim);font-size:12px;font-weight:900;white-space:nowrap;}
 .team-official-pace-top>em{
   flex:1 1 auto;min-width:0;text-align:right;font-style:normal;
+  word-break:keep-all;   /* 「남/음」처럼 낱말 가운데서 끊기지 않게 */
 }
 .team-official-pace-top>em b{display:block;color:var(--bl-deep);font-size:14px;font-weight:1000;}
 .team-official-pace-top>em b.done{color:var(--dim);}
@@ -2193,4 +2194,52 @@ button.team-official-overview-conflict.quiet{
 @media(max-width:360px){
   .team-official-pace-top{gap:8px;}
   .team-official-pace-sub{font-size:11px;}
+}
+
+/* ── 대진 품질 점검 (임원, 2026-08-12) ────────────────────────────────────
+   관리자 화면의 같은 정보를 임원에게도. 경기 중에 늘 펼쳐 둘 것은 아니라
+   접힌 채로 두고, 운영 기록과 같은 모양을 씁니다(읽는 자리 묶음). */
+.team-official-quality{margin-top:10px;border:1px solid var(--bdr);border-radius:14px;background:var(--sur);}
+.team-official-quality>summary{
+  list-style:none;cursor:pointer;padding:11px 12px;color:var(--dim);font-size:13px;font-weight:900;
+}
+.team-official-quality>summary::-webkit-details-marker{display:none;}
+.team-official-quality>summary:after{content:"▾";float:right;color:var(--dim);}
+.team-official-quality[open]>summary{color:var(--txt);border-bottom:1px solid var(--bdr);}
+.team-official-quality[open]>summary:after{content:"▴";}
+.team-official-quality-body{padding:11px 12px 12px;}
+.team-official-quality-head{display:flex;align-items:stretch;gap:8px;margin-bottom:9px;}
+.team-official-quality-badge{
+  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:66px;padding:8px 10px;border-radius:13px;
+  background:var(--bl-soft);border:1px solid var(--bl-softbdr);
+}
+.team-official-quality-badge b{color:var(--bl-deep);font-size:20px;font-weight:1000;line-height:1;}
+.team-official-quality-badge small{margin-top:3px;color:var(--bl-deep);font-size:11px;font-weight:900;}
+.team-official-quality-badge.q-C,.team-official-quality-badge.q-D{
+  background:#fff3f2;border-color:#f1c9c7;
+}
+.team-official-quality-badge.q-C b,.team-official-quality-badge.q-C small,
+.team-official-quality-badge.q-D b,.team-official-quality-badge.q-D small{color:#b42318;}
+.team-official-quality-status{
+  flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;
+  padding:8px 11px;border-radius:13px;background:var(--sur2);border:1px solid var(--bdr);
+}
+.team-official-quality-status b{color:var(--txt);font-size:13px;font-weight:1000;}
+.team-official-quality-status small{margin-top:3px;color:var(--dim);font-size:12px;font-weight:800;line-height:1.4;word-break:keep-all;}
+.team-official-quality-status.warn{background:#fffaf1;border-color:#efdbb6;}
+.team-official-quality-status.bad{background:#fff3f2;border-color:#f1c9c7;}
+.team-official-quality-status.bad b{color:#b42318;}
+.team-official-quality-sub{margin-bottom:9px;color:var(--dim);font-size:12px;font-weight:800;line-height:1.45;word-break:keep-all;}
+.team-official-quality-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
+.team-official-quality-grid>span{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:52px;padding:8px 4px;border:1px solid var(--bdr);border-radius:13px;background:var(--sur2);
+}
+.team-official-quality-grid>span b{color:var(--txt);font-size:15px;font-weight:1000;line-height:1;}
+.team-official-quality-grid>span small{margin-top:5px;color:var(--dim);font-size:12px;font-weight:900;white-space:nowrap;}
+.team-official-quality-issues{margin-top:10px;padding-top:9px;border-top:1px solid var(--bdr);}
+.team-official-quality-issues .t{margin-bottom:5px;color:var(--txt);font-size:12px;font-weight:1000;}
+.team-official-quality-issues>div:not(.t){
+  padding:5px 0;color:var(--dim);font-size:12px;font-weight:800;line-height:1.5;word-break:keep-all;
 }

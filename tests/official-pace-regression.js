@@ -109,8 +109,10 @@ function board(doneRounds, perRound, point){
 {
   const h = box.api.pace(board(2, 18));
   const text = h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  assert(/8\/20/.test(text), `진행한 경기 수를 보여야 합니다: ${text}`);
-  assert(/3 라운드 남음/.test(text), '남은 라운드를 보여야 합니다.');
+  // 숫자는 남은/전체 — 관리자 대시보드와 같은 방향입니다.
+  assert(/12\/20/.test(text), `남은 경기를 남은/전체로 보여야 합니다: ${text}`);
+  assert(/남은 경기/.test(text), '무엇을 세는지 라벨이 말해야 합니다.');
+  assert(/3\/5/.test(text) && /남은 라운드/.test(text), '남은 라운드도 남은/전체여야 합니다.');
   assert(/54분 남음/.test(text), '남은 시간을 보여야 합니다.');
   assert(/끝 예정/.test(text), '언제 끝나는지 보여야 합니다.');
   assert(/실측/.test(text), '어떤 근거로 잰 값인지 밝혀야 합니다.');
@@ -158,6 +160,62 @@ function board(doneRounds, perRound, point){
   assert(/qualityCard\.classList\.toggle\('hidden',!matches\.length\)/.test(team),
     '대진이 생기면 열려야 합니다.');
   console.log('  품질 점검: 맨 위 · 대진 없으면 숨김');
+}
+
+// 10) 품질 점검 — 관리자가 낸 결과를 임원 화면에서도 봅니다.
+{
+  const box2 = {console, Object, Set, Number, String, Array, JSON, Date, Math, isNaN};
+  vm.createContext(box2);
+  vm.runInContext(`
+    ${cut('function esc(s)', '\n')}
+    function _settled(m){ return !!(m && (m.win || m.voided)); }
+    var CAN_FIX = true;
+    function _canFixResult(){ return CAN_FIX; }
+    ${cut('var _LIVE_POINT_MINUTES', 'function buildLiveScore')}
+    ${cut('function _officialPaceHtml', '/* 지금 메워야 하는 자리')}
+    this.api = {quality:_officialQualityHtml, set(v){ CAN_FIX = v; }};
+  `, box2);
+
+  const d = board(2, 18);
+  d.matches.forEach((m, i) => { m.type = ['여복','남복','혼복','보정'][i % 4]; });
+  d.quality = {score:82, grade:'B', gradeLabel:'양호', sub:'파트너 반복 확인 권장',
+    opClass:'warn', opTitle:'확인 후 진행', opSub:'파트너 반복만 확인하면 됩니다.',
+    issues:['P 파트너 가·나: 함께 2게임', '보정 2경기 포함']};
+
+  const h = box2.api.quality(d);
+  const text = h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  assert(/82/.test(text) && /B · 양호/.test(text), `등급과 점수를 보여야 합니다: ${text}`);
+  assert(/확인 후 진행/.test(text), '운영 판단(바로 진행/확인 후/재생성)을 보여야 합니다.');
+  assert(/파트너 반복/.test(text), '실전 특이사항을 보여야 합니다.');
+  assert(/총 경기/.test(text) && /라운드/.test(text) && /예상 시간/.test(text),
+    '총 경기·라운드·예상 시간이 있어야 합니다.');
+  ['여복','남복','혼복','보정'].forEach(t =>
+    assert(new RegExp(t).test(text), `${t} 분포를 보여야 합니다.`));
+  // 경기 중에 늘 펼쳐 둘 정보는 아닙니다.
+  assert(/<details class="team-official-quality"/.test(h), '접힌 채로 붙어야 합니다.');
+  assert(!/ open>/.test(h.slice(0, 80)), '기본은 접힘이어야 합니다.');
+  // 참가자에게는 보이지 않습니다.
+  box2.api.set(false);
+  assert.strictEqual(box2.api.quality(d), '', '참가자에게는 품질 점검을 띄우지 않습니다.');
+  box2.api.set(true);
+  // 관리자가 요약을 안 보냈어도(옛 게시본) 깨지지 않아야 합니다.
+  const noQ = box2.api.quality({...d, quality:null});
+  assert(/총 경기/.test(noQ), '요약이 없어도 셀 수 있는 것은 보여야 합니다.');
+  assert(!/undefined/.test(noQ), '빈 값이 화면에 새어 나오면 안 됩니다.');
+  console.log('  품질 점검: 등급·판단·특이사항·분포 · 접힘 · 임원 전용 · 옛 게시본 안전');
+}
+
+// 11) 관리자 대시보드도 진행에 따라 남은 양을 보여 줍니다.
+{
+  assert(/총 경기<span class="sv-sub">남은\/전체<\/span>/.test(team),
+    '관리자 총 경기 타일이 진행 중에는 남은/전체를 보여야 합니다.');
+  assert(/라운드<span class="sv-sub">남은\/전체<\/span>/.test(team),
+    '라운드도 남은/전체를 보여야 합니다.');
+  assert(/const started=doneCount>0;/.test(team),
+    '시작 전에는 25/25 같은 군더더기를 띄우지 않아야 합니다.');
+  assert(/quality: _teamQualitySummary\|\|null,/.test(team),
+    '품질 요약을 게시본에 실어야 임원 화면이 읽습니다.');
+  console.log('  관리자: 남은/전체 · 품질 요약 게시');
 }
 
 console.log('official-pace-regression: OK');
