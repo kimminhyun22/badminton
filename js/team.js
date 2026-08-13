@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.602';
+const APP_VERSION = '1.10.603';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2673,17 +2673,21 @@ function _renderLiveOpsSummary(){
     ${dups.length?`<div class="live-ops-dups">동명이인: ${_liveNamesPreview(dups,8)} · 늦음/뒷풀이 표시가 합쳐질 수 있어 이름 뒤에 A/B 같은 구분자를 붙여주세요.</div>`:''}`;
 }
 
+/* 승패는 **경기 번호**로 맞춥니다. 예전에는 `라운드_코트` 로 맞췄는데, 코트는
+   임원이 고칠 수 있는 값이라 한 번 바꾸면 **승패가 다른 경기에 옮겨 붙었습니다**
+   — 1번 경기의 결과가 2번 경기로 갔습니다(실측 확인, 2026-08-12).
+   경기 번호는 대진이 만들어질 때 정해지고 바뀌지 않습니다. */
 function _syncLiveWinsFromData(data){
   if(!currentMatches.length || !data || !Array.isArray(data.matches)) return;
   const fbWinMap={}, fbWinAtMap={};
-  data.matches.forEach(fm=>{
-    const key=`${fm.round||0}_${fm.court||0}`;
+  data.matches.forEach((fm,i)=>{
+    const key=Number(fm.num)||(i+1);
     fbWinMap[key]=fm.win||null;
     fbWinAtMap[key]=fm.winAt||null;
   });
   let changed=false;
   currentMatches.forEach((m,i)=>{
-    const key=`${m.round||0}_${m.court||0}`;
+    const key=Number(m.matchNumber)||(i+1);
     const next=fbWinMap[key]||null;
     const cur=winOverride[i]||null;
     if(next!==cur){
@@ -2725,7 +2729,10 @@ function _teamAdoptServerMatches(data){
     const row=byNum.get(Number(local.matchNumber)||(i+1));
     if(!row)return skip;
     if(Number(row.round||0)!==Number(local.round||0))return skip;
-    if(Number(row.court||0)!==Number(local.court||0))return skip;
+    /* **코트는 서버를 따라갑니다** — 임원이 고칠 수 있는 값이기 때문입니다
+       (`team-official-court`). 예전에는 코트가 다르면 여기서 통째로 포기해서,
+       임원이 코트를 한 번 바꾸면 그 뒤의 **대체 투입까지 영영 반영되지 않고**
+       관리자가 옛 코트로 되돌려 놓았습니다(실측 확인, 2026-08-12). */
     for(const [slot,side,pos] of _TEAM_MATCH_SLOTS){
       const want=_teamLiveSigName((row[side]||[])[pos]);
       const have=_teamLiveSigName(local[slot]&&local[slot].name);
@@ -2736,7 +2743,7 @@ function _teamAdoptServerMatches(data){
       plan.push({index:i,slot,player,out:(local[slot]&&local[slot].name)||'',in:player.name});
     }
   }
-  // 미실시 표시도 서버를 따라갑니다(임원이 표시한 것을 관리자가 지우지 않도록).
+  // 미실시 표시와 코트 번호도 서버를 따라갑니다(임원이 바꾼 것을 되돌리지 않도록).
   let voidChanged=0;
   currentMatches.forEach((local,i)=>{
     const row=byNum.get(Number(local.matchNumber)||(i+1));
@@ -2746,6 +2753,8 @@ function _teamAdoptServerMatches(data){
       if(want)local.voided=true; else delete local.voided;
       voidChanged++;
     }
+    const court=Number(row.court||0);
+    if(court&&court!==Number(local.court||0)){ local.court=court; voidChanged++; }
   });
   plan.forEach(({index,slot,player})=>{
     const local=currentMatches[index];

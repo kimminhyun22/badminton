@@ -116,9 +116,6 @@ function fresh(){
 {
   const cases = [
     ['경기 수가 다름', {matches: [serverRow(1, 1, ['청하나', '청두리'], ['홍하나', '홍두리'])]}],
-    ['코트가 다름', {matches: [
-      serverRow(1, 9, ['청하나', '청두리'], ['홍하나', '홍두리']),
-      serverRow(2, 2, ['청세찌', '청너리'], ['홍세찌', '홍너리'])]}],
     ['라운드가 다름', {matches: [
       {...serverRow(1, 1, ['청하나', '청두리'], ['홍하나', '홍두리']), round: 3},
       serverRow(2, 2, ['청세찌', '청너리'], ['홍세찌', '홍너리'])]}],
@@ -134,7 +131,25 @@ function fresh(){
     assert.strictEqual(out.changed, 0, `${label}: 로컬을 건드리면 안 됩니다.`);
     assert.strictEqual(api.matches()[0].team1B.name, '청두리', `${label}: 원본이 그대로여야 합니다.`);
   });
-  console.log('  다른 대진 5종: 받아 적지 않음');
+  console.log('  다른 대진 4종: 받아 적지 않음');
+}
+
+/* 3-1) 2026-08-12 계약 뒤집음 — **코트가 다르면 받아 적습니다.**
+   예전에는 코트 차이를 "다른 대진"의 신호로 봤습니다. 그런데 임원이 코트 번호를
+   고칠 수 있게 되면서(`team-official-court`), 그 규칙이 정반대로 작동했습니다:
+   임원이 코트를 한 번 바꾸면 적용을 통째로 포기해서 **그 뒤의 대체 투입까지
+   영영 반영되지 않고**, 관리자가 옛 코트로 되돌려 놓았습니다.
+   대진이 다른지는 경기 수·라운드·명단 밖 이름으로 판별합니다. */
+{
+  fresh();
+  const out = api._teamAdoptServerMatches({matches: [
+    serverRow(1, 9, ['청하나', '청두리'], ['홍하나', '홍두리']),
+    serverRow(2, 2, ['청세찌', '청너리'], ['홍세찌', '홍너리'])]});
+  assert.strictEqual(out.applied, true, '코트가 달라도 받아 적어야 합니다.');
+  assert.strictEqual(api.matches()[0].court, 9,
+    `임원이 바꾼 코트를 따라가야 합니다: ${api.matches()[0].court}`);
+  assert.strictEqual(api.matches()[0].team1B.name, '청두리', '이름은 그대로여야 합니다.');
+  console.log('  코트 변경: 받아 적음 (임원이 고칠 수 있는 값)');
 }
 
 // 4) 바뀐 게 없으면 아무것도 하지 않습니다(다시 그리기·재게시 되돌이표 방지).
