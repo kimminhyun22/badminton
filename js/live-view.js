@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.599';
+const APP_VERSION='1.10.600';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -610,10 +610,65 @@ function formatUpdatedAgo(ts){
   return '오래 전 업데이트';
 }
 
+/**
+ * 남은 시간 — **라운드가 끝날 때마다 다시 잽니다** (운영자 2026-08-12
+ * "라운드 진행할 때마다 남은 시간 계산… 언제쯤 끝날 것 같은지").
+ *
+ * 관리자 화면의 「예상 시간」은 점수제별 경기당 분(25점 15분 / 21점 12분 /
+ * 15점 9분)에 라운드 수를 곱한 **출발 전 어림값**입니다. 현장에서는 코트 전환도
+ * 사람도 그날그날 달라서 그 값만으로는 빗나갑니다.
+ *
+ * 그래서 **끝난 라운드가 실제로 얼마나 걸렸는지**를 먼저 봅니다 — 그 라운드
+ * 경기들의 시작~종료 폭을 재서 평균을 냅니다. 잴 게 없는 첫 라운드에서만
+ * 점수제 어림값을 씁니다. 어느 쪽을 썼는지 화면에 같이 적습니다.
+ */
+var _LIVE_POINT_MINUTES={25:15, 21:12, 15:9};
+function _liveTimeLeft(d){
+  const matches=(d&&Array.isArray(d.matches))?d.matches:[];
+  if(!matches.length)return null;
+  const rounds=[...new Set(matches.map(m=>Number(m&&m.round)||0))].filter(Boolean).sort((a,b)=>a-b);
+  if(!rounds.length)return null;
+  const inRound=r=>matches.filter(m=>Number(m&&m.round)===r);
+  const doneRounds=rounds.filter(r=>inRound(r).every(_settled));
+  const left=rounds.length-doneRounds.length;
+  if(left<=0)return {left:0, minutes:0, endAt:0, basis:'done', perRound:0};
+
+  // 끝난 라운드의 **실제** 소요 — 말이 안 되는 값(3시간 초과)은 버립니다.
+  let sum=0, n=0;
+  doneRounds.forEach(r=>{
+    const ms=inRound(r);
+    const starts=ms.map(m=>Number(m&&m.startAt)||0).filter(Boolean);
+    const ends=ms.map(m=>Number(m&&m.winAt)||0).filter(Boolean);
+    if(!starts.length||!ends.length)return;
+    const span=Math.max(...ends)-Math.min(...starts);
+    if(span>0 && span<3*60*60*1000){ sum+=span/60000; n++; }
+  });
+  const guess=_LIVE_POINT_MINUTES[Number(d&&d.pointSystem)]||15;
+  const perRound=n?Math.round(sum/n):guess;
+  const minutes=Math.max(1, Math.round(perRound*left));
+  return {left, minutes, perRound, basis:n?'실측':'예상', endAt:Date.now()+minutes*60000};
+}
+function _fmtMinutes(mm){
+  const m=Math.max(0, Math.round(Number(mm)||0));
+  if(m<60)return m+'분';
+  const h=Math.floor(m/60), r=m%60;
+  return r?h+'시간 '+r+'분':h+'시간';
+}
+function _fmtClock(ts){
+  const t=Number(ts)||0;
+  if(!t)return '';
+  const dt=new Date(t);
+  if(isNaN(dt.getTime()))return '';
+  return ('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2);
+}
+
 /* 진행 상황 한 줄 — 경기 수가 있으면 경기 단위로, 없으면 라운드 단위로. */
 function _liveProgressText(d,totalR,doneR){
-  const total=Number(d&&d.totalMatches)||0;
-  const done=Number(d&&d.completedMatches)||0;
+  // `totalMatches` 는 게시본에 실리지 않습니다 — 대진에서 직접 셉니다.
+  // (예전에는 그 필드를 읽고 늘 0이 나와 라운드 단위로 떨어졌습니다.)
+  const matches=(d&&Array.isArray(d.matches))?d.matches:[];
+  const total=matches.length;
+  const done=matches.filter(_settled).length;
   const round=Number(d&&d.currentRound)||0;
   if(total)return (round?'R'+round+' · ':'')+done+'/'+total+'경기';
   return doneR+'/'+totalR+'라운드';
@@ -1049,6 +1104,7 @@ function buildTeamOfficialOverview(d){
   return `<section class="team-official-overview" aria-label="팀전 운영 현황">
     <div class="team-official-overview-head"><div><b>운영 현황</b><span>${esc(progress)}</span></div><em>${esc(_viewerRoleText(viewer))}</em></div>
     <div class="team-official-overview-grid">${cards.map(card=>`<button type="button" class="team-official-overview-stat ${card.cls||''} ${_teamOfficialOverviewFilter===card.key?'active':''}" onclick="setTeamOfficialOverviewFilter('${card.key}')" aria-pressed="${_teamOfficialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
+    ${_officialPaceHtml(d)}
     ${_resultAlertHtml(d)}
     ${_officialJumpHtml(d)}
     ${detail}
@@ -1058,6 +1114,36 @@ function buildTeamOfficialOverview(d){
     ${_substituteHintHtml(d)}
     ${_officialLogHtml(d)}
   </section>`;
+}
+
+/**
+ * 진행 속도 — **얼마나 왔고, 언제 끝나는가** (운영자 2026-08-12).
+ *
+ * 임원이 가장 자주 답해야 하는 질문이 "몇 시에 끝나요?"입니다. 관리자 화면에만
+ * 있던 예상 시간을 현장 쪽으로 가져오되, 출발 전 어림값이 아니라 **끝난 라운드의
+ * 실제 소요**로 다시 잽니다. 진행률 막대는 남은 양을 눈으로 보여 줍니다.
+ */
+function _officialPaceHtml(d){
+  const matches=(d&&Array.isArray(d.matches))?d.matches:[];
+  if(!matches.length)return '';
+  const done=matches.filter(_settled).length;
+  const pct=Math.max(0, Math.min(100, Math.round(done/matches.length*100)));
+  const t=_liveTimeLeft(d);
+  // 근거(「라운드당 18분 실측」)는 **잘리면 안 됩니다** — 그 한마디가 숫자를
+  // 믿을지 말지를 정합니다. 오른쪽 칸에 욱여넣지 않고 아래 줄을 통째로 씁니다.
+  const sub=(t&&t.left>0)
+    ? esc(_fmtClock(t.endAt))+' 끝 예정 · 라운드당 '+t.perRound+'분 '+esc(t.basis)
+    : '';
+  return '<div class="team-official-pace">'
+    +'<div class="team-official-pace-top">'
+      +'<span><b>'+done+'/'+matches.length+'</b><small>경기</small></span>'
+      +(t&&t.left>0?'<span><b>'+t.left+'</b><small>라운드 남음</small></span>':'')
+      +'<em>'+(!t?'':t.left<=0?'<b class="done">경기 종료</b>'
+              :'<b>'+esc(_fmtMinutes(t.minutes))+' 남음</b>')+'</em>'
+    +'</div>'
+    +(sub?'<div class="team-official-pace-sub">'+sub+'</div>':'')
+    +'<div class="team-official-pace-bar"><span style="width:'+pct+'%"></span></div>'
+  +'</div>';
 }
 
 /* 지금 메워야 하는 자리 — 대진표에서 이름이 눌리는 자리와 **같은 규칙**입니다.

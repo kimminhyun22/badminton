@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.599';
+const APP_VERSION = '1.10.600';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2571,6 +2571,45 @@ function _upcomingLiveNames(){
   }));
   return names;
 }
+/**
+ * 남은 시간 — 회원 화면(`_liveTimeLeft`)과 **같은 방식**으로 잽니다.
+ * 끝난 라운드의 실제 소요를 먼저 보고, 잴 게 없을 때만 점수제 어림값을 씁니다.
+ * 두 화면이 다른 숫자를 말하면 임원과 관리자가 서로 다른 답을 하게 됩니다.
+ */
+function _teamRoundsLeftInfo(){
+  const ms=currentMatches||[];
+  if(!ms.length)return null;
+  const rounds=[...new Set(ms.map(m=>Number(m&&m.round)||0))].filter(Boolean).sort((a,b)=>a-b);
+  if(!rounds.length)return null;
+  const inRound=r=>ms.filter(m=>Number(m&&m.round)===r);
+  const doneRounds=rounds.filter(r=>inRound(r).every(m=>_isMatchDone(ms.indexOf(m))));
+  const left=rounds.length-doneRounds.length;
+  if(left<=0)return {left:0,minutes:0,perRound:0,basis:'done',endAt:0};
+  let sum=0,n=0;
+  doneRounds.forEach(r=>{
+    const list=inRound(r);
+    const starts=list.map(m=>Number(m&&m.startAt)||0).filter(Boolean);
+    const ends=list.map((m,i)=>Number(liveWinAt[ms.indexOf(m)])||0).filter(Boolean);
+    if(!starts.length||!ends.length)return;
+    const span=Math.max(...ends)-Math.min(...starts);
+    if(span>0&&span<3*60*60*1000){ sum+=span/60000; n++; }
+  });
+  const guess=_POINT_MINUTES[_pointSystem]||15;
+  const perRound=n?Math.round(sum/n):guess;
+  const minutes=Math.max(1,Math.round(perRound*left));
+  return {left,minutes,perRound,basis:n?'실측':'예상',endAt:Date.now()+minutes*60000};
+}
+function _teamFmtMinutes(mm){
+  const m=Math.max(0,Math.round(Number(mm)||0));
+  if(m<60)return m+'분';
+  const h=Math.floor(m/60),r=m%60;
+  return r?h+'시간 '+r+'분':h+'시간';
+}
+function _teamFmtClock(ts){
+  const t=Number(ts)||0; if(!t)return '';
+  const dt=new Date(t); if(isNaN(dt.getTime()))return '';
+  return ('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2);
+}
 function _renderLiveOpsSummary(){
   const el=document.getElementById('liveOpsSummary');
   if(!el) return;
@@ -2591,8 +2630,20 @@ function _renderLiveOpsSummary(){
   const subPreview=subs.slice(-3).reverse()
     .map(s=>`${s&&s.matchNum?`${s.matchNum}번 `:''}${(s&&s.out)||'?'}→${(s&&s.in)||'?'}${s&&s.by?` (${s.by})`:''}`)
     .join(' · ')||'교체 없음';
+  // 「몇 시에 끝나요?」 — 라운드가 끝날 때마다 다시 잰 값입니다.
+  const pace=_teamRoundsLeftInfo();
+  const paceCard=pace
+    ? (pace.left<=0
+        ? `<div class="live-ops-card"><div class="live-ops-l">남은 시간</div>
+             <div class="live-ops-v">종료</div>
+             <div class="live-ops-names">모든 경기가 끝났습니다</div></div>`
+        : `<div class="live-ops-card"><div class="live-ops-l">남은 시간</div>
+             <div class="live-ops-v">${_teamFmtMinutes(pace.minutes)}</div>
+             <div class="live-ops-names">${pace.left}라운드 · ${_teamFmtClock(pace.endAt)} 끝 예정 · 라운드당 ${pace.perRound}분 ${pace.basis}</div></div>`)
+    : '';
   el.classList.remove('hidden');
   el.innerHTML=`
+    ${paceCard}
     <div class="live-ops-card ${lateNames.length?'warn':''}">
       <div class="live-ops-l">늦음</div>
       <div class="live-ops-v">${lateNames.length}명</div>
@@ -3580,6 +3631,10 @@ function renderResults(matches,participants,settings){
     fillerCnt?`<div class="stat-pill">보완<b>${fillerCnt}</b></div>`:'',
     unmet.length?`<div class="stat-pill" style="color:var(--red)">미달 <b>${unmet.map(p=>p.name).join(', ')}</b></div>`:''
   ].join('');
+
+  // 대진이 생겼으니 맨 위 품질 점검 카드를 엽니다(그 전까지는 숨어 있습니다).
+  const qualityCard=document.getElementById('sec-quality');
+  if(qualityCard)qualityCard.classList.toggle('hidden',!matches.length);
 
   renderQualityDashboard(matches,participants,settings);
   // 품질 패널 렌더 후 되돌리기 버튼 상태 동기화 (동적 생성된 버튼이 disabled로 초기화되기 때문)

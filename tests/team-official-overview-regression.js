@@ -74,6 +74,15 @@ function _attKey(name){return String(name||'');}
 // 대체 투입 알림(2026-08-13)은 이 검사 범위 밖입니다. 실제 함수가 추출 범위에
 // 함께 들어오므로, 권한 판정만 막아 알림이 안 뜨게 둡니다.
 function _canSubstitute(){return false;}
+// 진행 속도(2026-08-12)는 이 검사 범위 밖입니다 — 실제 함수가 추출 범위에 함께
+// 들어오므로 계산만 대신해 줍니다. 자세한 계약은 official-pace-regression.
+function _liveTimeLeft(d){
+  const ms=(d&&d.matches)||[];
+  if(!ms.length)return null;
+  return {left:1, minutes:15, perRound:15, basis:'예상', endAt:0};
+}
+function _fmtMinutes(m){return m+'분';}
+function _fmtClock(){return '00:00';}
 function _usesFixedTeams(d){return d&&d.matchMode!=='free';}
 function _lateMapFromData(d){return d&&d.late||{};}
 function _viewerInfo(){return viewer;}

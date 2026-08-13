@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.599  (2026-07)
+     APP VERSION: 1.10.600  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.599">
+<meta name="app-version" content="1.10.600">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,13 +23,13 @@
 <title>🏸 민턴LIVE | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/team.css?v=1.10.599">
+<link rel="stylesheet" href="css/team.css?v=1.10.600">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.599"></script>
+<script src="js/storage.js?v=1.10.600"></script>
 </head>
 <body>
 
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.599&from=team'">팀전</button>
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.599&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.600&from=team'">팀전</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.600&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
 </div>
 
 <div class="nav-bar">
@@ -134,6 +134,23 @@
       </details>
 
       <!-- 참가자 확인 -->
+      <!-- 품질 점검은 **맨 위**에 둡니다 (운영자 2026-08-12 "이것도 중요한
+           정보인데 상단에 노출되는 게 좋을 거 같아"). 총 경기·라운드·예상 시간과
+           품질 등급은 대진을 만든 직후 가장 먼저 확인하는 값입니다.
+           대진이 없으면 숨어 있다가 renderResults 에서 열립니다. -->
+      <details class="card hidden" id="sec-quality" open>
+        <summary class="card-head team-closable-head">
+          <span class="card-title">품질 점검</span>
+          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>
+        </summary>
+        <div class="card-body">
+          <div class="sum-grid" id="sumGrid"></div>
+          <div class="time-compare" id="timeCompare"></div>
+          <div class="stat-row low-priority" id="statRow"></div>
+          <div class="qual-dash" id="qualDash"></div>
+        </div>
+      </details>
+
       <details class="card" id="sec-players">
         <summary class="card-head team-closable-head">
           <span class="card-title">참가자 확인</span>
@@ -334,19 +351,6 @@
     <div id="resultArea" class="hidden anim">
 
       <!-- 결과 요약 -->
-      <details class="card" id="sec-quality" open>
-        <summary class="card-head team-closable-head">
-          <span class="card-title">품질 점검</span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>
-        </summary>
-        <div class="card-body">
-          <div class="sum-grid" id="sumGrid"></div>
-          <div class="time-compare" id="timeCompare"></div>
-          <div class="stat-row low-priority" id="statRow"></div>
-          <div class="qual-dash" id="qualDash"></div>
-        </div>
-      </details>
-
       <!-- 스코어보드 -->
       <div class="hidden" id="scoreboardSec">
         <details class="card" id="sec-scoreboard" open>
@@ -729,9 +733,9 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.599"></script>
-<script src="js/mobile-nav.js?v=1.10.599"></script>
-<script src="js/team.js?v=1.10.599"></script>
+<script src="js/match-quality.js?v=1.10.600"></script>
+<script src="js/mobile-nav.js?v=1.10.600"></script>
+<script src="js/team.js?v=1.10.600"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 라운드로 이동" title="현재 진행 라운드로 이동">
@@ -814,7 +818,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.599</span>
+  <span class="app-version" id="appVersion">v1.10.600</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

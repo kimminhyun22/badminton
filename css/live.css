@@ -2158,3 +2158,39 @@ button.team-official-overview-conflict.quiet{
   .bracket-row{grid-template-columns:18px minmax(0,1fr) minmax(0,1fr) auto;gap:5px;padding:6px 7px;}
   .bracket-name{font-size:.78rem;}
 }
+
+/* ── 진행 속도 (운영자 2026-08-12 "언제쯤 끝날 것 같은지") ─────────────────
+   임원이 제일 자주 답하는 질문이 "몇 시에 끝나요?"입니다. 숫자 타일 바로 아래,
+   바로가기보다 위에 둡니다 — 훑는 자리의 마지막 줄. */
+.team-official-pace{
+  margin-top:10px;padding:11px 12px;
+  border:1px solid var(--bdr);border-radius:15px;background:var(--sur);
+}
+.team-official-pace-top{
+  display:flex;align-items:baseline;gap:12px;
+}
+.team-official-pace-top>span{display:flex;align-items:baseline;gap:4px;flex:0 0 auto;}
+.team-official-pace-top>span b{color:var(--txt);font-size:15px;font-weight:1000;}
+.team-official-pace-top>span small{color:var(--dim);font-size:12px;font-weight:900;}
+.team-official-pace-top>em{
+  flex:1 1 auto;min-width:0;text-align:right;font-style:normal;
+}
+.team-official-pace-top>em b{display:block;color:var(--bl-deep);font-size:14px;font-weight:1000;}
+.team-official-pace-top>em b.done{color:var(--dim);}
+/* 근거는 잘리면 안 되므로 줄을 통째로 씁니다(폰에서 오른쪽 칸에는 안 들어갑니다). */
+.team-official-pace-sub{
+  margin-top:6px;color:var(--dim);font-size:12px;font-weight:800;line-height:1.45;
+  word-break:keep-all;
+}
+.team-official-pace-bar{
+  margin-top:9px;height:6px;border-radius:999px;background:var(--sur2);
+  border:1px solid var(--bdr);overflow:hidden;
+}
+.team-official-pace-bar>span{
+  display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--bl),var(--bl-deep));
+}
+@media(max-width:360px){
+  .team-official-pace-top{gap:8px;}
+  .team-official-pace-sub{font-size:11px;}
+}
