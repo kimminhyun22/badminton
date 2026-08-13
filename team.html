@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.604  (2026-07)
+     APP VERSION: 1.10.605  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.604">
+<meta name="app-version" content="1.10.605">
 <meta name="theme-color" content="#5b8def">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,13 +23,13 @@
 <title>🏸 민턴LIVE | 배드민턴 대진표</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/team.css?v=1.10.604">
+<link rel="stylesheet" href="css/team.css?v=1.10.605">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.604"></script>
+<script src="js/storage.js?v=1.10.605"></script>
 </head>
 <body>
 
@@ -52,8 +52,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.604&from=team'">팀전</button>
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.604&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.605&from=team'">팀전</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.605&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
 </div>
 
 <div class="nav-bar">
@@ -95,10 +95,16 @@
           <div class="auto-flow-actions">
             <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
             <button class="auto-flow-resume-btn hidden" id="liveResumeTopBtn" onclick="resumeTeamLiveBroadcast()" title="앱이 꺼졌던 팀전를 같은 링크로 이어갑니다">팀전 이어가기</button>
+            <!-- 운영은 임원 화면 한 곳에서 (운영자 2026-08-12 "관리자는 생성만,
+                 나머진 임원운영"). 관리자에게도 같은 콘솔을 열어 주면 두 화면을
+                 따로 익힐 필요가 없고, 같은 사실을 두 모양으로 보지 않습니다. -->
+            <button class="auto-flow-console-btn hidden" id="liveConsoleTopBtn" type="button"
+              onclick="openOfficialConsole()" title="임원과 같은 운영 화면을 엽니다">임원 화면 열기</button>
             <button class="auto-flow-stop-btn hidden" id="liveStopTopBtn" onclick="stopLiveBroadcast()" title="현재 팀전 중계를 종료">중계 종료</button>
             <div class="auto-flow-quick-actions" aria-label="자주 쓰는 팀전 관리">
+              <!-- 「초기화」는 뺐습니다 — 되돌릴 수 없는 동작이 늘 맨 위에 떠
+                   있을 이유가 없고, 아래 「백업·기타 관리」에 같은 것이 있습니다. -->
               <button class="team-share-top" type="button" onclick="rsvpShareLink()">링크 공유</button>
-              <button class="team-reset-top auto-flow-reset-btn" type="button" onclick="resetAll()" title="참가자·팀배정·대진·LIVE 전체 초기화">초기화</button>
             </div>
           </div>
         </div>
@@ -158,14 +164,15 @@
         </summary>
         <div class="card-body">
 
-          <!-- 모바일 저장/불러오기 바 -->
+          <!-- 저장/불러오기 바. 「팀전 이어가기」·「중계 종료」는 뺐습니다 —
+               둘 다 맨 위 운영 보드에 이미 있고, 참가자 명단을 고치는 카드
+               안에 있을 이유가 없습니다 (운영자 2026-08-12 "정신 없고 한눈에
+               안 들어와"). 중계 종료는 세 곳에 흩어져 있었습니다. -->
           <div class="mob-save-bar" id="mobSaveBar">
             <span class="mob-save-status" id="mobSaveStatus"></span>
             <button class="mob-restore-btn hidden" id="mobRestoreBtn" onclick="restoreSavedBracketAction()">
               📂 이전 대진표 불러오기
             </button>
-            <button class="mob-live-resume-btn hidden" id="mobLiveResumeBtn" onclick="resumeTeamLiveBroadcast()">팀전 이어가기</button>
-            <button class="mob-live-stop-btn hidden" id="mobLiveStopBtn" onclick="stopLiveBroadcast()">중계 종료</button>
           </div>
           <div id="directSection">
             <div class="direct-form">
@@ -733,9 +740,9 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.604"></script>
-<script src="js/mobile-nav.js?v=1.10.604"></script>
-<script src="js/team.js?v=1.10.604"></script>
+<script src="js/match-quality.js?v=1.10.605"></script>
+<script src="js/mobile-nav.js?v=1.10.605"></script>
+<script src="js/team.js?v=1.10.605"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 라운드로 이동" title="현재 진행 라운드로 이동">
@@ -818,7 +825,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.604</span>
+  <span class="app-version" id="appVersion">v1.10.605</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

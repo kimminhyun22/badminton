@@ -16,7 +16,15 @@ assert(html.includes('<summary>백업·기타 관리</summary>'), '저빈도 백
 assert(html.includes('현재 가대진을 별도 보관합니다.'), '저장 모달이 현재 가대진을 보관한다는 목적을 알려야 합니다.');
 assert(html.includes('id="slotListCount"'), '저장 목록에서 사용 중인 슬롯 수를 보여야 합니다.');
 assert(html.includes('auto-flow-quick-actions')&&html.includes('onclick="rsvpShareLink()">링크 공유</button>'), '팀전 링크 공유는 운영 보드 상단에 항상 보여야 합니다.');
-assert(html.includes('onclick="resetAll()" title="참가자·팀배정·대진·LIVE 전체 초기화">초기화</button>'), '팀전 초기화는 운영 보드 상단에서 바로 실행할 수 있어야 합니다.');
+/* 2026-08-12 계약 뒤집음 (운영자 "정신 없고 한눈에 안 들어와"): 초기화는
+   **되돌릴 수 없는** 동작인데 늘 맨 위에 떠 있었고, 접힌 「백업·기타 관리」에도
+   같은 것이 있어 진입점이 둘이었습니다. 접힌 쪽 하나만 남깁니다. */
+assert(!/onclick="resetAll\(\)"[^>]*>초기화<\/button>/.test(html),
+  '되돌릴 수 없는 초기화가 상단에 상시 노출되면 안 됩니다.');
+assert((html.match(/resetAll\(\)/g) || []).length === 1,
+  '초기화 진입점은 한 곳이어야 합니다.');
+assert(/id="liveConsoleTopBtn"/.test(html),
+  '상단에는 운영을 여는 입구(임원 화면)가 있어야 합니다.');
 
 assert(css.includes('.bracket-save-quick'), '상황판 빠른 저장 영역 스타일이 있어야 합니다.');
 assert(css.includes('.bracket-save-primary'), '진행 설정의 상시 저장 버튼 스타일이 있어야 합니다.');

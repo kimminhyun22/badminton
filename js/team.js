@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.604';
+const APP_VERSION = '1.10.605';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3111,15 +3111,30 @@ async function stopLiveBroadcast(){
 }
 
 /* 중계 버튼 UI 갱신 */
+/**
+ * 임원 화면 열기 — **운영은 한 콘솔에서** (운영자 2026-08-12).
+ *
+ * 관리자 화면과 임원 화면이 같은 일을 서로 다른 모양으로 보여 주면, 쓰는 사람이
+ * 두 벌을 익혀야 하고 숫자가 어긋날 때 어느 쪽이 맞는지 알 수 없습니다. 대진을
+ * 만드는 일(참가자·설정·생성·품질)은 관리자 화면에만 있고, **경기가 시작된 뒤의
+ * 운영은 임원 화면 한 곳**으로 모읍니다. 관리자도 거기서 봅니다.
+ */
+function openOfficialConsole(){
+  const url=_liveUrl();
+  if(!url)return alert('중계를 먼저 시작해 주세요.');
+  window.open(url,'_blank','noopener');
+}
 function _teamSyncLiveStopShortcuts(){
-  ['liveStopTopBtn','mobLiveStopBtn','liveStopManageBtn'].forEach(id=>{
+  // 참가자 카드 안에 있던 사본(mobLiveStopBtn)은 뺐습니다 — 맨 위와 접힌
+  // 관리 그룹 두 곳이면 충분합니다(2026-08-12).
+  ['liveStopTopBtn','liveStopManageBtn','liveConsoleTopBtn'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.classList.toggle('hidden',!_liveOn);
   });
 }
 function _teamSyncLiveResumeShortcuts(){
   const show=_teamHasResumeLiveHint();
-  ['liveResumeTopBtn','mobLiveResumeBtn'].forEach(id=>{
+  ['liveResumeTopBtn'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.classList.toggle('hidden',!show);
   });
@@ -7792,10 +7807,10 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.605) —
+       빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
-      counts.late?`늦음 ${counts.late}`:'',
-      counts.partner?`P ${counts.partner}`:'',
-      counts.party?`뒷풀이 ${counts.party}`:''
+      counts.partner?`P ${counts.partner}`:''
     ].filter(Boolean);
     const rsvpNote=rsvpBits.join(' · ')||(_rsvpId?'본인 확인·실중계 링크':'공유 전');
     const activePairCount=_partners.filter(pair=>pair.members.every(n=>_directPlayers.some(p=>p.name===n))).length;

@@ -3227,3 +3227,13 @@ header,.nav-bar{
     overflow-wrap:anywhere;
   }
 }
+
+/* 임원 화면 열기 — 운영을 한 콘솔로 모으는 입구(운영자 2026-08-12).
+   「중계 종료」 옆이지만 성격이 반대이므로(여는 것 vs 끝내는 것) 파랑으로 둡니다. */
+.auto-flow-console-btn{
+  min-height:36px;padding:8px 13px;border:1px solid #bfd4fb;border-radius:12px;
+  background:linear-gradient(180deg,#f8fbff,#edf4ff);color:#3862b3;
+  font:inherit;font-size:13px;font-weight:900;cursor:pointer;white-space:nowrap;
+}
+.auto-flow-console-btn:active{transform:scale(.985);}
+.auto-flow-console-btn.hidden{display:none;}
