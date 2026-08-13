@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.601';
+const APP_VERSION='1.10.602';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -475,10 +475,20 @@ function buildPartySpotlight(d){
     if(v && typeof v==='object') pushName(v.name);
   });
   const count=partyNames.length;
+  /* 이 블록이 뒷풀이를 처음 알게 되는 자리입니다 — 여기에 신청 버튼이 없으면
+     명단만 읽고 지나갑니다. 이름을 고른 사람에게만 붙입니다. */
+  const me=_viewerInfo(d);
+  const meOn=me?_partyOn(me.n):false;
+  const joinBtn=me
+    ? '<button type="button" class="party-join'+(meOn?' on':'')+'"'
+        +' onclick="toggleMemberParty('+JSON.stringify(me.n).replace(/"/g,'&quot;')+',\''+(me.team||'')+'\')">'
+        +(meOn?'신청함 · 누르면 취소':'나도 신청하기')+'</button>'
+    : '';
   if(!count){
     return '<section class="mvp-card party-spotlight party-empty">'
       +'<div class="mvp-label">🍻 뒷풀이 멤버 모집 중</div>'
       +'<div class="mvp-sub">함께 마무리할 멤버를 기다려요.</div>'
+      +joinBtn
       +'</section>';
   }
   const visible=partyNames.slice(0,12);
@@ -490,6 +500,7 @@ function buildPartySpotlight(d){
       +(more?'<span class="mvp-chip party-more">외 '+more+'명</span>':'')
     +'</div>'
     +'<div class="mvp-sub">오늘도 끝까지 같이 가는 멤버들이에요.</div>'
+    +joinBtn
     +'</section>';
 }
 
@@ -1650,9 +1661,16 @@ function _viewerStatusButtons(current){
      지각 버튼 삭제"). 지각은 남을 대상으로 하는 운영 행위라 팀 명단에서 합니다 —
      내 카드에 두면 임원이 자기 지각을 누르는 이상한 버튼이 됩니다.
      내가 지각으로 찍혀 있으면 그 사실만 알려 줍니다. */
+  /* 「뒷풀이」 한 단어로는 **누르는 것인 줄 모릅니다** (운영자 2026-08-12
+     "신청버튼이 있는지 모르는 사람들이 많네", "그걸 누르는 건지 모름").
+     동사를 붙이고, 신청 전에는 꽉 찬 버튼으로 눈에 띄게 둡니다 — 예전에는
+     신청 **전**이 옅은 라벨, 신청 **후**가 꽉 찬 버튼이라 정확히 거꾸로였습니다.
+     누를 이유가 남은 쪽이 눈에 띄어야 합니다. */
   return '<div class="viewer-status-actions">'
     +(lateOn?'<span class="viewer-state-view on">지각</span>':'')
-    +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'')+'" onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'+(partyOn?'뒷풀이✓':'뒷풀이')+'</button>'
+    +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'cta')+'"'
+      +' onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'
+      +(partyOn?'🍻 뒷풀이 신청함 · 누르면 취소':'🍻 뒷풀이 신청하기')+'</button>'
   +'</div>';
 }
 
