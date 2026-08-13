@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.605';
+const APP_VERSION = '1.10.606';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2646,12 +2646,12 @@ function _renderLiveOpsSummary(){
   el.innerHTML=`
     ${paceCard}
     <div class="live-ops-card ${lateNames.length?'warn':''}">
-      <div class="live-ops-l">늦음</div>
+      <div class="live-ops-l">제외</div>
       <div class="live-ops-v">${lateNames.length}명</div>
-      <div class="live-ops-names">${lateNames.length?_liveNamesPreview(lateNames):'늦음 표시 없음'}</div>
+      <div class="live-ops-names">${lateNames.length?_liveNamesPreview(lateNames):'제외 표시 없음'}</div>
     </div>
     <div class="live-ops-card ${upcomingLate.length?'warn':''}">
-      <div class="live-ops-l">다음 경기 늦음</div>
+      <div class="live-ops-l">다음 경기 제외</div>
       <div class="live-ops-v">${upcomingLate.length}명</div>
       <div class="live-ops-names">${upcomingLate.length?_liveNamesPreview(upcomingLate):'대체 확인 없음'}</div>
     </div>
@@ -6350,7 +6350,7 @@ function _renderRsvpImportSummary(){
   const partnerCount=_partners.filter(pair=>pair.members.every(n=>activeNames.has(n))).length;
   const chips=[
     ['참가',`${memberCount}명`],
-    ['늦음',`${s.late||0}명`],
+    ['제외',`${s.late||0}명`],
     ['게스트',`${guestCount}명`],
     ['P',`${partnerCount}쌍`]
   ];
@@ -7686,7 +7686,7 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
   const primaryTarget=allDone?'scoreboard':'bracket';
   const chips=[];
   if(conflictCount)chips.push(`<button class="team-live-alert warn" type="button" onclick="teamLiveOpenPanel('scoreboard')">승패 확인 ${conflictCount}</button>`);
-  if(lateCount)chips.push(`<button class="team-live-alert" type="button" onclick="teamLiveOpenPanel('late')">늦음 ${lateCount}명 · 대체 확인</button>`);
+  if(lateCount)chips.push(`<button class="team-live-alert" type="button" onclick="teamLiveOpenPanel('late')">제외 ${lateCount}명 · 대체 확인</button>`);
   return `<div class="team-live-ops-strip ${stateClass}">
       <div class="team-live-ops-main">
         <span>${esc(status)}</span>
@@ -7807,7 +7807,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.605) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.606) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''

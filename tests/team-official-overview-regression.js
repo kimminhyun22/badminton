@@ -24,7 +24,10 @@ assert(overviewSource.includes("viewer.isClubOfficial||viewer.isTemporaryOperato
 // 2026-08-12 계약 갱신(운영자 "중복이나 불필요한 요소를 체킹"): 타일 일곱 개 중
 // **현장**(등록−지각)과 **대기**(현장−경기중)는 서로에게서 계산되는 값이고,
 // **운영진**은 경기 중에 누를 일이 없었습니다. 손이 실제로 가는 다섯 개만 둡니다.
-['등록','경기중','대기','지각','뒷풀이'].forEach(label=>{
+// 2026-08-12 계약 갱신(운영자 "제외으로 하자"): 「지각」은 늦게 오는 사람만
+// 가리켜, 레슨·잠깐 자리 비움에는 맞지 않았습니다. 시스템이 아는 사실은 하나 —
+// **지금 코트에 못 서는 사람**. 코드 이름(`late`)은 그대로, 글자만 바꿉니다.
+['등록','경기중','대기','제외','뒷풀이'].forEach(label=>{
   assert(overviewSource.includes(`label:'${label}'`), `운영 현황에 ${label} 항목이 있어야 합니다.`);
 });
 ['현장','운영진'].forEach(label=>{
@@ -184,7 +187,7 @@ sandbox.api.setViewer({id:'official',n:'정식임원',isClubOfficial:true});
 sandbox.window._lastLiveData=liveData;
 sandbox.api.filter('late');
 const lateHtml = sandbox.api.build(liveData);
-assert(lateHtml.includes('지각 1명')&&lateHtml.includes('늦은회원'),
+assert(lateHtml.includes('제외 1명')&&lateHtml.includes('늦은회원'),
   '현황 숫자를 누르면 해당 상태의 선수 이름을 바로 보여야 합니다.');
 assert.strictEqual(sandbox.api.rendered(),1,'상태 필터 변경은 현재 LIVE 화면만 다시 그려야 합니다.');
 

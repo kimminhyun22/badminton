@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.605';
+const APP_VERSION='1.10.606';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1073,7 +1073,7 @@ function _teamOfficialOverviewMemberMeta(player,data,d,key){
     const match=data.currentMatches.find(m=>[...(m.t1||[]),...(m.t2||[])].includes(player.n));
     if(match)return `${match.court||'-'}코트 · 경기중`;
   }
-  if(key==='late')return '지각';
+  if(key==='late')return '제외';
   if(key==='party')return '뒷풀이 참석';
   const team=player.team==='blue'?liveTeamLabel(d,'blue'):player.team==='red'?liveTeamLabel(d,'red'):'참가자';
   const matches=_viewerMatches(d,player.n);
@@ -1100,7 +1100,7 @@ function buildTeamOfficialOverview(d){
     {key:'total',label:'등록',value:data.members.length},
     {key:'playing',label:'경기중',value:data.playing.length},
     {key:'waiting',label:'대기',value:data.waiting.length},
-    {key:'late',label:'지각',value:data.late.length,cls:data.late.length?'alert':''},
+    {key:'late',label:'제외',value:data.late.length,cls:data.late.length?'alert':''},
     {key:'party',label:'뒷풀이',value:data.party.length,cls:'party'}
   ];
   const selected=cards.find(card=>card.key===_teamOfficialOverviewFilter);
@@ -1376,10 +1376,10 @@ function openTeamSubstitutePanel(matchNum,outName){
       <button type="button" onclick="closeTeamSubstitutePanel()" aria-label="닫기">✕</button></div>
     <div class="team-sub-body">
       <div class="team-sub-row">
-        <div class="team-sub-who"><b>지각 · ${match.round}라운드 ${match.court}코트</b>
+        <div class="team-sub-who"><b>제외 · ${match.round}라운드 ${match.court}코트</b>
           <small>${esc([...(match.t1||[])].join(' · '))} vs ${esc([...(match.t2||[])].join(' · '))}</small></div>
         ${cands.length?_substituteGroupsHtml(d,match,name,cands)
-          :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 지각이 아닌 대기 선수가 있어야 합니다.</div>'}
+          :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 제외가 아닌 대기 선수가 있어야 합니다.</div>'}
       </div>
     </div>
   </div>`;
@@ -1667,7 +1667,7 @@ function _viewerStatusButtons(current){
      신청 **전**이 옅은 라벨, 신청 **후**가 꽉 찬 버튼이라 정확히 거꾸로였습니다.
      누를 이유가 남은 쪽이 눈에 띄어야 합니다. */
   return '<div class="viewer-status-actions">'
-    +(lateOn?'<span class="viewer-state-view on">지각</span>':'')
+    +(lateOn?'<span class="viewer-state-view on">제외</span>':'')
     +'<button type="button" class="viewer-state-btn party '+(partyOn?'on':'cta')+'"'
       +' onclick="toggleMemberParty('+nameArg+',\''+teamKey+'\')">'
       +(partyOn?'🍻 뒷풀이 신청함 · 누르면 취소':'🍻 뒷풀이 신청하기')+'</button>'
@@ -2231,12 +2231,12 @@ async function toggleMemberLate(name, team){
   if(!name) return;
   const d=window._lastLiveData;
   if(!_canOperateAttendance(d||{})){
-    alert('지각·도착 확인은 단장·부단장·클럽 임원·운영 도우미가 처리합니다.');
+    alert('제외·복귀 표시는 단장·부단장·클럽 임원·운영 도우미가 처리합니다.');
     return;
   }
   const viewer=_viewerInfo(d);
   const on=_lateOn(name);
-  if(!on&&!confirm(name+'님을 지각으로 표시할까요?\n\n대진표에서 이름을 눌러 대체 선수를 넣을 수 있습니다.'))return;
+  if(!on&&!confirm(name+'님을 제외로 표시할까요?\n\n늦게 오거나, 레슨 등으로 잠시 자리를 비울 때 씁니다.\n대진표에서 이름을 눌러 대체 선수를 넣을 수 있습니다.'))return;
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
     const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
@@ -2250,9 +2250,9 @@ async function toggleMemberLate(name, team){
       expiresAt:Date.now()+10*60*1000
     }});
     const data=res&&res.data;
-    if(!(data&&data.ok))alert((data&&data.reason)||'지각 표시를 바꾸지 못했습니다.');
+    if(!(data&&data.ok))alert((data&&data.reason)||'제외 표시를 바꾸지 못했습니다.');
   }catch(e){
-    alert('지각 표시를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    alert('제외 표시를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 }
 
@@ -2331,8 +2331,8 @@ function buildTeamRosterCard(d){
         +badges
         +'<div class="team-member-actions">'
           +(canOperate
-            ?'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(on?'도착 확인':'지각')+'</button>'
-            :'<span class="team-member-att-view '+(on?'on':'')+'">'+(on?'지각':'')+'</span>')
+            ?'<button type="button" class="team-member-att '+(on?'on':'')+'" onclick="toggleMemberLate('+nameArg+',\''+teamKey+'\')">'+(on?'복귀':'제외')+'</button>'
+            :'<span class="team-member-att-view '+(on?'on':'')+'">'+(on?'제외':'')+'</span>')
           /* 이름 수정(✏️)·명단 제외(✖️) 버튼은 뺐습니다 (운영자 2026-08-12
              "어차피 현장에서 대진을 짜니까 이름 수정이나 불참자 발생은 거의 없어.
              지각하다가 불참으로 전환되어도 어쨌든 대체 선수 투입은 불가피하니까
@@ -2350,20 +2350,20 @@ function buildTeamRosterCard(d){
   const partyCount=all.filter(p=>_partyOn(p.n)).length;
   const sortBtn=(key,label)=>'<button type="button" class="team-roster-sort '+(_teamRosterSort===key?'active':'')+'" onclick="setTeamRosterSort(\''+key+'\')">'+label+'</button>';
   return '<details class="info-details primary" id="teamRoster" '+(_teamRosterOpen?'open':'')+' ontoggle="setTeamRosterOpen(this.open)">'
-    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 지각 · 뒷풀이</summary>'
+    +'<summary>'+(showTeam?'팀 명단':'명단')+' · 제외 · 뒷풀이</summary>'
     +'<div class="info-body">'
       +'<section class="team-roster-card">'
-        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>지각 '+lateCount+'명 · 뒷풀이 '+partyCount+'명</span></div>'
-        +'<div class="team-att-summary"><b>지각</b> · <b>뒷풀이</b> 확인</div>'
-        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','지각')+sortBtn('role','역할')+sortBtn('level','급수')
+        +'<div class="team-roster-head"><b>'+(showTeam?'팀 명단':'참가자 명단')+'</b><span>제외 '+lateCount+'명 · 뒷풀이 '+partyCount+'명</span></div>'
+        +'<div class="team-att-summary"><b>제외</b> · <b>뒷풀이</b> 확인</div>'
+        +'<div class="team-roster-tools">'+sortBtn('name','가나다')+sortBtn('gender','성별')+sortBtn('late','제외')+sortBtn('role','역할')+sortBtn('level','급수')
           // 갑자기 한 명 더 왔을 때 — 명단을 보는 그 자리에서 바로. 임원에게만.
           +(canOperate?'<button type="button" class="team-roster-sort add" onclick="addTeamPlayer()">＋ 선수 추가</button>':'')
         +'</div>'
         +'<div class="team-roster-columns '+(showTeam?'':'single')+'">'
           +(showTeam
-            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>지각 '+blue.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(blue,'blue')+'</div>'
-              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>지각 '+red.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(red,'red')+'</div>'
-            :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>지각 '+lateCount+'명</small></div>'+mk(solo,'all')+'</div>')
+            ?'<div class="team-roster-side blue"><div class="team-roster-title">'+esc(d.teamBlue||'청팀')+' <small>제외 '+blue.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(blue,'blue')+'</div>'
+              +'<div class="team-roster-side red"><div class="team-roster-title">'+esc(d.teamWhite||'홍팀')+' <small>제외 '+red.filter(p=>_lateOn(p.n)).length+'명</small></div>'+mk(red,'red')+'</div>'
+            :'<div class="team-roster-side"><div class="team-roster-title">전체 참가자 <small>제외 '+lateCount+'명</small></div>'+mk(solo,'all')+'</div>')
         +'</div>'
         +'<button type="button" class="team-roster-close" onclick="closeTeamRoster()">▲ 명단 접기</button>'
       +'</section>'
@@ -2459,7 +2459,7 @@ function _playerLine(name,d,m){
   const n=String(name||'');
   if(!n) return '<div class="live-player">-</div>';
   const flag=!!(d&&_lateOn(n));
-  const label=flag?'지각':'';
+  const label=flag?'제외':'';
   const cls='live-player'+(flag?' not-ready':'');
   if(_replaceableInMatch(d,m,n)){
     // `<div>` 그대로 두고 버튼 역할만 입힙니다. `<button>` 으로 바꾸면 이름에 걸린

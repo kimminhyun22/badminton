@@ -159,8 +159,11 @@ const d = {
   // 지각을 누르는 이상한 버튼이 됩니다. 찍혀 있으면 표시만 합니다.
   assert(!/toggleMemberLate/.test(statusButtons),
     '내 카드에서는 지각을 누를 수 없어야 합니다 — 팀 명단에서 합니다.');
-  assert(/viewer-state-view on">지각/.test(statusButtons),
-    '내가 지각으로 찍혀 있으면 그 사실은 보여야 합니다.');
+  // 2026-08-12 계약 갱신(운영자 "제외으로 하자"): 「지각」은 늦게 오는 사람만
+  // 가리켜, 레슨·잠깐 자리 비움에는 맞지 않았습니다. 시스템이 아는 사실은 하나 —
+  // **지금 코트에 못 서는 사람**. 코드 이름(`late`)은 그대로, 글자만 바꿉니다.
+  assert(/viewer-state-view on">제외/.test(statusButtons),
+    '내가 제외으로 찍혀 있으면 그 사실은 보여야 합니다.');
   assert(/toggleMemberParty/.test(statusButtons), '뒷풀이는 본인이 누를 수 있어야 합니다.');
   const idx = statusButtons.indexOf('toggleMemberParty');
   assert(!/canOperate/.test(statusButtons.slice(idx - 120, idx)),

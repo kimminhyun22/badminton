@@ -118,7 +118,8 @@ api.setLate({
   assert(/class="live-player"/.test(plain), '평범한 이름은 그대로여야 합니다.');
   assert(!/role="button"/.test(plain), '평범한 이름은 눌리면 안 됩니다.');
 
-  assert(/지각 · 교체/.test(tappable), '무엇을 할 수 있는지 이름 옆에 적어야 합니다.');
+  // 2026-08-12: 상태(제외)와 할 일(교체)을 한 배지에 함께 적습니다.
+  assert(/제외 · 교체/.test(tappable), '무엇을 할 수 있는지 이름 옆에 적어야 합니다.');
   assert(!/불참/.test(tappable), '불참 표기는 더 이상 쓰지 않습니다.');
   console.log('  이름 마크업: div+role · 같은 클래스 · 지각 표시');
 }

@@ -446,7 +446,11 @@ function applyResult(session, request, now, operation){
 }
 
 /**
- * 지각 표시 (운영자 2026-08-14 "운영관리는 임원과 단장 위주로").
+ * 제외 표시 (운영자 2026-08-14 "운영관리는 임원과 단장 위주로").
+ *
+ * 늦게 오는 사람만이 아니라 **레슨·잠깐 자리 비움**도 같은 표시를 씁니다
+ * (운영자 2026-08-12 "제외으로 하자"). 시스템이 알아야 할 사실은 하나입니다 —
+ * 지금 코트에 못 서는 사람. 사유가 무엇이든 대체 투입은 똑같습니다.
  *
  * 예전에는 회원 화면이 `live/<id>/late/<키>` 에 **직접 썼습니다.** 그러면 링크만
  * 아는 사람은 누구나 남의 출결을 바꿀 수 있고, 서명 권한도 무의미해집니다.
@@ -476,7 +480,7 @@ function applyLate(session, request, now){
   }
   session.late = late;
   pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
-    type:'late', label:`${memberName(member)} 지각 ${request.late === true ? '표시' : '해제'}`,
+    type:'late', label:`${memberName(member)} ${request.late === true ? '제외 표시' : '복귀'}`,
     undo:{type:'team-official-late', playerName:memberName(member), late:request.late !== true}});
   return '';
 }
