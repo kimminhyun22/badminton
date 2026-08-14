@@ -144,6 +144,8 @@ this.api={quizSeededOrder,quizOwnMatches};
   assert(teamHtml.includes('id="quizPanel"'), '응답 집계 패널 자리가 있어야 합니다.');
   assert(teamSrc.includes('_teamQuizAutoWatch();'),
     '대진을 다시 그릴 때 저장된 설문을 자동으로 감시해야 합니다(새로고침 생존).');
+  assert(teamSrc.includes('대진이 바뀌어 닫혔습니다'),
+    '대진 재생성으로 설문이 낡으면 조용히 숨기지 말고 안내해야 합니다(2026-08-14 운영자).');
   assert(quizHtml.includes('og:title'), '카톡 미리보기 제목이 있어야 합니다 — 대진 내용은 싣지 않습니다.');
   console.log('  진입점: 공유 메뉴 2곳 · 집계 패널 · 자동 감시 · 카톡 미리보기');
 }

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.614';
+const APP_VERSION = '1.10.615';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3957,7 +3957,18 @@ function _teamQuizAutoWatch(){
   const stored=(typeof KokMatchStorage!=='undefined'&&KokMatchStorage.getJson)
     ?KokMatchStorage.getJson(TEAM_QUIZ_STORAGE_KEY,null):null;
   if(!stored||!stored.qid){_teamQuizPanel(null);return;}
-  if(!currentMatches.length||stored.sig!==_teamLiveSignature()){_teamQuizPanel(null);return;}
+  if(!currentMatches.length){_teamQuizPanel(null);return;}
+  if(stored.sig!==_teamLiveSignature()){
+    // 대진이 바뀌면 이전 설문의 문항 자체가 무효 — 조용히 숨기지 말고 말해준다
+    // (운영자 2026-08-14 "제출하고 다른 반응은 없던데").
+    if(_quizWatchRef){_quizWatchRef.off();_quizWatchRef=null;_quizWatchId=null;}
+    const el=document.getElementById('quizPanel');
+    if(el){
+      el.classList.remove('hidden');
+      el.innerHTML='🎯 이전 예측 설문은 <b>대진이 바뀌어 닫혔습니다</b> — 이미 받은 응답은 옛 대진 문항이라 쓸 수 없습니다. 대진을 확정한 뒤 📤 공유 메뉴에서 「예측 설문 링크」를 다시 만들어 주세요.';
+    }
+    return;
+  }
   if(!_fbInit())return;
   _teamQuizWatch(stored.qid);
 }
@@ -8022,7 +8033,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.614) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.615) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
