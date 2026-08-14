@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.608';
+const APP_VERSION = '1.10.609';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -10281,7 +10281,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.608&from=daily';
+  location.href='team.html?v=1.10.609&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -10551,15 +10551,27 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
   const femCount=t=>t.filter(p=>p.gender==='F'||p.gender==='여').length;
   const isF=p=>p.gender==='F'||p.gender==='여';
 
-  // 균형 비용: 인원차·여성수차·레벨합차를 가중 합산 (작을수록 좋음)
-  // 인원/여성 1명 차이는 강하게, 레벨합 차이는 0.1점 단위까지 반영
-  const W_CNT=100, W_FEM=100, W_LV=1;
+  // 균형 비용: 인원차·여성수차·레벨차·초심 쏠림을 가중 합산 (작을수록 좋음)
+  // 인원/여성 1명 차이는 강하게, 레벨 차이는 0.1점 단위까지 반영
+  const W_CNT=100, W_FEM=100, W_LV=1, W_LOW=40;
+  // 초심: 풀 전체의 실효 최하위와 0.5 이내인 선수. 한 팀에 몰리면 합이 맞아도
+  // 그 팀은 경기마다 구멍을 안고 뛴다 (2026-08-13 9ZJ2VH: 초심 2명이 모두
+  // 홍팀 → 초심이 낀 경기 0승 3패).
+  const everyone=[...seedBlue,...seedWhite,...all];
+  const lowCut=everyone.length?Math.min(...everyone.map(effLevel))+0.5:-Infinity;
+  const lowCount=t=>t.filter(p=>effLevel(p)<=lowCut).length;
   const cost=(B,Wt)=>{
     const fullB=[...seedBlue,...B], fullW=[...seedWhite,...Wt];
     const cntD=Math.abs(fullB.length-fullW.length);
     const femD=Math.abs(femCount(fullB)-femCount(fullW));
-    const lvD=Math.abs(sum(fullB)-sum(fullW));
-    return cntD*W_CNT + femD*W_FEM + lvD*W_LV;
+    // 경기는 언제나 2:2 — 인원이 다르면 「합」이 아니라 「1인당 평균」이 공정성의
+    // 단위다. 합을 맞추면 인원 많은 팀이 경기마다 약해진다 (9ZJ2VH: 16:17명에
+    // 합 58.5:56 → 슬롯당 3.61:3.35 → 14:7 패배). 인원이 같으면 합 차와 같다.
+    const nB=fullB.length, nW=fullW.length;
+    const lvD=(nB&&nW)?Math.abs(sum(fullB)/nB-sum(fullW)/nW)*(nB+nW)/2
+                      :Math.abs(sum(fullB)-sum(fullW));
+    const lowD=Math.abs(lowCount(fullB)-lowCount(fullW));
+    return cntD*W_CNT + femD*W_FEM + lvD*W_LV + lowD*W_LOW;
   };
 
   // 한 번의 그리디 배분 (시드 상태를 반영해 부족한 쪽에 채움)
