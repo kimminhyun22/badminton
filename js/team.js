@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.609';
+const APP_VERSION = '1.10.610';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -72,6 +72,20 @@ function balancePartnerLevelGap(team){
   if(MATCH_QUALITY)return MATCH_QUALITY.partnerGap(team);
   if(!team||team.length<2)return 0;
   return Math.abs(effLevel(team[0])-effLevel(team[1]));
+}
+const BALANCE_PARTNER_GAP_SYMMETRY=MATCH_QUALITY?.constants.partnerGapSymmetryLimit??1.5;
+/* 약한 고리 집중공략 (운영자 2026-08-14): 복식은 약한 파트너를 노려 점수를 딴다.
+   좌우 합이 같아도 페어 내부 격차가 「비대칭」이면 격차 큰 쪽이 진다.
+   나란한 격차(초심전 0.5+4 vs 0.5+4)는 서로 상쇄되므로 벌점이 없다.
+   품질점검의 partnerGapSymmetryLimit 잣대를 생성 단계에 미리 적용하는 것. */
+function pairGapAsymmetryPenalty(t1,t2){
+  const g1=balancePartnerLevelGap(t1), g2=balancePartnerLevelGap(t2);
+  const sym=Math.abs(g1-g2);
+  let penalty=sym*60;                    // 실력차(ld*80)에 준하는 무게
+  if(sym>BALANCE_PARTNER_GAP_SYMMETRY)penalty+=(sym-BALANCE_PARTNER_GAP_SYMMETRY)*500;
+  // 양쪽 다 극단이면 대칭이어도 가볍게 회피 — 즐거움과 부상 위험
+  penalty+=(Math.max(0,g1-BALANCE_PARTNER_GAP_CAUTION)+Math.max(0,g2-BALANCE_PARTNER_GAP_CAUTION))*120;
+  return penalty;
 }
 function balancePartnerLevelGapPenalty(team){
   if(MATCH_QUALITY)return MATCH_QUALITY.partnerGapPenalty(team);
@@ -1557,7 +1571,10 @@ function selectFourTeamMode(pool,gf,maxLD){
       if(!four.every(p=>!p.partnerName||four.some(x=>x.name===p.partnerName)))continue;
       const ld=Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3])));
       if(ld>maxLD)continue;
-      const score=diversityScore(four,ld);
+      // 팀전은 짝이 팀 소속으로 고정 — 페어 격차 비대칭을 여기서 걸러야 한다
+      // (formTeams 단계에서는 조합 선택지가 하나뿐이라 벌점이 무력하다).
+      const score=diversityScore(four,ld)
+        +pairGapAsymmetryPenalty([four[0],four[1]],[four[2],four[3]]);
       if(score<bestScore){bestScore=score;best=four;}
     }
   return best;
@@ -1615,7 +1632,9 @@ function selectFourTeamAdjustment(pool,settings,maxLD){
       const help=four.reduce((s,p)=>s+Math.max(0,_goalForPlayer(p,settings)-(p.gamesPlayed||0)),0);
       const newOver=four.reduce((s,p)=>s+Math.max(0,(p.gamesPlayed||0)+1-_goalForPlayer(p,settings)),0);
       const wait=four.reduce((s,p)=>s+Math.min(_currentRound-(p.lastRoundPlayed||0),10),0);
-      const score=balanceTeamDiffPenalty(m.levelDiff||0)+diversityScore(four,m.levelDiff||0)*0.7-help*220+newOver*160-wait*8;
+      const score=balanceTeamDiffPenalty(m.levelDiff||0)+diversityScore(four,m.levelDiff||0)*0.7
+        +pairGapAsymmetryPenalty([m.team1A,m.team1B],[m.team2C,m.team2D])
+        -help*220+newOver*160-wait*8;
       if(score<bestScore){bestScore=score;best=four;}
     }
   return best;
@@ -7823,7 +7842,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.609) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.610) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
