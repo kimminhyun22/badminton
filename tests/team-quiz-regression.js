@@ -99,8 +99,16 @@ this.api={_teamQuizConsensus};
     'quiz.html 은 급수·레벨 값을 다루는 코드가 없어야 합니다.');
   assert(/낙승.*8점차/.test(quizHtml.replace(/\n/g, '')), '낙승 정의(8점차)가 안내에 있어야 합니다.');
   assert(quizHtml.includes('js/storage.js'), '공용 Firebase 초기화(storage.js)를 써야 합니다.');
-  assert(quizHtml.includes("responses/'"[0]) || quizHtml.includes('/responses/'),
-    '응답은 quiz/<id>/responses/ 아래에 저장돼야 합니다.');
+  assert(quizHtml.includes('/responses/'), '응답은 <설문>/responses/ 아래에 저장돼야 합니다.');
+  // 보안 규칙(database.rules.json)은 live/ 아래 세션형 키만 허용한다 — 규칙 배포 없이
+  // 동작하려면 설문도 그 관문을 지나야 하고, 새 최상위(quiz/)는 쓰면 안 된다.
+  assert(!/ref\('quiz\//.test(quizHtml) && !teamSrc.includes("ref('quiz/"),
+    '규칙에 없는 quiz/ 최상위 경로를 쓰면 안 됩니다(규칙 임의 배포 금지).');
+  assert(quizHtml.includes("ref('live/'+QID)"), '설문은 live/<세션형 ID> 에서 읽어야 합니다.');
+  assert(quizHtml.includes("kind!=='expertQuiz'"),
+    '실경기 세션 ID 를 설문으로 열면 거부해야 합니다(네임스페이스 공유의 안전장치).');
+  assert(teamSrc.includes('qid=_genLiveId()'),
+    '설문 ID 는 규칙이 허용하는 6자리 세션형 생성기를 써야 합니다.');
 
   const sandbox = {console, Object, Number, String, Array, JSON, Math, Set};
   vm.createContext(sandbox);

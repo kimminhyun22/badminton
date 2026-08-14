@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.611';
+const APP_VERSION = '1.10.612';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3825,7 +3825,10 @@ function renderResults(matches,participants,settings){
    규칙 (2026-08-14 운영자):
    - payload 에는 **이름만** 싣는다. 급수·합계를 실으면 응답이 급수를 되읽는다(앵커링).
    - 설문 링크는 응답 대상에게만 — 전체 공개는 본대진 하나뿐이다.
-   - 집계는 기대 점수로 — 픽 개수 집계는 박빙 10개를 통승 10개로 부풀린다(5:20 오판의 원인). */
+   - 집계는 기대 점수로 — 픽 개수 집계는 박빙 10개를 통승 10개로 부풀린다(5:20 오판의 원인).
+   저장 경로는 live/<6자리 ID> — 보안 규칙(database.rules.json)이 live/ 아래
+   세션형 키만 허용하므로, 새 최상위(quiz/)나 새 접두사(quiz_)는 규칙 배포 없이는
+   막힌다. 규칙은 임의로 배포하지 않는다(운영자 보류 사항). kind:'expertQuiz' 로 구분. */
 const TEAM_QUIZ_STORAGE_KEY='badminton_team_quizId';
 let _quizWatchRef=null,_quizWatchId=null;
 function _teamQuizPayload(){
@@ -3857,8 +3860,8 @@ async function teamQuizShare(){
   let qid=(stored&&stored.sig===sig)?stored.qid:null;
   try{
     if(!qid){
-      qid='q'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-      await _fbDb.ref('quiz/'+qid).set(_teamQuizPayload());
+      qid=_genLiveId();
+      await _fbDb.ref('live/'+qid).set(_teamQuizPayload());
       KokMatchStorage.setJson(TEAM_QUIZ_STORAGE_KEY,{qid,sig});
     }
   }catch(e){alert('설문 저장에 실패했습니다. 네트워크를 확인해 주세요.');return;}
@@ -3887,7 +3890,7 @@ function _teamQuizWatch(qid){
   if(_quizWatchRef&&_quizWatchId===qid)return;
   if(_quizWatchRef)_quizWatchRef.off();
   _quizWatchId=qid;
-  _quizWatchRef=_fbDb.ref('quiz/'+qid+'/responses');
+  _quizWatchRef=_fbDb.ref('live/'+qid+'/responses');
   _quizWatchRef.on('value',snap=>_teamQuizPanel(snap.val()||{}),()=>{});
 }
 function _teamQuizConsensus(responses,matches){
@@ -7943,7 +7946,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.611) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.612) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''

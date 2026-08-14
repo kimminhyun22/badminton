@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f6f8fc">
-<meta name="app-version" content="1.10.611">
+<meta name="app-version" content="1.10.612">
 <!-- 카톡 미리보기: 제목만 — 대진 내용은 싣지 않는다(가대진 유출 차단) -->
 <meta property="og:title" content="예측왕 퀴즈">
 <meta property="og:description" content="이번 팀전, 누가 이길까요? 혼자 몰래 찍어 주세요.">
@@ -133,7 +133,7 @@ body{
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.611"></script>
+<script src="js/storage.js?v=1.10.612"></script>
 <script>
 'use strict';
 /* 예측 설문 응답 페이지.
@@ -236,7 +236,7 @@ async function submit(){
   });
   $('submitBtn').disabled=true;
   try{
-    await _fbDb.ref('quiz/'+QID+'/responses/'+quizNameKey(name)).set({n:name,at:Date.now(),a});
+    await _fbDb.ref('live/'+QID+'/responses/'+quizNameKey(name)).set({n:name,at:Date.now(),a});
     $('result').classList.add('on');
     $('result').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(e){
@@ -250,9 +250,11 @@ async function init(){
   if(!QID){$('stateMsg').textContent='설문 링크가 올바르지 않습니다. 운영자에게 링크를 다시 받아 주세요.';return;}
   if(!_fbInit()){$('stateMsg').textContent='서버 연결에 실패했습니다. 네트워크를 확인해 주세요.';return;}
   let snap=null;
-  try{ snap=await _fbDb.ref('quiz/'+QID).once('value'); }catch(e){}
+  // 설문은 live/<6자리 ID> 에 kind:'expertQuiz' 로 저장된다 — 보안 규칙이
+  // live/ 아래 세션형 키만 허용하기 때문. kind 가 다르면(실경기 세션이면) 거부한다.
+  try{ snap=await _fbDb.ref('live/'+QID).once('value'); }catch(e){}
   const data=snap&&snap.val();
-  if(!data||!Array.isArray(data.matches)||!data.matches.length){
+  if(!data||data.kind!=='expertQuiz'||!Array.isArray(data.matches)||!data.matches.length){
     $('stateMsg').textContent='설문을 찾을 수 없습니다. 운영자에게 링크를 다시 받아 주세요.';return;
   }
   if(data.expiresAt&&Date.now()>data.expiresAt){
