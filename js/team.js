@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.616';
+const APP_VERSION = '1.10.617';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3945,6 +3945,8 @@ async function teamQuizShare(){
   if(!_fbInit()){alert('서버 연결에 실패했어요. 네트워크를 확인해 주세요.');return;}
   const sig=_teamLiveSignature();
   const stored=KokMatchStorage.getJson(TEAM_QUIZ_STORAGE_KEY,null);
+  // 새 설문을 만들기 전에 지금 것부터 이력에 — 응답은 드랍하지 않는다.
+  if(stored&&stored.qid)_teamQuizRemember(stored.qid,stored.sig||'');
   let qid=(stored&&stored.sig===sig)?stored.qid:null;
   try{
     if(!qid){
@@ -8047,7 +8049,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.616) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.617) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
