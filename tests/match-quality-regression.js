@@ -101,6 +101,10 @@ function effLevel(player){return MATCH_QUALITY.effectiveLevel(player);}
 function _dailyTeamDiffPenalty(diff){return MATCH_QUALITY.teamDiffPenalty(diff);}
 function _dailyPartnerLevelGapPenalty(team){return MATCH_QUALITY.partnerGapPenalty(team);}
 function _dailyPartnerRepeatPenalty(count){return MATCH_QUALITY.partnerRepeatPenalty(count);}
+function _dailyPartnerLevelGap(team){return MATCH_QUALITY.partnerGap(team);}
+const DAILY_PARTNER_GAP_SYMMETRY_LIMIT=MATCH_QUALITY.constants.partnerGapSymmetryLimit;
+const DAILY_PARTNER_GAP_CAUTION=MATCH_QUALITY.constants.partnerGapCaution;
+${sourceBetween(dailySrc,'pairGapAsymmetryPenalty','_dailyPartnerLevelGapPenalty')}
 ${sourceBetween(dailySrc,'_matchGenderErrorCount','_participationSlotStats')}
 ${sourceBetween(dailySrc,'formTeams','updatePlayerRecords')}
 this.formTeams=formTeams;

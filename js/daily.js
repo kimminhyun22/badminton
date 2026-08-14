@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.612';
+const APP_VERSION = '1.10.613';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4031,6 +4031,7 @@ function _dailyFlexibleMatch(four){
     if(!_dailyMatchPartnerGapOfficialOk(match))return;
     let score=_dailyTeamDiffPenalty(ld)+Math.abs(effLevel(t1[0])-effLevel(t1[1]))*18+Math.abs(effLevel(t2[0])-effLevel(t2[1]))*18;
     score+=_dailyPartnerLevelGapPenalty(t1)+_dailyPartnerLevelGapPenalty(t2)+_dailyMatchLevelSpreadPenalty([t1[0],t1[1],t2[0],t2[1]]);
+    score+=pairGapAsymmetryPenalty(t1,t2);
     t1.forEach(a=>t2.forEach(b=>{score+=_dailyOpponentRepeatPenalty(a.opponentCount[b.name]||0);}));
     score+=_dailyPartnerRepeatPenalty(t1[0].partnerCount[t1[1].name]||0);
     score+=_dailyPartnerRepeatPenalty(t2[0].partnerCount[t2[1].name]||0);
@@ -10294,7 +10295,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.612&from=daily';
+  location.href='team.html?v=1.10.613&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -11704,6 +11705,8 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
     score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
     score+=_dailyPartnerLevelGapPenalty(t1)+_dailyPartnerLevelGapPenalty(t2);
+    // 자유 대진에서도 약한 고리 집중공략은 같다 — 짝 조합을 고를 때 비대칭을 피한다.
+    score+=pairGapAsymmetryPenalty(t1,t2);
     const p1pair=t1[0].partnerName===t1[1].name;
     const p2pair=t2[0].partnerName===t2[1].name;
     if(!p1pair) score+=_dailyPartnerRepeatPenalty(t1[0].partnerCount[t1[1].name]||0);
@@ -12708,7 +12711,17 @@ function _qualityAssessment(matches,participants,settings){
   const genderErr=matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0);
   const adjustments=matches.filter(m=>m.type==='보정');
 
-  const sBalance=clamp(30-avgLD/1.5*22-spikes.length*2-Math.max(0,maxLD-2)*2,0,30);
+  // 페어 격차 비대칭 — 합이 같아도 격차 큰 쪽이 진다 (2026-08-14, 9ZJ2VH 백테스트 4/5).
+  // 나란한 격차(초심전)는 서로 상쇄되는 공정한 경기라 세지 않는다.
+  const asymCount=matches.filter(m=>{
+    const g1=Math.abs(effLevel(m.team1A)-effLevel(m.team1B));
+    const g2=Math.abs(effLevel(m.team2C)-effLevel(m.team2D));
+    return Math.abs(g1-g2)>DAILY_PARTNER_GAP_SYMMETRY_LIMIT;
+  }).length;
+  // 백중 비율 — 우세가 뻔한 경기가 적을수록 좋은 대진.
+  const evenCount=matches.filter(m=>Math.abs(m.levelDiff||0)<=0.5).length;
+  const favCount=matches.length-evenCount;
+  const sBalance=clamp(30-avgLD/1.5*22-spikes.length*2-Math.max(0,maxLD-2)*2-asymCount*2,0,30);
   const sFair=clamp(25-avoidableUnderSlots*6-avoidableOverSlots*2-Math.min(4,variance*20),0,25);
   const sPartner=clamp(15-avoidablePartnerExcess*.5
     -(avoidablePartnerExcess>0?partner3*2+partner4*5:0),0,15);
@@ -12719,14 +12732,31 @@ function _qualityAssessment(matches,participants,settings){
   const extraMatchRate=extraMatchCount/Math.max(1,minimumMatches);
   const sEfficiency=clamp(5*(1-Math.max(extraMatchRate/.2,extraRate/.1)),0,5);
   const sValid=genderErr===0?5:Math.max(0,5-genderErr*2);
+  // 팀 나누기 점검 — 경기 잣대로는 안 잡히는 나누기 결함 (9ZJ2VH 18:7 원인).
+  const splitAudit=(()=>{
+    if(!settings.teamMode)return null;
+    const blue=participants.filter(p=>p.team==='청팀'),white=participants.filter(p=>p.team==='홍팀');
+    if(!blue.length||!white.length)return null;
+    const sum=t=>t.reduce((s,p)=>s+effLevel(p),0);
+    const avgGap=Math.abs(sum(blue)/blue.length-sum(white)/white.length);
+    const lowCut=Math.min(...participants.map(effLevel))+0.5;
+    const lows=participants.filter(p=>effLevel(p)<=lowCut);
+    const lowBlue=lows.filter(p=>p.team==='청팀').length;
+    const lowStacked=lows.length>=2&&(lowBlue===0||lowBlue===lows.length);
+    return {nB:blue.length,nW:white.length,avgGap:Math.round(avgGap*100)/100,
+      lowCount:lows.length,lowStacked};
+  })();
   let total=Math.round(sBalance+sFair+sPartner+sOpponent+sInterval+sEfficiency+sValid);
   if((partner4>0&&avoidablePartnerExcess>0)||avoidableExact>0)total=Math.min(total,84);
   else if(avoidableSameFour>0)total=Math.min(total,94);
   else if(partner3>0&&avoidablePartnerExcess>0)total=Math.min(total,94);
   if(avoidableUnderSlots>0||genderErr>0)total=Math.min(total,89);
+  // 나누기 결함은 경기 균형이 아무리 좋아도 상급을 줄 수 없다.
+  if(splitAudit&&(splitAudit.lowStacked||splitAudit.avgGap>0.3))total=Math.min(total,84);
   const grade=total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D';
   const gradeLabel={S:'완벽',A:'우수',B:'양호',C:'보통',D:'재생성 권장'}[grade];
-  return {gpp,avgLD,spikes,maxLD,counts,pGoal,under,over,underSlots,overSlots,
+  return {gpp,avgLD,spikes,maxLD,asymCount,evenCount,favCount,splitAudit,
+    counts,pGoal,under,over,underSlots,overSlots,
     minimumMatches,minimumOver,parityAdjustment,avoidableUnderSlots,avoidableOverSlots,extraMatchCount,
     excessConsec,excessNames,excessRatio,partner2,partner3,partner4,
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
@@ -12741,7 +12771,8 @@ function renderQualityDashboard(matches,participants,settings){
   if(!el) return;
   if(!matches.length){ el.innerHTML=''; return; }
   const q=_qualityAssessment(matches,participants,settings);
-  const {avgLD,spikes,maxLD,counts,pGoal:_pGoal,under,over,underSlots,overSlots,
+  const {avgLD,spikes,maxLD,asymCount,evenCount,favCount,splitAudit,
+    counts,pGoal:_pGoal,under,over,underSlots,overSlots,
     minimumMatches,minimumOver,parityAdjustment,avoidableUnderSlots,avoidableOverSlots,extraMatchCount,
     excessConsec,excessNames,excessRatio,partner2,partner3,partner4,
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
@@ -12766,9 +12797,14 @@ function renderQualityDashboard(matches,participants,settings){
   const rows=[
     (()=>{
       const pct=sBalance/30;
-      let detail=`평균 실력차 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
+      let detail=`백중 ${evenCount} · 우세 ${favCount} · 평균 실력차 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
       if(spikes.length) detail+=` · 실력차 큰 경기(3+) ${spikes.length}개`;
-      else detail+=' · 튀는 경기 없음';
+      if(asymCount) detail+=` · 페어 격차 비대칭 ${asymCount}경기`;
+      if(splitAudit){
+        detail+=` · 팀 1인당 평균 차 ${splitAudit.avgGap}`;
+        if(splitAudit.lowStacked) detail+=` · ⚠ 초심 ${splitAudit.lowCount}명 한 팀 몰림`;
+      }
+      if(!spikes.length&&!asymCount) detail+=' · 튀는 경기 없음';
       return {label:'경기 실력 균형',detail,score:sBalance,max:30,pct};
     })(),
     (()=>{

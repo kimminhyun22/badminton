@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.612';
+const APP_VERSION = '1.10.613';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1874,6 +1874,8 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
     score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
     score+=balancePartnerLevelGapPenalty(t1)+balancePartnerLevelGapPenalty(t2);
+    // 자유 대진에서도 약한 고리 집중공략은 같다 — 짝 조합을 고를 때 비대칭을 피한다.
+    score+=pairGapAsymmetryPenalty(t1,t2);
     const p1pair=t1[0].partnerName===t1[1].name;
     const p2pair=t2[0].partnerName===t2[1].name;
     const partnerRepeatPenalty=(count)=>MATCH_QUALITY?MATCH_QUALITY.partnerRepeatPenalty(count):(count===0?0:count===1?140:count===2?1200:1e9);
@@ -3371,18 +3373,63 @@ function _qualityAssessment(matches,participants,settings){
   const structureErr=matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0);
   const adjustments=matches.filter(m=>m.type==='보정');
 
+  // 페어 격차 비대칭 — 합이 같아도 격차 큰 쪽이 진다 (2026-08-14 운영자, 9ZJ2VH
+  // 백테스트 4/5 적중). 나란한 격차(초심전 0.5+4 vs 0.5+4)는 서로 상쇄되는 공정한
+  // 경기라 감점하지 않고 정보로만 센다 — 생성기(pairGapAsymmetryPenalty)와 같은 잣대.
+  const asymMatches=[],mirroredExtremes=[];
+  matches.forEach(m=>{
+    const g1=Math.abs(effLevel(m.team1A)-effLevel(m.team1B));
+    const g2=Math.abs(effLevel(m.team2C)-effLevel(m.team2D));
+    const sym=Math.abs(g1-g2);
+    if(sym>BALANCE_PARTNER_GAP_SYMMETRY)asymMatches.push({num:m.matchNumber,sym:Math.round(sym*10)/10});
+    else if(Math.min(g1,g2)>BALANCE_PARTNER_GAP_CAUTION)mirroredExtremes.push(m.matchNumber);
+  });
+  const asymSevereCount=asymMatches.filter(a=>a.sym>=3).length;
+  // 백중 비율 — 공정성의 헤드라인. 좋은 대진일수록 우세가 뻔한 경기가 적다
+  // (어제 9ZJ2VH: 우세 16/25 → 18:7. 새 생성기: 우세 4/25).
+  const evenCount=matches.filter(m=>Math.abs(m.levelDiff||0)<=0.5).length;
+  const favCount=matches.length-evenCount;
+
+  // 팀 나누기 점검 — 경기가 아니라 나누기 단위의 결함은 경기 잣대에 안 잡힌다
+  // (9ZJ2VH: 경기별 합 차는 훌륭했지만 나누기가 기울어 18:7). 수동 이동 뒤에도
+  // 이 검사가 남아 있어야 결함이 되돌아오지 않는다.
+  const splitAudit=(()=>{
+    if(!settings.teamMode)return null;
+    const blue=participants.filter(p=>p.team==='청팀'),white=participants.filter(p=>p.team==='홍팀');
+    if(!blue.length||!white.length)return null;
+    const sum=t=>t.reduce((s,p)=>s+effLevel(p),0);
+    const avgGap=Math.abs(sum(blue)/blue.length-sum(white)/white.length);
+    const lowCut=Math.min(...participants.map(effLevel))+0.5;
+    const lows=participants.filter(p=>effLevel(p)<=lowCut);
+    const lowBlue=lows.filter(p=>p.team==='청팀').length;
+    const lowStacked=lows.length>=2&&(lowBlue===0||lowBlue===lows.length);
+    const isF=p=>p.gender==='F'||p.gender==='여';
+    const femGap=Math.abs(blue.filter(isF).length-white.filter(isF).length);
+    return {nB:blue.length,nW:white.length,
+      sumB:Math.round(sum(blue)*10)/10,sumW:Math.round(sum(white)*10)/10,
+      avgGap:Math.round(avgGap*100)/100,lowCount:lows.length,lowStacked,femGap};
+  })();
+  const sTeamSplit=splitAudit
+    ?clamp(10
+      -(splitAudit.avgGap>0.3?7:splitAudit.avgGap>0.1?3:0)
+      -(splitAudit.lowStacked?5:0)
+      -(splitAudit.femGap>2?3:splitAudit.femGap===2?1:0),0,10)
+    :10; // 자유 대진은 나누기가 없다
+
   const excellentAvgLD=0.25;
   const excellentMaxLD=1.0;
-  const balanceAvgPenalty=Math.max(0,avgLD-excellentAvgLD)/(BALANCE_TEAM_DIFF_TARGET-excellentAvgLD)*24;
-  const balanceMaxPenalty=Math.max(0,maxLD-excellentMaxLD)*3;
-  const balanceRoundBiasPenalty=Math.max(0,balance.roundBiasMax-2)*2;
-  const sBalance=clamp(40-balanceAvgPenalty
+  const balanceAvgPenalty=Math.max(0,avgLD-excellentAvgLD)/(BALANCE_TEAM_DIFF_TARGET-excellentAvgLD)*18;
+  const balanceMaxPenalty=Math.max(0,maxLD-excellentMaxLD)*2.25;
+  const balanceRoundBiasPenalty=Math.max(0,balance.roundBiasMax-2)*1.5;
+  const sBalance=clamp(30-balanceAvgPenalty
     -balanceMaxPenalty
-    -balance.cautionCount*2
-    -balance.hardCount*8
-    -balance.severeCount*8
-    -Math.max(0,maxLD-BALANCE_TEAM_DIFF_LIMIT)*5
-    -balanceRoundBiasPenalty,0,40);
+    -balance.cautionCount*1.5
+    -balance.hardCount*6
+    -balance.severeCount*6
+    -Math.max(0,maxLD-BALANCE_TEAM_DIFF_LIMIT)*4
+    -balanceRoundBiasPenalty
+    -asymMatches.length*2
+    -asymSevereCount*4,0,30);
   const sFair=clamp(10-avoidableUnderSlots*5-avoidableOverSlots*1.2-Math.min(2,variance*10),0,10);
   const sDiversity=clamp(20
     -partnerOnlyExcess*1.25
@@ -3394,7 +3441,7 @@ function _qualityAssessment(matches,participants,settings){
   const extraMatchRate=extraMatchCount/Math.max(1,minimumMatches);
   const sEfficiency=clamp(5*(1-Math.max(extraMatchRate/.2,extraRate/.1)),0,5);
   const sValid=(genderErr===0&&structureErr===0)?10:Math.max(0,10-(genderErr+structureErr)*4);
-  const total=Math.round(sBalance+sFair+sDiversity+sInterval+sEfficiency+sValid);
+  const total=Math.round(sBalance+sTeamSplit+sFair+sDiversity+sInterval+sEfficiency+sValid);
   const grade=total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D';
   const gradeLabel={S:'완벽',A:'우수',B:'양호',C:'보통',D:'재생성 권장'}[grade];
   return {gpp,avgLD,spikes,maxLD,balanceCautionCount:balance.cautionCount,
@@ -3406,6 +3453,7 @@ function _qualityAssessment(matches,participants,settings){
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,fillerRate,adjustments,genderErr,structureErr,
+    asymMatches,asymSevereCount,mirroredExtremes,evenCount,favCount,splitAudit,sTeamSplit,
     sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel};
 }
 
@@ -3424,6 +3472,7 @@ function renderQualityDashboard(matches,participants,settings){
     sameFourRepeats,exactMatchRepeats,avoidableSameFour,avoidableExact,
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,adjustments,genderErr,structureErr,
+    asymMatches,asymSevereCount,mirroredExtremes,evenCount,favCount,splitAudit,sTeamSplit,
     sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel}=q;
   const structureLabel=settings.teamMode?'팀배치':'경기구성';
   const structureDetail=settings.teamMode?'팀 배치':'경기 구성';
@@ -3444,15 +3493,26 @@ function renderQualityDashboard(matches,participants,settings){
   // ── 항목 정의 ──
   const rows=[
     (()=>{
-      const pct=sBalance/40;
-      let detail=`평균 실력차 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
+      const pct=sBalance/30;
+      // 백중이 많을수록 좋은 대진 — 우세가 뻔한 경기가 승패를 미리 정한다 (9ZJ2VH 18:7).
+      let detail=`백중 ${evenCount} · 우세 ${favCount} · 평균 실력차 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
       if(balanceHardCount) detail+=` · 재배정 우선 ${balanceHardCount}경기`;
       else if(balanceCautionCount) detail+=` · 주의 ${balanceCautionCount}경기`;
-      else if(spikes.length) detail+=` · 실력차 큰 경기(3+) ${spikes.length}개`;
-      else detail+=' · 튀는 경기 없음';
+      if(asymMatches.length) detail+=` · 페어 격차 비대칭 ${asymMatches.length}경기(${asymMatches.map(a=>a.num).join(',')}번)`;
+      if(mirroredExtremes.length) detail+=` · 초심전(대칭 격차) ${mirroredExtremes.length}경기`;
+      if(!balanceHardCount&&!balanceCautionCount&&!asymMatches.length) detail+=' · 튀는 경기 없음';
       if(balanceRoundBiasMax>2) detail+=` · 라운드 편차 ${balanceRoundBiasMax.toFixed(1)}`;
-      return {label:'경기 실력 균형',detail,score:sBalance,max:40,pct};
+      return {label:'경기 실력 균형',detail,score:sBalance,max:30,pct};
     })(),
+    ...(splitAudit?[(()=>{
+      const pct=sTeamSplit/10;
+      const parts=[`${splitAudit.nB}명 ${splitAudit.sumB} vs ${splitAudit.nW}명 ${splitAudit.sumW}`,
+        `1인당 평균 차 ${splitAudit.avgGap}`];
+      if(splitAudit.lowStacked)parts.push(`⚠ 초심 ${splitAudit.lowCount}명이 한 팀에 몰림`);
+      else if(splitAudit.lowCount>=2)parts.push(`초심 ${splitAudit.lowCount}명 분산됨`);
+      if(splitAudit.femGap>1)parts.push(`여성 수 차 ${splitAudit.femGap}`);
+      return {label:'팀 나누기',detail:parts.join(' · '),score:sTeamSplit,max:10,pct};
+    })()]:[]),
     (()=>{
       const pct=sDiversity/20;
       const parts=[];
@@ -3534,6 +3594,8 @@ function renderQualityDashboard(matches,participants,settings){
   if(structureErr>0)blocking.push(`${structureDetail}/선수 중복 오류`);
   if(genderErr>0)blocking.push('종목 성별 오류');
   if(balanceHardCount>0)blocking.push('실력차 2.0 초과');
+  if(splitAudit&&splitAudit.lowStacked)blocking.push('초심 한 팀 몰림');
+  if(splitAudit&&splitAudit.avgGap>0.3)blocking.push('팀 1인당 평균 차 과다');
   if(avoidableUnderSlots>0)blocking.push('목표 미달');
   if(avoidableExact>0)blocking.push('똑같은 경기 반복');
   if(fillers.length>2)blocking.push('보완게임 과다');
@@ -7946,7 +8008,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.612) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.613) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''

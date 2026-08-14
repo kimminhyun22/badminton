@@ -118,7 +118,8 @@ const nearPerfectQuality = sandbox._qualityAssessment(
 );
 assert.strictEqual(Math.round(nearPerfectQuality.avgLD * 100) / 100, 0.08, '테스트 대진 평균 실력차가 실제 사례와 같아야 합니다.');
 assert.strictEqual(nearPerfectQuality.maxLD, 0.7, '테스트 대진 최대 실력차가 실제 사례와 같아야 합니다.');
-assert.strictEqual(Math.round(nearPerfectQuality.sBalance), 40, '평균 0.08·최대 0.7은 경기 실력 균형 만점이어야 합니다.');
+// 2026-08-14: 실력 균형은 40→30점 — 나머지 10점은 신설된 「팀 나누기」 항목으로 갔다.
+assert.strictEqual(Math.round(nearPerfectQuality.sBalance), 30, '평균 0.08·최대 0.7은 경기 실력 균형 만점(30)이어야 합니다.');
 const diversityParticipants = [b1, b2, b3, b4, r1, r2, r3, r4];
 const repeatedPartners = [
   match(1, 1, b1, b2, r1, r2),
