@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.607';
+const APP_VERSION='1.10.608';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1317,10 +1317,11 @@ function _substituteHintHtml(d){
   return `<div class="team-official-overview-hint">${shown}${more} — 지금·다음 대진에서 이름을 누르면 교체</div>`;
 }
 function _pendingSubstitutions(d){
+  // 이름은 누구나 눌리지만(임원 재량 교체), 안내 줄은 제외자 — 메워야 할 자리 — 만 셉니다.
   const out=[];
   ((d&&d.matches)||[]).forEach(m=>{
     [...(m.t1||[]),...(m.t2||[])].forEach(name=>{
-      if(name&&_replaceableInMatch(d,m,name)){
+      if(name&&_lateOn(name)&&_replaceableInMatch(d,m,name)){
         out.push({num:Number(m.num),round:Number(m.round),court:Number(m.court),name});
       }
     });
@@ -2412,10 +2413,20 @@ function _swappableRounds(d){
   const next=open.find(r=>r>cur)||0;
   return [cur,next].filter(Boolean);
 }
+/**
+ * 이 이름을 눌러 바꿀 수 있는가.
+ *
+ * 예전에는 **제외로 찍힌 사람만** 눌렸습니다. 그런데 현장에서는 제외와 무관하게
+ * 임원 판단으로 바꾸는 일이 생깁니다 — 운영자 2026-08-14 실전 피드백:
+ * "운영진의 재량에 따라서 때로 대진을 변경해야 하는 상황이 생김. 이름을 눌러
+ * 선수를 직관적으로 변경하고자 하는데 그런 기능을 추가할 필요 있음."
+ *
+ * 그래서 **지금·다음 라운드의 아직 안 끝난 경기라면 누구든** 눌립니다. 넣을 수
+ * 있는 사람은 그대로 **같은 팀 우선**으로 제안하고, 팀을 넘을 때만 확인을 받습니다.
+ */
 function _replaceableInMatch(d,m,name){
   if(!m||_settled(m))return false;
   if(!_canSubstitute(d))return false;
-  if(!_lateOn(name))return false;
   return _swappableRounds(d).includes(Number(m.round));
 }
 /**
@@ -2490,7 +2501,7 @@ function _playerLine(name,d,m){
       +'onclick="'+open+'" '
       +'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+open+';}" '
       +'aria-label="'+esc(n)+' '+esc(label)+' · 눌러서 대체 선수 넣기">'
-      +esc(n)+'<span class="ready-badge">'+label+' · 교체</span></div>';
+      +esc(n)+'<span class="ready-badge">'+(label?label+' · 교체':'교체')+'</span></div>';
   }
   return '<div class="'+cls+'">'+esc(n)
     +(label?'<span class="ready-badge">'+label+'</span>':'')

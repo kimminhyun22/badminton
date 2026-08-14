@@ -7,11 +7,18 @@
  *   "불참이라 해도 완전 대체할 사람은 없으니 지각자와 다를 바 없는 것 같아."
  *   "당장 코트에 투입하는 경우뿐 아니라 다음 대진에서도 미리 처리할 수 있어야 해."
  *
+ * 그리고 임원 재량 교체 (운영자 2026-08-14):
+ *
+ *   "운영진의 재량에 따라서 때로 대진을 변경해야 하는 상황이 생김. 이름을 눌러
+ *    선수를 직관적으로 변경하고자 하는데 그런 기능을 추가할 필요 있음."
+ *
  * 여기서 고정하는 것:
  *   1) 출결은 **지각 하나** — 불참을 따로 두지 않는다(벤치가 얇아 실익이 없다)
  *   2) 교체는 **지금 라운드 + 다음 라운드** — 미리 손볼 수 있되, 먼 경기는 열지 않는다
- *   3) 끝난 경기·권한 없는 사람에게는 문이 열리지 않는다
- *   4) 이름은 `<div role=button>` 이어야 한다 — `<button>` 은 이름 글꼴을 흐트러뜨린다
+ *   3) 그 범위 안이면 **제외 표시가 없어도 누구든** 눌린다 — 임원 재량 교체
+ *   4) 끝난 경기·권한 없는 사람에게는 문이 열리지 않는다
+ *   5) 안내 한 줄(메울 자리)은 **제외자만** 센다 — 전원을 나열하면 안내가 아니다
+ *   6) 이름은 `<div role=button>` 이어야 한다 — `<button>` 은 이름 글꼴을 흐트러뜨린다
  */
 const assert = require('assert');
 const fs = require('fs');
@@ -82,20 +89,22 @@ api.setLate({
   console.log('  출결 한 가지: 옛 불참 표시도 지각으로');
 }
 
-// 3) 끝난 경기 · 출결 표시 없는 사람 · 권한 없는 사람에게는 문이 없습니다.
+// 3) 임원 재량 — 범위 안이면 제외 표시가 없어도 눌립니다. 끝난 경기·권한 없는
+//    사람에게는 문이 없습니다.
 {
+  assert.strictEqual(api._replaceableInMatch(d, d.matches[0], '청하나'), true,
+    '제외 표시가 없어도 임원 재량으로 교체할 수 있어야 합니다(2026-08-14).');
   assert.strictEqual(api._replaceableInMatch(d, {...d.matches[0], win: 't1'}, '지각이'), false,
     '결과가 입력된 경기는 교체 대상이 아닙니다.');
-  assert.strictEqual(api._replaceableInMatch(d, d.matches[0], '청하나'), false,
-    '출결 표시가 없는 선수는 교체 대상이 아닙니다.');
   api.setOperate(false);
   assert.strictEqual(api._replaceableInMatch(d, d.matches[0], '지각이'), false,
     '임원이 아니면 이름이 눌려서는 안 됩니다.');
   api.setOperate(true);
-  console.log('  끝난 경기 · 정상 출석 · 일반 회원: 문 없음');
+  console.log('  임원 재량: 누구든 눌림 · 끝난 경기 · 일반 회원: 문 없음');
 }
 
-// 4) 세어 보면 지금 라운드 두 자리 + 다음 라운드 두 자리 = 4.
+// 4) 안내 줄이 세는 자리는 **제외자만** — 지금 두 자리 + 다음 두 자리 = 4.
+//    누구든 눌리게 되었어도(3번), 전원을 나열하면 그건 안내가 아닙니다.
 {
   const pending = api._pendingSubstitutions(d);
   assert.strictEqual(pending.length, 4, `메울 자리 수가 규칙과 같아야 합니다: ${JSON.stringify(pending)}`);
@@ -108,7 +117,8 @@ api.setLate({
 // 5) 이름 마크업 — 눌리는 이름과 안 눌리는 이름의 **클래스가 같아야** 모양이 안 갈라집니다.
 {
   const tappable = api._playerLine('지각이', d, d.matches[0]);
-  const plain = api._playerLine('청하나', d, d.matches[0]);
+  // 범위 밖(3라운드) 이름이라야 안 눌립니다 — 범위 안은 이제 누구든 눌립니다.
+  const plain = api._playerLine('청하나', d, d.matches[3]);
   assert(/role="button"/.test(tappable), '지각자 이름은 버튼 역할이어야 합니다.');
   assert(/tabindex="0"/.test(tappable) && /onkeydown=/.test(tappable), '키보드로도 열려야 합니다.');
   assert(/openTeamSubstitutePanel\(1,/.test(tappable), '그 경기 번호를 실어야 합니다.');
@@ -121,6 +131,10 @@ api.setLate({
   // 2026-08-12: 상태(제외)와 할 일(교체)을 한 배지에 함께 적습니다.
   assert(/제외 · 교체/.test(tappable), '무엇을 할 수 있는지 이름 옆에 적어야 합니다.');
   assert(!/불참/.test(tappable), '불참 표기는 더 이상 쓰지 않습니다.');
+  // 제외 표시가 없는 이름의 배지는 「교체」 하나 — 앞에 「 · 」 가 남으면 안 됩니다.
+  const discretionary = api._playerLine('청하나', d, d.matches[0]);
+  assert(/<span class="ready-badge">교체<\/span>/.test(discretionary),
+    `재량 교체 배지는 「교체」 하나여야 합니다: ${discretionary}`);
   console.log('  이름 마크업: div+role · 같은 클래스 · 지각 표시');
 }
 

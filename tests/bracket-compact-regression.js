@@ -72,6 +72,7 @@ const cut = (a, b) => {
   const d = {currentRound: 2, matches: [
     {num: 1, round: 1, court: 1, t1: ['청하나','청두리'], t2: ['홍하나','홍두리'], win: 't1'},
     {num: 5, round: 2, court: 1, t1: ['청세모','청네모'], t2: ['홍세모','홍네모'], win: null},
+    {num: 7, round: 3, court: 1, t1: ['청일곱','청여덟'], t2: ['홍일곱','홍여덟'], win: null},
     {num: 9, round: 4, court: 1, t1: ['청다섯','청여섯'], t2: ['홍다섯','홍여섯'], win: null}
   ]};
 
@@ -84,10 +85,12 @@ const cut = (a, b) => {
   assert(/toggleTeamWin\(1,'t1'\)/.test(asOfficial[0]),
     '같은 팀을 다시 누르면 지워지는 토글이어야 합니다.');
   // 교체는 지금·다음 라운드에서만 — 큰 카드와 같은 규칙입니다.
-  assert(/bracket-name swap/.test(asOfficial[1]), '지금 라운드 지각자는 눌러서 교체할 수 있어야 합니다.');
+  assert(/bracket-name swap/.test(asOfficial[1]), '지금 라운드 이름은 눌러서 교체할 수 있어야 합니다.');
   assert(/openTeamSubstitutePanel\(5,/.test(asOfficial[1]), '그 경기·그 선수로 시트가 열려야 합니다.');
+  // 2026-08-14 임원 재량 교체: 제외 표시가 없어도 지금·다음 라운드면 눌립니다.
+  assert(/bracket-name swap/.test(asOfficial[2]), '다음 라운드 이름도 제외 표시 없이 눌려야 합니다.');
   assert(!/bracket-name swap/.test(asOfficial[0]), '끝난 경기는 교체 대상이 아닙니다.');
-  assert(!/bracket-name swap/.test(asOfficial[2]), '먼 라운드는 교체 범위 밖입니다.');
+  assert(!/bracket-name swap/.test(asOfficial[3]), '먼 라운드는 교체 범위 밖입니다.');
 
   box.api.set(false, ['청세모']);
   const asMember = d.matches.map(m => box.api.row(m, d));
