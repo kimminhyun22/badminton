@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.615';
+const APP_VERSION = '1.10.616';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3906,6 +3906,18 @@ function renderResults(matches,participants,settings){
    세션형 키만 허용하므로, 새 최상위(quiz/)나 새 접두사(quiz_)는 규칙 배포 없이는
    막힌다. 규칙은 임의로 배포하지 않는다(운영자 보류 사항). kind:'expertQuiz' 로 구분. */
 const TEAM_QUIZ_STORAGE_KEY='badminton_team_quizId';
+// 지난 설문들의 ID 이력 — 대진이 바뀌어도 응답은 선수 영점 조정 재료로 남는다.
+// 새 설문이 이전 것을 덮어써서 서버의 응답을 찾을 길이 사라지면 안 된다.
+const TEAM_QUIZ_HISTORY_KEY='badminton_team_quizHistory';
+function _teamQuizRemember(qid,sig){
+  try{
+    const h=KokMatchStorage.getJson(TEAM_QUIZ_HISTORY_KEY,[]);
+    if(!h.some(x=>x&&x.qid===qid)){
+      h.push({qid,sig,createdAt:Date.now()});
+      KokMatchStorage.setJson(TEAM_QUIZ_HISTORY_KEY,h.slice(-40));
+    }
+  }catch(e){}
+}
 let _quizWatchRef=null,_quizWatchId=null;
 function _teamQuizPayload(){
   return {
@@ -3939,6 +3951,7 @@ async function teamQuizShare(){
       qid=_genLiveId();
       await _fbDb.ref('live/'+qid).set(_teamQuizPayload());
       KokMatchStorage.setJson(TEAM_QUIZ_STORAGE_KEY,{qid,sig});
+      _teamQuizRemember(qid,sig);
     }
   }catch(e){alert('설문 저장에 실패했습니다. 네트워크를 확인해 주세요.');return;}
   _teamQuizWatch(qid);
@@ -3959,13 +3972,14 @@ function _teamQuizAutoWatch(){
   if(!stored||!stored.qid){_teamQuizPanel(null);return;}
   if(!currentMatches.length){_teamQuizPanel(null);return;}
   if(stored.sig!==_teamLiveSignature()){
-    // 대진이 바뀌면 이전 설문의 문항 자체가 무효 — 조용히 숨기지 말고 말해준다
-    // (운영자 2026-08-14 "제출하고 다른 반응은 없던데").
+    // 대진이 바뀌어도 응답은 버리지 않는다 — 설문의 산출물은 「보정된 대진」이 아니라
+    // 「보정된 선수」다(운영자 2026-08-14 "해당 경기가 아니더라도 시스템 예측과
+    // 직관이 얼마나 일치하는지는 알 수 있잖아"). 채점(예측왕)만 실전이 있어야 한다.
     if(_quizWatchRef){_quizWatchRef.off();_quizWatchRef=null;_quizWatchId=null;}
     const el=document.getElementById('quizPanel');
     if(el){
       el.classList.remove('hidden');
-      el.innerHTML='🎯 이전 예측 설문은 <b>대진이 바뀌어 닫혔습니다</b> — 이미 받은 응답은 옛 대진 문항이라 쓸 수 없습니다. 대진을 확정한 뒤 📤 공유 메뉴에서 「예측 설문 링크」를 다시 만들어 주세요.';
+      el.innerHTML='🎯 이전 예측 설문은 <b>대진이 바뀌어 마감됐습니다</b> — 받은 응답은 선수 영점 조정 데이터로 남습니다(실전 채점·예측왕만 새 설문이 필요합니다). 대진을 확정한 뒤 📤 공유 메뉴에서 「예측 설문 링크」를 다시 만들어 주세요.';
     }
     return;
   }
@@ -8033,7 +8047,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.615) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.616) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
