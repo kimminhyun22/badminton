@@ -127,12 +127,22 @@ const settings = {teamMode: true, gamesPerPlayer: 1, courts: 1};
   console.log('  자유 대진: 나누기 점검 해당 없음');
 }
 
-// 6) daily.js(민턴LIVE)도 같은 원리 — 비대칭 감점·백중 집계·나누기 결함 캡.
+// 6) daily.js(민턴LIVE)도 같은 원리 — 비대칭 감점(상한 포함)·백중 집계·나누기 결함 캡.
 {
-  assert(/asymCount\*2/.test(dailySrc), 'daily 실력 균형에 비대칭 감점이 있어야 합니다.');
+  assert(dailySrc.includes('Math.min(6,asymCount*1.5)'),
+    'daily 실력 균형에 상한 있는 비대칭 감점이 있어야 합니다.');
   assert(dailySrc.includes('const evenCount=matches.filter'), 'daily 에 백중 집계가 있어야 합니다.');
   assert(dailySrc.includes('splitAudit.lowStacked||splitAudit.avgGap>0.3'),
     'daily 는 나누기 결함 시 총점을 캡해야 합니다.');
+  // 후보 채점(best-of-N)도 감사와 같은 잣대를 봐야 한다 — 감사만 벌점하면
+  // 점수는 낮게 나오는데 생성은 그대로인 어긋남이 생긴다 (2026-08-14 실측 D~C 사건).
+  const teamBQ = cut(teamSrc, 'function _bracketQualityScore', '\nfunction _candidateQualityKey', 'team.js');
+  const dailyBQ = cut(dailySrc, 'function _bracketQualityScore', '\nfunction ', 'daily.js');
+  assert(/BALANCE_PARTNER_GAP_SYMMETRY/.test(teamBQ), 'team 후보 채점에 비대칭 항이 있어야 합니다.');
+  assert(/DAILY_PARTNER_GAP_SYMMETRY_LIMIT/.test(dailyBQ), 'daily 후보 채점에 비대칭 항이 있어야 합니다.');
+  // 감사 쪽 비대칭 감점은 상한이 있어야 한다 — 특이점 급수 로스터를 처벌하지 않게.
+  assert(teamSrc.includes('Math.min(8,asymMatches.length*1.5+asymSevereCount*2.5)'),
+    'team 감사의 비대칭 감점에 상한(8)이 있어야 합니다.');
   // 자유 대진 짝 고르기(formTeams)도 두 파일 모두 비대칭을 피한다.
   const teamFormBody = cut(teamSrc, 'function formTeams(four', '\nfunction updatePlayerRecords', 'team.js');
   const dailyFormBody = cut(dailySrc, 'function formTeams(four', '\nfunction updatePlayerRecords', 'daily.js');

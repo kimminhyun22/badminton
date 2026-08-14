@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.613';
+const APP_VERSION = '1.10.614';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -81,8 +81,11 @@ const BALANCE_PARTNER_GAP_SYMMETRY=MATCH_QUALITY?.constants.partnerGapSymmetryLi
 function pairGapAsymmetryPenalty(t1,t2){
   const g1=balancePartnerLevelGap(t1), g2=balancePartnerLevelGap(t2);
   const sym=Math.abs(g1-g2);
-  let penalty=sym*60;                    // 실력차(ld*80)에 준하는 무게
-  if(sym>BALANCE_PARTNER_GAP_SYMMETRY)penalty+=(sym-BALANCE_PARTNER_GAP_SYMMETRY)*500;
+  // 서열: 경미한 비대칭 < 파트너 반복(900) < 극단 비대칭.
+  // 처음 넣었던 기울기(60/500)는 sym 3 짜리를 피하려고 반복을 사들여
+  // 다양성이 무너졌다(2026-08-14 실측) — 반복보다 싼 수준으로 완화.
+  let penalty=sym*40;
+  if(sym>BALANCE_PARTNER_GAP_SYMMETRY)penalty+=(sym-BALANCE_PARTNER_GAP_SYMMETRY)*300;
   // 양쪽 다 극단이면 대칭이어도 가볍게 회피 — 즐거움과 부상 위험
   penalty+=(Math.max(0,g1-BALANCE_PARTNER_GAP_CAUTION)+Math.max(0,g2-BALANCE_PARTNER_GAP_CAUTION))*120;
   return penalty;
@@ -2048,6 +2051,15 @@ function _bracketQualityScore(matches, participants, settings){
   penalty += balance.weightedPenalty;
   penalty += balance.cautionCount*250 + balance.hardCount*3000 + balance.severeCount*12000;
   penalty += balance.maxLD*120 + balance.avgLD*80;
+  // 페어 격차 비대칭 — 감사(_qualityAssessment)와 같은 잣대를 후보 선택에도 걸어야
+  // best-of-N 이 비대칭 적은 대진을 찾는다. 감사만 벌점하면 점수는 낮게 나오는데
+  // 생성은 그대로인 어긋남이 생긴다 (2026-08-14 실측).
+  matches.forEach(m=>{
+    const g1=Math.abs(effLevel(m.team1A)-effLevel(m.team1B));
+    const g2=Math.abs(effLevel(m.team2C)-effLevel(m.team2D));
+    const sym=Math.abs(g1-g2);
+    if(sym>BALANCE_PARTNER_GAP_SYMMETRY)penalty += 220 + (sym>=3?380:0);
+  });
   penalty += balance.roundBiasMax*80 + balance.roundBiasTotal*20;
   penalty += matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0)*10000;
   penalty += matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0)*10000;
@@ -3421,6 +3433,9 @@ function _qualityAssessment(matches,participants,settings){
   const balanceAvgPenalty=Math.max(0,avgLD-excellentAvgLD)/(BALANCE_TEAM_DIFF_TARGET-excellentAvgLD)*18;
   const balanceMaxPenalty=Math.max(0,maxLD-excellentMaxLD)*2.25;
   const balanceRoundBiasPenalty=Math.max(0,balance.roundBiasMax-2)*1.5;
+  // 비대칭 감점은 상한을 둔다 — 특이점 급수(예: 유일한 6.0)가 있는 로스터는
+  // 비대칭 한두 경기가 구조적으로 불가피해서, 무제한 감점은 로스터를 처벌하게 된다.
+  const asymDeduction=Math.min(8,asymMatches.length*1.5+asymSevereCount*2.5);
   const sBalance=clamp(30-balanceAvgPenalty
     -balanceMaxPenalty
     -balance.cautionCount*1.5
@@ -3428,8 +3443,7 @@ function _qualityAssessment(matches,participants,settings){
     -balance.severeCount*6
     -Math.max(0,maxLD-BALANCE_TEAM_DIFF_LIMIT)*4
     -balanceRoundBiasPenalty
-    -asymMatches.length*2
-    -asymSevereCount*4,0,30);
+    -asymDeduction,0,30);
   const sFair=clamp(10-avoidableUnderSlots*5-avoidableOverSlots*1.2-Math.min(2,variance*10),0,10);
   const sDiversity=clamp(20
     -partnerOnlyExcess*1.25
@@ -8008,7 +8022,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.613) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.614) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''

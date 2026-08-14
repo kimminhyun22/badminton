@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.613';
+const APP_VERSION = '1.10.614';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3915,8 +3915,11 @@ function _dailyPartnerLevelGap(team){
 function pairGapAsymmetryPenalty(t1,t2){
   const g1=_dailyPartnerLevelGap(t1), g2=_dailyPartnerLevelGap(t2);
   const sym=Math.abs(g1-g2);
-  let penalty=sym*60;                    // 실력차(ld*80)에 준하는 무게
-  if(sym>DAILY_PARTNER_GAP_SYMMETRY_LIMIT)penalty+=(sym-DAILY_PARTNER_GAP_SYMMETRY_LIMIT)*500;
+  // 서열: 경미한 비대칭 < 파트너 반복(900) < 극단 비대칭.
+  // 처음 넣었던 기울기(60/500)는 sym 3 짜리를 피하려고 반복을 사들여
+  // 다양성이 무너졌다(2026-08-14 실측) — 반복보다 싼 수준으로 완화.
+  let penalty=sym*40;
+  if(sym>DAILY_PARTNER_GAP_SYMMETRY_LIMIT)penalty+=(sym-DAILY_PARTNER_GAP_SYMMETRY_LIMIT)*300;
   // 양쪽 다 극단이면 대칭이어도 가볍게 회피 — 즐거움과 부상 위험
   penalty+=(Math.max(0,g1-DAILY_PARTNER_GAP_CAUTION)+Math.max(0,g2-DAILY_PARTNER_GAP_CAUTION))*120;
   return penalty;
@@ -10295,7 +10298,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.613&from=daily';
+  location.href='team.html?v=1.10.614&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -11871,6 +11874,12 @@ function _bracketQualityScore(matches, participants, settings){
   let ldSum=0, ldMax=0;
   matches.forEach(m=>{ const ld=Math.abs(m.levelDiff||0); ldSum+=ld; if(ld>ldMax)ldMax=ld; });
   penalty += ldSum*2 + ldMax*3;
+  // 페어 격차 비대칭 — 감사와 같은 잣대를 후보 선택에도 (2026-08-14).
+  matches.forEach(m=>{
+    const g1=Math.abs(effLevel(m.team1A)-effLevel(m.team1B));
+    const g2=Math.abs(effLevel(m.team2C)-effLevel(m.team2D));
+    if(Math.abs(g1-g2)>DAILY_PARTNER_GAP_SYMMETRY_LIMIT)penalty += 6;
+  });
   penalty += matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0)*10000;
   penalty += _fixedPartnerSplitCount(matches)*100000;
   // ② 게임 수 보장 (미달 페널티 큼)
@@ -12721,7 +12730,7 @@ function _qualityAssessment(matches,participants,settings){
   // 백중 비율 — 우세가 뻔한 경기가 적을수록 좋은 대진.
   const evenCount=matches.filter(m=>Math.abs(m.levelDiff||0)<=0.5).length;
   const favCount=matches.length-evenCount;
-  const sBalance=clamp(30-avgLD/1.5*22-spikes.length*2-Math.max(0,maxLD-2)*2-asymCount*2,0,30);
+  const sBalance=clamp(30-avgLD/1.5*22-spikes.length*2-Math.max(0,maxLD-2)*2-Math.min(6,asymCount*1.5),0,30);
   const sFair=clamp(25-avoidableUnderSlots*6-avoidableOverSlots*2-Math.min(4,variance*20),0,25);
   const sPartner=clamp(15-avoidablePartnerExcess*.5
     -(avoidablePartnerExcess>0?partner3*2+partner4*5:0),0,15);

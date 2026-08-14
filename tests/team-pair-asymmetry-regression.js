@@ -72,7 +72,11 @@ for (const file of ['team.js', 'daily.js']){
     const asym = api.pairGapAsymmetryPenalty(t(6, 0.5), t(4, 2.5));    // 격차 5.5 vs 1.5
     const mirrored = api.pairGapAsymmetryPenalty(t(4, 0.5), t(4, 0.5)); // 격차 3.5 vs 3.5
     const mild = api.pairGapAsymmetryPenalty(t(4, 3), t(4, 4));        // 격차 1 vs 0
-    assert(asym > 1500, `비대칭 극단은 사실상 금지 수준이어야 합니다: ${asym}`);
+    // 서열: 파트너 반복(900)보다 비싸야 반복을 사서라도 피한다. 단 무제한으로
+    // 무거우면 경미한 비대칭까지 반복과 맞바꿔 다양성이 무너진다(2026-08-14 실측).
+    assert(asym > 900, `극단 비대칭은 파트너 반복보다 비싸야 합니다: ${asym}`);
+    const mid = api.pairGapAsymmetryPenalty(t(5, 2), t(4, 3));         // 격차 3 vs 1, sym 2
+    assert(mid < 900, `경미한 비대칭(sym 2)은 파트너 반복보다 싸야 합니다: ${mid}`);
     assert(mirrored < asym / 3,
       `나란한 격차(초심전)는 비대칭보다 훨씬 싸야 합니다: ${mirrored} vs ${asym}`);
     assert(mirrored > 0, '양쪽 다 극단이면 대칭이어도 0 은 아닙니다 (즐거움·부상).');
