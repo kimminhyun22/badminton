@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.610';
+const APP_VERSION = '1.10.611';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3816,7 +3816,108 @@ function renderResults(matches,participants,settings){
   updateCurrentRoundHighlight();
   _renderLiveOpsSummary();
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
+  _teamQuizAutoWatch();
 
+}
+
+/* ═══ 예측 설문 (예측왕 퀴즈) ═══
+   가대진을 고수들에게 보내 승자 예측(5단계)을 모은다 — 급수 영점 조정의 입력.
+   규칙 (2026-08-14 운영자):
+   - payload 에는 **이름만** 싣는다. 급수·합계를 실으면 응답이 급수를 되읽는다(앵커링).
+   - 설문 링크는 응답 대상에게만 — 전체 공개는 본대진 하나뿐이다.
+   - 집계는 기대 점수로 — 픽 개수 집계는 박빙 10개를 통승 10개로 부풀린다(5:20 오판의 원인). */
+const TEAM_QUIZ_STORAGE_KEY='badminton_team_quizId';
+let _quizWatchRef=null,_quizWatchId=null;
+function _teamQuizPayload(){
+  return {
+    kind:'expertQuiz',
+    createdAt:Date.now(),
+    expiresAt:Date.now()+2*24*60*60*1000,
+    sig:_teamLiveSignature(),
+    matches:currentMatches.map(m=>{
+      const t1b=_teamMatchIsBlueFirst(m);
+      const p1=[m.team1A.name,m.team1B.name],p2=[m.team2C.name,m.team2D.name];
+      return {num:Number(m.matchNumber),round:Number(m.round),court:Number(m.court),
+        type:m.type,t1:t1b?p1:p2,t2:t1b?p2:p1};
+    }),
+    players:currentParticipants.map(p=>p.name)
+  };
+}
+function _teamQuizUrl(qid){
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  return base+'quiz.html?q='+qid;
+}
+async function teamQuizShare(){
+  closePrintMenu();
+  if(!currentMatches.length){alert('대진표를 먼저 생성해 주세요.');return;}
+  if(!currentSettings.teamMode){alert('예측 설문은 청·홍 팀전 대진에서만 만들 수 있습니다.');return;}
+  if(!_fbInit()){alert('서버 연결에 실패했어요. 네트워크를 확인해 주세요.');return;}
+  const sig=_teamLiveSignature();
+  const stored=KokMatchStorage.getJson(TEAM_QUIZ_STORAGE_KEY,null);
+  let qid=(stored&&stored.sig===sig)?stored.qid:null;
+  try{
+    if(!qid){
+      qid='q'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+      await _fbDb.ref('quiz/'+qid).set(_teamQuizPayload());
+      KokMatchStorage.setJson(TEAM_QUIZ_STORAGE_KEY,{qid,sig});
+    }
+  }catch(e){alert('설문 저장에 실패했습니다. 네트워크를 확인해 주세요.');return;}
+  _teamQuizWatch(qid);
+  const url=_teamQuizUrl(qid);
+  const text=`🎯 예측왕 퀴즈\n이번 팀전, 누가 이길까요? 다른 분과 상의 없이 혼자 찍어 주세요.\n\n${url}`;
+  if(navigator.share){
+    try{await navigator.share({title:'예측왕 퀴즈',text});return;}
+    catch(e){if(e&&e.name==='AbortError')return;}
+  }
+  try{
+    await navigator.clipboard.writeText(text);
+    alert('설문 링크를 복사했습니다. 고수들에게 「개인톡」으로 보내 주세요.\n(단톡방에 뿌리면 서로 상의하게 되어 5표가 1표가 됩니다)');
+  }catch(e){prompt('아래 링크를 복사해 개인톡으로 보내 주세요.',url);}
+}
+function _teamQuizAutoWatch(){
+  const stored=(typeof KokMatchStorage!=='undefined'&&KokMatchStorage.getJson)
+    ?KokMatchStorage.getJson(TEAM_QUIZ_STORAGE_KEY,null):null;
+  if(!stored||!stored.qid){_teamQuizPanel(null);return;}
+  if(!currentMatches.length||stored.sig!==_teamLiveSignature()){_teamQuizPanel(null);return;}
+  if(!_fbInit())return;
+  _teamQuizWatch(stored.qid);
+}
+function _teamQuizWatch(qid){
+  if(!_fbDb||!qid)return;
+  if(_quizWatchRef&&_quizWatchId===qid)return;
+  if(_quizWatchRef)_quizWatchRef.off();
+  _quizWatchId=qid;
+  _quizWatchRef=_fbDb.ref('quiz/'+qid+'/responses');
+  _quizWatchRef.on('value',snap=>_teamQuizPanel(snap.val()||{}),()=>{});
+}
+function _teamQuizConsensus(responses,matches){
+  const P={1:.9,2:.675,3:.5,4:.325,5:.1};
+  let blue=0; const split=[];
+  (matches||[]).forEach(m=>{
+    const num=Number(m.matchNumber!=null?m.matchNumber:m.num);
+    const ps=Object.values(responses||{}).map(r=>P[r&&r.a&&r.a[num]]).filter(v=>v!=null);
+    if(!ps.length){blue+=0.5;return;}
+    blue+=ps.reduce((s,v)=>s+v,0)/ps.length;
+    const b=ps.filter(v=>v>0.5).length,w=ps.filter(v=>v<0.5).length;
+    if(b&&w)split.push(num);
+  });
+  const r1=x=>Math.round(x*10)/10;
+  return {blue:r1(blue),red:r1((matches||[]).length-blue),split};
+}
+function _teamQuizPanel(responses){
+  const el=document.getElementById('quizPanel'); if(!el)return;
+  if(responses===null){el.classList.add('hidden');el.innerHTML='';return;}
+  const rows=Object.values(responses||{});
+  el.classList.remove('hidden');
+  if(!rows.length){
+    el.innerHTML='🎯 예측 설문: 아직 응답이 없습니다 — 링크를 받은 고수들이 제출하면 여기 모입니다.';
+    return;
+  }
+  const c=_teamQuizConsensus(responses,currentMatches);
+  const names=rows.map(r=>esc(r.n||'?')).join(' · ');
+  el.innerHTML='🎯 예측 설문 응답 <b>'+rows.length+'명</b> ('+names+')'
+    +' · 고수 합의 기대 스코어 <b>청 '+c.blue+' : '+c.red+' 홍</b>'
+    +(c.split.length?' · 의견 갈린 경기: '+c.split.join(', ')+'번':'');
 }
 
 /* 참가자 현황 테이블 — 정렬/필터 */
@@ -7842,7 +7943,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.610) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.611) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''

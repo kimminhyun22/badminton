@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f6f8fc">
+<meta name="app-version" content="1.10.611">
+<!-- 카톡 미리보기: 제목만 — 대진 내용은 싣지 않는다(가대진 유출 차단) -->
+<meta property="og:title" content="예측왕 퀴즈">
+<meta property="og:description" content="이번 팀전, 누가 이길까요? 혼자 몰래 찍어 주세요.">
+<title>예측왕 퀴즈</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f8fc;--card:#fff;--line:#e3e9f3;--txt:#18202d;--mut:#6f7a8a;
+  --blue:#3568c4;--blue2:#eaf1fe;--red:#c94a3b;--red2:#fdeeea;
+  --gold:#8a6d1f;--gold2:#f7efd7;
+  --shadow:0 10px 30px rgba(35,55,90,.10);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:'Noto Sans KR',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--txt);line-height:1.45;
+}
+.wrap{max-width:560px;margin:0 auto;padding:16px 14px 90px}
+.hero{
+  background:var(--card);border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow);padding:16px;
+}
+.hero h1{margin:0 0 6px;font-size:19px}
+.hero p{margin:0;font-size:13px;color:var(--mut)}
+.hero b{color:var(--txt)}
+.state{margin:16px 0;font-size:14px;color:var(--mut);text-align:center;padding:30px 0}
+
+.who{margin:14px 0 4px}
+.who label{font-size:13px;font-weight:700;display:block;margin-bottom:6px}
+.who input{
+  width:100%;font:inherit;font-size:16px;padding:12px;
+  border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--txt);
+}
+.who input:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.who .note{font-size:12px;color:var(--mut);margin-top:5px}
+
+.bar{
+  position:sticky;top:0;z-index:9;background:var(--bg);
+  padding:9px 0;border-bottom:1px solid var(--line);
+  display:flex;align-items:baseline;gap:8px;font-size:13px;
+}
+.bar b{font-size:17px;font-variant-numeric:tabular-nums}
+.bar .dim{color:var(--mut);margin-left:auto;font-size:12px;text-align:right}
+
+.q{
+  background:var(--card);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow);margin-top:12px;padding:10px 12px 12px;
+}
+.q-head{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mut);margin-bottom:8px}
+.q-idx{font-weight:900;color:var(--txt);font-variant-numeric:tabular-nums}
+.badge{font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;border:1px solid var(--line)}
+.q-done{margin-left:auto;font-weight:900;font-size:13px;color:var(--gold)}
+.vs{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.pair{flex:1 1 0;min-width:0;font-size:15px;font-weight:700;word-break:keep-all;line-height:1.4}
+.pair.b{color:var(--blue)} .pair.r{color:var(--red);text-align:right}
+.vs .v{font-size:11px;color:var(--mut);font-weight:700}
+.opts{display:flex;gap:5px}
+.opt{
+  flex:1 1 0;min-width:0;font:inherit;cursor:pointer;
+  border:1.5px solid var(--line);border-radius:9px;background:none;color:var(--txt);
+  padding:9px 2px;font-size:12px;font-weight:700;word-break:keep-all;line-height:1.25;
+  min-height:46px;
+}
+.opt:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.opt[data-v="1"][aria-pressed="true"],.opt[data-v="2"][aria-pressed="true"]{background:var(--blue2);border-color:var(--blue)}
+.opt[data-v="4"][aria-pressed="true"],.opt[data-v="5"][aria-pressed="true"]{background:var(--red2);border-color:var(--red)}
+.opt[data-v="3"][aria-pressed="true"]{background:var(--gold2);border-color:var(--gold);color:var(--gold)}
+.skipped{opacity:.62}
+.skipped .opts{display:none}
+.skip-note{font-size:12.5px;color:var(--gold);font-weight:700}
+
+.actions{margin-top:22px}
+.btn{
+  width:100%;font:inherit;font-weight:900;font-size:16px;border-radius:12px;
+  padding:14px 16px;cursor:pointer;border:none;background:var(--blue);color:#fff;
+}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.result{
+  display:none;margin-top:12px;background:var(--gold2);
+  border:1px solid var(--gold);border-radius:12px;padding:14px;font-size:14px;
+}
+.result.on{display:block}
+.result h2{margin:0 0 4px;font-size:15px;color:var(--gold)}
+.result p{margin:4px 0 0;font-size:12.5px;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>🎯 예측왕 퀴즈</h1>
+    <p>이번 팀전 대진, 누가 이길까요? 감으로 편하게 찍어 주세요.
+       맞힌 수만큼 점수 — 세션 끝나고 예측왕을 발표합니다.
+       다른 분과 상의 없이 혼자 찍어야 공정합니다.
+       <b>「낙승」은 8점차 이상</b>(예: 25:17)으로 이길 것 같을 때입니다.</p>
+  </div>
+
+  <div class="state" id="stateMsg">불러오는 중…</div>
+
+  <div id="quizBody" style="display:none">
+    <div class="who">
+      <label for="whoInput">내 이름</label>
+      <input id="whoInput" list="whoList" placeholder="이름을 적거나 목록에서 선택" autocomplete="off">
+      <datalist id="whoList"></datalist>
+      <div class="note">본인이 뛰는 경기는 자동으로 빠집니다.</div>
+    </div>
+
+    <div class="bar">
+      <b id="done">0</b><span id="total">/ 0</span>
+      <span class="dim">청이면 왼쪽 · 홍이면 오른쪽 · 모르겠으면 박빙</span>
+    </div>
+
+    <main id="qs"></main>
+
+    <div class="actions">
+      <button class="btn" id="submitBtn" disabled>제출</button>
+    </div>
+
+    <section class="result" id="result" aria-live="polite">
+      <h2>제출 완료 — 고맙습니다!</h2>
+      <p>세션이 끝나면 채점 결과와 예측왕이 발표됩니다.
+         생각이 바뀌면 다시 찍고 제출하면 마지막 제출로 갱신됩니다.</p>
+    </section>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="js/storage.js?v=1.10.611"></script>
+<script>
+'use strict';
+/* 예측 설문 응답 페이지.
+   설계 규칙 (2026-08-14 운영자):
+   - 급수·합계 숫자는 절대 보여주지 않는다 — 급수를 되읽는 응답(앵커링)을 차단.
+     서버 payload 자체에 이름만 실려 온다(_teamQuizPayload).
+   - 문항 순서는 응답자 이름을 씨앗으로 섞는다 — 사람마다 다르고, 같은 사람은 같다.
+   - 본인이 뛰는 경기는 자동 제외 — 자기 실력 판단은 체계적으로 휘어 있다.
+   - 남의 답은 보여주지 않는다(독립 응답). 재제출은 마지막 것으로 갱신. */
+const OPTS=[[1,'청 낙승'],[2,'청'],[3,'박빙'],[4,'홍'],[5,'홍 낙승']];
+let QID='', QUIZ=null, who='', answers={};
+
+function quizStorageKey(){ return 'badminton_quiz_'+QID; }
+function quizNameKey(name){
+  return encodeURIComponent(String(name||'').trim()).replace(/[.#$[\]/']/g,'_');
+}
+/* 이름 씨앗 결정적 셔플 — 같은 사람은 같은 순서, 사람마다 다른 순서 */
+function quizSeededOrder(name,count){
+  let h=2166136261;
+  for(const ch of (name||'무명')){ h^=ch.codePointAt(0); h=Math.imul(h,16777619)>>>0; }
+  const idx=Array.from({length:count},(_,i)=>i);
+  for(let i=idx.length-1;i>0;i--){
+    h=(Math.imul(h,1103515245)+12345)>>>0;
+    const j=h%(i+1); [idx[i],idx[j]]=[idx[j],idx[i]];
+  }
+  return idx;
+}
+function quizOwnMatches(name,matches){
+  return new Set((matches||[]).filter(m=>(m.t1||[]).includes(name)||(m.t2||[]).includes(name)).map(m=>Number(m.num)));
+}
+
+const $=id=>document.getElementById(id);
+function loadDraft(){
+  const s=window.KokMatchStorage?KokMatchStorage.getJson(quizStorageKey(),{}):{};
+  who=(s&&s.who)||''; answers=(s&&s.answers)||{};
+}
+function saveDraft(){
+  if(window.KokMatchStorage)KokMatchStorage.setJson(quizStorageKey(),{who,answers});
+}
+
+function renderQuestions(){
+  const skip=quizOwnMatches(who.trim(),QUIZ.matches);
+  const order=quizSeededOrder(who.trim(),QUIZ.matches.length);
+  const root=$('qs'); root.innerHTML='';
+  order.forEach((mi,qi)=>{
+    const m=QUIZ.matches[mi];
+    const isSkip=skip.has(Number(m.num));
+    const card=document.createElement('article');
+    card.className='q'+(isSkip?' skipped':''); card.dataset.num=m.num;
+    card.innerHTML=
+      '<div class="q-head"><span class="q-idx">Q'+(qi+1)+'</span>'
+      +'<span class="badge">'+esc(m.type||'')+'</span>'
+      +(isSkip?'<span class="skip-note">내 경기 — 자동 제외</span>':'<span class="q-done" data-done></span>')
+      +'</div>'
+      +'<div class="vs"><div class="pair b">'+(m.t1||[]).map(esc).join('·')+'</div>'
+      +'<span class="v">vs</span>'
+      +'<div class="pair r">'+(m.t2||[]).map(esc).join('·')+'</div></div>'
+      +(isSkip?'':'<div class="opts">'
+        +OPTS.map(([v,label])=>'<button type="button" class="opt" data-v="'+v+'" aria-pressed="false">'
+          +label.replace(' ','<br>')+'</button>').join('')
+        +'</div>');
+    root.appendChild(card);
+  });
+  refresh();
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function refresh(){
+  const skip=quizOwnMatches(who.trim(),QUIZ.matches);
+  let done=0;
+  const need=QUIZ.matches.length-skip.size;
+  document.querySelectorAll('.q').forEach(card=>{
+    const num=Number(card.dataset.num);
+    if(skip.has(num))return;
+    const a=answers[num];
+    card.querySelectorAll('.opt').forEach(o=>{
+      o.setAttribute('aria-pressed',String(Number(o.dataset.v)===a));
+    });
+    const d=card.querySelector('[data-done]');
+    if(d)d.textContent=a?'✓':'';
+    if(a)done++;
+  });
+  $('done').textContent=done;
+  $('total').textContent='/ '+need;
+  const ready=done>=need&&!!who.trim();
+  $('submitBtn').disabled=!ready;
+  if(!who.trim())$('submitBtn').textContent='이름을 먼저 적어 주세요';
+  else if(done<need)$('submitBtn').textContent='제출 ('+(need-done)+'문항 남음)';
+  else $('submitBtn').textContent='제출';
+}
+
+async function submit(){
+  const name=who.trim();
+  if(!name)return;
+  const skip=quizOwnMatches(name,QUIZ.matches);
+  const a={};
+  QUIZ.matches.forEach(m=>{
+    const num=Number(m.num);
+    if(!skip.has(num)&&answers[num])a[num]=answers[num];
+  });
+  $('submitBtn').disabled=true;
+  try{
+    await _fbDb.ref('quiz/'+QID+'/responses/'+quizNameKey(name)).set({n:name,at:Date.now(),a});
+    $('result').classList.add('on');
+    $('result').scrollIntoView({behavior:'smooth',block:'nearest'});
+  }catch(e){
+    alert('제출에 실패했습니다. 네트워크를 확인하고 다시 눌러 주세요.');
+  }
+  $('submitBtn').disabled=false;
+}
+
+async function init(){
+  QID=new URLSearchParams(location.search).get('q')||'';
+  if(!QID){$('stateMsg').textContent='설문 링크가 올바르지 않습니다. 운영자에게 링크를 다시 받아 주세요.';return;}
+  if(!_fbInit()){$('stateMsg').textContent='서버 연결에 실패했습니다. 네트워크를 확인해 주세요.';return;}
+  let snap=null;
+  try{ snap=await _fbDb.ref('quiz/'+QID).once('value'); }catch(e){}
+  const data=snap&&snap.val();
+  if(!data||!Array.isArray(data.matches)||!data.matches.length){
+    $('stateMsg').textContent='설문을 찾을 수 없습니다. 운영자에게 링크를 다시 받아 주세요.';return;
+  }
+  if(data.expiresAt&&Date.now()>data.expiresAt){
+    $('stateMsg').textContent='이 설문은 마감되었습니다. 다음 기회에 만나요!';return;
+  }
+  QUIZ=data;
+  loadDraft();
+  $('stateMsg').style.display='none';
+  $('quizBody').style.display='';
+  $('whoList').innerHTML=[...new Set((data.players&&data.players.length?data.players
+    :data.matches.flatMap(m=>[...(m.t1||[]),...(m.t2||[])])))].sort()
+    .map(p=>'<option value="'+esc(p)+'">').join('');
+  $('whoInput').value=who;
+  renderQuestions();
+  $('whoInput').addEventListener('input',e=>{
+    who=e.target.value;
+    for(const num of quizOwnMatches(who.trim(),QUIZ.matches))delete answers[num];
+    saveDraft(); renderQuestions();
+  });
+  $('qs').addEventListener('click',e=>{
+    const btn=e.target.closest('.opt'); if(!btn)return;
+    const num=Number(btn.closest('.q').dataset.num);
+    const v=Number(btn.dataset.v);
+    if(answers[num]===v)delete answers[num];
+    else answers[num]=v;
+    saveDraft(); refresh();
+  });
+  $('submitBtn').addEventListener('click',submit);
+}
+init();
+</script>
+</body>
+</html>
