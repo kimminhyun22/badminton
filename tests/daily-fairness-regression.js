@@ -87,3 +87,8 @@ assert(engine.includes('applyFairOpportunity(session, match);'),'앱이 꺼져 �
 assert(engine.includes('rollbackFairOpportunity(session, match, now);'),'Firebase 이번만 뒤로도 공정 기회를 원복해야 합니다.');
 
 console.log('daily fairness regression ok');
+
+// 2026-08-15 시뮬: 마무리 전환 순간 대기 크레딧이 사라지며 6명 경보가 떴다 —
+// 더 넣을 대진이 없는 마무리 모드의 부족 경보는 행동 불가능한 헛경보다.
+assert((checkin.match(/finishMode\)return/g)||[]).length>=2,
+  '마무리 모드에서는 경고 창과 토스트 모두 침묵해야 합니다.');

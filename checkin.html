@@ -2773,7 +2773,7 @@ button.event-court-badge.editable:active{transform:scale(.96);}
 }
 
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.623">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.624">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2788,7 +2788,7 @@ button.event-court-badge.editable:active{transform:scale(.96);}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.623</span>
+    <span class="version-chip" id="appVersion">v1.10.624</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2848,7 +2848,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.623';
+const APP_VERSION='1.10.624';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3764,6 +3764,9 @@ const _fairAlerted=new Set();
 /* 심각 부족(경고 창 대상) 명단 — 대시보드를 계속 보고 있는 운영자에게는 지나가는
    토스트보다 **해소될 때까지 떠 있는 경고 창**이 맞다(운영자 2026-08-15). */
 function fairnessSeriousRows(){
+  // 마무리 모드에서는 더 넣을 대진이 없다 — 부족 경보는 행동 불가능한 헛경보
+  // (150분 시뮬: 마무리 전환 순간 대기 크레딧이 사라지며 6명이 한꺼번에 떴다).
+  if(session?.event?.finishMode)return [];
   const started=Number(session?.matchStartedAt||0);
   if(!started||Date.now()-started<FAIR_ALERT_WARMUP_MS)return [];
   return (session?.players||[]).map(p=>{
@@ -3774,6 +3777,7 @@ function fairnessSeriousRows(){
   }).filter(Boolean).sort((a,b)=>b.gap-a.gap);
 }
 function checkFairnessAlerts(){
+  if(session?.event?.finishMode)return;   // 마무리 뒤 부족 경보는 행동 불가능
   const started=Number(session?.matchStartedAt||0);
   if(!started||Date.now()-started<FAIR_ALERT_WARMUP_MS)return;
   const fresh=[];
