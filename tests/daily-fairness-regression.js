@@ -48,7 +48,15 @@ assert((daily.match(/_dailyApplyFairOpportunity\(/g)||[]).length>=3,'수동 경�
 assert(daily.includes('_dailyRollbackFairOpportunity(m);'),'진행 경기 취소와 이번만 뒤로에서 공정 기회를 원복해야 합니다.');
 assert(daily.includes('fairExpected:_dailyFairExpected(p)'),'회원 세션에 공정 기준값을 함께 게시해야 합니다.');
 assert(checkin.includes("priority?'우선 반영 중':'공정 배정'"),'회원 화면은 공정 상태를 두 가지 짧은 표현으로 보여야 합니다.');
-assert(checkin.includes("priority?`공정 보정 ${priority}명`:'공정 배정 정상'"),'임원 화면은 보정 인원만 짧게 집계해야 합니다.');
+// 2026-08-15 운영자: "게임 수가 부족한 인원에 대해 알림이 있어야 운영진이 챙길 거
+// 아냐" — 숫자 집계에서 이름·부족량 명시로 바뀌었다. fairExpected 는 명단 합류
+// 시점부터 쌓이므로 지각자는 자동으로 제외된다(같은 시간 체류 대비 부족만 잡힘).
+assert(checkin.includes('게임 부족 ${priority.length}명'),
+  '임원 화면은 게임 부족 인원의 이름을 보여줘야 합니다.');
+assert(checkin.includes('r.name} −${Math.round(r.gap*10)/10'),
+  '누가 몇 게임 뒤처졌는지 부족량까지 보여줘야 합니다.');
+assert(checkin.includes('지각자는 도착 이후 기준'),
+  '지각자와 동일 체류 부족을 구분한다는 설명이 있어야 합니다.');
 assert(engine.includes('applyFairOpportunity(session, match);'),'앱이 꺼져 있어도 Firebase 경기 투입이 공정 기회를 기록해야 합니다.');
 assert(engine.includes('rollbackFairOpportunity(session, match, now);'),'Firebase 이번만 뒤로도 공정 기회를 원복해야 합니다.');
 
