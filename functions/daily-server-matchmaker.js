@@ -16,6 +16,14 @@ const LATE_PRIORITY_GAMES = 2;
 const FAIR_PRIORITY_GAP = 0.75;
 const FAIR_FORCE_GAP = 1;
 const FAIR_CORRECTION_GAP = 1.5;
+// 대기 강제(상대 기준): 게임 수 격차가 없어도, **동료들의 중앙값보다 15분 이상**
+// (최소 30분) 오래 기다린 사람은 다음 편성에 반드시 넣는다. 여복 풀은 그룹으로
+// 묶여 기다려서 게임 수 격차가 안 벌어져도 대기가 길어진다 (2026-08-15 30명
+// 시뮬: 여성 5명 45분 — 운영자 "임원이 넣을 바에야, 그냥 시스템이 대진 짜면
+// 되잖아"). 절대값 기준은 안 된다 — 인원이 많으면 자연 순환 주기 자체가 30분을
+// 넘어(36명/3코트=45분) 상시 발동해 배정을 왜곡한다(36p 회귀로 실측).
+const WAIT_FORCE_MINUTES = 30;
+const WAIT_FORCE_OVER_MEDIAN = 15;
 const MAX_CANDIDATES = 22;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
@@ -122,7 +130,10 @@ function partnerRepeatPenalty(count){
 
 function opponentRepeatPenalty(count){
   const value = Math.max(0, Math.floor(number(count)));
-  const base = value === 0 ? 0 : value === 1 ? 8 : value === 2 ? 50 : value === 3 ? 190 : 1e9;
+  // 4번째 맞대결(이미 3회 반복)은 혼복 문턱(3,200)에 근접한 값으로 —
+  // "상대 3회 반복도 그냥 혼복 만들어서 투입해"(운영자 2026-08-15).
+  // 예전 760은 문턱의 1/4이라 같은 얼굴 맞대결이 그대로 반복됐다.
+  const base = value === 0 ? 0 : value === 1 ? 8 : value === 2 ? 50 : value === 3 ? 600 : 1e9;
   return base * 4;
 }
 
@@ -547,7 +558,25 @@ function bestGeneratedPairing(session, available, reference, now){
       priorityScore(session, a, now)-priorityScore(session, b, now) ||
       number(a.waitFrom)-number(b.waitFrom) ||
       playerId(a).localeCompare(playerId(b), 'ko'))
-    .find(player=>fairGap(player) >= FAIR_FORCE_GAP) || null;
+    .find(player=>fairGap(player) >= FAIR_FORCE_GAP)
+    // 게임 수 격차가 없어도 동료 중앙값보다 확연히 오래 기다린 사람은 강제 포함 —
+    // 여복처럼 그룹으로 묶여 기다리는 풀의 굶주림 방지 (운영자 2026-08-15
+    // "시스템이 대진 짜면 되잖아"). 기준이 상대적이어야 순환 주기가 긴 대인원에서
+    // 오발동하지 않는다.
+    || (()=>{
+      const waits = available
+        .map(player=>minutesSince(player.waitFrom || player.joinedAt, now))
+        .sort((a,b)=>a-b);
+      const median = waits.length ? waits[Math.floor(waits.length / 2)] : 0;
+      const threshold = Math.max(WAIT_FORCE_MINUTES, median + WAIT_FORCE_OVER_MEDIAN);
+      return available
+        .slice()
+        .sort((a,b)=>number(a.waitFrom)-number(b.waitFrom) ||
+          playerId(a).localeCompare(playerId(b), 'ko'))
+        .find(player=>minutesSince(player.waitFrom || player.joinedAt, now) >= threshold &&
+          fairGap(player) >= FAIR_PRIORITY_GAP) || null;
+    })()
+    || null;
   const urgentBest = bestUrgentGeneratedPairing(session, urgent, available, reference, now);
   if(urgentBest)return urgentBest;
   const ranked = available
@@ -735,6 +764,8 @@ function recordCompletedMatchHistory(session, match){
 
 module.exports = {
   FAIR_FORCE_GAP,
+  WAIT_FORCE_MINUTES,
+  WAIT_FORCE_OVER_MEDIAN,
   FAIR_CORRECTION_GAP,
   PARTNER_GAP_HARD,
   PARTNER_GAP_CORRECTION_LIMIT,

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.624';
+const APP_VERSION = '1.10.625';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1602,6 +1602,11 @@ function _dailyEligible(){
 const DAILY_FAIR_PRIORITY_GAP=0.75;
 const DAILY_FAIR_FORCE_GAP=1;
 const DAILY_FAIR_CORRECTION_GAP=1.5;
+// 서버(daily-server-matchmaker)와 같은 값 — 게임 수 격차가 없어도 동료 중앙값보다
+// 15분 이상(최소 30분) 오래 기다린 사람은 다음 편성에 강제 포함
+// (여복 그룹 대기 굶주림 방지, 2026-08-15). 절대값 기준은 대인원에서 오발동한다.
+const DAILY_WAIT_FORCE_MINUTES=30;
+const DAILY_WAIT_FORCE_OVER_MEDIAN=15;
 function _dailyFairActual(p){
   if(!p)return 0;
   return Number(p.games||0)+((p.status==='playing'||p.currentMatchId)?1:0);
@@ -1881,7 +1886,18 @@ function _dailyBuildQueueItem(excludeIds,options){
   }
   const urgent=[...eligible]
     .sort((a,b)=>_dailyFairGap(b)-_dailyFairGap(a)||_dailyQueuePriorityScore(a)-_dailyQueuePriorityScore(b)||(a.waitFrom||0)-(b.waitFrom||0))
-    .find(p=>_dailyFairGap(p)>=DAILY_FAIR_FORCE_GAP)||null;
+    .find(p=>_dailyFairGap(p)>=DAILY_FAIR_FORCE_GAP)
+    // 게임 수 격차가 없어도 동료 중앙값보다 확연히 오래 기다린 사람은 강제 포함 —
+    // 서버와 같은 규칙 (여복 그룹 대기 굶주림 방지, 2026-08-15).
+    ||(()=>{
+      const waits=eligible.map(p=>_dailyMinutes(p.waitFrom||p.joinedAt)).sort((a,b)=>a-b);
+      const median=waits.length?waits[Math.floor(waits.length/2)]:0;
+      const threshold=Math.max(DAILY_WAIT_FORCE_MINUTES,median+DAILY_WAIT_FORCE_OVER_MEDIAN);
+      return [...eligible]
+        .sort((a,b)=>(a.waitFrom||0)-(b.waitFrom||0))
+        .find(p=>_dailyMinutes(p.waitFrom||p.joinedAt)>=threshold&&_dailyFairGap(p)>=DAILY_FAIR_PRIORITY_GAP)||null;
+    })()
+    ||null;
   const ranked=[...eligible].sort((a,b)=>{
     if(!!a.projectedActive!==!!b.projectedActive)return a.projectedActive?1:-1;
     if((a.projectedRank??999)!==(b.projectedRank??999))return (a.projectedRank??999)-(b.projectedRank??999);
@@ -3869,7 +3885,11 @@ function _dailyPartnerRepeatPenalty(count){
   return MATCH_QUALITY?MATCH_QUALITY.partnerRepeatPenalty(count):(count===0?0:count===1?240:count===2?1400:1e9);
 }
 function _dailyOpponentRepeatPenalty(count){
-  const base=MATCH_QUALITY?MATCH_QUALITY.opponentRepeatPenalty(count):(count===0?0:count===1?8:count===2?50:count===3?190:1e9);
+  const c=Math.max(0,Math.floor(Number(count)||0));
+  // 4번째 맞대결(이미 3회 반복)은 서버와 같은 2,400 — 혼복으로 푼다
+  // ("상대 3회 반복도 그냥 혼복 만들어서 투입해", 운영자 2026-08-15).
+  if(c===3)return 2400;
+  const base=MATCH_QUALITY?MATCH_QUALITY.opponentRepeatPenalty(c):(c===0?0:c===1?8:c===2?50:c===3?190:1e9);
   return base*4;
 }
 function _dailyExactRepeatPenalty(count){
@@ -10298,7 +10318,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.624&from=daily';
+  location.href='team.html?v=1.10.625&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

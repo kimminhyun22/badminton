@@ -92,3 +92,23 @@ console.log('daily fairness regression ok');
 // 더 넣을 대진이 없는 마무리 모드의 부족 경보는 행동 불가능한 헛경보다.
 assert((checkin.match(/finishMode\)return/g)||[]).length>=2,
   '마무리 모드에서는 경고 창과 토스트 모두 침묵해야 합니다.');
+
+// 2026-08-15 운영자: "임원이 넣을 바에야, 그냥 시스템이 대진 짜면 되잖아" /
+// "상대 3회 반복도 그냥 혼복 만들어서 투입해". 서버·관리자 동일 규칙:
+// ① 대기 강제는 **상대 기준**(동료 중앙값+15분, 최소 30분) + 공정 격차 동반(≥0.75)
+//    일 때만 — 절대값 기준은 대인원(36명/3코트=순환 45분)에서 오발동한다(실측).
+// ② 4번째 맞대결(3회 반복 뒤)은 2,400 — 혼복 문턱(3,200)에 근접시켜 혼복으로 푼다.
+//    (3번째 맞대결 인상은 replenish 공정성 가드를 깨서 반려 — 실측 2026-08-15)
+const matchmaker=fs.readFileSync(path.join(root,'functions','daily-server-matchmaker.js'),'utf8');
+assert(matchmaker.includes('WAIT_FORCE_MINUTES = 30')&&matchmaker.includes('WAIT_FORCE_OVER_MEDIAN = 15'),
+  '서버 대기 강제 상수(30분·중앙값+15분)가 있어야 합니다.');
+assert(matchmaker.includes('Math.max(WAIT_FORCE_MINUTES, median + WAIT_FORCE_OVER_MEDIAN)'),
+  '대기 강제 문턱은 동료 중앙값 기준으로 계산해야 합니다.');
+assert(matchmaker.includes('fairGap(player) >= FAIR_PRIORITY_GAP) || null'),
+  '대기 강제는 공정 격차가 벌어지기 시작한(≥0.75) 사람만 잡아야 합니다.');
+assert(matchmaker.includes('value === 3 ? 600'),
+  '서버: 4번째 맞대결은 2,400(600×4)이어야 합니다.');
+assert(daily.includes('if(c===3)return 2400;'),
+  '관리자 로컬 경로도 서버와 같은 4번째 맞대결 벌점을 써야 합니다.');
+assert(daily.includes('Math.max(DAILY_WAIT_FORCE_MINUTES,median+DAILY_WAIT_FORCE_OVER_MEDIAN)'),
+  '관리자 로컬 경로도 상대 기준 대기 강제를 써야 합니다.');
