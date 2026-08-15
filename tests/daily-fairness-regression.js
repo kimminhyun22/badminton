@@ -77,6 +77,12 @@ assert(checkin.includes("openOfficialQueueCompose('${esc(p.id)}','${esc(r.id)}')
   '경고 창의 이름은 그 선수를 담은 채 다음 대진 짜기로 이어져야 합니다.');
 assert(checkin.includes('picked:preset?[preset.id]:[]'),
   '대진 짜기는 경고에서 넘어온 선수를 미리 선택해야 합니다.');
+// 2026-08-15 실전: "대기 대진에 있는데 게임부족으로 떠 … 알람의 의미가 없어" —
+// 대기 배정도 게임으로 세서, 경보는 「시스템도 아직 안 챙긴 부족」만 잡는다.
+assert(checkin.includes('(!active&&queued?1:0)'),
+  '대기 대진에 배정된 게임도 세야 곧 해소될 부족이 경보로 오르지 않습니다.');
+assert(/const queued=\(session\?\.event\?\.next\|\|\[\]\)\.some/.test(checkin),
+  '대기 배정 판정은 다음 대기표(event.next)를 봐야 합니다.');
 assert(engine.includes('applyFairOpportunity(session, match);'),'앱이 꺼져 있어도 Firebase 경기 투입이 공정 기회를 기록해야 합니다.');
 assert(engine.includes('rollbackFairOpportunity(session, match, now);'),'Firebase 이번만 뒤로도 공정 기회를 원복해야 합니다.');
 
