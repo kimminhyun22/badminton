@@ -43,6 +43,7 @@ function _teamLiveSignature(){ return 'sig-test'; }
 ${cut(teamSrc, 'function _teamMatchIsBlueFirst(m)', '\nfunction ', 'team.js')}
 let currentMatches=[];
 let currentParticipants=[];
+${cut(teamSrc, 'function _teamQuizSystemExpectation(matches)', '\nfunction _teamQuizCompare', 'team.js')}
 ${cut(teamSrc, 'function _teamQuizPayload()', '\nfunction _teamQuizUrl', 'team.js')}
 this.api={_teamQuizPayload, set(m,p){currentMatches=m;currentParticipants=p;}};
 `, sandbox);
@@ -72,14 +73,23 @@ this.api={_teamQuizPayload, set(m,p){currentMatches=m;currentParticipants=p;}};
 }
 
 // 2) 집계는 기대 점수 — 낙승 .9 / 승 .675 / 박빙 .5, 응답 없는 경기는 반반.
+//    그리고 시스템 기대와 **즉석 비교** (운영자 2026-08-15 "매번 바로 비교").
 {
-  const sandbox = {console, Object, Number, String, Array, JSON, Math};
+  const sandbox = {console, Object, Number, String, Array, JSON, Math, Set};
   vm.createContext(sandbox);
   vm.runInContext(`
+${cut(teamSrc, 'function _teamMatchIsBlueFirst(m)', '\nfunction ', 'team.js')}
 ${cut(teamSrc, 'function _teamQuizConsensus(responses,matches)', '\nfunction _teamQuizPanel', 'team.js')}
-this.api={_teamQuizConsensus};
+this.api={_teamQuizConsensus,_teamQuizSystemExpectation,_teamQuizCompare};
 `, sandbox);
-  const matches = [{matchNumber: 1}, {matchNumber: 2}, {matchNumber: 3}];
+  const P = (name, team) => ({name, team, gender: 'M'});
+  const M = (num, s1, s2, blueFirst) => ({matchNumber: num,
+    team1Level: s1, team2Level: s2,
+    team1A: P(blueFirst ? '청' + num + 'a' : '홍' + num + 'a', blueFirst ? '청팀' : '홍팀'),
+    team1B: P(blueFirst ? '청' + num + 'b' : '홍' + num + 'b', blueFirst ? '청팀' : '홍팀'),
+    team2C: P(blueFirst ? '홍' + num + 'c' : '청' + num + 'c', blueFirst ? '홍팀' : '청팀'),
+    team2D: P(blueFirst ? '홍' + num + 'd' : '청' + num + 'd', blueFirst ? '홍팀' : '청팀')});
+  const matches = [M(1, 8, 8, true), M(2, 9, 8, true), M(3, 8, 10, true)];
   const responses = {
     r1: {n: '고수1', a: {1: 1, 2: 3}},        // 1번 청낙승, 2번 박빙
     r2: {n: '고수2', a: {1: 4}}                // 1번 홍
@@ -89,7 +99,24 @@ this.api={_teamQuizConsensus};
   assert.strictEqual(c.blue, 1.6, `기대 점수 환산이 틀렸습니다: ${c.blue}`);
   assert.strictEqual(c.red, 1.4);
   assert.deepEqual(c.split, [1], '청·홍으로 갈린 경기는 1번뿐입니다(박빙은 갈림이 아님).');
-  console.log('  집계: 기대 점수 · 무응답 반반 · 갈림 감지');
+
+  // 시스템 기대: 백중 .5 · 우세 .75 · 큰 우세 .9 (방향 포함)
+  const sys = sandbox.api._teamQuizSystemExpectation(matches);
+  assert.strictEqual(sys.probs[1], 0.5, '합 차 0은 백중 = 0.5');
+  assert.strictEqual(sys.probs[2], 0.75, '합 차 +1은 청 우세 = 0.75');
+  assert.strictEqual(sys.probs[3], 0.1, '합 차 −2는 홍 큰 우세 = 청 0.1');
+  const swapped = sandbox.api._teamQuizSystemExpectation([M(4, 9, 8, false)]);
+  assert.strictEqual(swapped.probs[4], 0.25, 'team1 이 홍팀이면 방향을 뒤집어야 합니다.');
+
+  // 정합 판정: 시스템 백중(1번, 0.5)인데 고수 낙승이면… 여기선 0.6125 라 불일치 아님.
+  // 3번은 시스템 0.1 인데 응답 없음 → 판정 대상 아님. 강한 불일치를 하나 만들어 확인:
+  const strong = {r1: {n: '고수1', a: {1: 1}}};   // 1번(백중)을 청낙승 0.9 로
+  const cmp = sandbox.api._teamQuizCompare(strong, matches);
+  assert.strictEqual(cmp.flags.length, 1, `백중 vs 낙승은 강한 불일치입니다: ${JSON.stringify(cmp.flags)}`);
+  assert.strictEqual(cmp.flags[0].num, 1);
+  assert(cmp.flags[0].names.includes('청1a'), '재검토 후보로 그 경기 선수들이 지목돼야 합니다.');
+  assert(typeof cmp.gap === 'number' && typeof cmp.ok === 'boolean', '총점 오차와 성공 판정이 나와야 합니다.');
+  console.log('  집계: 기대 점수 · 시스템 비교 · 강한 불일치 지목');
 }
 
 // 3) 응답 페이지 — 자기 경기 제외 · 이름 씨앗 셔플 · 숫자 미노출.
@@ -107,6 +134,17 @@ this.api={_teamQuizConsensus};
   assert(quizHtml.includes("ref('live/'+QID)"), '설문은 live/<세션형 ID> 에서 읽어야 합니다.');
   assert(quizHtml.includes("kind!=='expertQuiz'"),
     '실경기 세션 ID 를 설문으로 열면 거부해야 합니다(네임스페이스 공유의 안전장치).');
+  // 제출 후 결과 대조 (운영자 2026-08-15 "결과가 없으니까 재미가 없고 확인도 안 돼"):
+  // 시스템 기대는 payload 에 실리되, 제출 전에는 절대 렌더되지 않아야 한다.
+  assert(teamSrc.includes('sys:_teamQuizSystemExpectation(currentMatches).probs'),
+    'payload 에 시스템 기대(확률 버킷)가 실려야 제출 후 대조가 됩니다.');
+  assert(quizHtml.includes('function renderReveal()') && quizHtml.includes('갈림 '),
+    '제출 후 시스템과의 대조(일치/갈림)를 보여줘야 합니다.');
+  assert(quizHtml.includes("classList.add('locked')") && quizHtml.includes('결과를 본 뒤에는'),
+    '결과를 본 뒤에는 수정이 잠겨야 합니다 — 보고 고치면 측정이 오염됩니다.');
+  const beforeSubmit = quizHtml.slice(0, quizHtml.indexOf('function renderReveal'));
+  assert(!beforeSubmit.includes('QUIZ.sys['),
+    '시스템 기대는 결과 화면 밖(제출 전 렌더 경로)에서 읽으면 안 됩니다.');
   assert(teamSrc.includes('qid=_genLiveId()'),
     '설문 ID 는 규칙이 허용하는 6자리 세션형 생성기를 써야 합니다.');
 

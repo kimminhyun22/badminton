@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f6f8fc">
-<meta name="app-version" content="1.10.617">
+<meta name="app-version" content="1.10.618">
 <!-- 카톡 미리보기: 제목만 — 대진 내용은 싣지 않는다(가대진 유출 차단) -->
 <meta property="og:title" content="예측왕 퀴즈">
 <meta property="og:description" content="이번 팀전, 누가 이길까요? 혼자 몰래 찍어 주세요.">
@@ -90,6 +90,17 @@ body{
 .result.on{display:block}
 .result h2{margin:0 0 4px;font-size:15px;color:var(--gold)}
 .result p{margin:4px 0 0;font-size:12.5px;color:var(--mut)}
+.locked .opt{pointer-events:none;opacity:.55}
+.rv-sum{margin:10px 0 6px;font-size:14px;font-weight:700}
+.rv-row{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
+.rv-num{font-variant-numeric:tabular-nums;font-weight:900;flex:0 0 24px}
+.rv-pair{flex:1 1 0;min-width:0;color:var(--mut);word-break:keep-all}
+.rv-pick{flex:0 0 auto;font-weight:700;white-space:nowrap}
+.rv-pick .me{color:var(--txt)} .rv-pick .sysv{color:var(--mut);font-weight:500}
+.rv-row.diff{background:var(--red2);border-radius:6px;padding-left:6px;padding-right:6px}
+.rv-row.diff .verdict{color:var(--red);font-weight:900}
+.rv-row.half .verdict{color:var(--gold);font-weight:700}
+.rv-row.same .verdict{color:var(--mut)}
 </style>
 </head>
 <body>
@@ -124,16 +135,18 @@ body{
     </div>
 
     <section class="result" id="result" aria-live="polite">
-      <h2>제출 완료 — 고맙습니다!</h2>
-      <p>세션이 끝나면 채점 결과와 예측왕이 발표됩니다.
-         생각이 바뀌면 다시 찍고 제출하면 마지막 제출로 갱신됩니다.</p>
+      <h2>제출 완료 — 결과 대조</h2>
+      <p>시스템의 판정과 내 예측을 나란히 놓았습니다. <b>갈린 경기</b>가
+         생각해볼 거리입니다 — 시스템이 놓친 걸 내가 봤을 수도, 그 반대일 수도요.
+         결과를 본 뒤에는 답을 바꿀 수 없습니다.</p>
+      <div id="revealBox"></div>
     </section>
   </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.617"></script>
+<script src="js/storage.js?v=1.10.618"></script>
 <script>
 'use strict';
 /* 예측 설문 응답 페이지.
@@ -144,7 +157,7 @@ body{
    - 본인이 뛰는 경기는 자동 제외 — 자기 실력 판단은 체계적으로 휘어 있다.
    - 남의 답은 보여주지 않는다(독립 응답). 재제출은 마지막 것으로 갱신. */
 const OPTS=[[1,'청 낙승'],[2,'청'],[3,'박빙'],[4,'홍'],[5,'홍 낙승']];
-let QID='', QUIZ=null, who='', answers={};
+let QID='', QUIZ=null, who='', answers={}, revealed=false;
 
 function quizStorageKey(){ return 'badminton_quiz_'+QID; }
 function quizNameKey(name){
@@ -168,10 +181,10 @@ function quizOwnMatches(name,matches){
 const $=id=>document.getElementById(id);
 function loadDraft(){
   const s=window.KokMatchStorage?KokMatchStorage.getJson(quizStorageKey(),{}):{};
-  who=(s&&s.who)||''; answers=(s&&s.answers)||{};
+  who=(s&&s.who)||''; answers=(s&&s.answers)||{}; revealed=!!(s&&s.revealed);
 }
 function saveDraft(){
-  if(window.KokMatchStorage)KokMatchStorage.setJson(quizStorageKey(),{who,answers});
+  if(window.KokMatchStorage)KokMatchStorage.setJson(quizStorageKey(),{who,answers,revealed});
 }
 
 function renderQuestions(){
@@ -225,6 +238,38 @@ function refresh(){
   else $('submitBtn').textContent='제출';
 }
 
+/* 제출 후 결과 대조 (운영자 2026-08-15 "결과가 나오고 시스템과 틀린 부분에 대해
+   생각해보는 게 개선에 도움"). 결과를 본 뒤에는 수정 잠금 — 보고 고치면 측정이 오염된다. */
+const MYP={1:.9,2:.675,3:.5,4:.325,5:.1};
+function sysLabel(p){
+  return p>=0.9?'청 낙승':p>0.5?'청 우세':p===0.5?'박빙':p>0.1?'홍 우세':'홍 낙승';
+}
+function myLabel(v){ return (OPTS.find(o=>o[0]===v)||[])[1]||'-'; }
+function renderReveal(){
+  const box=$('revealBox');
+  if(!QUIZ.sys){box.innerHTML='<p>이 설문은 비교 정보가 없는 이전 버전입니다.</p>';return;}
+  let same=0,half=0,diff=0,rows='';
+  QUIZ.matches.forEach(m=>{
+    const num=Number(m.num);
+    const v=answers[num]; if(!v)return;
+    const mp=MYP[v], sp=QUIZ.sys[num];
+    if(sp==null)return;
+    let cls,verdict;
+    if((mp>0.5&&sp>0.5)||(mp<0.5&&sp<0.5)||(mp===0.5&&sp===0.5)){cls='same';verdict='일치';same++;}
+    else if(mp===0.5||sp===0.5){cls='half';verdict='반 갈림';half++;}
+    else {cls='diff';verdict='갈림';diff++;}
+    rows+='<div class="rv-row '+cls+'"><span class="rv-num">'+num+'</span>'
+      +'<span class="rv-pair">'+(m.t1||[]).map(esc).join('·')+' vs '+(m.t2||[]).map(esc).join('·')+'</span>'
+      +'<span class="rv-pick"><span class="me">나 '+myLabel(v)+'</span>'
+      +' · <span class="sysv">시스템 '+sysLabel(sp)+'</span>'
+      +' <span class="verdict">'+verdict+'</span></span></div>';
+  });
+  box.innerHTML='<div class="rv-sum">시스템과 일치 '+same+' · 반 갈림 '+half+' · <b>갈림 '+diff+'</b></div>'+rows
+    +(diff?'<p>갈림 '+diff+'경기가 오늘의 수확입니다 — 실전에서 그 경기들을 눈여겨보세요.</p>'
+          :'<p>시스템과 눈이 거의 같습니다 — 급수 체계가 통념과 맞는다는 뜻입니다.</p>');
+  document.body.classList.add('locked');
+  $('result').classList.add('on');
+}
 async function submit(){
   const name=who.trim();
   if(!name)return;
@@ -237,7 +282,8 @@ async function submit(){
   $('submitBtn').disabled=true;
   try{
     await _fbDb.ref('live/'+QID+'/responses/'+quizNameKey(name)).set({n:name,at:Date.now(),a});
-    $('result').classList.add('on');
+    revealed=true; saveDraft();
+    renderReveal();
     $('result').scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(e){
     alert('제출에 실패했습니다. 네트워크를 확인하고 다시 눌러 주세요.');
@@ -269,6 +315,7 @@ async function init(){
     .map(p=>'<option value="'+esc(p)+'">').join('');
   $('whoInput').value=who;
   renderQuestions();
+  if(revealed){ $('whoInput').disabled=true; renderReveal(); }
   $('whoInput').addEventListener('input',e=>{
     who=e.target.value;
     for(const num of quizOwnMatches(who.trim(),QUIZ.matches))delete answers[num];

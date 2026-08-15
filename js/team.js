@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.617';
+const APP_VERSION = '1.10.618';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3931,6 +3931,10 @@ function _teamQuizPayload(){
       return {num:Number(m.matchNumber),round:Number(m.round),court:Number(m.court),
         type:m.type,t1:t1b?p1:p2,t2:t1b?p2:p1};
     }),
+    // 시스템의 경기별 기대(청 승률 버킷) — 응답 페이지가 **제출 후에만** 보여준다.
+    // 결과 대조가 있어야 재미가 있고, 갈린 지점을 생각해보는 게 개선 재료가 된다
+    // (운영자 2026-08-15). 급수 숫자가 아니라 확률 버킷이라 앵커링 정보는 아니다.
+    sys:_teamQuizSystemExpectation(currentMatches).probs,
     players:currentParticipants.map(p=>p.name)
   };
 }
@@ -3998,17 +4002,55 @@ function _teamQuizWatch(qid){
 }
 function _teamQuizConsensus(responses,matches){
   const P={1:.9,2:.675,3:.5,4:.325,5:.1};
-  let blue=0; const split=[];
+  let blue=0; const split=[]; const probs={};
   (matches||[]).forEach(m=>{
     const num=Number(m.matchNumber!=null?m.matchNumber:m.num);
     const ps=Object.values(responses||{}).map(r=>P[r&&r.a&&r.a[num]]).filter(v=>v!=null);
     if(!ps.length){blue+=0.5;return;}
-    blue+=ps.reduce((s,v)=>s+v,0)/ps.length;
+    const avg=ps.reduce((s,v)=>s+v,0)/ps.length;
+    probs[num]={p:avg,n:ps.length};
+    blue+=avg;
     const b=ps.filter(v=>v>0.5).length,w=ps.filter(v=>v<0.5).length;
     if(b&&w)split.push(num);
   });
   const r1=x=>Math.round(x*10)/10;
-  return {blue:r1(blue),red:r1((matches||[]).length-blue),split};
+  return {blue:r1(blue),red:r1((matches||[]).length-blue),split,probs};
+}
+/* 시스템 자체의 경기별 기대 — 백중 .5 · 우세 .75 · 큰 우세 .9
+   (9ZJ2VH 백테스트: 우세 판정 적중 12/16 = 75%). 설문 합의와 같은 단위라 바로 비교된다. */
+function _teamQuizSystemExpectation(matches){
+  let blue=0; const probs={};
+  (matches||[]).forEach(m=>{
+    const t1b=_teamMatchIsBlueFirst(m);
+    const d=(Number(m.team1Level)||0)-(Number(m.team2Level)||0);
+    const blueDiff=t1b?d:-d;
+    const a=Math.abs(blueDiff);
+    const p=a<=0.5?0.5:(a<=1.5?0.75:0.9);
+    const bp=blueDiff>=0?p:1-p;
+    probs[Number(m.matchNumber)]=bp;
+    blue+=bp;
+  });
+  return {blue:Math.round(blue*10)/10,probs};
+}
+/* 정합 판정 (운영자 2026-08-15 "실전과 상관없이 시스템 예측과 얼마나 유사한지,
+   오차가 크지 않다면 그게 성공"): 총점 오차 ≤2 그리고 강한 불일치 ≤2경기 = 성공.
+   강한 불일치 경기의 선수들이 급수 재검토 후보다. */
+function _teamQuizCompare(responses,matches){
+  const exp=_teamQuizConsensus(responses,matches);
+  const sys=_teamQuizSystemExpectation(matches);
+  const flags=[];
+  (matches||[]).forEach(m=>{
+    const num=Number(m.matchNumber!=null?m.matchNumber:m.num);
+    const e=exp.probs[num];
+    if(!e)return;
+    if(Math.abs(sys.probs[num]-e.p)>=0.35){
+      const t1b=_teamMatchIsBlueFirst(m);
+      const names=[m.team1A,m.team1B,m.team2C,m.team2D].map(p=>p&&p.name).filter(Boolean);
+      flags.push({num,names,sys:sys.probs[num],exp:Math.round(e.p*100)/100,votes:e.n});
+    }
+  });
+  const gap=Math.round(Math.abs(sys.blue-exp.blue)*10)/10;
+  return {exp,sys,gap,flags,ok:gap<=2&&flags.length<=2};
 }
 function _teamQuizPanel(responses){
   const el=document.getElementById('quizPanel'); if(!el)return;
@@ -4019,11 +4061,21 @@ function _teamQuizPanel(responses){
     el.innerHTML='🎯 예측 설문: 아직 응답이 없습니다 — 링크를 받은 고수들이 제출하면 여기 모입니다.';
     return;
   }
-  const c=_teamQuizConsensus(responses,currentMatches);
+  const cmp=_teamQuizCompare(responses,currentMatches);
   const names=rows.map(r=>esc(r.n||'?')).join(' · ');
-  el.innerHTML='🎯 예측 설문 응답 <b>'+rows.length+'명</b> ('+names+')'
-    +' · 고수 합의 기대 스코어 <b>청 '+c.blue+' : '+c.red+' 홍</b>'
-    +(c.split.length?' · 의견 갈린 경기: '+c.split.join(', ')+'번':'');
+  const sysRed=Math.round((currentMatches.length-cmp.sys.blue)*10)/10;
+  let html='🎯 예측 설문 응답 <b>'+rows.length+'명</b> ('+names+')'
+    +'<br>시스템 <b>청 '+cmp.sys.blue+' : '+sysRed+' 홍</b>'
+    +' · 고수 합의 <b>청 '+cmp.exp.blue+' : '+cmp.exp.red+' 홍</b>'
+    +' · 총점 오차 <b>'+cmp.gap+'점</b> '
+    +(cmp.ok?'✅ 정합(기준: 오차 ≤2 · 강한 불일치 ≤2)':'⚠ 재검토 권장');
+  if(cmp.flags.length){
+    const flagNums=cmp.flags.map(f=>f.num).join(', ');
+    const flagNames=[...new Set(cmp.flags.flatMap(f=>f.names))].map(esc).join('·');
+    html+='<br>강한 불일치 '+cmp.flags.length+'경기('+flagNums+'번) — 급수 재검토 후보: '+flagNames;
+  }
+  if(cmp.exp.split.length)html+='<br>고수끼리 갈린 경기: '+cmp.exp.split.join(', ')+'번';
+  el.innerHTML=html;
 }
 
 /* 참가자 현황 테이블 — 정렬/필터 */
@@ -8049,7 +8101,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.617) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.618) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
