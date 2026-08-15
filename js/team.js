@@ -4026,7 +4026,7 @@ function _teamQuizSystemExpectation(matches){
     const blueDiff=t1b?d:-d;
     const a=Math.abs(blueDiff);
     const p=a<=0.5?0.5:(a<=1.5?0.75:0.9);
-    const bp=blueDiff>=0?p:1-p;
+    const bp=Math.round((blueDiff>=0?p:1-p)*100)/100;
     probs[Number(m.matchNumber)]=bp;
     blue+=bp;
   });
