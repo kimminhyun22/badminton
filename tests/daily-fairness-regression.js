@@ -68,6 +68,15 @@ assert(checkin.includes('FAIR_ALERT_CLEAR=1.0') && checkin.includes('_fairAlerte
 assert(checkin.includes('navigator.vibrate'), '현장 소음 속에서도 닿도록 진동을 함께 울립니다.');
 assert(checkin.includes('checkFairnessAlerts();'),
   '임원 화면 갱신 경로에서 경보 판정을 호출해야 실시간이 됩니다.');
+// 2026-08-15 운영자: "대시보드에 경고 창이 뜨는 방식이 제일 좋을 것 같아 …
+// 주시하고 있다가 대진을 짜서 넣으면 되거든" — 심각 부족은 해소될 때까지 떠 있는
+// 경고 창으로, 이름을 누르면 그 선수를 담은 채 「다음 대진 짜기」가 열린다.
+assert(checkin.includes('official-fair-alert') && checkin.includes('fairnessSeriousRows()'),
+  '심각 부족은 지나가는 토스트가 아니라 떠 있는 경고 창이어야 합니다.');
+assert(checkin.includes("openOfficialQueueCompose('${esc(p.id)}','${esc(r.id)}')"),
+  '경고 창의 이름은 그 선수를 담은 채 다음 대진 짜기로 이어져야 합니다.');
+assert(checkin.includes('picked:preset?[preset.id]:[]'),
+  '대진 짜기는 경고에서 넘어온 선수를 미리 선택해야 합니다.');
 assert(engine.includes('applyFairOpportunity(session, match);'),'앱이 꺼져 있어도 Firebase 경기 투입이 공정 기회를 기록해야 합니다.');
 assert(engine.includes('rollbackFairOpportunity(session, match, now);'),'Firebase 이번만 뒤로도 공정 기회를 원복해야 합니다.');
 
