@@ -447,3 +447,17 @@ async function settle(){
   console.error(error);
   process.exitCode=1;
 });
+
+// 2026-08-15: 명부 수정이 이미 추가된 참가자 행에 전파되지 않아, 명부를 고쳐도
+// 새 세션마다 낡은 급수가 되살아났다(김하주 S 부활 사건 — 운영자 "명부 원본
+// a로 이미 바꿨는데 뭔소리야?"). 수정 저장은 참가자 캐시까지 고치고 재게시한다.
+const dailyFull=require('fs').readFileSync(require('path').join(__dirname,'..','js','daily.js'),'utf8');
+const editBody=dailyFull.slice(dailyFull.indexOf('function saveMember('),dailyFull.indexOf('function deleteMember('));
+require('assert')(editBody.includes('_dailyPropagateMemberEdit(club,prevName,'),
+  '명부 수정 저장은 참가자 행에도 전파해야 합니다.');
+const prop=dailyFull.slice(dailyFull.indexOf('function _dailyPropagateMemberEdit('),dailyFull.indexOf('/* ── 회원 편집 ── */'));
+for(const field of ['p.grade=next.grade','p.gender=_dailyGender(next.gender)','p.ageGroup=next.ageGroup','p.level=gradeToLevel(next.grade','p.isClubOfficial=!!next.isClubOfficial']){
+  require('assert')(prop.includes(field),'전파는 '+field+' 를 포함해야 합니다.');
+}
+require('assert')(prop.includes('if(_dailyCheckinId)dailyPushCheckinSession();'),
+  '라이브 세션이 있으면 전파 후 재게시까지 해야 임원·회원 화면이 따라온다.');

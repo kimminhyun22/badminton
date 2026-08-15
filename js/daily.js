@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.625';
+const APP_VERSION = '1.10.626';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -10318,7 +10318,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.625&from=daily';
+  location.href='team.html?v=1.10.626&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -15629,7 +15629,9 @@ function saveMember(){
       document.getElementById('memberName').select();return;
     }
     if(errEl)errEl.textContent='';
+    const prevName=club.members[_editingMemberIdx].name;
     club.members[_editingMemberIdx]={...club.members[_editingMemberIdx],name,grade:_memberGrade,gender:_memberGender,level,ageGroup:_memberAge,isClubOfficial};
+    _dailyPropagateMemberEdit(club,prevName,club.members[_editingMemberIdx]);
     saveRosters();renderClubList();closeMemberModal();
   }
 }
@@ -15784,6 +15786,34 @@ function importSelected(){
   const st=document.getElementById('parseStatus');
   if(st){st.style.color='var(--green)';
   st.textContent='✓ '+added+'명 등록됨'+(skipped?' (중복 '+skipped+'명 제외)':'');}
+}
+
+/* 명부 수정을 이미 추가된 참가자 행에도 전파한다. 참가자 행은 추가 시점의
+   급수·성별·나이를 캐시로 들고 있어서, 전파하지 않으면 명부를 고쳐도 세션을
+   새로 만들 때마다 낡은 값이 되살아난다 (2026-08-15 실측: 명부는 A로 고쳤는데
+   새 세션에서 김하주 S 부활 — 운영자 "명부 원본 a로 이미 바꿨는데 뭔소리야?"). */
+function _dailyPropagateMemberEdit(club,prevName,next){
+  const clubName=club?.name||'';
+  const prevId=_rsvpMemberId({name:prevName,club:clubName});
+  let touched=0;
+  _dailyPlayers.forEach(p=>{
+    const sameId=p.memberId&&p.memberId===prevId;
+    const sameName=(p.club||'')===clubName&&p.name===prevName;
+    if(!sameId&&!sameName)return;
+    p.name=next.name;
+    p.grade=next.grade;
+    p.gender=_dailyGender(next.gender);
+    p.ageGroup=next.ageGroup;
+    p.level=gradeToLevel(next.grade,next.gender)??p.level;
+    p.isClubOfficial=!!next.isClubOfficial;
+    p.memberId=_rsvpMemberId({name:next.name,club:clubName});
+    touched++;
+  });
+  if(!touched)return 0;
+  dailySave();
+  dailyRender();
+  if(_dailyCheckinId)dailyPushCheckinSession();
+  return touched;
 }
 
 /* ── 회원 편집 ── */
