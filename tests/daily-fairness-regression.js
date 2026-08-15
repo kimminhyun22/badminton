@@ -57,6 +57,17 @@ assert(checkin.includes('r.name} −${Math.round(r.gap*10)/10'),
   '누가 몇 게임 뒤처졌는지 부족량까지 보여줘야 합니다.');
 assert(checkin.includes('지각자는 도착 이후 기준'),
   '지각자와 동일 체류 부족을 구분한다는 설명이 있어야 합니다.');
+// 2026-08-15 운영자: "실시간으로 보면서 너무 부족하다 싶을 때 알림이 와서 챙길 수
+// 있게" — 임계(1.25)를 새로 넘는 순간 토스트+진동. 초반 20분은 소음 구간이라
+// 침묵하고, 1.0 아래로 풀릴 때까지 재알림하지 않는다(히스테리시스).
+assert(checkin.includes('FAIR_ALERT_GAP=1.25'), '실시간 경보 임계는 1.25 게임입니다.');
+assert(checkin.includes('FAIR_ALERT_WARMUP_MS=20*60_000'),
+  '세션 초반 20분은 경보를 울리지 않아야 합니다(시뮬 실측: 초반은 전원이 걸리는 소음).');
+assert(checkin.includes('FAIR_ALERT_CLEAR=1.0') && checkin.includes('_fairAlerted.delete(key)'),
+  '한 번 울린 경보는 풀릴 때까지 반복되지 않아야 합니다.');
+assert(checkin.includes('navigator.vibrate'), '현장 소음 속에서도 닿도록 진동을 함께 울립니다.');
+assert(checkin.includes('checkFairnessAlerts();'),
+  '임원 화면 갱신 경로에서 경보 판정을 호출해야 실시간이 됩니다.');
 assert(engine.includes('applyFairOpportunity(session, match);'),'앱이 꺼져 있어도 Firebase 경기 투입이 공정 기회를 기록해야 합니다.');
 assert(engine.includes('rollbackFairOpportunity(session, match, now);'),'Firebase 이번만 뒤로도 공정 기회를 원복해야 합니다.');
 
