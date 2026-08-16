@@ -466,7 +466,8 @@ function operationalSnapshot(session){
     reservations: session.reservations,
     arrivalCandidates: session.arrivalCandidates,
     event: session.event,
-    serverRuntime: session.serverRuntime
+    serverRuntime: session.serverRuntime,
+    completedLog: session.completedLog || []
   });
 }
 
@@ -534,6 +535,7 @@ function restoreSnapshot(session, snapshot){
   session.arrivalCandidates = clone(snapshot.arrivalCandidates || []);
   session.event = clone(snapshot.event || {});
   session.serverRuntime = clone(snapshot.serverRuntime || {holds:{}});
+  session.completedLog = clone(snapshot.completedLog || []);
   return ensureSession(session);
 }
 
@@ -1518,7 +1520,7 @@ function applyComplete(session, request, now, requestId, operation){
     incrementPlayerRelationship(b, 'opponentCount', a);
   }));
   event.completed = number(event.completed) + 1;
-  recordCompletedMatchHistory(session, match);
+  recordCompletedMatchHistory(session, match, now);
   const court = number(match.court || request.court);
   if(court){
     session.serverRuntime.holds[text(court)] = {

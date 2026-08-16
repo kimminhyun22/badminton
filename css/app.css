@@ -3223,3 +3223,12 @@ html,body{overscroll-behavior-y:none;}
 .daily-court-stack .daily-court-team-name.b{text-align:center;justify-items:center;}
 .daily-court-stack .daily-court-team-name .daily-active-player{text-align:center;}
 .daily-court-plus{width:100%;}
+
+/* 운영 기록 완료 대진 목록 (2026-08-16 운영자 "완료게임수 표시와 대진도") */
+.daily-result-list{margin-top:8px;max-height:260px;overflow-y:auto;border-top:1px solid var(--bdr,#e3e9f3);padding-top:4px;}
+.daily-result-row{display:flex;gap:8px;align-items:baseline;padding:4px 0;border-bottom:1px dashed #eef1f5;font-size:.8rem;}
+.daily-result-row:last-child{border-bottom:none}
+.daily-result-row b{flex:0 0 22px;color:#8b94a3;font-variant-numeric:tabular-nums}
+.daily-result-row .drr-type{flex:0 0 auto;font-size:.68rem;font-weight:900;color:#6f7a8a}
+.daily-result-row .drr-names{flex:1 1 0;min-width:0;font-weight:700;word-break:keep-all}
+.daily-result-row .drr-names i{font-style:normal;color:#9aa3b1;font-size:.68rem}

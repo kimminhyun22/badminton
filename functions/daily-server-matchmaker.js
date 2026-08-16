@@ -741,7 +741,7 @@ function replenishPrepared(session, options = {}){
   }
 }
 
-function recordCompletedMatchHistory(session, match){
+function recordCompletedMatchHistory(session, match, now = 0){
   session.serverRuntime = session.serverRuntime && typeof session.serverRuntime === 'object' ? session.serverRuntime : {};
   session.serverRuntime.fourCounts = session.serverRuntime.fourCounts && typeof session.serverRuntime.fourCounts === 'object'
     ? session.serverRuntime.fourCounts
@@ -760,6 +760,20 @@ function recordCompletedMatchHistory(session, match){
     const key = exactKeyFromTeams(first, second);
     session.serverRuntime.exactCounts[key] = number(session.serverRuntime.exactCounts[key]) + 1;
   }
+  // 완료 대진 로그 — 임원·관리자 화면의 「완료 N경기 + 대진 목록」 표시용
+  // (운영자 2026-08-16 "게임 게시 후부터 완료게임수 표시와 대진도 볼 수 있으면").
+  // 이름 스냅샷으로 저장한다 — 개명·이탈 뒤에도 기록이 읽혀야 한다. 최근 80개 유지.
+  session.completedLog = Array.isArray(session.completedLog) ? session.completedLog : [];
+  const nameOf = id => text(playerById(session, id)?.name);
+  session.completedLog.push({
+    seq: number(match.seq),
+    court: number(match.court),
+    type: text(match.type),
+    t1: first.map(nameOf).filter(Boolean),
+    t2: second.map(nameOf).filter(Boolean),
+    endAt: number(now) || 0
+  });
+  if(session.completedLog.length > 80)session.completedLog.splice(0, session.completedLog.length - 80);
 }
 
 module.exports = {

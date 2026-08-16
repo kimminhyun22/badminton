@@ -53,3 +53,26 @@ assert(checkin.includes('2명만 고르면 예약 버튼이 나옵니다'),
   '시트 안내문이 2명 예약 경로를 알려줘야 합니다.');
 
 console.log('checkin field feedback regression ok');
+
+// ④ 2026-08-16 운영자: "게임 게시 후부터 완료게임수 표시와 대진도 볼 수 있으면" —
+//    서버가 종료마다 completedLog(이름 스냅샷, 최근 80)를 남기고, 임원 화면과
+//    관리자 운영 기록이 완료 수 + 지난 대진 목록을 보여준다. 되돌리기 스냅샷에도
+//    포함되어 종료 취소 시 로그가 남지 않는다.
+const mm = fs.readFileSync(path.join(__dirname, '..', 'functions', 'daily-server-matchmaker.js'), 'utf8');
+const eng = fs.readFileSync(path.join(__dirname, '..', 'functions', 'daily-official-engine.js'), 'utf8');
+const dailySrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'daily.js'), 'utf8');
+assert(mm.includes('session.completedLog = Array.isArray(session.completedLog)')
+  && mm.includes('session.completedLog.length > 80'),
+  '서버는 완료 로그를 이름 스냅샷으로 최근 80개 유지해야 합니다.');
+assert(eng.includes('recordCompletedMatchHistory(session, match, now)'),
+  '완료 시각(now)이 로그에 실려야 합니다.');
+assert(eng.includes('completedLog: session.completedLog || []')
+  && eng.includes('session.completedLog = clone(snapshot.completedLog || [])'),
+  '되돌리기 스냅샷·복원에 completedLog 가 포함돼야 종료 취소가 로그를 되돌립니다.');
+assert(checkin.includes('function officialCompletedLogHtml()')
+  && checkin.includes('완료 ${log.length}경기'),
+  '임원 화면에 완료 경기 수 + 지난 대진 접이식 목록이 있어야 합니다.');
+assert(dailySrc.includes('completedLog:_dailyMatches'),
+  '관리자 게시(자동 처리·콜드 복구)에도 완료 로그가 실려야 합니다.');
+assert(dailySrc.includes('daily-result-list'),
+  '관리자 운영 기록 카드가 완료 대진 목록을 보여줘야 합니다.');

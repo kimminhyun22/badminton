@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.628';
+const APP_VERSION = '1.10.629';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5450,8 +5450,18 @@ function dailyRenderResults(){
   }
   const summaryHtml=`<div class="daily-result-banner">완료 ${st.completed.length}경기 · 진행중 ${st.active.length}경기</div>`;
   const chips=_dailyResultQualityChips(st).map(c=>`<span class="daily-quality-chip ${c.cls}">${esc(c.label)}</span>`).join('');
+  // 완료 대진 목록 — 숫자만으로는 어느 경기가 지나갔는지 알 수 없다
+  // (운영자 2026-08-16 "완료게임수 표시와 대진도 볼 수 있으면 좋겠어").
+  const nameOf=id=>esc(_dailyPlayer(id)?.name||'');
+  const doneRows=st.completed.slice()
+    .sort((a,b)=>(b.completedAt||0)-(a.completedAt||0))
+    .map(m=>`<div class="daily-result-row"><b>${esc(String(m.seq||'·'))}</b>
+      <span class="drr-type">${esc(m.type||'')}${m.court?` · ${esc(String(m.court))}코트`:''}</span>
+      <span class="drr-names">${(m.team1||[]).map(nameOf).join('·')} <i>vs</i> ${(m.team2||[]).map(nameOf).join('·')}</span></div>`)
+    .join('');
   box.className='daily-result-wrap';
-  box.innerHTML=summaryHtml+`<div class="daily-quality-chips">${chips}</div>`;
+  box.innerHTML=summaryHtml+`<div class="daily-quality-chips">${chips}</div>`
+    +(doneRows?`<div class="daily-result-list">${doneRows}</div>`:'');
 }
 function _dailyCloneStateForUndo(){
   return {
@@ -7094,6 +7104,21 @@ function _dailyCheckinPayload(){
     // 오늘 클럽은 이름으로 실어 보냅니다. 후보 배열의 '첫 번째 항목'으로 추측하게
     // 두면 임원 화면이 목록을 이름순으로 정렬하는 순간 뒤집힙니다(2026-08-13 원인).
     arrivalClub:String(_dailyOfficialArrivalRoster()?.name||''),
+    // 완료 대진 로그 — 임원 화면 「완료 N경기 + 지난 대진」 표시용 (운영자
+    // 2026-08-16). 서버 즉시 처리 모드에서는 서버가 직접 쌓지만, 관리자 자동
+    // 처리·콜드 복구 게시에서도 같은 내용이 실리도록 관리자 원본에서도 만든다.
+    completedLog:_dailyMatches
+      .filter(m=>m.completedAt&&!m.cancelledAt)
+      .sort((a,b)=>(a.completedAt||0)-(b.completedAt||0))
+      .slice(-80)
+      .map(m=>({
+        seq:Number(m.seq)||0,
+        court:Number(m.court)||0,
+        type:m.type||'',
+        t1:(m.team1||[]).map(id=>_dailyPlayer(id)?.name||'').filter(Boolean),
+        t2:(m.team2||[]).map(id=>_dailyPlayer(id)?.name||'').filter(Boolean),
+        endAt:Number(m.completedAt)||0
+      })),
     players:_dailyPlayers
       .filter(p=>p.name)
       .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
@@ -10318,7 +10343,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.628&from=daily';
+  location.href='team.html?v=1.10.629&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
