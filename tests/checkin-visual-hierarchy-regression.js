@@ -6,8 +6,10 @@ const assert = require('assert');
   const src=fs2.readFileSync(path2.join(__dirname,'..','checkin.html'),'utf8');
   // 좁은 화면(360px 이하)용 축소 규칙과 섞이지 않게 기본 선언만 봅니다.
   const size=re=>{const m=src.match(re); return m?parseFloat(m[1]):0;};
-  const active=size(/\.event-active-player\.replaceable\{font-size:(\d+(?:\.\d+)?)px;font-weight:1000/);
-  const next=size(/\.event-next-player\.replaceable\{font-size:(\d+(?:\.\d+)?)px;font-weight:1000/);
+  // 2026-08-16: 굵기는 1000→900 — 로드된 Noto Sans KR 최대가 900이라, 1000 요구는
+  // 일부 폰에서 가짜 볼드 합성으로 글리프를 깨뜨렸다(실전: 이름이 '**' 처럼 보임).
+  const active=size(/\.event-active-player\.replaceable\{font-size:(\d+(?:\.\d+)?)px;font-weight:900/);
+  const next=size(/\.event-next-player\.replaceable\{font-size:(\d+(?:\.\d+)?)px;font-weight:900/);
   assert(active>=23,`진행 중 이름은 23px 이상이어야 합니다(현재 ${active}).`);
   assert(next>=19,`다음 대진 이름은 19px 이상이어야 합니다(현재 ${next}).`);
   assert(active>next,'진행 중 이름이 다음 대진보다 커야 위계가 보입니다.');

@@ -1,0 +1,55 @@
+'use strict';
+/**
+ * 2026-08-16 실전 피드백 3건 (운영자, 민턴LIVE 실운영 후).
+ *
+ * ① "참가선수 이름이 폰에 따라 잘리거나 '**' 처럼 깨짐 — 커서 깨질 경우 자동으로
+ *    사이즈를 조절해줘야" → OS 글자 확대 차단 + 굵기 900 상한(로드된 폰트의 최대,
+ *    1000 요구는 가짜 볼드 합성으로 글리프가 깨짐) + 넘치면 자동 축소.
+ * ② "임원이 추가 참여 선수 등록 시 연령 옵션이 빠져 있었어" → 연령은 실효급수의
+ *    큰 항(50대 −1.2)이라 기본값 고정이면 매칭이 틀어진다.
+ * ③ "예약 게임 추가 시 4명 강제 대신 2명만 예약해도 자동 매칭" → 기존 파트너
+ *    접수(official-partner-reservation)를 대진 짜기 시트에서 재사용.
+ */
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+
+const checkin = fs.readFileSync(path.join(__dirname, '..', 'checkin.html'), 'utf8');
+
+// ① 이름 깨짐 방지 3중 장치
+assert(checkin.includes('text-size-adjust:100%'),
+  '폰의 시스템 글자 확대(font boosting)를 차단해야 이름 칸이 밀리지 않습니다.');
+assert(checkin.includes('.event-active-player.replaceable{font-size:23px;font-weight:900'),
+  '진행 중 이름은 900 굵기여야 합니다 — 폰트에 없는 1000은 일부 폰에서 글리프를 깨뜨립니다.');
+assert(checkin.includes('.event-next-player.replaceable{font-size:19px;font-weight:900'),
+  '다음 대진 이름도 900 굵기여야 합니다.');
+assert(!/\.event-(active|next)-player[^{]*\{[^}]*font-weight:1000/.test(checkin),
+  '이름 요소에 1000 굵기가 남아 있으면 안 됩니다.');
+assert(checkin.includes('function autoFitNames()') && checkin.includes('el.scrollWidth>el.clientWidth'),
+  '이름이 칸을 넘치면 자동으로 글자를 줄여야 합니다.');
+assert(checkin.includes('new MutationObserver('),
+  '자동 축소는 렌더 때마다 다시 걸려야 합니다.');
+assert(/autoFitNames[\s\S]{0,400}size<=13/.test(checkin),
+  '자동 축소 하한(13px)이 있어야 무한 축소로 안 읽히는 글자가 되지 않습니다.');
+
+// ② 임원 선수 추가 연령 옵션
+assert(checkin.includes('officialAddAge_'), '선수 추가 폼에 연령 선택이 있어야 합니다.');
+for (const age of ['20대', '30대', '40대', '50대', '60대+']){
+  assert(checkin.includes(`value="${age}"`), `연령 옵션 ${age} 가 있어야 합니다.`);
+}
+assert(checkin.includes("document.getElementById('officialAddAge_'+actorId)?.value||'40대'"),
+  '전송 시 폼의 연령 값을 읽어야 합니다(하드코딩 금지).');
+assert(!checkin.includes("ageGroup:'40대',"),
+  "ageGroup 하드코딩('40대')이 남아 있으면 안 됩니다.");
+
+// ③ 2명 예약 자동 매칭
+assert(checkin.includes('function submitOfficialComposePair()'),
+  '대진 짜기에서 2명 예약 제출 함수가 있어야 합니다.');
+assert(/submitOfficialComposePair[\s\S]{0,300}sendOfficialPartnerReservation\(ctx\.actorId,aId,bId\)/.test(checkin),
+  '2명 예약은 기존 파트너 접수 명령을 재사용해야 합니다(새 서버 명령 금지).');
+assert(checkin.includes('ctx.picked.length===2') && checkin.includes('두 명만 예약'),
+  '정확히 2명을 골랐을 때만 예약 버튼이 보여야 합니다.');
+assert(checkin.includes('2명만 고르면 예약 버튼이 나옵니다'),
+  '시트 안내문이 2명 예약 경로를 알려줘야 합니다.');
+
+console.log('checkin field feedback regression ok');
