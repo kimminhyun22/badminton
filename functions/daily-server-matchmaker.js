@@ -771,6 +771,8 @@ function recordCompletedMatchHistory(session, match, now = 0){
     type: text(match.type),
     t1: first.map(nameOf).filter(Boolean),
     t2: second.map(nameOf).filter(Boolean),
+    // 시작 시각도 남긴다 — 실전의 실제 게임 소요시간(21점제 검증)은 여기서만 잴 수 있다
+    startAt: number(match.startedAt) || 0,
     endAt: number(now) || 0
   });
   if(session.completedLog.length > 80)session.completedLog.splice(0, session.completedLog.length - 80);

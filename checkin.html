@@ -1535,11 +1535,11 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-fair-board summary::-webkit-details-marker{display:none}
 .official-fair-board summary::after{content:'▾';margin-left:auto;color:#8b94a3}
 .official-fair-board[open] summary::after{content:'▴'}
-.official-fair-board-list{max-height:300px;overflow-y:auto;border-top:1px solid var(--line);padding:4px 12px 6px;background:#fff;}
+.official-fair-board-list{max-height:300px;overflow-y:auto;overflow-x:hidden;border-top:1px solid var(--line);padding:4px 12px 6px;background:#fff;}
 .fair-row{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed #eef1f5;font-size:13px;}
 .fair-row:last-child{border-bottom:none}
 .fair-row.bench{opacity:.62}
-.fair-row .fr-name{flex:1 1 0;min-width:0;font-weight:800;word-break:keep-all;}
+.fair-row .fr-name{flex:1 1 0;min-width:0;font-weight:800;word-break:keep-all;overflow-wrap:anywhere;}
 .fair-row .fr-name small{font-weight:700;color:#8b94a3;margin-left:4px;font-size:11px}
 .fair-row .fr-games{flex:0 0 auto;font-variant-numeric:tabular-nums;font-weight:900;}
 .fair-row .fr-delta{flex:0 0 44px;text-align:right;font-variant-numeric:tabular-nums;font-weight:900;color:#8b94a3;}
@@ -1562,6 +1562,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-completed-row .oc-type{flex:0 0 auto;font-size:11px;font-weight:900;color:#6f7a8a}
 .official-completed-row .oc-names{flex:1 1 0;min-width:0;font-weight:700;word-break:keep-all}
 .official-completed-row .oc-names i{font-style:normal;color:#9aa3b1;font-size:11px}
+.official-completed-row .oc-dur{flex:0 0 auto;font-size:11px;font-weight:900;color:#8b94a3;font-variant-numeric:tabular-nums}
 .official-completed-row.empty{color:#8b94a3}
 .official-fair-alert{margin:10px 0;padding:12px;border:1.5px solid #e0b356;border-radius:8px;background:#fff8e8;color:#7a5200;font-size:13px;font-weight:800;}
 .official-fair-alert b{font-size:14px;}
@@ -2818,7 +2819,7 @@ button.event-court-badge.editable:active{transform:scale(.96);}
 }
 
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.630">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.631">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2833,7 +2834,7 @@ button.event-court-badge.editable:active{transform:scale(.96);}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.630</span>
+    <span class="version-chip" id="appVersion">v1.10.631</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2893,7 +2894,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.630';
+const APP_VERSION='1.10.631';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3001,9 +3002,11 @@ function autoFitNames(){
   }
 }
 new MutationObserver(()=>{
-  if(_nameFitBusy)return;
-  clearTimeout(autoFitNames._t);
-  autoFitNames._t=setTimeout(autoFitNames,60);
+  if(_nameFitBusy||autoFitNames._q)return;
+  // 마이크로태스크 배칭 — 페인트 전에 줄이므로 원크기로 한 번 그려졌다 줄어드는
+  // 깜빡임이 없다 (60ms 타이머 디바운스는 그 사이 한 프레임을 원크기로 노출했다).
+  autoFitNames._q=true;
+  queueMicrotask(()=>{autoFitNames._q=false;autoFitNames();});
 }).observe(document.body,{childList:true,subtree:true});
 function statusLabel(key){
   const s=(session?.statuses||[]).find(x=>x.key===key);
@@ -3803,8 +3806,10 @@ function playerFairnessInfo(player){
   // 대진에 있는데 게임부족으로 떠 … 이런 식이면 알람의 의미가 없어").
   // 이로써 경보의 뜻이 「부족한데 다음 대진에도 아직 없는 사람」으로 좁혀진다.
   const target=String(player.id||'');
+  // 일시정지(restPass)된 대진은 크레딧에서 뺀다 — 거기 갇힌 선수는 곧 해소가
+  // 아니라 방치 상태라, 크레딧을 주면 부족 경보까지 침묵한다 (실전 전 감사 2026-08-16).
   const queued=(session?.event?.next||[]).some(item=>
-    ((item?.playerIds)||[]).map(String).includes(target));
+    !item?.restPass&&((item?.playerIds)||[]).map(String).includes(target));
   const actual=Number(player.games||0)+(active?1:0)+(!active&&queued?1:0);
   const expected=Object.prototype.hasOwnProperty.call(player,'fairExpected')&&Number.isFinite(Number(player.fairExpected))
     ?Math.max(0,Number(player.fairExpected))
@@ -3858,11 +3863,14 @@ function officialFairBoardHtml(actorId){
   const expAvg=rows.length?rows.reduce((s,r)=>s+r.expected,0)/rows.length:0;
   const fmt=v=>{const d=Math.round(v*10)/10;return d>0?`+${d}`:d<0?`−${Math.abs(d)}`:'0';};
   rows.sort((a,b)=>(a.games-b.games)||(b.gap-a.gap));
+  // 마무리 모드에서는 부족 칩·대진 짜기 버튼을 접는다 — 더 넣을 대진이 없어
+  // 행동 불가능한 경고이고, 경보(fairnessSeriousRows)와도 모순된다 (감사 2026-08-16).
+  const finish=!!session?.event?.finishMode;
   const rowHtml=rows.map(r=>{
     const d=r.games-avg;
     const tags=[r.active?'진행 중':'',r.queued?'대기 배정':''].filter(Boolean).join(' · ');
     let chip='';let btn='';
-    if(r.gap>=FAIR_PRIORITY_GAP){
+    if(!finish&&r.gap>=FAIR_PRIORITY_GAP){
       chip=`<span class="fr-chip lack">부족 −${Math.round(r.gap*10)/10}</span>`;
       btn=`<button type="button" onclick="openOfficialQueueCompose('${esc(actorId)}','${esc(r.id)}')">대진 짜기</button>`;
     }else if(d<=-0.75){
@@ -3880,8 +3888,9 @@ function officialFairBoardHtml(actorId){
       <span class="fr-games">${b.games}게임</span><span class="fr-delta"></span></div>`).join('');
   const open=officialFairBoardHtml._open?' open':'';
   const fair=sessionFairnessSummary();
-  return `<details class="official-fair-board ${fair.count?'warn':''}"${open} ontoggle="officialFairBoardHtml._open=this.open">
-    <summary>${esc(fair.label)} · 인당 평균 ${Math.round(avg*10)/10}게임 — 분배 보기</summary>
+  const summaryLabel=finish?'마무리 중 — 게임 수 확정 단계':fair.label;
+  return `<details class="official-fair-board ${!finish&&fair.count?'warn':''}"${open} ontoggle="officialFairBoardHtml._open=this.open">
+    <summary>${esc(summaryLabel)} · 인당 평균 ${Math.round(avg*10)/10}게임 — 분배 보기</summary>
     <div class="official-fair-board-list">${rowHtml}${benchHtml}</div>
     <small class="official-fair-board-note">게임수는 완료 경기 기준, ±는 인당 평균 대비 차이입니다.
       칩 판정은 도착 이후 기준(지각자 보정)이라 완료 수가 평균보다 적어도 정상일 수 있습니다.
@@ -3892,12 +3901,16 @@ function officialFairBoardHtml(actorId){
    "게임 게시 후부터 완료게임수 표시와 대진도 볼 수 있으면 좋겠어").
    서버가 경기 종료마다 session.completedLog 에 이름 스냅샷을 남긴다(최근 80개). */
 function officialCompletedLogHtml(){
-  const log=(session?.completedLog||[]).slice().reverse();
+  // null 홀 방어 — RTDB가 정수 키 객체를 배열로 되돌릴 때 빈 인덱스를 null로
+  // 채울 수 있고, 여기서 터지면 임원 화면 렌더 전체가 멎는다.
+  const log=(session?.completedLog||[]).filter(r=>r&&typeof r==='object').reverse();
   const open=officialCompletedLogHtml._open?' open':'';
-  const rows=log.length?log.map(r=>
-    `<div class="official-completed-row"><b>${esc(String(r.seq||'·'))}</b>
+  const rows=log.length?log.map(r=>{
+    const dur=r.startAt&&r.endAt&&r.endAt>r.startAt?Math.round((r.endAt-r.startAt)/60000):0;
+    return `<div class="official-completed-row"><b>${esc(String(r.seq||'·'))}</b>
       <span class="oc-type">${esc(r.type||'')}${r.court?` · ${esc(String(r.court))}코트`:''}</span>
-      <span class="oc-names">${(r.t1||[]).map(esc).join('·')} <i>vs</i> ${(r.t2||[]).map(esc).join('·')}</span></div>`)
+      <span class="oc-names">${(r.t1||[]).map(esc).join('·')} <i>vs</i> ${(r.t2||[]).map(esc).join('·')}</span>
+      ${dur>0&&dur<180?`<span class="oc-dur">${dur}분</span>`:''}</div>`;})
     .join(''):'<div class="official-completed-row empty">아직 완료된 경기가 없습니다.</div>';
   return `<details class="official-completed"${open} ontoggle="officialCompletedLogHtml._open=this.open">
     <summary>완료 ${log.length}경기 — 지난 대진 보기</summary>
@@ -5073,7 +5086,32 @@ function renderMyCard(last,players){
   if(officialPanel){
     const officialHtml=officialSupportHtml(selected);
     officialPanel.classList.toggle('hidden',!officialHtml);
+    // 세션 갱신 재렌더가 임원의 손을 지우지 않게 — 입력 중 값·포커스·목록 스크롤을
+    // 보존한다. 갱신은 수 초 간격으로 오므로, 보존이 없으면 선수 추가 폼이 타이핑
+    // 중에 비워지고 연령 선택이 조용히 40대로 되돌아간다 (실전 전 감사 2026-08-16).
+    const keep={};
+    officialPanel.querySelectorAll('input,select').forEach(el=>{
+      if(el.id)keep[el.id]={v:el.type==='checkbox'?el.checked:el.value,c:el.type==='checkbox'};
+    });
+    const focused=document.activeElement&&officialPanel.contains(document.activeElement)?document.activeElement:null;
+    const focusId=focused?.id||'';
+    const caret=focused&&typeof focused.selectionStart==='number'?focused.selectionStart:null;
+    const boardScroll=officialPanel.querySelector('.official-fair-board-list')?.scrollTop??null;
+    const logScroll=officialPanel.querySelector('.official-completed-list')?.scrollTop??null;
     officialPanel.innerHTML=officialHtml;
+    Object.keys(keep).forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el)return;
+      if(keep[id].c)el.checked=!!keep[id].v;else el.value=keep[id].v;
+    });
+    const board=officialPanel.querySelector('.official-fair-board-list');
+    if(board&&boardScroll!=null)board.scrollTop=boardScroll;
+    const doneList=officialPanel.querySelector('.official-completed-list');
+    if(doneList&&logScroll!=null)doneList.scrollTop=logScroll;
+    if(focusId){
+      const el=document.getElementById(focusId);
+      if(el){el.focus({preventScroll:true});try{if(caret!=null&&el.setSelectionRange)el.setSelectionRange(caret,caret);}catch(e){}}
+    }
   }
   if(isLiveOperatorPlayer(selected)){
     refreshOfficialPlayerStatusActions(selected.id);
@@ -5412,6 +5450,7 @@ async function sendOfficialPartnerReservation(actorId,firstId,secondId){
     }
     render();
   }
+  return !!ok;   // 호출부(2명 예약 픽커)가 성공 여부로 닫을지 결정한다
 }
 async function sendOfficialPartnerCancel(actorId,reservationId){
   const actor=officialActor(actorId);
@@ -5825,7 +5864,7 @@ function _officialComposeRender(){
     const st=list.scrollTop;
     list.innerHTML=`${current?`<div class="replace-picker-group">현재 다음 대진 — 새 대진은 ${eventNextList().length+1}순위로 추가</div>${current}`:''}
       ${pairBtn}
-      <div class="replace-picker-group">처음 두 명이 A팀 · 경기중 선수는 경기 종료 후 투입 · 2명만 고르면 예약 버튼이 나옵니다</div>${rows.map(row).join('')}`;
+      <div class="replace-picker-group">처음 두 명이 A팀 · 경기중 선수는 경기 종료 후 투입 · 2명만 고르면 예약 버튼이 나옵니다 (실력 차가 큰 두 명은 자동 매칭 예약이 안 됩니다 — 4명을 직접 골라 주세요)</div>${rows.map(row).join('')}`;
     list.scrollTop=st;
   }
   document.getElementById('replacePicker')?.classList.remove('hidden');
@@ -5837,8 +5876,10 @@ async function submitOfficialComposePair(){
   const ctx=_officialReplaceCtx;
   if(!ctx||ctx.kind!=='compose'||ctx.picked.length!==2)return;
   const [aId,bId]=ctx.picked;
-  closeOfficialReplacePicker();
-  await sendOfficialPartnerReservation(ctx.actorId,aId,bId);
+  // 성공했을 때만 닫는다 — 거절(실력차·중복 접수 등) 토스트가 뜨는 경우 픽커까지
+  // 닫혀 있으면 고른 두 명이 날아가 처음부터 다시 골라야 한다 (실전 전 감사 2026-08-16).
+  const ok=await sendOfficialPartnerReservation(ctx.actorId,aId,bId);
+  if(ok)closeOfficialReplacePicker();
 }
 async function _officialComposeToggle(id){
   const ctx=_officialReplaceCtx;

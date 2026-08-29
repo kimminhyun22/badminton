@@ -74,5 +74,12 @@ assert(checkin.includes('function officialCompletedLogHtml()')
   '임원 화면에 완료 경기 수 + 지난 대진 접이식 목록이 있어야 합니다.');
 assert(dailySrc.includes('completedLog:_dailyMatches'),
   '관리자 게시(자동 처리·콜드 복구)에도 완료 로그가 실려야 합니다.');
+// 시작 시각 — 실제 게임 소요시간(21점제 검증)은 startAt~endAt 에서만 잴 수 있다
+assert(mm.includes('startAt: number(match.startedAt)'),
+  '서버 완료 로그에 시작 시각이 남아야 소요시간을 잴 수 있습니다.');
+assert(dailySrc.includes('startAt:Number(m.startedAt)'),
+  '관리자 게시 완료 로그에도 시작 시각이 실려야 합니다.');
+assert(checkin.includes('oc-dur'),
+  '임원 완료 목록에 게임 소요시간이 보여야 합니다.');
 assert(dailySrc.includes('daily-result-list'),
   '관리자 운영 기록 카드가 완료 대진 목록을 보여줘야 합니다.');
