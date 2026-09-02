@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.641';
+const APP_VERSION = '1.10.642';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8152,6 +8152,9 @@ function _teamUiStage(){
   return (typeof _directPlayers!=='undefined'&&_directPlayers.length)?'roster':'empty';
 }
 let _teamUiStageShown='';
+/* 저장 대진 복구 대기 여부 — renderAutoFlowDashboard 가 계산한 restoreBracket/restoreLive 를 받아 둔다.
+   그 화면은 참가자 0명이라 단계는 empty 지만, 판 넷이 「무엇을 되살리는지」를 말하는 유일한 자리다. */
+let _teamRestoreHint=false;
 function teamApplyStageLayout(){
   const stage=_teamUiStage();
   const empty=stage==='empty';
@@ -8177,12 +8180,18 @@ function teamApplyStageLayout(){
   hide('#sec-rsvp',empty&&!_rsvpId);
   // 팀 배정·빈 청홍 상자·대진 생성·대진안 저장은 참가자가 있어야 뜻이 있다
   hide('#teamListWrap',empty);
+  // 대진을 버리는 경로(전체 초기화·미진행 대진 정리)는 renderResults 를 부르지 않는다 —
+  // 지난 총 경기·라운드·예상 시간·품질 등급이 참가자 0명 화면에 남지 않도록 여기서도 접는다.
+  const hasBracket=!!(typeof currentMatches!=='undefined'&&currentMatches.length);
+  hide('#sec-quality',!hasBracket);
+  // 팀 배정·대진 생성은 4명부터다 — 그 아래에서 누르면 빨간 안내막대만 뜬다
+  const canBuild=(typeof _directPlayers!=='undefined'?_directPlayers.length:0)>=4;
   // 청/홍 배정 버튼의 주인은 updateTeamModeBadge() 다 — 여기서 hidden 을 떼면
   // 자유 대진에서 청·홍 배정 버튼이 되살아난다(2026-09-03 감사). 우리가 감춘 것만 되돌린다.
   ['teamAssignBtn','teamReassignBtn'].forEach(id=>{
     const el=document.getElementById(id);
     if(!el)return;
-    if(empty){
+    if(empty||!canBuild){
       if(!el.classList.contains('hidden')){el.classList.add('hidden');el.dataset.hiddenByStage='1';}
     }else if(el.dataset.hiddenByStage==='1'){
       el.classList.remove('hidden');el.dataset.hiddenByStage='';
@@ -8191,12 +8200,19 @@ function teamApplyStageLayout(){
   // 대진안 저장은 여기 한 곳에서만 정한다 — 상황판 사본이 떠 있으면 진행 설정 사본은 감춘다
   const saveQuick=document.getElementById('bracketSaveQuick');
   const quickVisible=!!saveQuick&&!saveQuick.classList.contains('hidden');
-  hide('.bracket-save-primary',empty||quickVisible);
+  // 중계 중에는 상황판 빠른 저장이 스스로 숨는다 — 진행 설정 사본도 같은 기준으로 감춘다
+  const liveOn=(typeof _liveOn!=='undefined'&&!!_liveOn);
+  hide('.bracket-save-primary',empty||quickVisible||liveOn);
   const genBtn=document.querySelector('#sec-settings .btn-gen');
-  if(genBtn&&genBtn.parentElement)genBtn.parentElement.classList.toggle('hidden',empty);
+  if(genBtn){
+    // 이 줄에는 되돌리기(#undoBtnMain)가 같이 있다 — 0명일 때만 줄째 감추고,
+    // 1~3명에서는 생성 버튼만 감춰 「선수 삭제 되돌리기」를 남긴다
+    if(genBtn.parentElement)genBtn.parentElement.classList.toggle('hidden',empty);
+    genBtn.classList.toggle('hidden',!canBuild);
+  }
   // 빈 화면의 상태 타일 넷 중 셋(링크·방식·대진)은 눌러도 갈 곳이 없고, 남은 하나는 위
   // 「다음 할 일」과 같은 말이다 — 진행 흐름 칩만 남긴다
-  hide('.auto-flow-board.setup-board',empty);
+  hide('.auto-flow-board.setup-board',empty&&!_teamRestoreHint);
   // 대진표·결과 탭은 대진이 만들어진 뒤에야 갈 곳이 있다
   hide('#bnav-bracket,#bnav-result',stage!=='live');
   // 참가자가 없으면 공유는 눌러도 안내창뿐이다 — 민턴LIVE 와 같은 기준.
@@ -8219,6 +8235,16 @@ function teamApplyStageLayout(){
       ['sec-players','sec-settings','sec-rsvp'].forEach(id=>{
         const el=document.getElementById(id);
         if(el&&el.tagName==='DETAILS')el.open=false;
+      });
+    }
+    if(stage==='roster'&&_teamUiStageShown==='live'){
+      // 되돌리기로 대진만 사라지고 명단이 남으면, live 에서 접어 둔 카드를 도로 편다.
+      // 「닫기」로 손수 접어 둔 것은 그대로 둔다(_autoFlowSetSection 과 같은 계약).
+      ['sec-players','sec-settings'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(!el||el.tagName!=='DETAILS')return;
+        if(typeof _teamManualClosedSections!=='undefined'&&_teamManualClosedSections.has(id))return;
+        el.open=true;
       });
     }
   }
@@ -8261,7 +8287,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.641) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.642) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
@@ -8395,6 +8421,7 @@ function renderAutoFlowDashboard(){
     _autoFlowSetSection('sec-players',stage==='playerSetup'||stage==='playerReview');
     _autoFlowSetSection('sec-settings',stage==='generate');
     _autoFlowSetResultSections(stage);
+    _teamRestoreHint=stage==='restoreBracket'||stage==='restoreLive';
     teamApplyStageLayout();
   }finally{
     _autoFlowRendering=false;

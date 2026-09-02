@@ -79,14 +79,18 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 #teamLiveActionRow{order:2;}
 #liveOpsSummary{order:3;}
 #sec-bracket{order:4;}
-#sec-quality{order:5;}
+/* 이 order 들은 #resultArea(플렉스) 자식 전용이다. #sec-quality 는 실제로는 왼쪽 칸에 있어
+   여기 걸릴 일이 없는데, 선택자에 스코프가 없어 아래 display:contents 가 왼쪽 칸을 펴는 순간
+   order:5 가 살아나 품질 점검이 설정 카드 밑 맨 끝으로 밀렸다(2026-09-03 감사). */
+#resultArea>#sec-quality{order:5;}
 @media(max-width:900px){
   #pageMain .two-col>div:first-child{display:contents;}
   #autoFlowCard{order:0;}
-  #resultArea{order:1;}
-  #sec-rsvp{order:2;}
-  #sec-players{order:3;}
-  #sec-settings{order:4;}
+  #sec-quality{order:1;}   /* 대진을 만들면 품질 점검이 결과 바로 위 — 화면이 바닥으로 튀지 않게 */
+  #resultArea{order:2;}
+  #sec-rsvp{order:3;}
+  #sec-players{order:4;}
+  #sec-settings{order:5;}
 }
 
 /* ── CARD ── */
@@ -3377,4 +3381,24 @@ header,.nav-bar{
   .card details>summary,.sync-details>summary,.roster-tools>summary{font-size:max(12px,.74rem)!important;}
   .dpi-row,.rsvp-admin-row{flex-wrap:wrap;row-gap:4px;}
   .lv-badge,.age-badge,.tlb-role,.rsvp-badge{padding-left:5px;padding-right:5px;}
+}
+
+/* ── 모달·명부·청홍 명단 (2026-09-03 감사 3차) — 40~60대 터치 44px·글자 12px ── */
+@media(max-width:768px){
+  /* 선수 변동 재배정 모달에는 모바일 규칙이 하나도 없었다 */
+  #changeModal .cp-sec-title,#changeModal #cpSortBtn,#changeModal .cp-summary{font-size:max(12px,.74rem)!important;}
+  #changeModal #cpSortBtn{min-height:34px;padding:6px 12px;}
+  #changeModal .cp-add-row{flex-wrap:wrap;gap:6px;}
+  #changeModal .cp-add-row input,#changeModal .cp-add-row select{min-height:42px;font-size:16px;}
+  #changeModal .cp-modal-footer button{min-height:44px;}
+  /* 명부에서 참가자 선택 */
+  #importModal .club-tabs-bar button,#importModal .ctab-btn{min-height:38px;font-size:max(12px,.76rem);}
+  #importModal .dir-sort-btn{min-height:34px;}
+  /* 저장 목록 */
+  #slotListModal button,.slot-row button{min-height:38px;font-size:max(12px,.76rem);}
+  /* 청·홍 명단 */
+  .tlb-diff{font-size:max(12px,.74rem)!important;}
+  .tlb-move,.tlb-role-btn{min-width:34px;min-height:34px;}
+  /* 클럽 선택 드롭다운이 글자 확대에서 카드 밖으로 나가던 것 */
+  #rsvpClubSelect,.rsvp-grid select{max-width:100%;min-width:0;font-size:16px;}
 }

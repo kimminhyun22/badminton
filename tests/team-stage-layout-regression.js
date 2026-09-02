@@ -186,8 +186,10 @@ assert(src.includes("el.dataset.hiddenByStage='1';") && src.includes("else if(el
   assert(dom.hidden('#teamAssignBtn'), '자유 대진에서 감춰 둔 청/홍 배정 버튼을 단계 로직이 되살리면 안 됩니다.');
 }
 // 가대진 저장 사본은 단계 배치 한 곳에서만 정한다
-assert(src.includes("hide('.bracket-save-primary',empty||quickVisible);"),
-  '가대진 저장 사본의 주인은 한 곳이어야 합니다.');
+assert(src.includes("hide('.bracket-save-primary',empty||quickVisible||liveOn);"),
+  '대진안 저장 사본의 주인은 한 곳이어야 하고, 중계 중에는 양쪽 다 감춰야 합니다.');
+assert(run({ players: [{}], matches: [{}], live: true }).hidden('.bracket-save-primary'),
+  '중계 중에는 진행 설정의 저장 사본도 감춰야 합니다(상황판 빠른 저장과 같은 기준).');
 assert(run({ players: [{}], quickVisible: true }).hidden('.bracket-save-primary'),
   '상황판 사본이 떠 있으면 진행 설정 사본은 감춰야 합니다.');
 // 자유 대진에는 청·홍 명단이 없다
@@ -221,5 +223,34 @@ assert(css.includes('.op-status-sub{max-width:100%!important;text-align:left;}')
   '운영 상태 줄은 좁은 화면에서 오른쪽 정렬로 깨지지 않아야 합니다.');
 assert(css.includes('.hb{font-size:max(12px,.68rem);}'),
   '헤더 배지도 12px 하한을 지켜야 합니다.');
+
+// ── 최종 감사(2026-09-03) 반영 ──
+// 대진을 버리면 지난 지표가 남지 않는다 — 전체 초기화는 renderResults 를 부르지 않는다
+assert(run({}).hidden('#sec-quality') && run({ players: [{}] }).hidden('#sec-quality'),
+  '대진이 없으면 품질 점검 카드는 감춰져야 합니다.');
+assert(run({ players: [{}], live: true }).hidden('#sec-quality'),
+  '중계만 켜져 있고 대진이 없으면 빈 품질 카드가 뜨면 안 됩니다.');
+assert(!run({ players: [{}], matches: [{}] }).hidden('#sec-quality'),
+  '대진이 있으면 품질 점검이 보여야 합니다.');
+// 팀 배정·대진 생성은 4명부터 — 1~3명에서는 눌러도 빨간 안내막대뿐이다
+{
+  const few = run({ players: [{}, {}, {}] });
+  assert(few.hidden('#teamAssignBtn') && few.hidden('#sec-settings .btn-gen'),
+    '1~3명에서는 팀 배정·대진 생성이 감춰져야 합니다.');
+  assert(!few.hidden('gen-row'), '되돌리기는 남아야 합니다 — 줄째 감추는 것은 0명일 때뿐입니다.');
+  const four = run({ players: [{}, {}, {}, {}] });
+  assert(!four.hidden('#teamAssignBtn') && !four.hidden('#sec-settings .btn-gen'),
+    '4명부터는 팀 배정·대진 생성이 보여야 합니다.');
+}
+// 저장 대진 복구 화면에서는 「무엇을 되살리는지」 판을 남긴다
+assert(src.includes("hide('.auto-flow-board.setup-board',empty&&!_teamRestoreHint);")
+  && src.includes("_teamRestoreHint=stage==='restoreBracket'||stage==='restoreLive';"),
+  '복구 대기 화면에서는 상태 판을 감추면 안 됩니다.');
+// 되돌리기로 대진만 사라지면 접어 둔 카드를 도로 편다
+assert(src.includes("if(stage==='roster'&&_teamUiStageShown==='live')"),
+  '대진을 버리고 명단만 남으면 세팅 카드가 다시 열려야 합니다.');
+// 900px 이하에서 품질 점검이 설정 카드 밑으로 밀리던 것
+assert(css.includes('#resultArea>#sec-quality{order:5;}') && css.includes('  #sec-quality{order:1;}'),
+  '품질 점검 order 는 결과 영역 자식으로 좁히고, 모바일에서는 결과 위에 와야 합니다.');
 
 console.log('team stage layout regression ok');
