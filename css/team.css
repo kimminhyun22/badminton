@@ -3291,3 +3291,23 @@ header,.nav-bar{
   .si label{font-size:max(12px,.8rem);}
   .match-mode-hint{font-size:max(12px,.76rem);}
 }
+
+/* ── 공유 채널 버튼 (2026-09-03, 민턴LIVE와 동일) ── */
+.team-share-top{display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+.team-share-top svg,.team-live-secondary.share svg{width:16px;height:16px;flex:0 0 auto;}
+.team-share-top.kakao{background:#FEE500;border-color:#e3cc00;color:#191919;}
+.team-share-top.band{background:#eafbf1;border-color:#9fe3b8;color:#0b7a3b;}
+.team-live-secondary.kakao,.rsvp-action-btn.kakao{background:#FEE500;border-color:#e3cc00;color:#191919;}
+.team-live-secondary.band,.rsvp-action-btn.band{background:#eafbf1;border-color:#9fe3b8;color:#0b7a3b;}
+.daily-flash-note{position:fixed;left:50%;bottom:calc(76px + var(--safe-bottom,0px));transform:translateX(-50%);max-width:88vw;background:#263041;color:#fff;padding:10px 14px;border-radius:999px;font-size:.82rem;font-weight:800;line-height:1.3;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.22);opacity:0;pointer-events:none;transition:opacity .2s;word-break:break-all;}
+.daily-flash-note.on{opacity:1;}
+
+/* 참가자 확인의 직접 추가 폼 — 접이식(명부에서 고르는 것이 기본 경로) */
+.team-direct-add{border:1px solid var(--bdr);border-radius:9px;margin-top:7px;background:#fff;}
+.team-direct-add summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;padding:10px 12px;min-height:44px;font-size:max(12px,.82rem);font-weight:800;color:var(--bl-deep);}
+.team-direct-add summary small{font-weight:600;color:var(--dim);font-size:max(12px,.72rem);}
+.team-direct-add summary::-webkit-details-marker{display:none;}
+.team-direct-add summary::after{content:'펼치기';margin-left:auto;font-size:max(12px,.7rem);color:var(--dim2);font-weight:600;}
+.team-direct-add[open] summary::after{content:'접기';}
+.team-direct-add[open] summary{border-bottom:1px dashed var(--bdr);}
+.team-direct-add-body{padding:9px 10px 11px;}

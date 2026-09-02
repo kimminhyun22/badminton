@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.638';
+const APP_VERSION = '1.10.639';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6466,6 +6466,7 @@ function renderTeamRosterTransferButton(){
     if(!btn)return;
     btn.disabled=!count;
     btn.textContent=count?`민턴LIVE 선수 ${count}명 가져오기`:'민턴LIVE 선수 없음';
+    btn.classList.toggle('hidden',!count);   // 없을 때 비활성 버튼은 세팅 화면의 소음
   });
 }
 function teamImportDailyRoster(){
@@ -7532,30 +7533,86 @@ async function rsvpPublishSession(silent){
   rsvpRender();
   return _rsvpId;
 }
-async function rsvpShareLink(){
-  await rsvpCopyShareText(false);
+async function rsvpShareLink(channel){
+  await rsvpCopyShareText(false,channel);
 }
-async function rsvpCopyShareText(auto){
+/* 채널별 바로 공유 — 민턴LIVE(daily.js)와 같은 방식(2026-09-03 운영자 "팀전도 동일하게").
+   밴드 창은 사용자 제스처 안에서 먼저 열어야 팝업 차단에 걸리지 않는다(await 뒤 window.open 은 막힌다). */
+function _teamOpenSharePopup(){
+  try{return window.open('about:blank','_blank');}catch(e){return null;}
+}
+function _teamBandShareUrl(text,url){
+  return `https://band.us/plugin/share?body=${encodeURIComponent(text)}&route=${encodeURIComponent(url)}`;
+}
+function _teamShareToBand(popup,text,url){
+  const share=_teamBandShareUrl(text,url);
+  if(popup&&!popup.closed){popup.location.href=share;try{popup.focus();}catch(e){}return;}
+  location.href=share;
+}
+let _teamKakaoSdkPromise=null;
+function _teamLoadKakaoSdk(){
+  if(window.Kakao)return Promise.resolve();
+  if(_teamKakaoSdkPromise)return _teamKakaoSdkPromise;
+  _teamKakaoSdkPromise=new Promise((resolve,reject)=>{
+    const el=document.createElement('script');
+    el.src='https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
+    el.crossOrigin='anonymous';
+    el.onload=resolve;
+    el.onerror=()=>{_teamKakaoSdkPromise=null;reject(new Error('kakao sdk load failed'));};
+    document.head.appendChild(el);
+  });
+  return _teamKakaoSdkPromise;
+}
+async function _teamShareToKakao(text,url){
+  const key=String(window.KOKMATCH_KAKAO_JS_KEY||'').trim();
+  if(!key)return false;   // 키가 없으면 기기 공유 시트로 (team.html 설정 참조)
+  try{
+    await _teamLoadKakaoSdk();
+    if(!window.Kakao)return false;
+    if(!Kakao.isInitialized())Kakao.init(key);
+    Kakao.Share.sendDefault({objectType:'text',text,link:{mobileWebUrl:url,webUrl:url}});
+    return true;
+  }catch(e){
+    console.warn('카카오톡 공유 실패 — 기기 공유 시트로 대체',e);
+    return false;
+  }
+}
+// 2초짜리 짧은 안내 — alert 처럼 확인을 누르게 하지 않는다
+function _teamFlashNote(message){
+  let el=document.getElementById('teamFlashNote');
+  if(!el){
+    el=document.createElement('div');
+    el.id='teamFlashNote';
+    el.className='daily-flash-note';
+    el.setAttribute('role','status');
+    document.body.appendChild(el);
+  }
+  el.textContent=String(message||'');
+  el.classList.add('on');
+  clearTimeout(_teamFlashNote._t);
+  _teamFlashNote._t=setTimeout(()=>el.classList.remove('on'),2200);
+}
+async function rsvpCopyShareText(auto,channel){
+  channel=String(channel||'');
+  // 밴드 창을 제스처 안에서 먼저 연다 — 아래 await(게시) 뒤에는 팝업 차단에 걸린다
+  const popup=channel==='band'?_teamOpenSharePopup():null;
+  const failShare=(msg)=>{if(popup&&!popup.closed)popup.close();alert(msg);return false;};
   if(currentMatches.length)_rsvpEnsureCurrentEventLink({silent:auto,createIfMissing:true});
   if(!_rsvpSessionMembers().length){
-    alert('관리자가 오늘 팀전 참가자를 먼저 세팅해 주세요.');
     teamLiveOpenPlayers();
-    return false;
+    return failShare('관리자가 오늘 팀전 참가자를 먼저 세팅해 주세요.');
   }
-  if(!_fbInit()){
-    alert('팀전 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
-    return false;
-  }
+  if(!_fbInit())return failShare('팀전 링크 서버 연결에 실패했어요. 네트워크를 확인해 주세요.');
   rsvpEnsureId();
   const url=_rsvpUrl();
   _rsvpApplyAutoTitle(false);
   const title=_rsvpTitle();
   const text=`🏸 ${title}\n내 이름을 눌러 실중계에 들어가세요.\n\n${url}`;
   const published=await rsvpPublishSession(true).catch(()=>null);
-  if(!published){
-    alert('팀전 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
-    return false;
-  }
+  if(!published)return failShare('팀전 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+  // 채널 버튼을 눌렀으면 그 앱의 공유가 바로 열린다 — 안내창은 띄우지 않는다
+  if(channel==='band'){_teamShareToBand(popup,text,url);return true;}
+  if(channel==='kakao'&&await _teamShareToKakao(text,url))return true;
   if(navigator.share){
     try{
       await navigator.share({title,text});
@@ -7566,14 +7623,13 @@ async function rsvpCopyShareText(auto){
       }
     }
   }
+  // 공유 시트가 없는 환경(PC): 조용히 복사하고 짧게만 알린다 — 확인창을 누르게 하지 않는다
   try{
     await navigator.clipboard.writeText(text);
-    alert(auto
-      ? '공유창을 열 수 없어 문구를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.'
-      : '팀전 링크를 복사했습니다. 단톡방이나 밴드에 붙여넣어 주세요.\n\n'+url);
+    _teamFlashNote('링크를 복사했습니다 — 붙여넣어 보내세요');
     return true;
   }catch(e){
-    alert('공유창을 열 수 없습니다. 네트워크와 브라우저 권한을 확인한 뒤 다시 시도해 주세요.');
+    if(typeof prompt==='function')prompt('복사가 막혔습니다. 아래 주소를 길게 눌러 복사하세요.',url);
     return false;
   }
 }
@@ -7989,7 +8045,8 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
       </div>
       <div class="team-live-ops-actions">
         <button class="team-live-primary" type="button" onclick="teamLiveOpenPanel('${primaryTarget}')">${esc(primaryLabel)}</button>
-        <button class="team-live-secondary" type="button" onclick="rsvpShareLink()">링크 공유</button>
+        <button class="team-live-secondary share kakao" type="button" onclick="rsvpShareLink('kakao')">카카오톡</button>
+        <button class="team-live-secondary share band" type="button" onclick="rsvpShareLink('band')">밴드</button>
       </div>
     </div>
     ${chips.length?`<div class="team-live-alert-row">${chips.join('')}</div>`:''}`;
@@ -8064,6 +8121,64 @@ function teamLiveOpenPanel(target){
     window.scrollTo({top,behavior:'smooth'});
   }
 }
+/* 화면 단계 — 세팅 중에는 아직 할 수 없는 카드·버튼을 감춘다 (민턴LIVE 와 같은 원리,
+   운영자 2026-09-03 "민턴라이브처럼 팀전라이브도 동일하게"). 판정은 상태에서만 — 저장하지 않는다.
+   empty : 참가자 0명·대진 없음 → 참가자 확인 카드만. 링크·팀 배정·대진 생성은 눌러도 안내창뿐이다.
+   roster: 참가자 있음·대진 없음 → 링크·진행 설정까지 열린다.
+   live  : 대진이 만들어진 뒤 → 결과가 먼저 오도록 세팅 카드는 접는다. */
+function _teamUiStage(){
+  if((typeof currentMatches!=='undefined'&&currentMatches.length)||(typeof _liveOn!=='undefined'&&_liveOn))return 'live';
+  return (typeof _directPlayers!=='undefined'&&_directPlayers.length)?'roster':'empty';
+}
+let _teamUiStageShown='';
+function teamApplyStageLayout(){
+  const stage=_teamUiStage();
+  const empty=stage==='empty';
+  const page=document.getElementById('pageMain');
+  if(page)['empty','roster','live'].forEach(s=>page.classList.toggle('team-stage-'+s,stage===s));
+  const hide=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hidden',!!on));
+  // 명부가 비어 있으면 직접 추가가 유일한 등록 길이라 자동으로 펼친다
+  const directBox=document.getElementById('teamDirectAddBox');
+  if(directBox&&_teamUiStageShown!==stage){
+    const rosterEmpty=!(((typeof rosters!=='undefined'&&rosters?.clubs)||[]).some(c=>(c.members||[]).length));
+    directBox.open=empty&&rosterEmpty;
+  }
+  // 저장 상태 줄은 내용이 있을 때만 — 빈 채로 두면 파란 빈 상자가 카드 맨 위를 차지한다
+  const saveBar=document.getElementById('mobSaveBar');
+  if(saveBar){
+    const status=document.getElementById('mobSaveStatus');
+    const restore=document.getElementById('mobRestoreBtn');
+    const hasStatus=!!String(status?.textContent||'').trim();
+    const hasRestore=!!(restore&&!restore.classList.contains('hidden'));
+    saveBar.classList.toggle('hidden',!hasStatus&&!hasRestore);
+  }
+  // 참가자가 없으면 링크 카드는 "참가자를 세팅하면 준비됩니다" 안내만 남는다
+  hide('#sec-rsvp',empty&&!_rsvpId);
+  // 팀 배정·빈 청홍 상자·대진 생성·가대진 저장은 참가자가 있어야 뜻이 있다
+  hide('#teamAssignBtn,#teamReassignBtn,#teamListWrap,.bracket-save-primary',empty);
+  const genBtn=document.querySelector('#sec-settings .btn-gen');
+  if(genBtn&&genBtn.parentElement)genBtn.parentElement.classList.toggle('hidden',empty);
+  // 빈 화면의 상태 타일 넷 중 셋(링크·방식·대진)은 눌러도 갈 곳이 없고, 남은 하나는 위
+  // 「다음 할 일」과 같은 말이다 — 진행 흐름 칩만 남긴다
+  hide('.auto-flow-board.setup-board',empty);
+  // 대진표·결과 탭은 대진이 만들어진 뒤에야 갈 곳이 있다
+  hide('#bnav-bracket,#bnav-result',stage!=='live');
+  // 접힘은 단계가 바뀌는 순간에만 손댄다 — 사용자가 펼쳐 둔 것을 매 렌더마다 뒤집지 않도록
+  if(_teamUiStageShown!==stage){
+    if(empty){
+      _teamForceOpenSection('sec-players');
+      const settings=document.getElementById('sec-settings');
+      if(settings&&settings.tagName==='DETAILS')settings.open=false;
+    }
+    if(stage==='live'){
+      ['sec-players','sec-settings','sec-rsvp'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el&&el.tagName==='DETAILS')el.open=false;
+      });
+    }
+  }
+  _teamUiStageShown=stage;
+}
 function _autoFlowSetResultSections(stage){
   _autoFlowSetSection('sec-quality',stage==='broadcast'||stage==='resume');
   _autoFlowSetSection('sec-scoreboard',stage==='live');
@@ -8101,7 +8216,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.638) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.639) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
@@ -8235,6 +8350,7 @@ function renderAutoFlowDashboard(){
     _autoFlowSetSection('sec-players',stage==='playerSetup'||stage==='playerReview');
     _autoFlowSetSection('sec-settings',stage==='generate');
     _autoFlowSetResultSections(stage);
+    teamApplyStageLayout();
   }finally{
     _autoFlowRendering=false;
   }
@@ -8272,7 +8388,8 @@ if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정)`:'';
         </div>
       </div>
       <div class="rsvp-current-actions">
-        <button class="rsvp-action-btn primary soft" onclick="rsvpShareLink()">${_rsvpId?'링크 다시 공유':'링크 공유'}</button>
+        <button class="rsvp-action-btn primary soft kakao" onclick="rsvpShareLink('kakao')">카카오톡</button>
+        <button class="rsvp-action-btn primary soft band" onclick="rsvpShareLink('band')">밴드</button>
         <button class="rsvp-action-btn primary soft" onclick="teamLiveOpenPlayers()">참가자 수정</button>
       </div>
     </div>
@@ -9376,6 +9493,12 @@ function switchMobileTab(tab){
     };
     const targetId = targetMap[tab];
     const el = document.getElementById(targetId);
+    // 단계별로 감춘 구역은 top 이 0 이라 제자리 스크롤이 된다 — 상황판으로 보낸다
+    if(!el||el.offsetParent===null){
+      syncBottomNav('dashboard');
+      window.scrollTo({top:0,behavior:'smooth'});
+      return;
+    }
     if(el){
       if(el.tagName==='DETAILS')el.open=true;
       const offset = 8; // 약간의 여백
