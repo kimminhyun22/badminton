@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.634';
+const APP_VERSION = '1.10.635';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5910,7 +5910,7 @@ function dailyApplyStageLayout(){
   hide('#bnav-players',stage==='empty');
   // 게시 전 선수 필터는 등록·현재·도착 전만 — 대기/경기중/휴식/종료/다음대진은 아직 뜻이 없다
   hide('#dailyPlayerFilterWait,#dailyPlayerFilterPlaying,#dailyPlayerFilterRest,#dailyPlayerFilterDone,#dailyPlayerFilterQueued',!live);
-  hide('#dailyQuickShareBtn',stage==='empty'&&!_dailyCheckinId);   // 보낼 명단이 없다
+  hide('#dailyQuickShareBtn,#dailyQuickShareBandBtn',stage==='empty'&&!_dailyCheckinId);   // 보낼 명단이 없다
   hide('#dailyQuickStopBtn',!_dailyCheckinId);                    // 종료할 링크가 없다
   hide('#dailyQuickResetBtn',stage==='empty'&&!_dailyCheckinId);  // 지울 것이 없다
   const setup=document.getElementById('dailySetupDetails');
@@ -5927,7 +5927,7 @@ function dailyRenderOpsStats(){
   const el=document.getElementById('dailyOpsStats');
   if(!el)return;
   const transitionBtn=document.getElementById('dailyTransitionBtn');
-  const showTransition=_dailyUiStage()!=='live'&&_dailyStartedPoolCount()>0;   // 참가자 0명이면 눌러도 안내창뿐 — 감춘다
+  const showTransition=!_dailyOperationStarted&&(_dailyStartedPoolCount()>0||_dailyActiveMatches().length>0);   // 참가자 0명이면 눌러도 안내창뿐 — 감춘다. 등록된 진행 경기가 있으면 게시 길을 남긴다
   if(transitionBtn)transitionBtn.style.display=showTransition?'flex':'none';
   const finishBtn=document.getElementById('dailyFinishBtn');
   const showFinish=!!_dailyOperationStarted;
@@ -6263,7 +6263,7 @@ function dailyRenderStatusBar(){
   if(flow){
     // 게시 전에는 「조치 1건」이 아니라 「운영 준비」 — 할 일은 바로 아래 운영 준비 안내가
     // 말하고, 노란 경고 알약은 뭔가 잘못됐다는 신호로 읽힌다 (운영자 2026-09-02).
-    const preparing=_dailyUiStage()!=='live'&&!_dailyPaused;
+    const preparing=!_dailyOperationStarted&&!_dailyPaused;
     flow.classList.toggle('need',!preparing&&!_dailyPaused&&!!todo);
     flow.classList.toggle('paused',_dailyPaused);
     flow.innerHTML=`<span class="daily-dot"></span> ${_dailyPaused?'진행 일시 정지':preparing?'운영 준비':todo?(entryReady?'입장 준비':`조치 ${todo}건`):flowInfo.label}`;
@@ -7653,19 +7653,25 @@ async function _dailyCopyToClipboard(text){
     return false;
   }
 }
-async function dailyShareCheckinLink(){
+async function dailyShareCheckinLink(channel){
+  channel=String(channel||'');
   // 링크가 생기면 이 명단은 '오늘 운동'이 되어 다른 날로 이어지지 않는다(준비본 보관 조건
   // !_dailyCheckinId). 사전 등록 중에 눌렀다면 한 번 묻는다 (UX 감사 2026-09-02).
   if(!_dailyCheckinId&&!_dailyOperationStarted&&typeof confirm==='function'
     &&!confirm('아직 대진을 게시하지 않았습니다.\n지금 링크를 만들면 오늘 운동으로 시작되어, 준비 명단이 다른 날로 이어지지 않습니다.\n계속할까요?'))return;
+  // 밴드 공유 창은 사용자 제스처 안에서 먼저 열어 둔다 — await 뒤의 window.open 은 팝업 차단에 걸린다
+  const popup=channel==='band'?_dailyOpenSharePopup():null;
   _dailyVoteDeadlineAt='';
   const id=await dailyPublishCheckinSession(false);
   const keptUrl=id?'':_dailyPublishKeptUrl;
-  if(!id&&!keptUrl)return;
+  if(!id&&!keptUrl){if(popup&&!popup.closed)popup.close();return;}
   const url=id?_dailyCheckinUrl():keptUrl;
-  const stale=!id;
   const text='🏸 민턴LIVE\n내 이름을 눌러 오늘 경기를 확인하세요.';
-  const clipboardText=`${text}\n\n${url}`;
+  // 채널 버튼을 눌렀으면 그 앱의 공유가 바로 열린다 — 안내창은 띄우지 않는다 (운영자 2026-09-02
+  // "공유 시 불필요한 메시지 뜨지 않게").
+  if(channel==='band'){_dailyShareToBand(popup,text,url);return;}
+  if(channel==='kakao'&&await _dailyShareToKakao(text,url))return;
+  // 카카오 키가 없거나 SDK 가 막히면 기기 공유 시트(카카오톡이 목록에 있다)
   try{
     if(navigator.share){
       await navigator.share({title:'민턴LIVE',text,url});
@@ -7674,13 +7680,65 @@ async function dailyShareCheckinLink(){
   }catch(e){
     if(e&&e.name==='AbortError')return;
   }
-  // 복사가 안 되더라도 링크는 반드시 보여 줍니다.
-  // 예전에는 실패하면 콘솔에만 남아서 눌러도 아무 일이 없어 보였습니다.
+  // 공유 시트도 없는 환경(PC): 조용히 복사하고 짧게만 알린다 — 아무 반응이 없으면 눌린 줄 모른다
+  const clipboardText=`${text}\n\n${url}`;   // 주소는 클립보드 대체 경로에만 — 공유 시트에서는 url 필드가 맡는다
   const copied=await _dailyCopyToClipboard(clipboardText);
-  const note=stale?'최신 상태 저장은 잠시 밀렸지만, 지금 쓰는 회원 링크는 그대로 쓸 수 있습니다.\n':'';
-  alert(note+(copied
-    ? '회원·임원 공용 링크 문구를 복사했습니다. 카톡방에 붙여넣어 주세요.\n\n'+url
-    : '회원·임원 공용 링크입니다. 아래 주소를 길게 눌러 복사한 뒤 카톡방에 붙여넣어 주세요.\n\n'+url));
+  if(copied)_dailyFlashNote('링크를 복사했습니다 — 붙여넣어 보내세요');
+  else if(typeof prompt==='function')prompt('복사가 막혔습니다. 아래 주소를 길게 눌러 복사하세요.',url);
+}
+function _dailyOpenSharePopup(){
+  try{return window.open('about:blank','_blank');}catch(e){return null;}
+}
+function _dailyBandShareUrl(text,url){
+  return `https://band.us/plugin/share?body=${encodeURIComponent(`${text}\n${url}`)}&route=${encodeURIComponent(url)}`;
+}
+function _dailyShareToBand(popup,text,url){
+  const share=_dailyBandShareUrl(text,url);
+  if(popup&&!popup.closed){popup.location.href=share;try{popup.focus();}catch(e){}return;}
+  location.href=share;   // 팝업이 막힌 경우 — 모바일은 밴드 앱으로 넘어간다
+}
+let _dailyKakaoSdkPromise=null;
+function _dailyLoadKakaoSdk(){
+  if(window.Kakao)return Promise.resolve();
+  if(_dailyKakaoSdkPromise)return _dailyKakaoSdkPromise;
+  _dailyKakaoSdkPromise=new Promise((resolve,reject)=>{
+    const el=document.createElement('script');
+    el.src='https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
+    el.crossOrigin='anonymous';
+    el.onload=resolve;
+    el.onerror=()=>{_dailyKakaoSdkPromise=null;reject(new Error('kakao sdk load failed'));};
+    document.head.appendChild(el);
+  });
+  return _dailyKakaoSdkPromise;
+}
+async function _dailyShareToKakao(text,url){
+  const key=String(window.KOKMATCH_KAKAO_JS_KEY||'').trim();
+  if(!key)return false;   // 키가 없으면 기기 공유 시트로 (index.html 설정 참조)
+  try{
+    await _dailyLoadKakaoSdk();
+    if(!window.Kakao)return false;
+    if(!Kakao.isInitialized())Kakao.init(key);
+    Kakao.Share.sendDefault({objectType:'text',text,link:{mobileWebUrl:url,webUrl:url}});
+    return true;
+  }catch(e){
+    console.warn('카카오톡 공유 실패 — 기기 공유 시트로 대체',e);
+    return false;
+  }
+}
+// 2초짜리 짧은 안내 — alert 처럼 확인을 누르게 하지 않는다
+function _dailyFlashNote(message){
+  let el=document.getElementById('dailyFlashNote');
+  if(!el){
+    el=document.createElement('div');
+    el.id='dailyFlashNote';
+    el.className='daily-flash-note';
+    el.setAttribute('role','status');
+    document.body.appendChild(el);
+  }
+  el.textContent=String(message||'');
+  el.classList.add('on');
+  clearTimeout(_dailyFlashNote._t);
+  _dailyFlashNote._t=setTimeout(()=>el.classList.remove('on'),2200);
 }
 async function dailyShareOfficialLink(){
   _dailyVoteDeadlineAt='';
@@ -10419,7 +10477,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.634&from=daily';
+  location.href='team.html?v=1.10.635&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

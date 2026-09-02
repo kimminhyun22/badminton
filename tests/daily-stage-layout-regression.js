@@ -35,7 +35,7 @@ assert(!html.includes('class="nav-sync-btn"') && !html.includes('class="hbs"'),
   '팀전 대진표 저장·내보내기 버튼과 생성 옵션 칩은 민턴LIVE 화면에 없어야 합니다.');
 
 // ── daily.js: 게시 버튼 가드, 폴드 토글, 단계 함수 호출 ──
-assert(src.includes("const showTransition=_dailyUiStage()!=='live'&&_dailyStartedPoolCount()>0;"),
+assert(src.includes("const showTransition=!_dailyOperationStarted&&(_dailyStartedPoolCount()>0||_dailyActiveMatches().length>0);"),
   '「대진 게시」는 현장 참가자가 있을 때만 보여야 합니다 — 0명이면 눌러도 안내창뿐입니다.');
 assert(/btn\.textContent=count\?`팀전 선수 \$\{count\}명 가져오기`:'팀전 선수 없음';\n\s*btn\.classList\.toggle\('hidden',!count\)/.test(src),
   '팀전 선수가 없으면 가져오기 버튼을 감춰야 합니다.');
@@ -63,7 +63,7 @@ function fakeDom(){
   const layout = get('.daily-layout');
   const doc = {
     querySelector: sel => sel === '.daily-layout' ? layout : null,
-    querySelectorAll: sel => [get(sel)],
+    querySelectorAll: sel => sel.split(',').map(s => get(s.trim())),
     getElementById: id => get('#' + id)
   };
   return { doc, els, hidden: key => els[key]?.classes.has('hidden') };
@@ -117,7 +117,7 @@ assert.strictEqual(r.stage, 'live');
 
 // 게시 전 상태 알약은 「운영 준비」 — 「조치 1건」 노란 경고가 아니다
 assert(src.includes("preparing?'운영 준비':todo?(entryReady?'입장 준비'"), '게시 전 상태 알약은 운영 준비여야 합니다.');
-assert(src.includes("const preparing=_dailyUiStage()!=='live'&&!_dailyPaused;"), '상태 알약도 같은 단계 판정을 써야 합니다.');
+assert(src.includes("const preparing=!_dailyOperationStarted&&!_dailyPaused;"), '상태 알약은 게시 여부만 본다 — 모달에서 등록한 진행 경기가 있어도 게시 전은 운영 준비다.');
 assert(src.includes("flow.classList.toggle('need',!preparing&&!_dailyPaused&&!!todo);"), '게시 전에는 노란 경고 알약이 켜지면 안 됩니다.');
 // 빈 화면에서는 도구 줄(선수 추가·코트·도우미…)도 접는다 — 등록 입구 사본만 늘린다
 r = run({});
@@ -186,5 +186,18 @@ assert(manual.includes('`등록 ${registeredCount}/${max}`'), '코트 힌트는 
 assert(manual.includes("const status='';"), '게시 전환 후보는 전부 참가라 상태 접두를 붙이지 않습니다.');
 assert(manual.includes('명은 게시 후 자동 대진'), '등록 뒤 남은 인원이 자동 대진으로 간다는 한 줄 상태가 있어야 합니다.');
 assert(html.includes('id="dailyManualPickTitle"'), '선수 선택 제목에 id 가 있어야 접을 수 있습니다.');
+
+// 공유는 채널별 버튼 — 누르면 그 앱의 공유가 바로 열리고, 안내창은 뜨지 않는다 (2026-09-02)
+assert(html.includes("onclick=\"dailyShareCheckinLink('kakao')\"") && html.includes("onclick=\"dailyShareCheckinLink('band')\""),
+  '카카오톡·밴드 공유 버튼이 각각 있어야 합니다.');
+assert(html.includes('class="daily-dashboard-quick-action share kakao"') && html.includes('<svg viewBox="0 0 24 24"'), '공유 버튼은 로고를 써야 합니다.');
+const share = src.slice(src.indexOf('async function dailyShareCheckinLink('), src.indexOf('async function dailyShareOfficialLink('));
+assert(!share.includes('alert('), '공유 흐름에 확인을 눌러야 하는 안내창이 있으면 안 됩니다.');
+assert(share.includes("https://band.us/plugin/share?body="), '밴드 버튼은 밴드 공유 플러그인으로 바로 가야 합니다.');
+assert(share.includes("Kakao.Share.sendDefault(") && share.includes('KOKMATCH_KAKAO_JS_KEY'), '카카오톡 버튼은 키가 있으면 SDK 로 바로 공유해야 합니다.');
+assert(share.includes("const popup=channel==='band'?_dailyOpenSharePopup():null;"), '밴드 창은 사용자 제스처 안에서 먼저 열어야 팝업 차단을 피합니다.');
+assert(src.includes("hide('#dailyQuickShareBtn,#dailyQuickShareBandBtn'"), '두 공유 버튼이 같은 단계 규칙으로 감춰져야 합니다.');
+r = run({});
+assert(r.hidden('#dailyQuickShareBandBtn'), '빈 화면에서는 밴드 공유 버튼도 감춰져야 합니다.');
 
 console.log('daily stage layout regression ok');

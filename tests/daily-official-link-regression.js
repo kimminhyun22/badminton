@@ -71,12 +71,13 @@ assert(commonShareSource.includes('const clipboardText=`${text}\\n\\n${url}`'),'
 // 링크종료·초기화"): 공용 링크 카드는 은퇴. 진입점은 상황판 퀵 액션 한 줄
 // (링크 공유·링크 종료·초기화 각 1개)뿐이고, 카드가 품던 확인 필요 요청 상자
 // (dailyCheckinBox)는 상황판 안으로 들어가 요청이 있을 때만 나타납니다.
-assert.strictEqual((index.match(/dailyShareCheckinLink\(\)/g)||[]).length,1,'링크 공유 진입점은 상황판 퀵 하나뿐이어야 합니다.');
+assert.strictEqual((index.match(/dailyShareCheckinLink\('kakao'\)/g)||[]).length,1,'카카오톡 공유 진입점은 상황판 퀵 하나뿐이어야 합니다.');
+assert.strictEqual((index.match(/dailyShareCheckinLink\('band'\)/g)||[]).length,1,'밴드 공유 진입점은 상황판 퀵 하나뿐이어야 합니다.');
 assert.strictEqual((index.match(/dailyStopCheckinLink\(\)/g)||[]).length,1,'링크 종료 진입점은 상황판 퀵 하나뿐이어야 합니다.');
 assert.strictEqual((index.match(/onclick="dailyReset\(\)"/g)||[]).length,1,'초기화 진입점은 상황판 퀵 하나뿐이어야 합니다.');
-assert(index.includes('daily-dashboard-quick-actions')&&index.includes('onclick="dailyShareCheckinLink()">링크 공유</button>')
+assert(index.includes('daily-dashboard-quick-actions')&&index.includes('id="dailyQuickShareBtn"')&&index.includes('id="dailyQuickShareBandBtn"')
   &&index.includes('onclick="dailyStopCheckinLink()">링크 종료</button>')&&index.includes('onclick="dailyReset()">초기화</button>'),
-  '상황판 상단 퀵 액션은 링크 공유·링크 종료·초기화 세 개여야 합니다.');
+  '상황판 상단 퀵 액션은 카카오톡·밴드 공유, 링크 종료, 초기화여야 합니다.');
 assert(!index.includes('dailyCheckinDetails')&&!index.includes('dailyCheckinSummary'),'공용 링크 카드는 남아 있으면 안 됩니다.');
 assert(index.includes('id="dailyCheckinBox" hidden'),'확인 필요 요청 상자는 상황판 안에 숨김 상태로 있어야 합니다.');
 const requestRender=functionSource(daily,'dailyRenderCheckinRequests','dailyRender');
@@ -95,7 +96,8 @@ const memberShare=functionSource(daily,'dailyShareCheckinLink','dailyShareOffici
 [['dailyShareCheckinLink',memberShare],['dailyShareOfficialLink',functionSource(daily,'dailyShareOfficialLink','dailyResumeCheckin')]]
   .forEach(([name,src])=>{
     assert(src.includes('await _dailyCopyToClipboard('),`${name} 는 클립보드 실패에 대비한 복사 헬퍼를 써야 합니다.`);
-    assert(/alert\([\s\S]{0,120}\bcopied\b[\s\S]{0,20}\?/.test(src),`${name} 는 복사 성공 여부와 무관하게 링크를 안내해야 합니다.`);
+    // 회원 링크 공유는 확인창 대신 짧은 안내(복사 성공) 또는 주소 선택창(복사 실패)을 쓴다 (2026-09-02)
+    assert(/(alert|_dailyFlashNote|if\(copied\)_dailyFlashNote)\([\s\S]{0,120}\bcopied\b[\s\S]{0,20}\?|if\(copied\)_dailyFlashNote\(/.test(src),`${name} 는 복사 성공 여부와 무관하게 링크를 안내해야 합니다.`);
     assert(!/catch\([^)]*\)\{\s*console\.warn[^}]*\}\s*\}\s*$/.test(src.trim()),`${name} 의 마지막 실패 처리가 콘솔 경고로 끝나면 안 됩니다.`);
   });
 const copyHelper=functionSource(daily,'_dailyCopyToClipboard','dailyShareCheckinLink');
