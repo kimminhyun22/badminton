@@ -117,7 +117,7 @@ assert(share.includes("const popup=channel==='band'?_teamOpenSharePopup():null;"
 assert(share.includes('https://band.us/plugin/share?body='), '밴드는 공유 플러그인으로 바로 가야 합니다.');
 assert(share.includes('Kakao.Share.sendDefault(') && share.includes('KOKMATCH_KAKAO_JS_KEY'),
   '카카오톡은 키가 있으면 SDK 로 바로 공유해야 합니다.');
-assert(css.includes('.team-share-top.kakao') && css.includes('.daily-flash-note'),
+assert(css.includes('.team-share-top.kakao') && css.includes('.team-flash-note'),
   '채널 버튼 색과 짧은 안내 스타일이 있어야 합니다.');
 
 // ── 참가자 등록 입구: 명부에서 고르기가 기본, 직접 추가는 접이식 ──
@@ -136,5 +136,38 @@ assert(css.includes('.team-direct-add summary{') && css.includes('min-height:44p
 
 assert(src.includes("saveBar.classList.toggle('hidden',!hasStatus&&!hasRestore);"),
   '저장 상태 줄은 내용이 없으면 빈 상자로 남지 않아야 합니다.');
+
+// ── 2차 감사(2026-09-03) 반영: 중복 입구·죽은 버튼·채널 일관성 ──
+r = run({});
+assert(r.hidden('.auto-flow-quick-actions'), '참가자가 없으면 공유 버튼은 눌러도 안내창뿐이라 감춰야 합니다.');
+r = run({ players: [{}], matches: [{}] });
+assert(r.hidden('#teamLiveActionRow'), 'LIVE 중 「팀전 진행 중」처럼 보이는 중계 종료 사본은 없어야 합니다.');
+assert(r.hidden('#undoBtnMain'), '대진이 생기면 되돌리기는 대진 옆 하나만 남아야 합니다.');
+assert(src.includes("hide('.auto-flow-quick-actions',(empty&&!_rsvpId)||shareCta);"),
+  '안내 CTA 가 공유일 때는 머리쪽 공유 사본을 감춰야 합니다 — 같은 버튼이 한 화면에 넷이 되면 안 됩니다.');
+assert(src.includes('const TEAM_KAKAO_SVG=') && src.includes('function _autoFlowShareAction('),
+  '채널 버튼 로고와 공유 CTA 헬퍼가 있어야 합니다.');
+assert(src.includes("link:_autoFlowShareAction('단톡방에 공유'),"),
+  '링크 단계 CTA 도 채널 버튼이어야 합니다 — 채널 없는 사본을 남기면 안 됩니다.');
+assert((src.match(/TEAM_KAKAO_SVG\}/g) || []).length >= 3, '로고는 CTA·LIVE 스트립·링크 카드에도 붙어야 합니다.');
+assert(css.includes('.rsvp-action-btn.primary.soft.kakao'),
+  '링크 카드 채널 색은 .primary.soft 규칙을 이길 특이도가 필요합니다.');
+assert(/\.auto-flow-btn\.kakao[^{]*\{[^}]*background:#FEE500!important/.test(css),
+  '채널 색은 .auto-flow-btn 의 !important 그라데이션을 이겨야 합니다.');
+assert(css.includes('.mob-save-bar{display:none!important;}'),
+  '모바일 전용 저장 바가 데스크톱에서 내비와 겹치면 안 됩니다.');
+assert(css.includes('.team-live-ops-actions .team-live-primary{grid-column:1/-1;}'),
+  'LIVE 스트립은 1차 행동 전폭 + 채널 2열이어야 합니다.');
+assert(css.includes('.rsvp-current-actions>.rsvp-action-btn:last-child{grid-column:1/-1;}'),
+  '링크 카드의 「참가자 수정」은 반쪽으로 남지 않아야 합니다.');
+assert(src.includes("el.classList.add('hidden');el.dataset.hiddenByQuick='1';"),
+  '가대진 저장 버튼이 한 화면에 두 벌 뜨면 안 됩니다.');
+assert(src.includes("if(resumeTop&&document.querySelector('#autoFlowBody .auto-flow-action.live-start'))resumeTop.classList.add('hidden');"),
+  '「팀전 이어가기」는 보드 CTA 와 머리쪽 버튼이 겹치면 안 됩니다.');
+const shareFn = src.slice(src.indexOf('async function rsvpCopyShareText('), src.indexOf('function rsvpLoad('));
+assert(shareFn.includes('_teamShareToKakao(body,url)') && shareFn.includes('const text=`${body}\\n\\n${url}`;'),
+  '카카오톡 본문에는 주소를 넣지 않아야 합니다(link 필드가 붙입니다).');
+assert(!css.includes('.daily-flash-note') && css.includes('.team-flash-note'),
+  '팀전 CSS 는 팀전 소유 클래스를 써야 합니다.');
 
 console.log('team stage layout regression ok');

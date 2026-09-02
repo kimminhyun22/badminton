@@ -19,7 +19,7 @@ assert(html.includes('id="slotListCount"'), '저장 목록에서 사용 중인 �
    누르면 그 앱의 공유가 바로 열리고, 공유 경로에는 확인창을 두지 않습니다. */
 assert(html.includes('auto-flow-quick-actions')
   &&html.includes(`onclick="rsvpShareLink('kakao')"`)&&html.includes(`onclick="rsvpShareLink('band')"`),
-  '팀전 링크 공유는 운영 보드 상단에 카카오톡·밴드 버튼으로 항상 보여야 합니다.');
+  '팀전 링크 공유는 운영 보드 상단에 카카오톡·밴드 버튼으로 있어야 합니다(참가자 세팅 전에는 감춥니다).');
 assert(!/class="nav-sync-btn"/.test(html),
   '가대진 저장·목록·내보내기·불러오기의 내비 사본은 없어야 합니다(상황판·진행 설정·백업 관리에 이미 있습니다).');
 /* 2026-08-12 계약 뒤집음 (운영자 "정신 없고 한눈에 안 들어와"): 초기화는
@@ -43,7 +43,7 @@ assert(shareStart >= 0 && shareEnd > shareStart, '팀전 공유 함수 범위를
 const shareBody = src.slice(shareStart, shareEnd);
 assert(shareBody.includes('내 이름을 눌러 실중계에 들어가세요.'), '팀전 카카오톡 공유 문구는 한 문장으로 안내해야 합니다.');
 assert(shareBody.includes("if(channel==='band'){_teamShareToBand(popup,text,url);return true;}")
-  &&shareBody.includes("if(channel==='kakao'&&await _teamShareToKakao(text,url))return true;"),
+  &&shareBody.includes("if(channel==='kakao'&&await _teamShareToKakao(body,url))return true;"),
   '채널 버튼은 그 앱의 공유를 바로 열어야 합니다.');
 assert(!/alert\((?:auto|'팀전 링크를 복사)/.test(shareBody),
   '공유 성공 경로에 확인창이 있으면 안 됩니다 — 짧은 안내로 대체합니다.');

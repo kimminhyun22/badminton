@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.639';
+const APP_VERSION = '1.10.640';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3176,6 +3176,9 @@ function openOfficialConsole(){
 function _teamSyncLiveStopShortcuts(){
   // 참가자 카드 안에 있던 사본(mobLiveStopBtn)은 뺐습니다 — 맨 위와 접힌
   // 관리 그룹 두 곳이면 충분합니다(2026-08-12).
+  // 보드 본문이 같은 「팀전 이어가기」 CTA 를 그리는 단계에서는 머리쪽 사본을 감춘다(2026-09-03 감사)
+  const resumeTop=document.getElementById('liveResumeTopBtn');
+  if(resumeTop&&document.querySelector('#autoFlowBody .auto-flow-action.live-start'))resumeTop.classList.add('hidden');
   ['liveStopTopBtn','liveStopManageBtn','liveConsoleTopBtn'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.classList.toggle('hidden',!_liveOn);
@@ -5187,6 +5190,12 @@ function renderBracketSaveQuick(){
       :count?`저장된 가대진 ${count}개 · 목록에서 골라 불러오세요.`:'대진 생성 후 이름 붙여 보관할 수 있습니다.';
   if(quickMeta)quickMeta.textContent=text;
   if(primaryMeta)primaryMeta.textContent=text;
+  // 같은 두 버튼을 한 화면에 두 벌 두지 않는다(2026-09-03 감사) — 상황판 사본이 뜨면 진행 설정 사본은 감춘다
+  const quickVisible=!!quick&&!quick.classList.contains('hidden');
+  document.querySelectorAll('.bracket-save-primary').forEach(el=>{
+    if(quickVisible){el.classList.add('hidden');el.dataset.hiddenByQuick='1';}
+    else if(el.dataset.hiddenByQuick==='1'){el.classList.remove('hidden');el.dataset.hiddenByQuick='';}
+  });
 }
 
 function openSaveSlotModal(){
@@ -7583,7 +7592,7 @@ function _teamFlashNote(message){
   if(!el){
     el=document.createElement('div');
     el.id='teamFlashNote';
-    el.className='daily-flash-note';
+    el.className='team-flash-note';
     el.setAttribute('role','status');
     document.body.appendChild(el);
   }
@@ -7607,12 +7616,14 @@ async function rsvpCopyShareText(auto,channel){
   const url=_rsvpUrl();
   _rsvpApplyAutoTitle(false);
   const title=_rsvpTitle();
-  const text=`🏸 ${title}\n내 이름을 눌러 실중계에 들어가세요.\n\n${url}`;
+  // 카카오톡은 link 필드가 주소를 붙이므로 본문에는 넣지 않는다(넣으면 주소가 두 번 보인다)
+  const body=`🏸 ${title}\n내 이름을 눌러 실중계에 들어가세요.`;
+  const text=`${body}\n\n${url}`;
   const published=await rsvpPublishSession(true).catch(()=>null);
   if(!published)return failShare('팀전 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
   // 채널 버튼을 눌렀으면 그 앱의 공유가 바로 열린다 — 안내창은 띄우지 않는다
   if(channel==='band'){_teamShareToBand(popup,text,url);return true;}
-  if(channel==='kakao'&&await _teamShareToKakao(text,url))return true;
+  if(channel==='kakao'&&await _teamShareToKakao(body,url))return true;
   if(navigator.share){
     try{
       await navigator.share({title,text});
@@ -7929,6 +7940,19 @@ function _rsvpAdminRosterHtml(members,responses){
 function _autoFlowMetric(label,value){
   return `<div class="auto-flow-metric"><b>${esc(String(value))}</b><span>${esc(label)}</span></div>`;
 }
+/* 채널 버튼 로고 — 상단·CTA·LIVE 스트립·링크 카드가 같은 모양을 쓴다(2026-09-03 감사: 상단만 로고였다) */
+const TEAM_KAKAO_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#191919" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.8c0 2.7 1.8 5.1 4.5 6.5l-1.1 4.1c-.1.3.3.6.6.4l4.8-3.2c.3 0 .6.1.9.1 5.4 0 9.7-3.4 9.7-7.6S17.4 3.2 12 3.2z"/></svg>';
+const TEAM_BAND_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#1EC800"/><path fill="#fff" d="M8.2 6.5h2.4v4.1c.6-.5 1.4-.8 2.3-.8 2.3 0 4 1.8 4 4.1s-1.7 4.1-4 4.1c-1 0-1.8-.3-2.4-.9v.7H8.2V6.5zm4.4 5.4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>';
+/* 「다음 할 일」 CTA 가 공유일 때는 채널 버튼 둘로 — 채널 없는 사본을 남기지 않는다 */
+function _autoFlowShareAction(note){
+  return `<div class="auto-flow-action share">
+    <div class="auto-flow-next">${esc(note||'단톡방에 공유')}</div>
+    <div class="auto-flow-share-btns">
+      <button class="auto-flow-btn kakao" type="button" onclick="rsvpShareLink('kakao')">${TEAM_KAKAO_SVG}카카오톡</button>
+      <button class="auto-flow-btn band" type="button" onclick="rsvpShareLink('band')">${TEAM_BAND_SVG}밴드</button>
+    </div>
+  </div>`;
+}
 function _autoFlowAction(label,fnName,note='',cls=''){
   if(!label||!fnName)return '';
   const safeCls=String(cls||'').replace(/[^a-z0-9_-]/gi,'');
@@ -8045,8 +8069,8 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
       </div>
       <div class="team-live-ops-actions">
         <button class="team-live-primary" type="button" onclick="teamLiveOpenPanel('${primaryTarget}')">${esc(primaryLabel)}</button>
-        <button class="team-live-secondary share kakao" type="button" onclick="rsvpShareLink('kakao')">카카오톡</button>
-        <button class="team-live-secondary share band" type="button" onclick="rsvpShareLink('band')">밴드</button>
+        <button class="team-live-secondary share kakao" type="button" onclick="rsvpShareLink('kakao')">${TEAM_KAKAO_SVG}카카오톡</button>
+        <button class="team-live-secondary share band" type="button" onclick="rsvpShareLink('band')">${TEAM_BAND_SVG}밴드</button>
       </div>
     </div>
     ${chips.length?`<div class="team-live-alert-row">${chips.join('')}</div>`:''}`;
@@ -8163,6 +8187,15 @@ function teamApplyStageLayout(){
   hide('.auto-flow-board.setup-board',empty);
   // 대진표·결과 탭은 대진이 만들어진 뒤에야 갈 곳이 있다
   hide('#bnav-bracket,#bnav-result',stage!=='live');
+  // 참가자가 없으면 공유는 눌러도 안내창뿐이다 — 민턴LIVE 와 같은 기준.
+  // 「다음 할 일」이 공유일 때도 머리쪽 사본을 감춘다 — 같은 버튼 넷이 한 화면에 서지 않게.
+  const shareCta=!!document.querySelector('#autoFlowBody .auto-flow-share-btns');
+  hide('.auto-flow-quick-actions',(empty&&!_rsvpId)||shareCta);
+  // 시작·이어가기·종료는 모두 운영 보드에 있다. 결과 영역의 사본은 LIVE 중 「팀전 진행 중」
+  // 이라는 상태 알약처럼 보이는데 누르면 중계가 끊긴다 — 오조작 위험이라 감춘다.
+  hide('#teamLiveActionRow',true);
+  // 되돌리기는 대진 옆(#undoBtn) 하나로 — 대진이 생기면 진행 설정의 사본은 감춘다
+  hide('#undoBtnMain',stage==='live');
   // 접힘은 단계가 바뀌는 순간에만 손댄다 — 사용자가 펼쳐 둔 것을 매 렌더마다 뒤집지 않도록
   if(_teamUiStageShown!==stage){
     if(empty){
@@ -8216,7 +8249,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.639) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.640) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
@@ -8283,7 +8316,7 @@ function renderAutoFlowDashboard(){
     };
     const actionHtml={
       playerSetup:_autoFlowAction('참가자 세팅','teamLiveSetupParticipants','관리자가 명단 확정'),
-      link:_autoFlowAction('링크 공유','rsvpShareLink','단톡방에 공유'),
+      link:_autoFlowShareAction('단톡방에 공유'),
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate',fixedTeamMode?'청·홍 대진 품질 확인':'자유 대진 품질 확인'),
       broadcast:_autoFlowAction('팀전 시작','onLiveBtnClick','회원 링크 열림','live-start'),
@@ -8388,8 +8421,8 @@ if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정)`:'';
         </div>
       </div>
       <div class="rsvp-current-actions">
-        <button class="rsvp-action-btn primary soft kakao" onclick="rsvpShareLink('kakao')">카카오톡</button>
-        <button class="rsvp-action-btn primary soft band" onclick="rsvpShareLink('band')">밴드</button>
+        <button class="rsvp-action-btn primary soft share kakao" onclick="rsvpShareLink('kakao')">${TEAM_KAKAO_SVG}카카오톡</button>
+        <button class="rsvp-action-btn primary soft share band" onclick="rsvpShareLink('band')">${TEAM_BAND_SVG}밴드</button>
         <button class="rsvp-action-btn primary soft" onclick="teamLiveOpenPlayers()">참가자 수정</button>
       </div>
     </div>
