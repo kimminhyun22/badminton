@@ -46,4 +46,19 @@ for (const f of ['index.html', 'team.html'])
   assert(read(f).includes('<meta name="theme-color" content="#ffffff">'), `${f} 상태바 색은 흰 헤더와 맞아야 합니다.`);
 assert(JSON.parse(read('manifest.json')).theme_color === '#ffffff', 'manifest theme_color 도 흰색이어야 합니다.');
 
+// ⑤ 2차: 좁은 폰에서 이름·버튼이 잘리지 않게
+assert(checkin.includes('.event-next-pair{grid-template-columns:minmax(0,1fr);gap:3px;justify-items:stretch;}'), '430px 이하 다음 대진은 팀별 두 이름을 세로로 쌓아야 합니다.');
+assert(checkin.includes('.fair-row{flex-wrap:wrap;row-gap:4px;}'), '분배 보드 행은 줄바꿈이 허용돼야 버튼이 잘리지 않습니다.');
+assert(/\.toast\{[^}]*z-index:120/.test(checkin), '토스트는 시트(z 80) 위에 떠야 합니다.');
+assert(checkin.includes('.official-overview-tool{white-space:normal;overflow:visible;text-overflow:clip;'), '임원 도구 라벨은 줄임표 대신 두 줄이어야 합니다.');
+assert(checkin.includes("'.event-active-player,.event-next-player,.my-current-match-team strong,.name,.my-card-name,.replace-picker-row b'") && checkin.includes('let guard=12;'),
+  '자동 축소는 내 이름 카드까지 다루고 13px 하한에 닿아야 합니다.');
+const app = read('css/app.css');
+assert(app.includes('.daily-dashboard-quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}'), '모바일 빠른 동작은 2×2 여야 「초기화」가 홀로 전폭이 되지 않습니다.');
+assert(app.includes('.daily-player-filter{display:flex;flex-wrap:wrap;gap:6px;overflow:visible;}'), '선수 필터 칩은 줄바꿈돼야 화면 밖으로 넘치지 않습니다.');
+assert(app.includes('.daily-next-pair{grid-template-columns:1fr;gap:2px;}'), '관리자 다음 대진도 좁은 폰에서 이름을 세로로 쌓아야 합니다.');
+const quiz = read('quiz.html');
+assert(quiz.includes("(m.t1||[]).map(esc).join('<br>')") && quiz.includes('.opts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}'),
+  '설문 문항 이름은 두 줄, 5단계 버튼은 격자여야 좁은 폰에서 겹치지 않습니다.');
+
 console.log('device fit regression ok');

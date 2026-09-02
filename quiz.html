@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="only light">
 <meta name="theme-color" content="#f6f8fc">
-<meta name="app-version" content="1.10.636">
+<meta name="app-version" content="1.10.637">
 <!-- 카톡 미리보기: 제목만 — 대진 내용은 싣지 않는다(가대진 유출 차단) -->
 <meta property="og:title" content="예측왕 퀴즈">
 <meta property="og:description" content="이번 팀전, 누가 이길까요? 혼자 몰래 찍어 주세요.">
@@ -62,11 +62,11 @@ body{
 .pair{flex:1 1 0;min-width:0;font-size:15px;font-weight:700;word-break:keep-all;line-height:1.4}
 .pair.b{color:var(--blue)} .pair.r{color:var(--red);text-align:right}
 .vs .v{font-size:11px;color:var(--mut);font-weight:700}
-.opts{display:flex;gap:5px}
+.opts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
 .opt{
   flex:1 1 0;min-width:0;font:inherit;cursor:pointer;
   border:1.5px solid var(--line);border-radius:9px;background:none;color:var(--txt);
-  padding:9px 2px;font-size:12px;font-weight:700;word-break:keep-all;line-height:1.25;
+  min-width:0;padding:8px 1px;font-size:clamp(12px,3.8vw,14px);font-weight:700;word-break:keep-all;line-height:1.2;
   min-height:46px;
 }
 .opt:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
@@ -93,7 +93,7 @@ body{
 .result p{margin:4px 0 0;font-size:12.5px;color:var(--mut)}
 .locked .opt{pointer-events:none;opacity:.55}
 .rv-sum{margin:10px 0 6px;font-size:14px;font-weight:700}
-.rv-row{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
+.rv-row{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line);font-size:13px}
 .rv-num{font-variant-numeric:tabular-nums;font-weight:900;flex:0 0 24px}
 .rv-pair{flex:1 1 0;min-width:0;color:var(--mut);word-break:keep-all}
 .rv-pick{flex:0 0 auto;font-weight:700;white-space:nowrap}
@@ -151,7 +151,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.636"></script>
+<script src="js/storage.js?v=1.10.637"></script>
 <script>
 'use strict';
 /* 예측 설문 응답 페이지.
@@ -206,9 +206,9 @@ function renderQuestions(){
       +'<span class="badge">'+esc(m.type||'')+'</span>'
       +(isSkip?'<span class="skip-note">내 경기 — 자동 제외</span>':'<span class="q-done" data-done></span>')
       +'</div>'
-      +'<div class="vs"><div class="pair b">'+(m.t1||[]).map(esc).join('·')+'</div>'
+      +'<div class="vs"><div class="pair b">'+(m.t1||[]).map(esc).join('<br>')+'</div>'
       +'<span class="v">vs</span>'
-      +'<div class="pair r">'+(m.t2||[]).map(esc).join('·')+'</div></div>'
+      +'<div class="pair r">'+(m.t2||[]).map(esc).join('<br>')+'</div></div>'
       +(isSkip?'':'<div class="opts">'
         +OPTS.map(([v,label])=>'<button type="button" class="opt" data-v="'+v+'" aria-pressed="false">'
           +label.replace(' ','<br>')+'</button>').join('')
@@ -264,7 +264,7 @@ function renderReveal(){
     else if(mp===0.5||sp===0.5){cls='half';verdict='반 갈림';half++;}
     else {cls='diff';verdict='갈림';diff++;}
     rows+='<div class="rv-row '+cls+'"><span class="rv-num">'+num+'</span>'
-      +'<span class="rv-pair">'+(m.t1||[]).map(esc).join('·')+' vs '+(m.t2||[]).map(esc).join('·')+'</span>'
+      +'<span class="rv-pair">'+(m.t1||[]).map(esc).join('<br>')+' vs '+(m.t2||[]).map(esc).join('<br>')+'</span>'
       +'<span class="rv-pick"><span class="me">나 '+myLabel(v)+'</span>'
       +' · <span class="sysv">시스템 '+sysLabel(sp)+'</span>'
       +' <span class="verdict">'+verdict+'</span></span></div>';

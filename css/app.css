@@ -3276,3 +3276,39 @@ html,body{overscroll-behavior-y:none;}
   #dailyDashboardTools .daily-player-modes{grid-template-columns:repeat(2,minmax(0,1fr));}
   .daily-player-tool{white-space:normal;line-height:1.2;}
 }
+
+/* ── 단말기 맞춤 2차 (2026-09-02 반응형 감사) ─────────────────────────────── */
+@media(max-width:640px){
+  /* 빠른 동작: flex 3+1 로 「초기화」가 홀로 전폭 붉은 버튼이 되던 것 → 2×2 격자 */
+  .daily-dashboard-quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+  .daily-dashboard-quick-actions>.daily-dashboard-quick-action{min-width:0;white-space:normal;line-height:1.15;word-break:keep-all;}
+}
+/* 전체 선수 상태 필터: 8칩이 화면 밖으로 넘치는데 스크롤바까지 숨겨져 있었다 → 줄바꿈 */
+.daily-player-filter{display:flex;flex-wrap:wrap;gap:6px;overflow:visible;}
+.daily-player-filter-btn{flex:1 1 auto;min-height:38px;padding:7px 11px;}
+/* 운영 도구 라벨: nowrap+overflow:hidden 이 좌우를 잘라냈다 → 두 줄 허용 */
+.daily-player-tool{min-width:0;white-space:normal;line-height:1.15;word-break:keep-all;text-align:center;overflow:visible;text-overflow:clip;}
+#dailyDashboardTools .daily-player-tool{min-height:44px;}
+/* 「대진 게시」 모달: 하단 버튼 줄바꿈 허용·코트 라벨 3줄·선택 순번 배지가 이름 꼬리를 덮지 않게 */
+.daily-manual-footer .daily-mini-btn,.daily-manual-action{min-width:0;white-space:normal;line-height:1.2;word-break:keep-all;}
+.daily-manual-court-meta{-webkit-line-clamp:3;word-break:keep-all;}
+.daily-manual-player-btn.on .daily-manual-player-name{padding-right:32px;}
+@media(max-width:360px){.daily-manual-court-grid{grid-template-columns:1fr;}}
+/* 운영 지표 3장: 371~386px 폰에서 2+1 비대칭 → 430 까지 3열 */
+@media(max-width:430px){
+  .daily-ops-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+  .daily-ops-grid .daily-op:nth-child(4){grid-column:1/-1;}
+}
+/* 보조 라벨 하한 */
+.daily-headcount-item span{font-size:.75rem;white-space:normal;word-break:keep-all;line-height:1.2;}
+.daily-op span{font-size:.78rem;} .daily-op small{font-size:.72rem;}
+.daily-start-step strong{font-size:.82rem;} .daily-start-step span:last-child{font-size:.72rem;}
+.daily-stat span{font-size:.74rem;} .daily-status{font-size:.72rem;}
+.guest-badge{font-size:.62rem;padding:0 4px;line-height:1.5;border-radius:3px;margin-left:3px;}
+.club-official-badge{font-size:.68rem;padding:1px 5px;}
+.daily-name-chip{flex-wrap:wrap;max-width:100%;}
+/* 다음 대진(관리자): 좁은 폰에서 팀별 두 이름을 세로로 — 360px 에서 「김재/관」으로 갈라졌다 */
+@media(max-width:430px){
+  .daily-next-line{grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr);gap:6px;}
+  .daily-next-pair{grid-template-columns:1fr;gap:2px;}
+}

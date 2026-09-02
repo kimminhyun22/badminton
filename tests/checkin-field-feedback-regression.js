@@ -29,7 +29,7 @@ assert(checkin.includes('function autoFitNames()') && checkin.includes('el.scrol
   '이름이 칸을 넘치면 자동으로 글자를 줄여야 합니다.');
 assert(checkin.includes('new MutationObserver('),
   '자동 축소는 렌더 때마다 다시 걸려야 합니다.');
-assert(/autoFitNames[\s\S]{0,400}size<=13/.test(checkin),
+assert(/autoFitNames[\s\S]{0,600}size<=13/.test(checkin),   // 선택자가 길어져 창을 넓혔다(2026-09-02)
   '자동 축소 하한(13px)이 있어야 무한 축소로 안 읽히는 글자가 되지 않습니다.');
 
 // ② 임원 선수 추가 연령 옵션
