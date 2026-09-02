@@ -176,4 +176,15 @@ assert(/<summary>＋ 게스트 추가/.test(html), '게스트 폼을 여는 요�
 assert(src.includes('guestBox.open=_dailyImportClubIdx<0;'), '명부가 비어 게스트가 유일한 길일 때만 자동으로 펼쳐야 합니다.');
 assert(css.includes('.daily-import-guest summary{') && css.includes('min-height:44px'), '게스트 요약 줄은 터치 높이를 확보해야 합니다.');
 
+// 「대진 게시」 모달 중복 제거 — 가짜 버튼·등록 목록 사본 없음, 빈 코트 없으면 선수 선택 접힘
+const manual = src.slice(src.indexOf('function dailyRenderManualActiveModal('), src.indexOf('async function dailyConfirmManualActiveMatch('));
+assert(!manual.includes('daily-manual-registered') && !manual.includes("'대진 게시 가능'"),
+  '요약 줄에 코트 카드와 겹치는 등록 목록이나 「대진 게시」 가짜 버튼이 있으면 안 됩니다.');
+assert(manual.includes("pickTitle.classList.toggle('hidden',pickHidden)") && manual.includes('const pickHidden=transition&&!freeCourt&&!selectedIds.length;'),
+  '빈 코트가 없으면 선수 선택 구역을 접어야 합니다.');
+assert(manual.includes('`등록 ${registeredCount}/${max}`'), '코트 힌트는 등록 N/전체 코트 수여야 합니다.');
+assert(manual.includes("const status='';"), '게시 전환 후보는 전부 참가라 상태 접두를 붙이지 않습니다.');
+assert(manual.includes('명은 게시 후 자동 대진'), '등록 뒤 남은 인원이 자동 대진으로 간다는 한 줄 상태가 있어야 합니다.');
+assert(html.includes('id="dailyManualPickTitle"'), '선수 선택 제목에 id 가 있어야 접을 수 있습니다.');
+
 console.log('daily stage layout regression ok');

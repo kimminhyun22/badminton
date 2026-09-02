@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.633';
+const APP_VERSION = '1.10.634';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4723,10 +4723,14 @@ function dailyRenderManualActiveModal(){
   if(title)title.textContent=transition?'대진 게시':'수동 게임 등록';
   const sub=document.getElementById('dailyManualModalSub');
   if(sub)sub.textContent=transition?'계속 진행할 경기 등록':'비상 수동 등록';
+  const max=_dailyManualActiveCourtMax();
+  const freeCourt=transition&&!!_dailyManualActiveDefaultCourt();   // 남은 빈 코트가 있는가
   const note=document.getElementById('dailyManualNote');
   if(note){
     note.textContent=transition
-      ? (selectedIds.length===4
+      ? (!freeCourt&&!selectedIds.length
+        ? '코트가 모두 등록됐습니다. 아래 「등록 완료 · 대진 게시」를 누르세요.'   // 나머지 인원은 요약 줄이 숫자로 말한다
+        : selectedIds.length===4
         ? '선택한 4명이 계속 진행할 경기와 코트를 확인한 뒤 등록하세요.'
         : (selectedIds.length
           ? '현재 경기를 계속할 선수 4명을 선택하세요.'
@@ -4735,7 +4739,6 @@ function dailyRenderManualActiveModal(){
   }
   const courtGrid=document.getElementById('dailyManualCourtGrid');
   if(courtGrid){
-    const max=_dailyManualActiveCourtMax();
     courtGrid.innerHTML=Array.from({length:max},(_,i)=>{
       const c=i+1;
       const registered=registeredByCourt.get(c);
@@ -4758,17 +4761,24 @@ function dailyRenderManualActiveModal(){
   }
   const hint=document.getElementById('dailyManualCourtHint');
   if(hint)hint.textContent=transition
-    ? `등록 ${registeredCount} · ${_dailyManualActiveDraft.court||'-'}코트`
+    ? `등록 ${registeredCount}/${max}`
     : `${_dailyManualActiveDraft.court||'-'}코트`;
   const count=document.getElementById('dailyManualPickCount');
   if(count)count.textContent=`${selectedIds.length}/4`;
+  // 빈 코트가 없으면 선수 선택 구역을 접는다 — 고를 자리가 없는데 명단만 길게 남는다
+  // (운영자 2026-09-02 "중복되는 부분 점검, 직관적이고 간결하게").
+  const pickHidden=transition&&!freeCourt&&!selectedIds.length;
+  const pickTitle=document.getElementById('dailyManualPickTitle');
+  if(pickTitle)pickTitle.classList.toggle('hidden',pickHidden);
   const grid=document.getElementById('dailyManualPlayerGrid');
   if(grid){
+    grid.classList.toggle('hidden',pickHidden);
     grid.innerHTML=candidates.map(p=>{
       const idx=selectedIds.indexOf(p.id);
       const on=idx>=0;
       const guest=p.isGuest?'G · ':'';
-      const status=transition?`${_dailyCheckinStatusLabel(p.status)} · `:'';
+      // 게시 전환 후보는 전부 「참가」라 상태 접두는 정보가 없다 — 뺀다
+      const status='';
       return `<button type="button" class="daily-manual-player-btn ${on?'on':''}" onclick="dailyToggleManualActivePlayer('${_dailyManualEscape(p.id)}')">
         <span class="daily-manual-player-name">${_dailyManualEscape(p.name)}${p.isGuest?' (G)':''}</span>
         <span class="daily-manual-player-meta">${guest}${status}${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}게임</span>
@@ -4780,32 +4790,20 @@ function dailyRenderManualActiveModal(){
   const summary=document.getElementById('dailyManualSummary');
   if(summary){
     const currentCourt=_dailyManualActiveDraft.court||'-';
-    let main;
-    let board='';
-    let actionClass='';
     if(transition&&!selected.length){
-      main=registeredCount
-        ? '대진 게시 가능'
-        : '코트 선택';
-      actionClass=registeredCount?'go':'pick';
+      // 고르는 중이 아닐 때: 다음 행동은 하단 버튼이 말한다. 여기엔 「대진 게시」 가짜 버튼도,
+      // 코트 카드와 겹치는 등록 목록도 두지 않는다 — 한 줄 상태만.
+      summary.classList.toggle('hidden',!registeredCount);
+      summary.innerHTML=registeredCount
+        ? `<div class="daily-manual-status">${registeredCount}코트 등록됨 · 나머지 ${candidates.length}명은 게시 후 자동 대진</div>`
+        : '';
     }else{
-      main=selected.length===4
-        ? `${currentCourt}코트 준비`
-        : `${currentCourt}코트 ${selected.length}/4`;
-      actionClass=selected.length===4?'ready':'pick';
-      board=_dailyManualActiveSelectionBoard(selected);
+      summary.classList.remove('hidden');
+      const main=selected.length===4?`${currentCourt}코트 준비`:`${currentCourt}코트 ${selected.length}/4`;
+      const actionClass=selected.length===4?'ready':'pick';
+      const nextAction=selected.length===4?'아래 「이 코트 등록」':'4명 선택';
+      summary.innerHTML=`<div class="daily-manual-next-action ${actionClass}"><strong>${esc(main)}</strong><span>${esc(nextAction)}</span></div>${_dailyManualActiveSelectionBoard(selected)}`;
     }
-    const nextAction=selected.length===4
-      ? '코트 등록'
-      : selected.length
-        ? '4명 선택'
-        : registeredCount
-          ? '대진 게시'
-          : '4명 선택';
-    const registeredHtml=registeredMatches.length
-      ? `<div class="daily-manual-registered">${registeredMatches.map(m=>`<div class="daily-manual-registered-row"><b>${esc((m.court||'-')+'코트')}</b><span>${esc(_dailyManualActiveMatchShortLabel(m))}</span></div>`).join('')}</div>`
-      : '';
-    summary.innerHTML=`<div class="daily-manual-next-action ${actionClass}"><strong>${esc(main)}</strong><span>${esc(nextAction)}</span></div>${board}${registeredHtml}`;
   }
   const btn=document.getElementById('dailyManualConfirmBtn');
   if(btn){
@@ -10421,7 +10419,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.633&from=daily';
+  location.href='team.html?v=1.10.634&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

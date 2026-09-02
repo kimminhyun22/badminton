@@ -2543,6 +2543,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
   font-weight:1000;
   line-height:1.45;
 }
+.daily-manual-status{font-size:.9rem;font-weight:800;color:var(--ml-mut);line-height:1.5;}
+.daily-manual-summary.hidden{display:none!important;}
 .daily-manual-next-action{
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;
