@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.640';
+const APP_VERSION = '1.10.641';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -709,6 +709,8 @@ function updateTeamModeBadge(){
     if(wrap) wrap.classList.remove('show');
     if(reBtn) reBtn.classList.add('hidden');
   }
+  // 자유 대진에는 청·홍 명단이 없다 — 공유/인쇄 메뉴의 청팀·홍팀 항목도 감춘다(2026-09-03 감사)
+  document.querySelectorAll('[data-team-only]').forEach(el=>el.classList.toggle('hidden',!wantTeam));
   renderTeamTemporaryOperatorPanel();
   if(typeof renderAutoFlowDashboard==='function')renderAutoFlowDashboard();
   updateSettingsMiniSummary();
@@ -3152,11 +3154,11 @@ async function stopLiveBroadcast(){
     saveState();
     return;
   }
-  if(!confirm('팀전를 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.')) return;
+  if(!confirm('팀전을 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.')) return;
   await _teamClearLiveBroadcastData();
   await rsvpPushEventState();
   saveState();
-  alert('팀전를 종료했어요.');
+  alert('팀전을 종료했어요.');
 }
 
 /* 중계 버튼 UI 갱신 */
@@ -3630,7 +3632,7 @@ function renderQualityDashboard(matches,participants,settings){
   if(blocking.length){
     opClass='bad';opTitle='❌ 재생성 권장';opSub=blocking.join(', ')+' 확인이 필요합니다.';
   }else if(caution.length||total<90){
-    opClass='warn';opTitle='⚠ 확인 후 진행';opSub=(caution.length?caution.join(', '):'일부 항목')+'만 확인하면 됩니다.';
+    opClass='warn';opTitle='⚠ 확인 후 진행';opSub=(caution.length?caution.join(' · '):'일부 항목')+' — 이것만 확인하면 됩니다.';
   }
   const chip=(label,cls)=>`<span class="op-chip ${cls}">${label}</span>`;
   const opChips=[
@@ -3900,7 +3902,7 @@ function renderResults(matches,participants,settings){
 }
 
 /* ═══ 예측 설문 (예측왕 퀴즈) ═══
-   가대진을 고수들에게 보내 승자 예측(5단계)을 모은다 — 급수 영점 조정의 입력.
+   대진안을 고수들에게 보내 승자 예측(5단계)을 모은다 — 급수 영점 조정의 입력.
    규칙 (2026-08-14 운영자):
    - payload 에는 **이름만** 싣는다. 급수·합계를 실으면 응답이 급수를 되읽는다(앵커링).
    - 설문 링크는 응답 대상에게만 — 전체 공개는 본대진 하나뿐이다.
@@ -5177,7 +5179,7 @@ function renderBracketSaveQuick(){
   if(quick)quick.classList.toggle('hidden',sample||_liveOn||(!hasBracket&&count===0));
   document.querySelectorAll('[data-bracket-save]').forEach(btn=>{
     btn.disabled=!canSave;
-    btn.title=canSave?'현재 가대진을 이름 붙여 저장':'대진표를 먼저 생성하세요';
+    btn.title=canSave?'현재 대진안을 이름 붙여 저장':'대진표를 먼저 생성하세요';
   });
   document.querySelectorAll('[data-slot-count]').forEach(el=>{el.textContent=String(count);});
   const latest=slots[0];
@@ -5186,16 +5188,11 @@ function renderBracketSaveQuick(){
   const text=sample
     ?'샘플 모드에서는 저장하지 않습니다.'
     :hasBracket
-      ?count?`자동저장 중 · 가대진 ${count}개 보관 · 최근 ${latest.name}`:'자동저장 중 · 필요할 때 이름 붙여 별도 보관하세요.'
-      :count?`저장된 가대진 ${count}개 · 목록에서 골라 불러오세요.`:'대진 생성 후 이름 붙여 보관할 수 있습니다.';
+      ?count?`자동저장 중 · 대진안 ${count}개 보관 · 최근 ${latest.name}`:'자동저장 중 · 필요할 때 이름 붙여 별도 보관하세요.'
+      :count?`저장된 대진안 ${count}개 · 목록에서 골라 불러오세요.`:'대진 생성 후 이름 붙여 보관할 수 있습니다.';
   if(quickMeta)quickMeta.textContent=text;
   if(primaryMeta)primaryMeta.textContent=text;
-  // 같은 두 버튼을 한 화면에 두 벌 두지 않는다(2026-09-03 감사) — 상황판 사본이 뜨면 진행 설정 사본은 감춘다
-  const quickVisible=!!quick&&!quick.classList.contains('hidden');
-  document.querySelectorAll('.bracket-save-primary').forEach(el=>{
-    if(quickVisible){el.classList.add('hidden');el.dataset.hiddenByQuick='1';}
-    else if(el.dataset.hiddenByQuick==='1'){el.classList.remove('hidden');el.dataset.hiddenByQuick='';}
-  });
+  // 진행 설정 쪽 사본을 감출지는 teamApplyStageLayout 이 정한다(주인 한 곳)
 }
 
 function openSaveSlotModal(){
@@ -6151,7 +6148,7 @@ function hideErr(){document.getElementById('errBar').classList.remove('on');}
 function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.textContent=m;b.classList.add('on');}
 function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.remove('on');}
 async function resetAll(){
-  if(!confirm('팀전를 전체 초기화할까요?\n팀전 링크, 늦음, 참가자, 팀 배정, 대진표, 승패 입력, 진행 중 LIVE가 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
+  if(!confirm('팀전을 전체 초기화할까요?\n팀전 링크, 늦음, 참가자, 팀 배정, 대진표, 승패 입력, 진행 중 LIVE가 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
   const resetLiveId=_liveId||_teamStoredLiveId()||_teamSavedBracketRestoreInfo()?.liveId||'';
   if(saveTimer)clearTimeout(saveTimer);
   saveTimer=null;
@@ -7418,7 +7415,7 @@ async function rsvpCreateNew(){
     teamLiveOpenPlayers();
     return;
   }
-  if(_rsvpId&&!confirm('새 팀전 링크를 만들까요?\n현재 열려 있는 팀전는 보관함에 그대로 남습니다.'))return;
+  if(_rsvpId&&!confirm('새 팀전 링크를 만들까요?\n현재 열려 있는 팀전은 보관함에 그대로 남습니다.'))return;
   _teamResetLocalLiveState(_liveId||_teamStoredLiveId());
   _teamParticipantSourceRsvpId=null;
   _lastRsvpImportSummary=null;
@@ -8041,7 +8038,7 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
   const lateCount=Object.values(_liveLate||{}).filter(v=>participantNames.has(v?.name)).length;
   const allDone=matches>0&&remaining===0;
   const stateClass=conflictCount?'warn':allDone?'done':'live';
-  const status=allDone?'입력 완료':`${currentRound} 진행`;
+  const status=allDone?'입력 완료':(currentRound==='-'?'중계 중':`${currentRound} 진행`);
   const title=conflictCount
     ? '승패 확인 필요'
     : allDone
@@ -8178,8 +8175,23 @@ function teamApplyStageLayout(){
   }
   // 참가자가 없으면 링크 카드는 "참가자를 세팅하면 준비됩니다" 안내만 남는다
   hide('#sec-rsvp',empty&&!_rsvpId);
-  // 팀 배정·빈 청홍 상자·대진 생성·가대진 저장은 참가자가 있어야 뜻이 있다
-  hide('#teamAssignBtn,#teamReassignBtn,#teamListWrap,.bracket-save-primary',empty);
+  // 팀 배정·빈 청홍 상자·대진 생성·대진안 저장은 참가자가 있어야 뜻이 있다
+  hide('#teamListWrap',empty);
+  // 청/홍 배정 버튼의 주인은 updateTeamModeBadge() 다 — 여기서 hidden 을 떼면
+  // 자유 대진에서 청·홍 배정 버튼이 되살아난다(2026-09-03 감사). 우리가 감춘 것만 되돌린다.
+  ['teamAssignBtn','teamReassignBtn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(empty){
+      if(!el.classList.contains('hidden')){el.classList.add('hidden');el.dataset.hiddenByStage='1';}
+    }else if(el.dataset.hiddenByStage==='1'){
+      el.classList.remove('hidden');el.dataset.hiddenByStage='';
+    }
+  });
+  // 대진안 저장은 여기 한 곳에서만 정한다 — 상황판 사본이 떠 있으면 진행 설정 사본은 감춘다
+  const saveQuick=document.getElementById('bracketSaveQuick');
+  const quickVisible=!!saveQuick&&!saveQuick.classList.contains('hidden');
+  hide('.bracket-save-primary',empty||quickVisible);
   const genBtn=document.querySelector('#sec-settings .btn-gen');
   if(genBtn&&genBtn.parentElement)genBtn.parentElement.classList.toggle('hidden',empty);
   // 빈 화면의 상태 타일 넷 중 셋(링크·방식·대진)은 눌러도 갈 곳이 없고, 남은 하나는 위
@@ -8249,7 +8261,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.640) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.641) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''

@@ -3333,3 +3333,48 @@ header,.nav-bar{
 .team-direct-add[open] summary::after{content:'접기';}
 .team-direct-add[open] summary{border-bottom:1px dashed var(--bdr);}
 .team-direct-add-body{padding:9px 10px 11px;}
+
+/* 320px: 급수 6버튼(38px×6+gap)이 접이식 폼 안쪽 폭을 넘어 「S」가 카드 밖으로 나간다 */
+.lv-sel-btns{flex-wrap:wrap;}
+@media(max-width:360px){
+  .team-direct-add-body .dir-row{row-gap:5px;}
+  .team-direct-add-body .dir-label{flex:1 1 100%;}
+  .team-direct-add-body .lv-sel-btns{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));width:100%;gap:4px;}
+  .team-direct-add-body .lv-sel-btn{min-width:0!important;width:100%;padding:9px 0!important;}
+  .team-direct-add-body .gender-sel-btns{width:100%;}
+  .team-direct-add-body .gender-sel-btn{flex:1;padding:9px 0!important;}
+}
+/* 저장 이름칸은 모바일에서 16px(.modal-box input) — 데스크톱만 본래 크기로 */
+@media(min-width:769px){#slotNameInput{font-size:.92rem;}}
+/* ── 팀전 보조 글자 하한 12px·터치 44px (2026-09-03 감사 3차) ── */
+.hb{font-size:max(12px,.68rem);}
+@media(max-width:768px){
+  .qd-row-title,.qd-row-detail,.sum-box-l,.sv-sub,
+  .team-live-flow .team-live-step,.auto-flow-next,.auto-flow-panel-note,
+  .team-live-ops-status,.team-live-ops-detail,.tlb-diff,
+  .sbs-l,.dir-sort-btn,.dir-count-bar,.guest-badge,
+  .import-member-row small,.slot-item small{font-size:max(12px,.74rem)!important;}
+  .team-live-alert-row .team-live-chip{min-height:34px;font-size:max(12px,.74rem)!important;}
+  .dir-sort-btn,.age-sel-btn{min-height:34px;}
+  .import-member-row{min-height:44px;}
+  .import-member-row input[type=checkbox]{width:22px;height:22px;}
+  .slot-item button{min-height:38px;font-size:max(12px,.76rem);}
+  .cp-add-row input,.cp-add-row select{min-height:40px;}
+  .bottom-nav{background:#fff;}
+}
+@media(max-width:480px){
+  /* 운영 상태 줄이 오른쪽 정렬 137px 안에서 두 줄로 깨지던 것 */
+  .op-status{flex-direction:column;align-items:flex-start;gap:4px;}
+  .op-status-sub{max-width:100%!important;text-align:left;}
+}
+/* 남은 12px 미만 묶음 — 실측(320px)에서 개수가 많은 순: 명부 행 버튼·배지·메타, 접이식 요약,
+   설정 칩, 승패 라벨. 배지는 폭이 늘어 줄이 넘칠 수 있어 줄바꿈을 함께 허용한다. */
+@media(max-width:768px){
+  .rsvp-action-btn,.rsvp-badge,.rsvp-sort-btn,.rsvp-summary-close,
+  .dpi-meta,.dpi-partner-btn,.lv-badge,.age-badge,
+  .tlb-role,.tlb-meta,.op-chip,.op-issue,.settings-mini-chip,
+  .sb-score-l,.sbs-l,.dir-label,.bracket-save-action,
+  .card details>summary,.sync-details>summary,.roster-tools>summary{font-size:max(12px,.74rem)!important;}
+  .dpi-row,.rsvp-admin-row{flex-wrap:wrap;row-gap:4px;}
+  .lv-badge,.age-badge,.tlb-role,.rsvp-badge{padding-left:5px;padding-right:5px;}
+}

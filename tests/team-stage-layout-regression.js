@@ -35,13 +35,22 @@ function run(state){
   const get = key => {
     if (!els[key]) {
       const e = { classes: new Set(), open: null, parentElement: null, textContent: '', tagName: key.startsWith('#sec-') ? 'DETAILS' : 'DIV' };
-      e.classList = { toggle: (c, on) => { if (on) e.classes.add(c); else e.classes.delete(c); }, contains: c => e.classes.has(c) };
+      e.dataset = {};
+      e.classList = {
+        toggle: (c, on) => { if (on) e.classes.add(c); else e.classes.delete(c); },
+        contains: c => e.classes.has(c),
+        add: c => e.classes.add(c),
+        remove: c => e.classes.delete(c),
+      };
       els[key] = e;
     }
     return els[key];
   };
   const genBtn = get('#sec-settings .btn-gen');
   genBtn.parentElement = get('gen-row');
+  // team.html 의 #bracketSaveQuick 는 class="bracket-save-quick hidden" 로 시작한다
+  if (!state.quickVisible) get('#bracketSaveQuick').classes.add('hidden');
+  (state.preHidden || []).forEach(sel => get(sel).classes.add('hidden'));
   const ctx = {
     currentMatches: state.matches || [],
     _liveOn: !!state.live,
@@ -160,8 +169,6 @@ assert(css.includes('.team-live-ops-actions .team-live-primary{grid-column:1/-1;
   'LIVE 스트립은 1차 행동 전폭 + 채널 2열이어야 합니다.');
 assert(css.includes('.rsvp-current-actions>.rsvp-action-btn:last-child{grid-column:1/-1;}'),
   '링크 카드의 「참가자 수정」은 반쪽으로 남지 않아야 합니다.');
-assert(src.includes("el.classList.add('hidden');el.dataset.hiddenByQuick='1';"),
-  '가대진 저장 버튼이 한 화면에 두 벌 뜨면 안 됩니다.');
 assert(src.includes("if(resumeTop&&document.querySelector('#autoFlowBody .auto-flow-action.live-start'))resumeTop.classList.add('hidden');"),
   '「팀전 이어가기」는 보드 CTA 와 머리쪽 버튼이 겹치면 안 됩니다.');
 const shareFn = src.slice(src.indexOf('async function rsvpCopyShareText('), src.indexOf('function rsvpLoad('));
@@ -169,5 +176,50 @@ assert(shareFn.includes('_teamShareToKakao(body,url)') && shareFn.includes('cons
   '카카오톡 본문에는 주소를 넣지 않아야 합니다(link 필드가 붙입니다).');
 assert(!css.includes('.daily-flash-note') && css.includes('.team-flash-note'),
   '팀전 CSS 는 팀전 소유 클래스를 써야 합니다.');
+
+// 청/홍 버튼의 주인은 모드 로직 — 단계 로직이 hidden 을 벗기면 자유 대진에서 되살아난다
+assert(src.includes("el.dataset.hiddenByStage='1';") && src.includes("else if(el.dataset.hiddenByStage==='1')"),
+  '단계 로직은 자기가 감춘 것만 되돌려야 합니다.');
+{
+  // 모드 로직이 미리 감춰 둔 버튼을 roster 단계가 되살리면 안 된다
+  const dom = run({ players: [{}], preHidden: ['#teamAssignBtn'] });
+  assert(dom.hidden('#teamAssignBtn'), '자유 대진에서 감춰 둔 청/홍 배정 버튼을 단계 로직이 되살리면 안 됩니다.');
+}
+// 가대진 저장 사본은 단계 배치 한 곳에서만 정한다
+assert(src.includes("hide('.bracket-save-primary',empty||quickVisible);"),
+  '가대진 저장 사본의 주인은 한 곳이어야 합니다.');
+assert(run({ players: [{}], quickVisible: true }).hidden('.bracket-save-primary'),
+  '상황판 사본이 떠 있으면 진행 설정 사본은 감춰야 합니다.');
+// 자유 대진에는 청·홍 명단이 없다
+assert(src.includes("document.querySelectorAll('[data-team-only]').forEach(el=>el.classList.toggle('hidden',!wantTeam));"),
+  '자유 대진에서는 공유·인쇄 메뉴의 청팀·홍팀 항목을 감춰야 합니다.');
+assert((html.match(/data-team-only/g) || []).length === 4, '청팀·홍팀 항목 네 개에 표시가 있어야 합니다.');
+assert(!html.includes('⚪ 홍팀 명단') && html.includes('🔴 홍팀 명단'), '홍팀 아이콘은 붉은색이어야 합니다.');
+// 저장 이름칸은 모바일에서 16px — 인라인 font-size 가 규칙을 이기면 iOS 가 확대한다
+assert(!/id="slotNameInput"[\s\S]{0,320}?font-size:\.92rem/.test(html),
+  '저장 이름칸에 인라인 font-size 가 있으면 iOS 가 포커스 시 확대합니다.');
+assert(css.includes('@media(min-width:769px){#slotNameInput{font-size:.92rem;}}'),
+  '데스크톱에서는 저장 이름칸 크기를 되돌려야 합니다.');
+// 320px 급수 줄
+assert(css.includes('.team-direct-add-body .lv-sel-btns{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));'),
+  '360px 이하에서 급수 6버튼은 6등분 격자여야 카드 밖으로 나가지 않습니다.');
+
+// ── 문구·글자 (2026-09-03 감사 3차) ──
+assert(!/팀전를|팀전는/.test(html) && !/팀전를|팀전는/.test(src),
+  "'팀전'은 받침이 있어 조사는 '팀전을/팀전은' 입니다.");
+assert(!html.includes('가대진') && !src.includes('가대진'),
+  "'가대진'은 내부 은어입니다 — 화면에는 '대진안'으로 씁니다.");
+assert(html.includes('<p>월례 팀전 · 자유 대진 · 실시간 중계</p>'),
+  '헤더 부제는 자유 대진과 중계까지 다룬다는 것을 말해야 합니다.');
+assert(!html.includes('연속배정 패널티') && !html.includes('>랜덤<'),
+  '내부 알고리즘 용어를 헤더 배지에 두면 안 됩니다.');
+assert(html.includes('📤 무엇을 공유할까요?'),
+  '「공유」로 연 시트가 「인쇄」라고 말하면 안 됩니다.');
+assert(src.includes("currentRound==='-'?'중계 중'"),
+  '대진이 아직 없을 때 「- 진행」으로 뜨면 안 됩니다.');
+assert(css.includes('.op-status-sub{max-width:100%!important;text-align:left;}'),
+  '운영 상태 줄은 좁은 화면에서 오른쪽 정렬로 깨지지 않아야 합니다.');
+assert(css.includes('.hb{font-size:max(12px,.68rem);}'),
+  '헤더 배지도 12px 하한을 지켜야 합니다.');
 
 console.log('team stage layout regression ok');

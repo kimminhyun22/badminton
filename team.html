@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.640  (2026-07)
+     APP VERSION: 1.10.641  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.640">
+<meta name="app-version" content="1.10.641">
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="only light">
 <link rel="manifest" href="manifest.json">
@@ -21,16 +21,16 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="민턴LIVE">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>🏸 민턴LIVE | 배드민턴 대진표</title>
+<title>🏸 민턴LIVE 팀전 | 청·홍전·자유 대진</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/team.css?v=1.10.640">
+<link rel="stylesheet" href="css/team.css?v=1.10.641">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.640"></script>
+<script src="js/storage.js?v=1.10.641"></script>
 </head>
 <body>
 
@@ -43,18 +43,17 @@
 <header>
   <div class="h-left">
     <h1>🏸 <span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></h1>
-    <p>배드민턴 팀 배정 + 자동 대진표 생성기</p>
+    <p>월례 팀전 · 자유 대진 · 실시간 중계</p>
   </div>
   <div class="hbs">
-    <span class="hb on">실력 균형</span><span class="hb on">여성 균등</span>
-    <span class="hb on">랜덤</span><span class="hb on">연속배정 패널티</span><span class="hb on">파트너 중복 방지</span>
+    <span class="hb on">실력 균형</span><span class="hb on">여성 균등</span><span class="hb on">같은 파트너 덜 만나게</span>
   </div>
   <button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.640&from=team'">팀전</button>
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.640&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.641&from=team'">팀전</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.641&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
 </div>
 
 <div class="nav-bar">
@@ -64,7 +63,7 @@
   <div class="nav-save-area">
     <span class="save-status" id="saveStatus"></span>
     <button class="btn-restore hidden" id="restoreBtn" onclick="restoreSavedBracketAction()">📂 이전 대진표 불러오기</button>
-    <!-- 가대진 저장·목록은 상황판과 진행 설정 두 곳에 있고, 내보내기·불러오기는
+    <!-- 대진안 저장·목록은 상황판과 진행 설정 두 곳에 있고, 내보내기·불러오기는
          「백업·기타 관리」에 있습니다 — 내비의 사본은 뺐습니다(진입점 정리 2026-09-03). -->
   </div>
 </div>
@@ -88,7 +87,7 @@
           </div>
           <div class="auto-flow-actions">
             <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
-            <button class="auto-flow-resume-btn hidden" id="liveResumeTopBtn" onclick="resumeTeamLiveBroadcast()" title="앱이 꺼졌던 팀전를 같은 링크로 이어갑니다">팀전 이어가기</button>
+            <button class="auto-flow-resume-btn hidden" id="liveResumeTopBtn" onclick="resumeTeamLiveBroadcast()" title="앱이 꺼졌던 팀전을 같은 링크로 이어갑니다">팀전 이어가기</button>
             <!-- 운영은 임원 화면 한 곳에서 (운영자 2026-08-12 "관리자는 생성만,
                  나머진 임원운영"). 관리자에게도 같은 콘솔을 열어 주면 두 화면을
                  따로 익힐 필요가 없고, 같은 사실을 두 모양으로 보지 않습니다. -->
@@ -107,13 +106,13 @@
         </div>
         <div id="autoFlowBody"></div>
         <div class="team-temporary-operator-panel hidden" id="teamTemporaryOperatorPanel"></div>
-        <div class="bracket-save-quick hidden" id="bracketSaveQuick" aria-label="가대진 빠른 저장">
+        <div class="bracket-save-quick hidden" id="bracketSaveQuick" aria-label="대진안 빠른 저장">
           <div class="bracket-save-quick-copy">
-            <b>가대진 저장</b>
+            <b>대진안 저장</b>
             <span id="bracketSaveQuickMeta">현재 대진을 이름 붙여 보관합니다.</span>
           </div>
           <div class="bracket-save-actions">
-            <button class="bracket-save-action save" data-bracket-save onclick="openSaveSlotModal()">💾 가대진 저장</button>
+            <button class="bracket-save-action save" data-bracket-save onclick="openSaveSlotModal()">💾 대진안 저장</button>
             <button class="bracket-save-action list" onclick="openLoadSlotModal()">📋 저장 목록 <span class="bracket-save-count" data-slot-count>0</span></button>
           </div>
         </div>
@@ -336,9 +335,9 @@
             <button id="undoBtnMain" class="btn btn-undo" style="padding:10px 12px;font-size:.82rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩</button>
           </div>
 
-          <div class="bracket-save-primary" aria-label="가대진 저장과 불러오기">
+          <div class="bracket-save-primary" aria-label="대진안 저장과 불러오기">
             <div class="bracket-save-primary-meta" id="bracketSavePrimaryMeta">대진 생성 후 이름 붙여 보관할 수 있습니다.</div>
-            <button class="bracket-save-action save" data-bracket-save onclick="openSaveSlotModal()">💾 가대진 저장</button>
+            <button class="bracket-save-action save" data-bracket-save onclick="openSaveSlotModal()">💾 대진안 저장</button>
             <button class="bracket-save-action list" onclick="openLoadSlotModal()">📋 저장 목록 <span class="bracket-save-count" data-slot-count>0</span></button>
           </div>
 
@@ -418,8 +417,8 @@
             <div class="print-menu" id="printMenu">
               <button onclick="doPrint('bracket')">📋 대진표</button>
               <button onclick="doPrint('all')">👥 선수 전체 명단</button>
-              <button onclick="doPrint('blue')">🔵 청팀 명단</button>
-              <button onclick="doPrint('white')">⚪ 홍팀 명단</button>
+              <button data-team-only onclick="doPrint('blue')">🔵 청팀 명단</button>
+              <button data-team-only onclick="doPrint('white')">🔴 홍팀 명단</button>
               <button onclick="teamQuizShare()">🎯 예측 설문 링크</button>
             </div>
           </div>
@@ -717,7 +716,7 @@
       <div class="step-item"><span class="step-num ico">즉시</span><p class="step-text">관리자 앱이 꺼져 있어도 승패는 즉시 반영됩니다. 반대 결과가 동시에 들어오면 첫 결과를 유지하고 승패 확인 건으로 남깁니다.</p></div>
       <div class="step-item"><span class="step-num ico">재개</span><p class="step-text">앱이 꺼졌다면 팀전 이어가기로 같은 대진과 회원 링크를 그대로 재개합니다.</p></div>
       <div class="step-item"><span class="step-num ico">명단</span><p class="step-text">운영 현황의 숫자를 누르면 운영진과 뒷풀이 신청 인원·이름을 확인할 수 있습니다.</p></div>
-      <div class="step-item"><span class="step-num ico">48h</span><p class="step-text">기존 팀전는 시작 후 48시간까지만 이어갈 수 있습니다. 지난 데이터는 다음 LIVE 시작 때 정리됩니다.</p></div>
+      <div class="step-item"><span class="step-num ico">48h</span><p class="step-text">기존 팀전은 시작 후 48시간까지만 이어갈 수 있습니다. 지난 데이터는 다음 LIVE 시작 때 정리됩니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -731,7 +730,7 @@
     <h2>💾 자동저장 / 복원</h2>
     <div class="step-list">
       <div class="step-item"><span class="step-num">•</span><p class="step-text">참가자·팀 배정·대진표·승패는 브라우저에 저장됩니다. 진행 중 LIVE의 늦음·뒷풀이·운영 권한은 같은 중계를 이어갈 때 복원됩니다.</p></div>
-      <div class="step-item"><span class="step-num">•</span><p class="step-text">가대진을 비교할 때는 상황판 또는 대진 생성 버튼 아래의 <strong>가대진 저장</strong>을 누르세요. 날짜와 시간이 포함된 이름이 자동으로 제안됩니다.</p></div>
+      <div class="step-item"><span class="step-num">•</span><p class="step-text">대진안을 비교할 때는 상황판 또는 대진 생성 버튼 아래의 <strong>대진안 저장</strong>을 누르세요. 날짜와 시간이 포함된 이름이 자동으로 제안됩니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text"><strong>저장 목록</strong>에는 최대 10개를 보관할 수 있으며 선수 수, 게임 수, 저장 시각을 보고 원하는 안을 불러올 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">같은 기기·같은 브라우저에서는 앱을 다시 열어도 이어서 볼 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num">•</span><p class="step-text">LIVE 진행 중 앱이 꺼졌다면 첫 화면의 <strong>팀전 이어가기</strong>를 누릅니다. 기존 회원 링크도 그대로 유지됩니다.</p></div>
@@ -746,11 +745,11 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.640"></script>
-<script src="js/mobile-nav.js?v=1.10.640"></script>
+<script src="js/match-quality.js?v=1.10.641"></script>
+<script src="js/mobile-nav.js?v=1.10.641"></script>
 <!-- 카카오톡 바로 공유용 JavaScript 키 — index.html 과 같은 값을 넣으면 두 화면이 함께 동작합니다. -->
 <script>window.KOKMATCH_KAKAO_JS_KEY=window.KOKMATCH_KAKAO_JS_KEY||'';</script>
-<script src="js/team.js?v=1.10.640"></script>
+<script src="js/team.js?v=1.10.641"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 라운드로 이동" title="현재 진행 라운드로 이동">
@@ -833,7 +832,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.640</span>
+  <span class="app-version" id="appVersion">v1.10.641</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
@@ -864,19 +863,19 @@
   </div>
 </div>
 
-<!-- 가대진 저장 모달 -->
+<!-- 대진안 저장 모달 -->
 <div class="modal-overlay hidden" id="saveSlotModal">
   <div class="modal-box" style="max-width:360px;">
     <div class="modal-head">
-      <span>💾 가대진 저장</span>
+      <span>💾 대진안 저장</span>
       <button onclick="closeSaveSlotModal()">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:.78rem;color:var(--dim);margin-bottom:10px;">현재 가대진을 별도 보관합니다. 제안된 이름은 바로 수정할 수 있습니다.</p>
+      <p style="font-size:.78rem;color:var(--dim);margin-bottom:10px;">현재 대진안을 따로 보관합니다. 제안된 이름은 바로 고칠 수 있습니다.</p>
       <input type="text" id="slotNameInput" placeholder="예: 청-홍 7/12 14:30"
         maxlength="20"
         style="width:100%;border:1.5px solid var(--bdr);border-radius:8px;padding:11px 13px;
-        font-size:.92rem;font-family:'Noto Sans KR',sans-serif;outline:none;box-sizing:border-box;"
+        font-family:'Noto Sans KR',sans-serif;outline:none;box-sizing:border-box;"
         onkeydown="if(event.key==='Enter')confirmSaveSlot()">
       <p id="slotSaveMsg" style="font-size:.72rem;color:var(--dim);margin-top:6px;min-height:18px;"></p>
       <button class="btn btn-gen" style="width:100%;margin-top:4px;padding:12px;" onclick="confirmSaveSlot()">
@@ -890,7 +889,7 @@
 <div class="modal-overlay hidden" id="loadSlotModal">
   <div class="modal-box" style="max-width:420px;">
     <div class="modal-head">
-      <span>📂 저장된 가대진 <small id="slotListCount"></small></span>
+      <span>📂 저장된 대진안 <small id="slotListCount"></small></span>
       <button onclick="closeLoadSlotModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -903,11 +902,11 @@
 <div class="print-sheet-overlay" id="printSheetOverlay" onclick="closePrintMenu()"></div>
 <div class="print-sheet" id="printSheet">
   <div class="print-sheet-handle"></div>
-  <div class="print-sheet-title">🖨️ 인쇄 항목 선택</div>
+  <div class="print-sheet-title">📤 무엇을 공유할까요?</div>
   <button class="print-sheet-btn" onclick="doPrint('bracket')">📋 대진표</button>
   <button class="print-sheet-btn" onclick="doPrint('all')">👥 선수 전체 명단</button>
-  <button class="print-sheet-btn" onclick="doPrint('blue')">🔵 청팀 명단</button>
-  <button class="print-sheet-btn" onclick="doPrint('white')">⚪ 홍팀 명단</button>
+  <button class="print-sheet-btn" data-team-only onclick="doPrint('blue')">🔵 청팀 명단</button>
+  <button class="print-sheet-btn" data-team-only onclick="doPrint('white')">🔴 홍팀 명단</button>
   <button class="print-sheet-btn" onclick="teamQuizShare()">🎯 예측 설문 링크</button>
   <button class="print-sheet-cancel" onclick="closePrintMenu()">취소</button>
 </div>
