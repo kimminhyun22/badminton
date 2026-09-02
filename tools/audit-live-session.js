@@ -17,7 +17,7 @@ const log = session.completedLog || [];
 const r1 = x => Math.round(x * 10) / 10;
 
 console.log(`세션 감사: 선수 ${players.length}명 · 완료 로그 ${log.length}경기`);
-if (!log.length) console.log('⚠ completedLog 없음 — 이 배포(1.10.631+) 이전에 시작한 세션이거나 경기 전');
+if (!log.length) console.log('⚠ completedLog 없음 — 이 배포(1.10.632+) 이전에 시작한 세션이거나 경기 전');
 
 /* ① 인당 게임 수 + 공정성 잔차 */
 const games = players.filter(p => p.name).map(p => ({
@@ -47,7 +47,7 @@ if (durs.length){
     const s = byType[t].sort((a, b) => a - b);
     return `${t || '?'} ${r1(s[Math.floor(s.length / 2)])}분(${s.length})`;
   }).join(' · '));
-}else console.log('\n② 게임 소요: startAt 데이터 없음(1.10.631 이전 시작 세션)');
+}else console.log('\n② 게임 소요: startAt 데이터 없음(1.10.632 이전 시작 세션)');
 
 /* ③ 밸런스·비대칭 (이름→선수 매칭; 동명이인 있으면 첫 일치) */
 const byName = new Map();

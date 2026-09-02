@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.631';
+const APP_VERSION = '1.10.632';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2643,6 +2643,7 @@ function renderDailyRosterTransferButton(){
   const count=_dailyTeamRosterSnapshot().players.length;
   btn.disabled=!count;
   btn.textContent=count?`팀전 선수 ${count}명 가져오기`:'팀전 선수 없음';
+  btn.classList.toggle('hidden',!count);   // 없을 때는 버튼 자체를 감춘다 — 비활성 버튼은 세팅 화면의 소음
 }
 function dailyImportTeamRoster(){
   if(_dailyBlockServerSync({action:'팀전 선수 명단 가져오기'}))return;
@@ -2783,9 +2784,12 @@ async function dailyImportAddGuest(status){
 function dailyImportRoster(){
   if(!_dailyCanChangeRoster())return;
   loadRosters();
-  const clubs=(rosters.clubs||[]).filter(c=>(c.members||[]).length);
-  if(!clubs.length){alert('명부에 등록된 회원이 없습니다.');return;}
-  _dailyImportClubIdx=Math.max(0,(rosters.clubs||[]).findIndex(c=>(c.members||[]).length));
+  // 명부가 비어도 모달은 연다 — 직접 입력 폼을 뺀 뒤로 게스트 폼이 유일한 등록 입구다
+  // (실전 전 UX 감사 2026-09-02: 새 기기·새 클럽에서 등록할 길이 막히던 회귀).
+  // 기본 클럽은 오늘 세션 클럽(이름 일치) → 회원 있는 첫 클럽 순.
+  const all=(rosters.clubs||[]);
+  const sessionIdx=all.findIndex(c=>_dailySessionClubName&&String(c?.name||'').trim()===String(_dailySessionClubName).trim()&&(c.members||[]).length);
+  _dailyImportClubIdx=sessionIdx>=0?sessionIdx:all.findIndex(c=>(c.members||[]).length);
   _dailyImportSort='reg';
   _dailyImportFilter='all';
   ['all','planned'].forEach(m=>{
@@ -3377,7 +3381,7 @@ function _dailyPlayerToolsHtml(){
     act('dailyImportRoster()','🙋','선수 추가'),
     _dailyOperationStarted?act('dailyToggleFinishMode()','🏁',finishOn?'마무리 해제':'마무리','',finishOn):'',
     act('dailyOpenCourtSetting()','🏸',`코트 ${courts}`),
-    mode('helper','🤝',`도우미 ${helperCount}`),
+    (_dailyOperationStarted||_dailyCheckinId)?mode('helper','🤝',`도우미 ${helperCount}`):'',   // 게시 전엔 링크 강제 생성 부작용만
     mode('rename','✏️','이름 변경'),
     mode('remove','🚫','삭제','danger')
   ].filter(Boolean).join('');
@@ -3427,7 +3431,7 @@ async function dailyRemovePlayer(id){
 }
 function dailyReset(){
   if(!_dailyConfirmDetachLiveBeforeChange('민턴LIVE 데이터 초기화'))return;
-  if(!confirm('민턴LIVE 기록을 모두 초기화할까요?\n기존 대진표와 명부는 지워지지 않습니다.'))return;
+  if(!confirm('오늘 명단과 경기 기록을 지웁니다.\n명부는 그대로이고, 게시 전 준비 명단은 「복원」으로 되살릴 수 있습니다.\n초기화할까요?'))return;
   if(typeof _dailyStopOperatorHeartbeat==='function')_dailyStopOperatorHeartbeat();
   _dailyStopCheckinListener();
   _dailyPlayers=[];_dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
@@ -5664,14 +5668,8 @@ function dailyRenderAdminAlerts(){
       actions:`<button class="daily-mini-btn danger" onclick="dailyUndoMemberComplete('${_dailyLastCompleteUndo.token}')">${undoLabel} 취소</button><span class="daily-mini-chip" data-daily-undo-sec>${remain}초</span>`
     });
   }
-  if(!_dailyStartedPoolCount()&&!_dailyOperationStarted){
-    alerts.push({
-      cls:'primary',
-      title:'현장 참가 등록',
-      desc:'도착한 선수만 확인해 등록하세요.',
-      actions:`<button class="daily-mini-btn" onclick="dailyImportRoster()">참가자 등록</button>`
-    });
-  }
+  // 게시 전 「현장 참가 등록」 알림은 뺐다 — 바로 위 운영 준비 안내가 같은 말·같은 버튼을 이미
+  // 보여 준다. 한 화면에 같은 입구가 넷(안내 타일·도구 줄·알림·폴드)이던 것을 줄인다 (2026-09-02).
   // 세션 클럽 기록이 없는 라이브(기록 도입 전에 만든 세션): 임원 화면 명부가
   // 추정 클럽으로 열립니다. 추정을 더 쌓는 대신 관리자가 버튼 한 번으로 확정
   // (2026-08-13 실전: "임원화면 명부에서 불러오기 여전히 미르클럽만 나오네").
@@ -5778,16 +5776,29 @@ function dailyRenderStartGuide(){
   const courts=_dailyCourtCount();
   const playerCount=_dailyStartedPoolCount();
   const nextIndex=!playerCount?2:0;
+  // 전원 도착 전(사전 등록 다음 날)이면 할 일은 '등록'이 아니라 '도착 확인'이다.
+  // 명부가 비어 있으면 등록 전에 명부부터 — 길을 안내한다 (UX 감사 2026-09-02).
+  const preArrival=_dailyHeadcountInfo().preArrival;
+  const awaitingArrival=!playerCount&&preArrival>0;
+  const rosterEmpty=!((typeof rosters!=='undefined'&&rosters?.clubs)||[]).some(c=>(c.members||[]).length);
+  const sub=playerCount
+    ?'명단을 확인하고 「대진 게시」를 누르세요. 게시할 때 계속 뛰는 경기만 먼저 등록합니다.'
+    :awaitingArrival
+      ?`도착 전 ${preArrival}명이 등록돼 있습니다. 도착한 선수를 「참가」로 바꾸면 대진 게시가 열립니다.`
+      :rosterEmpty
+        ?'명부가 비어 있습니다 — 「명부」에서 클럽·회원을 만들거나, 참가자 등록에서 게스트로 바로 추가하세요.'
+        :'먼저 오늘 참가자를 등록하세요 — 명부에서 고르거나 게스트를 추가합니다.';
   const steps=[
     {n:1,title:'코트',value:`${courts}코트`,done:true,current:false,action:"dailyOpenFold('dailySetupDetails','dailySetupDetails')"},
-    {n:2,title:'현장 참가',value:playerCount?`${playerCount}명`:'등록',done:!!playerCount,current:nextIndex===2,action:playerCount?"dailyOpenBoardTarget('players')":"dailyImportRoster()"}
+    {n:2,title:awaitingArrival?'도착 확인':'현장 참가',value:playerCount?`${playerCount}명`:awaitingArrival?`도착 전 ${preArrival}명`:'등록',done:!!playerCount,current:nextIndex===2,
+      action:playerCount?"dailyOpenBoardTarget('players')":awaitingArrival?"dailyOpenPlayerStatus('planned')":"dailyImportRoster()"}
   ];
   const requiredDone=1+(playerCount?1:0);
   el.hidden=false;
   el.innerHTML=`<div class="daily-start-guide-head">
     <div>
       <div class="daily-start-guide-title">운영 준비</div>
-      <div class="daily-start-guide-sub">참가 등록 후 자유게임을 진행하세요. 게시할 때 계속 뛰는 경기만 먼저 등록합니다.</div>
+      <div class="daily-start-guide-sub">${esc(sub)}</div>
     </div>
     <div class="daily-start-guide-count">${requiredDone}/2</div>
   </div>
@@ -5829,7 +5840,10 @@ function dailyRenderHeadcount(){
     {label:'종료',value:count.done,filter:'done'},
     {label:'도착 전',value:count.preArrival,filter:'planned',cls:count.preArrival?'pending':''}
   ];
-  el.innerHTML=cards.map(card=>`<button type="button" class="daily-headcount-item ${card.cls||''}" onclick="dailyOpenPlayerStatus('${card.filter}')" aria-label="${card.label} ${card.value}명 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('');
+  // 게시 전에는 등록·현장·도착 전만 — 경기중·휴식·종료 0 은 아직 뜻이 없는 숫자다 (2026-09-02)
+  const shown=_dailyUiStage()==='live'?cards:cards.filter(card=>['all','current','planned'].includes(card.filter));
+  el.classList.toggle('compact',shown.length<=3);
+  el.innerHTML=shown.map(card=>`<button type="button" class="daily-headcount-item ${card.cls||''}" onclick="dailyOpenPlayerStatus('${card.filter}')" aria-label="${card.label} ${card.value}명 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('');
 }
 function _dailyLiveAdditionRows(){
   const startedAt=Math.max(0,Number(_dailyOperationStartedAt||_dailyFirstMatchStartedAt()||0));
@@ -5865,11 +5879,54 @@ function dailyRenderLiveAdditions(){
     return `<div class="daily-live-addition-row"><span><strong>${esc(player.name)}</strong><small>${esc(detail)}</small></span><button type="button" ${!cancellable||busy?'disabled':''} onclick="dailyCancelLiveAddition('${esc(player.id)}')">${busy?'처리 중':cancellable?'오등록 취소':`${player.games||0}게임`}</button></div>`;
   }).join('')}`;
 }
+/* 화면 단계 — 세팅 중에는 운영용 카드·숫자·버튼을 감추고, 게시 뒤에는 세팅 폴드를
+   맨 아래로 접는다 (운영자 2026-09-02 "여전히 한눈에 들어오지 않고 복잡… 세팅 시
+   필요없는 메뉴는 보이지 않도록, 필요한 메뉴는 사용이 쉽도록").
+   판정은 상태에서만 — 저장하지 않는다.
+   empty : 선수 0명 · 게시 전  → 등록 입구와 코트만
+   roster: 명단 있음 · 게시 전 → 인원 수·명단·「대진 게시」
+   live  : 게시 뒤            → 진행·다음 대진·기록, 세팅 폴드는 맨 아래로 */
+function _dailyUiStage(){
+  if(_dailyOperationStarted||_dailyActiveMatches().length||_dailyQueue.length)return 'live';
+  return _dailyPlayers.length?'roster':'empty';
+}
+let _dailyUiStageShown='';
+function dailyApplyStageLayout(){
+  const stage=_dailyUiStage();
+  const layout=document.querySelector('.daily-layout');
+  if(!layout)return;
+  ['empty','roster','live'].forEach(s=>layout.classList.toggle('stage-'+s,stage===s));
+  const live=stage==='live';
+  const hide=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hidden',!!on));
+  hide('.daily-active-card',!live);                 // 진행 중 — 게시 전엔 빈 카드
+  hide('.daily-urgent-card',!live);                 // 다음 대진 — 게시 전엔 "4명부터 자동"뿐
+  hide('#dailyResultDetails',!live&&!_dailyMatches.length);
+  hide('#dailyOpsStats',!live);                     // 진행 0/3 · 게시 전 · 라이브 0 — 전부 0인 칸
+  hide('#dailyHeadcount',stage==='empty');          // 명단이 있을 때부터 등록·현장·도착 전이 뜻을 가진다
+  hide('#dailyPlayersManage',stage==='empty');
+  hide('#dailyDashboardTools',stage==='empty');       // 도구 줄 — 빈 화면에선 등록 입구 사본일 뿐
+  hide('#bnav-queue',!live);                          // 모바일 「대진」 탭 — 게시 전엔 갈 곳이 없다
+  hide('#bnav-players',stage==='empty');
+  // 게시 전 선수 필터는 등록·현재·도착 전만 — 대기/경기중/휴식/종료/다음대진은 아직 뜻이 없다
+  hide('#dailyPlayerFilterWait,#dailyPlayerFilterPlaying,#dailyPlayerFilterRest,#dailyPlayerFilterDone,#dailyPlayerFilterQueued',!live);
+  hide('#dailyQuickShareBtn',stage==='empty'&&!_dailyCheckinId);   // 보낼 명단이 없다
+  hide('#dailyQuickStopBtn',!_dailyCheckinId);                    // 종료할 링크가 없다
+  hide('#dailyQuickResetBtn',stage==='empty'&&!_dailyCheckinId);  // 지울 것이 없다
+  const setup=document.getElementById('dailySetupDetails');
+  if(setup&&_dailyUiStageShown!==stage){
+    // 단계가 바뀌는 순간에만 손댄다 — 사용자가 접었다 펼친 상태를 매 렌더마다 뒤집지 않도록
+    setup.open=!live;
+  }
+  if(_dailyUiStageShown&&_dailyUiStageShown!==stage){
+    _dailyPlayerTool='';   // 삭제·이름 변경 모드가 단계를 넘어 남지 않게
+  }
+  _dailyUiStageShown=stage;
+}
 function dailyRenderOpsStats(){
   const el=document.getElementById('dailyOpsStats');
   if(!el)return;
   const transitionBtn=document.getElementById('dailyTransitionBtn');
-  const showTransition=!_dailyOperationStarted;
+  const showTransition=_dailyUiStage()!=='live'&&_dailyStartedPoolCount()>0;   // 참가자 0명이면 눌러도 안내창뿐 — 감춘다
   if(transitionBtn)transitionBtn.style.display=showTransition?'flex':'none';
   const finishBtn=document.getElementById('dailyFinishBtn');
   const showFinish=!!_dailyOperationStarted;
@@ -5948,6 +6005,7 @@ function dailyRenderOpsStats(){
   dailyRenderLiveAdditions();
   dailyRenderStatusBar();
   dailyRenderAdminAlerts();
+  dailyApplyStageLayout();
 }
 // 운영 도우미도 선수 목록의 도구 모드에서 지정합니다(임원 화면과 같은 구조).
 // 전용 카드는 없앴습니다 — 입구가 둘이면 어디서 지정했는지 헷갈립니다.
@@ -6202,9 +6260,12 @@ function dailyRenderStatusBar(){
   const chips=[];
   const flow=document.getElementById('dailyFlowState');
   if(flow){
-    flow.classList.toggle('need',!_dailyPaused&&!!todo);
+    // 게시 전에는 「조치 1건」이 아니라 「운영 준비」 — 할 일은 바로 아래 운영 준비 안내가
+    // 말하고, 노란 경고 알약은 뭔가 잘못됐다는 신호로 읽힌다 (운영자 2026-09-02).
+    const preparing=_dailyUiStage()!=='live'&&!_dailyPaused;
+    flow.classList.toggle('need',!preparing&&!_dailyPaused&&!!todo);
     flow.classList.toggle('paused',_dailyPaused);
-    flow.innerHTML=`<span class="daily-dot"></span> ${_dailyPaused?'진행 일시 정지':todo?(entryReady?'입장 준비':`조치 ${todo}건`):flowInfo.label}`;
+    flow.innerHTML=`<span class="daily-dot"></span> ${_dailyPaused?'진행 일시 정지':preparing?'운영 준비':todo?(entryReady?'입장 준비':`조치 ${todo}건`):flowInfo.label}`;
   }
   const autoHint=document.getElementById('dailyAutoFlowHint');
   if(autoHint){
@@ -7592,6 +7653,10 @@ async function _dailyCopyToClipboard(text){
   }
 }
 async function dailyShareCheckinLink(){
+  // 링크가 생기면 이 명단은 '오늘 운동'이 되어 다른 날로 이어지지 않는다(준비본 보관 조건
+  // !_dailyCheckinId). 사전 등록 중에 눌렀다면 한 번 묻는다 (UX 감사 2026-09-02).
+  if(!_dailyCheckinId&&!_dailyOperationStarted&&typeof confirm==='function'
+    &&!confirm('아직 대진을 게시하지 않았습니다.\n지금 링크를 만들면 오늘 운동으로 시작되어, 준비 명단이 다른 날로 이어지지 않습니다.\n계속할까요?'))return;
   _dailyVoteDeadlineAt='';
   const id=await dailyPublishCheckinSession(false);
   const keptUrl=id?'':_dailyPublishKeptUrl;
@@ -9222,6 +9287,9 @@ function dailyRenderAfterPartySpotlight(){
   <div class="daily-party-name-cloud">${rows.map(player=>`<span>${esc(_dailyNameText(player))}</span>`).join('')}</div>`;
 }
 function dailyRenderCheckinRequests(){
+  // 링크 생성·만료·분리는 이 함수만 거친다 — 「링크 종료」 버튼이 링크 유무를 따라가게
+  // 단계 배치를 여기서도 적용한다 (실전 전 UX 감사 2026-09-02).
+  if(typeof dailyApplyStageLayout==='function')dailyApplyStageLayout();
   const box=document.getElementById('dailyCheckinBox');
   if(!box)return;
   _dailyRenderReconcileBanner();
@@ -9274,7 +9342,7 @@ function dailyRender(){
   if(stats){
     const counts=_dailyHeadcountInfo();
     // 숫자를 누르면 아래 목록이 그 상태로 바로 걸러집니다.
-    stats.innerHTML=[
+    const statRows=[
       ['등록',counts.total,'all'],
       ['현장',counts.current,'current'],
       ['대기',counts.wait,'wait'],
@@ -9282,13 +9350,15 @@ function dailyRender(){
       ['휴식',counts.rest,'rest'],
       ['종료',counts.done,'done'],
       ['도착 전',counts.preArrival,'planned']
-    ].map(([l,v,f])=>`<button type="button" class="daily-stat${_dailyPlayerFilter===f?' active':''}" onclick="setDailyPlayerFilter('${f}')" aria-pressed="${_dailyPlayerFilter===f?'true':'false'}" aria-label="${l} ${v}명만 보기"><b>${v}</b><span>${l}</span></button>`).join('');
+    ];
+    // 게시 전에는 등록·현장·도착 전만 — 상황판 인원 수와 같은 3칸 (UX 감사 2026-09-02)
+    stats.innerHTML=(_dailyUiStage()==='live'?statRows:statRows.filter(([,,f])=>['all','current','planned'].includes(f))).map(([l,v,f])=>`<button type="button" class="daily-stat${_dailyPlayerFilter===f?' active':''}" onclick="setDailyPlayerFilter('${f}')" aria-pressed="${_dailyPlayerFilter===f?'true':'false'}" aria-label="${l} ${v}명만 보기"><b>${v}</b><span>${l}</span></button>`).join('');
   }
   const list=document.getElementById('dailyPlayerList');
   if(list){
     _dailyUpdatePlayerSortButtons();
     _dailyUpdatePlayerToolState();
-    if(!_dailyPlayers.length)list.innerHTML='<div class="daily-empty">민턴LIVE 명단이 비어 있습니다. 클럽 명부를 가져오거나 선수를 직접 추가하세요.</div>';
+    if(!_dailyPlayers.length)list.innerHTML='<div class="daily-empty">명단이 비어 있습니다. 「참가자 등록」에서 명부 회원을 고르거나 게스트를 추가하세요.</div>';
     else{
       const filtered=_dailyFilterPlayersForManage(_dailyPlayers);
       const sorted=_dailySortPlayersForManage(filtered);
@@ -9929,6 +9999,10 @@ function renderDailyImportMembers(){
   const club=(rosters.clubs||[])[_dailyImportClubIdx];
   const el=document.getElementById('dailyImportMemberList');
   if(!el)return;
+  if(!club){
+    el.innerHTML=`<div class="dir-empty" style="padding:18px 12px;line-height:1.6;">명부에 회원이 없습니다.<br>「명부」에서 클럽·회원을 만들거나, 아래 게스트로 바로 추가하세요.<br><button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="closeDailyImportModal();switchNav('roster')">명부 만들기</button></div>`;
+    return;
+  }
   const existingByName=new Map(_dailyPlayers.map(p=>[p.name,p]));
   const isPre=p=>['invited','planned'].includes(_dailyNormalizeStatus(p.status));
   // 사전 등록 후 되돌리기(운영자 2026-08-11 "전원 현장으로 처리하고 현장에서
@@ -10344,7 +10418,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.631&from=daily';
+  location.href='team.html?v=1.10.632&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -16324,6 +16398,12 @@ function switchMobileTab(tab){
     };
     const targetId = targetMap[tab];
     const el = document.getElementById(targetId);
+    // 단계별로 감춘 카드(display:none)는 top 이 0 이라 제자리 스크롤이 된다 — 상황판으로 보낸다
+    if(!el||el.offsetParent===null){
+      syncBottomNav('daily');
+      window.scrollTo({top:0,behavior:'smooth'});
+      return;
+    }
     if(el){
       const offset = 8; // 약간의 여백
       const top = el.getBoundingClientRect().top + window.scrollY - offset;
@@ -16350,6 +16430,7 @@ function updateActiveBnavByScroll(){
   const scrollY = window.scrollY + 120;
   for(const s of sections){
     const el = document.getElementById(s.id);
+    if(el && el.offsetParent===null) continue;   // 감춘 카드는 top 0 — 늘 매치돼 엉뚱한 탭이 켜진다
     if(el && el.getBoundingClientRect().top + window.scrollY <= scrollY){
       document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
       const btn = document.getElementById('bnav-' + s.tab);

@@ -966,6 +966,12 @@ body.monthly-team-mode .team-partner-help{display:block;}
 #dailyCheckinDetails{order:4;}
 #dailyResultDetails{order:5;}
 #dailyPlayersManage{order:6;}
+/* 세팅 폴드: 게시 전엔 상황판 바로 아래(같은 order 1 → DOM 순서로 상황판 다음),
+   게시 뒤(.stage-live)엔 맨 아래로. 접힘 상태 전환은 dailyApplyStageLayout 이 맡는다. */
+#dailySetupDetails{order:1;}
+.daily-layout.stage-live #dailySetupDetails{order:9;}
+.daily-main>.daily-section-fold{margin-bottom:0;}
+.daily-headcount.compact{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
 .daily-detail-stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start;}
 .daily-setup-fold .daily-section-fold-body{background:#fbfcff;}
 .daily-form-grid{display:grid;grid-template-columns:1fr 86px 76px 46px;gap:7px;margin-bottom:8px;}
@@ -1201,7 +1207,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-dashboard-title{font-size:1.38rem;font-weight:1000;color:#263141;letter-spacing:-.055em;line-height:1.18;margin:0;}
 .daily-dashboard-sub{font-size:.74rem;color:#7b8493;line-height:1.55;margin-top:6px;font-weight:800;letter-spacing:-.02em;}
 .daily-dashboard-head-actions{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;}
-.daily-dashboard-quick-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%;}
+.daily-dashboard-quick-actions{display:flex;flex-wrap:wrap;gap:6px;width:100%;}
+.daily-dashboard-quick-actions>.daily-dashboard-quick-action{flex:1 1 0;}
 .daily-dashboard-quick-action{min-height:36px;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--txt);padding:7px 10px;font-family:'Noto Sans KR',sans-serif;font-size:.68rem;font-weight:1000;line-height:1.1;white-space:nowrap;cursor:pointer;}
 .daily-dashboard-quick-action.share{border-color:var(--bl-softbdr);background:var(--bl-soft);color:var(--bl-deep);}
 .daily-dashboard-quick-action.stop{border-color:#fde68a;background:#fffbeb;color:#92400e;}
