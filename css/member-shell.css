@@ -498,3 +498,7 @@ body.km-live-page .party-spotlight{
 
 /* 세게 당겨도 하단 탭이 들썩이지 않게 */
 html,body{overscroll-behavior-y:none;}
+
+/* 단말기 맞춤(2026-09-02) */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;color-scheme:only light;}
+button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}

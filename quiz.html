@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="only light">
 <meta name="theme-color" content="#f6f8fc">
-<meta name="app-version" content="1.10.635">
+<meta name="app-version" content="1.10.636">
 <!-- 카톡 미리보기: 제목만 — 대진 내용은 싣지 않는다(가대진 유출 차단) -->
 <meta property="og:title" content="예측왕 퀴즈">
 <meta property="og:description" content="이번 팀전, 누가 이길까요? 혼자 몰래 찍어 주세요.">
@@ -101,6 +102,10 @@ body{
 .rv-row.diff .verdict{color:var(--red);font-weight:900}
 .rv-row.half .verdict{color:var(--gold);font-weight:700}
 .rv-row.same .verdict{color:var(--mut)}
+
+/* 단말기 맞춤(2026-09-02): OS 글자 확대 일관성·강제 다크 반전 방지·더블탭 확대 방지 */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;color-scheme:only light;}
+button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 </style>
 </head>
 <body>
@@ -146,7 +151,7 @@ body{
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.635"></script>
+<script src="js/storage.js?v=1.10.636"></script>
 <script>
 'use strict';
 /* 예측 설문 응답 페이지.

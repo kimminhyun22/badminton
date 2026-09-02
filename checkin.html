@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f4f7f6">
+<meta name="color-scheme" content="only light">
 <title>민턴LIVE 내 경기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -17,7 +18,7 @@
 /* 폰의 시스템 글자 확대(font boosting)가 고정 폭 이름 칸을 밀어내 잘림을
    만든다 (운영자 2026-08-16 실전: "일부 회원 폰에서 이름이 잘리거나 깨짐").
    레이아웃은 우리가 정한 크기 그대로, 확대는 브라우저 줌에 맡긴다. */
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;color-scheme:only light;}
 body{
   margin:0;
   font-family:'Noto Sans KR',system-ui,-apple-system,sans-serif;
@@ -204,7 +205,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:#eef8f3;
   color:#176347;
   font-size:11px;
-  font-weight:1000;
+  font-weight:900;
   line-height:1.2;
   white-space:nowrap;
 }
@@ -277,7 +278,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 .event-active-plus{
   color:#7a8798;
   font-size:10px;
-  font-weight:1000;
+  font-weight:900;
   line-height:1;
 }
 .event-active-vs{
@@ -290,7 +291,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   color:#7a8798;
   font-style:normal;
   font-size:11px;
-  font-weight:1000;
+  font-weight:900;
   line-height:1;
   text-transform:uppercase;
 }
@@ -340,7 +341,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   padding:7px 8px;
   font:inherit;
   font-size:12px;
-  font-weight:1000;
+  font-weight:900;
   cursor:pointer;
 }
 .event-official-complete:disabled{opacity:.42;cursor:not-allowed;}
@@ -354,7 +355,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   padding:5px 6px;
   font:inherit;
   font-size:11px;
-  font-weight:1000;
+  font-weight:900;
   line-height:1.15;
   word-break:keep-all;
   cursor:pointer;
@@ -375,7 +376,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:#eef5ff;
   color:#315fb2;
   font-size:15px;
-  font-weight:1000;
+  font-weight:900;
   font-family:inherit;
   cursor:pointer;
   box-shadow:0 8px 18px rgba(91,141,239,.12);
@@ -482,17 +483,17 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:#fff;
   color:#4f78c9;
   font-size:13px;
-  font-weight:1000;
+  font-weight:900;
   box-shadow:none;
 }
 .my-avatar{
   width:58px;height:58px;border-radius:20px;
   display:flex;align-items:center;justify-content:center;
   background:#eaf1fe;color:#315fb2;border:1px solid #bfdbfe;
-  font-size:23px;font-weight:1000;flex-shrink:0;
+  font-size:23px;font-weight:900;flex-shrink:0;
 }
-.my-card-name{font-size:24px;font-weight:1000;letter-spacing:-.055em;line-height:1.16;color:#18202d}
-.my-card-state{font-size:13px;font-weight:1000;color:#16834f;margin-top:5px}
+.my-card-name{font-size:24px;font-weight:900;letter-spacing:-.055em;line-height:1.16;color:#18202d}
+.my-card-state{font-size:13px;font-weight:900;color:#16834f;margin-top:5px}
 .my-status-chips{
   display:flex;
   flex-wrap:wrap;
@@ -509,7 +510,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:#fff;
   color:var(--mut);
   font-size:12px;
-  font-weight:1000;
+  font-weight:900;
   line-height:1;
   white-space:nowrap;
 }
@@ -545,7 +546,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   align-items:center;
   gap:7px;
   font-size:13px;
-  font-weight:1000;
+  font-weight:900;
 }
 .my-current-match-head span:before{
   content:'';
@@ -603,7 +604,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:linear-gradient(135deg,#f8fbff 0%,#fff 100%);
   color:#315fb2;
   font-size:14px;
-  font-weight:1000;
+  font-weight:900;
   line-height:1.45;
 }
 .next-queue-headline{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -624,7 +625,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   border:1.5px solid #ead2a8;
   background:#fff9ef;
   color:#8c672b;
-  font-weight:1000;
+  font-weight:900;
   font-size:15px;
   font-family:inherit;
   letter-spacing:-.03em;
@@ -640,7 +641,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
 .queue-enter-btn,.queue-rest-btn{
   min-height:42px;
   border-radius:15px;
-  font-weight:1000;
+  font-weight:900;
   font-size:14px;
 }
 .queue-enter-btn{
@@ -662,7 +663,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   background:#f4fbf7;
   color:#23754a;
   font-size:14px;
-  font-weight:1000;
+  font-weight:900;
   line-height:1.45;
 }
 .rest-guide small{
@@ -676,7 +677,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   border:1px dashed #c8dbfb;border-radius:20px;padding:14px;
   background:#f8fbff;color:#4f78c9;font-size:14px;font-weight:900;line-height:1.5;
 }
-.other-roster-title{margin:12px 0 8px;color:#6f7a8a;font-size:12px;font-weight:1000;letter-spacing:.04em}
+.other-roster-title{margin:12px 0 8px;color:#6f7a8a;font-size:12px;font-weight:900;letter-spacing:.04em}
 .version-chip{
   display:none;
   align-items:center;
@@ -852,12 +853,12 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   border:1px solid currentColor;
   color:inherit;
   font-size:10px;
-  font-weight:1000;
+  font-weight:900;
   line-height:1;
   vertical-align:middle;
 }
 .request-consent-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
-.request-consent-actions button{padding:10px 12px;border-radius:14px;border:1.5px solid var(--line);background:#fff;color:var(--txt);font-weight:1000}
+.request-consent-actions button{padding:10px 12px;border-radius:14px;border:1.5px solid var(--line);background:#fff;color:var(--txt);font-weight:900}
 .request-consent-actions button.accept{border-color:#bdebd0;background:#eefbf4;color:#167244}
 .request-consent-actions button.decline{border-color:#f4c7ce;background:#fff5f6;color:#a33b47}
 button{
@@ -910,7 +911,7 @@ button.sent:not(.applied){background:linear-gradient(135deg,#35a56a,#1e7b4b);bor
   border-color:#4778d8;
   color:#fff;
 }
-.my-action-panel .status-btn span:last-child{font-size:17px;font-weight:1000;letter-spacing:-.02em}
+.my-action-panel .status-btn span:last-child{font-size:17px;font-weight:900;letter-spacing:-.02em}
 .empty{
   padding:28px 14px;
   text-align:center;
@@ -1175,7 +1176,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   margin-top:10px;
   color:var(--blue-deep);
   font-size:.82rem;
-  font-weight:1000;
+  font-weight:900;
 }
 .badge.selected,
 .request-status.done{
@@ -1256,7 +1257,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   background:#f4fbf7;
   color:var(--green-deep);
   font-size:.92rem;
-  font-weight:1000;
+  font-weight:900;
   line-height:1;
 }
 .event-row.next.soon .event-rank-badge,
@@ -1277,7 +1278,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   white-space:nowrap;
   color:var(--txt);
   font-size:.93rem;
-  font-weight:1000;
+  font-weight:900;
   line-height:1.25;
   letter-spacing:-.055em;
 }
@@ -1304,7 +1305,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   color:var(--mut);
   font-style:normal;
   font-size:.64rem;
-  font-weight:1000;
+  font-weight:900;
   text-transform:lowercase;
   text-align:center;
 }
@@ -1328,7 +1329,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   border-radius:14px;
   background:#fff9ef;
   color:#8c672b;
-  font-weight:1000;
+  font-weight:900;
 }
 .event-official-queue-actions{
   display:grid;
@@ -1344,7 +1345,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   padding:8px 10px;
   font:inherit;
   font-size:13px;
-  font-weight:1000;
+  font-weight:900;
   cursor:pointer;
 }
 .event-official-enter{
@@ -1369,7 +1370,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   background:#f4fbf7;
   color:var(--green-deep);
   font-size:12px;
-  font-weight:1000;
+  font-weight:900;
 }
 .event-row.expected{
   border-style:dashed;
@@ -1474,7 +1475,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   border-radius:999px;
   min-width:56px;
   padding:9px 12px;
-  font-weight:1000;
+  font-weight:900;
 }
 .complete-picker-list{
   display:grid;
@@ -1488,7 +1489,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
   padding:13px;
   text-align:left;
   color:var(--txt);
-  font-weight:1000;
+  font-weight:900;
 }
 .complete-picker-card.soon,
 .complete-picker-card.due{
@@ -1526,7 +1527,7 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-support{margin-top:16px;padding-top:14px;border-top:2px solid #d9e5df;}
 .official-support-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;}
 .official-support-head b{font-size:16px;color:var(--txt);}
-.official-connection{flex-shrink:0;padding:5px 9px;border-radius:999px;background:#eef9f3;color:#16724c;font-size:12px;font-weight:1000;}
+.official-connection{flex-shrink:0;padding:5px 9px;border-radius:999px;background:#eef9f3;color:#16724c;font-size:12px;font-weight:900;}
 .official-connection.offline{background:#fff8e8;color:#8a5a00;}
 .official-fair-board{margin:8px 0 2px;border:1px solid var(--line);border-radius:10px;background:#eef9f3;}
 .official-fair-board.warn{background:#fff8e8;}
@@ -1568,11 +1569,11 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-fair-alert b{font-size:14px;}
 .official-fair-alert small{display:block;margin-top:6px;font-size:11px;font-weight:700;line-height:1.5;color:#8a6a20;}
 .official-fair-alert-rows{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
-.official-fair-alert-rows button{min-height:42px;padding:6px 12px;border:1.5px solid #d99a1b;border-radius:8px;background:#fff;color:#7a5200;font:inherit;font-weight:1000;cursor:pointer;}
+.official-fair-alert-rows button{min-height:42px;padding:6px 12px;border:1.5px solid #d99a1b;border-radius:8px;background:#fff;color:#7a5200;font:inherit;font-weight:900;cursor:pointer;}
 .official-connect-recovery{margin:10px 0;padding:12px;border:1.5px solid #e3a7aa;border-radius:8px;background:#fff4f4;color:#8f1d24;}
 .official-connect-recovery b{display:block;font-size:14px;}
 .official-connect-recovery small{display:block;margin-top:4px;font-size:11px;font-weight:800;line-height:1.5;}
-.official-connect-recovery button{width:100%;min-height:44px;margin-top:10px;border:1.5px solid #c9363e;border-radius:8px;background:#c9363e;color:#fff;font:inherit;font-weight:1000;}
+.official-connect-recovery button{width:100%;min-height:44px;margin-top:10px;border:1.5px solid #c9363e;border-radius:8px;background:#c9363e;color:#fff;font:inherit;font-weight:900;}
 .official-connect-recovery button:disabled{opacity:.5;cursor:not-allowed;}
 .official-connect-recovery.connecting{border-color:#b8d8ff;background:#f5f9ff;color:#245ca6;}
 .official-request-state{margin:0 0 10px;padding:8px 10px;border-radius:7px;background:#f4f7fb;color:#526177;font-size:12px;font-weight:900;}
@@ -1582,10 +1583,10 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-arrival-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
 .official-arrival-head b{display:block;color:#245ca6;font-size:14px;}
 .official-arrival-head small{display:block;margin-top:3px;color:var(--mut);font-size:11px;font-weight:800;line-height:1.4;}
-.official-arrival-count{flex-shrink:0;padding:4px 8px;border-radius:999px;background:#e7f1ff;color:#245ca6;font-size:11px;font-weight:1000;}
+.official-arrival-count{flex-shrink:0;padding:4px 8px;border-radius:999px;background:#e7f1ff;color:#245ca6;font-size:11px;font-weight:900;}
 .official-arrival-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;}
 .official-arrival-actions select{width:100%;min-width:0;min-height:44px;border:1.5px solid #b8d8ff;border-radius:8px;background:#fff;padding:8px 10px;font:inherit;font-weight:900;color:var(--txt);}
-.official-arrival-actions button{min-height:44px;border:1.5px solid #6aa6ee;border-radius:8px;background:#3f7fd5;color:#fff;padding:8px 13px;font:inherit;font-weight:1000;white-space:nowrap;}
+.official-arrival-actions button{min-height:44px;border:1.5px solid #6aa6ee;border-radius:8px;background:#3f7fd5;color:#fff;padding:8px 13px;font:inherit;font-weight:900;white-space:nowrap;}
 .official-arrival-actions button:disabled{opacity:.42;cursor:not-allowed;}
 .official-live-additions{margin:10px 0 4px;padding:12px;border:1px solid #ead39d;border-left:3px solid #d6ad62;border-radius:8px;background:#fffaf0;}
 .official-live-additions-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;color:#75551c;}
@@ -1593,23 +1594,23 @@ summary.official-live-additions-head{cursor:pointer;margin-bottom:0;list-style:n
 summary.official-live-additions-head::-webkit-details-marker{display:none;}
 .official-live-additions[open] summary.official-live-additions-head{margin-bottom:4px;}
 .official-live-additions-head b{font-size:14px;}
-.official-live-additions-head span{font-size:11px;font-weight:1000;}
+.official-live-additions-head span{font-size:11px;font-weight:900;}
 .official-live-addition-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #efdfba;}
 .official-live-addition-row:first-of-type{border-top:0;}
 .official-live-addition-row b{display:block;color:#3f4650;font-size:13px;}
 .official-live-addition-row small{display:block;margin-top:2px;color:var(--mut);font-size:11px;font-weight:800;}
-.official-live-addition-row button{min-height:38px;border:1px solid #e3a7aa;border-radius:8px;background:#fff;color:#a2282f;padding:7px 9px;font:inherit;font-size:11px;font-weight:1000;}
+.official-live-addition-row button{min-height:38px;border:1px solid #e3a7aa;border-radius:8px;background:#fff;color:#a2282f;padding:7px 9px;font:inherit;font-size:11px;font-weight:900;}
 .official-live-addition-row button:disabled{border-color:#ddd;background:#f5f5f5;color:#999;}
 .official-action-list{display:flex;flex-direction:column;border-top:1px solid var(--line);}
 .official-action-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
 .official-action-row span{min-width:0;font-size:13px;font-weight:900;line-height:1.45;overflow-wrap:anywhere;}
 .official-action-row small{display:block;color:var(--mut);font-size:11px;font-weight:800;margin-top:2px;}
-.official-action-row button,.official-status-actions button{min-height:42px;border:1.5px solid #e3a7aa;border-radius:8px;background:#fff4f4;color:#b42318;padding:8px 12px;font-weight:1000;font-family:inherit;}
+.official-action-row button,.official-status-actions button{min-height:42px;border:1.5px solid #e3a7aa;border-radius:8px;background:#fff4f4;color:#b42318;padding:8px 12px;font-weight:900;font-family:inherit;}
 .official-action-row button.start{border-color:#9ccfb7;background:#eef9f3;color:#16724c;}
 .official-action-row button.yield{border-color:#e8c784;background:#fff9ed;color:#8a5a00;}
 .official-action-row button:disabled,.official-status-actions button:disabled{opacity:.42;cursor:not-allowed;}
 .official-player-tools{margin-top:12px;}
-.official-player-tools summary{cursor:pointer;font-size:13px;font-weight:1000;color:#40506a;list-style:none;}
+.official-player-tools summary{cursor:pointer;font-size:13px;font-weight:900;color:#40506a;list-style:none;}
 .official-player-tools summary::-webkit-details-marker{display:none;}
 .official-player-tools select{width:100%;margin:10px 0 8px;min-height:44px;border:1.5px solid var(--line);border-radius:8px;background:#fff;padding:8px 10px;font:inherit;font-weight:800;color:var(--txt);}
 .official-status-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;}
@@ -1629,17 +1630,17 @@ summary.official-live-additions-head::-webkit-details-marker{display:none;}
 .official-partner{margin:12px 0 4px;padding:12px;border:1.5px solid #9ccfb7;border-radius:8px;background:#f4fbf7;}
 .official-partner-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .official-partner-head b{color:#176347;font-size:14px;}
-.official-partner-count{flex-shrink:0;padding:4px 8px;border-radius:999px;background:#e2f5ea;color:#176347;font-size:11px;font-weight:1000;}
+.official-partner-count{flex-shrink:0;padding:4px 8px;border-radius:999px;background:#e2f5ea;color:#176347;font-size:11px;font-weight:900;}
 .official-partner-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px;}
 .official-partner-fields label{min-width:0;color:#526177;font-size:11px;font-weight:900;}
 .official-partner-fields select{width:100%;min-width:0;min-height:44px;margin:5px 0 0;border:1.5px solid #abd7c3;border-radius:8px;background:#fff;padding:8px 10px;font:inherit;font-weight:900;color:var(--txt);}
 .official-partner-note{min-height:29px;margin:7px 0;padding:6px 9px;border-radius:7px;background:#eaf7f0;color:#32654f;font-size:11px;font-weight:900;line-height:1.45;}
-.official-partner-submit{width:100%;min-height:44px;border:1.5px solid #64ae8b;border-radius:8px;background:#23835b;color:#fff;font:inherit;font-weight:1000;}
+.official-partner-submit{width:100%;min-height:44px;border:1.5px solid #64ae8b;border-radius:8px;background:#23835b;color:#fff;font:inherit;font-weight:900;}
 .official-partner-submit:disabled{opacity:.42;cursor:not-allowed;}
 .official-partner-list{margin-top:9px;border-top:1px solid var(--line);}
 .official-partner-list .official-action-row button{border-color:#e3a7aa;background:#fff4f4;color:#b42318;}
 .official-temporary-tools{margin:12px 0 4px;padding:12px;border:1.5px solid #a9cbbc;border-radius:8px;background:#f6fbf8;}
-.official-temporary-tools summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;color:#285843;font-size:14px;font-weight:1000;}
+.official-temporary-tools summary{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;color:#285843;font-size:14px;font-weight:900;}
 .official-temporary-tools summary::-webkit-details-marker{display:none;}
 .official-temporary-tools summary span{font-size:11px;color:#648073;}
 .official-temporary-add{display:grid;grid-template-columns:minmax(0,1fr) 70px;gap:7px;margin-top:10px;}
@@ -1652,20 +1653,20 @@ summary.official-live-additions-head::-webkit-details-marker{display:none;}
 .after-party-heading{display:flex;align-items:center;gap:9px;min-width:0;}
 .after-party-count{display:flex;align-items:baseline;gap:2px;flex:0 0 auto;color:#8a5a00;line-height:1;}
 .after-party-count strong{font-size:30px;}
-.after-party-count span{font-size:12px;font-weight:1000;}
+.after-party-count span{font-size:12px;font-weight:900;}
 .after-party-copy{min-width:0;}
 .after-party-copy b{display:block;font-size:15px;color:var(--txt);}
 .after-party-copy small{display:block;margin-top:3px;color:var(--mut);font-size:11px;font-weight:800;line-height:1.45;}
 .after-party-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
 .after-party-actions>button:only-child{grid-column:1/-1;}
-.after-party-summary button{min-width:0;min-height:44px;border:1.5px solid #df9a2d;border-radius:8px;background:#fff;color:#8a5a00;font:inherit;font-weight:1000;}
+.after-party-summary button{min-width:0;min-height:44px;border:1.5px solid #df9a2d;border-radius:8px;background:#fff;color:#8a5a00;font:inherit;font-weight:900;}
 .after-party-summary button.selected{background:#df9a2d;color:#fff;}
 .after-party-summary button.copy{border-color:#d9c39b;background:#fffdf8;color:#5f4a25;}
 .after-party-summary button:disabled{opacity:.45;cursor:not-allowed;}
 .after-party-names{padding:12px;border-top:1px solid #f0d9ad;color:#40506a;font-size:12px;font-weight:900;line-height:1.55;overflow-wrap:anywhere;}
 .after-party-names b{display:block;margin-bottom:8px;color:#8a5a00;font-size:12px;}
 .after-party-name-cloud{display:flex;flex-wrap:wrap;gap:6px;}
-.after-party-name-chip{display:inline-flex;align-items:center;min-height:32px;padding:6px 9px;border:1px solid #efd39e;border-radius:999px;background:#fff;color:#3f321e;font-size:13px;font-weight:1000;}
+.after-party-name-chip{display:inline-flex;align-items:center;min-height:32px;padding:6px 9px;border:1px solid #efd39e;border-radius:999px;background:#fff;color:#3f321e;font-size:13px;font-weight:900;}
 .after-party-names summary{cursor:pointer;list-style:none;}
 .after-party-names summary::-webkit-details-marker{display:none;}
 .after-party-names summary{margin-top:9px;padding-top:9px;border-top:1px solid #f0d9ad;color:#8a5a00;}
@@ -1693,6 +1694,7 @@ summary.official-live-additions-head::-webkit-details-marker{display:none;}
 .complete-picker{
   display:flex;
   flex-direction:column;
+  max-height:calc(100vh - var(--safe-top) - var(--safe-bottom) - 28px);   /* 구형 폴백 — dvh 줄이 먼저면 구형은 max-height 자체를 버린다 */
   max-height:calc(100dvh - var(--safe-top) - var(--safe-bottom) - 28px);
   overflow:hidden;
 }
@@ -2145,7 +2147,7 @@ summary:focus-visible{
   font-size:13px;
 }
 .my-action-panel .after-party-quick .status-icon{font-size:14px;margin-bottom:1px;}
-.my-action-panel .after-party-quick span:not(.status-icon){font-size:13px;font-weight:1000;}
+.my-action-panel .after-party-quick span:not(.status-icon){font-size:13px;font-weight:900;}
 .my-action-panel .after-party-quick small{font-size:10px;color:#9a711f;}
 .my-action-panel .after-party-quick.selected{
   border-color:#dfa84d;
@@ -2368,7 +2370,7 @@ summary:focus-visible{
 }
 .event-active-player.replaceable:disabled{opacity:.45;cursor:default;}
 .event-replace-pending{
-  color:var(--mut);font-style:normal;font-size:.76rem;font-weight:1000;
+  color:var(--mut);font-style:normal;font-size:.76rem;font-weight:900;
 }
 /* 전역 button 이 flex-direction:column 을 깔아 두므로(859행) 행 방향을 명시합니다.
    실기기에서 메타가 카드 밖으로 밀려 잘렸던 원인입니다(2026-08-10 실측).
@@ -2393,7 +2395,7 @@ summary:focus-visible{
 }
 .complete-picker-list .replace-picker-row:active{background:#f4f8fd;}
 .replace-picker-row b{
-  flex:1;min-width:0;font-size:1.05rem;font-weight:1000;letter-spacing:-.03em;
+  flex:1;min-width:0;font-size:1.05rem;font-weight:900;letter-spacing:-.03em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .replace-picker-row span{flex-shrink:0;color:var(--mut);font-size:.74rem;font-weight:800;white-space:nowrap;}
@@ -2818,8 +2820,30 @@ button.event-court-badge.editable:active{transform:scale(.96);}
   .event-next-line,.event-next-player,.event-next-player.replaceable{font-size:17px;}
 }
 
+
+/* ── 단말기 맞춤 (2026-09-02 반응형 감사) — 터치 타깃·보조 글자 하한·좁은 폰 도구 줄 ── */
+button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.fair-row button{min-height:44px;font-size:13px;}
+.official-live-addition-row button{min-height:44px;font-size:12px;}
+.official-overview-actions button{font-size:12px;}
+@media(max-width:360px){
+  .official-overview-tools{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .official-overview-tool{white-space:normal;font-size:12px;line-height:1.2;}
+}
+
+/* 임원 코트 카드 — 375~430px 폰에서 이름 칸이 44px 로 눌려 '김병…'처럼 잘렸다(2026-09-02 실측:
+   버튼 칸 82px 이 옆에 붙어 이름 두 쌍이 260px 을 나눠 씀). 370px 이하에만 있던 '조작 칸을
+   아래 줄로' 규칙을 430px 까지 넓히고, 폭이 생긴 만큼 이름 글자를 19px 로 되돌린다. */
+@media(max-width:430px){
+  .event-row.event-active{flex-wrap:wrap;}
+  .event-row.event-active .event-row-main{flex:1 1 100%;}
+  .event-row.event-active .event-active-meta{flex:1 1 100%;flex-basis:100%;flex-direction:row;flex-wrap:wrap;gap:6px;}
+  .event-row.event-active .event-active-meta>*{flex:1 1 30%;min-width:96px;}
+  .event-row.event-active .event-active-meta em{flex:1 1 100%;}
+  .event-active-player,.event-active-player.replaceable{font-size:19px;}
+}
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.635">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.636">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2834,7 +2858,7 @@ button.event-court-badge.editable:active{transform:scale(.96);}
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.635</span>
+    <span class="version-chip" id="appVersion">v1.10.636</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -2894,7 +2918,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.635';
+const APP_VERSION='1.10.636';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;

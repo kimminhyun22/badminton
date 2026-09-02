@@ -2,10 +2,10 @@
   "name": "민턴LIVE - 배드민턴 대진표",
   "short_name": "🏸 민턴LIVE",
   "description": "배드민턴 팀 배정 & 자동 대진표 생성기",
-  "start_url": "/badminton/team.html?v=1.10.635&from=app",
+  "start_url": "/badminton/team.html?v=1.10.636&from=app",
   "display": "standalone",
   "background_color": "#f5f7fa",
-  "theme_color": "#2563eb",
+  "theme_color": "#ffffff",
   "orientation": "portrait",
   "icons": [
     {
