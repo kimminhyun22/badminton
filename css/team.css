@@ -16,7 +16,7 @@
   --shadow-md:0 4px 16px rgba(45,55,75,.08);
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
-  --mobile-nav-height:56px;
+  --mobile-nav-height:64px;   /* 실측 59~62.5px — 스페이서가 이 변수 하나를 따른다 */
 }
 /* 다크: 흰 배경 하드코딩 요소 보정 */
 /* 추가 보정 */
@@ -1071,8 +1071,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
     background:#fff;
     border-top:1px solid var(--bdr);
     z-index:1000;
-    /* safe-area를 그대로 쓰면 PWA에서 과한 여백 → 상한 20px로 제한 */
-    padding-bottom:min(env(safe-area-inset-bottom), 20px);
+    /* 막대 높이의 단일 원본은 --mobile-nav-height. safe-area 는 아래 !important 규칙이 더한다 */
+    min-height:calc(var(--mobile-nav-height) + var(--safe-bottom));
     box-shadow:0 -2px 12px rgba(0,0,0,.08);
     /* iOS는 키보드가 올라와도 레이아웃 뷰포트를 줄이지 않아 bottom:0 막대가
        화면 중간에 떠 보입니다. 실제 보이는 영역(visualViewport)만큼 끌어올립니다.
@@ -1082,7 +1082,7 @@ details.card:not([open]) .card-head{border-bottom:none;}
   }
   /* 이름 검색 등 입력 중에는 막대를 내려 화면을 가리지 않게 합니다. */
   .bottom-nav.bnav-typing{transform:translateY(120%);}
-  .bnav-spacer{display:block;height:calc(56px + min(env(safe-area-inset-bottom), 20px));}
+  .bnav-spacer{display:block;}   /* 높이는 아래 !important 규칙(변수+safe-area)이 정한다 */
   /* 모바일 푸터: 세로 정렬 + 탭바에 가리지 않도록 충분한 여백 */
   .app-footer{flex-direction:column;gap:5px;padding:18px 16px 14px;text-align:center;line-height:1.5;}
   .app-footer .footer-dot{display:none;}
@@ -3278,4 +3278,16 @@ header,.nav-bar{
 @media(max-width:400px){
   .setting-grid .si:nth-child(4){grid-column:1/-1;}
   .pseg-btn{font-size:.8rem;padding:0 2px;min-width:0;}
+}
+
+/* ── 팀전 관리자 보조 라벨 하한 12px (2026-09-02 반응형 감사) ──
+   루트 clamp 가 360px 폰에서 15px 이라 rem 만으로는 12px 에 못 미친다 → max(12px, rem).
+   결과 요약의 '총 경기 남은/전체'·'예상 시간' (.sv-sub) 은 8px 수준이었다. */
+.sum-box-l{font-size:max(12px,.74rem);}
+.sv-sub{font-size:max(12px,.7rem);letter-spacing:0;}
+@media(max-width:768px){
+  .auto-flow-panel-title{font-size:max(12px,.74rem)!important;}
+  .auto-flow-panel-note{font-size:max(12px,.72rem)!important;line-height:1.3!important;}
+  .si label{font-size:max(12px,.8rem);}
+  .match-mode-hint{font-size:max(12px,.76rem);}
 }

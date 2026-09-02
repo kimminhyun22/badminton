@@ -16,7 +16,7 @@
   --shadow-md:0 4px 16px rgba(45,55,75,.08);
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
-  --mobile-nav-height:56px;
+  --mobile-nav-height:64px;   /* 실측 59~62.5px — 스페이서·스크롤 여백이 이 변수 하나를 따른다 */
 }
 /* 다크: 흰 배경 하드코딩 요소 보정 */
 /* 추가 보정 */
@@ -1393,7 +1393,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .rsvp-badge.attend{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
 .rsvp-badge.decline{background:#f1f5f9;border-color:#dbe3ec;color:#64748b;}
 .rsvp-badge.maybe{background:#fffbeb;border-color:#fde68a;color:#92400e;}
-@media(max-width:900px){.daily-layout{display:flex;flex-direction:column;}.daily-main{order:1;width:100%;}.daily-side{order:2;width:100%;}.daily-hero{flex-direction:row;align-items:flex-start;}.daily-hero-actions{justify-content:flex-end;}.daily-stats,.daily-ops-grid{grid-template-columns:repeat(2,1fr);}.daily-headcount{grid-template-columns:repeat(4,minmax(0,1fr));}}
+@media(max-width:900px){.daily-layout{display:flex;flex-direction:column;}.daily-main{order:1;width:100%;}.daily-side{order:2;width:100%;}.daily-hero{flex-direction:row;align-items:flex-start;}.daily-hero-actions{justify-content:flex-end;}.daily-ops-grid{grid-template-columns:repeat(2,1fr);}.daily-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}.daily-stat{min-width:0;padding:8px 4px;}.daily-headcount{grid-template-columns:repeat(4,minmax(0,1fr));}}
 @media(max-width:640px){
   .daily-dashboard-hero{flex-direction:column;gap:10px;}
   .daily-dashboard-head-actions{width:100%;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;}
@@ -1577,8 +1577,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
     background:#fff;
     border-top:1px solid var(--bdr);
     z-index:1000;
-    /* safe-area를 그대로 쓰면 PWA에서 과한 여백 → 상한 20px로 제한 */
-    padding-bottom:min(env(safe-area-inset-bottom), 20px);
+    /* 막대 높이의 단일 원본은 --mobile-nav-height. safe-area 는 아래 !important 규칙이 더한다 */
+    min-height:calc(var(--mobile-nav-height) + var(--safe-bottom));
     box-shadow:0 -2px 12px rgba(0,0,0,.08);
     /* iOS는 키보드가 올라와도 레이아웃 뷰포트를 줄이지 않아 bottom:0 막대가
        화면 중간에 떠 보입니다. 실제 보이는 영역(visualViewport)만큼 끌어올립니다.
@@ -1588,7 +1588,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
   }
   /* 이름 검색 등 입력 중에는 막대를 내려 화면을 가리지 않게 합니다. */
   .bottom-nav.bnav-typing{transform:translateY(120%);}
-  .bnav-spacer{display:block;height:calc(56px + min(env(safe-area-inset-bottom), 20px));}
+  .bnav-spacer{display:block;}   /* 높이는 아래 !important 규칙(변수+safe-area)이 정한다 */
   /* 모바일 푸터: 세로 정렬 + 탭바에 가리지 않도록 충분한 여백 */
   .app-footer{flex-direction:column;gap:5px;padding:18px 16px 14px;text-align:center;line-height:1.5;}
   .app-footer .footer-dot{display:none;}
@@ -2937,17 +2937,16 @@ body.monthly-team-mode .team-partner-help{display:block;}
   box-shadow:none;
 }
 .daily-urgent-list .daily-next-card{
-  display:block;
-  position:relative;
+  /* 배지를 absolute 로 띄우면 320px 에서 이름 첫 글자를 덮는다 — 흐름 안 첫 열로 (2026-09-02 실측) */
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:10px;
   overflow:hidden;
   padding:12px;
   background:#fff;
 }
 .daily-next-rank{
-  position:absolute;
-  left:12px;
-  top:50%;
-  transform:translateY(-50%);
   min-width:42px;
   height:42px;
   display:grid;
@@ -2983,7 +2982,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
   align-items:center;
   gap:8px;
 }
-.daily-next-pair.a{padding-left:24px;}
+/* .daily-next-pair.a 의 padding-left:24px 는 absolute 배지를 피하던 여백 — 배지가 흐름 안으로 왔으므로 제거 */
 .daily-next-pair.a .daily-next-player{text-align:right;}
 .daily-next-pair.b .daily-next-player{text-align:left;}
 .daily-next-line .daily-next-dot{
@@ -3137,15 +3136,17 @@ body.monthly-team-mode .team-partner-help{display:block;}
   .daily-court-body{padding:8px 14px 16px;}
   .daily-court-stack .daily-court-team-name{font-size:1.04rem;line-height:1.3;}
   .daily-active-player{min-height:32px;padding:6px 0;}
+  .daily-next-rank{min-width:34px;height:34px;font-size:.86rem;}
   .daily-next-line{font-size:.98rem;white-space:normal;}
   .daily-next-player{
-    min-height:36px;
-    display:flex;
-    align-items:center;
-    white-space:normal;
-    overflow-wrap:anywhere;
+    /* flex 금지 — flex-end 는 넘칠 때 이름 '앞'을 자르고 ellipsis 도 그려지지 않는다 */
+    display:block;
+    line-height:34px;
+    padding:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
-  .daily-next-pair.a .daily-next-player{justify-content:flex-end;}
   .daily-queue-player{min-height:44px;}
 }
 @media(max-width:370px){
@@ -3154,6 +3155,7 @@ body.monthly-team-mode .team-partner-help{display:block;}
   .daily-dashboard-quick-actions{width:100%;}
   .daily-ops-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
   .daily-headcount{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .daily-stats{grid-template-columns:repeat(3,minmax(0,1fr));}
   .daily-import-actions{display:grid;grid-template-columns:1fr;}
   .daily-import-actions .btn{width:100%;min-width:0!important;}
 }
@@ -3301,7 +3303,7 @@ html,body{overscroll-behavior-y:none;}
 }
 /* 보조 라벨 하한 */
 .daily-headcount-item span{font-size:.75rem;white-space:normal;word-break:keep-all;line-height:1.2;}
-.daily-op span{font-size:.78rem;} .daily-op small{font-size:.72rem;}
+.daily-op span{font-size:.78rem;} .daily-op small{font-size:.72rem;white-space:normal;line-height:1.25;}   /* 320px 3열에서 '1코트 종료임박' 이 말줄임되던 것 */
 .daily-start-step strong{font-size:.82rem;} .daily-start-step span:last-child{font-size:.72rem;}
 .daily-stat span{font-size:.74rem;} .daily-status{font-size:.72rem;}
 .guest-badge{font-size:.62rem;padding:0 4px;line-height:1.5;border-radius:3px;margin-left:3px;}
@@ -3311,4 +3313,14 @@ html,body{overscroll-behavior-y:none;}
 @media(max-width:430px){
   .daily-next-line{grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr);gap:6px;}
   .daily-next-pair{grid-template-columns:1fr;gap:2px;}
+}
+
+/* 게스트 폼 필드: 이름 한 줄 + 급수·성별·연령 한 줄. 이전엔 select 3개가 각각 전폭이라 4행(~200px)이었다.
+   글자 크기는 건드리지 않는다 — 768px 이하 16px 규칙(iOS 포커스 확대 방지)이 그대로 살아야 한다. */
+.daily-import-guest-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);gap:6px 5px;margin-bottom:6px;}
+.daily-import-guest-fields .dir-input{grid-column:1/-1;}
+.daily-import-guest-fields .daily-select{min-width:0;padding:9px 6px;}
+#dailyImportModal .dir-sort-btn{min-height:34px;padding:5px 11px;font-size:max(12px,.78rem);}
+@media(max-width:768px){
+  .daily-stat span{font-size:max(12px,.74rem);white-space:normal;word-break:keep-all;line-height:1.2;}
 }
