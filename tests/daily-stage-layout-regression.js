@@ -169,4 +169,11 @@ assert(!html.includes('id="restoreBtn"'), '보이지 않는 옛 대진표 페이
 // 빠른 동작 줄은 보이는 버튼 수만큼 — 3열 고정 grid 는 빈 칸을 남긴다
 assert(css.includes('.daily-dashboard-quick-actions{display:flex;flex-wrap:wrap;gap:6px;width:100%;}'), '빠른 동작 줄은 flex 여야 빈 칸이 남지 않습니다.');
 
+// 참가자 등록 모달의 게스트 폼은 접이식 — 게스트 없는 날이 많고, 늘 펼치면 등록 버튼이 스크롤 아래로 밀린다
+assert(html.includes('<details class="daily-import-guest" id="dailyImportGuestBox">') && !html.includes('id="dailyImportGuestBox" open'),
+  '게스트 폼은 기본 접힘이어야 합니다.');
+assert(/<summary>＋ 게스트 추가/.test(html), '게스트 폼을 여는 요약 줄이 있어야 합니다.');
+assert(src.includes('guestBox.open=_dailyImportClubIdx<0;'), '명부가 비어 게스트가 유일한 길일 때만 자동으로 펼쳐야 합니다.');
+assert(css.includes('.daily-import-guest summary{') && css.includes('min-height:44px'), '게스트 요약 줄은 터치 높이를 확보해야 합니다.');
+
 console.log('daily stage layout regression ok');

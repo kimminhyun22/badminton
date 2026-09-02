@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.632  (2026-07)
+     APP VERSION: 1.10.633  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.632">
+<meta name="app-version" content="1.10.633">
 <script id="defaultEntryRedirect">
 (function redirectDefaultEntryToTeamLive(){
   const params=new URLSearchParams(location.search);
@@ -21,7 +21,7 @@
   const standalone=(typeof matchMedia==='function'&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
   const rootEntry=location.pathname.endsWith('/');
   if((rootEntry||standalone)&&!explicitDaily){
-    location.replace('team.html?v=1.10.632&from=entry');
+    location.replace('team.html?v=1.10.633&from=entry');
   }
 })();
 </script>
@@ -34,14 +34,14 @@
 <title>🏸 민턴LIVE | 클럽 운동 운영</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/app.css?v=1.10.632">
+<link rel="stylesheet" href="css/app.css?v=1.10.633">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/storage.js?v=1.10.632"></script>
+<script src="js/storage.js?v=1.10.633"></script>
 </head>
 <body>
 
@@ -60,8 +60,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.632&from=daily'">팀전</button>
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.632&from=daily'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.633&from=daily'">팀전</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.633&from=daily'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
 </div>
 
 <div class="nav-bar">
@@ -85,7 +85,7 @@
         기본 시작 화면은 팀전입니다. 민턴LIVE는 클럽 임원이 현장 참가를 확인한 뒤 반자동으로 운영하는 평소 운동용입니다.
       </div>
       <div class="operation-grid">
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.632&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.633&from=daily'">
           <b>팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
           <small>기본 시작 화면</small>
@@ -765,7 +765,7 @@
     </div>
     <div class="modal-body">
       <p style="font-size:.76rem;color:var(--dim);line-height:1.6;margin-bottom:10px;">
-        <strong>사전에는 전원 「현장 참가 등록」</strong>으로 올려 두세요. 운동 당일, 아직 안 온 선수만 골라 「도착 전 등록」을 누르면 그 선수들만 대진에서 빠지고, 바로 대진 게시하면 됩니다. 도착하면 임원이 참가 등록으로 전환합니다.
+        <strong>사전에는 전원 「현장 참가 등록」</strong>으로 올려 두고, 당일 안 온 선수만 「도착 전 등록」으로 바꾸면 그 선수만 대진에서 빠집니다. 도착하면 임원이 참가로 전환합니다.
       </p>
       <div id="dailyImportClubTabs"></div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;flex-wrap:wrap;">
@@ -778,8 +778,11 @@
         <button class="dir-sort-btn"        id="disf-planned" onclick="setDailyImportFilter('planned')">도착 전</button>
       </div>
       <div id="dailyImportMemberList" style="max-height:330px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;"></div>
-      <div style="border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;margin-top:8px;">
-        <div style="font-size:.66rem;font-weight:700;color:var(--dim);margin-bottom:6px;">게스트 추가 — 명부에 없는 선수</div>
+      <!-- 게스트 폼은 접어 둔다 — 게스트가 없는 날이 많고, 늘 펼쳐 두면 등록 버튼이 화면
+           아래로 밀려 스크롤해야 보였다(운영자 2026-09-02). 명부가 비면 자동으로 펼친다. -->
+      <details class="daily-import-guest" id="dailyImportGuestBox">
+        <summary>＋ 게스트 추가 <small>명부에 없는 선수</small></summary>
+        <div class="daily-import-guest-body">
         <div style="display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap;">
           <input class="dir-input" id="dailyImportGuestName" type="text" placeholder="이름" style="flex:1 1 120px;min-width:120px;margin:0;"
             onkeydown="if(event.key==='Enter')dailyImportAddGuest('wait')">
@@ -799,7 +802,8 @@
           <button class="btn btn-ghost btn-sm" id="dailyImportGuestPlannedBtn" style="flex:1;" onclick="dailyImportAddGuest('planned')">도착 전으로 추가</button>
           <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="dailyImportAddGuest('wait')">현장 참가로 추가</button>
         </div>
-      </div>
+        </div>
+      </details>
       <div class="daily-import-actions">
         <button class="btn btn-ghost daily-prearrival-btn" onclick="importDailySelected('planned')">도착 전 등록</button>
         <button class="btn btn-go" style="flex:1;padding:10px;min-width:180px;" onclick="importDailySelected('wait')">현장 참가 등록</button>
@@ -924,9 +928,9 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.632"></script>
-<script src="js/mobile-nav.js?v=1.10.632"></script>
-<script src="js/daily.js?v=1.10.632"></script>
+<script src="js/match-quality.js?v=1.10.633"></script>
+<script src="js/mobile-nav.js?v=1.10.633"></script>
+<script src="js/daily.js?v=1.10.633"></script>
 
 <!-- 현재 진행 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 경기로 이동" title="현재 진행 경기로 이동">
@@ -997,7 +1001,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.632</span>
+  <span class="app-version" id="appVersion">v1.10.633</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

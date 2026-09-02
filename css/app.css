@@ -972,6 +972,15 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-layout.stage-live #dailySetupDetails{order:9;}
 .daily-main>.daily-section-fold{margin-bottom:0;}
 .daily-headcount.compact{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+/* 참가자 등록 모달의 게스트 폼 — 접이식 */
+.daily-import-guest{border:1px solid var(--bdr);border-radius:8px;margin-top:8px;background:#fff;}
+.daily-import-guest summary{cursor:pointer;list-style:none;padding:10px 12px;font-size:.78rem;font-weight:800;color:var(--bl-deep);display:flex;align-items:center;gap:6px;min-height:44px;}
+.daily-import-guest summary small{font-weight:600;color:var(--dim);font-size:.68rem;}
+.daily-import-guest summary::-webkit-details-marker{display:none;}
+.daily-import-guest summary::after{content:'펼치기';margin-left:auto;font-size:.66rem;color:var(--dim2);font-weight:600;}
+.daily-import-guest[open] summary::after{content:'접기';}
+.daily-import-guest[open] summary{border-bottom:1px dashed var(--bdr);}
+.daily-import-guest-body{padding:8px 10px 10px;}
 .daily-detail-stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start;}
 .daily-setup-fold .daily-section-fold-body{background:#fbfcff;}
 .daily-form-grid{display:grid;grid-template-columns:1fr 86px 76px 46px;gap:7px;margin-bottom:8px;}
