@@ -47,10 +47,16 @@ assert(checkin.includes('function submitOfficialComposePair()'),
   '대진 짜기에서 2명 예약 제출 함수가 있어야 합니다.');
 assert(/submitOfficialComposePair[\s\S]{0,300}sendOfficialPartnerReservation\(ctx\.actorId,aId,bId\)/.test(checkin),
   '2명 예약은 기존 파트너 접수 명령을 재사용해야 합니다(새 서버 명령 금지).');
-assert(checkin.includes('ctx.picked.length===2') && checkin.includes('두 명만 예약'),
-  '정확히 2명을 골랐을 때만 예약 버튼이 보여야 합니다.');
-assert(checkin.includes('2명만 고르면 예약 버튼이 나옵니다'),
-  '시트 안내문이 2명 예약 경로를 알려줘야 합니다.');
+/* 2026-09-03: 예약 버튼을 목록 맨 위가 아니라 시트 하단 고정줄로 옮겼습니다 — 아래쪽 이름을
+   누른 임원이 버튼을 보려고 스크롤해야 했고, 4명일 때는 확인창이 바로 떠 경험이 갈렸습니다.
+   이제 버튼은 늘 같은 자리에 있고 2명일 때만 눌립니다. */
+assert(checkin.includes('const n=ctx.picked.length;') && checkin.includes("${n===2?'':'disabled'}")
+  && checkin.includes('두 명만 예약'),
+  '정확히 2명을 골랐을 때만 예약 버튼이 눌려야 합니다(시트 하단 고정줄).');
+assert(checkin.includes('id="replacePickerFoot"') && checkin.includes('function _officialComposeFootRender()'),
+  '예약 버튼은 목록과 함께 스크롤되지 않는 하단 고정줄에 있어야 합니다.');
+assert(checkin.includes('아래 버튼으로 2명 예약, 4명을 채우면 대진'),
+  '시트 안내문이 두 경로를 함께 알려줘야 합니다.');
 
 console.log('checkin field feedback regression ok');
 
