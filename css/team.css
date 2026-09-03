@@ -3153,7 +3153,10 @@ header,.nav-bar{
 }
 @media(max-width:720px){
   .auto-flow-focus{grid-template-columns:1fr;padding:11px;border-radius:20px;}
-  .auto-flow-focus>div:first-child b{font-size:1.08rem;}
+  .auto-flow-focus .auto-flow-focus-main b{font-size:1.08rem;}
+  /* 민턴LIVE 는 폰에서 제목과 상태를 세로로 쌓는다(app.css .daily-dashboard-hero) — 같게 맞춘다 */
+  .auto-flow-head{flex-direction:column;gap:10px;}
+  .auto-flow-actions{width:100%;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;}
   .auto-flow-focus .auto-flow-btn{min-height:54px!important;font-size:1rem!important;}
   .auto-flow-live-score{gap:7px;padding:10px;border-radius:20px;}
   .auto-flow-live-score>div{min-height:66px;border-radius:16px;}
@@ -3439,3 +3442,7 @@ body{background:var(--bg)!important;}
   --ml-amber:#c99a58;
   --ml-amber-soft:#fff9ef;
 }
+
+/* 「n/5」는 안내 제목 옆에 서는 작은 알약이다 — 민턴LIVE 의 .daily-start-guide-head 와 같은 구조 */
+.auto-flow-focus-main{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0;}
+.auto-flow-focus-main>div:first-child{min-width:0;}
