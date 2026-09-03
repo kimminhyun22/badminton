@@ -51,6 +51,7 @@ function effLevel(p){
   const ageMod = _AGE_BONUS[p.ageGroup] || 0;
   return Math.round((p.level - (isF ? 0.5 : 0) + ageMod) * 10) / 10;
 }
+${cut('function levelToGrade(level,gender)', 'function effLevel(p){')}
 ${cut('function fisherYates(arr)', '\n')}
 ${cut('function balanceTeams(all', '\n/* ═══ GENERATE ═══ */')}
 this.api = {balanceTeams, effLevel};

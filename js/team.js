@@ -1,13 +1,22 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.644';
+const APP_VERSION = '1.10.645';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
 const MATCH_QUALITY=(typeof globalThis!=='undefined'&&globalThis.KokMatchQuality)||null;
 // 실효 레벨: 같은 급수라도 여성은 남성보다 0.5 낮게 평가 (남녀 실력차 1.5 반영)
 // 예: C급 남(4) vs C급 여(3) → 실효 4 vs 2.5 → 격차 1.5
+// 팀 나누기(balanceTeams)와 나누기 감사가 「조」를 보기 때문에 파일 앞쪽에 둔다 —
+// 파일 뒤편에 있을 때는 team.js 를 잘라 쓰는 테스트에서 정의가 빠져 터졌다(2026-09-03).
+function levelToGrade(level,gender){
+  const isF=gender==='F'||gender==='여';
+  const el=isF?level+1:level;
+  const M={7:'S',6:'A',5:'A',4:'B',3:'C',2:'D',1:'E'};
+  return M[Math.max(1,Math.min(7,Math.round(el)))]||'D';
+}
+
 function effLevel(p){
   if(MATCH_QUALITY)return MATCH_QUALITY.effectiveLevel(p);
   const isF = p.gender==='F' || p.gender==='여';
@@ -726,13 +735,45 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
 
   // 균형 비용: 인원차·여성수차·레벨차·초심 쏠림을 가중 합산 (작을수록 좋음)
   // 인원/여성 1명 차이는 강하게, 레벨 차이는 0.1점 단위까지 반영
-  const W_CNT=100, W_FEM=100, W_LV=1, W_LOW=40;
-  // 초심: 풀 전체의 실효 최하위와 0.5 이내인 선수. 한 팀에 몰리면 합이 맞아도
-  // 그 팀은 경기마다 구멍을 안고 뛴다 (2026-08-13 9ZJ2VH: 초심 2명이 모두
-  // 홍팀 → 초심이 낀 경기 0승 3패).
+  const W_CNT=100, W_FEM=100, W_LV=1, W_WEAK=2, W_SPREAD=30;
+  // 인원이 1명 많은 팀은 한 사람당 출전이 그만큼 줄어 불리하다(운영자 2026-09-03).
+  // 그래서 인원이 많은 쪽은 1인당 평균을 이만큼 더 세게 잡아 준다.
+  const CNT_TILT=0.1;
+  // 약체 부담: 합이 같아도 약한 선수가 몰린 팀이 진다. 상대가 그 선수만 집중
+  // 공략하고, 강한 파트너를 붙여 줘도 파트너 실력차가 커질수록 실점이 커지기
+  // 때문이다 (운영자 2026-09-03; 2026-08-13 9ZJ2VH: 초심 2명이 모두 홍팀 →
+  // 초심이 낀 경기 0승 3패).
+  //
+  // 예전에는 「풀 최하위 +0.5 이내」를 초심으로 세어 그 명수만 맞췄는데, 이 방식은
+  // 두 군데서 샜다 (2026-09-03 실측, 300회 시뮬):
+  //   ① 유난히 낮은 한 명이 기준선을 끌어내리면 정작 E조가 초심에서 빠진다 → 몰림 35%
+  //   ② 세는 게 「명수」라 「약한 2명 vs 덜 약한 2명」도 차이 0으로 통과한다 → 몰림 23%
+  // 그래서 기준선을 없애고, 평균보다 부족한 만큼을 제곱해 더한 값을 팀끼리 맞춘다.
+  // 제곱이라 약한 선수가 한 팀에 몰리면 갈라 놓을 때보다 언제나 더 비싸다.
   const everyone=[...seedBlue,...seedWhite,...all];
-  const lowCut=everyone.length?Math.min(...everyone.map(effLevel))+0.5:-Infinity;
-  const lowCount=t=>t.filter(p=>effLevel(p)<=lowCut).length;
+  const avgAll=everyone.length?everyone.reduce((s,p)=>s+effLevel(p),0)/everyone.length:0;
+  const weakLoad=t=>t.reduce((s,p)=>{const d=Math.max(0,avgAll-effLevel(p));return s+d*d;},0);
+  // 총량만 맞추면 아직도 샌다: 아주 약한 2명이 한 팀에 몰려도 상대 팀에 어중간하게
+  // 약한 여러 명을 몰아 주면 총량은 맞는다 (2026-09-03 실측: 그래도 19% 몰림).
+  //
+  // 그리고 운영자는 실효급수가 아니라 「조」로 본다 — 실제로 상대가 집중 공략하는
+  // 대상도 조가 낮은 선수다. 나이 보정이 커서(60대+ −2.0) 60대+ D조가 30대 E조보다
+  // 실효급수는 더 낮게 잡히는 일이 있고, 그래서 실효급수 하위만 갈라 놓으면 정작
+  // E조 2명은 그대로 몰린다 (2026-09-03 실측 24%). 하위 조는 조 단위로 직접 가른다.
+  const gradeOf=p=>String(p.grade||levelToGrade(p.level,p.gender)||'').toUpperCase().charAt(0);
+  // 조를 「E」,「E+D」 누적으로 본다. 조가 비어 있으면 levelToGrade 로 되돌리는데
+  // 이 역함수는 손실이 있어(E·여 → level 1 → 다시 D) 같은 E조가 E 와 D 로 갈릴 수
+  // 있다. 누적으로 보면 그 틈에서도 둘은 같은 집합에 남아 갈라진다.
+  const lowGradeSets=[['E'],['E','D']].map(gs=>{
+    const set=new Set(everyone.filter(x=>gs.includes(gradeOf(x))));
+    return {set,slack:set.size%2};   // 홀수면 1명 차이는 봐 준다
+  }).filter(x=>x.set.size>=2);
+  const spreadD=(fullB,fullW)=>lowGradeSets.reduce((s,{set,slack})=>{
+    let b=0,w=0;
+    for(const x of fullB)if(set.has(x))b++;
+    for(const x of fullW)if(set.has(x))w++;
+    return s+Math.max(0,Math.abs(b-w)-slack);
+  },0);
   const cost=(B,Wt)=>{
     const fullB=[...seedBlue,...B], fullW=[...seedWhite,...Wt];
     const cntD=Math.abs(fullB.length-fullW.length);
@@ -741,10 +782,12 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
     // 단위다. 합을 맞추면 인원 많은 팀이 경기마다 약해진다 (9ZJ2VH: 16:17명에
     // 합 58.5:56 → 슬롯당 3.61:3.35 → 14:7 패배). 인원이 같으면 합 차와 같다.
     const nB=fullB.length, nW=fullW.length;
-    const lvD=(nB&&nW)?Math.abs(sum(fullB)/nB-sum(fullW)/nW)*(nB+nW)/2
+    const lvD=(nB&&nW)?Math.abs((sum(fullB)/nB-sum(fullW)/nW)-(nB-nW)*CNT_TILT)*(nB+nW)/2
                       :Math.abs(sum(fullB)-sum(fullW));
-    const lowD=Math.abs(lowCount(fullB)-lowCount(fullW));
-    return cntD*W_CNT + femD*W_FEM + lvD*W_LV + lowD*W_LOW;
+    // 약체 부담도 1인당으로 — 인원이 다르면 합끼리 비교가 인원 많은 쪽으로 기운다
+    const weakD=(nB&&nW)?Math.abs(weakLoad(fullB)/nB-weakLoad(fullW)/nW)*(nB+nW)/2
+                        :Math.abs(weakLoad(fullB)-weakLoad(fullW));
+    return cntD*W_CNT + femD*W_FEM + lvD*W_LV + weakD*W_WEAK + spreadD(fullB,fullW)*W_SPREAD;
   };
 
   // 한 번의 그리디 배분 (시드 상태를 반영해 부족한 쪽에 채움)
@@ -3416,8 +3459,13 @@ function _qualityAssessment(matches,participants,settings){
     if(!blue.length||!white.length)return null;
     const sum=t=>t.reduce((s,p)=>s+effLevel(p),0);
     const avgGap=Math.abs(sum(blue)/blue.length-sum(white)/white.length);
-    const lowCut=Math.min(...participants.map(effLevel))+0.5;
-    const lows=participants.filter(p=>effLevel(p)<=lowCut);
+    // 초심 기준선은 「풀 최하위 +0.5」였는데, 유난히 낮은 한 명이 섞이면 기준이
+    // 끌려 내려가 정작 E조가 초심에서 빠졌다 — 그래서 E조 2명이 한 팀에 몰렸는데도
+    // 이 경고가 안 떴다 (2026-09-03 운영자 제보). 나누기와 같은 잣대(가장 낮은 조)로
+    // 본다. 수동 이동으로 다시 몰리면 여기서 잡힌다.
+    const gradeOf=p=>String(p.grade||levelToGrade(p.level,p.gender)||'').toUpperCase().charAt(0);
+    const lowGrade=['E','D','C'].find(g=>participants.filter(p=>gradeOf(p)===g).length>=2)||'E';
+    const lows=participants.filter(p=>gradeOf(p)===lowGrade);
     const lowBlue=lows.filter(p=>p.team==='청팀').length;
     const lowStacked=lows.length>=2&&(lowBlue===0||lowBlue===lows.length);
     const isF=p=>p.gender==='F'||p.gender==='여';
@@ -6369,12 +6417,6 @@ function gradeToLevel(grade,gender){
   if(g in G) return Math.max(1, isF?G[g]-1:G[g]); // 최솟값 1 보장
   return null;
 }
-function levelToGrade(level,gender){
-  const isF=gender==='F'||gender==='여';
-  const el=isF?level+1:level;
-  const M={7:'S',6:'A',5:'A',4:'B',3:'C',2:'D',1:'E'};
-  return M[Math.max(1,Math.min(7,Math.round(el)))]||'D';
-}
 
 function setInputMode(mode){ /* 미사용 — 직접입력 전용 */ }
 
@@ -8287,7 +8329,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.644) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.645) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
