@@ -1479,7 +1479,6 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
 .auto-flow-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 52%,#f0fdf4 100%);
   box-shadow:0 14px 34px rgba(37,99,235,.1);}
 .auto-flow-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
-.auto-flow-kicker{font-size:.68rem;font-weight:900;color:#2563eb;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;}
 .auto-flow-title{font-size:1.08rem;font-weight:900;color:#172033;line-height:1.32;}
 .auto-flow-sub{font-size:.84rem;font-weight:700;color:var(--dim);line-height:1.45;margin-top:4px;}
 .auto-flow-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;
@@ -1576,10 +1575,6 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
 .auto-flow-card.live-compact .auto-flow-head{
   align-items:center;
   margin-bottom:9px;
-}
-.auto-flow-card.live-compact .auto-flow-kicker{
-  font-size:.62rem;
-  color:#7a8798;
 }
 .auto-flow-card.live-compact .auto-flow-title{
   font-size:1rem;
@@ -1864,7 +1859,6 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
     rgba(255,255,255,.96);
   box-shadow:0 12px 32px rgba(91,141,239,.075),inset 0 1px 0 rgba(255,255,255,.92);
 }
-.auto-flow-kicker{color:#5b8def;letter-spacing:.14em;}
 .auto-flow-title{font-size:1.22rem;letter-spacing:-.04em;color:#172033;}
 .auto-flow-sub{color:#6b7280;}
 .auto-flow-badge{
@@ -2181,7 +2175,6 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
     margin-bottom:8px!important;
   }
   .auto-flow-head>div:first-child{min-width:0;}
-  .auto-flow-kicker{font-size:.6rem!important;margin-bottom:2px!important;}
   .auto-flow-title{font-size:1.06rem;line-height:1.25;}
   .auto-flow-sub{font-size:.74rem;line-height:1.38;margin-top:2px!important;}
   .auto-flow-badge{
@@ -2573,7 +2566,7 @@ header,.nav-bar{
   background:rgba(255,255,255,.84)!important;
   border-color:var(--bdr)!important;
 }
-.card-title,.auto-flow-kicker,.sum-box-l,.stat-pill,.qd-meta-sub{
+.card-title,.sum-box-l,.stat-pill,.qd-meta-sub{
   color:var(--dim)!important;
   letter-spacing:.02em!important;
 }
@@ -3255,7 +3248,6 @@ header,.nav-bar{
    · 40~60대 사용자 기준 보조 글자 하한 12px, 터치 타깃 44px, 더블탭 확대·회색 플래시 방지 */
 @media(max-width:768px){
   .dir-input,.daily-select,.daily-queue-select,.daily-player-search,.cp-add-row input,.cp-add-row select,.roster-search,.modal-box input,.modal-box select,.team-name-input,.club-name-input{font-size:16px;}
-  .daily-dashboard-kicker{font-size:.7rem;}
   .daily-state-pill,.daily-dashboard-quick-action,.daily-mini-btn,.daily-todo-head,.daily-admin-alert-desc,.daily-note,.daily-quality-chip,.daily-player-filter-btn,.header-help-btn,.bnav-label{font-size:max(12px,.78rem)!important;}
   .daily-player-sort-label{font-size:12px;}
   .daily-urgent-list .daily-queue-actions .daily-mini-btn{font-size:12px!important;}
