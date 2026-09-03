@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.645';
+const APP_VERSION = '1.10.646';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5798,8 +5798,13 @@ function dailyRenderStartGuide(){
       :rosterEmpty
         ?'명부가 비어 있습니다 — 「명부」에서 클럽·회원을 만들거나, 참가자 등록에서 게스트로 바로 추가하세요.'
         :'먼저 오늘 참가자를 등록하세요 — 명부에서 고르거나 게스트를 추가합니다.';
+  // 제목은 상태 알약(「운영 준비」)과 같은 말이었다 — 지금 할 일을 말하게 바꿨다(2026-09-03).
+  const guideTitle=playerCount?'대진 게시'
+    :awaitingArrival?'도착 확인'
+      :rosterEmpty?'명부 만들기'
+        :'참가자 등록';
   const steps=[
-    {n:1,title:'코트',value:`${courts}코트`,done:true,current:false,action:"dailyOpenFold('dailySetupDetails','dailySetupDetails')"},
+    {n:1,title:'코트',value:`${courts}개`,done:true,current:false,action:"dailyOpenFold('dailySetupDetails','dailySetupDetails')"},
     {n:2,title:awaitingArrival?'도착 확인':'현장 참가',value:playerCount?`${playerCount}명`:awaitingArrival?`도착 전 ${preArrival}명`:'등록',done:!!playerCount,current:nextIndex===2,
       action:playerCount?"dailyOpenBoardTarget('players')":awaitingArrival?"dailyOpenPlayerStatus('planned')":"dailyImportRoster()"}
   ];
@@ -5807,7 +5812,7 @@ function dailyRenderStartGuide(){
   el.hidden=false;
   el.innerHTML=`<div class="daily-start-guide-head">
     <div>
-      <div class="daily-start-guide-title">운영 준비</div>
+      <div class="daily-start-guide-title">${esc(guideTitle)}</div>
       <div class="daily-start-guide-sub">${esc(sub)}</div>
     </div>
     <div class="daily-start-guide-count">${requiredDone}/2</div>
@@ -10486,7 +10491,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.645&from=daily';
+  location.href='team.html?v=1.10.646&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

@@ -2505,6 +2505,9 @@ details.card:not([open]) summary.card-head::after{content:'열기';color:#2563eb
   margin-left:auto;
   max-width:100%;
 }
+/* 카드를 펼치면 칩(코트 4·인당 4·…)이 바로 아래 라벨과 같은 말이 된다 —
+   칩은 접혔을 때의 미리보기다(2026-09-03). */
+#sec-settings[open] .settings-mini-summary{display:none;}
 .settings-mini-chip{
   display:inline-flex;
   align-items:center;

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.645';
+const APP_VERSION = '1.10.646';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7996,8 +7996,11 @@ function _autoFlowAction(label,fnName,note='',cls=''){
   if(!label||!fnName)return '';
   const safeCls=String(cls||'').replace(/[^a-z0-9_-]/gi,'');
   const extra=safeCls?` ${safeCls}`:'';
+  /* note 가 비면 줄을 아예 만들지 않는다 — 바로 위 안내문과 같은 말일 때
+     '다음 단계' 같은 빈 껍데기가 들어차던 자리다(2026-09-03). */
+  const noteHtml=note?`<div class="auto-flow-next">${esc(note)}</div>`:'';
   return `<div class="auto-flow-action${extra}">
-    <div class="auto-flow-next">${esc(note||'다음 단계')}</div>
+    ${noteHtml}
     <button class="auto-flow-btn${extra}" onclick="${fnName}()">${esc(label)}</button>
   </div>`;
 }
@@ -8329,7 +8332,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.645) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.646) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
@@ -8352,31 +8355,31 @@ function renderAutoFlowDashboard(){
     const liveValue=live?'ON':(resumeLive?'복구':(matches?'대기':'전'));
     const liveNote=live?'링크 활성':(resumeLive?'같은 링크로 이어가기':(matches?'시작 전':'대진 필요'));
     let stage='playerSetup';
-    let cfg={badge:'준비',title:'팀전 세팅',sub:'참가자 세팅'};
+    let cfg={badge:'준비',title:'팀전 세팅',sub:''};
     if(live){
       stage='live';
       cfg={badge:'진행 중',title:'팀전 운영',sub:currentRound==='완료'?'결과 확인':`${currentRound} 진행`};
     } else if(restoreLive){
       stage='restoreLive';
-      cfg={badge:'이어가기',title:'팀전 이어가기',sub:'앱이 꺼졌던 중계를 재개'};
+      cfg={badge:'이어가기',title:'팀전 이어가기',sub:''};
     } else if(restoreBracket){
       stage='restoreBracket';
-      cfg={badge:'불러오기',title:'저장 대진표 불러오기',sub:'이전 대진을 먼저 복원'};
+      cfg={badge:'불러오기',title:'저장 대진표 불러오기',sub:''};
     } else if(resumeLive){
       stage='resume';
-      cfg={badge:'복구 필요',title:'팀전 이어가기',sub:'앱이 꺼졌던 중계를 같은 링크로 재개'};
+      cfg={badge:'복구 필요',title:'팀전 이어가기',sub:''};
     } else if(matches){
       stage='broadcast';
-      cfg={badge:'시작 전',title:'팀전 세팅',sub:'팀전 시작'};
+      cfg={badge:'시작 전',title:'팀전 세팅',sub:''};
     } else if(teamReady||(!fixedTeamMode&&players>=4&&_rsvpId)){
       stage='generate';
-      cfg={badge:fixedTeamMode?'팀 완료':'자유 대진',title:'팀전 세팅',sub:'대진 생성'};
+      cfg={badge:fixedTeamMode?'팀 완료':'자유 대진',title:'팀전 세팅',sub:''};
     } else if(players>=4&&_rsvpId){
       stage='playerReview';
-      cfg={badge:'팀 배정',title:'팀전 세팅',sub:'참가자 확인'};
+      cfg={badge:'팀 배정',title:'팀전 세팅',sub:''};
     } else if(players>=4){
       stage='link';
-      cfg={badge:'공유',title:'팀전 세팅',sub:'링크 공유'};
+      cfg={badge:'공유',title:'팀전 세팅',sub:''};
     }
     if(card)card.classList.toggle('live-compact',live);
     if(card)card.classList.toggle('live-resume-ready',stage==='restoreLive'||stage==='resume');
@@ -8384,7 +8387,10 @@ function renderAutoFlowDashboard(){
     badgeEl.classList.toggle('live',live);
     badgeEl.classList.toggle('resume',resumeLive||restoreLive||restoreBracket);
     titleEl.textContent=cfg.title;
-    subEl.textContent=cfg.sub;
+    /* 부제는 「다음 할 일」 제목·버튼과 같은 말이라 세 번째 사본이었다 —
+       진행 중(현재 라운드)처럼 새 정보를 담을 때만 쓴다(2026-09-03). */
+    subEl.textContent=cfg.sub||'';
+    subEl.classList.toggle('hidden',!cfg.sub);
     const stepState=(step)=>{
       const order=['restoreLive','restoreBracket','playerSetup','link','playerReview','generate','broadcast','resume','live'];
       const idx=order.indexOf(stage);
@@ -8395,14 +8401,14 @@ function renderAutoFlowDashboard(){
       return '';
     };
     const actionHtml={
-      playerSetup:_autoFlowAction('참가자 세팅','teamLiveSetupParticipants','관리자가 명단 확정'),
+      playerSetup:_autoFlowAction('참가자 세팅','teamLiveSetupParticipants'),
       link:_autoFlowShareAction('단톡방에 공유'),
       playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
       generate:_autoFlowAction('대진 생성','generate',fixedTeamMode?'청·홍 대진 품질 확인':'자유 대진 품질 확인'),
       broadcast:_autoFlowAction('팀전 시작','onLiveBtnClick','회원 링크 열림','live-start'),
-      restoreLive:_autoFlowAction('팀전 이어가기','restoreTeamLiveAndResume','대진 불러오기와 중계 재개를 한 번에','live-start'),
-      restoreBracket:_autoFlowAction('이전 대진표 불러오기','restoreState','저장된 대진부터 복원','live-start'),
-      resume:_autoFlowAction('팀전 이어가기','resumeTeamLiveBroadcast','앱이 꺼져도 같은 링크 유지','live-start'),
+      restoreLive:_autoFlowAction('팀전 이어가기','restoreTeamLiveAndResume','','live-start'),
+      restoreBracket:_autoFlowAction('이전 대진표 불러오기','restoreState','','live-start'),
+      resume:_autoFlowAction('팀전 이어가기','resumeTeamLiveBroadcast','','live-start'),
       live:''
     }[stage]||'';
     const stageGuide={
