@@ -3455,4 +3455,12 @@ body{background:var(--bg)!important;}
   .daily-start-guide-sub,.daily-start-guide-count,.daily-start-step-num,
   .team-live-step-num,.auto-flow-count{font-size:max(12px,.68rem);}
   .daily-start-step strong,.daily-start-step span:not(.daily-start-step-num){font-size:max(12px,.72rem);}
+  /* 320px 실측(2026-09-03)에서 12px 아래로 내려가던 읽는 글자들 */
+  .auto-flow-focus>div:first-child span{font-size:max(12px,.68rem);}
+  .auto-flow-focus>div:first-child small{font-size:max(12px,.78rem);}
+  .team-live-step strong{font-size:max(12px,.76rem);}
+  .dir-empty{font-size:max(12px,.76rem);}
+  .si>div{font-size:max(12px,.65rem);}
+  .match-mode-label{font-size:max(12px,.74rem);}
+  .match-mode-option small{font-size:max(12px,.68rem);}
 }
