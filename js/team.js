@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.650';
+const APP_VERSION = '1.10.651';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8346,7 +8346,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.650) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.651) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
@@ -8360,13 +8360,13 @@ function renderAutoFlowDashboard(){
       :teamReady
         ? `실력차 ${teamLevelDiff} · P ${activePairCount}쌍`
         :(players?'배정 전':'참가자 필요');
-    const matchValue=matches?`${done}/${matches}`:'전';
+    const matchValue=matches?`${done}/${matches}`:'생성 전';
     const remaining=Math.max(0,matches-done);
     const matchNote=matches?`${currentRound} · ${remaining} 남음`:(modeReady?'생성 필요':'팀 배정 필요');
     const resumeLive=_teamHasResumeLiveHint();
     const restoreLive=!!(savedBracketRestore&&savedBracketRestore.liveId) && !_liveOn && !matches;
     const restoreBracket=!!savedBracketRestore && !_liveOn && !matches && !restoreLive;
-    const liveValue=live?'ON':(resumeLive?'복구':(matches?'대기':'전'));
+    const liveValue=live?'진행 중':(resumeLive?'복구 필요':(matches?'시작 전':'대진 전'));
     const liveNote=live?'링크 활성':(resumeLive?'같은 링크로 이어가기':(matches?'시작 전':'대진 필요'));
     /* 제목은 team.html 이 「상황판」으로 고정한다 — 민턴LIVE 와 같은 말이고 하단 내비 라벨과도
        같다. 배지는 「단계」가 아니라 「상태」만 말한다: 단계 이름은 아래 stageGuide 와 흐름 칩이
@@ -8468,6 +8468,7 @@ function renderAutoFlowDashboard(){
     const stepHtml=`<div class="team-live-flow" aria-label="팀전 진행 흐름">
         ${flowSteps.map((f,i)=>{
           const st=flowStates[i];
+          const note=(f.note&&f.note!==f.value)?f.note:'';
           const go=f.target?` role="button" tabindex="0" onclick="teamLiveOpenPanel('${f.target}')"`
             +` onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();teamLiveOpenPanel('${f.target}');}"`
             +` aria-label="${esc(f.name)} 보기"`:'';
@@ -8475,7 +8476,7 @@ function renderAutoFlowDashboard(){
             <span class="team-live-step-num">${st==='done'?'✓':f.n}</span>
             <strong>${esc(f.name)}</strong>
             <span class="team-live-step-value">${esc(f.value)}</span>
-            <span class="team-live-step-note">${esc(f.note||'')}</span>
+            <span class="team-live-step-note">${esc(note)}</span>
           </div>`;
         }).join('')}
       </div>`;
