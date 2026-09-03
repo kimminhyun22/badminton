@@ -29,9 +29,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   padding:13px 24px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
 .h-left h1{font-family:'Noto Sans KR',sans-serif;font-size:1.3rem;font-weight:700;letter-spacing:1px;color:var(--txt);}
 .h-left p{font-size:.68rem;color:var(--dim2);margin-top:2px;}
-.hbs{display:flex;gap:4px;flex-wrap:wrap;}
-.hb{font-size:.6rem;padding:2px 8px;border-radius:999px;border:1px solid var(--bdr);color:var(--dim2);background:var(--sur2);}
-.hb.on{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
 .header-help-btn{font-size:.72rem;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--txt);cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .header-help-btn:hover{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
 
@@ -893,7 +890,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
 
 /* ── MOBILE ── */
 @media(max-width:640px){
-  .hbs{display:none;}
   .h-left h1{font-size:1.15rem;}
   header{padding:10px 14px;gap:6px;}
   .nav-tab{padding:13px 11px;font-size:.8rem;min-width:0;flex:1;text-align:center;}
@@ -1564,7 +1560,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
   header{padding:10px 16px;}
   .h-left h1{font-size:1.1rem;}
   .h-left p{display:none;}
-  .hbs{display:none;}
 
   /* ── 상단 탭바 숨기기 ── */
   .nav-bar{display:none;}
@@ -1852,7 +1847,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
   --ml-bg:#f7f9fd;
   --ml-card:rgba(255,255,255,.94);
   --ml-ink:#263041;
-  --ml-mut:#7a8494;
+  /* #7a8494 는 흰 배경 3.79:1 로 AA 미달이었다 — 두 화면이 같이 쓰는 값이라 함께 올린다(2026-09-03) */
+  --ml-mut:#6b7684;
   --ml-line:#e4ebf5;
   --ml-blue:#7fa8ee;
   --ml-blue-deep:#436eb8;

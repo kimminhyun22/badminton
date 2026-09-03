@@ -29,9 +29,6 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
   padding:13px 24px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
 .h-left h1{font-family:'Noto Sans KR',sans-serif;font-size:1.3rem;font-weight:700;letter-spacing:1px;color:var(--txt);}
 .h-left p{font-size:.68rem;color:var(--dim2);margin-top:2px;}
-.hbs{display:flex;gap:4px;flex-wrap:wrap;}
-.hb{font-size:.6rem;padding:2px 8px;border-radius:999px;border:1px solid var(--bdr);color:var(--dim2);background:var(--sur2);}
-.hb.on{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
 .header-help-btn{font-size:.72rem;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--sur2);border:1px solid var(--bdr);color:var(--txt);cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .header-help-btn:hover{background:var(--bl-soft);border-color:var(--bl-softbdr);color:var(--bl-deep);}
 .team-reset-top{border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:999px;padding:7px 11px;font-size:.7rem;font-weight:900;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;flex-shrink:0;}
@@ -897,7 +894,6 @@ details.card:not([open]) .card-head{border-bottom:none;}
 
 /* ── MOBILE ── */
 @media(max-width:640px){
-  .hbs{display:none;}
   .h-left h1{font-size:1.15rem;}
   header{padding:10px 14px;gap:6px;}
   .team-reset-top{padding:7px 9px;font-size:.65rem;}
@@ -1063,7 +1059,6 @@ details.card:not([open]) .card-head{border-bottom:none;}
   header{padding:10px 16px;}
   .h-left h1{font-size:1.1rem;}
   .h-left p{display:none;}
-  .hbs{display:none;}
   .live-mode-switch{margin:8px 12px 0;max-width:none;}
   .live-mode-pill{font-size:.74rem;padding:9px 10px;}
 
@@ -1460,7 +1455,6 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-response-details[open] > summary .rsvp-summary-close,
 .rsvp-admin-panel[open] > summary .rsvp-summary-close,
 .rsvp-archive[open] > summary .rsvp-summary-close,
-details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
 .rsvp-summary-close:hover{background:#edf4ff;border-color:#bfd4fb;color:#1d4ed8;}
 .rsvp-saved{display:flex;flex-direction:column;gap:7px;margin-bottom:9px;}
 .rsvp-saved-title{font-size:.78rem;font-weight:900;color:#334155;letter-spacing:-.02em;display:flex;align-items:center;justify-content:space-between;gap:8px;}
@@ -1564,11 +1558,36 @@ details.card[open] > summary.card-head .team-section-close{display:inline-flex;}
 .auto-flow-checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .auto-flow-check{display:inline-flex;align-items:center;border:1px solid #dbeafe;background:#fff;border-radius:999px;
   padding:6px 9px;font-size:.67rem;font-weight:900;color:#475569;}
-.team-live-flow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
-.team-live-step{display:inline-flex;align-items:center;justify-content:center;border:1px solid #dbeafe;background:#fff;
-  border-radius:999px;padding:6px 9px;font-size:.67rem;font-weight:900;color:#64748b;white-space:nowrap;}
-.team-live-step.on{border-color:#bfdbfe;background:#eff6ff;color:#2563eb;}
-.team-live-step.done{border-color:#bbf7d0;background:#f0fdf4;color:#15803d;}
+/* 진행 표시는 민턴LIVE 의 .daily-start-step 과 같은 물건 — 번호 + 이름 + 값 + 한 줄.
+   예전에는 칩(자리)과 상태 판(값)이 같은 진행 상황을 두 문법으로 말했다(2026-09-03). */
+.team-live-flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:10px;}
+.team-live-step{
+  display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+  min-height:82px;border:1.5px solid var(--ml-line);border-radius:16px;background:#fff;
+  color:var(--ml-ink);text-align:left;padding:10px;min-width:0;
+}
+.team-live-step.go{cursor:pointer;}
+.team-live-step.go:active{transform:translateY(1px);}
+.team-live-step-num{
+  width:24px;height:24px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+  background:#f3f6fb;color:var(--ml-mut);font-size:.68rem;font-weight:900;flex-shrink:0;
+}
+.team-live-step strong{display:block;color:var(--ml-ink);font-size:.76rem;font-weight:900;line-height:1.25;}
+.team-live-step-value{display:block;font-size:.82rem;font-weight:900;color:var(--ml-ink);line-height:1.2;}
+.team-live-step-note{display:block;font-size:.68rem;font-weight:600;color:var(--ml-mut);line-height:1.35;
+  overflow-wrap:anywhere;}
+.team-live-step.done{border-color:#b9e0c5;background:linear-gradient(180deg,#f4fbf7 0%,#fff 100%);}
+.team-live-step.done .team-live-step-num{background:#e8f7ee;color:var(--ml-green-deep);}
+.team-live-step.on{border-color:#c8dbfb;background:linear-gradient(180deg,#edf4ff 0%,#fff 100%);
+  box-shadow:0 0 0 3px rgba(91,133,214,.08);}
+.team-live-step.on .team-live-step-num{background:#dfeaff;color:var(--ml-blue-deep);}
+.team-live-step.warn{border-color:#f3ddb4;}
+/* 「n/5」 — 민턴LIVE 의 .daily-start-guide-count 와 같은 문법 */
+.auto-flow-count{
+  flex-shrink:0;align-self:flex-start;display:inline-flex;align-items:center;justify-content:center;
+  min-height:28px;padding:0 10px;border:1px solid #c8dbfb;border-radius:999px;background:#fff;
+  color:var(--ml-blue-deep);font-size:max(12px,.68rem);font-weight:900;
+}
 .auto-flow-card.live-compact{
   border-color:#dfe7f3;
   background:rgba(255,255,255,.96);
@@ -1779,14 +1798,6 @@ header,.nav-bar{
   -webkit-backdrop-filter:blur(14px);
 }
 .h-left p{color:#8b95a5;font-weight:700;}
-.hb{
-  border-color:#e5edf8;background:rgba(255,255,255,.74);color:#94a3b8;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
-}
-.hb.on{
-  color:#386fd6;background:#f3f7ff;
-  border-color:#d8e6fb;box-shadow:0 4px 12px rgba(91,141,239,.07);
-}
 .nav-tab{
   margin:6px 4px;border-radius:999px;border-bottom:none;color:#8a93a3;
 }
@@ -1820,7 +1831,6 @@ summary.card-head::after{
   content:'접기';font-size:.64rem;font-weight:900;color:#94a3b8;
   padding:4px 8px;border:1px solid #e2e8f0;border-radius:999px;background:#fff;
 }
-details.card[open] > summary.team-closable-head::after{display:none;}
 details.card:not([open]) summary.card-head::after{content:'펼치기';color:#2563eb;background:#eff6ff;border-color:#bfdbfe;}
 
 .btn,.btn-ta,.sync-btn,.rsvp-action-btn,.rsvp-saved-btn,.pseg-btn,.lv-sel-btn,.gender-sel-btn,.age-sel-btn{
@@ -1973,7 +1983,7 @@ details.card:not([open]) summary.card-head::after{content:'펼치기';color:#256
   --soft-green:#8dcfa8;
   --soft-blue-bg:#f5f8ff;
   --soft-red-bg:#fff6f6;
-  --soft-green-bg:#f4fbf6;
+  --soft-green-bg:var(--ml-green-soft);
 }
 .auto-flow-metric b,.auto-flow-panel-value,
 .rsvp-stat b,.tlb-name,.sum-box-v,.sb-score-v,.tm-name,.current-round{
@@ -2195,8 +2205,8 @@ details.card:not([open]) summary.card-head::after{content:'펼치기';color:#256
   .auto-flow-btn{min-height:46px!important;font-size:.9rem!important;border-radius:14px!important;padding:10px 14px!important;}
   .auto-flow-checks{display:none!important;}
   .auto-flow-check{font-size:.64rem!important;padding:5px 8px!important;}
-  .team-live-flow{gap:5px!important;margin-top:8px!important;}
-  .team-live-step{font-size:.62rem!important;padding:5px 7px!important;}
+  .team-live-flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px!important;margin-top:8px!important;}
+  .team-live-step{min-height:72px;}
   .rsvp-stat b{font-size:1.44rem;}
   .btn-gen{font-size:.96rem;}
   .tlb-head{
@@ -2521,19 +2531,19 @@ details.card:not([open]) summary.card-head::after{content:'펼치기';color:#256
 
 /* ── v1.10.261: 민턴LIVE 톤앤매너 통합 ── */
 :root{
-  --bg:#f6f8fc!important;
+  --bg:var(--ml-bg)!important;
   --sur:#ffffff!important;
   --sur2:#f8fbff!important;
-  --bdr:#e3e9f3!important;
+  --bdr:var(--ml-line)!important;
   --bdr2:#d8e1ee!important;
-  --txt:#18202d!important;
-  --dim:#6f7a8a!important;
+  --txt:var(--ml-ink)!important;
+  --dim:var(--ml-mut)!important;
   --dim2:#9aa5b5!important;
   --bl:#5b8def!important;
-  --bl-deep:#406fc7!important;
+  --bl-deep:var(--ml-blue-deep)!important;
   --bl-soft:#eaf1fe!important;
   --bl-softbdr:#c9daf8!important;
-  --green:#35a56a!important;
+  --green:var(--ml-green-deep)!important;
   --red:#e35b55!important;
   --acc:#f0a73a!important;
   --shadow:0 10px 28px rgba(35,55,90,.08)!important;
@@ -3340,10 +3350,9 @@ header,.nav-bar{
 /* 저장 이름칸은 모바일에서 16px(.modal-box input) — 데스크톱만 본래 크기로 */
 @media(min-width:769px){#slotNameInput{font-size:.92rem;}}
 /* ── 팀전 보조 글자 하한 12px·터치 44px (2026-09-03 감사 3차) ── */
-.hb{font-size:max(12px,.68rem);}
 @media(max-width:768px){
   .qd-row-title,.qd-row-detail,.sum-box-l,.sv-sub,
-  .team-live-flow .team-live-step,.auto-flow-next,.auto-flow-panel-note,
+  .team-live-flow .team-live-step-note,.auto-flow-next,.auto-flow-panel-note,
   .team-live-ops-status,.team-live-ops-detail,.tlb-diff,
   .sbs-l,.dir-sort-btn,.dir-count-bar,.guest-badge,
   .import-member-row small,.slot-item small{font-size:max(12px,.74rem)!important;}
@@ -3406,3 +3415,27 @@ header,.nav-bar{
 body{background:var(--bg)!important;}
 /* 공유 버튼 모양도 민턴LIVE 와 같게(알약 → 둥근 사각) */
 .team-share-top{border-radius:10px;}
+
+/* ── 두 화면이 같은 색을 쓰게 하는 단일 원본 ──
+   민턴LIVE 의 .daily-layout 토큰(css/app.css)과 같은 값이다. 팀전에는 그 래퍼가 없어
+   :root 에 얹는다. 아래 선언층(--bg/--bdr/--txt/--dim/--bl-deep/--green)이 이 값을
+   참조하므로, 색을 바꿀 때는 여기와 css/app.css 두 곳만 맞추면 된다(2026-09-03).
+   색은 기계 검사가 없다 — 값을 고치면 두 화면을 왕복하며 눈으로 대조할 것. */
+:root{
+  --ml-bg:#f7f9fd;
+  --ml-card:rgba(255,255,255,.94);
+  --ml-ink:#263041;
+  --ml-mut:#6b7684;
+  --ml-line:#e4ebf5;
+  --ml-blue:#7fa8ee;
+  --ml-blue-deep:#436eb8;
+  --ml-blue-soft:#f3f7ff;
+  --ml-red:#e99da1;
+  --ml-red-deep:#a85f63;
+  --ml-red-soft:#fff7f7;
+  --ml-green:#91d1aa;
+  --ml-green-deep:#3f7c58;
+  --ml-green-soft:#f4fbf7;
+  --ml-amber:#c99a58;
+  --ml-amber-soft:#fff9ef;
+}

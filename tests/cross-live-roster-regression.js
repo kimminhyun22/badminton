@@ -22,7 +22,10 @@ function sourceBetween(src,startName,endName){
 
 assert(indexHtml.includes('id="dailyImportTeamRosterBtn"')&&indexHtml.includes('onclick="dailyImportTeamRoster()"'),'민턴LIVE 선수 영역에서 팀전 명단을 가져올 수 있어야 합니다.');
 assert(teamHtml.includes('id="teamImportDailyRosterBtn"')&&teamHtml.includes('onclick="teamImportDailyRoster()"'),'팀전 참가자 영역에서 민턴LIVE 명단을 가져올 수 있어야 합니다.');
-assert(teamHtml.includes('id="teamImportDailyRosterModalBtn"'),'기존 명부 선택 창에서도 민턴LIVE 명단을 바로 가져올 수 있어야 합니다.');
+// 2026-09-03: 모달 사본은 뺐다. 「저쪽에 넘길 명단이 있다」는 신호는 카드에 떠 있어야
+// 임원이 모달을 열기 전에 안다 — 민턴LIVE 도 이 버튼을 카드에 둔다(index.html).
+assert(!teamHtml.includes('id="teamImportDailyRosterModalBtn"'),
+  '명단 가져오기 버튼은 카드 한 곳뿐이어야 합니다(모달 사본 금지).');
 assert(!indexHtml.includes('등록 전 상태'),'명단 복사 UI에 폐기된 출석 상태를 다시 노출하면 안 됩니다.');
 
 const memory=new Map();

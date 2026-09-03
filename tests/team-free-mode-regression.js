@@ -75,6 +75,8 @@ assert(generateBody.includes('if(useFixedTeams&&!teamAssignment)'), '청·홍 �
 assert(generateBody.includes('teamMode: useFixedTeams&&!!teamAssignment'), '자유 대진 저장 설정에 teamMode=false가 들어가야 합니다.');
 assert(src.includes("matchMode:_teamUsesFixedTeams()?'team':'free'"), '선택한 대진 방식을 저장해야 합니다.');
 assert(src.includes("state.matchMode==='free'"), '저장된 자유 대진을 불러올 때 방식을 복원해야 합니다.');
-assert(src.includes("_autoFlowPanel('방식'"), '상단 운영 보드에서 현재 대진 방식을 보여야 합니다.');
+// 2026-09-03: 상태 판과 흐름 칩을 「번호 타일」 한 벌로 합쳤다 — 방식은 3번 타일이 맡는다.
+assert(/name:'방식'[\s\S]{0,120}value:teamValue/.test(src),
+  '상단 운영 보드 흐름 타일이 현재 대진 방식을 보여야 합니다.');
 
 console.log('team free mode regression ok');

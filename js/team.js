@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.649';
+const APP_VERSION = '1.10.650';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -126,6 +126,22 @@ let currentMatches=[];
 let currentParticipants=[];
 let currentSettings={};
 const _teamManualClosedSections=new Set();
+/* 카드를 접는 방법이 둘이었다 — 요약 줄과 「접기」 버튼. 버튼으로 접어야만 기억되고
+   요약 줄로 접으면 다음 렌더에 도로 열렸다. 버튼을 없애고 요약 줄 하나로 모으면서,
+   기억 장치를 toggle 이벤트로 옮긴다. 단계 게이팅이 접은 것은 「수동」이 아니므로
+   _teamProgrammaticOpen 으로 걸러낸다(2026-09-03). */
+let _teamProgrammaticOpen=false;
+function _teamSetOpenSilently(el,v){
+  _teamProgrammaticOpen=true;
+  try{ el.open=v; } finally{ _teamProgrammaticOpen=false; }
+}
+document.addEventListener('toggle',(e)=>{      // toggle 은 버블하지 않는다 → capture 필수
+  const el=e.target;
+  if(!el||el.tagName!=='DETAILS'||!el.id||!el.classList.contains('card'))return;
+  if(_teamProgrammaticOpen)return;
+  if(el.open)_teamManualClosedSections.delete(el.id);
+  else _teamManualClosedSections.add(el.id);
+},true);
 
 /* ═══ 되돌리기(Undo) 스택 ═══ */
 const _UNDO_MAX=20;
@@ -6509,7 +6525,7 @@ function _teamDailyRosterSnapshot(){
 }
 function renderTeamRosterTransferButton(){
   const count=_teamDailyRosterSnapshot().players.length;
-  ['teamImportDailyRosterBtn','teamImportDailyRosterModalBtn'].forEach(id=>{
+  ['teamImportDailyRosterBtn'].forEach(id=>{
     const btn=document.getElementById(id);
     if(!btn)return;
     btn.disabled=!count;
@@ -8255,7 +8271,8 @@ function teamApplyStageLayout(){
   }
   // 빈 화면의 상태 타일 넷 중 셋(링크·방식·대진)은 눌러도 갈 곳이 없고, 남은 하나는 위
   // 「다음 할 일」과 같은 말이다 — 진행 흐름 칩만 남긴다
-  hide('.auto-flow-board.setup-board',empty&&!_teamRestoreHint);
+  // 상태 판은 복구 대기 화면 전용이 됐다(진행 표시는 흐름 타일이 맡는다, 2026-09-03)
+  hide('.auto-flow-board.setup-board',!_teamRestoreHint);
   // 대진표·결과 탭은 대진이 만들어진 뒤에야 갈 곳이 있다
   hide('#bnav-bracket,#bnav-result',stage!=='live');
   // 참가자가 없으면 공유는 눌러도 안내창뿐이다 — 민턴LIVE 와 같은 기준.
@@ -8272,12 +8289,12 @@ function teamApplyStageLayout(){
     if(empty){
       _teamForceOpenSection('sec-players');
       const settings=document.getElementById('sec-settings');
-      if(settings&&settings.tagName==='DETAILS')settings.open=false;
+      if(settings&&settings.tagName==='DETAILS')_teamSetOpenSilently(settings,false);
     }
     if(stage==='live'){
       ['sec-players','sec-settings','sec-rsvp'].forEach(id=>{
         const el=document.getElementById(id);
-        if(el&&el.tagName==='DETAILS')el.open=false;
+        if(el&&el.tagName==='DETAILS')_teamSetOpenSilently(el,false);
       });
     }
     if(stage==='roster'&&_teamUiStageShown==='live'){
@@ -8329,7 +8346,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.649) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.650) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
@@ -8428,24 +8445,44 @@ function renderAutoFlowDashboard(){
     const boardHtml=restoreBracket?[
       _autoFlowPanel('저장 대진',`${savedBracketRestore.pCount}명`,`${savedBracketRestore.ageStr} 저장`,'live',''),
       _autoFlowPanel('대진','불러오기','버튼 한 번으로 복원','warn','')
-    ].join(''):[
-      _autoFlowPanel('참가자',players?`${players}명`:'미설정',players?'관리자 확정 명단':'먼저 등록',players?'':'warn','players'),
-      _autoFlowPanel('링크',_rsvpId?'공유됨':'공유 전',rsvpNote,counts.late?'warn':'','rsvp'),
-      _autoFlowPanel('방식',teamValue,teamNote,modeReady?'':'warn','mode'),
-      _autoFlowPanel('대진',matchValue,matchNote,matches&&!live&&!resumeLive?'warn':'',matches?'bracket':'settings'),
-      resumeLive?_autoFlowPanel('LIVE',liveValue,liveNote,'live','bracket'):''
-    ].join('');
+    ].join(''):'';
+    /* 진행 표시는 하나여야 한다 — 예전에는 흐름 칩(자리)과 상태 타일(값)이 같은 진행 상황을
+       두 문법으로 말했다. 민턴LIVE 의 .daily-start-guide-list 처럼 「번호 + 이름 + 값 + 한 줄」
+       타일 한 벌로 합쳤고, 값·보조문·이동 대상은 옛 타일 인자를 그대로 물려받는다.
+       갈 곳이 없는 단계는 role/onclick 을 붙이지 않는다 — 빈 화면의 죽은 링크를 만들지 않기
+       위해서고, 그래야 teamApplyStageLayout 이 감춘 카드를 이 타일이 몰래 열지 않는다. */
+    const flowSteps=[
+      {n:1,name:'참가자',at:'playerSetup',value:players?`${players}명`:'미설정',
+       note:players?'관리자 확정 명단':'먼저 등록',target:'players',warn:!players},
+      {n:2,name:'링크',at:'link',value:_rsvpId?'공유됨':'공유 전',
+       note:rsvpNote,target:players?'rsvp':'',warn:!!counts.late},
+      {n:3,name:'방식',at:['playerReview','generate'],value:teamValue,
+       note:teamNote,target:players?'mode':'',warn:!modeReady},
+      {n:4,name:'대진',at:'broadcast',value:matchValue,
+       note:matchNote,target:matches?'bracket':(players?'settings':''),warn:!!(matches&&!live&&!resumeLive)},
+      {n:5,name:'LIVE',at:['restoreLive','restoreBracket','resume','live'],value:liveValue,
+       note:liveNote,target:matches?'bracket':'',warn:false}
+    ];
+    const flowStates=flowSteps.map(f=>stepState(f.at));
+    const doneSteps=flowStates.filter(v=>v==='done').length;
     const stepHtml=`<div class="team-live-flow" aria-label="팀전 진행 흐름">
-        <span class="team-live-step ${stepState('playerSetup')}">참가자</span>
-        <span class="team-live-step ${stepState('link')}">링크</span>
-        <span class="team-live-step ${stepState(['playerReview','generate'])}">방식</span>
-        <span class="team-live-step ${stepState('broadcast')}">대진</span>
-        <span class="team-live-step ${stepState(['restoreLive','restoreBracket','resume','live'])}">LIVE</span>
+        ${flowSteps.map((f,i)=>{
+          const st=flowStates[i];
+          const go=f.target?` role="button" tabindex="0" onclick="teamLiveOpenPanel('${f.target}')"`
+            +` onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();teamLiveOpenPanel('${f.target}');}"`
+            +` aria-label="${esc(f.name)} 보기"`:'';
+          return `<div class="team-live-step ${st}${f.warn?' warn':''}${f.target?' go':''}"${go}>
+            <span class="team-live-step-num">${st==='done'?'✓':f.n}</span>
+            <strong>${esc(f.name)}</strong>
+            <span class="team-live-step-value">${esc(f.value)}</span>
+            <span class="team-live-step-note">${esc(f.note||'')}</span>
+          </div>`;
+        }).join('')}
       </div>`;
     const directResumeMode=stage==='restoreLive'||stage==='resume';
     const supportHtml=directResumeMode
       ? '<div class="auto-flow-resume-note">기존 회원 링크와 입력된 결과를 그대로 이어갑니다.</div>'
-      : `${stepHtml}<div class="auto-flow-board setup-board">${boardHtml}</div>`;
+      : `${stepHtml}${boardHtml?`<div class="auto-flow-board setup-board">${boardHtml}</div>`:''}`;
     if(live){
       body.innerHTML=`
         ${_teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remaining,counts})}`;
@@ -8457,6 +8494,7 @@ function renderAutoFlowDashboard(){
             <b>${esc(stageGuide.k)}</b>
             <small>${esc(stageGuide.t)}</small>
           </div>
+          ${directResumeMode||restoreBracket?'':`<div class="auto-flow-count">${doneSteps}/5</div>`}
           ${actionHtml}
         </div>
         ${supportHtml}`;

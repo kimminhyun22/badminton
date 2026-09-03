@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.649  (2026-07)
+     APP VERSION: 1.10.650  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.649">
+<meta name="app-version" content="1.10.650">
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="only light">
 <link rel="manifest" href="manifest.json">
@@ -24,13 +24,13 @@
 <title>🏸 민턴LIVE 팀전 | 청·홍전·자유 대진</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/team.css?v=1.10.649">
+<link rel="stylesheet" href="css/team.css?v=1.10.650">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.649"></script>
+<script src="js/storage.js?v=1.10.650"></script>
 </head>
 <body>
 
@@ -49,8 +49,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.649&from=team'">팀전</button>
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.649&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.650&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.650&from=team'">팀전</button>
 </div>
 
 <div class="nav-bar">
@@ -116,9 +116,8 @@
 
       <!-- 팀전 링크 -->
       <details class="card" id="sec-rsvp" open>
-        <summary class="card-head team-closable-head">
+        <summary class="card-head">
           <span class="card-title">팀전 링크 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
         </summary>
         <div class="card-body">
           <div class="rsvp-grid rsvp-grid-single">
@@ -137,9 +136,8 @@
            품질 등급은 대진을 만든 직후 가장 먼저 확인하는 값입니다.
            대진이 없으면 숨어 있다가 renderResults 에서 열립니다. -->
       <details class="card hidden" id="sec-quality" open>
-        <summary class="card-head team-closable-head">
+        <summary class="card-head">
           <span class="card-title">품질 점검</span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
         </summary>
         <div class="card-body">
           <div class="sum-grid" id="sumGrid"></div>
@@ -150,9 +148,8 @@
       </details>
 
       <details class="card" id="sec-players">
-        <summary class="card-head team-closable-head">
+        <summary class="card-head">
           <span class="card-title">참가자 등록</span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
         </summary>
         <div class="card-body">
 
@@ -168,57 +165,13 @@
           </div>
           <div id="directSection">
             <div class="direct-form">
-              <!-- 명부에서 고르는 것이 기본 경로다(운영 보드의 「참가자 세팅」도 이 모달을 연다).
-                   직접 입력은 명부에 없는 손님을 넣을 때만 쓰므로 접어 둔다 — 늘 펼쳐 두면
-                   목록과 대진 생성 버튼이 화면 아래로 밀린다 (민턴LIVE 게스트 폼과 같은 처리, 2026-09-03). -->
-              <button class="btn btn-ghost" onclick="openImportModal()"
-                style="width:100%;justify-content:center;padding:10px;font-size:.84rem;
-                color:var(--bll);border-color:rgba(96,165,250,.35);border-radius:9px;min-height:44px;">
-                📂 명부에서 불러오기
-              </button>
+              <!-- 선수 등록 입구는 「참가자 등록」 모달 하나 — 명부 선택·민턴LIVE 명단
+                   가져오기·직접 추가가 그 안에 있습니다 (민턴LIVE 와 같은 구조, 2026-09-03). -->
+              <button class="btn-dir-add" onclick="openImportModal()" style="margin-bottom:8px;">참가자 등록</button>
               <button class="roster-transfer-btn hidden" id="teamImportDailyRosterBtn" type="button"
                 onclick="teamImportDailyRoster()" disabled>
                 민턴LIVE 선수 없음
               </button>
-              <details class="team-direct-add" id="teamDirectAddBox">
-                <summary>＋ 직접 추가 <small>명부에 없는 선수</small></summary>
-                <div class="team-direct-add-body">
-              <div class="dir-row">
-                <input class="dir-input" id="dirName" type="text" placeholder="이름 입력"
-                  onkeydown="if(event.key==='Enter')addDirectPlayer()">
-                <button class="guest-btn" onclick="toggleGuestMode()" id="guestBtn" title="게스트로 추가">G</button>
-              </div>
-              <div class="dir-row">
-                <span class="dir-label">급수</span>
-                <div class="lv-sel-btns" id="dirGradeBtns">
-                  <button class="lv-sel-btn" data-grade="E" onclick="selectDirGrade('E')">E</button>
-                  <button class="lv-sel-btn" data-grade="D" onclick="selectDirGrade('D')">D</button>
-                  <button class="lv-sel-btn sel" data-grade="C" onclick="selectDirGrade('C')">C</button>
-                  <button class="lv-sel-btn" data-grade="B" onclick="selectDirGrade('B')">B</button>
-                  <button class="lv-sel-btn" data-grade="A" onclick="selectDirGrade('A')">A</button>
-                  <button class="lv-sel-btn" data-grade="S" onclick="selectDirGrade('S')">S</button>
-                </div>
-              </div>
-              <div class="dir-row">
-                <span class="dir-label">성별</span>
-                <div class="gender-sel-btns">
-                  <button class="gender-sel-btn sel-m" data-gender="남" onclick="selectDirGender('남')">남</button>
-                  <button class="gender-sel-btn" data-gender="여" onclick="selectDirGender('여')">여</button>
-                </div>
-              </div>
-              <div class="dir-row">
-                <span class="dir-label">연령대</span>
-                <div class="age-sel-btns" id="dirAgeBtns">
-                  <button class="age-sel-btn" data-age="20대" onclick="selectDirAge('20대')">20대</button>
-                  <button class="age-sel-btn" data-age="30대" onclick="selectDirAge('30대')">30대</button>
-                  <button class="age-sel-btn sel" data-age="40대" onclick="selectDirAge('40대')">40대</button>
-                  <button class="age-sel-btn" data-age="50대" onclick="selectDirAge('50대')">50대</button>
-                  <button class="age-sel-btn" data-age="60대+" onclick="selectDirAge('60대+')">60대+</button>
-                </div>
-              </div>
-              <button class="btn-dir-add" onclick="addDirectPlayer()">+ 선수 추가</button>
-                </div>
-              </details>
             </div>
 
           <!-- 팀배정 앵커 (탭 스크롤 타깃) -->
@@ -242,10 +195,9 @@
 
       <!-- 대회 설정 -->
       <details class="card" id="sec-settings">
-        <summary class="card-head team-closable-head">
+        <summary class="card-head">
           <span class="card-title">진행 설정</span>
           <span class="settings-mini-summary" id="settingsMiniSummary"></span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
         </summary>
         <div class="card-body">
           <div class="setting-grid">
@@ -361,9 +313,8 @@
       <!-- 스코어보드 -->
       <div class="hidden" id="scoreboardSec">
         <details class="card" id="sec-scoreboard" open>
-          <summary class="card-head team-closable-head">
+          <summary class="card-head">
             <span class="card-title">승패 집계</span>
-            <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
           </summary>
           <div class="card-body">
             <div id="winnerBanner"></div>
@@ -624,10 +575,6 @@
       <button onclick="closeImportModal()">✕</button>
     </div>
     <div class="modal-body">
-      <button class="roster-transfer-btn" id="teamImportDailyRosterModalBtn" type="button"
-        onclick="teamImportDailyRoster()" disabled style="margin-top:0;margin-bottom:11px;">
-        민턴LIVE 선수 없음
-      </button>
       <div id="importClubTabs"></div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;">
         <span style="font-size:.62rem;color:var(--dim);font-weight:600;">정렬</span>
@@ -636,6 +583,48 @@
         <button class="dir-sort-btn"        id="isb-gender" onclick="setImportSort('gender')">성별순</button>
       </div>
       <div id="importMemberList" style="max-height:300px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;"></div>
+      <!-- 명부에서 고르는 것이 기본 경로다. 직접 입력은 명부에 없는 손님을 넣을 때만 쓰므로
+           접어 둔다 — 늘 펼쳐 두면 목록과 등록 버튼이 화면 아래로 밀린다
+           (민턴LIVE 게스트 폼과 같은 자리·같은 처리, 2026-09-03). -->
+      <details class="team-direct-add" id="teamDirectAddBox">
+        <summary>＋ 직접 추가 <small>명부에 없는 선수</small></summary>
+        <div class="team-direct-add-body">
+      <div class="dir-row">
+        <input class="dir-input" id="dirName" type="text" placeholder="이름 입력"
+          onkeydown="if(event.key==='Enter')addDirectPlayer()">
+        <button class="guest-btn" onclick="toggleGuestMode()" id="guestBtn" title="게스트로 추가">G</button>
+      </div>
+      <div class="dir-row">
+        <span class="dir-label">급수</span>
+        <div class="lv-sel-btns" id="dirGradeBtns">
+          <button class="lv-sel-btn" data-grade="E" onclick="selectDirGrade('E')">E</button>
+          <button class="lv-sel-btn" data-grade="D" onclick="selectDirGrade('D')">D</button>
+          <button class="lv-sel-btn sel" data-grade="C" onclick="selectDirGrade('C')">C</button>
+          <button class="lv-sel-btn" data-grade="B" onclick="selectDirGrade('B')">B</button>
+          <button class="lv-sel-btn" data-grade="A" onclick="selectDirGrade('A')">A</button>
+          <button class="lv-sel-btn" data-grade="S" onclick="selectDirGrade('S')">S</button>
+        </div>
+      </div>
+      <div class="dir-row">
+        <span class="dir-label">성별</span>
+        <div class="gender-sel-btns">
+          <button class="gender-sel-btn sel-m" data-gender="남" onclick="selectDirGender('남')">남</button>
+          <button class="gender-sel-btn" data-gender="여" onclick="selectDirGender('여')">여</button>
+        </div>
+      </div>
+      <div class="dir-row">
+        <span class="dir-label">연령대</span>
+        <div class="age-sel-btns" id="dirAgeBtns">
+          <button class="age-sel-btn" data-age="20대" onclick="selectDirAge('20대')">20대</button>
+          <button class="age-sel-btn" data-age="30대" onclick="selectDirAge('30대')">30대</button>
+          <button class="age-sel-btn sel" data-age="40대" onclick="selectDirAge('40대')">40대</button>
+          <button class="age-sel-btn" data-age="50대" onclick="selectDirAge('50대')">50대</button>
+          <button class="age-sel-btn" data-age="60대+" onclick="selectDirAge('60대+')">60대+</button>
+        </div>
+      </div>
+      <button class="btn-dir-add" onclick="addDirectPlayer()">+ 선수 추가</button>
+        </div>
+      </details>
       <div style="display:flex;gap:8px;margin-top:11px;">
         <button class="btn btn-ghost btn-sm" onclick="toggleSelectAll()" style="flex-shrink:0;">전체 선택/해제</button>
         <button class="btn btn-gen" style="flex:1;padding:10px;" onclick="importSelected()">✅ 선택 선수 등록</button>
@@ -742,11 +731,11 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.649"></script>
-<script src="js/mobile-nav.js?v=1.10.649"></script>
+<script src="js/match-quality.js?v=1.10.650"></script>
+<script src="js/mobile-nav.js?v=1.10.650"></script>
 <!-- 카카오톡 바로 공유용 JavaScript 키 — index.html 과 같은 값을 넣으면 두 화면이 함께 동작합니다. -->
 <script>window.KOKMATCH_KAKAO_JS_KEY=window.KOKMATCH_KAKAO_JS_KEY||'';</script>
-<script src="js/team.js?v=1.10.649"></script>
+<script src="js/team.js?v=1.10.650"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 라운드로 이동" title="현재 진행 라운드로 이동">
@@ -829,7 +818,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.649</span>
+  <span class="app-version" id="appVersion">v1.10.650</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

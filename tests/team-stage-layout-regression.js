@@ -28,7 +28,10 @@ const cut = (begin, end) => {
   assert(a >= 0 && b > a, `${begin.slice(0, 32)} 범위를 찾지 못했습니다.`);
   return src.slice(a, b);
 };
-const code = cut('function _teamUiStage()', 'function _autoFlowSetResultSections(');
+// 카드를 프로그램이 접을 때 「수동으로 접었다」로 기억되지 않게 하는 가드 —
+// 실제 함수를 잘라 넣는다(스텁으로 흉내 내면 계약이 갈린다).
+const code = cut('let _teamProgrammaticOpen=false;', "document.addEventListener('toggle'")
+  + cut('function _teamUiStage()', 'function _autoFlowSetResultSections(');
 
 function run(state){
   const els = {};
@@ -104,10 +107,11 @@ assert.strictEqual(run({ players: [{}], live: true }).stage, 'live');
 
 // 빈 화면의 죽은 상태 타일과, 갈 곳 없는 하단 탭
 r = run({});
-assert(r.hidden('.auto-flow-board.setup-board'), '빈 화면에서는 상태 타일이 「다음 할 일」과 중복이라 감춰져야 합니다.');
+// 2026-09-03: 진행 표시를 흐름 타일 한 벌로 합쳤다 — 상태 판은 저장 대진 복구 화면 전용이다.
+assert(r.hidden('.auto-flow-board.setup-board'), '복구 대기가 아니면 상태 판은 감춰져야 합니다.');
 assert(r.hidden('#bnav-bracket') && r.hidden('#bnav-result'), '대진 전에는 대진표·결과 탭이 갈 곳이 없습니다.');
 r = run({ players: [{}] });
-assert(!r.hidden('.auto-flow-board.setup-board'), '명단이 있으면 상태 타일이 보여야 합니다.');
+assert(r.hidden('.auto-flow-board.setup-board'), '명단이 있어도 상태 판은 복구 화면 전용입니다.');
 assert(r.hidden('#bnav-bracket'), '대진을 만들기 전에는 대진표 탭이 감춰져야 합니다.');
 r = run({ players: [{}], matches: [{}] });
 assert(!r.hidden('#bnav-bracket') && !r.hidden('#bnav-result'), '대진 생성 뒤에는 두 탭이 보여야 합니다.');
@@ -221,8 +225,10 @@ assert(src.includes("currentRound==='-'?'중계 중'"),
   '대진이 아직 없을 때 「- 진행」으로 뜨면 안 됩니다.');
 assert(css.includes('.op-status-sub{max-width:100%!important;text-align:left;}'),
   '운영 상태 줄은 좁은 화면에서 오른쪽 정렬로 깨지지 않아야 합니다.');
-assert(css.includes('.hb{font-size:max(12px,.68rem);}'),
-  '헤더 배지도 12px 하한을 지켜야 합니다.');
+// 2026-09-03: 헤더 배지(.hb/.hbs)는 두 화면 어디에서도 렌더되지 않아 규칙째 걷어냈다.
+// 렌더되지 않는 요소에 건 글자 하한은 초록이어도 아무것도 증명하지 않는다.
+assert(!css.includes('.hb{') && !css.includes('.hbs{'),
+  '렌더되지 않는 헤더 배지 규칙을 되살리면 안 됩니다.');
 
 // ── 최종 감사(2026-09-03) 반영 ──
 // 대진을 버리면 지난 지표가 남지 않는다 — 전체 초기화는 renderResults 를 부르지 않는다
@@ -243,7 +249,7 @@ assert(!run({ players: [{}], matches: [{}] }).hidden('#sec-quality'),
     '4명부터는 팀 배정·대진 생성이 보여야 합니다.');
 }
 // 저장 대진 복구 화면에서는 「무엇을 되살리는지」 판을 남긴다
-assert(src.includes("hide('.auto-flow-board.setup-board',empty&&!_teamRestoreHint);")
+assert(src.includes("hide('.auto-flow-board.setup-board',!_teamRestoreHint);")
   && src.includes("_teamRestoreHint=stage==='restoreBracket'||stage==='restoreLive';"),
   '복구 대기 화면에서는 상태 판을 감추면 안 됩니다.');
 // 되돌리기로 대진만 사라지면 접어 둔 카드를 도로 편다
@@ -316,3 +322,14 @@ assert(html.includes('id="autoFlowBadge"') && html.includes('id="autoFlowBadgeTe
   '상태 배지에는 민턴LIVE 와 같은 점(.daily-dot)이 있어야 합니다.');
 assert(src.includes('badgeTextEl.textContent=cfg.badge'),
   '배지 글자만 갈아 끼워야 점이 지워지지 않습니다.');
+
+// 진행 표시는 하나여야 한다 — 칩(자리)과 상태 판(값)이 같은 것을 두 문법으로 말했다.
+// 민턴LIVE 의 .daily-start-step 과 같은 「번호 + 이름 + 값 + 한 줄」 타일 한 벌로 합쳤다.
+assert(src.includes('class="team-live-step-num"') && src.includes('class="team-live-step-value"'),
+  '흐름 표시는 번호와 값을 가진 타일이어야 합니다.');
+assert(!/team-live-step \$\{stepState\('playerSetup'\)\}">참가자<\/span>/.test(src),
+  '옛 칩 문법으로 되돌리면 안 됩니다.');
+assert(/\$\{doneSteps\}\/5/.test(src), '민턴LIVE 의 「n/2」와 같은 자리에 진행 개수가 있어야 합니다.');
+// 갈 곳이 없는 단계는 누를 수 없어야 한다 — 눌리면 단계 게이팅이 감춘 카드를 몰래 연다.
+assert(src.includes("f.target?` role=\"button\""),
+  '이동 대상이 없는 흐름 타일에는 role/onclick 을 붙이면 안 됩니다.');

@@ -42,9 +42,12 @@ function modeOrder(html) {
   return [text.indexOf('팀전'), text.indexOf('민턴LIVE')];
 }
 
+// 2026-09-03 운영자: "민턴라이브를 많이 사용하니까 메뉴순서를 팀전과 맞바꿔줘."
+// 자주 쓰는 쪽이 왼쪽(엄지에 가까운 자리)이다. 두 화면이 같은 순서여야 오갈 때 자리가 안 바뀐다.
 for (const html of [indexHtml, teamHtml]) {
   const [teamIndex, dailyIndex] = modeOrder(html);
-  assert(teamIndex >= 0 && dailyIndex >= 0 && teamIndex < dailyIndex, 'LIVE 전환에서도 팀전가 먼저 보여야 합니다.');
+  assert(teamIndex >= 0 && dailyIndex >= 0 && dailyIndex < teamIndex,
+    'LIVE 전환은 민턴LIVE 가 먼저 보여야 합니다(자주 쓰는 쪽이 왼쪽).');
 }
 
 assert(teamHtml.includes(`index.html?v=${version}&from=team`), '사용자가 선택한 민턴LIVE 진입 의도를 표시해야 합니다.');
