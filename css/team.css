@@ -3446,3 +3446,13 @@ body{background:var(--bg)!important;}
 /* 「n/5」는 안내 제목 옆에 서는 작은 알약이다 — 민턴LIVE 의 .daily-start-guide-head 와 같은 구조 */
 .auto-flow-focus-main{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0;}
 .auto-flow-focus-main>div:first-child{min-width:0;}
+
+/* ── 폰 글자 하한 12px (40~60대 기준) ──
+   두 화면이 같은 값을 쓰게 맞춰 놓고 보니, 기준 화면 쪽도 320px 에서 10.2px 였다.
+   같은 컴포넌트라 두 스타일시트에 같은 규칙을 둔다(2026-09-03). */
+@media(max-width:768px){
+  .live-mode-pill{font-size:max(12px,.74rem);}
+  .daily-start-guide-sub,.daily-start-guide-count,.daily-start-step-num,
+  .team-live-step-num,.auto-flow-count{font-size:max(12px,.68rem);}
+  .daily-start-step strong,.daily-start-step span:not(.daily-start-step-num){font-size:max(12px,.72rem);}
+}
