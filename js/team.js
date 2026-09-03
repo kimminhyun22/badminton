@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.646';
+const APP_VERSION = '1.10.647';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -700,7 +700,7 @@ function updateTeamModeBadge(){
     b.textContent=!wantTeam
       ?'청·홍 구분 없이 매 경기 실력 균형과 출전 횟수를 맞춥니다.'
       :isOn
-        ?'청·홍팀 배정이 완료되었습니다. 팀을 확인한 뒤 대진표를 생성하세요.'
+        ?'청·홍 명단을 확인한 뒤 대진표를 생성하세요.'
         :'청·홍팀을 먼저 자동 배정한 뒤 대진표를 생성합니다.';
   }
   if(wantTeam){
@@ -7983,24 +7983,22 @@ function _autoFlowMetric(label,value){
 const TEAM_KAKAO_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#191919" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.8c0 2.7 1.8 5.1 4.5 6.5l-1.1 4.1c-.1.3.3.6.6.4l4.8-3.2c.3 0 .6.1.9.1 5.4 0 9.7-3.4 9.7-7.6S17.4 3.2 12 3.2z"/></svg>';
 const TEAM_BAND_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#1EC800"/><path fill="#fff" d="M8.2 6.5h2.4v4.1c.6-.5 1.4-.8 2.3-.8 2.3 0 4 1.8 4 4.1s-1.7 4.1-4 4.1c-1 0-1.8-.3-2.4-.9v.7H8.2V6.5zm4.4 5.4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>';
 /* 「다음 할 일」 CTA 가 공유일 때는 채널 버튼 둘로 — 채널 없는 사본을 남기지 않는다 */
-function _autoFlowShareAction(note){
+function _autoFlowShareAction(){
   return `<div class="auto-flow-action share">
-    <div class="auto-flow-next">${esc(note||'단톡방에 공유')}</div>
     <div class="auto-flow-share-btns">
       <button class="auto-flow-btn kakao" type="button" onclick="rsvpShareLink('kakao')">${TEAM_KAKAO_SVG}카카오톡</button>
       <button class="auto-flow-btn band" type="button" onclick="rsvpShareLink('band')">${TEAM_BAND_SVG}밴드</button>
     </div>
   </div>`;
 }
-function _autoFlowAction(label,fnName,note='',cls=''){
+/* 버튼 위에 보조문구(.auto-flow-next)를 두던 자리다. 그 줄은 css 의
+   `.auto-flow-focus .auto-flow-next{display:none}` 때문에 어느 단계에서도 화면에
+   나온 적이 없었고, 문구는 바로 위 안내문과 같은 말이었다 — 생성을 없앴다(2026-09-03). */
+function _autoFlowAction(label,fnName,cls=''){
   if(!label||!fnName)return '';
   const safeCls=String(cls||'').replace(/[^a-z0-9_-]/gi,'');
   const extra=safeCls?` ${safeCls}`:'';
-  /* note 가 비면 줄을 아예 만들지 않는다 — 바로 위 안내문과 같은 말일 때
-     '다음 단계' 같은 빈 껍데기가 들어차던 자리다(2026-09-03). */
-  const noteHtml=note?`<div class="auto-flow-next">${esc(note)}</div>`:'';
   return `<div class="auto-flow-action${extra}">
-    ${noteHtml}
     <button class="auto-flow-btn${extra}" onclick="${fnName}()">${esc(label)}</button>
   </div>`;
 }
@@ -8332,7 +8330,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.646) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.647) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
@@ -8345,7 +8343,7 @@ function renderAutoFlowDashboard(){
       ? '매 경기 실력·출전 균형'
       :teamReady
         ? `실력차 ${teamLevelDiff} · P ${activePairCount}쌍`
-        :(players?'참가자 확인 후 팀 배정':'참가자 필요');
+        :(players?'배정 전':'참가자 필요');
     const matchValue=matches?`${done}/${matches}`:'전';
     const remaining=Math.max(0,matches-done);
     const matchNote=matches?`${currentRound} · ${remaining} 남음`:(modeReady?'생성 필요':'팀 배정 필요');
@@ -8358,7 +8356,7 @@ function renderAutoFlowDashboard(){
     let cfg={badge:'준비',title:'팀전 세팅',sub:''};
     if(live){
       stage='live';
-      cfg={badge:'진행 중',title:'팀전 운영',sub:currentRound==='완료'?'결과 확인':`${currentRound} 진행`};
+      cfg={badge:'진행 중',title:'팀전 운영',sub:''};
     } else if(restoreLive){
       stage='restoreLive';
       cfg={badge:'이어가기',title:'팀전 이어가기',sub:''};
@@ -8387,8 +8385,8 @@ function renderAutoFlowDashboard(){
     badgeEl.classList.toggle('live',live);
     badgeEl.classList.toggle('resume',resumeLive||restoreLive||restoreBracket);
     titleEl.textContent=cfg.title;
-    /* 부제는 「다음 할 일」 제목·버튼과 같은 말이라 세 번째 사본이었다 —
-       진행 중(현재 라운드)처럼 새 정보를 담을 때만 쓴다(2026-09-03). */
+    /* 부제는 어느 단계에서도 쓰지 않는다 — 「다음 할 일」 제목·버튼과 같은 말이었고,
+       진행 중 라운드 표시는 LIVE 스트립(_teamLiveLiveStripHtml) 한 곳이 맡는다(2026-09-03). */
     subEl.textContent=cfg.sub||'';
     subEl.classList.toggle('hidden',!cfg.sub);
     const stepState=(step)=>{
@@ -8402,13 +8400,13 @@ function renderAutoFlowDashboard(){
     };
     const actionHtml={
       playerSetup:_autoFlowAction('참가자 세팅','teamLiveSetupParticipants'),
-      link:_autoFlowShareAction('단톡방에 공유'),
-      playerReview:_autoFlowAction('팀 배정','doTeamAssign','청/홍 자동'),
-      generate:_autoFlowAction('대진 생성','generate',fixedTeamMode?'청·홍 대진 품질 확인':'자유 대진 품질 확인'),
-      broadcast:_autoFlowAction('팀전 시작','onLiveBtnClick','회원 링크 열림','live-start'),
-      restoreLive:_autoFlowAction('팀전 이어가기','restoreTeamLiveAndResume','','live-start'),
-      restoreBracket:_autoFlowAction('이전 대진표 불러오기','restoreState','','live-start'),
-      resume:_autoFlowAction('팀전 이어가기','resumeTeamLiveBroadcast','','live-start'),
+      link:_autoFlowShareAction(),
+      playerReview:_autoFlowAction('팀 배정','doTeamAssign'),
+      generate:_autoFlowAction('대진 생성','generate'),
+      broadcast:_autoFlowAction('팀전 시작','onLiveBtnClick','live-start'),
+      restoreLive:_autoFlowAction('팀전 이어가기','restoreTeamLiveAndResume','live-start'),
+      restoreBracket:_autoFlowAction('이전 대진표 불러오기','restoreState','live-start'),
+      resume:_autoFlowAction('팀전 이어가기','resumeTeamLiveBroadcast','live-start'),
       live:''
     }[stage]||'';
     const stageGuide={
@@ -8430,8 +8428,7 @@ function renderAutoFlowDashboard(){
     ].join(''):restoreBracket?[
       _autoFlowPanel('저장 대진',`${savedBracketRestore.pCount}명`,`${savedBracketRestore.ageStr} 저장`,'live',''),
       _autoFlowPanel('LIVE','확인 필요','불러온 뒤 시작/재개','warn',''),
-      _autoFlowPanel('대진','불러오기','버튼 한 번으로 복원','warn',''),
-      _autoFlowPanel('다음','운영 계속','대진표와 결과 확인','live','')
+      _autoFlowPanel('LIVE','확인 필요','불러온 뒤 시작/재개','warn','')
     ].join(''):[
       _autoFlowPanel('참가자',players?`${players}명`:'미설정',players?'관리자 확정 명단':'먼저 세팅',players?'':'warn','players'),
       _autoFlowPanel('링크',_rsvpId?'공유됨':'공유 전',rsvpNote,counts.late?'warn':'','rsvp'),
@@ -8492,7 +8489,6 @@ if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정)`:'';
     box.className='rsvp-panel';
     box.innerHTML=`<div class="rsvp-create-box">
       <div class="rsvp-create-title">참가자 세팅 필요</div>
-      <div class="rsvp-create-sub">사전 고지된 오늘 선수 명단을 관리자가 먼저 확정합니다.</div>
       <button class="rsvp-action-btn primary soft" onclick="teamLiveSetupParticipants()">참가자 세팅</button>
     </div>`;
     renderAutoFlowDashboard();

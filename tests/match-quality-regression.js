@@ -39,8 +39,8 @@ assert.strictEqual(q.partnerRepeatPenalty(2,'pool'),900);
 assert(Number.isFinite(q.partnerRepeatPenalty(3))&&q.partnerRepeatPenalty(3)>=1e9,'소수 인원에서도 대진은 멈추지 않는 유한 최후 패널티여야 합니다.');
 assert.strictEqual(q.opponentRepeatPenalty(4),1e9);
 
-assert(indexHtml.indexOf('js/match-quality.js')<indexHtml.indexOf('js/daily.js'),'민턴LIVE보다 공통 품질 정책을 먼저 로드해야 합니다.');
-assert(teamHtml.indexOf('js/match-quality.js')<teamHtml.indexOf('js/team.js'),'팀전보다 공통 품질 정책을 먼저 로드해야 합니다.');
+assert(indexHtml.indexOf('src="js/match-quality.js')<indexHtml.indexOf('src="js/daily.js'),'민턴LIVE보다 공통 품질 정책을 먼저 로드해야 합니다.');
+assert(teamHtml.indexOf('src="js/match-quality.js')<teamHtml.indexOf('src="js/team.js'),'팀전보다 공통 품질 정책을 먼저 로드해야 합니다.');
 assert(sw.includes('/badminton/js/match-quality.js'),'공통 품질 정책을 오프라인 캐시에 포함해야 합니다.');
 assert(dailySrc.includes("MATCH_QUALITY.partnerRepeatPenalty(pc,'pool')"),'민턴LIVE 후보군의 파트너 반복 정책도 공통 기준을 사용해야 합니다.');
 assert(dailySrc.includes('_dailyPartnerRepeatPenalty(t1[0].partnerCount'),'민턴LIVE 실제 팀 조합에 단계형 파트너 반복 감점을 적용해야 합니다.');

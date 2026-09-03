@@ -156,7 +156,7 @@ assert(src.includes("hide('.auto-flow-quick-actions',(empty&&!_rsvpId)||shareCta
   '안내 CTA 가 공유일 때는 머리쪽 공유 사본을 감춰야 합니다 — 같은 버튼이 한 화면에 넷이 되면 안 됩니다.');
 assert(src.includes('const TEAM_KAKAO_SVG=') && src.includes('function _autoFlowShareAction('),
   '채널 버튼 로고와 공유 CTA 헬퍼가 있어야 합니다.');
-assert(src.includes("link:_autoFlowShareAction('단톡방에 공유'),"),
+assert(src.includes("link:_autoFlowShareAction(),"),
   '링크 단계 CTA 도 채널 버튼이어야 합니다 — 채널 없는 사본을 남기면 안 됩니다.');
 assert((src.match(/TEAM_KAKAO_SVG\}/g) || []).length >= 3, '로고는 CTA·LIVE 스트립·링크 카드에도 붙어야 합니다.');
 assert(css.includes('.rsvp-action-btn.primary.soft.kakao'),
@@ -254,3 +254,12 @@ assert(css.includes('#resultArea>#sec-quality{order:5;}') && css.includes('  #se
   '품질 점검 order 는 결과 영역 자식으로 좁히고, 모바일에서는 결과 위에 와야 합니다.');
 
 console.log('team stage layout regression ok');
+
+// 진행 설정을 펼치면 요약 칩은 바로 아래 라벨과 같은 말이 된다 — 접혔을 때만 보인다(2026-09-03).
+assert(css.includes('#sec-settings[open] .settings-mini-summary'),
+  '진행 설정을 펼치면 요약 칩은 감춰야 합니다(아래 라벨과 같은 말).');
+// 버튼 위 보조문구는 CSS 로 늘 숨겨져 있던 죽은 줄이었다 — 다시 만들지 말 것.
+assert(!src.includes('class="auto-flow-next"'),
+  '「다음 할 일」 버튼 위 보조문구는 화면에 나온 적이 없는 사본입니다 — 되살리지 마세요.');
+assert(!/<div class="auto-flow-sub" id="autoFlowSub">.+<\/div>/.test(html),
+  '부제는 어느 단계도 쓰지 않습니다 — HTML 기본값을 넣으면 첫 페인트에 스칩니다.');
