@@ -58,4 +58,17 @@ const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 assert(sw.includes("'/badminton/index.html'") && sw.includes("'/badminton/team.html'"),
   '두 화면 모두 오프라인 캐시에 있어야 합니다.');
 
+// ⑥ 화면이 스스로를 설명하는 문구도 기본이 바뀐 것을 알아야 한다 — 「운영 방식 선택」 카드가
+//    옛 기본(팀전)을 계속 말하면 사용자는 화면과 설명 중 어느 쪽을 믿을지 고민하게 된다.
+assert(indexHtml.includes('기본 시작 화면은 민턴LIVE입니다'),
+  '운영 방식 안내가 기본 화면을 민턴LIVE 라고 말해야 합니다.');
+assert(!indexHtml.includes('기본 시작 화면은 팀전'),
+  '옛 기본(팀전) 설명이 남아 있으면 안 됩니다.');
+{
+  const grid = indexHtml.match(/<div class="operation-grid">([\s\S]*?)<\/div>\s*<div class="operation-hint"/)?.[1] || '';
+  assert(grid, '운영 방식 두 갈래를 찾을 수 있어야 합니다.');
+  assert(grid.indexOf('data-operation-option="daily"') < grid.indexOf('operation-option team'),
+    '두 갈래 순서도 모드 필과 같이 민턴LIVE 가 먼저여야 합니다.');
+}
+
 console.log('default entry regression ok');
