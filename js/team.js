@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.648';
+const APP_VERSION = '1.10.649';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7394,7 +7394,7 @@ function _rsvpSavedDate(ts){
   }catch(e){return '';}
 }
 function _rsvpDetailsCloseButton(){
-  return `<button type="button" class="rsvp-summary-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>`;
+  return `<button type="button" class="rsvp-summary-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>`;
 }
 function rsvpCloseDetailsPanel(btn,event){
   if(event){
@@ -8299,12 +8299,11 @@ function _autoFlowSetResultSections(stage){
 }
 function renderAutoFlowDashboard(){
   if(_autoFlowRendering)return;
-  const titleEl=document.getElementById('autoFlowTitle');
   const subEl=document.getElementById('autoFlowSub');
   const badgeEl=document.getElementById('autoFlowBadge');
   const body=document.getElementById('autoFlowBody');
   const card=document.getElementById('autoFlowCard');
-  if(!titleEl||!subEl||!badgeEl||!body)return;
+  if(!subEl||!badgeEl||!body)return;
   if(typeof renderBracketSaveQuick==='function')renderBracketSaveQuick();
   const savedBracketRestore=_teamSavedBracketRestoreInfo();
   _autoFlowRendering=true;
@@ -8330,7 +8329,7 @@ function renderAutoFlowDashboard(){
       currentRoundNum=rounds.find(r=>currentMatches.some((m,i)=>m.round===r&&!_isMatchDone(i)))||null;
       currentRound=currentRoundNum?`R${currentRoundNum}`:'완료';
     }
-    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.648) —
+    /* 늦음·뒷풀이는 이 화면에서 설정할 수 없게 된 뒤로 늘 0입니다(v1.10.649) —
        빈 값이 자리만 차지하지 않도록 뺐습니다. 실제 수는 임원 콘솔이 보여 줍니다. */
     const rsvpBits=[
       counts.partner?`P ${counts.partner}`:''
@@ -8352,39 +8351,43 @@ function renderAutoFlowDashboard(){
     const restoreBracket=!!savedBracketRestore && !_liveOn && !matches && !restoreLive;
     const liveValue=live?'ON':(resumeLive?'복구':(matches?'대기':'전'));
     const liveNote=live?'링크 활성':(resumeLive?'같은 링크로 이어가기':(matches?'시작 전':'대진 필요'));
+    /* 제목은 team.html 이 「상황판」으로 고정한다 — 민턴LIVE 와 같은 말이고 하단 내비 라벨과도
+       같다. 배지는 「단계」가 아니라 「상태」만 말한다: 단계 이름은 아래 stageGuide 와 흐름 칩이
+       이미 두 번 말하고 있었다(운영자 2026-09-03 "다른 서비스를 붙여놓은 것 같다"). */
     let stage='playerSetup';
-    let cfg={badge:'준비',title:'팀전 세팅',sub:''};
+    let cfg={badge:'운영 준비',sub:''};
     if(live){
       stage='live';
-      cfg={badge:'진행 중',title:'팀전 운영',sub:''};
+      cfg={badge:'진행 중',sub:''};
     } else if(restoreLive){
       stage='restoreLive';
-      cfg={badge:'이어가기',title:'팀전 이어가기',sub:''};
+      cfg={badge:'이어가기',sub:''};
     } else if(restoreBracket){
       stage='restoreBracket';
-      cfg={badge:'불러오기',title:'저장 대진표 불러오기',sub:''};
+      cfg={badge:'불러오기',sub:''};
     } else if(resumeLive){
       stage='resume';
-      cfg={badge:'복구 필요',title:'팀전 이어가기',sub:''};
+      cfg={badge:'이어가기',sub:''};
     } else if(matches){
       stage='broadcast';
-      cfg={badge:'시작 전',title:'팀전 세팅',sub:''};
+      cfg={badge:'운영 준비',sub:''};
     } else if(teamReady||(!fixedTeamMode&&players>=4&&_rsvpId)){
       stage='generate';
-      cfg={badge:fixedTeamMode?'팀 완료':'자유 대진',title:'팀전 세팅',sub:''};
+      cfg={badge:'운영 준비',sub:''};
     } else if(players>=4&&_rsvpId){
       stage='playerReview';
-      cfg={badge:'팀 배정',title:'팀전 세팅',sub:''};
+      cfg={badge:'운영 준비',sub:''};
     } else if(players>=4){
       stage='link';
-      cfg={badge:'공유',title:'팀전 세팅',sub:''};
+      cfg={badge:'운영 준비',sub:''};
     }
     if(card)card.classList.toggle('live-compact',live);
     if(card)card.classList.toggle('live-resume-ready',stage==='restoreLive'||stage==='resume');
-    badgeEl.textContent=cfg.badge;
+    /* 점(.daily-dot)은 형제로 두고 글자만 갈아 끼운다 — textContent 로 통째 쓰면 점이 지워진다 */
+    const badgeTextEl=document.getElementById('autoFlowBadgeText');
+    if(badgeTextEl)badgeTextEl.textContent=cfg.badge; else badgeEl.textContent=cfg.badge;
     badgeEl.classList.toggle('live',live);
     badgeEl.classList.toggle('resume',resumeLive||restoreLive||restoreBracket);
-    titleEl.textContent=cfg.title;
     /* 부제는 어느 단계에서도 쓰지 않는다 — 「다음 할 일」 제목·버튼과 같은 말이었고,
        진행 중 라운드 표시는 LIVE 스트립(_teamLiveLiveStripHtml) 한 곳이 맡는다(2026-09-03). */
     subEl.textContent=cfg.sub||'';
@@ -8399,9 +8402,9 @@ function renderAutoFlowDashboard(){
       return '';
     };
     const actionHtml={
-      playerSetup:_autoFlowAction('참가자 세팅','teamLiveSetupParticipants'),
+      playerSetup:_autoFlowAction('참가자 등록','teamLiveSetupParticipants'),
       link:_autoFlowShareAction(),
-      playerReview:_autoFlowAction('팀 배정','doTeamAssign'),
+      playerReview:_autoFlowAction('청·홍 배정','doTeamAssign'),
       generate:_autoFlowAction('대진 생성','generate'),
       broadcast:_autoFlowAction('팀전 시작','onLiveBtnClick','live-start'),
       restoreLive:_autoFlowAction('팀전 이어가기','restoreTeamLiveAndResume','live-start'),
@@ -8410,27 +8413,23 @@ function renderAutoFlowDashboard(){
       live:''
     }[stage]||'';
     const stageGuide={
-      playerSetup:{k:'1. 참가자 세팅',t:'관리자가 사전 고지된 선수 명단을 확정하세요.'},
-      link:{k:'2. 링크 공유',t:'선수는 이름 확인 후 같은 링크로 실중계에 들어갑니다.'},
-      playerReview:{k:'3. 청/홍 배정',t:'늦음과 파트너만 확인하고 팀을 나눕니다.'},
-      generate:{k:'4. 대진 생성',t:fixedTeamMode?'청·홍팀 확인 후 전체 라운드를 만듭니다.':'청·홍 구분 없이 매 경기 균형을 맞춰 전체 라운드를 만듭니다.'},
-      broadcast:{k:'5. LIVE 시작',t:'대진표가 준비됐습니다. 실중계 링크를 여세요.'},
+      playerSetup:{k:'참가자 등록',t:'관리자가 사전 고지된 선수 명단을 확정하세요.'},
+      link:{k:'링크 공유',t:'선수는 이름 확인 후 같은 링크로 실중계에 들어갑니다.'},
+      playerReview:{k:'청·홍 배정',t:'늦음과 파트너만 확인하고 팀을 나눕니다.'},
+      generate:{k:'대진 생성',t:fixedTeamMode?'청·홍팀 확인 후 전체 라운드를 만듭니다.':'청·홍 구분 없이 매 경기 균형을 맞춰 전체 라운드를 만듭니다.'},
+      broadcast:{k:'LIVE 시작',t:'대진표가 준비됐습니다. 실중계 링크를 여세요.'},
       restoreLive:{k:'팀전 이어가기',t:`${savedBracketRestore?.pCount||'?'}명 대진을 불러오고 기존 회원 링크로 중계를 재개합니다.`},
       restoreBracket:{k:'이전 대진표 불러오기',t:`${savedBracketRestore?.pCount||'?'}명 저장 대진을 먼저 복원합니다.`},
       resume:{k:'팀전 이어가기',t:'앱이 꺼졌던 중계를 기존 회원 링크 그대로 재개합니다.'},
       live:{k:'운영 중',t:remaining?'현재 라운드 승패를 입력하세요.':'결과를 확인하세요.'}
     }[stage]||{k:'다음 단계',t:''};
-    const boardHtml=restoreLive?[
+    /* restoreLive 는 여기까지 오지 않는다 — directResumeMode 가 판 대신 안내 한 줄을 쓴다.
+       그 갈래의 타일 4장은 그린 적이 없는 코드였다(2026-09-03). */
+    const boardHtml=restoreBracket?[
       _autoFlowPanel('저장 대진',`${savedBracketRestore.pCount}명`,`${savedBracketRestore.ageStr} 저장`,'live',''),
-      _autoFlowPanel('LIVE','이어가기','기존 회원 링크 유지','live',''),
-      _autoFlowPanel('대진','불러오기','버튼 한 번으로 복원','warn',''),
-      _autoFlowPanel('다음','중계 재개','승패 입력 계속','live','')
-    ].join(''):restoreBracket?[
-      _autoFlowPanel('저장 대진',`${savedBracketRestore.pCount}명`,`${savedBracketRestore.ageStr} 저장`,'live',''),
-      _autoFlowPanel('LIVE','확인 필요','불러온 뒤 시작/재개','warn',''),
-      _autoFlowPanel('LIVE','확인 필요','불러온 뒤 시작/재개','warn','')
+      _autoFlowPanel('대진','불러오기','버튼 한 번으로 복원','warn','')
     ].join(''):[
-      _autoFlowPanel('참가자',players?`${players}명`:'미설정',players?'관리자 확정 명단':'먼저 세팅',players?'':'warn','players'),
+      _autoFlowPanel('참가자',players?`${players}명`:'미설정',players?'관리자 확정 명단':'먼저 등록',players?'':'warn','players'),
       _autoFlowPanel('링크',_rsvpId?'공유됨':'공유 전',rsvpNote,counts.late?'warn':'','rsvp'),
       _autoFlowPanel('방식',teamValue,teamNote,modeReady?'':'warn','mode'),
       _autoFlowPanel('대진',matchValue,matchNote,matches&&!live&&!resumeLive?'warn':'',matches?'bracket':'settings'),
@@ -8488,7 +8487,7 @@ if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정)`:'';
   if(!members.length){
     box.className='rsvp-panel';
     box.innerHTML=`<div class="rsvp-create-box">
-      <div class="rsvp-create-title">참가자 세팅 필요</div>
+      <div class="rsvp-create-title">참가자 등록 필요</div>
       <button class="rsvp-action-btn primary soft" onclick="teamLiveSetupParticipants()">참가자 세팅</button>
     </div>`;
     renderAutoFlowDashboard();

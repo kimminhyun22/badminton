@@ -263,3 +263,56 @@ assert(!src.includes('class="auto-flow-next"'),
   '「다음 할 일」 버튼 위 보조문구는 화면에 나온 적이 없는 사본입니다 — 되살리지 마세요.');
 assert(!/<div class="auto-flow-sub" id="autoFlowSub">.+<\/div>/.test(html),
   '부제는 어느 단계도 쓰지 않습니다 — HTML 기본값을 넣으면 첫 페인트에 스칩니다.');
+
+/* ── 민턴LIVE 와 한 벌로 (운영자 2026-09-03 "지금은 서로 다른 서비스를 붙여놓은 것 같다") ── */
+
+// 보드 제목은 「여기가 어디」 — 민턴LIVE 의 「상황판」과 같은 말이고 하단 내비 라벨과도 같다.
+// 단계 이름은 안내문(stageGuide)과 흐름 칩이 맡는다.
+assert(html.includes('<h3 class="auto-flow-title" id="autoFlowTitle">상황판</h3>'),
+  '팀전 보드 제목은 민턴LIVE 와 같이 「상황판」으로 고정해야 합니다.');
+assert(!src.includes('titleEl.textContent'),
+  '보드 제목을 단계마다 갈아 끼우면 화면 이름이 흔들립니다 — 제목은 고정입니다.');
+
+// 배지는 「상태」만 말한다. 「공유·팀 배정·팀 완료·시작 전」은 단계 이름이라 안내문·칩과 세 겹이었다.
+{
+  const badges = [...src.matchAll(/badge:'([^']+)'/g)].map(m => m[1]);
+  const allowed = new Set(['운영 준비', '진행 중', '이어가기', '불러오기']);
+  const bad = badges.filter(b => !allowed.has(b));
+  assert.deepStrictEqual(bad, [],
+    `보드 배지는 상태 4가지만 씁니다(단계 이름 금지): ${bad.join(', ')}`);
+}
+
+// 안내 제목의 번호는 흐름 칩(5칸)과 어긋났다 — 「4. 대진 생성」이 3번 칩 위에 앉았다.
+// 민턴LIVE 도 안내 제목에 번호를 쓰지 않는다.
+assert(!/\bk:'\d+\.\s/.test(src),
+  '단계 안내 제목에 번호를 다시 붙이면 흐름 칩과 어긋납니다.');
+
+// 제목 크기의 주인은 한 곳 — 덮어쓰기를 쌓으면 폰에서 민턴LIVE 보다 30% 작아진다.
+{
+  const n = (css.match(/\.auto-flow-title[^,{]*\{[^}]*font-size/g) || []).length;
+  assert.strictEqual(n, 1, `보드 제목 크기를 정하는 규칙은 하나여야 합니다(현재 ${n}곳).`);
+}
+
+// 헤더 상시 칩은 민턴LIVE 에 없다 — 눌리지도 바뀌지도 않는 문구다.
+assert(!html.includes('class="hbs"'),
+  '팀전 헤더의 상시 생성 옵션 칩은 없어야 합니다 — 민턴LIVE 와 같은 헤더입니다.');
+
+// 하단 탭 순서가 화면 스크롤 순서와 같아야 하이라이트가 뒤로 튀지 않는다.
+{
+  const order = ['bnav-dashboard', 'bnav-result', 'bnav-bracket', 'bnav-players', 'bnav-roster']
+    .map(id => html.indexOf(`id="${id}"`));
+  assert(order.every(i => i >= 0), '하단 탭 5개가 모두 있어야 합니다.');
+  assert(order.every((v, i) => i === 0 || v > order[i - 1]),
+    '하단 탭 순서는 화면 순서(상황판·결과·대진표·참가자·명부)와 같아야 합니다.');
+}
+
+// 접기 어휘는 한 벌 — 열기/닫기와 펼치기/접기가 섞여 있었다.
+assert(!html.includes('>닫기</button>'), '구역 접기 버튼은 「접기」로 통일합니다.');
+assert(!css.includes("content:'열기'"), '구역 펼치기 표시는 「펼치기」로 통일합니다.');
+
+// 상태 표시는 민턴LIVE 알약과 같은 물건 — 점이 있어야 한다.
+assert(html.includes('id="autoFlowBadge"') && html.includes('id="autoFlowBadgeText"')
+  && /autoFlowBadge"><span class="daily-dot">/.test(html),
+  '상태 배지에는 민턴LIVE 와 같은 점(.daily-dot)이 있어야 합니다.');
+assert(src.includes('badgeTextEl.textContent=cfg.badge'),
+  '배지 글자만 갈아 끼워야 점이 지워지지 않습니다.');

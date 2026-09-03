@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.648  (2026-07)
+     APP VERSION: 1.10.649  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.648">
+<meta name="app-version" content="1.10.649">
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="only light">
 <link rel="manifest" href="manifest.json">
@@ -24,13 +24,13 @@
 <title>🏸 민턴LIVE 팀전 | 청·홍전·자유 대진</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/team.css?v=1.10.648">
+<link rel="stylesheet" href="css/team.css?v=1.10.649">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.648"></script>
+<script src="js/storage.js?v=1.10.649"></script>
 </head>
 <body>
 
@@ -45,15 +45,12 @@
     <h1>🏸 <span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></h1>
     <p>월례 팀전 · 자유 대진 · 실시간 중계</p>
   </div>
-  <div class="hbs">
-    <span class="hb on">실력 균형</span><span class="hb on">여성 균등</span><span class="hb on">같은 파트너 덜 만나게</span>
-  </div>
   <button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.648&from=team'">팀전</button>
-  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.648&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team active" type="button" onclick="location.href='team.html?v=1.10.649&from=team'">팀전</button>
+  <button class="live-mode-pill" type="button" onclick="location.href='index.html?v=1.10.649&from=team'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
 </div>
 
 <div class="nav-bar">
@@ -82,11 +79,11 @@
         <div class="auto-flow-head">
           <div>
             <!-- 눈썹 LIVE 제거 — 상단 모드 필이 이미 팀전을 켜 놓았다(운영자 2026-09-03) -->
-            <div class="auto-flow-title" id="autoFlowTitle">팀전 세팅</div>
+            <h3 class="auto-flow-title" id="autoFlowTitle">상황판</h3>
             <div class="auto-flow-sub hidden" id="autoFlowSub"></div>
           </div>
           <div class="auto-flow-actions">
-            <span class="auto-flow-badge" id="autoFlowBadge">준비</span>
+            <span class="auto-flow-badge" id="autoFlowBadge"><span class="daily-dot"></span><span id="autoFlowBadgeText">운영 준비</span></span>
             <button class="auto-flow-resume-btn hidden" id="liveResumeTopBtn" onclick="resumeTeamLiveBroadcast()" title="앱이 꺼졌던 팀전을 같은 링크로 이어갑니다">팀전 이어가기</button>
             <!-- 운영은 임원 화면 한 곳에서 (운영자 2026-08-12 "관리자는 생성만,
                  나머진 임원운영"). 관리자에게도 같은 콘솔을 열어 주면 두 화면을
@@ -121,7 +118,7 @@
       <details class="card" id="sec-rsvp" open>
         <summary class="card-head team-closable-head">
           <span class="card-title">팀전 링크 <span id="rsvpSummary" style="font-size:.72rem;color:var(--dim);font-weight:700;"></span></span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>
+          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
         </summary>
         <div class="card-body">
           <div class="rsvp-grid rsvp-grid-single">
@@ -129,7 +126,7 @@
           </div>
           <div class="rsvp-source-note" id="rsvpSelectedSourceNote"></div>
           <div class="hint" style="margin-bottom:8px;">선수 선택에 사용할 명부입니다. 회원 링크에는 관리자가 확정한 참가자만 표시됩니다.</div>
-          <div id="rsvpBox" class="rsvp-empty">참가자를 세팅하면 링크 공유 준비가 됩니다.</div>
+          <div id="rsvpBox" class="rsvp-empty">참가자를 등록하면 링크 공유 준비가 됩니다.</div>
           <div id="rsvpSavedBox"></div>
         </div>
       </details>
@@ -142,7 +139,7 @@
       <details class="card hidden" id="sec-quality" open>
         <summary class="card-head team-closable-head">
           <span class="card-title">품질 점검</span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>
+          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
         </summary>
         <div class="card-body">
           <div class="sum-grid" id="sumGrid"></div>
@@ -154,8 +151,8 @@
 
       <details class="card" id="sec-players">
         <summary class="card-head team-closable-head">
-          <span class="card-title">참가자 확인</span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>
+          <span class="card-title">참가자 등록</span>
+          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
         </summary>
         <div class="card-body">
 
@@ -248,7 +245,7 @@
         <summary class="card-head team-closable-head">
           <span class="card-title">진행 설정</span>
           <span class="settings-mini-summary" id="settingsMiniSummary"></span>
-          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>
+          <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
         </summary>
         <div class="card-body">
           <div class="setting-grid">
@@ -366,7 +363,7 @@
         <details class="card" id="sec-scoreboard" open>
           <summary class="card-head team-closable-head">
             <span class="card-title">승패 집계</span>
-            <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">닫기</button>
+            <button type="button" class="rsvp-summary-close team-section-close" onclick="rsvpCloseDetailsPanel(this,event)">접기</button>
           </summary>
           <div class="card-body">
             <div id="winnerBanner"></div>
@@ -409,8 +406,8 @@
         <div class="card-head" style="padding:0 14px 0 0;">
           <div class="tabs" style="border-bottom:none;margin-bottom:0;flex:1;">
             <button class="res-tab active" onclick="showTab('bracket')">대진표</button>
-            <button class="res-tab" onclick="showTab('players')">참가자</button>
-            <button class="res-tab" onclick="showTab('summary')">요약</button>
+            <button class="res-tab" onclick="showTab('players')">참가자 현황</button>
+            <button class="res-tab" onclick="showTab('summary')">오늘의 요약</button>
           </div>
           <div class="print-menu-wrap" id="printMenuWrap">
             <button class="btn btn-print btn-sm" onclick="togglePrintMenu()">📤 공유 ▾</button>
@@ -623,7 +620,7 @@
 <div class="modal-overlay hidden" id="importModal">
   <div class="modal-box">
     <div class="modal-head">
-      <span>📂 명부에서 참가자 선택</span>
+      <span>📂 참가자 등록</span>
       <button onclick="closeImportModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -745,11 +742,11 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.648"></script>
-<script src="js/mobile-nav.js?v=1.10.648"></script>
+<script src="js/match-quality.js?v=1.10.649"></script>
+<script src="js/mobile-nav.js?v=1.10.649"></script>
 <!-- 카카오톡 바로 공유용 JavaScript 키 — index.html 과 같은 값을 넣으면 두 화면이 함께 동작합니다. -->
 <script>window.KOKMATCH_KAKAO_JS_KEY=window.KOKMATCH_KAKAO_JS_KEY||'';</script>
-<script src="js/team.js?v=1.10.648"></script>
+<script src="js/team.js?v=1.10.649"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 라운드로 이동" title="현재 진행 라운드로 이동">
@@ -776,16 +773,17 @@
     </span>
     <span class="bnav-label">상황판</span>
   </button>
-  <button class="bnav-btn" id="bnav-players" onclick="switchMobileTab('players')">
+  <button class="bnav-btn" id="bnav-result" onclick="switchMobileTab('result')">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
-        <circle cx="8" cy="8" r="3"></circle>
-        <circle cx="17" cy="9" r="2.5"></circle>
-        <path d="M3.5 19c.8-3.4 3-5.1 5.2-5.1s4.4 1.7 5.2 5.1"></path>
-        <path d="M14.5 18.8c.5-2.4 2-3.8 3.8-3.8 1.4 0 2.7.9 3.2 2.8"></path>
+        <path d="M5 19V5"></path>
+        <path d="M5 19h15"></path>
+        <path d="M9 16v-4"></path>
+        <path d="M13 16V8"></path>
+        <path d="M17 16v-7"></path>
       </svg>
     </span>
-    <span class="bnav-label">참가자</span>
+    <span class="bnav-label">결과</span>
   </button>
   <button class="bnav-btn" id="bnav-bracket" onclick="switchMobileTab('bracket')">
     <span class="bnav-icon" aria-hidden="true">
@@ -799,17 +797,16 @@
     </span>
     <span class="bnav-label">대진표</span>
   </button>
-  <button class="bnav-btn" id="bnav-result" onclick="switchMobileTab('result')">
+  <button class="bnav-btn" id="bnav-players" onclick="switchMobileTab('players')">
     <span class="bnav-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24">
-        <path d="M5 19V5"></path>
-        <path d="M5 19h15"></path>
-        <path d="M9 16v-4"></path>
-        <path d="M13 16V8"></path>
-        <path d="M17 16v-7"></path>
+        <circle cx="8" cy="8" r="3"></circle>
+        <circle cx="17" cy="9" r="2.5"></circle>
+        <path d="M3.5 19c.8-3.4 3-5.1 5.2-5.1s4.4 1.7 5.2 5.1"></path>
+        <path d="M14.5 18.8c.5-2.4 2-3.8 3.8-3.8 1.4 0 2.7.9 3.2 2.8"></path>
       </svg>
     </span>
-    <span class="bnav-label">결과</span>
+    <span class="bnav-label">참가자</span>
   </button>
   <button class="bnav-btn" id="bnav-roster" onclick="switchMobileTab('roster')">
     <span class="bnav-icon" aria-hidden="true">
@@ -832,7 +829,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.648</span>
+  <span class="app-version" id="appVersion">v1.10.649</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
