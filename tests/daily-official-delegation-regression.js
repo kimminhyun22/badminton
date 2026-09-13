@@ -193,4 +193,15 @@ assert(daily.includes('if(!match.transitionStarted)_dailyMarkOperationStarted();
 assert(!/_dailyMarkFourCacheDirty\(\);\n\s*_dailyMarkOperationStarted\(\);\n\s*_dailyNext=null;/.test(daily),
   '수동 경기 재생에서 무조건 시작 표시를 켜는 옛 줄이 되살아나면 안 됩니다.');
 
+// 관리자 운영 명령은 세 목록을 다 지나야 한다 — ① 허용 검사(_dailyOfficialRequestError)
+// ② 라우팅(dailyProcessCheckinRequests 의 인라인 배열) ③ 처리(_dailyApplyAdminOperation).
+// 2026-09-13 실배포 실측: ①③만 고치면 ②에서 흘려보내 리비전이 멈추고
+// 「서버 운영 기록 일부를 관리자 원본에 연결하지 못했습니다」가 떴다.
+{
+  const routing = daily.match(/\[\s*'official-player-remove'[\s\S]{0,700}?\]\.includes\(req\.type\)\)\{\s*const ok=_dailyApplyAdminOperation\(req\);/);
+  assert(routing, '관리자 운영 명령 라우팅 배열을 찾을 수 있어야 합니다.');
+  assert(routing[0].includes("'official-operation-start'"),
+    '라우팅 배열에 official-operation-start 가 없으면 관리자 화면이 임원의 게시를 흘려보냅니다.');
+}
+
 console.log('daily official delegation regression ok');

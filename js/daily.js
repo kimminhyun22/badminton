@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.659';
+const APP_VERSION = '1.10.660';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -8976,7 +8976,10 @@ function dailyProcessCheckinRequests(){
             'official-player-official',
             'official-queue-delete','official-queue-regenerate','official-reservation-promote',
             'official-finish-mode','official-court-cancel','official-manual-match',
-            'official-court-renumber','official-player-unarrive'].includes(req.type)){
+            'official-court-renumber','official-player-unarrive',
+            // 관리자 운영 명령은 목록이 셋이다(허용 검사·라우팅·처리). 하나라도 빠지면 서버는
+            // 통과시킨 명령을 관리자 화면이 흘려보내 리비전이 멈춘다(2026-09-13 실배포 실측).
+            'official-operation-start'].includes(req.type)){
           const ok=_dailyApplyAdminOperation(req);
           if(ok)changed=true;
           finishOfficial(req,ok,'관리자 운영 동작을 원본에 연결하지 못했습니다.',true);
@@ -10503,7 +10506,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.659&from=daily';
+  location.href='team.html?v=1.10.660&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
