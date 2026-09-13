@@ -185,4 +185,12 @@ assert(checkin.includes("rosterToolsOn&&session?.event?.operationStarted!==false
 assert(!/_officialCourtComposeSubmit[\s\S]{0,1200}type:'자율'/.test(checkin),
   "코트 등록 요청에 경기 종목을 type 으로 넣으면 명령 종류 type 을 덮어써 「지원하지 않는 요청」이 됩니다(2026-09-13 실측).");
 
+// 관리자 재생기는 서버 사실을 따를 뿐, 전환 등록(게시 전 코트 등록)에서 시작을 추론하면 안 된다.
+// 2026-09-13 실배포 실측: 관리자 탭이 열려 있으면 임원이 코트만 올려도 관리자가 대신 게시해
+// 대기표 0개인 채로 started 가 됐고, 임원의 「대진 게시」는 「이미 게시됨」으로 거절됐다.
+assert(daily.includes('if(!match.transitionStarted)_dailyMarkOperationStarted();'),
+  '전환 등록 재생은 게시 표시를 켜면 안 됩니다 — 시작은 대진 게시 명령이 정합니다.');
+assert(!/_dailyMarkFourCacheDirty\(\);\n\s*_dailyMarkOperationStarted\(\);\n\s*_dailyNext=null;/.test(daily),
+  '수동 경기 재생에서 무조건 시작 표시를 켜는 옛 줄이 되살아나면 안 됩니다.');
+
 console.log('daily official delegation regression ok');
