@@ -58,8 +58,9 @@ assert(src.includes("!item?.restPass&&((item?.playerIds)||[]).map(String).includ
   '일시정지(restPass) 대진에 묶인 선수는 대기 크레딧을 받으면 안 됩니다.');
 
 // ⑧ 시트 첫 열기 — display:none 상태에서 채우고 보이므로, 보인 뒤 한 번 더 재야 한다
-assert((src.match(/requestAnimationFrame\(\(\)=>\{try\{autoFitNames\(\);\}catch\(e\)\{\}\}\);/g) || []).length === 3,
-  '시트를 여는 세 경로 모두 보인 다음 프레임에 이름 크기를 다시 재야 합니다(두 번 탭 문제).');
+// 2026-09-13: 네 번째 경로 — 임원의 「진행 중 코트 등록」 시트(openOfficialCourtCompose).
+assert((src.match(/requestAnimationFrame\(\(\)=>\{try\{autoFitNames\(\);\}catch\(e\)\{\}\}\);/g) || []).length === 4,
+  '시트를 여는 네 경로 모두 보인 다음 프레임에 이름 크기를 다시 재야 합니다(두 번 탭 문제).');
 // 「현재 다음 대진」 줄은 overflow:hidden 이라 최소 크기가 0 — 트랙이 눌러 겹쳐 보일 수 있다
 assert(src.includes('.replace-picker-current{flex-shrink:0;min-height:34px;}'),
   '예약현황 줄은 눌리지 않도록 최소 높이가 있어야 합니다.');

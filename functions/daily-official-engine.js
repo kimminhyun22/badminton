@@ -27,6 +27,9 @@ const COMMAND_LEDGER_RETAIN_MS = OFFICIAL_OPERATION_TTL_MS + 15 * 60 * 1000;
 const MAX_REQUEST_ROWS = 200;
 const MAX_COMMAND_LEDGER_ROWS = 200;
 const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
+// 임원이 「대진 게시」를 누른 시각부터 세션과 초대가 살아 있어야 하는 시간.
+// 관리자가 게시할 때 쓰는 48시간과 같다(js/daily.js DAILY_CHECKIN_TTL_MS).
+const OPERATION_START_SESSION_TTL_MS = 48 * 60 * 60 * 1000;
 const MATCH_MINUTES = 15;
 const TEMPORARY_OFFICIAL_LIMIT = 4;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
@@ -60,6 +63,7 @@ const SUPPORTED_TYPES = new Set([
   'official-queue-regenerate',
   'official-reservation-promote',
   'official-finish-mode',
+  'official-operation-start',
   'official-court-complete-undo',
   'official-operation-undo',
   'official-court-renumber',
@@ -2395,6 +2399,35 @@ function applyPlayerOfficial(session, request, now, operation){
   return '';
 }
 
+// 「대진 게시」 — 관리자 없이 임원이 운영을 시작합니다(운영자 2026-09-13 "관리자인 내가
+// 없어도 임원들이 게임 운영을 할 수 있게"). 관리자 화면의 dailyFinishLiveTransition 과
+// 같은 일을 서버에서 합니다: 게시 표시를 켜고, 대기표를 바로 짭니다.
+// 진행 중 코트는 이 명령 전에 official-manual-match(transition:true) 로 올려 둡니다 —
+// 관리자의 전환 모달도 정확히 그 명령을 씁니다.
+// 게시된 지 오래된 세션(전날 미리 게시)이 운동 도중 만료되지 않도록, 세션·초대 만료를
+// 지금부터 48시간으로 늘립니다. 초대 토큰 자체는 바뀌지 않습니다.
+function applyOperationStart(session, request, now, requestId, operation){
+  refreshEvent(session, now);
+  const event = session.event;
+  if(event.operationStarted === true)return '이미 대진이 게시돼 있습니다.';
+  if(event.finishMode)return '마무리 중에는 대진을 게시할 수 없습니다.';
+  event.operationStarted = true;
+  event.operationStartedAt = now;
+  if(!number(session.matchStartedAt))session.matchStartedAt = now;
+  const extendTo = now + OPERATION_START_SESSION_TTL_MS;
+  session.expiresAt = Math.max(number(session.expiresAt), extendTo);
+  if(session.officialInvite && typeof session.officialInvite === 'object'){
+    session.officialInvite.expiresAt = Math.max(number(session.officialInvite.expiresAt), extendTo);
+  }
+  const generated = replenishPrepared(session, {now, requestId:text(request.operationId || requestId)});
+  refreshEvent(session, now);
+  if(operation)operation.result = {
+    operationStart:{at:now, generated:(generated?.generated || []).length, expiresAt:session.expiresAt},
+    queueSync:preparedQueueSync(session)
+  };
+  return '';
+}
+
 function applyFinishMode(session, request, now, operation){
   const next = request.finishMode === true;
   const event = session.event;
@@ -2645,6 +2678,7 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-queue-regenerate': return applyQueueRegenerate(session, request, now, operation);
     case 'official-reservation-promote': return applyReservationPromote(session, request, now, operation);
     case 'official-finish-mode': return applyFinishMode(session, request, now, operation);
+    case 'official-operation-start': return applyOperationStart(session, request, now, requestId, operation);
     default: return '지원하지 않는 임원 운영 요청입니다.';
   }
 }

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.657';
+const APP_VERSION = '1.10.658';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -6854,7 +6854,7 @@ function _dailyAdoptServerSnapshot(remote){
   // 일시정지·마무리 상태도 서버를 따릅니다
   if(remote.event)_dailyAdoptRemotePauseEvent(remote.event,{silent:true});
   _dailyFinishMode=!!(remote.event&&remote.event.finishMode);
-  if(remote.event&&remote.event.operationStarted)_dailyMarkOperationStarted();
+  if(remote.event&&remote.event.operationStarted)_dailyMarkOperationStarted(Number(remote.event.operationStartedAt)||undefined);
   // 리비전을 서버 머리로 맞춥니다 — 이것이 채택의 핵심입니다.
   _dailyServerRevision=Math.max(0,Number(remote.serverRevision||0));
   _dailyServerLastRequestId=String(remote.serverLastRequestId||'');
@@ -7174,7 +7174,7 @@ function _dailyCheckinPayload(){
     voteDeadlineAt:'',
     voteDeadlineTs:null,
     voteClosed:false,
-    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,memberStatusServerV1:!!_dailyOfficialInviteHash,temporaryOfficialV1:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialLiveAdditionCancelV1:!!_dailyOfficialInviteHash,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueHoldV1:!!_dailyOfficialInviteHash,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,memberStatusServerV1:!!_dailyOfficialInviteHash,temporaryOfficialV1:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialLiveAdditionCancelV1:!!_dailyOfficialInviteHash,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueHoldV1:!!_dailyOfficialInviteHash,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationStartV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
     event:_dailyPublicEvent(),
     arrivalCandidates:_dailyOfficialArrivalCandidates(),
     // 오늘 클럽은 이름으로 실어 보냅니다. 후보 배열의 '첫 번째 항목'으로 추측하게
@@ -8522,6 +8522,7 @@ function _dailyOfficialRequestError(req){
     'official-queue-regenerate',
     'official-reservation-promote',
     'official-finish-mode',
+    'official-operation-start',
     'official-court-renumber',
     'official-player-unarrive'
   ].includes(req.type)){
@@ -8722,6 +8723,14 @@ function _dailyApplyAdminOperation(req){
   if(req.type==='official-reservation-promote'){
     // 반영 결과도 queueSync 가 실어 옵니다. 원본은 순서만 다시 잡습니다.
     _dailyRefreshNextFromQueue();
+    return true;
+  }
+  if(req.type==='official-operation-start'){
+    // 임원이 서버에서 켠 「대진 게시」. 대기표는 queueSync 로 통째로 내려온다.
+    const info=result.operationStart;
+    if(!info)return false;
+    _dailyMarkOperationStarted(Number(info.at||at));
+    _dailyNext=null;
     return true;
   }
   if(req.type==='official-finish-mode'){
@@ -10491,7 +10500,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.657&from=daily';
+  location.href='team.html?v=1.10.658&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
