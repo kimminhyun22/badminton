@@ -27,9 +27,13 @@ const COMMAND_LEDGER_RETAIN_MS = OFFICIAL_OPERATION_TTL_MS + 15 * 60 * 1000;
 const MAX_REQUEST_ROWS = 200;
 const MAX_COMMAND_LEDGER_ROWS = 200;
 const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
-// 임원이 「대진 게시」를 누른 시각부터 세션과 초대가 살아 있어야 하는 시간.
-// 관리자가 게시할 때 쓰는 48시간과 같다(js/daily.js DAILY_CHECKIN_TTL_MS).
-const OPERATION_START_SESSION_TTL_MS = 48 * 60 * 60 * 1000;
+// 임원이 「대진 게시」나 「새 운동일 시작」을 누른 시각부터 세션·초대가 살아 있는 창.
+// 관리자 없이 매주 굴리려면 다음 주 임원이 클레임할 때까지 살아 있어야 하므로 48시간이
+// 아니라 9일이다(주 1회 + 여유). 초대 토큰 자체는 바뀌지 않는다(운영자 2026-09-13).
+const STANDING_SESSION_WINDOW_MS = 9 * 24 * 60 * 60 * 1000;
+// 「새 운동일 시작」은 지난 게시 뒤 이만큼은 지나야 받는다 — 진행 중인 운동을 실수로 접지 않게.
+const ROLLOVER_MIN_AGE_MS = 4 * 60 * 60 * 1000;
+const ROLLOVER_ARCHIVE_KEEP = 4;
 const MATCH_MINUTES = 15;
 const TEMPORARY_OFFICIAL_LIMIT = 4;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
@@ -64,6 +68,7 @@ const SUPPORTED_TYPES = new Set([
   'official-reservation-promote',
   'official-finish-mode',
   'official-operation-start',
+  'official-session-rollover',
   'official-court-complete-undo',
   'official-operation-undo',
   'official-court-renumber',
@@ -1026,7 +1031,14 @@ function validateCommon(session, request, now, options){
   if(!adminClaim && !isLiveOperator(actor)){
     return {reason:'현재 운영 권한이 있는 회원만 운영 지원을 사용할 수 있습니다.'};
   }
-  if(!adminClaim && ['invited','planned','done'].includes(normalizeStatus(actor?.status))){
+  const rolloverCommand = request.type === 'official-session-rollover';
+  // 「새 운동일 시작」은 지난 운동을 접는 명령이다. 지난주 마지막에 「종료」로 남은 임원이
+  // 이번 주에 이걸 못 보내면 아무도 세션을 굴릴 수 없다 — 상태 게이트를 이 명령만 비켜 간다.
+  // 대신 정식 클럽 임원만 보낼 수 있다(운영 도우미 제외).
+  if(rolloverCommand && !adminClaim && !actor?.isClubOfficial){
+    return {reason:'새 운동일 시작은 클럽 임원만 할 수 있습니다.'};
+  }
+  if(!rolloverCommand && !adminClaim && ['invited','planned','done'].includes(normalizeStatus(actor?.status))){
     return {reason:'현장 참가 중인 임원 또는 운영 도우미만 운영 지원을 사용할 수 있습니다.'};
   }
   if(temporaryRoleCommand && !adminClaim && !actor?.isClubOfficial){
@@ -2414,7 +2426,7 @@ function applyOperationStart(session, request, now, requestId, operation){
   event.operationStarted = true;
   event.operationStartedAt = now;
   if(!number(session.matchStartedAt))session.matchStartedAt = now;
-  const extendTo = now + OPERATION_START_SESSION_TTL_MS;
+  const extendTo = now + STANDING_SESSION_WINDOW_MS;
   session.expiresAt = Math.max(number(session.expiresAt), extendTo);
   if(session.officialInvite && typeof session.officialInvite === 'object'){
     session.officialInvite.expiresAt = Math.max(number(session.officialInvite.expiresAt), extendTo);
@@ -2423,6 +2435,65 @@ function applyOperationStart(session, request, now, requestId, operation){
   refreshEvent(session, now);
   if(operation)operation.result = {
     operationStart:{at:now, generated:(generated?.generated || []).length, expiresAt:session.expiresAt},
+    queueSync:preparedQueueSync(session)
+  };
+  return '';
+}
+
+// 「새 운동일 시작」 — 관리자가 매주 게시하지 않아도 임원이 같은 세션(같은 링크)을 다음
+// 운동일로 굴린다(운영자 2026-09-13 "관리자인 내가 없어도"). 지난 운동은 archive 에 접어 두고,
+// 명단은 그대로 둔 채 전원을 도착 전으로 돌린다. 누른 임원은 현장에 있으므로 참가로 남긴다 —
+// 도착 전이면 자기 도착 처리조차 못 보낸다(엔진 상태 게이트).
+function applySessionRollover(session, request, now, requestId, operation){
+  refreshEvent(session, now);
+  const event = session.event;
+  if(event.operationStarted !== true)return '아직 대진이 게시되기 전입니다 — 지금 세션을 그대로 쓰세요.';
+  const startedAt = number(event.operationStartedAt || session.matchStartedAt);
+  if(startedAt && now - startedAt < ROLLOVER_MIN_AGE_MS)return '대진을 게시한 지 4시간이 안 됐습니다 — 진행 중인 운동을 접지 않도록 막았습니다.';
+  if((event.active || []).length)return `${event.active.length}개 코트가 아직 진행 중입니다 — 모두 종료한 뒤 새로 시작하세요.`;
+  const actorId = text(request.actorPlayerId);
+
+  const archive = Array.isArray(session.archive) ? session.archive : [];
+  archive.push({
+    at: now,
+    startedAt,
+    completed: number(event.completed),
+    completedLog: clone(session.completedLog || []),
+    players: (session.players || []).map(player=>({id:text(player.id), name:text(player.name), games:number(player.games)}))
+  });
+  session.archive = archive.slice(-ROLLOVER_ARCHIVE_KEEP);
+
+  (session.players || []).forEach(player=>{
+    const stays = actorId && text(player.id) === actorId;   // 누른 임원은 현장 참가
+    const status = stays ? 'wait' : 'planned';
+    player.status = status;
+    player.statusLabel = statusLabel(status);
+    player.preArrivalVisible = status === 'planned';
+    player.games = 0; player.fairExpected = 0; player.mixedGames = 0; player.typeTrackedGames = 0; player.lastPlayedSeq = 0;
+    player.partnerCount = {}; player.opponentCount = {}; player.partnerCountById = {}; player.opponentCountById = {};
+    player.locked = false; player.currentMatchId = ''; player.afterMatchStatus = '';
+    player.waitFrom = stays ? now : 0; player.lastStatusAt = now; player.restPausedMs = 0;
+    player.isTemporaryOfficial = false;   // 도우미는 그날만
+  });
+  session.reservations = [];
+  session.completedLog = [];
+  session.serverRuntime = {holds:{}, nextSeq:1, fourCounts:{}, exactCounts:{}};
+  event.active = []; event.next = []; event.expected = []; event.serverStandby = [];
+  event.completed = 0;
+  event.operationStarted = false; event.operationStartedAt = 0;
+  event.finishMode = false; event.finishStartedAt = 0;
+  event.paused = false;
+  session.matchStartedAt = 0;
+  session.rolloverAt = now;
+  session.rolloverCount = number(session.rolloverCount) + 1;
+  const extendTo = now + STANDING_SESSION_WINDOW_MS;
+  session.expiresAt = Math.max(number(session.expiresAt), extendTo);
+  if(session.officialInvite && typeof session.officialInvite === 'object'){
+    session.officialInvite.expiresAt = Math.max(number(session.officialInvite.expiresAt), extendTo);
+  }
+  refreshEvent(session, now);
+  if(operation)operation.result = {
+    sessionRollover:{at:now, archived:session.archive.length, players:(session.players||[]).length, expiresAt:session.expiresAt},
     queueSync:preparedQueueSync(session)
   };
   return '';
@@ -2679,6 +2750,7 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-reservation-promote': return applyReservationPromote(session, request, now, operation);
     case 'official-finish-mode': return applyFinishMode(session, request, now, operation);
     case 'official-operation-start': return applyOperationStart(session, request, now, requestId, operation);
+    case 'official-session-rollover': return applySessionRollover(session, request, now, requestId, operation);
     default: return '지원하지 않는 임원 운영 요청입니다.';
   }
 }

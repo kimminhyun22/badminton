@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.660';
+const APP_VERSION = '1.10.661';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2272,6 +2272,7 @@ function dailySave(options){
       autoAssign:_dailyAutoAssign,
       operationStarted:_dailyOperationStarted,
       operationStartedAt:_dailyOperationStartedAt,
+      rolloverAt:_dailyRolloverAt,
       finishMode:_dailyFinishMode,
       finishStartedAt:_dailyFinishStartedAt,
       paused:_dailyPaused,
@@ -2454,6 +2455,7 @@ function dailyLoad(){
     _dailyAutoAssign=false;
     _dailyOperationStarted=s.operationStarted!=null?!!s.operationStarted:!!((_dailyMatches||[]).length||(_dailyQueue||[]).length);
     _dailyOperationStartedAt=Math.max(0,Number(s.operationStartedAt||0));
+    _dailyRolloverAt=Math.max(0,Number(s.rolloverAt||0));
     if(_dailyOperationStarted&&!_dailyOperationStartedAt){
       _dailyOperationStartedAt=Math.max(0,_dailyFirstMatchStartedAt()||Number(s.savedAt||0));
     }
@@ -2694,6 +2696,7 @@ function dailyImportTeamRoster(){
   _dailyAutoAssign=false;
   _dailyOperationStarted=false;
   _dailyOperationStartedAt=0;
+  _dailyRolloverAt=0;
   _dailyFinishMode=false;
   _dailyFinishStartedAt=0;
   _dailyPaused=false;
@@ -3451,6 +3454,7 @@ function dailyReset(){
   _dailyAutoAssign=false;
   _dailyOperationStarted=false;
   _dailyOperationStartedAt=0;
+  _dailyRolloverAt=0;
   _dailyFinishMode=false;
   _dailyFinishStartedAt=0;
   _dailyPaused=false;
@@ -6650,6 +6654,7 @@ function _dailyPullServerReconcile(retriedGrant){
           &&String(req.operationId||req.key||'')===serverLastRequestId
         );
         if(!latestIncluded){
+          if(await _dailyMaybeAdoptRollover())return true;
           _dailyServerReconcileError='서버의 최근 운영 기록을 다시 불러오지 못해 자동 게시를 멈췄습니다.';
           return false;
         }
@@ -6658,10 +6663,14 @@ function _dailyPullServerReconcile(retriedGrant){
       const trusted=(data.commands||[])
         .filter(req=>req&&req.serverAppliedAt&&Number(req.serverRevision||0)>_dailyServerRevision)
         .sort((a,b)=>Number(a.serverRevision||0)-Number(b.serverRevision||0));
+      // 「새 운동일 시작」은 재생하지 않는다 — 재생 뒤 게시가 서버의 리셋을 옛 명단으로 덮어쓴다.
+      // 세션 자체를 새 기준으로 채택하면 리비전이 서버 머리로 맞춰져 뒤 명령도 함께 흡수된다.
+      if(trusted.some(req=>req.type==='official-session-rollover')&&await _dailyMaybeAdoptRollover())return true;
       const pending=_dailyCheckinRequests.filter(req=>!req.serverAppliedAt&&!req.serverRejectedAt);
       _dailyCheckinRequests=[...trusted,...pending];
       dailyProcessCheckinRequests();
       if(_dailyServerRevision!==serverRevision||(serverLastRequestId&&_dailyServerLastRequestId!==serverLastRequestId)){
+        if(await _dailyMaybeAdoptRollover())return true;
         _dailyServerReconcileError='서버 운영 기록 일부를 관리자 원본에 연결하지 못했습니다.';
         return false;
       }
@@ -6797,8 +6806,48 @@ async function dailyAdoptServerState(){
     return false;
   }
 }
-function _dailyAdoptServerSnapshot(remote){
+let _dailyRolloverAt=0;
+// 서버가 「새 운동일」로 굴려졌는지 — 관리자 원본이 며칠 뒤에 켜져도 명령 기록(60분) 없이
+// 세션 자체를 새 기준으로 받아들인다. 리스너와 동기화 pull 양쪽에서 부른다.
+async function _dailyMaybeAdoptRollover(){
+  if(!_dailyCheckinId||!_fbDb||!_dailyCheckinOwnershipVerified)return false;
+  try{
+    const snap=await _fbDb.ref(_dailyCheckinPath()+'/session').once('value');
+    const remote=snap.val();
+    if(!remote||String(remote.serverSessionId||'')!==String(_dailyCheckinId))return false;
+    const remoteRollover=Math.max(0,Number(remote.rolloverAt||0));
+    if(!remoteRollover||remoteRollover<=_dailyRolloverAt)return false;
+    const remoteHash=String(remote.officialInvite?.tokenHash||'');
+    if(_dailyOfficialInviteHash&&remoteHash&&remoteHash!==_dailyOfficialInviteHash)return false;
+    _dailyArchiveLocalDay(remoteRollover);
+    _dailyAdoptServerSnapshot(remote,{rollover:true});
+    _dailyRolloverAt=remoteRollover;
+    _dailyRemoteCheckinExpiresAt=Math.max(0,Number(remote.expiresAt||0));
+    _dailyServerReconcileError='';
+    dailySave({preserveServerQueue:true});
+    dailyRender();
+    dailyRenderCheckinRequests();
+    console.info('민턴LIVE 임원이 새 운동일을 시작해 서버 상태를 새 기준으로 받았습니다.');
+    return true;
+  }catch(e){
+    console.warn('새 운동일 채택 실패',e);
+    return false;
+  }
+}
+// 지난 운동의 로컬 기록은 지우지 않고 일자 보관함에 접어 둔다(최근 8일).
+function _dailyArchiveLocalDay(at){
+  try{
+    const key='daily_day_archive_v1';
+    const list=JSON.parse(localStorage.getItem(key)||'[]');
+    list.push({at,startedAt:_dailyOperationStartedAt,checkinId:_dailyCheckinId,
+      matches:_dailyMatches.filter(m=>m&&m.completedAt&&!m.cancelledAt).map(m=>({seq:m.seq,court:m.court,type:m.type,team1:m.team1,team2:m.team2,startedAt:m.startedAt,completedAt:m.completedAt})),
+      players:_dailyPlayers.map(p=>({id:p.id,name:p.name,games:p.games||0}))});
+    localStorage.setItem(key,JSON.stringify(list.slice(-8)));
+  }catch(e){}
+}
+function _dailyAdoptServerSnapshot(remote,options){
   const now=_dailyNow();
+  const rollover=!!options?.rollover;
   // 선수: 서버가 가진 그대로. 게시 payload 형식이라 _dailyNormalize 가 그대로 받습니다.
   const players=Array.isArray(remote.players)?remote.players:[];
   _dailyPlayers=players.filter(p=>p&&p.id&&p.name).map(raw=>{
@@ -6809,7 +6858,8 @@ function _dailyAdoptServerSnapshot(remote){
     return p;
   });
   // 경기: 완료·취소 기록은 남기고, 진행분만 서버의 active 로 교체합니다.
-  const done=_dailyMatches.filter(m=>m&&(m.completedAt||m.cancelledAt));
+  // 새 운동일이면 지난 경기는 보관함으로 갔다 — 오늘 기록은 비어서 시작한다.
+  const done=rollover?[]:_dailyMatches.filter(m=>m&&(m.completedAt||m.cancelledAt));
   const doneIds=new Set(done.map(m=>String(m.id)));
   const active=(remote.event&&Array.isArray(remote.event.active))?remote.event.active:[];
   const adopted=active.filter(m=>m&&m.id&&!doneIds.has(String(m.id))).map(m=>{
@@ -6855,6 +6905,7 @@ function _dailyAdoptServerSnapshot(remote){
   if(remote.event)_dailyAdoptRemotePauseEvent(remote.event,{silent:true});
   _dailyFinishMode=!!(remote.event&&remote.event.finishMode);
   if(remote.event&&remote.event.operationStarted)_dailyMarkOperationStarted(Number(remote.event.operationStartedAt)||undefined);
+  else if(rollover){ _dailyOperationStarted=false; _dailyOperationStartedAt=0; _dailyFinishStartedAt=0; _dailySeq=1; }
   // 리비전을 서버 머리로 맞춥니다 — 이것이 채택의 핵심입니다.
   _dailyServerRevision=Math.max(0,Number(remote.serverRevision||0));
   _dailyServerLastRequestId=String(remote.serverLastRequestId||'');
@@ -7174,7 +7225,7 @@ function _dailyCheckinPayload(){
     voteDeadlineAt:'',
     voteDeadlineTs:null,
     voteClosed:false,
-    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,memberStatusServerV1:!!_dailyOfficialInviteHash,temporaryOfficialV1:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialLiveAdditionCancelV1:!!_dailyOfficialInviteHash,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueHoldV1:!!_dailyOfficialInviteHash,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationStartV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,memberStatusServerV1:!!_dailyOfficialInviteHash,temporaryOfficialV1:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialLiveAdditionCancelV1:!!_dailyOfficialInviteHash,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueHoldV1:!!_dailyOfficialInviteHash,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationStartV1:!!_dailyOfficialInviteHash,officialSessionRolloverV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
     event:_dailyPublicEvent(),
     arrivalCandidates:_dailyOfficialArrivalCandidates(),
     // 오늘 클럽은 이름으로 실어 보냅니다. 후보 배열의 '첫 번째 항목'으로 추측하게
@@ -7966,6 +8017,9 @@ function dailyStartCheckinListener(){
   _fbDb.ref(path+'/session/event').on('value',snap=>{
     _dailyAdoptRemotePauseEvent(snap.val()||{});
   });
+  _fbDb.ref(path+'/session/rolloverAt').on('value',snap=>{
+    if(Number(snap.val()||0)>_dailyRolloverAt)_dailyMaybeAdoptRollover().catch(()=>{});
+  });
   _fbDb.ref(path+'/session/serverRevision').on('value',snap=>{
     _dailyObserveRemoteServerHead({revision:snap.val()});
   });
@@ -7975,6 +8029,7 @@ function dailyStartCheckinListener(){
 }
 function _dailyStopCheckinListener(){
   if(_fbDb&&_dailyCheckinListeningPath){
+    _fbDb.ref(_dailyCheckinListeningPath+'/session/rolloverAt').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/requests').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/party').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/session/event').off();
@@ -8523,6 +8578,7 @@ function _dailyOfficialRequestError(req){
     'official-reservation-promote',
     'official-finish-mode',
     'official-operation-start',
+    'official-session-rollover',
     'official-court-renumber',
     'official-player-unarrive'
   ].includes(req.type)){
@@ -8727,6 +8783,11 @@ function _dailyApplyAdminOperation(req){
     // 반영 결과도 queueSync 가 실어 옵니다. 원본은 순서만 다시 잡습니다.
     _dailyRefreshNextFromQueue();
     return true;
+  }
+  if(req.type==='official-session-rollover'){
+    // 상태는 여기서 손대지 않는다 — 롤오버는 「통째로 채택」으로만 따라간다
+    // (_dailyMaybeAdoptRollover). 재생기는 이 명령을 소비했다고만 표시한다.
+    return Number(result.sessionRollover?.at||0)>0&&_dailyRolloverAt>=Number(result.sessionRollover.at);
   }
   if(req.type==='official-operation-start'){
     // 임원이 서버에서 켠 「대진 게시」. 대기표는 queueSync 로 통째로 내려온다.
@@ -8979,7 +9040,7 @@ function dailyProcessCheckinRequests(){
             'official-court-renumber','official-player-unarrive',
             // 관리자 운영 명령은 목록이 셋이다(허용 검사·라우팅·처리). 하나라도 빠지면 서버는
             // 통과시킨 명령을 관리자 화면이 흘려보내 리비전이 멈춘다(2026-09-13 실배포 실측).
-            'official-operation-start'].includes(req.type)){
+            'official-operation-start','official-session-rollover'].includes(req.type)){
           const ok=_dailyApplyAdminOperation(req);
           if(ok)changed=true;
           finishOfficial(req,ok,'관리자 운영 동작을 원본에 연결하지 못했습니다.',true);
@@ -10506,7 +10567,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.660&from=daily';
+  location.href='team.html?v=1.10.661&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

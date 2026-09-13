@@ -1538,6 +1538,8 @@ h1{color:var(--txt);letter-spacing:-.055em;}
 .official-prep-court:disabled{opacity:.45;}
 .official-prep-court.done{display:inline-flex;align-items:center;min-height:40px;padding:8px 12px;border-radius:12px;border:1.5px solid #b9e0c5;background:#f4fbf7;color:#3f7c58;font-size:max(12px,.78rem);font-weight:900;}
 .official-prep-start{width:100%;margin-top:2px;}
+.official-rollover{background:linear-gradient(180deg,#fff9ef 0%,#fff 100%);border-color:#f3ddb4;}
+.official-rollover-note{margin:0 0 10px;font-size:max(12px,.8rem);line-height:1.5;color:#263041;}
 .official-support-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;}
 .official-support-head b{font-size:16px;color:var(--txt);}
 .official-connection{flex-shrink:0;padding:5px 9px;border-radius:999px;background:#eef9f3;color:#16724c;font-size:12px;font-weight:900;}
@@ -2950,7 +2952,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.660">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.661">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2965,7 +2967,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.660</span>
+    <span class="version-chip" id="appVersion">v1.10.661</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3028,7 +3030,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.660';
+const APP_VERSION='1.10.661';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3358,7 +3360,19 @@ function memberStatusServerReady(){
     typeof firebase.functions==='function'
   );
 }
+// 정체된 세션: 게시 뒤 4시간 지났고 진행 중 코트가 없다 — 「새 운동일 시작」을 받을 수 있는 상태.
+function sessionRolloverEligible(){
+  const ev=session?.event||{};
+  if(session?.capabilities?.officialSessionRolloverV1!==true||ev.operationStarted!==true)return false;
+  if((ev.active||[]).length)return false;
+  const startedAt=Number(ev.operationStartedAt||session?.matchStartedAt||0);
+  return !startedAt||Date.now()-startedAt>=4*60*60*1000;
+}
 function isLiveOperatorPlayer(player){
+  // 지난 운동 끝에 「종료」로 남은 클럽 임원은 다음 운동일에 아무것도 못 보내는 상태가 된다 —
+  // 정체된 세션에서만 운영자로 인식해 「새 운동일 시작」을 누를 수 있게 한다. 다른 명령은
+  // 서버의 상태 게이트가 거절하므로 권한이 넓어지지 않는다(운영자 2026-09-13).
+  if(player&&player.isClubOfficial&&!player.registrationCancelled&&String(player.status||'')==='done'&&sessionRolloverEligible())return true;
   return !!(
     player
     &&(player.isClubOfficial||player.isTemporaryOfficial)
@@ -5083,6 +5097,7 @@ function officialSupportHtml(p){
     ${fairWarnCard}
     ${officialFairBoardHtml(p.id)}
     ${officialCompletedLogHtml()}
+    ${officialRolloverCardHtml(p)}
     ${officialPrepPanelHtml(p)}
     ${officialOperationsSummaryHtml(p)}
     ${grantRecovery}
@@ -5962,6 +5977,46 @@ async function pickOfficialReplaceCandidate(inPlayerId){
    (official-manual-match, transition:true), ③은 새 명령(official-operation-start).
    세션 자체는 관리자가 미리 게시해 둡니다(전날이라도 됨 — 게시 뒤 48시간 유효, 임원이
    게시를 누르면 그때부터 다시 48시간). */
+/* ── 새 운동일 시작(rollover) — 관리자가 매주 게시하지 않아도 같은 링크로 다음 운동을 연다.
+   지난 운동은 서버가 접어 두고(archive), 명단은 그대로 둔 채 전원 도착 전으로 돌린다.
+   누른 임원은 현장 참가로 남는다. 클럽 임원만, 게시 뒤 4시간 지나고, 진행 중 코트가 없을 때. */
+function officialRolloverCardHtml(player){
+  if(!player?.isClubOfficial)return '';
+  if(session?.capabilities?.officialSessionRolloverV1!==true)return '';
+  const ev=session?.event||{};
+  if(ev.operationStarted!==true)return '';
+  const startedAt=Number(ev.operationStartedAt||session?.matchStartedAt||0);
+  const ageMs=startedAt?Date.now()-startedAt:0;
+  if(startedAt&&ageMs<4*60*60*1000)return '';
+  const active=(ev.active||[]).length;   // 진행 중이면 카드는 보이되 버튼만 막는다(안내용)
+  const days=Math.floor(ageMs/86400000);
+  const when=startedAt?new Date(startedAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'}):'지난';
+  const blocked=eventFlowPaused()||!!sendingKey||claimingOfficial;
+  return `<section class="official-prep official-rollover" aria-label="새 운동일 시작">
+    <div class="official-prep-head"><b>새 운동일 시작</b><span>${esc(when)} 운동 · 완료 ${Number(ev.completed||0)}경기${days?` · ${days}일 전`:''}</span></div>
+    <p class="official-rollover-note">지난 운동은 기록으로 접어 두고, 명단은 그대로 둔 채 전원을 <b>도착 전</b>으로 돌립니다. 링크는 바뀌지 않습니다.${active?`<br><b>진행 중 코트 ${active}개</b>를 먼저 모두 종료해야 합니다.`:''}</p>
+    <button type="button" class="event-official-new-match official-prep-start" data-official-action ${blocked||active?'disabled':''} onclick="sendOfficialSessionRollover('${esc(player.id)}')">${obIcon('plus')}오늘 운영 새로 시작<small>${active?'진행 중 코트를 먼저 종료하세요':'지난 운동을 접고 참가자 등록부터 다시 시작합니다'}</small></button>
+  </section>`;
+}
+async function sendOfficialSessionRollover(actorId){
+  // 상태 게이트 없이 명단에서 직접 찾는다 — 지난주 「종료」로 남은 임원도 눌러야 한다.
+  const actor=(session?.players||[]).find(p=>String(p.id)===String(actorId));
+  if(!actor||!actor.isClubOfficial)return toast('새 운동일 시작은 클럽 임원만 할 수 있어요.');
+  if(session?.event?.operationStarted!==true)return toast('아직 대진이 게시되기 전이에요 — 지금 세션을 그대로 쓰세요.');
+  if((session?.event?.active||[]).length)return toast('진행 중 코트를 먼저 모두 종료해 주세요.');
+  const completed=Number(session?.event?.completed||0);
+  const ask=`오늘 운영을 새로 시작할까요?\n\n지난 운동(완료 ${completed}경기)은 기록으로 접어 두고, 명단 ${(session?.players||[]).length}명은 그대로 둔 채 전원 도착 전으로 돌립니다.\n${actor.name} 님은 현장 참가로 남습니다.\n\n되돌릴 수 없습니다.`;
+  if(!confirm(ask))return;
+  const now=Date.now();
+  await pushOfficialRequest({
+    type:'official-session-rollover',
+    operationId:createOfficialOperationId('session-rollover'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
+    observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-session-rollover'
+  },'새 운동일 시작');
+}
 function officialPrepPanelHtml(player){
   if(!player?.isClubOfficial)return '';
   if(session?.capabilities?.officialOperationStartV1!==true)return '';

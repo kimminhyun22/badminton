@@ -204,4 +204,111 @@ assert(!/_dailyMarkFourCacheDirty\(\);\n\s*_dailyMarkOperationStarted\(\);\n\s*_
     '라우팅 배열에 official-operation-start 가 없으면 관리자 화면이 임원의 게시를 흘려보냅니다.');
 }
 
+// ── 새 운동일 시작(rollover): 관리자가 매주 게시하지 않아도 같은 링크로 굴린다 ──
+const D9 = 9 * 24 * 60 * 60 * 1000, H4 = 4 * 60 * 60 * 1000;
+function playedSession(){
+  // 어제 운동을 마친 세션: 게시 6시간 전, 완료 3경기, 임원은 「종료」로 퇴장, 도우미 1명, 진행 중 코트 없음
+  const s = prepSession({expiresAt:NOW+30*60*60*1000, officialInvite:{tokenHash:'deadbeef', expiresAt:NOW+30*60*60*1000, maxClaims:8}});
+  s.event.operationStarted = true; s.event.operationStartedAt = NOW - 6*60*60*1000; s.event.completed = 3;
+  s.completedLog = [{seq:1,court:1,type:'남복',t1:['가선수','나선수'],t2:['다선수','라선수'],startAt:NOW-5*3600e3,endAt:NOW-5*3600e3+15*60e3}];
+  s.players.forEach(p=>{ p.games = 2; p.partnerCountById = {x:1}; p.status = 'done'; p.statusLabel = 'done'; });
+  s.players.find(p=>p.id==='p8').isTemporaryOfficial = true;
+  s.serverRuntime.nextSeq = 9;
+  return s;
+}
+// 1) 「종료」로 남은 클럽 임원이 롤오버를 보낼 수 있다(상태 게이트 예외) — 리셋·보관·연장 확인
+{
+  const r = send(playedSession(), {type:'official-session-rollover'});
+  assert.strictEqual(r.status, 'applied', `종료 상태 임원의 새 운동일 시작이 적용돼야 합니다: ${r.reason || ''}`);
+  const s = r.session;
+  assert.strictEqual(s.event.operationStarted, false, '게시 표시가 꺼져야 다음 「대진 게시」를 받을 수 있습니다.');
+  assert.strictEqual(s.event.completed, 0); assert.deepStrictEqual(s.event.active, []); assert.deepStrictEqual(s.event.next, []);
+  assert.strictEqual(s.completedLog.length, 0, '완료 기록은 비워야 합니다(보관함으로).');
+  assert.strictEqual(s.archive.length, 1, '지난 운동이 보관함에 한 건 남아야 합니다.');
+  assert.strictEqual(s.archive[0].completed, 3); assert.strictEqual(s.archive[0].completedLog.length, 1);
+  const me = s.players.find(p=>p.id==='p9'), other = s.players.find(p=>p.id==='p1'), helper = s.players.find(p=>p.id==='p8');
+  assert.strictEqual(me.status, 'wait', '누른 임원은 현장 참가로 남아야 합니다(도착 전이면 자기 도착 처리도 못 보냅니다).');
+  assert.strictEqual(other.status, 'planned', '나머지는 도착 전으로 돌아가야 합니다.');
+  assert.strictEqual(other.games, 0); assert.deepStrictEqual(other.partnerCountById, {});
+  assert.strictEqual(helper.isTemporaryOfficial, false, '운영 도우미는 그날만입니다.');
+  assert.strictEqual(s.serverRuntime.nextSeq, 1, '경기 번호는 1부터 다시.');
+  assert(s.expiresAt >= NOW+1000+D9-1 && s.officialInvite.expiresAt >= NOW+1000+D9-1, '세션·초대 만료가 9일로 늘어야 다음 주 임원이 클레임할 수 있습니다.');
+  assert.strictEqual(s.officialInvite.tokenHash, 'deadbeef', '초대 토큰은 불변입니다.');
+  assert.strictEqual(s.rolloverAt, NOW+1000); assert.strictEqual(s.rolloverCount, 1);
+  assert(r.result?.sessionRollover && r.result.queueSync, '관리자 채택용 결과가 실려야 합니다.');
+  console.log(`  새 운동일 시작: applied · 보관 ${s.archive.length} · 임원 wait · 나머지 planned · 만료 +9d`);
+
+  // 롤오버 뒤 흐름이 이어진다: 임원이 다른 선수를 도착 처리 → 4명 이상이면 대진 게시 → 대기표
+  let t = s;
+  for(const id of ['p1','p2','p3','p4','p5','p6','p7']){
+    const before = t.players.find(p=>p.id===id);
+    const a = send(t, {type:'official-player-arrival', playerId:id, expectedStatus:before.status, expectedLastStatusAt:before.lastStatusAt});
+    assert.strictEqual(a.status, 'applied', `롤오버 뒤 도착 처리가 돼야 합니다(${id}): ${a.reason || ''}`);
+    t = a.session;
+  }
+  const waiting = t.players.filter(p=>p.status==='wait').length;
+  assert.strictEqual(waiting, 8, '임원 1 + 도착 7 = 대기 8명이어야 합니다.');
+  const st = send(t, {type:'official-operation-start'});
+  assert.strictEqual(st.status, 'applied', `롤오버 뒤 대진 게시가 다시 돼야 합니다: ${st.reason || ''}`);
+  assert(st.session.event.next.length >= 1, '대기 8명이면 게시 직후 대기표가 최소 1개 짜여야 합니다.');
+  console.log(`  롤오버 → 도착 처리(대기 ${waiting}) → 대진 게시: applied · 대기표 ${st.session.event.next.length}`);
+}
+// 2) 거절 조건: 게시 전 / 4시간 안 됨 / 진행 중 코트 / 운영 도우미
+{
+  const pre = send(prepSession(), {type:'official-session-rollover'});
+  assert.strictEqual(pre.status, 'rejected', '게시 전 세션은 굴릴 게 없습니다.');
+  const young = playedSession(); young.event.operationStartedAt = NOW - 1*60*60*1000;
+  assert.strictEqual(send(young, {type:'official-session-rollover'}).status, 'rejected', '게시 4시간 안에는 거절.');
+  const busy = playedSession(); busy.event.active = [{id:'m1',court:1,startedAt:NOW-5*60e3,playerIds:['p1','p2','p3','p4'],t1Ids:['p1','p2'],t2Ids:['p3','p4']}];
+  assert.strictEqual(send(busy, {type:'official-session-rollover'}).status, 'rejected', '진행 중 코트가 있으면 거절.');
+  const helperTry = send(playedSession(), {type:'official-session-rollover'}, {grant:helperGrant, actor:'p8', name:'도우미'});
+  assert.strictEqual(helperTry.status, 'rejected', '운영 도우미는 새 운동일을 시작할 수 없습니다.');
+  console.log('  거절: 게시 전 · 4시간 미만 · 진행 중 코트 · 운영 도우미');
+}
+// 3) 보관함 상한
+{
+  const s = playedSession(); s.archive = [1,2,3,4].map(i=>({at:i}));
+  const r = send(s, {type:'official-session-rollover'});
+  assert.strictEqual(r.session.archive.length, 4, '보관함은 최근 4개만 둡니다(세션 노드 크기).');
+}
+// 4) 대진 게시도 같은 9일 창을 쓴다 — 48시간이면 다음 주에 세션이 만료돼 클레임이 안 된다
+{
+  const r = send(prepSession(), {type:'official-operation-start'});
+  assert(r.session.expiresAt >= NOW+1000+D9-1, '대진 게시의 만료 연장도 9일이어야 합니다.');
+}
+// ── 관리자 화면 (정적 핀) ──
+assert(daily.includes('officialSessionRolloverV1:!!_dailyOfficialInviteHash'), '게시 페이로드에 롤오버 능력 표시가 있어야 합니다.');
+assert(/\[\s*'official-settings-update'[\s\S]{0,700}'official-session-rollover'[\s\S]{0,300}\]\.includes\(req\.type\)/.test(daily), '허용 목록에 롤오버가 있어야 합니다.');
+{
+  const routing = daily.match(/\[\s*'official-player-remove'[\s\S]{0,800}?\]\.includes\(req\.type\)\)\{\s*const ok=_dailyApplyAdminOperation\(req\);/);
+  assert(routing && routing[0].includes("'official-session-rollover'"), '라우팅 배열에 롤오버가 있어야 합니다.');
+}
+assert(daily.includes("if(req.type==='official-session-rollover'){") && daily.includes('_dailyRolloverAt>=Number(result.sessionRollover.at)'),
+  '재생기는 롤오버 상태를 손대지 않고 채택 여부만 확인해야 합니다.');
+assert(daily.includes("if(trusted.some(req=>req.type==='official-session-rollover')&&await _dailyMaybeAdoptRollover())return true;"),
+  '동기화 pull 은 롤오버 명령을 재생하지 않고 채택으로 처리해야 합니다 — 재생 뒤 게시가 서버 리셋을 덮어씁니다.');
+assert((daily.match(/if\(await _dailyMaybeAdoptRollover\(\)\)return true;/g) || []).length === 2,
+  '명령 기록이 없어 막히는 두 갈래 모두 채택을 먼저 시도해야 합니다(관리자가 며칠 만에 켜는 경우).');
+assert(daily.includes("path+'/session/rolloverAt').on('value'"), '관리자 화면은 rolloverAt 을 따로 들어야 합니다.');
+assert(daily.includes("else if(rollover){ _dailyOperationStarted=false;"), '롤오버 채택은 게시 표시를 꺼야 합니다(기존 채택은 true 만 반영).');
+assert(daily.includes("const done=rollover?[]:_dailyMatches.filter"), '롤오버 채택은 지난 경기를 오늘 기록으로 남기면 안 됩니다.');
+assert(daily.includes('function _dailyArchiveLocalDay(at)') && daily.includes("'daily_day_archive_v1'"), '지난 운동의 로컬 기록은 일자 보관함으로 가야 합니다.');
+assert(daily.includes('rolloverAt:_dailyRolloverAt,') && daily.includes('_dailyRolloverAt=Math.max(0,Number(s.rolloverAt||0));'), 'rolloverAt 은 저장·복원돼야 합니다.');
+// ── 엔진 (정적 핀) ──
+const engine = fs.readFileSync(path.join(__dirname, '..', 'functions', 'daily-official-engine.js'), 'utf8');
+assert(engine.includes('const STANDING_SESSION_WINDOW_MS = 9 * 24 * 60 * 60 * 1000;') && !engine.includes('OPERATION_START_SESSION_TTL_MS'),
+  '시작과 롤오버는 같은 9일 창을 써야 합니다.');
+assert(/rolloverCommand && !adminClaim && !actor\?\.isClubOfficial/.test(engine) && /!rolloverCommand && !adminClaim && \['invited','planned','done'\]/.test(engine),
+  '상태 게이트는 롤오버만 비켜 가고, 롤오버는 클럽 임원만 보내야 합니다.');
+// ── 임원 화면 (정적 핀) ──
+assert(checkin.includes('function officialRolloverCardHtml(player)') && checkin.includes('${officialRolloverCardHtml(p)}'), '새 운동일 시작 카드가 있어야 합니다.');
+assert(/officialRolloverCardHtml[\s\S]{0,500}officialSessionRolloverV1!==true\)return ''/.test(checkin), '카드는 능력 표시가 있을 때만.');
+assert(checkin.includes("async function sendOfficialSessionRollover(actorId)") && checkin.includes("type:'official-session-rollover'"), '롤오버 전송이 있어야 합니다.');
+assert(/sendOfficialSessionRollover[\s\S]{0,300}\(session\?\.players\|\|\[\]\)\.find/.test(checkin), '롤오버 전송은 상태 게이트 없이 명단에서 임원을 찾아야 합니다(종료 상태 임원도 눌러야 함).');
+
+// 지난주 「종료」로 남은 클럽 임원도 정체된 세션(게시 뒤 4시간·진행 코트 없음)에서는 운영자로 인식돼야
+// 카드가 그려지고 클레임·전송이 통과한다. 다른 명령은 서버 상태 게이트가 막으므로 안전하다.
+assert(checkin.includes('function sessionRolloverEligible()') && /isLiveOperatorPlayer[\s\S]{0,400}sessionRolloverEligible\(\)/.test(checkin),
+  '정체된 세션에서는 종료 상태 클럽 임원도 운영자로 인식돼야 새 운동일을 시작할 수 있습니다.');
+
 console.log('daily official delegation regression ok');
