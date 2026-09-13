@@ -39,7 +39,10 @@ function applyCommandTransaction(current, input){
     const currentStatus = String(currentActor?.status || '');
     if(!currentActor
       || (!currentActor.isClubOfficial && !currentActor.isTemporaryOfficial)
-      || ['invited','planned','done'].includes(currentStatus)){
+      // 「새 운동일 시작」만 상태 게이트를 비켜 간다 — 지난주 「종료」로 남은 임원이 이번 주에
+      // 세션을 굴려야 한다. 엔진(applyOfficialRequest)이 클럽 임원 한정·4시간·진행 코트 0 을 다시 검사한다.
+      // 이 래퍼 게이트를 놓쳐 엔진 예외만 두었다가 실제 경로에서 막혔다(2026-09-14 설계 검토).
+      || (String(storedCommand?.type || '') !== 'official-session-rollover' && ['invited','planned','done'].includes(currentStatus))){
       return {action:'abort',failureCode:'permission-denied',failureMessage:'현장 참가 중인 임원 또는 운영 도우미만 운영 지원을 사용할 수 있습니다.'};
     }
   }
@@ -117,7 +120,8 @@ function applyCommandTransaction(current, input){
     current.updatedAt = now;
   }
   pruneCommandLedger(current, now);
-  return {action:'commit',current,terminal};
+  // 새 운동일 보관 전문은 세션 밖에 적는다(콜러블이 받아 liveArchive/ 로) — 요청 행에는 싣지 않는다.
+  return {action:'commit',current,terminal,archiveEntry:applied?.archiveEntry || null};
 }
 
 module.exports = {applyCommandTransaction};

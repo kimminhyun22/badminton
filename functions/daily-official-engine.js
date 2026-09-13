@@ -30,7 +30,7 @@ const AUTO_HANDOFF_WINDOW_MS = 2 * 60 * 1000;
 // 임원이 「대진 게시」나 「새 운동일 시작」을 누른 시각부터 세션·초대가 살아 있는 창.
 // 관리자 없이 매주 굴리려면 다음 주 임원이 클레임할 때까지 살아 있어야 하므로 48시간이
 // 아니라 9일이다(주 1회 + 여유). 초대 토큰 자체는 바뀌지 않는다(운영자 2026-09-13).
-const STANDING_SESSION_WINDOW_MS = 9 * 24 * 60 * 60 * 1000;
+const STANDING_SESSION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;   // 9일은 추석 한 번에 만료됐다(2026-09-14 검토)
 // 「새 운동일 시작」은 지난 게시 뒤 이만큼은 지나야 받는다 — 진행 중인 운동을 실수로 접지 않게.
 const ROLLOVER_MIN_AGE_MS = 4 * 60 * 60 * 1000;
 const ROLLOVER_ARCHIVE_KEEP = 4;
@@ -2450,17 +2450,22 @@ function applySessionRollover(session, request, now, requestId, operation){
   if(event.operationStarted !== true)return '아직 대진이 게시되기 전입니다 — 지금 세션을 그대로 쓰세요.';
   const startedAt = number(event.operationStartedAt || session.matchStartedAt);
   if(startedAt && now - startedAt < ROLLOVER_MIN_AGE_MS)return '대진을 게시한 지 4시간이 안 됐습니다 — 진행 중인 운동을 접지 않도록 막았습니다.';
-  if((event.active || []).length)return `${event.active.length}개 코트가 아직 진행 중입니다 — 모두 종료한 뒤 새로 시작하세요.`;
+  // 지난주 마지막 경기를 종료 처리하지 않고 흩어지면 active 가 일주일째 남는다 — 4시간 넘은 경기는
+  // 「미종료」로 접어 두고 지나간다. 4시간 안 된 경기가 있으면 아직 뛰는 중이니 거절(2026-09-14 검토 C5).
+  const fresh = (event.active || []).filter(match=>now - number(match.startedAt) < ROLLOVER_MIN_AGE_MS);
+  if(fresh.length)return `${fresh.length}개 코트가 아직 진행 중입니다 — 모두 종료한 뒤 새로 시작하세요.`;
+  if((event.next || []).length)return '대기표가 아직 남아 있습니다 — 오늘 운동이 끝난 뒤 새로 시작하세요.';
+  const unfinished = (event.active || []).map(match=>({id:text(match.id), court:number(match.court), seq:number(match.seq),
+    startedAt:number(match.startedAt), players:activePlayerIds(match)}));
   const actorId = text(request.actorPlayerId);
 
+  // 보관: 세션 안에는 요약만(명령마다 통째 트랜잭션·회원 전원이 session 을 구독한다 — E3),
+  // 대진 전문은 콜러블이 세션 밖 liveArchive/ 에 따로 적는다(archiveEntry).
+  const summary = {at: now, startedAt, completed: number(event.completed), unfinished: unfinished.length,
+    players: (session.players || []).map(player=>({id:text(player.id), name:text(player.name), games:number(player.games)}))};
+  const archiveEntry = {...summary, completedLog: clone(session.completedLog || []), unfinishedMatches: unfinished};
   const archive = Array.isArray(session.archive) ? session.archive : [];
-  archive.push({
-    at: now,
-    startedAt,
-    completed: number(event.completed),
-    completedLog: clone(session.completedLog || []),
-    players: (session.players || []).map(player=>({id:text(player.id), name:text(player.name), games:number(player.games)}))
-  });
+  archive.push(summary);
   session.archive = archive.slice(-ROLLOVER_ARCHIVE_KEEP);
 
   (session.players || []).forEach(player=>{
@@ -2474,6 +2479,11 @@ function applySessionRollover(session, request, now, requestId, operation){
     player.locked = false; player.currentMatchId = ''; player.afterMatchStatus = '';
     player.waitFrom = stays ? now : 0; player.lastStatusAt = now; player.restPausedMs = 0;
     player.isTemporaryOfficial = false;   // 도우미는 그날만
+    // 지난주 흔적이 남으면 「오등록 취소」·도착 확인 표시가 이번 주 것으로 오인된다(E4)
+    clearLiveAddition(player);
+    player.registrationCancelled = false;
+    ['arrivalConfirmedAt','arrivalConfirmedBy','arrivalConfirmedByName','arrivalConfirmedSource',
+     'temporaryOfficialGrantedAt','temporaryOfficialGrantedBy','temporaryOfficialGrantedByName'].forEach(key=>{ delete player[key]; });
   });
   session.reservations = [];
   session.completedLog = [];
@@ -2482,7 +2492,10 @@ function applySessionRollover(session, request, now, requestId, operation){
   event.completed = 0;
   event.operationStarted = false; event.operationStartedAt = 0;
   event.finishMode = false; event.finishStartedAt = 0;
-  event.paused = false;
+  // 일시정지로 끝났던 주: 리비전을 올려야 관리자 화면이 「정지 해제」를 서버 사실로 받는다(AF-5)
+  event.paused = false; event.pausedAt = 0;
+  event.pauseRevision = number(event.pauseRevision || session.pauseRevision) + 1;
+  session.pauseRevision = event.pauseRevision;
   session.matchStartedAt = 0;
   session.rolloverAt = now;
   session.rolloverCount = number(session.rolloverCount) + 1;
@@ -2492,10 +2505,13 @@ function applySessionRollover(session, request, now, requestId, operation){
     session.officialInvite.expiresAt = Math.max(number(session.officialInvite.expiresAt), extendTo);
   }
   refreshEvent(session, now);
-  if(operation)operation.result = {
-    sessionRollover:{at:now, archived:session.archive.length, players:(session.players||[]).length, expiresAt:session.expiresAt},
-    queueSync:preparedQueueSync(session)
-  };
+  if(operation){
+    operation.result = {
+      sessionRollover:{at:now, archived:session.archive.length, players:(session.players||[]).length, expiresAt:session.expiresAt},
+      queueSync:preparedQueueSync(session)
+    };
+    operation.archiveEntry = archiveEntry;   // 결과(요청 행)에는 싣지 않는다 — 콜러블이 별도 루트에 적는다
+  }
   return '';
 }
 
@@ -2822,7 +2838,7 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
       before
     };
   }
-  return {status:'applied', session, serverOps:receipts, revision:session.serverRevision, operation:request.type, result:operation.result};
+  return {status:'applied', session, serverOps:receipts, revision:session.serverRevision, operation:request.type, result:operation.result, archiveEntry:operation.archiveEntry || null};
 }
 
 function applyMemberStatusRequest(rawSession, rawRequest, options = {}){

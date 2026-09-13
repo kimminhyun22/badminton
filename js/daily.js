@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.661';
+const APP_VERSION = '1.10.662';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2322,6 +2322,10 @@ function _dailySameLocalDay(a,b){
 function _dailyCanResumeCrossDay(s,now){
   if(!s||!s.savedAt)return false;
   const age=now-Number(s.savedAt||0);
+  // 게시된 상시 세션(회원 링크 + 초대)은 며칠이 지나도 정체를 지우지 않는다 — 임원이 그 링크로
+  // 매주 굴리기 때문에 여기서 지우면 다음 게시가 「새 링크」를 만들어 버린다(2026-09-14 검토 AF-1).
+  // 정말 만료됐는지는 dailyResumeCheckin 의 서버 소유권 읽기가 판정한다.
+  if(age>=0&&s.checkinId&&s.officialInviteHash)return true;
   if(age<0||age>DAILY_CROSS_DAY_RESUME_MS)return false;
   const players=(s.players||[]).filter(p=>p&&p.name);
   const active=(s.matches||[]).some(m=>m&&!m.completedAt&&!m.cancelledAt);
@@ -6794,7 +6798,11 @@ async function dailyAdoptServerState(){
     if(_dailyOfficialInviteHash&&remoteHash&&remoteHash!==_dailyOfficialInviteHash){
       throw new Error('다른 관리자가 게시한 세션입니다. 새 링크를 만들어 주세요.');
     }
-    _dailyAdoptServerSnapshot(remote);
+    const rolled=Number(remote.rolloverAt||0)>_dailyRolloverAt;
+    if(rolled)_dailyArchiveLocalDay(Number(remote.rolloverAt));
+    _dailyAdoptServerSnapshot(remote,{rollover:rolled});
+    if(rolled){_dailyRolloverAt=Number(remote.rolloverAt);}
+    _dailyRemoteCheckinExpiresAt=Math.max(_dailyRemoteCheckinExpiresAt||0,Number(remote.expiresAt||0));
     dailySave({preserveServerQueue:true});
     dailyRender();
     await dailyPushCheckinSession();
@@ -6809,9 +6817,11 @@ async function dailyAdoptServerState(){
 let _dailyRolloverAt=0;
 // 서버가 「새 운동일」로 굴려졌는지 — 관리자 원본이 며칠 뒤에 켜져도 명령 기록(60분) 없이
 // 세션 자체를 새 기준으로 받아들인다. 리스너와 동기화 pull 양쪽에서 부른다.
+let _dailyRolloverAdoptPromise=null;
 async function _dailyMaybeAdoptRollover(){
   if(!_dailyCheckinId||!_fbDb||!_dailyCheckinOwnershipVerified)return false;
-  try{
+  if(_dailyRolloverAdoptPromise)return _dailyRolloverAdoptPromise;   // requests·rolloverAt 리스너가 같이 깨는 경우
+  _dailyRolloverAdoptPromise=(async()=>{try{
     const snap=await _fbDb.ref(_dailyCheckinPath()+'/session').once('value');
     const remote=snap.val();
     if(!remote||String(remote.serverSessionId||'')!==String(_dailyCheckinId))return false;
@@ -6832,7 +6842,8 @@ async function _dailyMaybeAdoptRollover(){
   }catch(e){
     console.warn('새 운동일 채택 실패',e);
     return false;
-  }
+  }finally{_dailyRolloverAdoptPromise=null;}})();
+  return _dailyRolloverAdoptPromise;
 }
 // 지난 운동의 로컬 기록은 지우지 않고 일자 보관함에 접어 둔다(최근 8일).
 function _dailyArchiveLocalDay(at){
@@ -6904,8 +6915,15 @@ function _dailyAdoptServerSnapshot(remote,options){
   // 일시정지·마무리 상태도 서버를 따릅니다
   if(remote.event)_dailyAdoptRemotePauseEvent(remote.event,{silent:true});
   _dailyFinishMode=!!(remote.event&&remote.event.finishMode);
-  if(remote.event&&remote.event.operationStarted)_dailyMarkOperationStarted(Number(remote.event.operationStartedAt)||undefined);
-  else if(rollover){ _dailyOperationStarted=false; _dailyOperationStartedAt=0; _dailyFinishStartedAt=0; _dailySeq=1; }
+  if(rollover){
+    // 새 운동일: 서버 값을 그대로 — _dailyMarkOperationStarted 는 「있으면 안 덮음」이라 지난주 시각이 남는다.
+    _dailyOperationStarted=!!(remote.event&&remote.event.operationStarted);
+    _dailyOperationStartedAt=_dailyOperationStarted?(Number(remote.event.operationStartedAt)||0):0;
+    _dailyFinishStartedAt=Number(remote.event?.finishStartedAt)||0;
+    _dailySeq=1+_dailyMatches.reduce((mx,m)=>Math.max(mx,Number(m.seq)||0),0);
+    _dailyPaused=!!remote.event?.paused; _dailyPausedAt=0; _dailyPauseReason=''; _dailyResumedAt=0;
+    _dailyPauseRevision=Math.max(0,Number(remote.event?.pauseRevision||remote.pauseRevision||0));
+  }else if(remote.event&&remote.event.operationStarted)_dailyMarkOperationStarted(Number(remote.event.operationStartedAt)||undefined);
   // 리비전을 서버 머리로 맞춥니다 — 이것이 채택의 핵심입니다.
   _dailyServerRevision=Math.max(0,Number(remote.serverRevision||0));
   _dailyServerLastRequestId=String(remote.serverLastRequestId||'');
@@ -7022,7 +7040,7 @@ function _dailyExpireCheckinLink(silent){
   _dailyServerReconcileError='';
   if(_dailyClearTemporaryOfficials())dailySave({preserveServerQueue:true});
   _dailyPersistCheckinIdentity();
-  if(!silent)alert('민턴LIVE 링크가 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 만들어 공유해 주세요.');
+  if(!silent)alert('민턴LIVE 링크의 운영 연결 기간이 지나 종료되었습니다. 새 링크를 만들어 공유해 주세요.');
   return true;
 }
 function _dailyCheckinUrl(){
@@ -7433,6 +7451,15 @@ function _dailyWriteCheckinPayload(path){
     ))return;
     if(remoteRevision>payloadServerRevision||remotePauseRevision>payloadPauseRevision)return;
     if(remoteRevision===payloadServerRevision&&remoteLastRequestId&&remoteLastRequestId!==payloadLastRequestId)return;
+    if(currentExists){
+      // 서버(임원 게시·새 운동일·클레임)가 늘린 만료를 관리자 게시가 48시간으로 되돌리면 다음 주
+      // 임원이 클레임을 못 한다(2026-09-14 검토 AF-2). 늘리기만 하고 줄이지 않는다.
+      if(remoteExpiresAt>Number(payload.expiresAt||0))payload.expiresAt=remoteExpiresAt;
+      const remoteInviteExpiresAt=Number(current.officialInvite?.expiresAt||0);
+      if(payload.officialInvite&&remoteInviteExpiresAt>Number(payload.officialInvite.expiresAt||0))payload.officialInvite.expiresAt=remoteInviteExpiresAt;
+      // 서버 소유 키 — 관리자 페이로드에는 없어서 게시 때마다 지워졌다(AF-3)
+      ['archive','rolloverAt','rolloverCount'].forEach(key=>{ if(current[key]!==undefined)payload[key]=current[key]; });
+    }
     return payload;
   },undefined,false).then(result=>{
     const wrapped={
@@ -7985,6 +8012,7 @@ function dailyStartCheckinListener(){
   const path=_dailyCheckinPath();
   if(_dailyCheckinListening&&_dailyCheckinListeningPath===path)return;
   if(_dailyCheckinListeningPath&&_dailyCheckinListeningPath!==path){
+    _fbDb.ref(_dailyCheckinListeningPath+'/session/rolloverAt').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/requests').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/party').off();
     _fbDb.ref(_dailyCheckinListeningPath+'/session/event').off();
@@ -8793,6 +8821,7 @@ function _dailyApplyAdminOperation(req){
     // 임원이 서버에서 켠 「대진 게시」. 대기표는 queueSync 로 통째로 내려온다.
     const info=result.operationStart;
     if(!info)return false;
+    _dailyRemoteCheckinExpiresAt=Math.max(_dailyRemoteCheckinExpiresAt||0,Number(info.expiresAt||0));   // 서버가 늘린 만료를 잃지 않는다
     _dailyMarkOperationStarted(Number(info.at||at));
     _dailyNext=null;
     return true;
@@ -10567,7 +10596,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.661&from=daily';
+  location.href='team.html?v=1.10.662&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

@@ -215,6 +215,7 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
   let failureCode = '';
   let failureMessage = '';
   let terminal = null;
+  let archiveEntry = null;
 
   const transaction = await runExistingSessionTransaction(ref,current=>{
     const outcome = applyCommandTransaction(current, {
@@ -223,6 +224,7 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
     failureCode = outcome.failureCode || '';
     failureMessage = outcome.failureMessage || '';
     terminal = outcome.terminal || null;
+    archiveEntry = outcome.archiveEntry || null;
     return outcome.action === 'commit' ? outcome.current : undefined;
   });
 
@@ -230,6 +232,11 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
   if(!transaction.result.committed){
     if(terminal)return {ok:terminal.status==='applied',requestId:operationId,...terminal};
     throw new HttpsError(failureCode || 'aborted', failureMessage || '운영 요청을 처리하지 못했습니다.');
+  }
+  // 「새 운동일 시작」의 지난 운동 전문은 세션 밖에 적는다 — 세션은 명령마다 통째 트랜잭션이고
+  // 회원 전원이 구독하므로 거기 쌓으면 운동 후반에 전송이 먼저 무너진다(2026-09-14 검토 E3).
+  if(archiveEntry && terminal?.status === 'applied'){
+    admin.database().ref(`liveArchive/checkin_${checkinId}/${Number(archiveEntry.at) || now}`).set(archiveEntry).catch(()=>{});
   }
   return {ok:terminal?.status==='applied',requestId:operationId,...terminal};
 });
@@ -440,6 +447,8 @@ exports.cleanupExpiredLive = onSchedule({
   }
   for(const id of dead){
     await admin.database().ref('live/' + id).remove();
+    // 새 운동일 보관 전문(liveArchive/)도 세션과 함께 정리한다
+    await admin.database().ref('liveArchive/' + id).remove().catch(()=>{});
   }
   console.info('민턴LIVE 만료 세션 정리', {검사:Object.keys(all).length, 삭제:dead.length});
 });

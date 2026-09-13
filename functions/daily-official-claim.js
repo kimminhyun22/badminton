@@ -1,5 +1,7 @@
 'use strict';
 
+// 엔진의 STANDING_SESSION_WINDOW_MS 와 같은 값 — 임원 연결이 이어지는 한 세션이 살아 있게 하는 창.
+const STANDING_SESSION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const crypto = require('crypto');
 
 function text(value){
@@ -94,6 +96,12 @@ function applyOfficialClaimTransaction(current, input){
       officialPlayerName:text(officialPlayer.name)
     }:{})
   };
+  // 임원이 연결할 때마다 세션·초대 만료를 다시 민다 — 매주 연결하는 클럽은 관리자 게시 없이
+  // 세션이 만료되지 않는다(2026-09-14 검토 C6). 이미 만료된 세션은 위에서 거절됐으므로 되살리지 않는다.
+  const standingTo = now + STANDING_SESSION_WINDOW_MS;
+  session.expiresAt = Math.max(number(session.expiresAt), standingTo);
+  invite.expiresAt = Math.max(number(invite.expiresAt), standingTo);
+  session.officialInvite = invite;
   return {
     action:'commit',
     current,

@@ -2952,7 +2952,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.661">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.662">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2967,7 +2967,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.661</span>
+    <span class="version-chip" id="appVersion">v1.10.662</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3030,7 +3030,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.661';
+const APP_VERSION='1.10.662';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3196,7 +3196,7 @@ function showEndedLink(){
   if(fold)fold.open=true;
   document.getElementById('sessionSub').textContent='종료된 민턴LIVE 링크입니다.';
   document.getElementById('players').className='empty';
-  document.getElementById('players').textContent='이 링크는 대진 시작 후 48시간이 지나 자동 종료되었습니다. 새 링크를 확인해 주세요.';
+  document.getElementById('players').textContent='이 링크는 운영 연결 기간이 지나 종료되었습니다. 새 링크를 확인해 주세요.';
 }
 function sampleSession(){
   const now=Date.now();
@@ -5975,8 +5975,8 @@ async function pickOfficialReplaceCandidate(inPlayerId){
    관리자 화면의 「대진 게시」 흐름을 임원 화면에 그대로 둡니다: ① 참가자 등록 →
    ② 지금 뛰고 있는 코트 등록 → ③ 대진 게시. ②는 관리자 전환 모달과 같은 서버 명령
    (official-manual-match, transition:true), ③은 새 명령(official-operation-start).
-   세션 자체는 관리자가 미리 게시해 둡니다(전날이라도 됨 — 게시 뒤 48시간 유효, 임원이
-   게시를 누르면 그때부터 다시 48시간). */
+   세션 자체는 처음 한 번만 관리자가 게시합니다. 그 뒤로는 임원이 「새 운동일 시작」으로 같은 링크를
+   매주 굴리고, 게시·새 운동일·임원 연결 때마다 세션이 30일씩 연장됩니다. */
 /* ── 새 운동일 시작(rollover) — 관리자가 매주 게시하지 않아도 같은 링크로 다음 운동을 연다.
    지난 운동은 서버가 접어 두고(archive), 명단은 그대로 둔 채 전원 도착 전으로 돌린다.
    누른 임원은 현장 참가로 남는다. 클럽 임원만, 게시 뒤 4시간 지나고, 진행 중 코트가 없을 때. */
