@@ -65,7 +65,7 @@ function prepSession(overrides){
   };
   return Object.assign(session, overrides || {});
 }
-function send(session, request, {grant = officialGrant, actor = 'p9', name = '임원선수'} = {}){
+function send(session, request, {grant = officialGrant, actor = 'p9', name = '임원선수', serverOps = {}} = {}){
   return applyOfficialRequest(session, {
     operationId:'op_'+Math.random().toString(36).slice(2,9),
     commandProtocol:2,
@@ -73,7 +73,7 @@ function send(session, request, {grant = officialGrant, actor = 'p9', name = '�
     officialGrantToken:grant,
     createdAt:NOW+1000, expiresAt:NOW+30*60*1000,
     ...request
-  }, {now:NOW+1000, grantSecret:SECRET, checkinId:SESSION_ID, adminClaim:false});
+  }, {now:NOW+1000, grantSecret:SECRET, checkinId:SESSION_ID, adminClaim:false, serverOps});
 }
 
 // 1) 게시 전 세션에서는 대기표가 짜이지 않는다 — 이게 「관리자를 기다리는」 상태였다.
@@ -152,6 +152,79 @@ function send(session, request, {grant = officialGrant, actor = 'p9', name = '�
   console.log('  운영 도우미: 서버는 허용(화면 게이트는 클럽 임원)');
 }
 
+// 7) 실전 재현: 관리자에서 자동 대진을 끈 채 임원이 3코트·25명을 게시해도
+// 모든 코트가 바로 시작되고, 이미 잘못 게시된 세션도 다음 임원 조작에서 회복한다.
+function threeCourtSession(){
+  const s = prepSession();
+  s.capabilities.officialAutoHandoffV1 = true;
+  s.players = Array.from({length:25},(_,index)=>player(`p${index+1}`,`가상선수${index+1}`,{
+    isClubOfficial:index===8
+  }));
+  s.event = {
+    courts:3, nextTarget:0, completed:0, finishMode:false, operationStarted:false,
+    queuePolicy:{official:0, auto:false}, active:[], next:[], expected:[], serverStandby:[]
+  };
+  return s;
+}
+{
+  const r = send(threeCourtSession(), {type:'official-operation-start'});
+  assert.strictEqual(r.status, 'applied', `수동 설정이 남은 세션도 게시돼야 합니다: ${r.reason || ''}`);
+  assert.strictEqual(r.session.event.queuePolicy.auto, true, '대진 게시가 자동 운영을 켜야 합니다.');
+  assert.strictEqual(r.session.event.queuePolicy.official, 3, '대기 목표는 코트 수와 같아야 합니다.');
+  assert.strictEqual(r.session.event.active.length, 3, '25명·3코트는 게시 직후 세 코트가 모두 시작돼야 합니다.');
+  assert(r.session.event.next.length >= 1, '진행 경기 뒤의 다음 대진도 준비돼야 합니다.');
+  assert.strictEqual(r.result?.rotationPolicy?.auto, true, '관리자 추종용 자동 운영 정책이 결과에 실려야 합니다.');
+  assert.strictEqual(r.result?.autoEntries?.length,3,'서버가 자동 투입한 세 경기를 관리자 추종 결과에 모두 실어야 합니다.');
+  const occupied = r.session.event.active.flatMap(match=>match.playerIds || [...(match.t1Ids||[]),...(match.t2Ids||[])]);
+  assert.strictEqual(occupied.length, new Set(occupied).size, '동시에 두 코트에 배정된 선수가 없어야 합니다.');
+  console.log(`  3코트·25명 게시: 진행 ${r.session.event.active.length} · 다음 ${r.session.event.next.length} · 자동 운영`);
+}
+{
+  const s = threeCourtSession();
+  s.event.operationStarted = true;
+  s.event.operationStartedAt = NOW-60*1000;
+  s.event.active = [{id:'legacy_m1',court:1,seq:1,startedAt:NOW-60*1000,
+    playerIds:['p1','p2','p3','p4'],t1Ids:['p1','p2'],t2Ids:['p3','p4']}];
+  ['p1','p2','p3','p4'].forEach(id=>{
+    const p=s.players.find(row=>row.id===id);
+    p.status='playing'; p.statusLabel='playing'; p.locked=true; p.currentMatchId='legacy_m1';
+  });
+  const target=s.players.find(row=>row.id==='p25');
+  const r=send(s,{type:'official-player-status',playerId:target.id,status:'rest',
+    expectedStatus:target.status,expectedCurrentMatchId:'',expectedLastStatusAt:target.lastStatusAt});
+  assert.strictEqual(r.status,'applied',`기존 정체 세션의 다음 임원 조작이 적용돼야 합니다: ${r.reason || ''}`);
+  assert.strictEqual(r.result?.rotationPolicy?.repaired,true,'낡은 수동 정책을 복구했다고 기록해야 합니다.');
+  assert.strictEqual(r.session.event.queuePolicy.auto,true);
+  assert.strictEqual(r.session.event.queuePolicy.official,3);
+  assert.strictEqual(r.session.event.active.length,3,'기존 1경기 외 빈 두 코트도 자동으로 채워야 합니다.');
+  assert(r.session.event.next.length>=1,'복구 뒤 다음 대진도 준비돼야 합니다.');
+  assert.strictEqual(r.result?.autoEntries?.length,2,'복구하며 채운 빈 두 코트를 관리자도 그대로 받아야 합니다.');
+  console.log(`  기존 1코트 정체 복구: 진행 ${r.session.event.active.length} · 다음 ${r.session.event.next.length}`);
+}
+{
+  const s = threeCourtSession();
+  s.event.operationStarted = true;
+  s.event.operationStartedAt = NOW-60*1000;
+  s.event.active = [{id:'legacy_undo_m1',court:1,seq:1,startedAt:NOW-60*1000,
+    playerIds:['p1','p2','p3','p4'],t1Ids:['p1','p2'],t2Ids:['p3','p4']}];
+  ['p1','p2','p3','p4'].forEach(id=>{
+    const p=s.players.find(row=>row.id===id);
+    p.status='playing'; p.statusLabel='playing'; p.locked=true; p.currentMatchId='legacy_undo_m1';
+  });
+  const token='legacy_repair_undo_token';
+  const complete=send(s,{type:'official-court-complete',token,matchId:'legacy_undo_m1',
+    expectedStartedAt:NOW-60*1000,expectedPlayerIds:['p1','p2','p3','p4']});
+  assert.strictEqual(complete.status,'applied');
+  const undo=send(complete.session,{type:'official-operation-undo',token},{serverOps:complete.serverOps});
+  assert.strictEqual(undo.status,'applied',`복구 직후 되돌리기도 적용돼야 합니다: ${undo.reason || ''}`);
+  assert.strictEqual(undo.session.event.queuePolicy.auto,true,'되돌리기가 낡은 자동 꺼짐을 되살리면 안 됩니다.');
+  assert.strictEqual(undo.session.event.queuePolicy.official,3);
+  assert.strictEqual(undo.session.event.active.length,3,'되돌린 원래 경기와 함께 빈 두 코트도 계속 운영돼야 합니다.');
+  assert(undo.session.event.active.some(match=>match.id==='legacy_undo_m1'),'종료한 원래 경기가 되돌아와야 합니다.');
+  assert.strictEqual(undo.result?.autoEntries?.length,2,'되돌리기 뒤 채운 두 코트도 관리자 추종 결과에 실려야 합니다.');
+  console.log('  정체 복구 → 경기 종료 → 되돌리기: 원래 경기 복원 · 3코트 자동 운영 유지');
+}
+
 // ── 관리자 화면이 따라오는지 (정적 핀) ──
 const daily = fs.readFileSync(path.join(__dirname, '..', 'js', 'daily.js'), 'utf8');
 assert(daily.includes('officialOperationStartV1:!!_dailyOfficialInviteHash'),
@@ -163,6 +236,11 @@ assert(daily.includes("if(req.type==='official-operation-start'){") && daily.inc
   '관리자 재생기가 임원의 게시를 게시 시각 그대로 받아들여야 합니다.');
 assert(daily.includes('_dailyMarkOperationStarted(Number(remote.event.operationStartedAt)||undefined)'),
   '서버 상태 채택도 게시 시각을 그대로 받아야 합니다.');
+assert(/serverResult\?\.rotationPolicy\?\.auto===true[\s\S]{0,100}_dailyAutoAssign=true/.test(daily),
+  '서버가 복구한 자동 운영 정책을 관리자 로컬 저장값도 따라야 합니다.');
+assert(daily.includes('function _dailyApplyServerAutoEntries(req)')
+  && /finishOfficial=\(req,ok,reason,stateChanged\)=>\{[\s\S]{0,900}_dailyApplyServerAutoEntries\(req\)/.test(daily),
+  '서버가 빈 코트에 자동 투입한 모든 경기를 관리자 재생기가 queueSync 전에 적용해야 합니다.');
 
 // ── 임원 화면 (정적 핀) ──
 const checkin = fs.readFileSync(path.join(__dirname, '..', 'checkin.html'), 'utf8');

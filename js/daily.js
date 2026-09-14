@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.665';
+const APP_VERSION = '1.10.666';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -8966,6 +8966,20 @@ function _dailyStartServerAutoEnter(req,options){
     syncReplay:true
   });
 }
+function _dailyApplyServerAutoEntries(req){
+  const entries=Array.isArray(req?.serverResult?.autoEntries)?req.serverResult.autoEntries:[];
+  for(const entry of entries){
+    if(!entry?.matchId||!entry?.queueId)return false;
+    if(_dailyMatches.some(match=>String(match.id)===String(entry.matchId)&&!match.cancelledAt))continue;
+    const restored=_dailyServerQueueResultRequest(entry,req.serverAppliedAt||req.createdAt,entry.queueIndex||1);
+    if(!_dailyPrepareServerQueueRequest(restored))return false;
+    if(!_dailyStartServerAutoEnter({
+      ...req,
+      serverResult:{autoEnter:entry}
+    },{source:'official-auto-fill'}))return false;
+  }
+  return true;
+}
 function _dailyApplyOfficialActiveYield(req){
   const m=_dailyMatches.find(match=>String(match.id)===String(req.matchId)&&!match.completedAt&&!match.cancelledAt);
   const result=req.serverResult||{};
@@ -9026,6 +9040,15 @@ function dailyProcessCheckinRequests(){
     let serverReconcileBlocked=false;
     const finishOfficial=(req,ok,reason,stateChanged)=>{
       const hasQueueSync=!!(req.serverAppliedAt&&Array.isArray(req.serverResult?.queueSync?.next));
+      // 서버가 낡은 수동 정책을 자동 운영으로 복구했으면 관리자 로컬 저장값도
+      // 즉시 따라갑니다. 아니면 다음 전체 게시에서 auto:false 를 다시 밀 수 있습니다.
+      if(req.serverAppliedAt&&ok&&req.serverResult?.rotationPolicy?.auto===true){
+        _dailyAutoAssign=true;
+      }
+      if(req.serverAppliedAt&&ok&&!_dailyApplyServerAutoEntries(req)){
+        ok=false;
+        reason='서버에서 자동 투입한 경기를 관리자 원본에 연결하지 못했습니다.';
+      }
       const preserveLocalQueue=!!(
         req.serverAppliedAt
         &&_dailyCheckinNeedsPublish
@@ -10663,7 +10686,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.665&from=daily';
+  location.href='team.html?v=1.10.666&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

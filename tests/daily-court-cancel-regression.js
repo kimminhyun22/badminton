@@ -166,8 +166,7 @@ console.log('  관리자 화면 연결·버튼 확인');
 
 
 // 6) 취소한 코트에 서버가 곧바로 다른 대진을 자동 투입하면 안 됩니다.
-//    종료는 serverResult.autoEnter 로 관리자 원본에 넘겨주지만 취소에는 그 배선이 없어,
-//    자동 투입되면 서버에만 경기가 생기고 관리자 화면과 갈라집니다.
+//    취소는 운영자가 현장 상황을 정리하려고 누르는 동작이라 즉시 다른 경기를 넣으면 안 됩니다.
 //    실측(2026-08-04): 취소 직후 서버 active 에 sm_..._court-cancel_..._c2_0 이 생기고
 //    관리자 원본에는 없었습니다.
 //
@@ -176,7 +175,7 @@ console.log('  관리자 화면 연결·버튼 확인');
 //      행동 검사가 아니라는 점을 분명히 적어 둡니다.
 {
   const engine = fs.readFileSync(path.join(root, 'functions', 'daily-official-engine.js'), 'utf8');
-  const guard = engine.match(/if\(!\[([^\]]*)\]\.includes\(request\.type\)\)\{\s*\n\s*autoEnterFreeCourts/);
+  const guard = engine.match(/if\(!\[([^\]]*)\]\.includes\(request\.type\)\)\{[\s\S]{0,300}?autoEnterFreeCourts/);
   assert(guard, '자동 투입 제외 목록을 찾을 수 있어야 합니다.');
   assert(guard[1].includes("'official-court-cancel'"),
     '경기 취소는 자동 투입 제외 목록에 있어야 합니다. 없으면 취소한 코트에 서버가 새 대진을 넣어 관리자 원본과 갈라집니다.');

@@ -96,6 +96,33 @@ assert(officialErrorSource.includes('!req.serverAppliedAt&&'),'서버가 이미 
 const processSource=sourceBetween('dailyProcessCheckinRequests','dailyApproveCheckinRequest');
 assert(processSource.includes('preserveLocalQueue')&&processSource.includes('_dailyCheckinNeedsPublish'),'임원 상태 처리와 겹친 최신 관리자 대진 편집을 서버 대진 전체로 덮어쓰면 안 됩니다.');
 assert(processSource.includes('req.serverResult?.alreadyCovered'),'같은 경기에서 이미 충족된 두 번째 파트너 요청을 중복 예약으로 재생하면 안 됩니다.');
+assert(processSource.indexOf('_dailyApplyServerAutoEntries(req)')<processSource.indexOf('_dailyApplyServerQueueSync(req)'),
+  '서버가 실제 투입한 경기를 먼저 복원한 뒤 미래 대기표를 동기화해야 합니다.');
+const autoEntriesSource=sourceBetween('_dailyApplyServerAutoEntries','_dailyApplyOfficialActiveYield');
+const autoEntryCalls=[];
+const autoEntriesSandbox={
+  _dailyMatches:[],
+  _dailyServerQueueResultRequest:(entry,at,index)=>({entry,serverAppliedAt:at,expectedQueueIndex:index}),
+  _dailyPrepareServerQueueRequest:request=>{autoEntryCalls.push(['prepare',request.entry.matchId]);return true;},
+  _dailyStartServerAutoEnter:req=>{
+    const row=req.serverResult.autoEnter;
+    autoEntryCalls.push(['start',row.matchId]);
+    autoEntriesSandbox._dailyMatches.push({id:row.matchId});
+    return true;
+  }
+};
+vm.createContext(autoEntriesSandbox);
+vm.runInContext(`${autoEntriesSource};this.run=_dailyApplyServerAutoEntries;`,autoEntriesSandbox);
+assert.strictEqual(autoEntriesSandbox.run({serverAppliedAt:5000,serverResult:{autoEntries:[
+  {matchId:'auto1',queueId:'q1',queueIndex:1},
+  {matchId:'auto2',queueId:'q2',queueIndex:1}
+]}}),true,'서버가 자동 투입한 여러 경기를 관리자 원본에 재생할 수 있어야 합니다.');
+assert.deepStrictEqual(autoEntryCalls,[['prepare','auto1'],['start','auto1'],['prepare','auto2'],['start','auto2']],
+  '각 자동 투입은 대진 복원 후 시작 순서로 한 번씩 적용돼야 합니다.');
+assert.strictEqual(autoEntriesSandbox.run({serverAppliedAt:5001,serverResult:{autoEntries:[
+  {matchId:'auto1',queueId:'q1',queueIndex:1}
+]}}),true,'이미 적용한 자동 투입은 멱등하게 건너뛰어야 합니다.');
+assert.strictEqual(autoEntryCalls.length,4,'이미 적용된 경기는 다시 시작하면 안 됩니다.');
 const serverHeadSource=sourceBetween('_dailyServerHeadPending','_dailyBlockServerSync');
 assert(serverHeadSource.includes('_dailyObservedServerRevision>_dailyServerRevision'),'관찰된 임원 서버 리비전이 앞설 때 관리자 편집을 잠시 잠가야 합니다.');
 [

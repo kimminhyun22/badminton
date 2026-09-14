@@ -1513,6 +1513,19 @@ function queueResult(item, queueIndex){
   };
 }
 
+function autoEnterResult(match){
+  return {
+    ...queueResult(match.autoHandoffQueue, match.autoHandoffQueueIndex),
+    matchId:text(match.id),
+    court:number(match.court),
+    startedAt:number(match.startedAt),
+    expiresAt:number(match.autoHandoffExpiresAt),
+    sourceMatchId:text(match.autoHandoffSourceMatchId),
+    reservation:match.autoHandoffReservation || null,
+    playerStates:match.autoHandoffPlayerStates || []
+  };
+}
+
 function startPreparedItem(session, item, index, court, now, requestId, options = {}){
   const event = session.event;
   // 운영자가 직접 짠 대진(manualComposed)은 품질 검사를 다시 하지 않습니다.
@@ -2577,7 +2590,23 @@ function applyPlayerOfficial(session, request, now, operation){
 // 진행 중 코트는 이 명령 전에 official-manual-match(transition:true) 로 올려 둡니다 —
 // 관리자의 전환 모달도 정확히 그 명령을 씁니다.
 // 게시된 지 오래된 세션(전날 미리 게시)이 운동 도중 만료되지 않도록, 세션·초대 만료를
-// 지금부터 48시간으로 늘립니다. 초대 토큰 자체는 바뀌지 않습니다.
+// 상시 세션 창으로 늘립니다. 초대 토큰 자체는 바뀌지 않습니다.
+function ensureAutomaticRotation(session){
+  const event = session?.event;
+  if(!event || event.operationStarted !== true || event.finishMode)return null;
+  const courts = Math.max(1, Math.min(12, number(event.courts, 1)));
+  event.queuePolicy = event.queuePolicy && typeof event.queuePolicy === 'object'
+    ? event.queuePolicy
+    : {};
+  const repaired = event.queuePolicy.auto !== true
+    || number(event.queuePolicy.official) !== courts
+    || number(event.queuePolicy.extra) !== 0;
+  event.queuePolicy.auto = true;
+  event.queuePolicy.official = courts;
+  event.queuePolicy.extra = 0;
+  return {auto:true, official:courts, repaired};
+}
+
 function applyOperationStart(session, request, now, requestId, operation){
   refreshEvent(session, now);
   const event = session.event;
@@ -2591,10 +2620,14 @@ function applyOperationStart(session, request, now, requestId, operation){
   if(session.officialInvite && typeof session.officialInvite === 'object'){
     session.officialInvite.expiresAt = Math.max(number(session.officialInvite.expiresAt), extendTo);
   }
+  // 「대진 게시」는 곧 자동 운영 시작입니다. 관리자 브라우저의 예전 수동 설정
+  // (auto:false, official:0)이 세션에 남아 있어도 임원만으로 모든 빈 코트를 채웁니다.
+  const rotationPolicy = ensureAutomaticRotation(session);
   const generated = replenishPrepared(session, {now, requestId:text(request.operationId || requestId)});
   refreshEvent(session, now);
   if(operation)operation.result = {
     operationStart:{at:now, generated:(generated?.generated || []).length, expiresAt:session.expiresAt},
+    rotationPolicy,
     queueSync:preparedQueueSync(session)
   };
   return '';
@@ -2951,6 +2984,12 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
     session.serverUpdatedAt = now;
     session.serverLastRequestId = requestId;
     session.updatedAt = now;
+    const rotationPolicy = ensureAutomaticRotation(session);
+    let autoEntries = [];
+    if(rotationPolicy){
+      replenishPrepared(session, {now, requestId});
+      autoEntries = autoEnterFreeCourts(session, now, requestId, request.actorPlayerId);
+    }
     refreshEvent(session, now);
     return {
       status:'applied',
@@ -2958,23 +2997,43 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
       serverOps:receipts,
       revision:session.serverRevision,
       operation:'undo',
-      result:{queueSync:preparedQueueSync(session)}
+      result:{
+        ...(rotationPolicy?.repaired ? {rotationPolicy} : {}),
+        ...(autoEntries.length ? {autoEntries:autoEntries.map(autoEnterResult)} : {}),
+        queueSync:preparedQueueSync(session)
+      }
     };
   }
 
+  // 복구 뒤 찍는 되돌리기 스냅샷에도 자동 운영 정책을 남겨, 되돌리기가 과거의
+  // auto:false 상태를 되살리지 않게 합니다.
+  const inheritedRotationPolicy = ensureAutomaticRotation(session);
   const before = UNDOABLE_TYPES.has(request.type) && request.token ? operationalSnapshot(session) : null;
   const operation = {result:null};
   const reason = applyByType(session, request, now, requestId, operation, {adminClaim:common.adminClaim === true});
   if(reason)return {status:'rejected', reason, session:rawSession, serverOps:receipts};
+  // v1.10.665 이전에 임원이 게시한 세션은 운영 시작 상태인데도 수동 정책이 남아
+  // 1코트만 진행되고 대기표가 0인 채 멈출 수 있습니다. 다음 임원 조작에서 복구합니다.
+  const rotationPolicy = ensureAutomaticRotation(session);
+  const repairedRotationPolicy = inheritedRotationPolicy?.repaired
+    ? inheritedRotationPolicy
+    : rotationPolicy?.repaired
+      ? rotationPolicy
+      : null;
+  if(repairedRotationPolicy){
+    operation.result = {...(operation.result || {}), rotationPolicy:repairedRotationPolicy};
+  }
   if(!['official-temporary-grant','official-temporary-revoke'].includes(request.type)){
     replenishPrepared(session, {now, requestId});
     // '이번만 뒤로'는 미루려고 누르는 것이라, 그 직후에 자동 투입하면
     // 미룬 대진이 곧바로 다른 코트로 들어가 기능이 무의미해집니다.
     // 경기 취소는 '없던 일로' 되돌리는 것이라, 그 코트에 바로 다른 대진을 밀어넣으면
-    // 운영자가 상황을 정리할 틈이 없습니다. 자동 투입 결과를 관리자 원본이 받을 경로도
-    // 없어 서버에만 경기가 생겨 갈라집니다(2026-08-04 실측). 빈 코트는 다음 주기에 찹니다.
+    // 운영자가 상황을 정리할 틈이 없습니다. 빈 코트는 다음 주기에 찹니다.
     if(!['official-queue-yield','official-active-yield','official-court-cancel'].includes(request.type)){
-      autoEnterFreeCourts(session, now, requestId, request.actorPlayerId);
+      const autoEntries = autoEnterFreeCourts(session, now, requestId, request.actorPlayerId);
+      if(autoEntries.length){
+        operation.result = {...(operation.result || {}), autoEntries:autoEntries.map(autoEnterResult)};
+      }
     }
   }
   session.serverRevision = beforeRevision + 1;
