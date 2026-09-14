@@ -4,7 +4,7 @@
 
 ## 원칙
 - **실제 배포 주소**(https://kimminhyun22.github.io/badminton/)에서 브라우저 도구로 한다.
-- **운영자의 실제 관리자 브라우저에서 돌리지 않는다.** 아래 정리 스니펫은 링크를 종료하고 로컬을 초기화한다. 시작 가드가 진행 중 세션을 감지하면 멈춘다.
+- **운영자의 실제 관리자 브라우저에서 돌리지 않는다.** 아래 정리 스니펫은 링크를 종료하고 로컬을 초기화한다. 시작 가드가 진행 중 세션이나 실제 명부를 감지하면 멈춘다. 같은 브라우저의 탭은 저장소를 공유하므로 명부가 비어 있는 **새 프로필**(또는 시크릿 창)에서 한다 — 불러오기는 세션 클럽 → 회원 있는 첫 클럽 순으로 고르므로, 다른 명부가 있으면 엉뚱한 클럽을 불러온다.
 - 관리자 탭은 **처음부터 끝까지 열어 둔다** — 추종자는 열려 있을 때만 돈다.
 - 임원 동작은 **임원 화면의 실제 전송기**(`sendOfficial*` 또는 화면 버튼)로 한다. 페이로드를 손으로 만들지 않는다(PITFALLS 4).
 - 사람은 가명만(E2E임원, E2E가…). 끝나면 반드시 정리한다.
@@ -16,6 +16,7 @@
 ```js
 // 가드: 진행 중 세션이나 참가자가 있으면 멈춘다
 if(_dailyCheckinId || _dailyPlayers.length) throw new Error('이 브라우저에 진행 중 세션/참가자가 있습니다 — E2E 중단');
+if(rosters.clubs.some(c=>c.name!=='E2E테스트' && (c.members||[]).length)) throw new Error('실제 명부가 있는 브라우저입니다 — 새 프로필에서 하세요');
 JSON.stringify({버전:document.querySelector('meta[name=app-version]')?.content, 명부클럽:rosters.clubs.map(c=>c.name)})
 ```
 
@@ -70,16 +71,20 @@ JSON.stringify({도착:out, 서버리비전:session?.serverRevision, 알림:wind
 
 ## 4. 관리자 탭 — 따라왔는지
 ```js
-await new Promise(r=>setTimeout(r,4000));
-const s=(await _fbDb.ref(_dailyCheckinPath()+'/session').once('value')).val()||{};
-const count=(ps,st)=>(ps||[]).filter(p=>p.status===st).length;
+// 리비전이 따라올 때까지 최대 20초 기다린 뒤 선수별로 대조한다
+const read=async()=>(await _fbDb.ref(_dailyCheckinPath()+'/session').once('value')).val()||{};
+let s=await read();
+for(let i=0;i<20&&_dailyServerRevision!==s.serverRevision;i++){ await new Promise(r=>setTimeout(r,1000)); s=await read(); }
+const byId=ps=>Object.fromEntries((ps||[]).map(p=>[p.id,p.status]));
+const a=byId(_dailyPlayers), b=byId(s.players);
+const 상태차이=Object.keys({...a,...b}).filter(id=>a[id]!==b[id]).map(id=>`${id}:${a[id]}≠${b[id]}`);
 JSON.stringify({관리자리비전:_dailyServerRevision, 서버리비전:s.serverRevision, 동기화오류:_dailyServerReconcileError||'',
-  게시:[_dailyOperationStarted, s.event?.operationStarted], 현장:[count(_dailyPlayers,'wait'), count(s.players,'wait')],
+  게시:[_dailyOperationStarted, s.event?.operationStarted], 상태차이,
   만료일후:Math.round((Number(s.expiresAt||0)-Date.now())/864e5)})
 ```
 합격 기준:
-- 두 리비전이 같고 동기화 오류가 비어 있다.
-- 바꾼 사실(게시 표시·선수 상태·코트)이 관리자와 서버에서 같다.
+- 두 리비전이 같고, 동기화 오류가 비어 있고, `상태차이` 가 빈 배열이다.
+- 바꾼 사실(게시 표시·코트)이 관리자와 서버에서 같다.
 - 관리자가 한 번 더 게시해도(`await dailyPushCheckinSession()`) 서버 값이 되돌아가지 않는다(추종자 패턴 2~4).
 
 ## 5. 시간이 필요한 시험 (버리는 세션에서만)
@@ -90,7 +95,11 @@ const t=Date.now()-5*3600e3;
 await _fbDb.ref(_dailyCheckinPath()+'/session/event/operationStartedAt').set(t);
 _dailyOperationStartedAt=t; dailySave();
 ```
-그다음 임원 탭에서 마무리 → 코트 종료로 진행 코트·대기표를 비우고 「새 운동일 시작」을 누른다(`sendOfficialSessionRollover`). 관리자 탭에서 `_dailyRolloverAt` 이 서버 `rolloverAt` 과 같아지는지 본다.
+그다음 임원 탭에서 마무리 → 코트 종료로 진행 코트·대기표를 비우고 「새 운동일 시작」을 누른다(`sendOfficialSessionRollover`). 관리자 탭에서 `_dailyRolloverAt` 이 서버 `rolloverAt` 과 같아지는지 본다. 보관 기록도 따로 확인한다 — 콜러블이 저장 성공을 기다리지 않는다:
+```bash
+firebase database:get /liveArchive/checkin_<세션ID> --project kokmatch-23b31 --shallow
+```
+지금은 임원 화면이 진행 코트가 하나라도 있으면 롤오버 버튼을 막으므로, 4시간 넘은 미종료 코트를 접는 서버 경로는 화면에서 닿지 않는다(BACKLOG 결함 2).
 
 ## 6. 정리 (반드시)
 ```js
@@ -108,7 +117,12 @@ JSON.stringify({정리한세션:sid, 이후세션:_dailyCheckinId||'', 이후선
 # 롤오버를 시험했으면 세션 밖 보관 전문도 지운다
 firebase database:remove /liveArchive/checkin_<세션ID> --project kokmatch-23b31 --force
 ```
-임원 탭을 닫고, `WORKLOG.md` 에 세션 ID·결과·정리 완료를 적는다.
+정리 스니펫은 예외를 삼키므로 로컬 출력만으로 원격 삭제를 확정할 수 없다. 두 경로가 `null` 인지 확인한다:
+```bash
+firebase database:get /live/checkin_<세션ID> --project kokmatch-23b31
+firebase database:get /liveArchive/checkin_<세션ID> --project kokmatch-23b31
+```
+그다음 임원 탭을 닫고, `WORKLOG.md` 에 세션 ID·결과·정리 완료를 적는다.
 
 ## 지금까지 돌린 시나리오
 | 날짜 | 시나리오 | 결과 |

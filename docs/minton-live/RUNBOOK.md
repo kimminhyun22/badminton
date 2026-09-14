@@ -42,6 +42,8 @@ firebase deploy --only functions --project kokmatch-23b31
 ```
 - `--only functions` 를 절대 빼지 않는다. 빼면 DB 규칙까지 배포된다(운영자 보류 중).
 - 정적과 서버가 같이 바뀌면 **서버 먼저**. 새 화면이 옛 서버에 새 명령을 보내면 거절된다.
+- 호환성: 서버는 옛 화면과 새 화면을 모두 받게 **추가만** 한다. 명령·필드를 없애는 변경은 화면을 먼저 내리고 다음 배포에서 서버를 정리한다.
+- 새 능력 표시는 관리자 게시로만 실린다. 관리자 없이 롤오버로 이어지는 상시 세션에는 관리자가 새 버전으로 한 번 게시해야 새 버튼이 뜬다 — 배포 보고에 적어 운영자에게 알린다.
 - 팀전 콜러블도 함께 올라간다. 팀전 테스트까지 통과한 상태에서만 배포한다.
 
 ## 6. 되돌리기
@@ -50,7 +52,7 @@ git revert <커밋>
 git push origin main
 firebase deploy --only functions --project kokmatch-23b31    # 서버를 바꾼 커밋이었다면
 ```
-히스토리를 고치지 않는다(force push 금지). `STABLE_VERSIONS.md` 의 안정 태그는 지금 코드와 거리가 멀어 비상용이다.
+되돌리기는 배포의 **역순**이다: 정적을 먼저 되돌려 새 화면이 새 명령을 그만 보내게 한 뒤 서버를 되돌린다. 히스토리를 고치지 않는다(force push 금지). `STABLE_VERSIONS.md` 의 안정 태그는 지금 코드와 거리가 멀어 비상용이다.
 
 ## 7. 실배포 E2E
 서버 명령·관리자 추종·게시 경로를 건드렸으면 필수. 절차와 스니펫은 `E2E.md`.
@@ -61,6 +63,7 @@ firebase database:get /live/checkin_<ID> --project kokmatch-23b31 > ../_handoff/
 node tools/audit-live-session.js ../_handoff/live-<ID>.json
 ```
 - 인당 게임 분포·공정성 잔차·게임 소요·팀 밸런스·반복·대기를 본다.
+- 롤오버로 접힌 지난 운동은 세션에 없다. `firebase database:get /liveArchive/checkin_<ID> --project kokmatch-23b31` 로 받는다. 보관은 최근 80경기까지의 기록과 선수 id·이름·경기 수뿐이라(급수 없음) 감사 도구로는 게임 수·소요시간 같은 일부 항목만 나온다.
 - **세션 JSON에는 실명이 있다. 리포 안에 저장·커밋하지 않는다.** 리포 밖 `../_handoff/` 에 둔다.
 
 ## 9. 현장 피드백 처리
@@ -73,3 +76,4 @@ node tools/audit-live-session.js ../_handoff/live-<ID>.json
 ## 10. 기록
 - `WORKLOG.md` 맨 위: 날짜·버전 / 요청(원문 요지) / 무엇을 왜 / 검증(검사 결과 줄·배포 버전·E2E) / 남은 것.
 - 감리가 필요한 변경이면 `AUDIT-LOG.md` 에 「감리 요청」 줄.
+- 배포 뒤 WORKLOG·AUDIT-LOG 갱신도 커밋·푸시한다(문서만 바뀐 커밋은 버전을 올리지 않는다).

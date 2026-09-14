@@ -6,7 +6,8 @@
 - 증상: 서버는 적용했는데 관리자 화면 리비전이 멈추고 「서버 운영 기록 일부를 관리자 원본에 연결하지 못했습니다」 또는 「지원하지 않는 임원 운영 요청」.
 - 목록: ① 엔진 `SUPPORTED_TYPES` ② 엔진 `applyByType`(되돌리기는 `applyUndo`) ③ 관리자 `_dailyOfficialRequestError` ④ 관리자 `dailyProcessCheckinRequests`(인라인 처리 또는 라우팅 배열) ⑤ 라우팅 배열에 올렸다면 `_dailyApplyAdminOperation` 분기 ⑥ 임원 화면 `sendOfficial*` 전송기 + 게시 페이로드의 능력 표시(`capabilities`).
 - 사례: 2026-09-13 `official-operation-start` 가 라우팅 배열에서 빠짐 — 실배포 E2E가 잡았다.
-- 막는 검사: `tests/daily-command-lists-parity-regression.js`(①~⑥ 대조, 훼손 시험 6종 확인).
+- 그 밖에 볼 곳(검사가 대조하지 않는다): 관리자 중복 재생 판정 `_dailyServerOperationAlreadyApplied`, 재생 결과의 `preserveLocalQueue` 분류, 임원 화면 결과 표시 `officialRequestStateHtml`, 명령 크기 상한 `MAX_COMMAND_BYTES`(24KiB — 여러 명을 한 명령에 담을 때).
+- 막는 검사: `tests/daily-command-lists-parity-regression.js` — 명령 목록 여섯 곳과 임원 화면 입구, 일시정지 분류의 화면 두 벌 일치(서버 `PAUSED_FLOW_TYPES` 의 부분집합)를 대조한다(훼손 시험 7종 확인). **문자열 대조라 능력 표시 누락·버튼 호출 단절은 못 잡는다** — 그 둘은 동작 테스트와 실배포 E2E로 본다.
 
 ## 2. 관리자 추종자가 서버를 조용히 되돌린다 (다섯 패턴)
 관리자는 자기 로컬 상태로 게시본을 다시 만들어 올린다. 아래 중 하나만 있어도 서버에서 바뀐 것이 다음 게시에 사라진다.
@@ -18,8 +19,9 @@
 - 확인법: 「서버에 있는데 내 페이로드에 없는 키」「서버보다 짧아질 수 있는 값」「조건부로만 덮는 헬퍼」「날짜·시간으로 지우는 로드 로직」을 먼저 grep 한다. 통째 리셋은 재생이 아니라 채택으로 따른다.
 - 막는 검사: `tests/daily-official-delegation-regression.js` 의 정적 핀. 최종 확인은 관리자 탭을 켠 실배포 E2E.
 
-## 3. 상태 게이트는 두 겹이다
+## 3. 행위자 상태 게이트는 네 곳이다
 - 래퍼 `functions/daily-official-command.js`(`applyCommandTransaction`)와 엔진 `validateCommon` 이 각자 행위자 상태를 본다. 엔진만 고치면 래퍼에서 거절된다(2026-09-14 설계 검토에서 발견).
+- 서버 밖에도 둘 더 있다: 클레임 `applyOfficialClaimTransaction` 은 도착 전(`invited`·`planned`) 임원의 연결을 거절하고, 임원 화면 `isLiveOperatorPlayer` 는 운영 도구를 감춘다. 새 예외는 네 곳을 함께 본다.
 - 막는 검사: `tests/daily-official-delegation-regression.js` 의 래퍼 경로 케이스.
 
 ## 4. 같은 검사가 두 벌이면 둘 다 고친다
@@ -40,6 +42,7 @@
 ## 8. 만든 것과 닿는 것은 다르다
 - 같은 이름의 옛 함수가 파일 뒤쪽에 남아 새 함수를 덮어, 한 시간 동안 실행조차 안 됐다(2026-08-08). 검증 분기가 엉뚱한 함수 안에 있어 한 번도 불리지 않은 일도 있었다.
 - 새 분기는 실제로 불리는지 호출해서 확인한다. 소스에 문자열이 있는지 보는 검사는 이 둘을 구별하지 못한다.
+- 화면 조건이 서버보다 좁아도 같은 일이 생긴다: 서버는 4시간 넘은 미종료 코트를 접고 롤오버하지만, 임원 화면 `sessionRolloverEligible` 은 진행 코트가 하나라도 있으면 버튼을 막는다(2026-09-14 코덱스 수용 시험에서 발견, BACKLOG 결함 2).
 
 ## 9. 숨겨진 문구를 지우고 「정리했다」고 보고
 - CSS(`display:none`)·단계 게이팅이 이미 감추던 문구를 중복이라 지웠다(2026-09-03). 화면은 하나도 안 바뀌었다. 보고 전에 배포본 스크린샷으로 확인한다.

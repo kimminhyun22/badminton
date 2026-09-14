@@ -13,6 +13,7 @@
  *           ⑤ 그 안의 라우팅 배열 → ⑥ _dailyApplyAdminOperation 분기 (⑤ = ⑥)
  *   임원    ⑦ checkin.html 이 보내는 type 은 전부 ①에 있어야 한다
  *           ⑧ 관리자 전용이 아닌 명령은 임원 화면에 입구가 있어야 한다 (예외는 아래 표에 이유와 함께)
+ *   정지    ⑨ 정지 중 막는 명령: 관리자 목록 = 임원 화면 목록, 둘 다 서버 PAUSED_FLOW_TYPES 의 부분집합
  *
  * 훼손 시험용: PARITY_ROOT=<다른 사본 경로> 로 사본을 검사할 수 있다.
  */
@@ -112,4 +113,16 @@ assert.deepStrictEqual(minus(needEntry, checkinMentions), [],
   `⑧ 임원에게 열린 명령인데 임원 화면에 입구가 없습니다: ${minus(needEntry, checkinMentions)} — 입구를 만들거나 OFFICIAL_SCREEN_EXEMPT 에 이유와 함께 적으세요.`);
 Object.keys(OFFICIAL_SCREEN_EXEMPT).forEach(t => assert(supported.has(t), `예외 표의 ${t} 는 이제 서버에 없습니다 — 표에서 지우세요.`));
 console.log(`  임원 화면: 전송 ${sent.size}종, 입구 필요 ${needEntry.size}종 모두 있음 (예외 ${Object.keys(OFFICIAL_SCREEN_EXEMPT).length})`);
+// ── 일시정지 분류 ─────────────────────────────────────
+// 정지 중 막을 명령 목록이 관리자·임원 화면에 두 벌 있다. 둘이 다르면 한쪽 화면만 버튼을 막는다.
+// 서버는 이보다 넓게 막는다(2026-09-14 기준 서버 23종 · 화면 13종 — 나머지는 누르면 서버가 거절, BACKLOG).
+const pausedServer = quotedTypes(slice(engine, 'const PAUSED_FLOW_TYPES', ']);', 'PAUSED_FLOW_TYPES'));
+const pausedAdmin = quotedTypes(fnBody(daily, '_dailyFlowOperationType'));
+const pausedOfficial = quotedTypes(fnBody(checkin, 'officialFlowOperationType'));
+assert(pausedAdmin.size >= 10 && pausedServer.size >= 10, `일시정지 분류를 제대로 읽지 못했습니다(관리자 ${pausedAdmin.size} · 서버 ${pausedServer.size})`);
+assert.deepStrictEqual(sorted(pausedAdmin), sorted(pausedOfficial),
+  `⑨ 정지 중 막는 명령이 두 화면에서 다릅니다 — 관리자만: ${minus(pausedAdmin, pausedOfficial)} · 임원 화면만: ${minus(pausedOfficial, pausedAdmin)}`);
+assert.deepStrictEqual(minus(pausedAdmin, pausedServer), [],
+  `⑨ 화면은 정지 중 막는데 서버는 받는 명령: ${minus(pausedAdmin, pausedServer)}`);
+console.log(`  일시정지 분류: 두 화면 ${pausedAdmin.size}종 일치, 서버 ${pausedServer.size}종에 포함`);
 console.log('daily-command-lists-parity-regression: ok');

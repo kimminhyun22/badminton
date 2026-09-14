@@ -12,7 +12,7 @@
 | 팀전 (범위 밖) | `team.html` · `js/team.js` · `css/team.css` · `rsvp.html` · `view.html` · `js/live-view.js` · `css/live.css` · `quiz.html` · `functions/team-*.js` | 운영자가 직접 요청할 때만 |
 | 동결 | `database.rules.json` | 수정·배포 금지 |
 
-`index.html` 이 민턴LIVE 관리자 화면이자 앱의 기본 시작 화면이다. `functions/index.js` 에는 팀전 콜러블도 함께 있다 — functions 배포는 팀전 서버도 함께 올린다는 뜻이다.
+`index.html` 이 민턴LIVE 관리자 화면이자 앱의 기본 시작 화면이다. `functions/index.js` 에는 팀전 콜러블도 함께 있다 — functions 배포는 팀전 서버도 함께 올린다는 뜻이다. 버전 올리기(`scripts/bump-version.js`)는 팀전 파일의 버전 문자열도 바꾸는데, 이것은 허용된 예외다.
 
 ## 2. 절대 하지 않는 것
 
@@ -29,15 +29,16 @@
 1. 고친다. 먼저 `docs/minton-live/PITFALLS.md` 에서 해당 항목을 읽는다.
 2. 버전: `node scripts/bump-version.js 1.10.<다음>` — 11개 파일을 한 번에 바꾼다. 현재 버전은 README 「현재 버전」 줄.
 3. 검사: `node scripts/test-all.js` — 전부 통과. 판정은 종료 코드로 한다(`| tail` 로 받으면 실패해도 뒤 명령이 이어진다). 새 동작엔 테스트를 붙이고, 고친 줄을 되돌리면 그 테스트가 깨지는지 **훼손 시험**을 한 번 한다.
-4. 커밋(영어 명령문 제목, 왜 바꿨는지 드러나게) → `git push origin main` → 1~3분 뒤 배포본 버전 확인.
-5. `functions/` 를 바꿨으면 서버 배포(정적보다 먼저). 정적 푸시만으로는 서버가 바뀌지 않는다.
-6. 서버 명령·관리자 추종·게시 경로를 건드렸으면 **실배포 E2E(관리자 탭을 켜 둔 채 임원 링크로 끝까지)** 까지가 완료다.
-7. `docs/minton-live/WORKLOG.md` 맨 위에 무엇·왜·검증·남은 것을 적는다.
+4. 커밋(영어 명령문 제목, 왜 바꿨는지 드러나게).
+5. `functions/` 를 바꿨으면 **먼저** 서버 배포. 정적 푸시만으로는 서버가 바뀌지 않고, 새 화면이 옛 서버에 새 명령을 보내면 거절된다.
+6. `git push origin main` → 1~3분 뒤 배포본 버전 확인.
+7. 서버 명령·관리자 추종·게시 경로를 건드렸으면 **실배포 E2E(관리자 탭을 켜 둔 채 임원 링크로 끝까지)** 까지가 완료다.
+8. `docs/minton-live/WORKLOG.md` 맨 위에 무엇·왜·검증·남은 것을 적고, 이 기록도 커밋·푸시한다.
 
 ## 4. 이미 여러 번 터진 것 (새 코드 전에 확인)
 
-- **새 임원 명령은 여섯 곳**: 엔진 `SUPPORTED_TYPES`·`applyByType`, 관리자 `_dailyOfficialRequestError`(재검사)·`dailyProcessCheckinRequests`(재생·라우팅 배열)·`_dailyApplyAdminOperation`(처리), 임원 화면 전송기(+능력 표시). `tests/daily-command-lists-parity-regression.js` 가 대조한다.
-- **상태 게이트는 두 겹**: 래퍼 `functions/daily-official-command.js` 와 엔진. 예외를 넣으면 둘 다.
+- **새 임원 명령은 여섯 곳**: 엔진 `SUPPORTED_TYPES`·`applyByType`, 관리자 `_dailyOfficialRequestError`(재검사)·`dailyProcessCheckinRequests`(재생·라우팅 배열)·`_dailyApplyAdminOperation`(처리), 임원 화면 전송기(+능력 표시). `tests/daily-command-lists-parity-regression.js` 가 대조한다(능력 표시·버튼 연결·중복 재생 판정은 대조하지 못한다 — PITFALLS 1).
+- **행위자 상태 게이트는 네 곳**: 래퍼 `functions/daily-official-command.js`, 엔진 `validateCommon`, 클레임 `functions/daily-official-claim.js`, 임원 화면 `isLiveOperatorPlayer`. 예외를 넣으면 넷 다 본다.
 - **관리자 화면은 서버의 추종자다**: 추론하지 않는다 · 서버 소유 키를 지우지 않는다 · 서버 값보다 짧게 만들지 않는다 · 「있으면 안 덮음」 헬퍼를 조심한다 · 날짜로 세션 정체를 지우지 않는다. 통째 리셋(롤오버)은 재생이 아니라 채택.
 - **같은 검사가 두 벌**(서버·관리자): 한쪽만 넓히면 서버가 적용한 명령을 관리자가 거절해 동기화가 멈춘다.
 - 요청 페이로드에 `type` 같은 예약 필드를 다른 뜻으로 싣지 않는다(명령 종류를 덮는다).
