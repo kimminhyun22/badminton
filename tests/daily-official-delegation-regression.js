@@ -199,7 +199,7 @@ assert(!/_dailyMarkFourCacheDirty\(\);\n\s*_dailyMarkOperationStarted\(\);\n\s*_
 // 2026-09-13 실배포 실측: ①③만 고치면 ②에서 흘려보내 리비전이 멈추고
 // 「서버 운영 기록 일부를 관리자 원본에 연결하지 못했습니다」가 떴다.
 {
-  const routing = daily.match(/\[\s*'official-player-remove'[\s\S]{0,700}?\]\.includes\(req\.type\)\)\{\s*const ok=_dailyApplyAdminOperation\(req\);/);
+  const routing = daily.match(/\[\s*'official-roster-setup'[\s\S]{0,900}?\]\.includes\(req\.type\)\)\{\s*const ok=_dailyApplyAdminOperation\(req\);/);
   assert(routing, '관리자 운영 명령 라우팅 배열을 찾을 수 있어야 합니다.');
   assert(routing[0].includes("'official-operation-start'"),
     '라우팅 배열에 official-operation-start 가 없으면 관리자 화면이 임원의 게시를 흘려보냅니다.');
@@ -282,7 +282,7 @@ function playedSession(){
 assert(daily.includes('officialSessionRolloverV1:!!_dailyOfficialInviteHash'), '게시 페이로드에 롤오버 능력 표시가 있어야 합니다.');
 assert(/\[\s*'official-settings-update'[\s\S]{0,700}'official-session-rollover'[\s\S]{0,300}\]\.includes\(req\.type\)/.test(daily), '허용 목록에 롤오버가 있어야 합니다.');
 {
-  const routing = daily.match(/\[\s*'official-player-remove'[\s\S]{0,800}?\]\.includes\(req\.type\)\)\{\s*const ok=_dailyApplyAdminOperation\(req\);/);
+  const routing = daily.match(/\[\s*'official-roster-setup'[\s\S]{0,1000}?\]\.includes\(req\.type\)\)\{\s*const ok=_dailyApplyAdminOperation\(req\);/);
   assert(routing && routing[0].includes("'official-session-rollover'"), '라우팅 배열에 롤오버가 있어야 합니다.');
 }
 assert(daily.includes("if(req.type==='official-session-rollover'){") && daily.includes('_dailyRolloverAt>=Number(result.sessionRollover.at)'),
@@ -302,8 +302,10 @@ assert(daily.includes('rolloverAt:_dailyRolloverAt,') && daily.includes('_dailyR
 const engine = fs.readFileSync(path.join(__dirname, '..', 'functions', 'daily-official-engine.js'), 'utf8');
 assert(engine.includes('const STANDING_SESSION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;') && !engine.includes('OPERATION_START_SESSION_TTL_MS'),
   '시작과 롤오버는 같은 30일 창을 써야 합니다(9일은 연휴 한 번에 만료).');
-assert(/rolloverCommand && !adminClaim && !actor\?\.isClubOfficial/.test(engine) && /!rolloverCommand && !adminClaim && \['invited','planned','done'\]/.test(engine),
-  '상태 게이트는 롤오버만 비켜 가고, 롤오버는 클럽 임원만 보내야 합니다.');
+assert(/rolloverCommand && !adminClaim && !actor\?\.isClubOfficial/.test(engine)
+  && engine.includes('const setupBeforeStart = rosterSetupCommand')
+  && /!rolloverCommand && !setupBeforeStart && !adminClaim && \['invited','planned','done'\]/.test(engine),
+  '상태 게이트는 롤오버와 게시 전 정식 임원의 명부 설정만 비켜 가야 합니다.');
 // ── 임원 화면 (정적 핀) ──
 assert(checkin.includes('function officialRolloverCardHtml(player)') && checkin.includes('${officialRolloverCardHtml(p)}'), '새 운동일 시작 카드가 있어야 합니다.');
 assert(/officialRolloverCardHtml[\s\S]{0,500}officialSessionRolloverV1!==true\)return ''/.test(checkin), '카드는 능력 표시가 있을 때만.');
@@ -343,8 +345,9 @@ assert(checkin.includes('function sessionRolloverEligible()') && /isLiveOperator
   console.log('  래퍼 경로: 종료 임원 롤오버 commit · 다른 명령은 차단');
 }
 const cmdSrc = fs.readFileSync(path.join(__dirname, '..', 'functions', 'daily-official-command.js'), 'utf8');
-assert(cmdSrc.includes("!== 'official-session-rollover' && ['invited','planned','done'].includes(currentStatus)"),
-  '래퍼의 상태 게이트도 롤오버만 비켜 가야 합니다.');
+assert(cmdSrc.includes("const rosterSetupBeforeStart = String(storedCommand?.type || '') === 'official-roster-setup'")
+  && cmdSrc.includes("!== 'official-session-rollover' && !rosterSetupBeforeStart && ['invited','planned','done'].includes(currentStatus)"),
+  '래퍼의 상태 게이트도 롤오버와 게시 전 정식 임원의 명부 설정만 비켜 가야 합니다.');
 
 // ── 설계 검토(2026-09-14)에서 실재로 확인된 것들 ──
 // C5: 지난주 미종료 코트(4시간 넘음)는 롤오버를 막지 않고 「미종료」로 접힌다. 4시간 안 된 경기는 막는다.

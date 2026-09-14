@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.664';
+const APP_VERSION = '1.10.665';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -441,6 +441,7 @@ function _dailyEffectiveNow(){return _dailyPaused&&_dailyPausedAt?_dailyPausedAt
 function _dailyPauseLabel(){return _dailyPauseReason||DAILY_PAUSE_REASON;}
 function _dailyFlowOperationType(type){
   return [
+    'official-roster-setup',
     'official-player-arrival',
     'official-player-add',
     'official-player-add-cancel',
@@ -7247,7 +7248,7 @@ function _dailyCheckinPayload(){
     voteDeadlineAt:'',
     voteDeadlineTs:null,
     voteClosed:false,
-    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,memberStatusServerV1:!!_dailyOfficialInviteHash,temporaryOfficialV1:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialLiveAdditionCancelV1:!!_dailyOfficialInviteHash,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueHoldV1:!!_dailyOfficialInviteHash,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationStartV1:!!_dailyOfficialInviteHash,officialSessionRolloverV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
+    capabilities:{officialOpsV1:true,officialOpsServerV2:!!_dailyOfficialInviteHash,memberStatusServerV1:!!_dailyOfficialInviteHash,temporaryOfficialV1:!!_dailyOfficialInviteHash,officialArrivalV1:true,officialRosterSetupV1:!!_dailyOfficialInviteHash,officialLiveAdditionCancelV1:!!_dailyOfficialInviteHash,officialPartnerOpsV1:true,officialQueueYieldV1:true,officialQueueYieldOneStepV1:true,officialQueueHoldV1:!!_dailyOfficialInviteHash,officialQueueCardOpsV1:true,officialAutoHandoffV1:!!_dailyOfficialInviteHash,officialOperationStartV1:!!_dailyOfficialInviteHash,officialSessionRolloverV1:!!_dailyOfficialInviteHash,officialOperationUndoV1:true,pauseV1:true,afterPartyV1:true},
     event:_dailyPublicEvent(),
     arrivalCandidates:_dailyOfficialArrivalCandidates(),
     // 오늘 클럽은 이름으로 실어 보냅니다. 후보 배열의 '첫 번째 항목'으로 추측하게
@@ -8376,6 +8377,13 @@ function _dailyServerOperationAlreadyApplied(req){
     return !!(p&&p.status==='wait'&&Number(p.lastStatusAt||0)===operationAt);
   }
   if(req.type==='official-player-add')return !!_dailyPlayer(req.playerId);
+  if(req.type==='official-roster-setup'){
+    const rows=req.serverResult?.rosterSetup?.players;
+    return !!(Array.isArray(rows)&&rows.length&&rows.every(row=>{
+      const p=_dailyPlayer(row?.id);
+      return p&&String(p.status||'')===String(row.status||'')&&Number(p.lastStatusAt||0)===Number(row.lastStatusAt||0);
+    }));
+  }
   if(req.type==='official-player-add-cancel'){
     const mode=req.serverResult?.playerAddCancel?.mode||((req.liveAddedOrigin||'')==='existing'?'revert':'hide');
     const p=_dailyPlayer(req.playerId);
@@ -8423,12 +8431,15 @@ function _dailyServerOperationAlreadyApplied(req){
 function _dailyOfficialRequestError(req){
   const actor=_dailyPlayer(req.actorPlayerId);
   const temporaryRoleCommand=['official-temporary-grant','official-temporary-revoke'].includes(req.type);
+  const rosterSetupCommand=req.type==='official-roster-setup';
   // 관리자가 보낸 명령은 actorPlayerId 가 비어 있습니다(관리자는 명단에 선수로 없음).
   // 서버가 이미 적용한 것이면 임원 본인 확인 대신 그 자격으로 받습니다.
   // 서버 validateCommon 의 adminClaim 과 같은 규칙이어야 합니다 — 한쪽만 넓히면
   // 서버는 통과시킨 명령을 관리자 원본이 다시 거절해 화면이 멈춥니다(2026-08-04 실측).
   const serverAdmin=!!req.serverAppliedAt&&!req.actorPlayerId;
-  if(temporaryRoleCommand){
+  if(rosterSetupCommand){
+    if(!serverAdmin&&(!actor||!actor.isClubOfficial))return '오늘 명단 일괄 설정은 클럽 임원만 할 수 있습니다.';
+  }else if(temporaryRoleCommand){
     if(!serverAdmin&&(!actor||!actor.isClubOfficial))return '운영 도우미 지정은 관리자 또는 정식 클럽 임원만 할 수 있습니다.';
   }else if(!serverAdmin&&(!actor||(!actor.isClubOfficial&&!actor.isTemporaryOfficial))){
     return '현재 운영 권한이 있는 회원만 운영 지원을 사용할 수 있습니다.';
@@ -8448,6 +8459,12 @@ function _dailyOfficialRequestError(req){
     if(p.currentMatchId)return '이미 경기에 배정된 선수입니다.';
     if(!Object.prototype.hasOwnProperty.call(req,'expectedLastStatusAt'))return '선수의 최신 상태를 다시 확인해야 합니다.';
     if(Number(req.expectedLastStatusAt)!==Number(p.lastStatusAt||0))return '선수 상태가 이미 바뀌었습니다.';
+    return '';
+  }
+  if(req.type==='official-roster-setup'){
+    const rows=req.serverResult?.rosterSetup?.players;
+    if(!req.serverAppliedAt)return '오늘 명단 일괄 설정은 서버에서 확인한 뒤 적용합니다.';
+    if(!Array.isArray(rows)||!rows.length)return '서버에서 확정한 오늘 명단을 확인하지 못했습니다.';
     return '';
   }
   if(req.type==='official-player-add'){
@@ -8677,6 +8694,52 @@ function _dailyApplyOfficialStatus(req){
 function _dailyApplyAdminOperation(req){
   const result=req.serverResult||{};
   const at=Number(req.serverAppliedAt||req.createdAt||_dailyNow());
+  if(req.type==='official-roster-setup'){
+    const rows=result.rosterSetup?.players;
+    if(!Array.isArray(rows)||!rows.length)return false;
+    for(const row of rows){
+      const id=String(row?.id||'');
+      if(!id||!row?.name)return false;
+      let p=_dailyPlayer(id);
+      if(!p){
+        p=_dailyNormalize({...row,id,status:row.status||'planned'});
+        p.id=id;
+        _dailyPlayers.push(p);
+      }
+      p.memberId=String(row.memberId||p.memberId||'');
+      p.name=String(row.name||p.name||'');
+      p.grade=String(row.grade||p.grade||'C');
+      p.level=Number.isFinite(Number(row.level))?Number(row.level):Number(p.level||4);
+      p.gender=row.gender==='F'||row.gender==='여'?'F':'M';
+      p.ageGroup=String(row.ageGroup||p.ageGroup||'40대');
+      p.club=String(row.club||p.club||'');
+      p.isGuest=row.isGuest===true;
+      p.isClubOfficial=row.isClubOfficial===true;
+      p.isTemporaryOfficial=row.isTemporaryOfficial===true;
+      p.status=_dailyNormalizeStatus(row.status||'planned');
+      p.statusLabel=row.statusLabel||_dailyCheckinStatusLabel(p.status);
+      p.preArrivalVisible=row.preArrivalVisible===true;
+      p.registrationCancelled=row.registrationCancelled===true;
+      p.locked=false;
+      p.currentMatchId='';
+      p.afterMatchStatus=null;
+      p.joinedAt=Number(row.joinedAt||p.joinedAt||at);
+      p.waitFrom=Number(row.waitFrom||p.waitFrom||at);
+      p.lastStatusAt=Number(row.lastStatusAt||at);
+      p.restPausedMs=Number(row.restPausedMs||0);
+      [
+        'arrivalConfirmedBy','arrivalConfirmedByName','arrivalConfirmedAt','arrivalConfirmedSource',
+        'liveAddedAt','liveAddedBy','liveAddedByName','liveAddedSource','liveAddedOrigin',
+        'liveAddedCandidateKey','liveAddedOperationId'
+      ].forEach(key=>{
+        const value=row[key];
+        if(value!==''&&value!==0&&value!=null)p[key]=value;
+        else delete p[key];
+      });
+    }
+    _dailyNext=null;
+    return true;
+  }
   // 코트 번호 정정(2026-08-13): 서버가 정한 결과를 그대로 옮깁니다. 맞바꾼
   // 상대 경기가 있으면 그 번호도 함께 되돌려 놔야 두 경기가 같은 번호에 섭니다.
   if(req.type==='official-court-renumber'){
@@ -8966,7 +9029,7 @@ function dailyProcessCheckinRequests(){
       const preserveLocalQueue=!!(
         req.serverAppliedAt
         &&_dailyCheckinNeedsPublish
-        &&['official-player-arrival','official-player-add','official-player-add-cancel','official-player-status','member-player-status','official-partner-reservation','official-partner-cancel'].includes(req.type)
+        &&['official-roster-setup','official-player-arrival','official-player-add','official-player-add-cancel','official-player-status','member-player-status','official-partner-reservation','official-partner-cancel'].includes(req.type)
       );
       if(req.serverAppliedAt&&ok&&hasQueueSync&&!preserveLocalQueue&&!_dailyApplyServerQueueSync(req)){
         ok=false;
@@ -9066,7 +9129,7 @@ function dailyProcessCheckinRequests(){
           finishOfficial(req,ok,'운영 설정 변경을 관리자 원본에 연결하지 못했습니다.',true);
           return;
         }
-        if(['official-player-remove','official-player-rename','official-player-create',
+        if(['official-roster-setup','official-player-remove','official-player-rename','official-player-create',
             'official-player-official',
             'official-queue-delete','official-queue-regenerate','official-reservation-promote',
             'official-finish-mode','official-court-cancel','official-manual-match',
@@ -9281,7 +9344,7 @@ function dailyProcessCheckinRequests(){
       const isMemberServer=req.type==='member-player-status';
       const isQueueYield=req.type==='queue-yield'||req.type==='queue-defer';
       const isQueueCourt=req.type==='queue-enter-free'||req.type==='queue-rest-pass';
-      const appliedBy=['official-player-arrival','official-player-add'].includes(req.type)?'club-official-arrival':req.type==='official-player-add-cancel'?'club-official-add-cancel':isOfficial?'club-official-support':isMemberServer?'member-server-status':req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':isQueueCourt?'member-queue-court':'member-auto-reservation';
+      const appliedBy=req.type==='official-roster-setup'?'club-official-roster-setup':['official-player-arrival','official-player-add'].includes(req.type)?'club-official-arrival':req.type==='official-player-add-cancel'?'club-official-add-cancel':isOfficial?'club-official-support':isMemberServer?'member-server-status':req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':isQueueCourt?'member-queue-court':'member-auto-reservation';
       if(ref)ref.update({appliedAt:now,appliedBy,serverReconcilePending:false,reconciledAt:req.serverAppliedAt?now:null}).catch(()=>{});
     });
     autoRejected.forEach(req=>{
@@ -9291,7 +9354,7 @@ function dailyProcessCheckinRequests(){
       const isQueueYield=req.type==='queue-yield'||req.type==='queue-defer';
       const isQueueCourt=req.type==='queue-enter-free'||req.type==='queue-rest-pass';
       const reason=req._completeRejectReason||(!isQueueYield&&!isQueueCourt?_dailyReservationRequestError(req):'자동 처리 조건 불충족')||'자동 등록 조건 불충족';
-      const ignoredBy=['official-player-arrival','official-player-add'].includes(req.type)?'club-official-arrival':req.type==='official-player-add-cancel'?'club-official-add-cancel':isOfficial?'club-official-support':isMemberServer?'member-server-status':req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':isQueueCourt?'member-queue-court':'member-auto-reservation';
+      const ignoredBy=req.type==='official-roster-setup'?'club-official-roster-setup':['official-player-arrival','official-player-add'].includes(req.type)?'club-official-arrival':req.type==='official-player-add-cancel'?'club-official-add-cancel':isOfficial?'club-official-support':isMemberServer?'member-server-status':req.type==='court-complete'?'member-court-complete':req.type==='court-complete-undo'?'member-court-undo':isQueueYield?'member-queue-yield':isQueueCourt?'member-queue-court':'member-auto-reservation';
       if(ref)ref.update({ignoredAt:now,ignoredBy,reason,serverReconcilePending:false,reconciledAt:req.serverAppliedAt?now:null}).catch(()=>{});
     });
     if(superseded.length||autoApplied.length||autoRejected.length){
@@ -10600,7 +10663,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.664&from=daily';
+  location.href='team.html?v=1.10.665&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

@@ -56,7 +56,10 @@ function applyOfficialClaimTransaction(current, input){
   }else if(!inviteToken || !sameHex(invite.tokenHash, sha256(inviteToken))){
     return abort('permission-denied', '임원 운영 연결이 올바르지 않습니다.');
   }
-  if(officialPlayer && ['invited','planned'].includes(text(officialPlayer.status))){
+  const rosterSetupClaim = officialPlayer?.isClubOfficial
+    && session.event?.operationStarted === false
+    && ['invited','planned'].includes(text(officialPlayer.status));
+  if(officialPlayer && ['invited','planned'].includes(text(officialPlayer.status)) && !rosterSetupClaim){
     return abort('failed-precondition', '관리자가 현장 참가를 등록한 뒤 임원 운영을 사용할 수 있습니다.');
   }
 
@@ -102,6 +105,11 @@ function applyOfficialClaimTransaction(current, input){
   session.expiresAt = Math.max(number(session.expiresAt), standingTo);
   invite.expiresAt = Math.max(number(invite.expiresAt), standingTo);
   session.officialInvite = invite;
+  // 예전 상시 링크도 관리자 재게시 없이 당일 명단 설정을 바로 쓸 수 있게 승격한다.
+  session.capabilities = session.capabilities && typeof session.capabilities === 'object'
+    ? session.capabilities
+    : {};
+  session.capabilities.officialRosterSetupV1 = true;
   return {
     action:'commit',
     current,

@@ -39,6 +39,7 @@ const TEMPORARY_OFFICIAL_LIMIT = 4;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
 const SUPPORTED_TYPES = new Set([
+  'official-roster-setup',
   'official-player-arrival',
   'official-player-add',
   'official-player-add-cancel',
@@ -85,6 +86,7 @@ const UNDOABLE_TYPES = new Set([
 ]);
 
 const PAUSED_FLOW_TYPES = new Set([
+  'official-roster-setup',
   'official-player-arrival',
   'official-player-add',
   'official-player-add-cancel',
@@ -1010,6 +1012,7 @@ function validateCommon(session, request, now, options){
     return {reason:'운영 권한은 선택한 임원 본인만 사용할 수 있습니다.'};
   }
   const temporaryRoleCommand = ['official-temporary-grant','official-temporary-revoke'].includes(request.type);
+  const rosterSetupCommand = request.type === 'official-roster-setup';
   // 운영 명령은 임원에게 전부 열렸습니다(운영자 2026-08-10 "관리자와 동일한
   // 기능 제공" — 임원의 게임 설정 자유는 최대로, 시스템은 사후 균형).
   // 관리자 전용으로 남는 것은 자격 부여뿐입니다 — 임원 자격은 보안 경계라
@@ -1038,7 +1041,16 @@ function validateCommon(session, request, now, options){
   if(rolloverCommand && !adminClaim && !actor?.isClubOfficial){
     return {reason:'새 운동일 시작은 클럽 임원만 할 수 있습니다.'};
   }
-  if(!rolloverCommand && !adminClaim && ['invited','planned','done'].includes(normalizeStatus(actor?.status))){
+  if(rosterSetupCommand && !adminClaim && !actor?.isClubOfficial){
+    return {reason:'오늘 명단 일괄 설정은 클럽 임원만 할 수 있습니다.'};
+  }
+  // 대진 게시 전에는 임원 본인도 아직 도착 전일 수 있다. 이때 명단을 불러와야
+  // 관리자 없이 당일 준비를 시작할 수 있으므로 정식 임원의 이 명령만 상태 게이트를 연다.
+  const setupBeforeStart = rosterSetupCommand
+    && session.event?.operationStarted === false
+    && actor?.isClubOfficial
+    && ['invited','planned'].includes(normalizeStatus(actor?.status));
+  if(!rolloverCommand && !setupBeforeStart && !adminClaim && ['invited','planned','done'].includes(normalizeStatus(actor?.status))){
     return {reason:'현장 참가 중인 임원 또는 운영 도우미만 운영 지원을 사용할 수 있습니다.'};
   }
   if(temporaryRoleCommand && !adminClaim && !actor?.isClubOfficial){
@@ -1158,6 +1170,153 @@ function applyArrival(session, request, now, requestId){
   markLiveAddition(session, player, request, now, 'existing', requestId);
   session.arrivalCandidates = session.arrivalCandidates.filter(item=>text(item.candidateKey) !== text(request.candidateKey));
   reprioritizePreparedForLateArrival(session, now);
+  return '';
+}
+
+function rosterSetupResultPlayer(player, candidateKey){
+  return clone({
+    candidateKey:text(candidateKey),
+    id:text(player.id),
+    memberId:text(player.memberId),
+    name:text(player.name),
+    grade:text(player.grade || 'C'),
+    level:number(player.level, 4),
+    gender:player.gender === 'F' || player.gender === '여' ? 'F' : 'M',
+    ageGroup:text(player.ageGroup || '40대'),
+    club:text(player.club),
+    status:normalizeStatus(player.status),
+    statusLabel:statusLabel(player.status),
+    preArrivalVisible:player.preArrivalVisible === true,
+    registrationCancelled:player.registrationCancelled === true,
+    isGuest:player.isGuest === true,
+    isClubOfficial:player.isClubOfficial === true,
+    isTemporaryOfficial:player.isTemporaryOfficial === true,
+    joinedAt:number(player.joinedAt),
+    waitFrom:number(player.waitFrom),
+    lastStatusAt:number(player.lastStatusAt),
+    restPausedMs:number(player.restPausedMs),
+    arrivalConfirmedBy:text(player.arrivalConfirmedBy),
+    arrivalConfirmedByName:text(player.arrivalConfirmedByName),
+    arrivalConfirmedAt:number(player.arrivalConfirmedAt),
+    arrivalConfirmedSource:text(player.arrivalConfirmedSource),
+    liveAddedAt:number(player.liveAddedAt),
+    liveAddedBy:text(player.liveAddedBy),
+    liveAddedByName:text(player.liveAddedByName),
+    liveAddedSource:text(player.liveAddedSource),
+    liveAddedOrigin:text(player.liveAddedOrigin),
+    liveAddedCandidateKey:text(player.liveAddedCandidateKey),
+    liveAddedOperationId:text(player.liveAddedOperationId)
+  });
+}
+
+// 정식 클럽 임원이 오늘 참가 명단을 한 번에 준비한다. 클라이언트는 후보 키와
+// 도착 상태만 보내고, 프로필과 임원 자격은 세션에 게시된 명부 스냅샷만 신뢰한다.
+// 먼저 전원을 검증한 뒤 적용하므로 잘못된 후보 하나가 섞여도 일부 등록은 생기지 않는다.
+function applyRosterSetup(session, request, now, requestId, operation){
+  if(session.event?.finishMode)return '마무리 전환 후에는 오늘 명단을 설정할 수 없습니다.';
+  const keys=Array.isArray(request.candidateKeys)?request.candidateKeys.map(text):[];
+  if(!keys.length)return '명부에서 등록할 선수를 선택해 주세요.';
+  if(keys.length>100)return '한 번에 등록할 수 있는 인원은 100명까지입니다.';
+  if(keys.some(key=>!key)||new Set(keys).size!==keys.length)return '선택한 명부 후보가 중복되었거나 올바르지 않습니다.';
+  const status=text(request.status);
+  if(!['wait','planned'].includes(status))return '참가 등록 상태를 다시 선택해 주세요.';
+
+  const primaryClub=text(session.arrivalClub).trim();
+  const resolved=[];
+  const targetIds=new Set();
+  const targetMembers=new Set();
+  const targetNames=new Set();
+  for(const candidateKey of keys){
+    let entry=null;
+    if(candidateKey.startsWith('player:')){
+      const playerId=candidateKey.slice(7);
+      const player=playerById(session,playerId);
+      if(!player||!['invited','planned'].includes(normalizeStatus(player.status))){
+        return '도착 전 선수 상태가 이미 바뀌었습니다. 명부를 다시 확인해 주세요.';
+      }
+      entry={candidateKey,kind:'existing',player};
+    }else if(candidateKey.startsWith('roster:')){
+      const candidate=session.arrivalCandidates.find(item=>text(item?.candidateKey)===candidateKey&&item?.kind==='roster');
+      if(!candidate||!text(candidate.memberId)||!text(candidate.name).trim()){
+        return '현재 클럽 명부에서 선택한 선수를 찾지 못했습니다.';
+      }
+      if(primaryClub&&text(candidate.club).trim()!==primaryClub){
+        return '현재 운동 클럽의 명부 선수만 일괄 등록할 수 있습니다.';
+      }
+      if(session.players.some(player=>text(player?.memberId)&&text(player.memberId)===text(candidate.memberId))
+        ||session.players.some(player=>text(player?.name).trim()===text(candidate.name).trim())){
+        return '이미 오늘 명단에 있는 선수가 포함되어 있습니다. 명부를 다시 확인해 주세요.';
+      }
+      entry={candidateKey,kind:'roster',candidate};
+    }else{
+      return '선택한 명부 후보 정보가 올바르지 않습니다.';
+    }
+    const id=entry.kind==='existing'?text(entry.player.id):'';
+    const memberId=entry.kind==='existing'?text(entry.player.memberId):text(entry.candidate.memberId);
+    const name=entry.kind==='existing'?text(entry.player.name).trim():text(entry.candidate.name).trim();
+    if((id&&targetIds.has(id))||(memberId&&targetMembers.has(memberId))||targetNames.has(name)){
+      return '같은 선수가 두 번 선택되었습니다. 명부를 다시 확인해 주세요.';
+    }
+    if(id)targetIds.add(id);
+    if(memberId)targetMembers.add(memberId);
+    targetNames.add(name);
+    resolved.push(entry);
+  }
+
+  const applied=[];
+  resolved.forEach((entry,index)=>{
+    let player;
+    if(entry.kind==='existing'){
+      player=entry.player;
+      player.status=status;
+      player.statusLabel=statusLabel(status);
+      player.preArrivalVisible=status==='planned';
+      player.registrationCancelled=false;
+      player.locked=false;
+      player.currentMatchId='';
+      player.afterMatchStatus='';
+      player.lastStatusAt=now;
+      player.restPausedMs=0;
+      if(status==='wait'){
+        player.joinedAt=now;
+        player.waitFrom=now;
+        player.arrivalConfirmedBy=request.actorPlayerId||'system-admin';
+        player.arrivalConfirmedByName=request.actorPlayerName||'';
+        player.arrivalConfirmedAt=now;
+        player.arrivalConfirmedSource='club-official-arrival';
+        markLiveAddition(session,player,{...request,candidateKey:entry.candidateKey},now,'existing',requestId);
+      }
+    }else{
+      const candidate=entry.candidate;
+      player={
+        id:`drs_${safeId(requestId).slice(-56)}_${index+1}`,
+        memberId:text(candidate.memberId),
+        name:text(candidate.name).trim(),
+        grade:text(candidate.grade||'C'),
+        level:number(candidate.level,4),
+        gender:candidate.gender==='F'||candidate.gender==='여'?'F':'M',
+        ageGroup:text(candidate.ageGroup||'40대'),
+        club:text(candidate.club),
+        status,statusLabel:statusLabel(status),preArrivalVisible:status==='planned',
+        registrationCancelled:false,games:0,fairExpected:0,mixedGames:0,typeTrackedGames:0,lastPlayedSeq:0,
+        partnerCount:{},opponentCount:{},partnerCountById:{},opponentCountById:{},
+        isGuest:false,isClubOfficial:candidate.isClubOfficial===true,isTemporaryOfficial:false,
+        locked:false,currentMatchId:'',afterMatchStatus:'',joinedAt:now,waitFrom:now,lastStatusAt:now,restPausedMs:0
+      };
+      if(status==='wait'){
+        player.arrivalConfirmedBy=request.actorPlayerId||'system-admin';
+        player.arrivalConfirmedByName=request.actorPlayerName||'';
+        player.arrivalConfirmedAt=now;
+        player.arrivalConfirmedSource='club-official-arrival';
+        markLiveAddition(session,player,{...request,candidateKey:entry.candidateKey},now,'roster',requestId);
+      }
+      session.players.push(player);
+    }
+    session.arrivalCandidates=session.arrivalCandidates.filter(item=>text(item?.candidateKey)!==entry.candidateKey);
+    applied.push(rosterSetupResultPlayer(player,entry.candidateKey));
+  });
+  if(status==='wait')reprioritizePreparedForLateArrival(session,now);
+  if(operation)operation.result={rosterSetup:{status,count:applied.length,players:applied}};
   return '';
 }
 
@@ -2736,6 +2895,7 @@ function applyActiveReplace(session, request, now, operation){
 
 function applyByType(session, request, now, requestId, operation, access = {}){
   switch(request.type){
+    case 'official-roster-setup': return applyRosterSetup(session, request, now, requestId, operation);
     case 'official-player-arrival': return applyArrival(session, request, now, requestId);
     case 'official-player-add': return applyPlayerAdd(session, request, now, requestId, operation);
     case 'official-player-add-cancel': return applyPlayerAddCancel(session, request, now, operation);
