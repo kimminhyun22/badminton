@@ -10,11 +10,12 @@
 
 ## 하루의 흐름
 
-1. **관리자 첫 게시**(한 번): 명부에서 참가자를 불러와 현장/도착 전을 나누고 게시 → 세션과 링크가 생긴다(`dailyPublishCheckinSession`).
-2. **임원 운영 준비**(게시 전): 참가 등록 → 진행 중 코트 등록(4명 고르기) → 「대진 게시」(`official-operation-start`). 이 순간부터 서버가 대기표를 짠다.
-3. **운영**: 임원·도우미가 경기 종료·교체·순서 조정·선수 상태를 처리한다. 서버 매치메이커가 빈 코트와 대기표를 자동 보충한다.
-4. **마무리**: `official-finish-mode` 로 새 대진 생성을 멈추고 남은 대진만 진행한다.
-5. **다음 주**: 클럽 임원이 「새 운동일 시작」(`official-session-rollover`). 같은 링크·같은 명단, 누른 임원만 현장이고 나머지는 도착 전. 관리자 게시가 다시 필요 없다.
+1. **관리자 기반 설정**(최초 한 번): 클럽 전체 명부와 정식 임원을 관리하고, 명부 스냅샷(`arrivalCandidates`)이 든 상시 세션·회원 링크를 만든다(`dailyPublishCheckinSession`).
+2. **임원 당일 명단 설정**(운영 시작 전): 도착 전 상태의 정식 임원도 같은 회원 링크로 연결할 수 있다. 「명부 불러오기」에서 오늘 선수를 여러 명 골라 `현장 참가` 또는 `도착 전`으로 한 번에 등록한다(`official-roster-setup`).
+3. **임원 게임 설정**: 코트 수 변경 → 진행 중 코트 등록(4명 고르기, 없으면 생략) → 「대진 게시」(`official-operation-start`). 이 순간부터 서버가 대기표를 짠다.
+4. **운영**: 임원·도우미가 경기 종료·교체·순서 조정·선수 상태를 처리한다. 서버 매치메이커가 빈 코트와 대기표를 자동 보충한다.
+5. **마무리**: `official-finish-mode` 로 새 대진 생성을 멈추고 남은 대진만 진행한다.
+6. **다음 운동일**: 클럽 임원이 「새 운동일 시작」(`official-session-rollover`). 같은 링크·같은 명단, 누른 임원만 현장이고 나머지는 도착 전. 관리자 게시가 다시 필요 없다.
 
 관리자 화면은 열려 있으면 서버를 따라가는 추종자로 동작하고, 닫혀 있어도 운영은 돈다.
 
@@ -22,7 +23,7 @@
 
 | 경로 | 내용 | 쓰는 쪽 |
 |---|---|---|
-| `live/checkin_<ID>/session` | 세션 원본: `players` · `event`(courts·active·next·expected·operationStarted·finishMode…) · `reservations` · `completedLog`(최근 80) · `archive`(최근 4, 요약) · `serverRevision` · `officialInvite` · `capabilities` · `expiresAt` · `rolloverAt` · `rolloverCount` | 관리자 게시 트랜잭션, 서버 명령 트랜잭션 |
+| `live/checkin_<ID>/session` | 세션 원본: `players` · `event`(courts·active·next·expected·operationStarted·finishMode…) · `arrivalClub`·`arrivalCandidates`(관리자 명부 스냅샷) · `reservations` · `completedLog`(최근 80) · `archive`(최근 4, 요약) · `serverRevision` · `officialInvite` · `capabilities` · `expiresAt` · `rolloverAt` · `rolloverCount` | 관리자 게시 트랜잭션, 서버 명령 트랜잭션 |
 | `live/checkin_<ID>/requests/<key>` | 회원·임원 요청과 서버 결과(`serverAppliedAt`·`serverRejectedAt`·`serverResult`). 행은 생성 15분 뒤 다음 명령 트랜잭션 때 정리(`pruneCommandLedger`) | 회원·임원 화면, 서버 |
 | `live/checkin_<ID>/serverCommands` · `serverOps` | 서버 명령 장부와 영수증(중복·재시도 판정, 되돌리기) | 서버 |
 | `live/checkin_<ID>/officialClaims/<clientId>` | 임원·관리자 연결(클레임) 기록 | 서버 |
@@ -36,7 +37,7 @@
 
 | 이름 | 하는 일 |
 |---|---|
-| `claimDailyOfficialInvite` | 임원·관리자 연결. 초대 토큰 또는 명부 신원으로 확인하고 grant 토큰을 준다. 성공할 때마다 세션·초대 만료를 30일 뒤로 민다(`functions/daily-official-claim.js` `applyOfficialClaimTransaction`) |
+| `claimDailyOfficialInvite` | 임원·관리자 연결. 초대 토큰 또는 명부 신원으로 확인하고 grant 토큰을 준다. 운영 시작 전에는 도착 전 상태의 정식 임원도 당일 명단 설정을 위해 연결할 수 있다. 성공할 때마다 세션·초대 만료를 30일 뒤로 밀고, 옛 상시 세션에도 `officialRosterSetupV1` 능력을 보강한다(`functions/daily-official-claim.js` `applyOfficialClaimTransaction`) |
 | `submitDailyOfficialRequest` | 임원·관리자 명령. `live/checkin_<ID>` 전체를 한 트랜잭션으로 → 래퍼 `applyCommandTransaction`(`functions/daily-official-command.js`) → 엔진 `applyOfficialRequest`(`functions/daily-official-engine.js`). 롤오버면 커밋 뒤 `liveArchive` 에 기록을 쓴다(기다리지 않고 실패를 삼킨다 — BACKLOG 결함 3). 명령 크기 상한 24KiB(`MAX_COMMAND_BYTES`) |
 | `submitDailyMemberStatusRequest` | 회원 본인 상태(휴식·복귀·종료) — `functions/daily-member-command.js` |
 | `getDailyOfficialReconcile` | 검증된 연결에 특정 리비전 이후 서버가 적용한 요청 행(`requests`)을 돌려준다. 관리자 추종자가 쓴다 |
@@ -46,18 +47,18 @@ grant 서명 비밀값 `OFFICIAL_GRANT_SECRET` 은 `defineSecret` 으로 주입�
 
 ## 명령 한 건의 길
 
-임원 화면 `sendOfficial*()`(29종) 또는 4명 고르기 시트 제출 → `pushOfficialRequest()` → 콜러블 `submitDailyOfficialRequest`
+임원 화면 `sendOfficial*()` 또는 4명 고르기·명부 불러오기 시트 제출 → `pushOfficialRequest()` → 콜러블 `submitDailyOfficialRequest`
 → 래퍼 `applyCommandTransaction`: 요청 행 확인·중복·**상태 게이트 1**
 → 엔진 `validateCommon`: grant 검증 → 관리자 전용 검사(`adminOnlyCommand`) → **상태 게이트 2** → `applyByType`(되돌리기 둘은 `applyUndo`)
 → `session.serverRevision + 1`, 요청 행에 결과 → 필요하면 `replenishPrepared` 로 대기표 보충
 
-- **상태 게이트**: 행위자가 `invited`·`planned`·`done` 이면 거절한다(도착 전·종료한 사람은 운영하지 못한다). 예외는 롤오버 하나 — 지난주 「종료」로 남은 클럽 임원이 보낼 수 있어야 해서 래퍼와 엔진 두 곳 모두 예외를 둔다. 서버 밖에서도 클레임(`applyOfficialClaimTransaction`, 도착 전 임원의 연결 거절)과 임원 화면(`isLiveOperatorPlayer`)이 같은 상태를 본다.
+- **상태 게이트**: 일반 명령은 행위자가 `invited`·`planned`·`done` 이면 거절한다. 예외는 둘이다. 운영 시작 전의 도착 전 정식 임원은 `official-roster-setup`으로 본인을 포함한 당일 명단을 등록할 수 있고, 지난 운동의 종료 상태 정식 임원은 `official-session-rollover`를 보낼 수 있다. 래퍼·엔진·클레임·임원 화면 네 곳이 같은 예외를 가져야 한다.
 - **관리자 명령**: 게시 뒤에는 관리자도 로컬을 직접 고치지 않고 같은 경로로 보낸다(`_dailySendAdminCommand`). 보내기 전에 먼저 게시해 서버가 모르는 경기를 만들지 않는다. 관리자 연결은 선수에 묶이지 않은 grant(`adminClaim`)라 행위자 게이트를 건너뛴다. 예외로 관리자가 세션에 직접 쓰는 곳이 둘 있다: 일시정지 상태 동기화(`_dailySyncPauseState`, 트랜잭션)와 도착 후보 명단(`_dailySyncArrivalCandidates` → `session/arrivalClub`·`arrivalCandidates`).
 - **지문**: 명령은 전제한 상태(`expectedPlayerIds`·`expectedStatus`·`expectedLastStatusAt` 등)를 싣고, 서버가 다르면 「이미 바뀌었습니다」로 거절한다. 동시 조작은 이것으로만 거른다.
 
-## 명령 목록 (엔진 `SUPPORTED_TYPES`, 34종)
+## 명령 목록 (엔진 `SUPPORTED_TYPES`, 35종)
 
-- 참가: `official-player-arrival` · `-add` · `-add-cancel` · `-unarrive` · `-status` · `-create` · `-rename` · `-remove`
+- 참가: `official-roster-setup` · `official-player-arrival` · `-add` · `-add-cancel` · `-unarrive` · `-status` · `-create` · `-rename` · `-remove`
 - 코트·경기: `official-court-complete` · `-cancel` · `-renumber` · `official-active-yield` · `official-active-replace` · `official-manual-match`(전환 등록 포함)
 - 대기표: `official-queue-enter-free` · `-yield` · `-hold` · `-resume` · `-replace` · `-add` · `-delete` · `-regenerate`
 - 파트너·신청: `official-partner-reservation` · `official-partner-cancel` · `official-reservation-promote`(관리자 화면에서만 씀)
@@ -71,12 +72,12 @@ grant 서명 비밀값 `OFFICIAL_GRANT_SECRET` 은 `defineSecret` 으로 주입�
 
 | 역할 | 연결 방법 | 범위 |
 |---|---|---|
-| 관리자 | 게시한 브라우저가 초대 토큰으로 클레임(`adminClaim`) | 전부 |
-| 클럽 임원 | 명부의 `isClubOfficial`. 회원 링크에서 본인을 고르면 명부 신원으로 클레임(`claimOfficialInvite`) | 관리자 전용 1종을 뺀 운영 명령 전부 + 롤오버 |
+| 관리자 | 게시한 브라우저가 초대 토큰으로 클레임(`adminClaim`) | 클럽 전체 명부·정식 임원·최초 상시 링크 기반과 예외 복구, 운영 명령 전부 |
+| 클럽 임원 | 명부의 `isClubOfficial`. 같은 회원 링크에서 본인을 고르면 명부 신원으로 클레임(`claimOfficialInvite`) | 당일 명부 일괄 설정부터 게임 설정·진행·롤오버까지. 관리자 전용 임원 자격 부여 1종 제외 |
 | 운영 도우미 | 클럽 임원이 현장 회원을 임시 지정(최대 4명, `isTemporaryOfficial`), 그 운동일에만 | 현장 진행(아래 표) |
 | 회원 | 링크에서 본인 선택 | 자기 상태·뒷풀이·확인 |
 
-도우미와 클럽 임원의 구분은 대부분 **임원 화면**이 건다(`sendOfficial*` 안의 `isClubOfficial` 검사). 서버가 따로 클럽 임원만 받는 것은 롤오버와 도우미 지정·해제이고, 관리자만 받는 것은 임원 자격 부여다. **알려진 결함**: 선수 추가(`official-player-create`)가 요청의 `isClubOfficial` 을 그대로 저장해 임원·도우미가 이 경계를 우회할 수 있다(BACKLOG 결함 1).
+도우미와 클럽 임원의 구분은 화면과 서버가 함께 건다. 서버가 정식 임원만 받는 것은 당일 명부 일괄 설정·롤오버·도우미 지정/해제이고, 관리자만 받는 것은 임원 자격 부여다. 선수 추가의 임원 자격은 요청값이 아니라 검증된 `adminClaim`만 신뢰하고, 일괄 명부 설정은 서버에 저장된 `arrivalCandidates`의 프로필만 신뢰한다.
 
 ## 관리자 화면 = 서버 추종자
 
@@ -90,9 +91,9 @@ grant 서명 비밀값 `OFFICIAL_GRANT_SECRET` 은 `defineSecret` 으로 주입�
 
 ## 능력 표시 (`capabilities`)
 
-임원 화면의 버튼은 게시 페이로드의 능력 표시가 켜져 있어야 뜬다. 옛 관리자가 게시한 세션에서 새 버튼이 헛돌지 않게 하는 장치다. 현재 17종: `officialOpsV1` · `officialOpsServerV2` · `memberStatusServerV1` · `temporaryOfficialV1` · `officialArrivalV1` · `officialLiveAdditionCancelV1` · `officialPartnerOpsV1` · `officialQueueYieldV1` · `officialQueueYieldOneStepV1` · `officialQueueHoldV1` · `officialQueueCardOpsV1` · `officialAutoHandoffV1` · `officialOperationStartV1` · `officialSessionRolloverV1` · `officialOperationUndoV1` · `pauseV1` · `afterPartyV1`. 새 임원 기능에 버튼을 달면 표시도 하나 늘린다.
+임원 화면의 버튼은 게시 페이로드의 능력 표시가 켜져 있어야 뜬다. 옛 관리자가 게시한 세션에서 새 버튼이 헛돌지 않게 하는 장치다. 현재 18종: `officialOpsV1` · `officialOpsServerV2` · `memberStatusServerV1` · `temporaryOfficialV1` · `officialArrivalV1` · `officialRosterSetupV1` · `officialLiveAdditionCancelV1` · `officialPartnerOpsV1` · `officialQueueYieldV1` · `officialQueueYieldOneStepV1` · `officialQueueHoldV1` · `officialQueueCardOpsV1` · `officialAutoHandoffV1` · `officialOperationStartV1` · `officialSessionRolloverV1` · `officialOperationUndoV1` · `pauseV1` · `afterPartyV1`. 새 임원 기능에 버튼을 달면 표시도 하나 늘린다.
 
-**상시 세션 주의**: 능력 표시는 관리자 게시 페이로드로만 실린다. 관리자 없이 롤오버로 이어지는 세션에는 관리자가 새 버전으로 한 번 게시하기 전까지 새 버튼이 뜨지 않는다(BACKLOG).
+**상시 세션 주의**: 일반 능력 표시는 관리자 게시 페이로드로 실린다. 이번 `officialRosterSetupV1`은 임원 클레임 때 서버가 옛 상시 세션에도 자동 보강한다. 앞으로 추가되는 능력도 같은 업그레이드 경로가 없으면 관리자 재게시 전까지 새 버튼이 뜨지 않는다(BACKLOG).
 
 ## 시간 상수
 
@@ -119,15 +120,16 @@ grant 서명 비밀값 `OFFICIAL_GRANT_SECRET` 은 `defineSecret` 으로 주입�
 ## 파일 지도 (grep 할 이름)
 
 - `js/daily.js`: 저장 `dailySave` · 단계 `_dailyUiStage` · 게시 `dailyPublishCheckinSession` `dailyPushCheckinSession` `_dailyWriteCheckinPayload` `_dailyCheckinPayload` · 명령 송신 `_dailySendAdminCommand` · 추종 `dailyProcessCheckinRequests` `_dailyOfficialRequestError` `_dailyApplyAdminOperation` `_dailyPullServerReconcile` `_dailyAdoptServerSnapshot` `_dailyMaybeAdoptRollover` · 교차일 `_dailyCanResumeCrossDay` · 임원 링크 빌더(`checkin.html?official=`) · 종료·초기화 `dailyStopCheckinLink` `dailyReset`.
-- `checkin.html`: 본인 선택 `selectPlayerIdentity` · 임원 연결 `claimOfficialInvite` · 송신 `pushOfficialRequest` · 운영 준비 `officialPrepPanelHtml` · 롤오버 카드 `officialRolloverCardHtml` · 운영 현황 `officialOperationsSummaryHtml` · 운영자 판정 `isLiveOperatorPlayer`.
-- `functions/daily-official-engine.js`: `applyOfficialRequest` · `validateCommon` · `applyByType` · `applyUndo` · `applyOperationStart` · `applySessionRollover`.
+- `checkin.html`: 본인 선택 `selectPlayerIdentity` · 임원 연결 `claimOfficialInvite` · 송신 `pushOfficialRequest` · 사전 세팅 판정 `sessionSetupEligible` · 명부 시트 `openOfficialRosterPick` `sendOfficialRosterSetup` · 운영 준비 `officialPrepPanelHtml` · 롤오버 카드 `officialRolloverCardHtml` · 운영 현황 `officialOperationsSummaryHtml` · 운영자 판정 `isLiveOperatorPlayer`.
+- `functions/daily-official-engine.js`: `applyOfficialRequest` · `validateCommon` · `applyByType` · `applyRosterSetup` · `applyUndo` · `applyOperationStart` · `applySessionRollover`.
 - `functions/daily-official-command.js` `applyCommandTransaction` · `functions/daily-official-claim.js` `applyOfficialClaimTransaction` · `functions/daily-server-matchmaker.js` · `functions/daily-member-command.js`.
 
 ## 관리자 · 클럽 임원 · 운영 도우미 (2026-09-14)
 
 | 영역 | 관리자 | 클럽 임원 | 운영 도우미 |
 |---|---|---|---|
-| 세션 첫 게시 | ○ | ✕ | ✕ |
+| 최초 상시 링크·명부 스냅샷 생성 | ○ | ✕ | ✕ |
+| 당일 명부 불러오기·현장/도착 전 일괄 등록 | ○ | ○ | ✕ |
 | 새 운동일 시작(롤오버) | 자동 채택 | ○ | ✕ |
 | 대진 게시 · 진행 중 코트 등록 | ○ | ○ | ✕ |
 | 도착 처리 | ○ | ○ | ○ |
@@ -142,5 +144,5 @@ grant 서명 비밀값 `OFFICIAL_GRANT_SECRET` 은 `defineSecret` 으로 주입�
 | 클럽 임원 자격 부여 | ○ | ✕ | ✕ |
 | 일시정지 | 재개만(시작 버튼은 2026-08-08 결정으로 없앴다) | ✕ | ✕ |
 | 자동대진·운영 시간 | ○ | ✕ (서버 명령 없음) | ✕ |
-| 명부 관리 · 백업 · 팀전 명단 가져오기 | ○ | ✕ | ✕ |
+| 클럽 전체 명부 편집 · 백업 · 팀전 명단 가져오기 | ○ | ✕ | ✕ |
 | 링크 종료 · 초기화 | ○ | ✕ | ✕ |

@@ -10,7 +10,7 @@
 - 사람은 가명만(E2E임원, E2E가…). 끝나면 반드시 정리한다.
 - 스니펫은 페이지 콘솔(브라우저 도구의 JS 실행)에서 돈다. 페이지가 로드 직후 한 번 스스로 새로고침할 수 있으니 열고 3초쯤 기다린 뒤 실행한다.
 
-## 1. 관리자 탭 — 가드와 첫 게시
+## 1. 관리자 탭 — 최초 상시 링크 기반
 `https://kimminhyun22.github.io/badminton/index.html`
 
 ```js
@@ -21,7 +21,7 @@ JSON.stringify({버전:document.querySelector('meta[name=app-version]')?.content
 ```
 
 ```js
-// 가명 클럽 → 전원 현장 참가로 불러오기 → 첫 게시
+// 가명 클럽 → 정식 임원 한 명만 도착 전으로 등록 → 상시 링크 기반 생성
 window.confirm=()=>true; window.alert=()=>{};
 const mk=(name,grade,official)=>({name,grade,gender:'남',level:gradeToLevel(grade,'남'),ageGroup:'40대',isClubOfficial:!!official});
 rosters.clubs=rosters.clubs.filter(c=>c.name!=='E2E테스트');
@@ -29,14 +29,16 @@ rosters.clubs.push({name:'E2E테스트',members:[mk('E2E임원','C',true),mk('E2
 saveRosters(); try{renderClubList();}catch(e){}
 dailyImportRoster(); await new Promise(r=>setTimeout(r,500));
 const list=document.getElementById('dailyImportMemberList');
-[...list.querySelectorAll('input[type=checkbox]')].forEach(b=>{ if(!b.checked) b.click(); });
-importDailySelected('wait'); await new Promise(r=>setTimeout(r,800));
+[...list.querySelectorAll('label.import-member-row')].find(row=>row.textContent.includes('E2E임원'))?.querySelector('input')?.click();
+await importDailySelected('wait'); await new Promise(r=>setTimeout(r,800));
 if(_dailyPlayers.some(p=>!String(p.name).startsWith('E2E'))){ dailyReset(); throw new Error('가명 외 선수가 섞였습니다 — 초기화하고 중단'); }
+const official=_dailyPlayers.find(p=>p.name==='E2E임원');
+_dailyApplyPlayerStatus(official,'planned'); _dailySessionClubName='E2E테스트'; dailySave(); dailyRender();
 const id=await dailyPublishCheckinSession(true); await new Promise(r=>setTimeout(r,1500));
 const payload=_dailyCheckinPayload();
 JSON.stringify({세션ID:_dailyCheckinId, 임원ID:_dailyPlayers.find(p=>p.name==='E2E임원')?.id, 게시전:payload.event?.operationStarted, 능력:payload.capabilities})
 ```
-세션 ID와 임원 ID를 적어 둔다. 도착 전 선수가 필요한 시나리오면 불러온 뒤 관리자 화면에서 몇 명을 도착 전으로 되돌린다.
+세션 ID와 임원 ID를 적어 둔다. 이 관리 작업은 실제 운영에서는 최초 상시 링크를 만들 때 한 번만 필요하다.
 
 ## 2. 임원 탭 — 본인 확인
 `https://kimminhyun22.github.io/badminton/checkin.html?id=<세션ID>`
@@ -46,27 +48,26 @@ window.__msgs=[]; window.confirm=()=>true; window.alert=m=>window.__msgs.push(St
 selectPlayerIdentity('<임원ID>'); await new Promise(r=>setTimeout(r,3500));
 JSON.stringify({본인:getLastSent()?.playerName, 준비패널:!!document.querySelector('.official-prep'), 알림:window.__msgs})
 ```
-클럽 임원은 명부 신원으로 자동 연결된다(`claimOfficialInvite`). 준비 패널이 보이면 게시 전 상태다.
+클럽 임원은 명부 신원으로 자동 연결된다(`claimOfficialInvite`). 운영 시작 전이면 도착 전 상태여도 준비 패널과 `명부 불러오기`가 보여야 한다.
 
 ## 3. 시나리오 실행 (예시)
 ```js
-// 임원 탭: 대진 게시 (진행 중 코트는 준비 패널의 코트 버튼 → 4명 고르기 시트로 먼저 등록)
+// 임원 탭: 명부 전원 현장 등록 — 실제 시트·전송기
+openOfficialRosterPick('<임원ID>');
+toggleOfficialRosterSetupAll();
+await sendOfficialRosterSetup('<임원ID>','wait'); await new Promise(r=>setTimeout(r,5000));
+JSON.stringify({선수:(session?.players||[]).map(p=>p.name+':'+p.status), 서버리비전:session?.serverRevision,
+  내요청:(officialRequests||[]).slice(-2).map(r=>r.type+':'+(r.serverAppliedAt?'적용':r.serverRejectedAt?'거절':'대기')), 알림:window.__msgs})
+```
+전원 이름이 `E2E`로 시작하고 `wait`, 요청이 `official-roster-setup:적용`이어야 한다. 이어서 화면에서 코트 수를 바꾸고, 이미 뛰는 경기가 있으면 코트별 4명을 등록한다.
+
+```js
+// 임원 탭: 대진 게시
 const startBtn=document.querySelector('.official-prep-start');
 if(!startBtn||startBtn.disabled) throw new Error('게시 버튼이 없거나 비활성');
 startBtn.click(); await new Promise(r=>setTimeout(r,5000));
 JSON.stringify({게시됨:session?.event?.operationStarted, 진행중:(session?.event?.active||[]).length, 대기표:(session?.event?.next||[]).length,
   내요청:(officialRequests||[]).slice(-3).map(r=>r.type+':'+(r.serverAppliedAt?'적용':r.serverRejectedAt?'거절('+(r.serverReason||'')+')':'대기')), 알림:window.__msgs})
-```
-```js
-// 임원 탭: 도착 처리 3명 — 실제 전송기
-const me=(session?.players||[]).find(p=>p.name==='E2E임원'); const out=[];
-for(const nm of ['E2E가','E2E나','E2E다']){
-  const c=officialArrivalPlayers().find(x=>x.name===nm);
-  if(!c){ out.push(nm+':후보없음'); continue; }
-  await sendOfficialArrival(me.id, c.candidateKey); await new Promise(r=>setTimeout(r,3200));
-  out.push(nm+':'+((session?.players||[]).find(p=>p.name===nm)?.status||'?'));
-}
-JSON.stringify({도착:out, 서버리비전:session?.serverRevision, 알림:window.__msgs})
 ```
 
 ## 4. 관리자 탭 — 따라왔는지
@@ -130,3 +131,4 @@ firebase database:get /liveArchive/checkin_<세션ID> --project kokmatch-23b31
 | 2026-09-13 | 임원 운영 준비 → 코트 등록 → 대진 게시 → 선수 추가 → 서버 자동 투입, 관리자 추종 | 관리자 재생의 운영 시작 추론(659)·라우팅 배열 누락(660)을 잡았다 |
 | 2026-09-14 | 어제 게시 → 오늘 관리자 재로드 → 임원 대진 게시 → 게시 시각 되돌림 → 마무리·종료로 임원 done → 롤오버 → 관리자 채택 → 재게시 | 추종자 패턴 1~5 수정 확인 |
 | 2026-09-14 | 롤오버 뒤 실제 전송기로 도착 3건 → 관리자 리비전 추종 → 재게시 | 통과. 손으로 만든 페이로드의 가짜 결함을 가려냈다 |
+| 2026-09-14 | 도착 전 정식 임원 연결 → 명부 6명 일괄 현장 등록 → 코트 3→1 → 대진 게시 → 자동 투입 → 관리자 추종 | 통과. 세션 `DL3TR7JY`, 서버 revision 3, 진행 1·대기 0, 관리자 현장 6명 일치. `/live`·`liveArchive` 정리 뒤 모두 `null` 확인 |

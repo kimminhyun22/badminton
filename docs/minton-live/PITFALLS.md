@@ -21,8 +21,14 @@
 
 ## 3. 행위자 상태 게이트는 네 곳이다
 - 래퍼 `functions/daily-official-command.js`(`applyCommandTransaction`)와 엔진 `validateCommon` 이 각자 행위자 상태를 본다. 엔진만 고치면 래퍼에서 거절된다(2026-09-14 설계 검토에서 발견).
-- 서버 밖에도 둘 더 있다: 클레임 `applyOfficialClaimTransaction` 은 도착 전(`invited`·`planned`) 임원의 연결을 거절하고, 임원 화면 `isLiveOperatorPlayer` 는 운영 도구를 감춘다. 새 예외는 네 곳을 함께 본다.
-- 막는 검사: `tests/daily-official-delegation-regression.js` 의 래퍼 경로 케이스.
+- 서버 밖에도 둘 더 있다: 클레임 `applyOfficialClaimTransaction` 과 임원 화면의 운영자/사전 세팅 판정이다. 새 예외는 네 곳을 함께 본다.
+- 현재 예외: ① 운영 시작 전 `invited`·`planned` 정식 임원의 `official-roster-setup` ② 지난 운동의 종료 상태 정식 임원의 `official-session-rollover`. 첫 예외는 임시 도우미에게 열지 않는다.
+- 막는 검사: `tests/daily-official-delegation-regression.js` 의 래퍼 경로와 `tests/daily-official-roster-setup-regression.js` 의 사전 클레임·명령 케이스.
+
+## 3-1. 명부 일괄 설정은 요청 프로필을 믿지 않는다
+- 화면은 선택한 `candidateKeys`와 상태만 보낸다. 이름·급수·성별·임원 자격은 서버의 `arrivalCandidates`에서 다시 읽는다.
+- 후보 누락·다른 클럽·중복 키·100명 초과가 하나라도 있으면 전체 명령을 거절한다. 선수별 명령으로 쪼개 부분 성공을 남기지 않는다.
+- 막는 검사: `tests/daily-official-roster-setup-regression.js` 의 프로필 위조·누락·타 클럽·중복·원자성 케이스.
 
 ## 4. 같은 검사가 두 벌이면 둘 다 고친다
 - 서버와 관리자 재검사(`_dailyOfficialRequestError`)가 같은 규칙을 따로 가진다. 관리자 쪽이 더 좁으면 서버가 적용한 명령을 관리자가 거절하고, 그 뒤 모든 서버 결과가 관리자 화면에 안 들어온다(2026-08-04, 2026-08-09 실측).
