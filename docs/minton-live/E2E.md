@@ -1,0 +1,118 @@
+# 실배포 E2E
+
+관리자 추종 결함(PITFALLS 1·2·4)은 단위 테스트가 못 잡고 이 시험에서만 잡혔다. 서버 명령·관리자 추종·게시 경로를 바꿨으면 배포 뒤 반드시 돌린다.
+
+## 원칙
+- **실제 배포 주소**(https://kimminhyun22.github.io/badminton/)에서 브라우저 도구로 한다.
+- **운영자의 실제 관리자 브라우저에서 돌리지 않는다.** 아래 정리 스니펫은 링크를 종료하고 로컬을 초기화한다. 시작 가드가 진행 중 세션을 감지하면 멈춘다.
+- 관리자 탭은 **처음부터 끝까지 열어 둔다** — 추종자는 열려 있을 때만 돈다.
+- 임원 동작은 **임원 화면의 실제 전송기**(`sendOfficial*` 또는 화면 버튼)로 한다. 페이로드를 손으로 만들지 않는다(PITFALLS 4).
+- 사람은 가명만(E2E임원, E2E가…). 끝나면 반드시 정리한다.
+- 스니펫은 페이지 콘솔(브라우저 도구의 JS 실행)에서 돈다. 페이지가 로드 직후 한 번 스스로 새로고침할 수 있으니 열고 3초쯤 기다린 뒤 실행한다.
+
+## 1. 관리자 탭 — 가드와 첫 게시
+`https://kimminhyun22.github.io/badminton/index.html`
+
+```js
+// 가드: 진행 중 세션이나 참가자가 있으면 멈춘다
+if(_dailyCheckinId || _dailyPlayers.length) throw new Error('이 브라우저에 진행 중 세션/참가자가 있습니다 — E2E 중단');
+JSON.stringify({버전:document.querySelector('meta[name=app-version]')?.content, 명부클럽:rosters.clubs.map(c=>c.name)})
+```
+
+```js
+// 가명 클럽 → 전원 현장 참가로 불러오기 → 첫 게시
+window.confirm=()=>true; window.alert=()=>{};
+const mk=(name,grade,official)=>({name,grade,gender:'남',level:gradeToLevel(grade,'남'),ageGroup:'40대',isClubOfficial:!!official});
+rosters.clubs=rosters.clubs.filter(c=>c.name!=='E2E테스트');
+rosters.clubs.push({name:'E2E테스트',members:[mk('E2E임원','C',true),mk('E2E가','C'),mk('E2E나','C'),mk('E2E다','D'),mk('E2E라','D'),mk('E2E마','C')]});
+saveRosters(); try{renderClubList();}catch(e){}
+dailyImportRoster(); await new Promise(r=>setTimeout(r,500));
+const list=document.getElementById('dailyImportMemberList');
+[...list.querySelectorAll('input[type=checkbox]')].forEach(b=>{ if(!b.checked) b.click(); });
+importDailySelected('wait'); await new Promise(r=>setTimeout(r,800));
+if(_dailyPlayers.some(p=>!String(p.name).startsWith('E2E'))){ dailyReset(); throw new Error('가명 외 선수가 섞였습니다 — 초기화하고 중단'); }
+const id=await dailyPublishCheckinSession(true); await new Promise(r=>setTimeout(r,1500));
+const payload=_dailyCheckinPayload();
+JSON.stringify({세션ID:_dailyCheckinId, 임원ID:_dailyPlayers.find(p=>p.name==='E2E임원')?.id, 게시전:payload.event?.operationStarted, 능력:payload.capabilities})
+```
+세션 ID와 임원 ID를 적어 둔다. 도착 전 선수가 필요한 시나리오면 불러온 뒤 관리자 화면에서 몇 명을 도착 전으로 되돌린다.
+
+## 2. 임원 탭 — 본인 확인
+`https://kimminhyun22.github.io/badminton/checkin.html?id=<세션ID>`
+
+```js
+window.__msgs=[]; window.confirm=()=>true; window.alert=m=>window.__msgs.push(String(m));
+selectPlayerIdentity('<임원ID>'); await new Promise(r=>setTimeout(r,3500));
+JSON.stringify({본인:getLastSent()?.playerName, 준비패널:!!document.querySelector('.official-prep'), 알림:window.__msgs})
+```
+클럽 임원은 명부 신원으로 자동 연결된다(`claimOfficialInvite`). 준비 패널이 보이면 게시 전 상태다.
+
+## 3. 시나리오 실행 (예시)
+```js
+// 임원 탭: 대진 게시 (진행 중 코트는 준비 패널의 코트 버튼 → 4명 고르기 시트로 먼저 등록)
+const startBtn=document.querySelector('.official-prep-start');
+if(!startBtn||startBtn.disabled) throw new Error('게시 버튼이 없거나 비활성');
+startBtn.click(); await new Promise(r=>setTimeout(r,5000));
+JSON.stringify({게시됨:session?.event?.operationStarted, 진행중:(session?.event?.active||[]).length, 대기표:(session?.event?.next||[]).length,
+  내요청:(officialRequests||[]).slice(-3).map(r=>r.type+':'+(r.serverAppliedAt?'적용':r.serverRejectedAt?'거절('+(r.serverReason||'')+')':'대기')), 알림:window.__msgs})
+```
+```js
+// 임원 탭: 도착 처리 3명 — 실제 전송기
+const me=(session?.players||[]).find(p=>p.name==='E2E임원'); const out=[];
+for(const nm of ['E2E가','E2E나','E2E다']){
+  const c=officialArrivalPlayers().find(x=>x.name===nm);
+  if(!c){ out.push(nm+':후보없음'); continue; }
+  await sendOfficialArrival(me.id, c.candidateKey); await new Promise(r=>setTimeout(r,3200));
+  out.push(nm+':'+((session?.players||[]).find(p=>p.name===nm)?.status||'?'));
+}
+JSON.stringify({도착:out, 서버리비전:session?.serverRevision, 알림:window.__msgs})
+```
+
+## 4. 관리자 탭 — 따라왔는지
+```js
+await new Promise(r=>setTimeout(r,4000));
+const s=(await _fbDb.ref(_dailyCheckinPath()+'/session').once('value')).val()||{};
+const count=(ps,st)=>(ps||[]).filter(p=>p.status===st).length;
+JSON.stringify({관리자리비전:_dailyServerRevision, 서버리비전:s.serverRevision, 동기화오류:_dailyServerReconcileError||'',
+  게시:[_dailyOperationStarted, s.event?.operationStarted], 현장:[count(_dailyPlayers,'wait'), count(s.players,'wait')],
+  만료일후:Math.round((Number(s.expiresAt||0)-Date.now())/864e5)})
+```
+합격 기준:
+- 두 리비전이 같고 동기화 오류가 비어 있다.
+- 바꾼 사실(게시 표시·선수 상태·코트)이 관리자와 서버에서 같다.
+- 관리자가 한 번 더 게시해도(`await dailyPushCheckinSession()`) 서버 값이 되돌아가지 않는다(추종자 패턴 2~4).
+
+## 5. 시간이 필요한 시험 (버리는 세션에서만)
+롤오버는 게시 뒤 4시간이 지나야 한다. 게시 시각을 되돌린다 — 관리자 로컬도 같이 맞춰야 다음 게시가 되돌리지 않는다.
+```js
+// 관리자 탭
+const t=Date.now()-5*3600e3;
+await _fbDb.ref(_dailyCheckinPath()+'/session/event/operationStartedAt').set(t);
+_dailyOperationStartedAt=t; dailySave();
+```
+그다음 임원 탭에서 마무리 → 코트 종료로 진행 코트·대기표를 비우고 「새 운동일 시작」을 누른다(`sendOfficialSessionRollover`). 관리자 탭에서 `_dailyRolloverAt` 이 서버 `rolloverAt` 과 같아지는지 본다.
+
+## 6. 정리 (반드시)
+```js
+// 관리자 탭
+window.confirm=()=>true; window.alert=()=>{};
+const sid=_dailyCheckinId;
+try{ await dailyStopCheckinLink(); }catch(e){}
+await new Promise(r=>setTimeout(r,1200));
+try{ dailyReset(); }catch(e){}
+rosters.clubs=rosters.clubs.filter(c=>c.name!=='E2E테스트'); saveRosters(); try{renderClubList();}catch(e){}
+try{ localStorage.removeItem('daily_day_archive_v1'); }catch(e){}
+JSON.stringify({정리한세션:sid, 이후세션:_dailyCheckinId||'', 이후선수:_dailyPlayers.length, 남은클럽:rosters.clubs.map(c=>c.name)})
+```
+```bash
+# 롤오버를 시험했으면 세션 밖 보관 전문도 지운다
+firebase database:remove /liveArchive/checkin_<세션ID> --project kokmatch-23b31 --force
+```
+임원 탭을 닫고, `WORKLOG.md` 에 세션 ID·결과·정리 완료를 적는다.
+
+## 지금까지 돌린 시나리오
+| 날짜 | 시나리오 | 결과 |
+|---|---|---|
+| 2026-09-13 | 임원 운영 준비 → 코트 등록 → 대진 게시 → 선수 추가 → 서버 자동 투입, 관리자 추종 | 관리자 재생의 운영 시작 추론(659)·라우팅 배열 누락(660)을 잡았다 |
+| 2026-09-14 | 어제 게시 → 오늘 관리자 재로드 → 임원 대진 게시 → 게시 시각 되돌림 → 마무리·종료로 임원 done → 롤오버 → 관리자 채택 → 재게시 | 추종자 패턴 1~5 수정 확인 |
+| 2026-09-14 | 롤오버 뒤 실제 전송기로 도착 3건 → 관리자 리비전 추종 → 재게시 | 통과. 손으로 만든 페이로드의 가짜 결함을 가려냈다 |
