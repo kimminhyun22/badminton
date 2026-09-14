@@ -19,6 +19,12 @@
 - 확인법: 「서버에 있는데 내 페이로드에 없는 키」「서버보다 짧아질 수 있는 값」「조건부로만 덮는 헬퍼」「날짜·시간으로 지우는 로드 로직」을 먼저 grep 한다. 통째 리셋은 재생이 아니라 채택으로 따른다.
 - 막는 검사: `tests/daily-official-delegation-regression.js` 의 정적 핀. 최종 확인은 관리자 탭을 켠 실배포 E2E.
 
+## 2-1. 자동 운영 정책과 자동 투입 결과는 한 세트다
+- 증상: 코트가 여러 개인데 진행 경기는 1개뿐이고 다음 대진이 비어 있다. `operationStarted:true`만으로는 충분하지 않으며, `queuePolicy.auto:true`와 `queuePolicy.official:<코트 수>`가 함께 맞아야 매치메이커가 빈 코트를 채운다.
+- 게시되었고 마무리되지 않은 세션은 임원 게시·후속 조작·되돌리기에서 정책을 정규화한다. 그래야 옛 수동 운영값이 남은 세션도 다음 임원 조작으로 복구된다.
+- 서버가 여러 코트를 채웠다면 첫 경기 하나만 반환하지 않는다. 모든 `autoEntries`를 보내고, 관리자는 이를 모두 복원·시작한 뒤 `queueSync`를 적용한다. 순서를 바꾸면 서버와 관리자 진행 경기가 다시 달라진다.
+- 막는 검사: `tests/daily-official-delegation-regression.js`의 자동 꺼짐 3코트 게시·기존 1경기 정체·종료·되돌리기와 `tests/daily-admin-member-sync-regression.js`의 다중 자동 투입 순서·멱등 케이스. 최종 확인은 옛 수동 정책으로 만든 버리는 실배포 세션에서 게시 → 종료 → 되돌리기까지 본다.
+
 ## 3. 행위자 상태 게이트는 네 곳이다
 - 래퍼 `functions/daily-official-command.js`(`applyCommandTransaction`)와 엔진 `validateCommon` 이 각자 행위자 상태를 본다. 엔진만 고치면 래퍼에서 거절된다(2026-09-14 설계 검토에서 발견).
 - 서버 밖에도 둘 더 있다: 클레임 `applyOfficialClaimTransaction` 과 임원 화면의 운영자/사전 세팅 판정이다. 새 예외는 네 곳을 함께 본다.
