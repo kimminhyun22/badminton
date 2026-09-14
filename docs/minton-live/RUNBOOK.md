@@ -15,6 +15,8 @@ node scripts/test-all.js                    # 전체: tests/*.js + functions 문
 node scripts/test-all.js daily- checkin-    # 파일 이름으로 골라서
 ```
 - 기준은 전부 통과. 실패를 「오탐」이라 넘기기 전에 테스트 기준이 낡았는지 본다.
+- 판정은 **종료 코드**로 한다. `node scripts/test-all.js | tail -3 && git commit …` 은 실패해도 커밋·푸시까지 간다 — 2026-09-14 실제로 94/95 상태를 푸시했다. `node scripts/test-all.js && git commit …` 처럼 실행기 자체의 종료 코드에 잇는다.
+- README·안내 문구를 고쳐도 테스트가 깨질 수 있다. 몇몇 테스트가 운영 원칙 문장을 고정해 둔다(`grep -l README tests/*.js`).
 - 새 동작에는 테스트를 붙인다. 문자열 핀만으로 끝내지 말고, 가능하면 엔진·함수를 실제로 돌리는 케이스를 둔다(예: `tests/daily-official-delegation-regression.js`).
 - **훼손 시험**: 고친 줄을 잠시 되돌려 새 테스트가 깨지는지 보고 원복한다. 사본으로 하려면 루트를 바꿀 수 있게 만든다(예: `PARITY_ROOT=<사본> node tests/daily-command-lists-parity-regression.js`).
 - 대진 로직을 바꿨으면 시뮬도 본다: `tests/sim-live.js` · `tests/daily-36p-150m-regression.js` · `tests/kokmatch-type-diagnosis.js`.
