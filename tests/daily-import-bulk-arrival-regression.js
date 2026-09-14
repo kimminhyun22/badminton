@@ -17,8 +17,11 @@ const path = require('path');
 const {applyOfficialRequest, issueOfficialGrant} = require('../functions/daily-official-engine');
 
 const root = path.join(__dirname, '..');
-const daily = fs.readFileSync(path.join(root, 'js', 'daily.js'), 'utf8');
-const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const sourceRoot = process.env.MINTON_IMPORT_SOURCE_ROOT
+  ? path.resolve(process.env.MINTON_IMPORT_SOURCE_ROOT)
+  : root;
+const daily = fs.readFileSync(path.join(sourceRoot, 'js', 'daily.js'), 'utf8');
+const index = fs.readFileSync(path.join(sourceRoot, 'index.html'), 'utf8');
 
 const NOW = 1_830_000_000_000;
 const SESSION_ID = 'DIMPORT1';
@@ -196,6 +199,7 @@ this.out=_dailyOfficialArrivalCandidates();`,sandbox);
     _dailyCheckinPath:()=>'live/checkin_TESTID',
     _fbDb:{ref:path=>({set:async value=>{writes.push({path,count:value?.length,value});}})},
     _dailyArrivalCandidatesSyncedHash:'',
+    _dailyServerSyncBusy:false,
     console
   });
   vm.runInContext(`${extractFunction(daily,'_dailyArrivalCandidatesHash')}
@@ -215,7 +219,16 @@ this.sync=_dailySyncArrivalCandidates;`,sandbox);
       '전체 게시가 아니라 오늘 클럽·후보 노드만 부분 쓰기해야 합니다 — 통째 쓰기는 8일 밤 사고의 경로입니다.');
     assert.strictEqual(writes[0].value,'일만클럽','부분 동기화가 기록된 오늘 클럽을 실어야 합니다.');
     assert(writes[1].count>0,'후보가 실제로 실려야 합니다.');
-    console.log('  후보 부분 동기화: 관리자 열림 시 1회 쓰기 · 중복 생략 · 부분 경로');
+    // 서버 결과를 관리자 원본에 합치는 중에는 뒤이어 전체 게시가 후보까지 싣습니다.
+    // 이때 자식 노드를 먼저 쓰면 Firebase 트랜잭션이 부분 세션을 소유권 불일치로
+    // 오인해 관리자 게시를 영구 정지합니다(실배포 E2E 2026-09-14).
+    sandbox._dailyServerSyncBusy=true;
+    sandbox._dailyArrivalCandidatesSyncedHash='';
+    const writeCount=writes.length;
+    const duringReconcile=await sandbox.sync();
+    assert.strictEqual(duringReconcile,true,'서버 추종 중 후보 동기화는 뒤이은 전체 게시에 맡겨야 합니다.');
+    assert.strictEqual(writes.length,writeCount,'서버 추종 중에는 후보 자식 노드를 먼저 쓰면 안 됩니다.');
+    console.log('  후보 부분 동기화: 관리자 열림 시 1회 쓰기 · 중복 생략 · 서버 추종 중 자식 쓰기 생략');
   })();
 
   // 배선: 소유 확인 직후와 명단 저장 브리지에서 동기화를 불러야 합니다.

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.663';
+const APP_VERSION = '1.10.664';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -7206,6 +7206,10 @@ function _dailyArrivalCandidatesHash(candidates){
 }
 async function _dailySyncArrivalCandidates(){
   if(!_dailyCheckinId||!_fbDb||!_dailyCheckinOwnershipVerified)return false;
+  // 서버 명령을 관리자 원본에 합치는 동안에는 곧 전체 세션을 다시 게시합니다.
+  // 이때 후보 자식 노드부터 쓰면 Firebase 로컬 캐시에 부분 세션이 생겨, 동시에
+  // 시작된 전체 게시 트랜잭션이 그것을 다른 링크로 오인할 수 있습니다.
+  if(_dailyServerSyncBusy)return true;
   try{
     const fresh=_dailyOfficialArrivalCandidates();
     const club=String(_dailyOfficialArrivalRoster()?.name||'');
@@ -10596,7 +10600,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.663&from=daily';
+  location.href='team.html?v=1.10.664&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
