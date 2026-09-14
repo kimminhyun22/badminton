@@ -82,8 +82,8 @@ function send(session, request, {admin=true}={}){
 // 1b) 임원 자격은 도착 전 등록을 거쳐도 살아 있어야 합니다.
 //     applyPlayerCreate 가 isClubOfficial 을 false 로 박아 두는 바람에, 도착 전
 //     일괄 등록으로 들어간 임원들이 현장에서 본인 이름을 골라도 임원으로 인식되지
-//     않았습니다(2026-08-10 실전: 도우미로 강등해 운영). 명령은 관리자 전용이라
-//     요청의 임원 표시를 믿습니다.
+//     않았습니다(2026-08-10 실전: 도우미로 강등해 운영). 관리자 연결로 보낸
+//     요청에서만 명부의 임원 표시를 옮깁니다.
 {
   const create=send(makeSession(), {type:'official-player-create',
     playerId:'dpv2_off1', name:'임원일', grade:'B', gender:'M',

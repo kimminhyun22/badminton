@@ -1053,7 +1053,7 @@ function validateCommon(session, request, now, options){
   if(session.event?.paused && PAUSED_FLOW_TYPES.has(request.type)){
     return {reason:'현재 진행이 일시 정지되어 있습니다. 재개 후 다시 처리해 주세요.'};
   }
-  return {actor};
+  return {actor, adminClaim};
 }
 
 function applyTemporaryOfficial(session, request, now, operation, enabled){
@@ -2269,7 +2269,7 @@ function applyPlayerRename(session, request, now, operation){
   return '';
 }
 
-function applyPlayerCreate(session, request, now, operation){
+function applyPlayerCreate(session, request, now, operation, adminClaim){
   if(session.event?.finishMode)return '마무리 전환 후에는 선수를 추가할 수 없습니다.';
   const name = text(request.name).trim();
   if(!name)return '추가할 선수 이름을 입력해 주세요.';
@@ -2304,10 +2304,9 @@ function applyPlayerCreate(session, request, now, operation){
     partnerCountById: {},
     opponentCountById: {},
     isGuest: request.isGuest === true,
-    // 도착 전 일괄 등록으로 들어온 임원의 자격을 여기서 지우면, 현장에서 이름을
-    // 골라도 임원으로 인식되지 않습니다(2026-08-10 실전: 임원들이 도우미로 강등됨).
-    // 이 명령은 관리자 전용이라 요청의 임원 표시를 믿어도 됩니다.
-    isClubOfficial: request.isClubOfficial === true,
+    // 선수 추가는 임원·운영 도우미도 쓰므로 요청의 자격 표시는 믿지 않습니다.
+    // 서버가 확인한 관리자 연결만 명부의 임원 자격을 옮길 수 있습니다.
+    isClubOfficial: adminClaim === true && request.isClubOfficial === true,
     isTemporaryOfficial: false,
     locked: false,
     currentMatchId: '',
@@ -2320,7 +2319,9 @@ function applyPlayerCreate(session, request, now, operation){
   session.players.push(player);
   // 도착 전 선수는 아직 뛰지 않으므로 라이브 추가로 기록하지 않습니다.
   if(status === 'wait')markLiveAddition(session, player, request, now, 'manual', text(request.operationId));
-  if(operation)operation.result = {playerCreate:{playerId, name, isGuest:player.isGuest, status}};
+  if(operation)operation.result = {playerCreate:{
+    playerId, name, isGuest:player.isGuest, isClubOfficial:player.isClubOfficial, status
+  }};
   return '';
 }
 
@@ -2733,7 +2734,7 @@ function applyActiveReplace(session, request, now, operation){
   return '';
 }
 
-function applyByType(session, request, now, requestId, operation){
+function applyByType(session, request, now, requestId, operation, access = {}){
   switch(request.type){
     case 'official-player-arrival': return applyArrival(session, request, now, requestId);
     case 'official-player-add': return applyPlayerAdd(session, request, now, requestId, operation);
@@ -2760,7 +2761,7 @@ function applyByType(session, request, now, requestId, operation){
     case 'official-player-remove': return applyPlayerRemove(session, request, now, operation);
     case 'official-player-official': return applyPlayerOfficial(session, request, now, operation);
     case 'official-player-rename': return applyPlayerRename(session, request, now, operation);
-    case 'official-player-create': return applyPlayerCreate(session, request, now, operation);
+    case 'official-player-create': return applyPlayerCreate(session, request, now, operation, access.adminClaim);
     case 'official-queue-delete': return applyQueueDelete(session, request, now, operation);
     case 'official-queue-regenerate': return applyQueueRegenerate(session, request, now, operation);
     case 'official-reservation-promote': return applyReservationPromote(session, request, now, operation);
@@ -2803,7 +2804,7 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
 
   const before = UNDOABLE_TYPES.has(request.type) && request.token ? operationalSnapshot(session) : null;
   const operation = {result:null};
-  const reason = applyByType(session, request, now, requestId, operation);
+  const reason = applyByType(session, request, now, requestId, operation, {adminClaim:common.adminClaim === true});
   if(reason)return {status:'rejected', reason, session:rawSession, serverOps:receipts};
   if(!['official-temporary-grant','official-temporary-revoke'].includes(request.type)){
     replenishPrepared(session, {now, requestId});
