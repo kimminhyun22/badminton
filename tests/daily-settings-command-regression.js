@@ -229,10 +229,17 @@ const applyEnd = daily.indexOf('function _dailyApplyTemporaryOfficial', applySta
 const applySource = daily.slice(applyStart, applyEnd);
 assert(applySource.includes('req.serverResult?.settings'),
   '보낸 값이 아니라 서버가 적용한 값을 받아야 합니다.');
-assert(checkin.includes('줄이면 초과 코트는 현재 경기 종료 후 닫힙니다.'),
-  '임원은 코트를 줄이기 전에 현재 경기 보존 방식을 알아야 합니다.');
-assert(checkin.includes("방금 투입된 경기는 2분 안에 '지금 닫기'로 되돌릴 수 있습니다."),
-  '코트 축소 입력창은 방금 자동 투입된 경기의 즉시 닫기 방법도 알려야 합니다.');
+const memberSettingsStart=checkin.indexOf('async function sendOfficialSettingsCourts');
+const memberSettingsEnd=checkin.indexOf('\nasync function ',memberSettingsStart+10);
+const memberSettingsSource=checkin.slice(memberSettingsStart,memberSettingsEnd);
+assert(checkin.includes('class="official-court-stepper"')
+  &&checkin.includes("sendOfficialSettingsCourts('${esc(player.id)}',-1)")
+  &&checkin.includes("sendOfficialSettingsCourts('${esc(player.id)}',1)"),
+  '임원 코트 수는 숫자 입력창이 아니라 −/+ 버튼으로 한 칸씩 바꿔야 합니다.');
+assert(memberSettingsSource.includes('if(![-1,1].includes(step))')&&!memberSettingsSource.includes('prompt('),
+  '임원 코트 변경은 임의 숫자를 받지 않고 한 코트 단위만 허용해야 합니다.');
+assert(memberSettingsSource.includes('코트는 경기 후 닫힘'),
+  '코트를 줄인 뒤에는 현재 경기를 보존하고 닫는 코트를 즉시 알려야 합니다.');
 assert(checkin.includes("drainingCourt?'지금 닫기':'이번만 뒤로'")&&checkin.includes('대진 1순위 복귀')&&checkin.includes("if(court>Math.max(1,Number(session?.event?.courts)||1))return true;"),
   '배수 중인 자동 투입 코트에는 대체 경기 없이도 지금 닫기 버튼이 보여야 합니다.');
 assert(checkin.includes("operation==='active-yield'&&getLastComplete()?.drainingCourt")&&checkin.includes('`${undoLabel} 취소 요청`'),

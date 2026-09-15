@@ -2792,6 +2792,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
 /* 이모지는 글자보다 살짝 크게, 한 칸 띄워서. 컬러 이모지라 파랑으로 채워진
    상태에서도 그대로 보입니다. */
 .official-overview-tool .ot-emo{margin-right:4px;font-size:14px;line-height:1;flex:none;}
+/* 코트 수는 현장에서 한 칸씩 바꾸므로 숫자 입력창 대신 바로 누르는 스테퍼로 둡니다. */
+.official-court-stepper{
+  display:grid;grid-template-columns:38px minmax(0,1fr) 38px;align-items:stretch;
+  min-width:0;min-height:44px;overflow:hidden;
+  border:1px solid var(--ob-hairline);border-radius:11px;background:#fff;
+  box-shadow:0 1px 2px rgba(20,32,50,.05);
+}
+.official-court-step{
+  display:flex;align-items:center;justify-content:center;min-width:0;min-height:44px;padding:0;
+  border:0;border-radius:0;background:#fff;color:var(--ob-blue-deep);
+  font:900 21px/1 -apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+  cursor:pointer;
+}
+.official-court-step:first-child{border-right:1px solid var(--ob-hairline);}
+.official-court-step:last-child{border-left:1px solid var(--ob-hairline);}
+.official-court-step:disabled{color:var(--ob-mut);opacity:.3;cursor:default;}
+.official-court-value{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;
+  color:var(--ob-ink);font-variant-numeric:tabular-nums;line-height:1;
+}
+.official-court-value b{font-size:16px;font-weight:900;}
+.official-court-value small{margin-top:2px;color:var(--ob-mut);font-size:12px;font-weight:800;}
 /* 코트 번호 정정 버튼 — 평소 배지와 같은 모습이되 누를 수 있음을 옅게 알립니다. */
 button.event-court-badge.editable{
   cursor:pointer;-webkit-tap-highlight-color:transparent;
@@ -2972,7 +2994,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.669">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.670">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2987,7 +3009,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.669</span>
+    <span class="version-chip" id="appVersion">v1.10.670</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3050,7 +3072,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.669';
+const APP_VERSION='1.10.670';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3771,6 +3793,7 @@ function officialOperationsSummaryHtml(player){
   const helperCount=(session?.players||[]).filter(row=>row?.isTemporaryOfficial&&!row.isClubOfficial).length;
   const rosterToolsOn=player.isClubOfficial;   // 관리자 동일 기능(2026-08-10)
   const blocked=eventFlowPaused()||!!sendingKey||claimingOfficial;
+  const courtCount=Math.max(1,Math.min(12,parseInt(session?.event?.courts,10)||1));
   // 쓰임새로 묶습니다(운영자 2026-08-13 "사용자 관점에서"): 윗줄은 명단을
   // 다루는 셋(선수 추가·이름 변경·제외), 아랫줄은 운영 설정 셋(코트 수·
   // 운영 도우미·마무리). 3열 두 줄로 고정해 묶음이 흐트러지지 않게 합니다.
@@ -3782,7 +3805,11 @@ function officialOperationsSummaryHtml(player){
     rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='add'?'active':''}" onclick="setOfficialOverviewMode('add')" aria-pressed="${officialOverviewMode==='add'?'true':'false'}">${emo('🙋')}선수 추가</button>`:'',
     rosterToolsOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='rename'?'active':''}" onclick="setOfficialOverviewMode('rename')" aria-pressed="${officialOverviewMode==='rename'?'true':'false'}">${emo('✏️')}이름 변경</button>`:'',
     rosterToolsOn?`<button type="button" class="official-overview-tool danger ${officialOverviewMode==='remove'?'active':''}" onclick="setOfficialOverviewMode('remove')" aria-pressed="${officialOverviewMode==='remove'?'true':'false'}">${emo('🚫')}제외</button>`:'',
-    rosterToolsOn?`<button type="button" class="official-overview-tool" ${blocked?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}')">${emo('🏸')}코트 ${Math.max(1,parseInt(session?.event?.courts,10)||1)}</button>`:'',
+    rosterToolsOn?`<div class="official-court-stepper" role="group" aria-label="사용 코트 수, 현재 ${courtCount}코트">
+      <button type="button" class="official-court-step" ${blocked||courtCount<=1?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}',-1)" aria-label="코트 수 줄이기, 현재 ${courtCount}코트" title="코트 수 줄이기">−</button>
+      <output class="official-court-value" aria-live="polite"><b>${courtCount}</b><small>코트</small></output>
+      <button type="button" class="official-court-step" ${blocked||courtCount>=12?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}',1)" aria-label="코트 수 늘리기, 현재 ${courtCount}코트" title="코트 수 늘리기">+</button>
+    </div>`:'',
     helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">${emo('🤝')}도우미${helperCount?` ${helperCount}`:''}</button>`:'',
     rosterToolsOn&&session?.event?.operationStarted!==false?`<button type="button" class="official-overview-tool ${session?.event?.finishMode?'active':''}" ${blocked?'disabled':''} onclick="sendOfficialFinishMode('${esc(player.id)}')" aria-pressed="${session?.event?.finishMode?'true':'false'}">${emo('🏁')}${session?.event?.finishMode?'마무리 해제':'마무리'}</button>`:''
   ].filter(Boolean).join('');
@@ -6588,15 +6615,14 @@ async function sendOfficialPlayerRemove(actorId,targetId){
     source:'club-official-player-remove'
   },`${target.name} 선수 제외`);
 }
-async function sendOfficialSettingsCourts(actorId){
+async function sendOfficialSettingsCourts(actorId,direction){
   const actor=officialActor(actorId);
   if(!actor||!actor.isClubOfficial)return toast('코트 수 변경은 클럽 임원만 할 수 있어요.');
   const current=Math.max(1,parseInt(session?.event?.courts,10)||1);
-  const raw=prompt(`현재 ${current}코트입니다.\n사용할 코트 수를 입력하세요 (1~12).\n줄이면 초과 코트는 현재 경기 종료 후 닫힙니다.\n방금 투입된 경기는 2분 안에 '지금 닫기'로 되돌릴 수 있습니다.`,String(current));
-  if(raw==null)return;
-  const next=parseInt(String(raw).trim(),10);
-  if(!Number.isFinite(next)||next<1||next>12)return toast('코트 수는 1~12 사이 숫자로 입력해 주세요.');
-  if(next===current)return;
+  const step=Number(direction);
+  if(![-1,1].includes(step))return toast('− 또는 + 버튼으로 코트 수를 바꿔 주세요.');
+  const next=current+step;
+  if(next<1||next>12)return;
   const drainingCourts=[...new Set((session?.event?.active||[])
     .map(match=>parseInt(match?.court,10)||0)
     .filter(court=>next<current&&court>next))].sort((a,b)=>a-b);

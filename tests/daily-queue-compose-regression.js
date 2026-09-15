@@ -414,13 +414,18 @@ this.club=officialPrimaryClub();`,legacy);
     // 상태 문구가 이미 말하는데 알약이 버튼처럼 보여 누르게 됩니다.
     assert(!/event-wait-pill">조금 쉬고/.test(checkin),
       '일시정지 대진에 「조금 쉬고」 알약을 다시 띄우면 안 됩니다.');
-    // 이모지(운영자 2026-08-13): 여섯 도구 모두 앞에 붙고, 스크린리더는
-    // 이름만 읽도록 aria-hidden 이어야 합니다.
+    // 이모지(운영자 2026-08-13): 글자 도구 앞에 붙고, 스크린리더는
+    // 이름만 읽도록 aria-hidden 이어야 합니다. 코트 수는 숫자 스테퍼라 제외합니다.
     assert(/const emo=ch=>`<span class="ot-emo" aria-hidden="true">/.test(summarySrc),
       '도구 이모지는 aria-hidden 으로 감싸야 합니다 — 안 그러면 이름을 두 번 읽습니다.');
-    ['🙋','🏁','🏸','🤝','✏️','🚫'].forEach(ch=>assert(summarySrc.includes(`emo('${ch}')`),
+    ['🙋','🏁','🤝','✏️','🚫'].forEach(ch=>assert(summarySrc.includes(`emo('${ch}')`),
       `도구 이모지 ${ch} 가 있어야 합니다.`));
     assert(checkin.includes('.official-overview-tool .ot-emo{'),'이모지 간격 스타일이 있어야 합니다.');
+    assert(summarySrc.includes('class="official-court-stepper"')
+      &&summarySrc.includes('title="코트 수 줄이기"')&&summarySrc.includes('title="코트 수 늘리기"'),
+      '코트 수는 의미가 분명한 −/+ 스테퍼와 도움말로 보여야 합니다.');
+    assert(checkin.includes('.official-court-step{')&&checkin.includes('min-height:44px'),
+      '코트 수 −/+ 버튼은 모바일 터치 높이를 확보해야 합니다.');
     // 전역 button{flex-direction:column} 함정: 명시하지 않으면 이모지가
     // 글자 위로 올라가 버튼이 두 줄이 됩니다(2026-08-13 실측).
     assert(/\.official-overview-tool\{[\s\S]{0,400}flex-direction:row/.test(checkin),
