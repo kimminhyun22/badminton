@@ -178,7 +178,8 @@ function send(patch, {admin = true, active = null} = {}){
     '지금 닫기 뒤에는 목표 코트만 진행 중이어야 합니다.');
   assert.strictEqual(closedNow.result.autoEntered,false,'닫는 코트에 대체 경기를 다시 투입하면 안 됩니다.');
   assert.deepStrictEqual(closedNow.result.drainingCourtClosed,{court:4,targetCourts:3},'즉시 닫은 코트와 목표 코트를 결과에 남겨야 합니다.');
-  assert.strictEqual(closedNow.result.deferred.queueIndex,2,'되돌린 경기는 대기 순서에서 한 칸만 뒤로 가야 합니다.');
+  assert.strictEqual(closedNow.result.deferred.queueIndex,1,'코트 축소로 되돌린 경기는 선수 책임이 아니므로 다음 1순위여야 합니다.');
+  assert.deepStrictEqual(closedNow.session.event.next[0].playerIds,freshCourt4.playerIds,'되돌린 네 명과 팀 구성이 대기표 맨 앞에 그대로 복원되어야 합니다.');
   assert.strictEqual(closedNow.session.event.next.filter(item=>!item.manualComposed).length,3,'즉시 닫은 뒤에도 자동 대기 수는 3코트 목표를 지켜야 합니다.');
   assert(closedNow.session.event.next.some(item=>item.queueId==='manual_resize'),'즉시 닫아도 직접 편성 대진을 지우면 안 됩니다.');
   const restoredIds=new Set(freshCourt4.playerIds);
@@ -232,7 +233,7 @@ assert(checkin.includes('줄이면 초과 코트는 현재 경기 종료 후 닫
   '임원은 코트를 줄이기 전에 현재 경기 보존 방식을 알아야 합니다.');
 assert(checkin.includes("방금 투입된 경기는 2분 안에 '지금 닫기'로 되돌릴 수 있습니다."),
   '코트 축소 입력창은 방금 자동 투입된 경기의 즉시 닫기 방법도 알려야 합니다.');
-assert(checkin.includes("drainingCourt?'지금 닫기':'이번만 뒤로'")&&checkin.includes("if(court>Math.max(1,Number(session?.event?.courts)||1))return true;"),
+assert(checkin.includes("drainingCourt?'지금 닫기':'이번만 뒤로'")&&checkin.includes('대진 1순위 복귀')&&checkin.includes("if(court>Math.max(1,Number(session?.event?.courts)||1))return true;"),
   '배수 중인 자동 투입 코트에는 대체 경기 없이도 지금 닫기 버튼이 보여야 합니다.');
 assert(checkin.includes("operation==='active-yield'&&getLastComplete()?.drainingCourt")&&checkin.includes('`${undoLabel} 취소 요청`'),
   '즉시 닫기 되돌리기 안내도 기존 이번만 뒤로와 구분해야 합니다.');

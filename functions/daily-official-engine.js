@@ -1869,10 +1869,11 @@ function applyActiveYield(session, request, now, requestId, operation){
   replenishPrepared(session, {now, requestId, excludeIds:ids});
   refreshEvent(session,now);
   // 코트 축소 직후 방금 자동 투입된 경기라면 같은 코트의 대체 경기를
-  // 다시 넣지 않습니다. 빠진 경기는 한 순번만 뒤로 보내고 코트를 즉시 닫습니다.
+  // 다시 넣지 않습니다. 선수 책임으로 미루는 상황이 아니므로 원대진은
+  // 다음 1순위로 복원하고 코트를 즉시 닫습니다.
   const targetCourts = Math.max(1, number(event.courts, 1));
   if(court > targetCourts){
-    const target = Math.min(1, event.next.length) + 1;
+    const target = 1;
     deferred.yieldedToIndex=target;
     event.next.splice(target-1,0,deferred);
     trimAutomaticPreparedToTarget(session);
