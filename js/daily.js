@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.671';
+const APP_VERSION = '1.10.672';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -369,6 +369,7 @@ let _dailySessionClubName='';
 let _dailyOfficialRestoreDismissed=[];
 let _dailyCourtOrder=[];
 let _dailyManualActiveDraft={mode:'manual',court:null,ids:[],registeredCount:0};
+let _dailyCourtNumberMatchId=null;
 let _dailyEmergencyEditQueueId=null;
 let _dailyLastCompleteUndo=null;
 let _dailyOperatorHeartbeatId=null;
@@ -4536,22 +4537,66 @@ function dailyEditActiveCourt(matchId){
   if(_dailyBlockPaused({action:'코트를 변경'}))return;
   const m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
   if(!m)return;
+  _dailyCourtNumberMatchId=matchId;
+  dailyRenderCourtNumberPicker();
+  document.getElementById('dailyCourtNumberModal')?.classList.remove('hidden');
+}
+function closeDailyCourtNumberPicker(){
+  _dailyCourtNumberMatchId=null;
+  document.getElementById('dailyCourtNumberModal')?.classList.add('hidden');
+}
+function dailyRenderCourtNumberPicker(){
+  const m=_dailyMatches.find(x=>x.id===_dailyCourtNumberMatchId&&!x.completedAt&&!x.cancelledAt);
+  if(!m){closeDailyCourtNumberPicker();return;}
   const current=parseInt(m.court,10)||1;
-  const raw=prompt(`현재 ${current}코트입니다.\n실제 진행 중인 코트 번호를 입력하세요.`, String(current));
-  if(raw==null)return;
-  const next=parseInt(String(raw).trim(),10);
-  if(!Number.isFinite(next)||next<1||next>12){
-    alert('코트 번호는 1~12 사이 숫자로 입력해 주세요.');
-    return;
-  }
-  if(next===current)return;
+  const active=_dailyActiveMatches();
+  const courtIds=[...new Set([..._dailyCourtOrderForUse(),...active.map(row=>parseInt(row.court,10)||0).filter(Boolean)])].sort((a,b)=>a-b);
+  const sub=document.getElementById('dailyCourtNumberSub');
+  if(sub)sub.textContent=`현재 ${current}코트`;
+  const grid=document.getElementById('dailyCourtNumberGrid');
+  if(!grid)return;
+  grid.innerHTML=courtIds.map(court=>{
+    const occupant=active.find(row=>row.id!==m.id&&(parseInt(row.court,10)||0)===court);
+    const isCurrent=court===current;
+    const state=isCurrent?'현재':occupant?'맞교환':'이동';
+    const meta=isCurrent?'선택된 코트':occupant?'진행 중 경기 있음':'빈 코트';
+    return `<button type="button" class="daily-manual-court-btn${isCurrent?' on':occupant?' swap-target':''}" onclick="dailyPickActiveCourt(${court})">
+      <span class="daily-manual-court-main"><b>${court}코트</b><em>${state}</em></span>
+      <span class="daily-manual-court-meta">${meta}</span>
+    </button>`;
+  }).join('');
+}
+async function dailyPickActiveCourt(next){
+  if(_dailyBlockServerSync({action:'코트 번호 변경'}))return;
+  if(_dailyBlockPaused({action:'코트를 변경'}))return;
+  const m=_dailyMatches.find(x=>x.id===_dailyCourtNumberMatchId&&!x.completedAt&&!x.cancelledAt);
+  if(!m){closeDailyCourtNumberPicker();return;}
+  const current=parseInt(m.court,10)||1;
+  next=parseInt(next,10)||0;
+  const allowed=[...new Set([..._dailyCourtOrderForUse(),..._dailyActiveMatches().map(row=>parseInt(row.court,10)||0).filter(Boolean)])];
+  if(!allowed.includes(next))return;
+  if(next===current){closeDailyCourtNumberPicker();return;}
   const other=_dailyActiveMatches().find(x=>x.id!==m.id&&!x.cancelledAt&&(parseInt(x.court,10)||0)===next);
   if(other){
     const ok=confirm(`${next}코트에는 이미 진행 중인 경기가 있습니다.\n두 경기의 코트 번호를 서로 바꿀까요?`);
     if(!ok)return;
-    other.court=current;
   }
+  if(_dailyCheckinId){
+    const sent=await _dailySendAdminCommand({
+      type:'official-court-renumber',
+      operationId:_dailyAdminOperationId('renumber'),
+      matchId:m.id,
+      court:next,
+      expectedCourt:current,
+      allowSwap:true,
+      source:'system-admin-court-renumber'
+    },{action:'코트 번호 변경',tag:'renumber'});
+    if(sent.ok)closeDailyCourtNumberPicker();
+    return sent.ok;
+  }
+  if(other)other.court=current;
   m.court=next;
+  closeDailyCourtNumberPicker();
   dailySave();
   dailyRender();
 }
@@ -10740,7 +10785,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.671&from=daily';
+  location.href='team.html?v=1.10.672&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

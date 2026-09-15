@@ -23,6 +23,7 @@ const path = require('path');
 const {applyOfficialRequest, issueOfficialGrant} = require('../functions/daily-official-engine');
 
 const root = path.join(__dirname, '..');
+const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const daily = fs.readFileSync(path.join(root, 'js', 'daily.js'), 'utf8');
 const checkin = fs.readFileSync(path.join(root, 'checkin.html'), 'utf8');
 const {replenishPrepared} = require('../functions/daily-server-matchmaker');
@@ -249,7 +250,7 @@ const applySource = daily.slice(applyStart, applyEnd);
 assert(applySource.includes('req.serverResult?.settings'),
   '보낸 값이 아니라 서버가 적용한 값을 받아야 합니다.');
 const memberSettingsStart=checkin.indexOf('async function sendOfficialSettingsCourts');
-const memberSettingsEnd=checkin.indexOf('\nasync function ',memberSettingsStart+10);
+const memberSettingsEnd=checkin.indexOf('\n// 진행 중인 경기의 코트 번호',memberSettingsStart+10);
 const memberSettingsSource=checkin.slice(memberSettingsStart,memberSettingsEnd);
 assert(checkin.includes('class="official-court-stepper"')
   &&checkin.includes("sendOfficialSettingsCourts('${esc(player.id)}',-1)")
@@ -259,6 +260,22 @@ assert(memberSettingsSource.includes('if(![-1,1].includes(step))')&&!memberSetti
   '임원 코트 변경은 임의 숫자를 받지 않고 한 코트 단위만 허용해야 합니다.');
 assert(memberSettingsSource.includes('코트 ${current}→${next} 변경')&&!memberSettingsSource.includes('court>next'),
   '임원 화면이 코트 개수로 닫을 실제 번호를 미리 추측하면 안 됩니다.');
+const memberRenumberStart=checkin.indexOf('function sendOfficialCourtRenumber');
+const memberRenumberEnd=checkin.indexOf('\n// 잘못 참가 등록된 선수',memberRenumberStart);
+const memberRenumberSource=checkin.slice(memberRenumberStart,memberRenumberEnd);
+assert(memberRenumberSource.includes("kind:'courtRenumber'")
+  &&memberRenumberSource.includes('_officialReplaceSheetShow(')
+  &&memberRenumberSource.includes('function pickOfficialCourtNumber')
+  &&!memberRenumberSource.includes('prompt('),
+  '임원 코트 번호 변경은 숫자 입력창 없이 코트 버튼으로 선택해야 합니다.');
+const adminRenumberStart=daily.indexOf('function dailyEditActiveCourt');
+const adminRenumberEnd=daily.indexOf('\nfunction _dailyManualActiveMode',adminRenumberStart);
+const adminRenumberSource=daily.slice(adminRenumberStart,adminRenumberEnd);
+assert(indexHtml.includes('id="dailyCourtNumberModal"')
+  &&adminRenumberSource.includes('function dailyPickActiveCourt')
+  &&adminRenumberSource.includes("type:'official-court-renumber'")
+  &&!adminRenumberSource.includes('prompt('),
+  '관리자 코트 번호 변경도 버튼 선택과 서버 명령을 사용해야 합니다.');
 assert(checkin.includes("drainingCourt?'지금 닫기':'이번만 뒤로'")&&checkin.includes('대진 1순위 복귀')&&checkin.includes('if(officialDrainingCourt(row))return true;'),
   '배수 중인 자동 투입 코트에는 대체 경기 없이도 지금 닫기 버튼이 보여야 합니다.');
 assert(checkin.includes("operation==='active-yield'&&getLastComplete()?.drainingCourt")&&checkin.includes('`${undoLabel} 취소 요청`'),

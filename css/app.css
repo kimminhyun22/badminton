@@ -2483,6 +2483,15 @@ body.monthly-team-mode .team-partner-help{display:block;}
   opacity:.65;
   cursor:not-allowed;
 }
+.daily-court-number-modal{max-width:440px;}
+.daily-court-number-modal .daily-manual-court-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+.daily-court-number-modal .daily-manual-court-btn.swap-target{
+  border-color:#efc7ca;
+  background:var(--ml-red-soft);
+  color:var(--ml-red-deep);
+}
+.daily-court-number-modal .daily-manual-court-btn.swap-target .daily-manual-court-main b,
+.daily-court-number-modal .daily-manual-court-btn.swap-target .daily-manual-court-meta{color:var(--ml-red-deep);}
 .daily-manual-player-grid{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
