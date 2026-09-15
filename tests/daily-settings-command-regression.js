@@ -163,7 +163,35 @@ function send(patch, {admin = true, active = null} = {}){
   assert.strictEqual(expanded.status,'applied',expanded.reason||'운영 중 증설이 적용되어야 합니다.');
   assert(expanded.result.autoEntries?.some(entry=>entry.court===4),'늘린 4코트는 즉시 자동 투입해야 합니다.');
   assert.deepStrictEqual(expanded.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3,4]);
-  console.log('  진행 중 코트 조정: 4→3 배수 · 3코트 유지 · 3→4 즉시 투입');
+
+  const reducedAfterAutoFill=sendTo(expanded.session,{courts:3,expectedCourts:4},{admin:false,at:NOW+5000});
+  assert.strictEqual(reducedAfterAutoFill.status,'applied','방금 자동 투입된 4코트도 우선 배수 상태로 바뀌어야 합니다.');
+  const freshCourt4=reducedAfterAutoFill.session.event.active.find(match=>match.court===4);
+  assert(freshCourt4?.autoHandoffAt,'4코트에는 2분 대응 창이 남은 자동 투입 경기가 있어야 합니다.');
+  const closedNow=sendTo(reducedAfterAutoFill.session,{
+    type:'official-active-yield',matchId:freshCourt4.id,court:4,token:'close_draining_court_token',
+    expectedStartedAt:freshCourt4.startedAt,expectedAutoHandoffAt:freshCourt4.autoHandoffAt,
+    expectedPlayerIds:[...freshCourt4.playerIds],expectedTeam1Ids:[...freshCourt4.t1Ids],expectedTeam2Ids:[...freshCourt4.t2Ids]
+  },{admin:false,at:NOW+6000});
+  assert.strictEqual(closedNow.status,'applied',closedNow.reason||'방금 투입된 배수 코트는 즉시 닫을 수 있어야 합니다.');
+  assert.deepStrictEqual(closedNow.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3],
+    '지금 닫기 뒤에는 목표 코트만 진행 중이어야 합니다.');
+  assert.strictEqual(closedNow.result.autoEntered,false,'닫는 코트에 대체 경기를 다시 투입하면 안 됩니다.');
+  assert.deepStrictEqual(closedNow.result.drainingCourtClosed,{court:4,targetCourts:3},'즉시 닫은 코트와 목표 코트를 결과에 남겨야 합니다.');
+  assert.strictEqual(closedNow.result.deferred.queueIndex,2,'되돌린 경기는 대기 순서에서 한 칸만 뒤로 가야 합니다.');
+  assert.strictEqual(closedNow.session.event.next.filter(item=>!item.manualComposed).length,3,'즉시 닫은 뒤에도 자동 대기 수는 3코트 목표를 지켜야 합니다.');
+  assert(closedNow.session.event.next.some(item=>item.queueId==='manual_resize'),'즉시 닫아도 직접 편성 대진을 지우면 안 됩니다.');
+  const restoredIds=new Set(freshCourt4.playerIds);
+  assert(closedNow.session.players.filter(player=>restoredIds.has(player.id)).every(player=>player.status==='wait'&&!player.currentMatchId),
+    '즉시 닫은 경기의 네 선수는 대기 상태로 돌아가야 합니다.');
+  const duplicateClose=sendTo(closedNow.session,{
+    type:'official-active-yield',matchId:freshCourt4.id,court:4,token:'duplicate_close_draining_court_token',
+    expectedStartedAt:freshCourt4.startedAt,expectedAutoHandoffAt:freshCourt4.autoHandoffAt,
+    expectedPlayerIds:[...freshCourt4.playerIds],expectedTeam1Ids:[...freshCourt4.t1Ids],expectedTeam2Ids:[...freshCourt4.t2Ids]
+  },{admin:false,at:NOW+6001});
+  assert.strictEqual(duplicateClose.status,'rejected','두 임원이 같은 코트를 동시에 닫아도 두 번째 처리는 거절되어야 합니다.');
+  assert.strictEqual(duplicateClose.session.serverRevision,closedNow.session.serverRevision,'중복 즉시 닫기가 서버 상태를 한 번 더 진행하면 안 됩니다.');
+  console.log('  진행 중 코트 조정: 4→3 배수 · 3코트 유지 · 3→4 즉시 투입 · 방금 투입 코트 즉시 닫기');
 }
 
 // 3b) 두 임원이 같은 화면에서 동시에 바꾸면 먼저 확정된 값만 남깁니다.
@@ -202,6 +230,12 @@ assert(applySource.includes('req.serverResult?.settings'),
   '보낸 값이 아니라 서버가 적용한 값을 받아야 합니다.');
 assert(checkin.includes('줄이면 초과 코트는 현재 경기 종료 후 닫힙니다.'),
   '임원은 코트를 줄이기 전에 현재 경기 보존 방식을 알아야 합니다.');
+assert(checkin.includes("방금 투입된 경기는 2분 안에 '지금 닫기'로 되돌릴 수 있습니다."),
+  '코트 축소 입력창은 방금 자동 투입된 경기의 즉시 닫기 방법도 알려야 합니다.');
+assert(checkin.includes("drainingCourt?'지금 닫기':'이번만 뒤로'")&&checkin.includes("if(court>Math.max(1,Number(session?.event?.courts)||1))return true;"),
+  '배수 중인 자동 투입 코트에는 대체 경기 없이도 지금 닫기 버튼이 보여야 합니다.');
+assert(daily.includes('const drainingCourtClosed=!!result.drainingCourtClosed')&&daily.includes("m.cancelReason=drainingCourtClosed?'club-official-draining-court-close'"),
+  '관리자 원본은 즉시 닫기 결과를 대체 경기 없는 정상 명령으로 따라가야 합니다.');
 assert(checkin.includes('event-court-drain-badge')&&checkin.includes('종료 후 닫힘'),
   '임원 화면은 배수 중인 코트를 짧게 표시해야 합니다.');
 assert(daily.includes('daily-court-drain-badge')&&daily.includes('종료 후 닫힘'),

@@ -1868,6 +1868,30 @@ function applyActiveYield(session, request, now, requestId, operation){
   promotePrepared(session);
   replenishPrepared(session, {now, requestId, excludeIds:ids});
   refreshEvent(session,now);
+  // 코트 축소 직후 방금 자동 투입된 경기라면 같은 코트의 대체 경기를
+  // 다시 넣지 않습니다. 빠진 경기는 한 순번만 뒤로 보내고 코트를 즉시 닫습니다.
+  const targetCourts = Math.max(1, number(event.courts, 1));
+  if(court > targetCourts){
+    const target = Math.min(1, event.next.length) + 1;
+    deferred.yieldedToIndex=target;
+    event.next.splice(target-1,0,deferred);
+    trimAutomaticPreparedToTarget(session);
+    refreshEvent(session,now);
+    const deferredIndex=event.next.findIndex(item=>text(item.queueId || item.id) === text(deferred.queueId || deferred.id));
+    if(deferredIndex < 0)return '뒤로 보낸 대진을 대기 순서에 복원하지 못했습니다.';
+    deferred.yieldedToIndex=deferredIndex+1;
+    if(operation){
+      operation.result={
+        cancelledMatchId:text(match.id),
+        court,
+        deferred:queueResult(deferred,deferredIndex+1),
+        deferredReservation:match.autoHandoffReservation || null,
+        autoEntered:false,
+        drainingCourtClosed:{court,targetCourts}
+      };
+    }
+    return '';
+  }
   const replacementIndex = event.next.findIndex(item=>number(item.targetCourt) === court && item.cueState === 'free' && !item.restPass && queueReady(session,item));
   if(replacementIndex < 0)return '바로 투입할 다음 대진이 없어 이번 경기를 뒤로 보낼 수 없습니다.';
   const replacement = event.next[replacementIndex];

@@ -362,6 +362,12 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   cursor:pointer;
 }
 .event-official-active-yield small{display:block;margin-top:2px;color:#b46b00;font-size:9px;}
+.event-official-active-yield.is-court-close{
+  border-color:#ef9a9f;
+  background:#fff1f2;
+  color:#b42318;
+}
+.event-official-active-yield.is-court-close small{color:#c2413b;}
 .event-official-active-yield:disabled{opacity:.42;cursor:not-allowed;}
 .event-complete-action{
   margin-top:9px;
@@ -2966,7 +2972,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.667">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.668">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2981,7 +2987,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.667</span>
+    <span class="version-chip" id="appVersion">v1.10.668</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3044,7 +3050,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.667';
+const APP_VERSION='1.10.668';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3884,6 +3890,7 @@ function officialQueueReadyForHandoff(item){
 function officialActiveYieldAvailable(row){
   if(session?.capabilities?.officialAutoHandoffV1!==true||officialActiveYieldSeconds(row)<=0)return false;
   const court=Number(row?.court||0),matchId=String(row?.id||'');
+  if(court>Math.max(1,Number(session?.event?.courts)||1))return true;
   const nextReady=eventNextList().some(item=>item&&!item.restPass&&officialQueueReadyForHandoff(item)
     &&(String(item.targetMatchId||'')===matchId||(item.cueState==='free'&&Number(item.targetCourt||0)===court)));
   if(nextReady)return true;
@@ -4447,7 +4454,7 @@ function renderEvent(){
     const replaceCtx=canOfficialOperate?{actorId:selectedPlayer.id,matchId:m.id,
       disabled:!!(flowPaused||sendingKey||claimingOfficial||pendingReplace||pendingComplete||pendingActiveYield)}:null;
     const activeYieldSeconds=officialActiveYieldSeconds(m);
-    const activeYieldButton=canOfficialOperate&&officialActiveYieldAvailable(m)?`<button type="button" class="event-official-active-yield" data-official-action data-official-pending="${pendingActiveYield?'true':'false'}" ${completeDisabled} onclick="sendOfficialActiveYield('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingActiveYield?'처리 중':'이번만 뒤로'}<small>${activeYieldSeconds}초</small></button>`:`<em>${esc(remainText(m))}</em>`;
+    const activeYieldButton=canOfficialOperate&&officialActiveYieldAvailable(m)?`<button type="button" class="event-official-active-yield${drainingCourt?' is-court-close':''}" data-official-action data-official-pending="${pendingActiveYield?'true':'false'}" ${completeDisabled} onclick="sendOfficialActiveYield('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingActiveYield?'처리 중':drainingCourt?'지금 닫기':'이번만 뒤로'}<small>${drainingCourt?'대진 한 칸 뒤로 · ':''}${activeYieldSeconds}초</small></button>`:`<em>${esc(remainText(m))}</em>`;
     return `<div class="event-row event-active ${state}">
     <div class="event-row-main">
       ${courtBadge(`${m.court}코트`,canOfficialOperate&&selectedPlayer?.isClubOfficial?{actorId:selectedPlayer.id,matchId:m.id}:null)}
@@ -4501,7 +4508,9 @@ function renderEvent(){
     </div>
   </div>`;
   }).join('');
-  const undoLabel=['queue-yield','active-yield'].includes(lastComplete?.operation)?'이번만 뒤로':lastComplete?.operation==='queue-enter'?'입장 처리':'경기 종료';
+  const undoLabel=lastComplete?.operation==='active-yield'&&lastComplete?.drainingCourt
+    ? '코트 즉시 닫기'
+    : ['queue-yield','active-yield'].includes(lastComplete?.operation)?'이번만 뒤로':lastComplete?.operation==='queue-enter'?'입장 처리':'경기 종료';
   const undo=canOfficialOperate&&lastComplete?`<div class="event-row">
     <div class="event-row-main full">
       <div>
@@ -6583,7 +6592,7 @@ async function sendOfficialSettingsCourts(actorId){
   const actor=officialActor(actorId);
   if(!actor||!actor.isClubOfficial)return toast('코트 수 변경은 클럽 임원만 할 수 있어요.');
   const current=Math.max(1,parseInt(session?.event?.courts,10)||1);
-  const raw=prompt(`현재 ${current}코트입니다.\n사용할 코트 수를 입력하세요 (1~12).\n줄이면 초과 코트는 현재 경기 종료 후 닫힙니다.`,String(current));
+  const raw=prompt(`현재 ${current}코트입니다.\n사용할 코트 수를 입력하세요 (1~12).\n줄이면 초과 코트는 현재 경기 종료 후 닫힙니다.\n방금 투입된 경기는 2분 안에 '지금 닫기'로 되돌릴 수 있습니다.`,String(current));
   if(raw==null)return;
   const next=parseInt(String(raw).trim(),10);
   if(!Number.isFinite(next)||next<1||next>12)return toast('코트 수는 1~12 사이 숫자로 입력해 주세요.');
@@ -6772,7 +6781,8 @@ async function sendOfficialCourtComplete(actorId,matchId){
 async function sendOfficialActiveYield(actorId,matchId){
   const actor=officialActor(actorId);
   const m=activeMatchById(matchId);
-  if(!actor||!m||!officialActiveYieldAvailable(m))return toast('이번만 뒤로 처리할 수 있는 2분이 지났거나 다음 대진이 없습니다.');
+  const drainingCourt=!!m&&Number(m.court)>Math.max(1,Number(session?.event?.courts)||1);
+  if(!actor||!m||!officialActiveYieldAvailable(m))return toast('처리 가능한 2분이 지났거나 다음 대진이 없습니다.');
   const playerIds=[...(m.playerIds||[])];
   const team1Ids=[...(m.t1Ids||[])],team2Ids=[...(m.t2Ids||[])];
   if(playerIds.length!==4||team1Ids.length!==2||team2Ids.length!==2)return toast('진행 경기 선수 구성을 다시 확인해 주세요.');
@@ -6792,10 +6802,10 @@ async function sendOfficialActiveYield(actorId,matchId){
     createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
     observedUpdatedAt:session.updatedAt||0,
     source:'club-official-active-yield'
-  },`${m.court||''}코트 대진 뒤로 이동`);
+  },drainingCourt?`${m.court||''}코트 즉시 닫기 · 대진 한 칸 뒤로`:`${m.court||''}코트 대진 뒤로 이동`);
   if(ok){
     if(isSampleMode()){
-      const replacement=(session.event.next||[]).find(item=>item&&!item.restPass);
+      const replacement=drainingCourt?null:(session.event.next||[]).find(item=>item&&!item.restPass);
       const deferred=JSON.parse(JSON.stringify(m.autoHandoffQueue||{}));
       session.event.active=(session.event.active||[]).filter(item=>item.id!==m.id);
       (m.playerIds||[]).forEach(id=>{
@@ -6812,7 +6822,7 @@ async function sendOfficialActiveYield(actorId,matchId){
       }
       if(replacement)sampleAutoStartQueue(replacement,m.court,`sm_${operationId}`,m.id,now);
     }
-    setLastComplete({token,matchId:m.id,court:m.court,operation:'active-yield',official:true,actorPlayerId:actor.id});
+    setLastComplete({token,matchId:m.id,court:m.court,operation:'active-yield',drainingCourt,official:true,actorPlayerId:actor.id});
     render();
   }
 }

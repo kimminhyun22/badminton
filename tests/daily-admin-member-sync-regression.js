@@ -123,6 +123,43 @@ assert.strictEqual(autoEntriesSandbox.run({serverAppliedAt:5001,serverResult:{au
   {matchId:'auto1',queueId:'q1',queueIndex:1}
 ]}}),true,'이미 적용한 자동 투입은 멱등하게 건너뛰어야 합니다.');
 assert.strictEqual(autoEntryCalls.length,4,'이미 적용된 경기는 다시 시작하면 안 됩니다.');
+
+const drainingYieldSource=sourceBetween('_dailyApplyOfficialActiveYield','dailyProcessCheckinRequests');
+const drainingYieldSandbox={};
+vm.createContext(drainingYieldSandbox);
+vm.runInContext(`
+let _dailyMatches=[{id:'m4',court:4,team1:['p1','p2'],team2:['p3','p4'],startedAt:4000,
+  autoHandoffPlayerStates:['p1','p2','p3','p4'].map(id=>({id,status:'wait',currentMatchId:'',lastStatusAt:3000,waitFrom:2000}))}];
+let _dailyPlayers=['p1','p2','p3','p4'].map(id=>({id,status:'playing',currentMatchId:'m4',games:0}));
+let _dailyReservations=[];
+let _dailyLastCompleteUndo=null;
+let prepareCalls=0;
+let startCalls=0;
+function _dailyPlayer(id){return _dailyPlayers.find(player=>player.id===id);}
+function _dailyCaptureCompleteUndo(token,source){_dailyLastCompleteUndo={token,source};}
+function _dailyNow(){return 5000;}
+function _dailyNormalizeStatus(status){return status;}
+function _dailyRollbackFairOpportunity(){}
+function _dailyServerQueueResultRequest(row,serverAppliedAt,queueIndex){return {serverAppliedAt,queueId:row.queueId,expectedQueueIndex:queueIndex};}
+function _dailyPrepareServerQueueRequest(){prepareCalls++;return true;}
+function _dailyStartServerAutoEnter(){startCalls++;return true;}
+function dailyUndoMemberComplete(){return true;}
+function _dailyCompleteUndoGuard(){return 'guard';}
+${drainingYieldSource}
+this.api={
+  apply:()=>_dailyApplyOfficialActiveYield({token:'close-token',matchId:'m4',serverAppliedAt:5000,serverResult:{
+    deferred:{queueId:'q4',queueIndex:2},drainingCourtClosed:{court:4,targetCourts:3}
+  }}),
+  state:()=>({matches:_dailyMatches,players:_dailyPlayers,prepareCalls,startCalls,undo:_dailyLastCompleteUndo})
+};
+`,drainingYieldSandbox);
+assert.strictEqual(drainingYieldSandbox.api.apply(),true,'관리자 원본은 대체 경기 없는 코트 즉시 닫기를 정상 반영해야 합니다.');
+const drainingYieldState=JSON.parse(JSON.stringify(drainingYieldSandbox.api.state()));
+assert.strictEqual(drainingYieldState.matches[0].cancelReason,'club-official-draining-court-close','관리자 원본에 즉시 닫기 사유를 구분해 남겨야 합니다.');
+assert(drainingYieldState.players.every(player=>player.status==='wait'&&!player.currentMatchId),'즉시 닫은 코트 선수는 관리자 원본에서도 대기로 돌아가야 합니다.');
+assert.strictEqual(drainingYieldState.startCalls,0,'관리자 원본도 닫는 코트에 대체 경기를 시작하면 안 됩니다.');
+assert.strictEqual(drainingYieldState.prepareCalls,1,'뒤로 보낸 대진만 서버 순번으로 한 번 복원해야 합니다.');
+
 const serverHeadSource=sourceBetween('_dailyServerHeadPending','_dailyBlockServerSync');
 assert(serverHeadSource.includes('_dailyObservedServerRevision>_dailyServerRevision'),'관찰된 임원 서버 리비전이 앞설 때 관리자 편집을 잠시 잠가야 합니다.');
 [

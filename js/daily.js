@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.667';
+const APP_VERSION = '1.10.668';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -8411,6 +8411,13 @@ function _dailyServerOperationAlreadyApplied(req){
   if(req.type==='official-active-yield'){
     const cancelled=_dailyMatches.find(match=>String(match.id)===String(req.matchId));
     const replacementId=String(req.serverResult?.autoEnter?.matchId||'');
+    if(req.serverResult?.drainingCourtClosed){
+      const deferredId=String(req.serverResult?.deferred?.queueId||'');
+      const court=Number(req.serverResult.drainingCourtClosed.court||req.court||0);
+      return !!(cancelled&&Number(cancelled.cancelledAt||0)===operationAt
+        &&deferredId&&_dailyQueue.some(item=>String(item.id||'')===deferredId)
+        &&!_dailyMatches.some(match=>!match.completedAt&&!match.cancelledAt&&Number(match.court)===court));
+    }
     return !!(cancelled&&Number(cancelled.cancelledAt||0)===operationAt&&replacementId&&_dailyMatches.some(match=>String(match.id)===replacementId&&!match.cancelledAt));
   }
   if(req.type==='official-queue-enter-free')return _dailyMatches.some(match=>String(match.id)===String(req.newMatchId||''));
@@ -8526,7 +8533,7 @@ function _dailyOfficialRequestError(req){
     if(!Object.prototype.hasOwnProperty.call(req,'expectedAutoHandoffAt')||Number(req.expectedAutoHandoffAt)!==Number(m.autoHandoffAt||0))return '자동 투입된 경기 정보를 다시 확인해야 합니다.';
     if(!Array.isArray(req.expectedPlayerIds)||req.expectedPlayerIds.length!==4||_dailyOfficialFingerprint(req.expectedPlayerIds)!==_dailyOfficialFingerprint([...(m.team1||[]),...(m.team2||[])]))return '코트의 선수 구성이 이미 바뀌었습니다.';
     if(!_dailyOfficialTeamFingerprint(req.expectedTeam1Ids,req.expectedTeam2Ids)||_dailyOfficialTeamFingerprint(req.expectedTeam1Ids,req.expectedTeam2Ids)!==_dailyOfficialTeamFingerprint(m.team1,m.team2))return '코트의 팀 구성이 이미 바뀌었습니다.';
-    if(!req.serverResult?.autoEnter||!req.serverResult?.deferred)return '서버의 대체 대진 처리 결과를 다시 확인해야 합니다.';
+    if(!req.serverResult?.deferred||(!req.serverResult?.autoEnter&&!req.serverResult?.drainingCourtClosed))return '서버의 대진 처리 결과를 다시 확인해야 합니다.';
     return '';
   }
   if(req.type==='official-queue-enter-free'){
@@ -8988,7 +8995,8 @@ function _dailyApplyServerAutoEntries(req){
 function _dailyApplyOfficialActiveYield(req){
   const m=_dailyMatches.find(match=>String(match.id)===String(req.matchId)&&!match.completedAt&&!match.cancelledAt);
   const result=req.serverResult||{};
-  if(!m||!result.autoEnter||!result.deferred)return false;
+  const drainingCourtClosed=!!result.drainingCourtClosed;
+  if(!m||!result.deferred||(!drainingCourtClosed&&!result.autoEnter))return false;
   const previousUndo=_dailyLastCompleteUndo;
   if(req.token)_dailyCaptureCompleteUndo(req.token,'club-official-active-yield');
   const operationAt=Number(req.serverAppliedAt||req.createdAt||_dailyNow());
@@ -9012,15 +9020,17 @@ function _dailyApplyOfficialActiveYield(req){
   });
   _dailyRollbackFairOpportunity(m);
   m.cancelledAt=operationAt;
-  m.cancelReason='club-official-active-yield';
+  m.cancelReason=drainingCourtClosed?'club-official-draining-court-close':'club-official-active-yield';
   if(result.deferredReservation&&!_dailyReservations.some(r=>String(r.id)===String(result.deferredReservation.id))){
     _dailyReservations.push(JSON.parse(JSON.stringify(result.deferredReservation)));
   }
-  const deferredBeforeStart=_dailyServerQueueResultRequest(result.deferred,operationAt,Number(result.deferred.queueIndex||1)+1);
-  if(!_dailyPrepareServerQueueRequest(deferredBeforeStart)||!_dailyStartServerAutoEnter(req,{skipWaveTrack:true,source:'official-active-yield'})){
-    if(req.token&&_dailyLastCompleteUndo?.token===req.token)dailyUndoMemberComplete(req.token,true);
-    else _dailyLastCompleteUndo=previousUndo;
-    return false;
+  if(!drainingCourtClosed){
+    const deferredBeforeStart=_dailyServerQueueResultRequest(result.deferred,operationAt,Number(result.deferred.queueIndex||1)+1);
+    if(!_dailyPrepareServerQueueRequest(deferredBeforeStart)||!_dailyStartServerAutoEnter(req,{skipWaveTrack:true,source:'official-active-yield'})){
+      if(req.token&&_dailyLastCompleteUndo?.token===req.token)dailyUndoMemberComplete(req.token,true);
+      else _dailyLastCompleteUndo=previousUndo;
+      return false;
+    }
   }
   const deferredFinal=_dailyServerQueueResultRequest(result.deferred,operationAt,result.deferred.queueIndex||1);
   if(!_dailyPrepareServerQueueRequest({...deferredFinal,type:'official-queue-yield'})){
@@ -10692,7 +10702,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.667&from=daily';
+  location.href='team.html?v=1.10.668&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
