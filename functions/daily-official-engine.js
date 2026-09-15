@@ -35,6 +35,7 @@ const STANDING_SESSION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;   // 9일은 추석
 const ROLLOVER_MIN_AGE_MS = 4 * 60 * 60 * 1000;
 const ROLLOVER_ARCHIVE_KEEP = 4;
 const MATCH_MINUTES = 15;
+const MAX_COURTS = 12;
 const TEMPORARY_OFFICIAL_LIMIT = 4;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
 
@@ -412,6 +413,89 @@ function incrementPlayerRelationship(player, key, other){
   if(other.name && !/[.#$\[\]\/]/.test(text(other.name)))incrementPlayerCount(player, key, other.name);
 }
 
+function validCourtIds(values){
+  const ids = [];
+  (Array.isArray(values) ? values : []).forEach(value=>{
+    const court = number(value);
+    if(Number.isInteger(court) && court >= 1 && court <= MAX_COURTS && !ids.includes(court))ids.push(court);
+  });
+  return ids;
+}
+
+function defaultCourtIds(count){
+  const size = Math.max(1, Math.min(MAX_COURTS, Math.trunc(number(count, 1))));
+  return Array.from({length:size}, (_, index)=>index + 1);
+}
+
+// 운영 코트의 개수와 실제 코트 번호는 별개입니다. 예를 들어 3코트 운영 중
+// 2코트의 방금 투입된 경기를 빼면, 2코트 운영 계획은 [1, 3]이어야 합니다.
+function normalizeCourtPlan(event){
+  const count = Math.max(1, Math.min(MAX_COURTS, Math.trunc(number(event?.courts, 1))));
+  event.courts = count;
+  const explicit = Array.isArray(event.operatingCourtIds);
+  let operating = explicit ? validCourtIds(event.operatingCourtIds) : defaultCourtIds(count);
+  if(operating.length > count)operating = operating.slice(0, count);
+
+  const activeCourts = new Set(validCourtIds((event.active || []).map(match=>match?.court)));
+  while(operating.length < count){
+    let court = defaultCourtIds(MAX_COURTS).find(id=>!operating.includes(id) && !activeCourts.has(id));
+    if(!court)court = defaultCourtIds(MAX_COURTS).find(id=>!operating.includes(id));
+    if(!court)break;
+    operating.push(court);
+  }
+  operating.sort((a,b)=>a-b);
+  const operatingSet = new Set(operating);
+  const draining = [...activeCourts].filter(court=>!operatingSet.has(court)).sort((a,b)=>a-b);
+  event.operatingCourtIds = operating;
+  event.drainingCourtIds = draining;
+  return {operating, draining};
+}
+
+function activeInsertionAt(match){
+  return Math.max(number(match?.autoHandoffAt), number(match?.startedAt));
+}
+
+function newestActiveCourt(event, operating){
+  const allowed = new Set(operating);
+  const newest = (event.active || []).filter(match=>allowed.has(number(match?.court))).sort((a,b)=>
+    activeInsertionAt(b) - activeInsertionAt(a) ||
+    number(b?.seq) - number(a?.seq) ||
+    number(b?.court) - number(a?.court)
+  )[0];
+  return newest ? number(newest.court) : 0;
+}
+
+function resizeCourtPlan(event, nextCount){
+  const before = normalizeCourtPlan(event);
+  const previous = before.operating.length;
+  const operating = before.operating.slice();
+  const removed = [];
+  const activeCourts = new Set(validCourtIds((event.active || []).map(match=>match?.court)));
+
+  while(operating.length > nextCount){
+    const empty = operating.filter(court=>!activeCourts.has(court)).sort((a,b)=>b-a)[0];
+    const court = empty || newestActiveCourt(event, operating);
+    if(!court)break;
+    operating.splice(operating.indexOf(court), 1);
+    removed.push(court);
+  }
+  while(operating.length < nextCount){
+    const court = defaultCourtIds(MAX_COURTS).find(id=>!operating.includes(id));
+    if(!court)break;
+    operating.push(court);
+  }
+  event.courts = nextCount;
+  event.operatingCourtIds = operating.sort((a,b)=>a-b);
+  const plan = normalizeCourtPlan(event);
+  return {
+    from:previous,
+    to:nextCount,
+    operatingCourtIds:plan.operating.slice(),
+    removedCourts:removed.sort((a,b)=>a-b),
+    drainingCourts:plan.draining.slice()
+  };
+}
+
 function ensureSession(raw){
   const session = clone(raw || {});
   session.players = Array.isArray(session.players) ? session.players : [];
@@ -432,6 +516,7 @@ function ensureSession(raw){
   session.serverRuntime.holds = session.serverRuntime.holds && typeof session.serverRuntime.holds === 'object'
     ? session.serverRuntime.holds
     : {};
+  normalizeCourtPlan(session.event);
   return session;
 }
 
@@ -888,8 +973,8 @@ function trimAutomaticPreparedToTarget(session){
 function refreshEvent(session, now){
   const event = session.event;
   const timerNow = event.paused ? number(event.pausedAt, now) : now;
-  const courts = Math.max(1, number(event.courts, 1));
   event.active = event.active.filter(match=>match && !match.completedAt && !match.cancelledAt);
+  const courtPlan = normalizeCourtPlan(event);
   event.active.forEach(match=>{
     const info = timerInfo(match, timerNow);
     match.endAt = info.endAt;
@@ -904,8 +989,7 @@ function refreshEvent(session, now){
     return timerInfo(a, timerNow).endAt - timerInfo(b, timerNow).endAt || number(a.court) - number(b.court);
   });
   const usedCourts = new Set(event.active.map(match=>number(match.court)).filter(Boolean));
-  const freeCourts = [];
-  for(let court=1; court<=courts; court++)if(!usedCourts.has(court))freeCourts.push(court);
+  const freeCourts = courtPlan.operating.filter(court=>!usedCourts.has(court));
 
   let usable = 0;
   event.next.forEach((item, index)=>{
@@ -1841,6 +1925,7 @@ function applyActiveYield(session, request, now, requestId, operation){
     return '방금 자동 투입된 대진 정보를 복원하지 못했습니다.';
   }
   const court = number(match.court || request.court);
+  const closingCourt = !normalizeCourtPlan(event).operating.includes(court);
   const savedStateRows = Array.isArray(match.autoHandoffPlayerStates) ? match.autoHandoffPlayerStates : [];
   const savedStates = new Map(savedStateRows.map(row=>[text(row?.id),row]));
   rollbackFairOpportunity(session, match, now);
@@ -1872,7 +1957,7 @@ function applyActiveYield(session, request, now, requestId, operation){
   // 다시 넣지 않습니다. 선수 책임으로 미루는 상황이 아니므로 원대진은
   // 다음 1순위로 복원하고 코트를 즉시 닫습니다.
   const targetCourts = Math.max(1, number(event.courts, 1));
-  if(court > targetCourts){
+  if(closingCourt){
     const target = 1;
     deferred.yieldedToIndex=target;
     event.next.splice(target-1,0,deferred);
@@ -2335,25 +2420,20 @@ function applySettingsUpdate(session, request, now, operation){
 
   if(has('courts')){
     const courts = number(request.courts);
-    if(!Number.isInteger(courts) || courts < 1 || courts > 12)return '코트 수는 1~12 사이로 정해 주세요.';
+    if(!Number.isInteger(courts) || courts < 1 || courts > MAX_COURTS)return '코트 수는 1~12 사이로 정해 주세요.';
     if(has('expectedCourts') && number(request.expectedCourts) !== number(event.courts, 0)){
       return '코트 수가 이미 바뀌었습니다.';
     }
     const previous = Math.max(1, number(event.courts, 1));
-    // 진행 중인 초과 코트는 취소하지 않습니다. 새 목표 코트 밖에서는 더 이상
-    // 자동 투입하지 않고, 현재 경기 종료와 함께 자연스럽게 닫습니다.
-    const drainingCourts = [...new Set((event.active || [])
-      .map(match=>number(match?.court))
-      .filter(court=>court > courts))].sort((a,b)=>a-b);
-    event.courts = courts;
+    // 빈 코트가 있으면 빈 코트부터 닫습니다. 모두 사용 중이면 번호가 가장 큰
+    // 코트가 아니라 가장 늦게 투입된 경기의 실제 코트를 배수 대상으로 삼습니다.
+    const plan = resizeCourtPlan(event, courts);
     changes.courts = courts;
     courtAdjustment = {
-      from:previous,
-      to:courts,
+      ...plan,
       mode:courts < previous
-        ? (drainingCourts.length ? 'draining' : 'reduced')
+        ? (plan.drainingCourts.length ? 'draining' : 'reduced')
         : courts > previous ? 'expanded' : 'unchanged',
-      drainingCourts
     };
   }
 
@@ -2399,12 +2479,12 @@ function applyCourtRenumber(session, request, now, operation){
   const match = (event.active || []).find(row=>text(row?.id) === matchId);
   if(!match)return '코트 번호를 바꿀 경기를 찾지 못했습니다.';
   const next = number(request.court);
-  // 운영 중인 코트 수 밖의 번호로 옮기면 원래 번호가 '빈 코트'가 되어 시스템이
-  // 새 경기를 자동 투입합니다 — 3코트에 4경기가 서는 사고(2026-08-13 시뮬 발견).
-  // 더 큰 번호를 쓰려면 코트 수부터 늘려야 합니다.
-  const courtLimit = Math.max(1, number(event.courts, 1));
-  if(!Number.isInteger(next) || next < 1 || next > courtLimit){
-    return `코트 번호는 1~${courtLimit} 사이로 정해 주세요. 더 큰 번호를 쓰려면 코트 수를 먼저 늘려주세요.`;
+  // 코트 수와 실제 번호는 분리돼 있습니다. 배수 중인 코트까지 포함해 현재 화면에
+  // 존재하는 실제 코트 사이에서만 정정해야 빈 코트 자동 투입이 엇갈리지 않습니다.
+  const plan = normalizeCourtPlan(event);
+  const available = [...new Set([...plan.operating, ...plan.draining])].sort((a,b)=>a-b);
+  if(!Number.isInteger(next) || !available.includes(next)){
+    return `코트 번호는 현재 운영 중인 ${available.join(', ')} 중에서 정해 주세요.`;
   }
   const current = number(match.court);
   if(Object.prototype.hasOwnProperty.call(request, 'expectedCourt')
@@ -2825,7 +2905,7 @@ function applyManualMatch(session, request, now, requestId, operation){
   const event = session.event;
   if(event.finishMode)return '마무리 전환 후에는 경기를 등록할 수 없습니다.';
   const court = number(request.court);
-  if(!Number.isInteger(court) || court < 1 || court > Math.max(1, number(event.courts, 1))){
+  if(!Number.isInteger(court) || !normalizeCourtPlan(event).operating.includes(court)){
     return '코트 번호를 다시 확인해 주세요.';
   }
   if(event.active.some(match=>number(match.court) === court))return `${court}코트에는 이미 진행 중인 경기가 있습니다.`;

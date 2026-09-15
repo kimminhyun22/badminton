@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.670';
+const APP_VERSION = '1.10.671';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1427,14 +1427,35 @@ function _dailyNormalizeCourtOrder(order,count){
   const out=[];
   (Array.isArray(order)?order:[]).forEach(v=>{
     const c=parseInt(v,10);
-    if(c>=1&&c<=n&&!out.includes(c))out.push(c);
+    if(c>=1&&c<=12&&!out.includes(c)&&out.length<n)out.push(c);
   });
-  for(let c=1;c<=n;c++)if(!out.includes(c))out.push(c);
-  return out;
+  for(let c=1;c<=12&&out.length<n;c++)if(!out.includes(c))out.push(c);
+  return out.sort((a,b)=>a-b);
+}
+function _dailyResizeCourtOrder(nextCount,currentCount){
+  const current=Math.max(1,Math.min(12,parseInt(currentCount)||_dailyCourtCount()));
+  const next=Math.max(1,Math.min(12,parseInt(nextCount)||current));
+  const order=_dailyNormalizeCourtOrder(_dailyCourtOrder,current);
+  const active=_dailyActiveMatches();
+  const activeCourts=new Set(active.map(m=>parseInt(m.court,10)).filter(Boolean));
+  while(order.length>next){
+    const empty=order.filter(court=>!activeCourts.has(court)).sort((a,b)=>b-a)[0];
+    const newest=active.filter(m=>order.includes(parseInt(m.court,10))).sort((a,b)=>
+      Math.max(Number(b.autoHandoffAt||0),Number(b.startedAt||0))-
+      Math.max(Number(a.autoHandoffAt||0),Number(a.startedAt||0))||
+      Number(b.seq||0)-Number(a.seq||0)||Number(b.court||0)-Number(a.court||0)
+    )[0];
+    const court=empty||parseInt(newest?.court,10);
+    if(!court)break;
+    order.splice(order.indexOf(court),1);
+  }
+  for(let court=1;order.length<next&&court<=12;court++)if(!order.includes(court))order.push(court);
+  _dailyCourtOrder=order.sort((a,b)=>a-b);
+  return _dailyCourtOrder.slice();
 }
 function _dailyCourtOrderForUse(limit){
   const count=_dailyCourtCount();
-  _dailyCourtOrder=_dailyDefaultCourtOrder(count);
+  _dailyCourtOrder=_dailyNormalizeCourtOrder(_dailyCourtOrder,count);
   const cap=limit==null?count:Math.max(0,Math.min(count,parseInt(limit)||0));
   return cap?_dailyCourtOrder.slice(0,cap):[];
 }
@@ -1598,10 +1619,9 @@ function _dailyAvailableCourt(limit,options){
 }
 function _dailyCourtAvailable(court,limit){
   court=parseInt(court);
-  if(!court||court<1||court>_dailyCourtCount())return false;
   const cap=limit==null?_dailyCourtCount():Math.max(0,Math.min(_dailyCourtCount(),parseInt(limit)||0));
   if(!cap||_dailyActiveMatches().length>=cap)return false;
-  if(limit!=null&&!_dailyCourtOrderForUse(cap).includes(court))return false;
+  if(!court||!_dailyCourtOrderForUse(cap).includes(court))return false;
   return !_dailyActiveMatches().some(m=>m.court===court);
 }
 function _dailyEligible(){
@@ -2293,7 +2313,7 @@ function dailySave(options){
       preparationDate:_dailyPreparationDate,
       sessionClub:_dailySessionClubName,
       officialRestoreDismissed:_dailyOfficialRestoreDismissed,
-      courtOrder:_dailyDefaultCourtOrder(_dailyCourtCount()),
+      courtOrder:_dailyCourtOrderForUse(),
       players:_dailyPlayers,
       matches:_dailyMatches,
       queue:_dailyQueue,
@@ -2340,7 +2360,7 @@ function _dailySavedDateLabel(ts){
 function _dailySyncControls(courts){
   const c=document.getElementById('dailyCourts');
   if(c)c.value=courts||3;
-  _dailyCourtOrder=_dailyDefaultCourtOrder(courts||3);
+  _dailyCourtOrder=_dailyNormalizeCourtOrder(_dailyCourtOrder,courts||3);
   const autoEl=document.getElementById('dailyAutoAssign');
   if(autoEl)autoEl.checked=_dailyAutoAssign;
   const autoTopEl=document.getElementById('dailyAutoAssignTop');
@@ -2354,7 +2374,7 @@ function _dailySyncControls(courts){
   dailyRenderCourtSettings();
 }
 function dailyRenderCourtSettings(){
-  _dailyCourtOrder=_dailyDefaultCourtOrder(_dailyCourtCount());
+  _dailyCourtOrder=_dailyNormalizeCourtOrder(_dailyCourtOrder,_dailyCourtCount());
 }
 function _dailyPruneForeignDormantCarryover(){
   const clubCounts=new Map();
@@ -2487,7 +2507,7 @@ function dailyLoad(){
     _dailyPreparationDate=String(s.preparationDate||(!_dailyOperationStarted&&_dailyPlayers.length?_dailyLocalDateKey(s.savedAt||now):''));
     _dailySessionClubName=String(s.sessionClub||'');
     _dailyOfficialRestoreDismissed=Array.isArray(s.officialRestoreDismissed)?s.officialRestoreDismissed.map(String):[];
-    _dailyCourtOrder=_dailyDefaultCourtOrder(s.courts||3);
+    _dailyCourtOrder=_dailyNormalizeCourtOrder(s.courtOrder,s.courts||3);
     const storedCheckinId=String(localStorage.getItem(DAILY_CHECKIN_KEY)||'');
     const savedCheckinId=String(s.checkinId||'');
     const storedCheckinCreatedAt=parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||0;
@@ -2632,7 +2652,7 @@ async function dailyStepCourts(delta){
     return sent.ok;
   }
   el.value=next;
-  _dailyCourtOrder=_dailyDefaultCourtOrder(next);
+  _dailyResizeCourtOrder(next,current);
   _dailySyncControls(next);
   dailySave();
   dailyRender();
@@ -4563,14 +4583,10 @@ function _dailyManualActiveUsedCourts(){
 }
 function _dailyManualActiveDefaultCourt(){
   const used=_dailyManualActiveUsedCourts();
-  const base=Math.max(1,_dailyCourtCount());
-  for(let c=1;c<=base;c++){
+  for(const c of _dailyCourtOrderForUse()){
     if(!used.has(c))return c;
   }
   return 0;
-}
-function _dailyManualActiveCourtMax(){
-  return Math.max(1,_dailyCourtCount());
 }
 function _dailyManualActiveSelected(){
   const candidates=new Map(_dailyManualActiveCandidates().map(p=>[p.id,p]));
@@ -4697,7 +4713,7 @@ function dailyFinishLiveTransition(skipEmptyConfirm){
 }
 function dailySetManualActiveCourt(court){
   court=parseInt(court,10)||0;
-  if(court<1||court>_dailyCourtCount())return;
+  if(!_dailyCourtOrderForUse().includes(court))return;
   if(_dailyManualActiveUsedCourts().has(court)){
     alert(`${court}코트는 이미 진행 중입니다.`);
     return;
@@ -4741,7 +4757,7 @@ function dailyRenderManualActiveModal(){
   if(title)title.textContent=transition?'대진 게시':'수동 게임 등록';
   const sub=document.getElementById('dailyManualModalSub');
   if(sub)sub.textContent=transition?'계속 진행할 경기 등록':'비상 수동 등록';
-  const max=_dailyManualActiveCourtMax();
+  const courtIds=_dailyCourtOrderForUse();
   const freeCourt=transition&&!!_dailyManualActiveDefaultCourt();   // 남은 빈 코트가 있는가
   const note=document.getElementById('dailyManualNote');
   if(note){
@@ -4757,8 +4773,7 @@ function dailyRenderManualActiveModal(){
   }
   const courtGrid=document.getElementById('dailyManualCourtGrid');
   if(courtGrid){
-    courtGrid.innerHTML=Array.from({length:max},(_,i)=>{
-      const c=i+1;
+    courtGrid.innerHTML=courtIds.map(c=>{
       const registered=registeredByCourt.get(c);
       const busy=used.has(c);
       const on=!busy&&c===_dailyManualActiveDraft.court;
@@ -4852,7 +4867,7 @@ async function dailyConfirmManualActiveMatch(){
   const mode=_dailyManualActiveMode();
   const transition=mode==='transition';
   const court=parseInt(_dailyManualActiveDraft.court,10)||0;
-  if(!Number.isFinite(court)||court<1||court>_dailyCourtCount()){
+  if(!Number.isFinite(court)||!_dailyCourtOrderForUse().includes(court)){
     alert('코트 번호를 선택해 주세요.');
     return;
   }
@@ -5409,6 +5424,10 @@ function _dailyPublicEvent(){
   const expectedCount=expected.length;
   const deferredCount=_dailyDeferredWaitingPlayers().length;
   const finishComplete=!!(_dailyFinishMode&&!queuedCount&&!st.active.length);
+  const operatingCourtIds=_dailyCourtOrderForUse();
+  const operatingCourtSet=new Set(operatingCourtIds);
+  const drainingCourtIds=[...new Set(st.active.map(match=>Number(match.court||0))
+    .filter(court=>court&&!operatingCourtSet.has(court)))].sort((a,b)=>a-b);
   const policyDetail=finishComplete
     ? '마무리 완료 · 빈 코트는 자율게임'
     : queuedCount
@@ -5432,6 +5451,8 @@ function _dailyPublicEvent(){
     completed:st.completed.length,
     activeCount:st.active.length,
     courts:_dailyCourtCount(),
+    operatingCourtIds,
+    drainingCourtIds,
     nextTarget:cap.target,
     nextGoal:cap.goal,
     queuePolicy:{
@@ -5985,9 +6006,10 @@ function dailyRenderOpsStats(){
   const courts=_dailyCourtCount();
   const activeMatches=_dailyActiveMatches();
   const active=activeMatches.length;
+  const operatingCourts=new Set(_dailyCourtOrderForUse());
   const drainingCourts=[...new Set(activeMatches
     .map(m=>parseInt(m.court,10)||0)
-    .filter(court=>court>courts))].sort((a,b)=>a-b);
+    .filter(court=>court&&!operatingCourts.has(court)))].sort((a,b)=>a-b);
   const endingSoon=activeMatches.filter(m=>['soon','due'].includes(_dailyTimerState(m))).length;
   const locked=Math.min(_dailyQueueLockCount(),_dailyQueue.length);
   const rest=_dailyPlayers.filter(p=>p.status==='rest').length;
@@ -6865,6 +6887,10 @@ function _dailyArchiveLocalDay(at){
 function _dailyAdoptServerSnapshot(remote,options){
   const now=_dailyNow();
   const rollover=!!options?.rollover;
+  const remoteCourts=Math.max(1,Math.min(12,parseInt(remote?.event?.courts,10)||_dailyCourtCount()));
+  const courtControl=document.getElementById('dailyCourts');
+  if(courtControl)courtControl.value=remoteCourts;
+  _dailyCourtOrder=_dailyNormalizeCourtOrder(remote?.event?.operatingCourtIds,remoteCourts);
   // 선수: 서버가 가진 그대로. 게시 payload 형식이라 _dailyNormalize 가 그대로 받습니다.
   const players=Array.isArray(remote.players)?remote.players:[];
   _dailyPlayers=players.filter(p=>p&&p.id&&p.name).map(raw=>{
@@ -6899,6 +6925,15 @@ function _dailyAdoptServerSnapshot(remote,options){
       flexible:!!m.flexible,
       reservationId:m.reservationId||null,
       reservationLabel:m.reservationLabel||null,
+      autoHandoffAt:Number(m.autoHandoffAt||0),
+      autoHandoffExpiresAt:Number(m.autoHandoffExpiresAt||0),
+      autoHandoffSource:m.autoHandoffSource||'',
+      autoHandoffSourceMatchId:m.autoHandoffSourceMatchId||'',
+      autoHandoffSourceRequestId:m.autoHandoffSourceRequestId||'',
+      autoHandoffQueueIndex:Number(m.autoHandoffQueueIndex||0),
+      autoHandoffQueue:m.autoHandoffQueue||null,
+      autoHandoffPlayerStates:m.autoHandoffPlayerStates||null,
+      autoHandoffReservation:m.autoHandoffReservation||null,
       // 경기 전 상태는 서버에 없습니다. 채택된 경기를 취소하면 대기로 돌아갑니다.
       previousStatuses:{},
       serverAdopted:true,
@@ -8927,9 +8962,12 @@ function _dailyApplyOfficialSettings(req){
   if(Object.prototype.hasOwnProperty.call(settings,'courts')){
     const courts=Math.max(1,Math.min(12,parseInt(settings.courts,10)||0));
     if(courts){
+      const current=_dailyCourtCount();
+      const operating=req.serverResult?.courtAdjustment?.operatingCourtIds;
+      if(Array.isArray(operating))_dailyCourtOrder=_dailyNormalizeCourtOrder(operating,courts);
+      else _dailyResizeCourtOrder(courts,current);
       const el=document.getElementById('dailyCourts');
       if(el)el.value=courts;
-      _dailyCourtOrder=_dailyDefaultCourtOrder(courts);
       touched=true;
     }
   }
@@ -10183,6 +10221,8 @@ function dailyRenderMatches(){
     </div>`;
   };
   const activeByCourt=new Map(active.map(m=>[m.court,m]));
+  const operatingCourtIds=_dailyCourtOrderForUse();
+  const operatingCourtSet=new Set(operatingCourtIds);
   const startableQueues=_dailyQueue.filter(q=>_dailyQueueItemValid(q,null)&&!_dailyQueueRestPassActive(q));
   const freeCourtStartMap=new Map(_dailyFreeCourts().map((court,idx)=>[court,startableQueues[idx]||null]));
   const renderCourt=c=>{
@@ -10206,7 +10246,7 @@ function dailyRenderMatches(){
     const t1=m.team1.map(_dailyPlayer).filter(Boolean),t2=m.team2.map(_dailyPlayer).filter(Boolean);
     const state=_dailyTimerState(m);
     const playerButton=(side,p,i)=>`<button class="daily-active-player" type="button" ${pausedAttr} title="이름을 눌러 대기선수로 교체" onclick="dailyPickActiveReplacement('${m.id}','${side}',${i})">${_dailyNameHtml(p)}</button>`;
-    const drainingCourt=(parseInt(m.court,10)||0)>_dailyCourtCount();
+    const drainingCourt=!operatingCourtSet.has(parseInt(m.court,10)||0);
     return `<div class="daily-court-card busy ${drainingCourt?'closing ':''}${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
       <div class="daily-court-head">
         <div class="daily-court-title"><button class="daily-court-title-btn" type="button" ${pausedAttr} title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button>${_dailyPartnerReservationBadge(m)}${_dailyFairnessCorrectionBadge(m)}${drainingCourt?'<span class="daily-court-drain-badge">종료 후 닫힘</span>':''}</div>
@@ -10225,10 +10265,8 @@ function dailyRenderMatches(){
       </div>
     </div>`;
   };
-  const courtCount=_dailyCourtCount();
-  const maxActiveCourt=active.reduce((max,m)=>Math.max(max,parseInt(m.court)||0),0);
-  const displayCourtCount=Math.max(courtCount,maxActiveCourt);
-  const courtHtml=`<div class="daily-court-grid">${Array.from({length:displayCourtCount},(_,i)=>renderCourt(i+1)).join('')}</div>`;
+  const displayCourtIds=[...new Set([...operatingCourtIds,...active.map(m=>parseInt(m.court,10)||0).filter(Boolean)])].sort((a,b)=>a-b);
+  const courtHtml=`<div class="daily-court-grid">${displayCourtIds.map(renderCourt).join('')}</div>`;
   const recentHtml=recent.length
     ? `<details class="daily-completed-fold"><summary>최근 완료 경기 ${recent.length}개</summary><div class="daily-completed-body">${recent.map(renderRecentMatch).join('')}</div></details>`
     : '';
@@ -10702,7 +10740,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.670&from=daily';
+  location.href='team.html?v=1.10.671&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

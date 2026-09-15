@@ -13,7 +13,7 @@
  * 여기서 지키는 것:
  *   1) 관리자 연결이면 코트 수를 바꿀 수 있다
  *   2) 정식 임원도 같은 명령으로 바꿀 수 있다
- *   3) 축소 시 진행 경기는 끝까지 두고 초과 코트만 배수한다
+ *   3) 축소 시 빈 코트 우선, 모두 사용 중이면 마지막 투입 경기 코트를 배수한다
  *   4) 증설 시 새 빈 코트를 즉시 채운다
  *   5) 사라질 값을 저장한 척하지 않는다
  */
@@ -112,7 +112,7 @@ function send(patch, {admin = true, active = null} = {}){
   console.log('  임원 설정 변경: applied (2026-08-10 개방)');
 }
 
-// 3) 진행 중 축소는 현재 경기를 보존한 채 높은 번호 코트부터 배수합니다.
+// 3) 진행 중 축소는 코트 번호가 아니라 마지막 투입 경기를 기준으로 배수합니다.
 {
   const s=makeSession();
   s.capabilities.officialAutoHandoffV1=true;
@@ -122,10 +122,11 @@ function send(patch, {admin = true, active = null} = {}){
   s.event.nextTarget=4;
   s.event.queuePolicy={official:4,auto:true};
   s.serverRuntime.nextSeq=5;
+  const minutesAgo=[10,1,8,6]; // 2코트가 가장 마지막에 투입됐습니다.
   s.event.active=Array.from({length:4},(_,index)=>{
     const ids=Array.from({length:4},(__,offset)=>`d${index*4+offset+1}`);
     ids.forEach(id=>{const p=s.players.find(row=>row.id===id);p.status='playing';p.currentMatchId=`m${index+1}`;});
-    return {id:`m${index+1}`,court:index+1,seq:index+1,startedAt:NOW-5*60*1000,
+    return {id:`m${index+1}`,court:index+1,seq:index+1,startedAt:NOW-minutesAgo[index]*60*1000,
       expectedMinutes:15,endAt:NOW+10*60*1000,playerIds:ids,t1Ids:ids.slice(0,2),t2Ids:ids.slice(2)};
   });
   replenishPrepared(s,{now:NOW,requestId:'seed_resize'});
@@ -139,7 +140,8 @@ function send(patch, {admin = true, active = null} = {}){
   const reduced=sendTo(s,{courts:3,expectedCourts:4},{admin:false});
   assert.strictEqual(reduced.status,'applied',`진행 중 축소가 적용되어야 합니다: ${reduced.reason||''}`);
   assert.strictEqual(reduced.session.event.courts,3,'운영 목표는 즉시 3코트로 바뀌어야 합니다.');
-  assert.deepStrictEqual(reduced.result.courtAdjustment.drainingCourts,[4],'4코트는 현재 경기 뒤 닫혀야 합니다.');
+  assert.deepStrictEqual(reduced.result.courtAdjustment.operatingCourtIds,[1,3,4],'코트 수와 번호를 분리해 1·3·4코트를 계속 운영해야 합니다.');
+  assert.deepStrictEqual(reduced.result.courtAdjustment.drainingCourts,[2],'가장 늦게 투입된 2코트가 현재 경기 뒤 닫혀야 합니다.');
   assert.strictEqual(reduced.session.event.active.length,4,'4코트의 현재 경기를 취소하면 안 됩니다.');
   assert.strictEqual(reduced.session.event.next.filter(item=>!item.manualComposed).length,3,'자동 다음 대진은 새 코트 수에 맞춰야 합니다.');
   assert(reduced.session.event.next.some(item=>item.queueId==='manual_resize'),'코트 축소가 임원이 직접 짠 대진을 지우면 안 됩니다.');
@@ -149,50 +151,67 @@ function send(patch, {admin = true, active = null} = {}){
     expectedStartedAt:court1.startedAt,expectedPlayerIds:[...court1.playerIds]},{admin:false,at:NOW+2000});
   assert.strictEqual(lowerDone.status,'applied',lowerDone.reason||'낮은 번호 코트 종료가 적용되어야 합니다.');
   assert.deepStrictEqual(lowerDone.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3,4],
-    '배수 중에도 목표 범위 안의 빈 코트는 채우고 4코트 현재 경기는 유지해야 합니다.');
-  assert((lowerDone.result.autoEntries||[]).every(entry=>entry.court<=3),'닫는 코트에 새 경기를 투입하면 안 됩니다.');
+    '배수 중에도 운영 계획 안의 빈 코트는 채우고 2코트 현재 경기는 유지해야 합니다.');
+  assert((lowerDone.result.autoEntries||[]).every(entry=>entry.court!==2),'닫는 2코트에 새 경기를 투입하면 안 됩니다.');
 
-  const court4=lowerDone.session.event.active.find(match=>match.court===4);
-  const drained=sendTo(lowerDone.session,{type:'official-court-complete',matchId:court4.id,
-    expectedStartedAt:court4.startedAt,expectedPlayerIds:[...court4.playerIds]},{admin:false,at:NOW+3000});
+  const court2=lowerDone.session.event.active.find(match=>match.court===2);
+  const drained=sendTo(lowerDone.session,{type:'official-court-complete',matchId:court2.id,
+    expectedStartedAt:court2.startedAt,expectedPlayerIds:[...court2.playerIds]},{admin:false,at:NOW+3000});
   assert.strictEqual(drained.status,'applied',drained.reason||'닫는 코트 종료가 적용되어야 합니다.');
-  assert.deepStrictEqual(drained.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3],
-    '4코트 종료 뒤에는 3코트만 운용해야 합니다.');
+  assert.deepStrictEqual(drained.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,3,4],
+    '2코트 종료 뒤에는 실제 운영 계획인 1·3·4코트만 운용해야 합니다.');
 
   const expanded=sendTo(drained.session,{courts:4,expectedCourts:3},{admin:false,at:NOW+4000});
   assert.strictEqual(expanded.status,'applied',expanded.reason||'운영 중 증설이 적용되어야 합니다.');
-  assert(expanded.result.autoEntries?.some(entry=>entry.court===4),'늘린 4코트는 즉시 자동 투입해야 합니다.');
+  assert(expanded.result.autoEntries?.some(entry=>entry.court===2),'다시 연 2코트는 즉시 자동 투입해야 합니다.');
   assert.deepStrictEqual(expanded.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3,4]);
 
   const reducedAfterAutoFill=sendTo(expanded.session,{courts:3,expectedCourts:4},{admin:false,at:NOW+5000});
-  assert.strictEqual(reducedAfterAutoFill.status,'applied','방금 자동 투입된 4코트도 우선 배수 상태로 바뀌어야 합니다.');
-  const freshCourt4=reducedAfterAutoFill.session.event.active.find(match=>match.court===4);
-  assert(freshCourt4?.autoHandoffAt,'4코트에는 2분 대응 창이 남은 자동 투입 경기가 있어야 합니다.');
+  assert.strictEqual(reducedAfterAutoFill.status,'applied','방금 자동 투입된 2코트가 우선 배수 상태로 바뀌어야 합니다.');
+  assert.deepStrictEqual(reducedAfterAutoFill.result.courtAdjustment.drainingCourts,[2]);
+  const freshCourt2=reducedAfterAutoFill.session.event.active.find(match=>match.court===2);
+  assert(freshCourt2?.autoHandoffAt,'2코트에는 2분 대응 창이 남은 자동 투입 경기가 있어야 합니다.');
   const closedNow=sendTo(reducedAfterAutoFill.session,{
-    type:'official-active-yield',matchId:freshCourt4.id,court:4,token:'close_draining_court_token',
-    expectedStartedAt:freshCourt4.startedAt,expectedAutoHandoffAt:freshCourt4.autoHandoffAt,
-    expectedPlayerIds:[...freshCourt4.playerIds],expectedTeam1Ids:[...freshCourt4.t1Ids],expectedTeam2Ids:[...freshCourt4.t2Ids]
+    type:'official-active-yield',matchId:freshCourt2.id,court:2,token:'close_draining_court_token',
+    expectedStartedAt:freshCourt2.startedAt,expectedAutoHandoffAt:freshCourt2.autoHandoffAt,
+    expectedPlayerIds:[...freshCourt2.playerIds],expectedTeam1Ids:[...freshCourt2.t1Ids],expectedTeam2Ids:[...freshCourt2.t2Ids]
   },{admin:false,at:NOW+6000});
   assert.strictEqual(closedNow.status,'applied',closedNow.reason||'방금 투입된 배수 코트는 즉시 닫을 수 있어야 합니다.');
-  assert.deepStrictEqual(closedNow.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3],
+  assert.deepStrictEqual(closedNow.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,3,4],
     '지금 닫기 뒤에는 목표 코트만 진행 중이어야 합니다.');
   assert.strictEqual(closedNow.result.autoEntered,false,'닫는 코트에 대체 경기를 다시 투입하면 안 됩니다.');
-  assert.deepStrictEqual(closedNow.result.drainingCourtClosed,{court:4,targetCourts:3},'즉시 닫은 코트와 목표 코트를 결과에 남겨야 합니다.');
+  assert.deepStrictEqual(closedNow.result.drainingCourtClosed,{court:2,targetCourts:3},'즉시 닫은 코트와 목표 코트를 결과에 남겨야 합니다.');
   assert.strictEqual(closedNow.result.deferred.queueIndex,1,'코트 축소로 되돌린 경기는 선수 책임이 아니므로 다음 1순위여야 합니다.');
-  assert.deepStrictEqual(closedNow.session.event.next[0].playerIds,freshCourt4.playerIds,'되돌린 네 명과 팀 구성이 대기표 맨 앞에 그대로 복원되어야 합니다.');
+  assert.deepStrictEqual(closedNow.session.event.next[0].playerIds,freshCourt2.playerIds,'되돌린 네 명과 팀 구성이 대기표 맨 앞에 그대로 복원되어야 합니다.');
   assert.strictEqual(closedNow.session.event.next.filter(item=>!item.manualComposed).length,3,'즉시 닫은 뒤에도 자동 대기 수는 3코트 목표를 지켜야 합니다.');
   assert(closedNow.session.event.next.some(item=>item.queueId==='manual_resize'),'즉시 닫아도 직접 편성 대진을 지우면 안 됩니다.');
-  const restoredIds=new Set(freshCourt4.playerIds);
+  const restoredIds=new Set(freshCourt2.playerIds);
   assert(closedNow.session.players.filter(player=>restoredIds.has(player.id)).every(player=>player.status==='wait'&&!player.currentMatchId),
     '즉시 닫은 경기의 네 선수는 대기 상태로 돌아가야 합니다.');
   const duplicateClose=sendTo(closedNow.session,{
-    type:'official-active-yield',matchId:freshCourt4.id,court:4,token:'duplicate_close_draining_court_token',
-    expectedStartedAt:freshCourt4.startedAt,expectedAutoHandoffAt:freshCourt4.autoHandoffAt,
-    expectedPlayerIds:[...freshCourt4.playerIds],expectedTeam1Ids:[...freshCourt4.t1Ids],expectedTeam2Ids:[...freshCourt4.t2Ids]
+    type:'official-active-yield',matchId:freshCourt2.id,court:2,token:'duplicate_close_draining_court_token',
+    expectedStartedAt:freshCourt2.startedAt,expectedAutoHandoffAt:freshCourt2.autoHandoffAt,
+    expectedPlayerIds:[...freshCourt2.playerIds],expectedTeam1Ids:[...freshCourt2.t1Ids],expectedTeam2Ids:[...freshCourt2.t2Ids]
   },{admin:false,at:NOW+6001});
   assert.strictEqual(duplicateClose.status,'rejected','두 임원이 같은 코트를 동시에 닫아도 두 번째 처리는 거절되어야 합니다.');
   assert.strictEqual(duplicateClose.session.serverRevision,closedNow.session.serverRevision,'중복 즉시 닫기가 서버 상태를 한 번 더 진행하면 안 됩니다.');
-  console.log('  진행 중 코트 조정: 4→3 배수 · 3코트 유지 · 3→4 즉시 투입 · 방금 투입 코트 즉시 닫기');
+  console.log('  진행 중 코트 조정: 마지막 투입 2코트 배수 · 1·3·4 유지 · 2코트 즉시 닫기');
+}
+
+// 3a) 빈 코트가 있으면 진행 경기보다 빈 코트를 먼저 닫습니다.
+{
+  const s=makeSession();
+  s.event.courts=4;
+  s.event.active=[1,3,4].map((court,index)=>({
+    id:`empty_case_${court}`,court,seq:index+1,startedAt:NOW-(index+1)*60*1000,
+    expectedMinutes:15,endAt:NOW+10*60*1000,playerIds:[],t1Ids:[],t2Ids:[]
+  }));
+  const reduced=sendTo(s,{courts:3,expectedCourts:4},{admin:false});
+  assert.strictEqual(reduced.status,'applied');
+  assert.deepStrictEqual(reduced.result.courtAdjustment.removedCourts,[2],'비어 있던 2코트를 먼저 닫아야 합니다.');
+  assert.deepStrictEqual(reduced.result.courtAdjustment.operatingCourtIds,[1,3,4]);
+  assert.deepStrictEqual(reduced.result.courtAdjustment.drainingCourts,[],'빈 코트를 닫을 때 진행 경기는 배수하지 않아야 합니다.');
+  console.log('  빈 코트 우선 축소: 진행 경기 유지');
 }
 
 // 3b) 두 임원이 같은 화면에서 동시에 바꾸면 먼저 확정된 값만 남깁니다.
@@ -238,9 +257,9 @@ assert(checkin.includes('class="official-court-stepper"')
   '임원 코트 수는 숫자 입력창이 아니라 −/+ 버튼으로 한 칸씩 바꿔야 합니다.');
 assert(memberSettingsSource.includes('if(![-1,1].includes(step))')&&!memberSettingsSource.includes('prompt('),
   '임원 코트 변경은 임의 숫자를 받지 않고 한 코트 단위만 허용해야 합니다.');
-assert(memberSettingsSource.includes('코트는 경기 후 닫힘'),
-  '코트를 줄인 뒤에는 현재 경기를 보존하고 닫는 코트를 즉시 알려야 합니다.');
-assert(checkin.includes("drainingCourt?'지금 닫기':'이번만 뒤로'")&&checkin.includes('대진 1순위 복귀')&&checkin.includes("if(court>Math.max(1,Number(session?.event?.courts)||1))return true;"),
+assert(memberSettingsSource.includes('코트 ${current}→${next} 변경')&&!memberSettingsSource.includes('court>next'),
+  '임원 화면이 코트 개수로 닫을 실제 번호를 미리 추측하면 안 됩니다.');
+assert(checkin.includes("drainingCourt?'지금 닫기':'이번만 뒤로'")&&checkin.includes('대진 1순위 복귀')&&checkin.includes('if(officialDrainingCourt(row))return true;'),
   '배수 중인 자동 투입 코트에는 대체 경기 없이도 지금 닫기 버튼이 보여야 합니다.');
 assert(checkin.includes("operation==='active-yield'&&getLastComplete()?.drainingCourt")&&checkin.includes('`${undoLabel} 취소 요청`'),
   '즉시 닫기 되돌리기 안내도 기존 이번만 뒤로와 구분해야 합니다.');
@@ -250,6 +269,10 @@ assert(checkin.includes('event-court-drain-badge')&&checkin.includes('종료 후
   '임원 화면은 배수 중인 코트를 짧게 표시해야 합니다.');
 assert(daily.includes('daily-court-drain-badge')&&daily.includes('종료 후 닫힘'),
   '관리자 화면도 배수 중인 코트를 표시해야 합니다.');
+assert(daily.includes('req.serverResult?.courtAdjustment?.operatingCourtIds')
+  &&daily.includes('courtOrder:_dailyCourtOrderForUse()')
+  &&daily.includes('operatingCourtIds,'),
+  '관리자 추종·저장·게시가 서버의 실제 운영 코트 번호를 보존해야 합니다.');
 assert(daily.includes("drainingCourts.length?`${active}→${courts}`"),
   '관리자 진행 요약은 4/3 같은 오류 모양 대신 배수 방향을 보여야 합니다.');
 console.log('  관리자 화면 연결 확인');
