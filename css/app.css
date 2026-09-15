@@ -1080,6 +1080,8 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-court-state.soon{background:#fef2f2;border-color:#fca5a5;color:#b91c1c;}
 .daily-court-state.due{background:#dc2626;border-color:#b91c1c;color:#fff;}
 .daily-court-state.free{background:#ecfdf3;border-color:#bbf7d0;color:#166534;}
+.daily-court-card.closing{border-color:#fecaca;background:#fffafa;}
+.daily-court-drain-badge{display:inline-flex;align-items:center;margin-left:6px;padding:3px 7px;border:1px solid #fecaca;border-radius:999px;background:#fff1f2;color:#b91c1c;font-size:12px;font-weight:900;line-height:1.2;white-space:nowrap;vertical-align:middle;}
 .daily-court-body{padding:9px;display:flex;flex-direction:column;gap:7px;}
 .daily-court-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;border:1px solid var(--bdr);border-radius:12px;overflow:hidden;}
 .daily-court-team{padding:9px;background:#eef4fc;min-width:0;}

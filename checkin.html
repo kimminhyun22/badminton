@@ -210,6 +210,7 @@ h1{margin:8px 0 8px;font-size:28px;line-height:1.18}
   white-space:nowrap;
 }
 .event-partner-badge.correction{margin-left:5px;border-color:#f1cf8b;background:#fff8e8;color:#946000;}
+.event-court-drain-badge{display:inline-flex;width:max-content;padding:3px 8px;border:1px solid #fecaca;border-radius:999px;background:#fff1f2;color:#b91c1c;font-size:12px;font-weight:900;line-height:1.2;white-space:nowrap;}
 .event-row .event-partner-badge{margin-bottom:5px}
 .event-match-heading .event-partner-badge{margin-bottom:0}
 .event-teams{
@@ -2965,7 +2966,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.666">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.667">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -2980,7 +2981,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.666</span>
+    <span class="version-chip" id="appVersion">v1.10.667</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3043,7 +3044,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.666';
+const APP_VERSION='1.10.667';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -4431,6 +4432,7 @@ function renderEvent(){
   const active=(ev.active||[]).slice(0,4).map(m=>{
     const remain=remainMinutes(m);
     const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
+    const drainingCourt=Number(m.court)>Math.max(1,Number(ev.courts)||1);
     const pendingComplete=officialRequests.some(r=>r.type==='official-court-complete'&&officialRequestPending(r)&&String(r.matchId||'')===String(m.id||''));
     const pendingActiveYield=officialRequests.some(r=>r.type==='official-active-yield'&&officialRequestPending(r)&&String(r.matchId||'')===String(m.id||''));
     const completeDisabled=(flowPaused||sendingKey||claimingOfficial||pendingComplete||pendingActiveYield)?'disabled':'';
@@ -4454,7 +4456,7 @@ function renderEvent(){
           // 「진행중」 글자는 뺍니다(운영자 2026-08-13). 남은 시간 배지와 코트
           // 번호, 붉은 카드가 이미 진행 중이라고 말합니다. 배지가 있을 때만
           // 머리줄을 남겨 빈 줄이 생기지 않게 합니다.
-          const badges=`${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}`;
+          const badges=`${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}${canOfficialOperate&&drainingCourt?'<span class="event-court-drain-badge">종료 후 닫힘</span>':''}`;
           return badges?`<div class="event-match-heading">${badges}</div>`:'';
         })()}
         <div class="event-teams active-teams">${teamLines(m,replaceCtx)}</div>
@@ -6581,11 +6583,14 @@ async function sendOfficialSettingsCourts(actorId){
   const actor=officialActor(actorId);
   if(!actor||!actor.isClubOfficial)return toast('코트 수 변경은 클럽 임원만 할 수 있어요.');
   const current=Math.max(1,parseInt(session?.event?.courts,10)||1);
-  const raw=prompt(`현재 ${current}코트입니다.\n사용할 코트 수를 입력하세요 (1~12).`,String(current));
+  const raw=prompt(`현재 ${current}코트입니다.\n사용할 코트 수를 입력하세요 (1~12).\n줄이면 초과 코트는 현재 경기 종료 후 닫힙니다.`,String(current));
   if(raw==null)return;
   const next=parseInt(String(raw).trim(),10);
   if(!Number.isFinite(next)||next<1||next>12)return toast('코트 수는 1~12 사이 숫자로 입력해 주세요.');
   if(next===current)return;
+  const drainingCourts=[...new Set((session?.event?.active||[])
+    .map(match=>parseInt(match?.court,10)||0)
+    .filter(court=>next<current&&court>next))].sort((a,b)=>a-b);
   const now=Date.now();
   await pushOfficialRequest({
     type:'official-settings-update',
@@ -6596,7 +6601,7 @@ async function sendOfficialSettingsCourts(actorId){
     createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
     observedUpdatedAt:session.updatedAt||0,
     source:'club-official-settings'
-  },`코트 ${current}→${next} 변경`);
+  },`코트 ${current}→${next} 변경${drainingCourts.length?` · ${drainingCourts.join('·')}코트는 경기 후 닫힘`:''}`);
 }
 // 진행 중인 경기의 코트 번호 정정(운영자 2026-08-13). 화면 번호와 실제로 쓰는
 // 코트가 어긋났을 때. 대상 번호에 다른 경기가 있으면 물어보고 맞바꿉니다.

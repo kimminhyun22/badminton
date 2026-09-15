@@ -869,6 +869,22 @@ function promotePrepared(session){
   }
 }
 
+// 코트 수를 줄이면 이미 준비된 자동 대진도 새 목표까지만 남겨야 합니다.
+// 직접 짠 대진은 코트 수 밖에서도 보존한다는 기존 원칙을 그대로 지킵니다.
+function trimAutomaticPreparedToTarget(session){
+  const event = session.event;
+  const target = Math.max(0, number(event.nextTarget, event.queuePolicy?.official));
+  let automatic = 0;
+  let released = 0;
+  event.next = (event.next || []).filter(item=>{
+    if(item?.manualComposed === true)return true;
+    if(automatic++ < target)return true;
+    released++;
+    return false;
+  });
+  return released;
+}
+
 function refreshEvent(session, now){
   const event = session.event;
   const timerNow = event.paused ? number(event.pausedAt, now) : now;
@@ -2290,6 +2306,7 @@ function applySettingsUpdate(session, request, now, operation){
   const event = session.event;
   const has = key=>Object.prototype.hasOwnProperty.call(request, key);
   const changes = {};
+  let courtAdjustment = null;
 
   if(has('courts')){
     const courts = number(request.courts);
@@ -2297,11 +2314,22 @@ function applySettingsUpdate(session, request, now, operation){
     if(has('expectedCourts') && number(request.expectedCourts) !== number(event.courts, 0)){
       return '코트 수가 이미 바뀌었습니다.';
     }
-    // 진행 중인 코트를 잘라내면 그 경기가 갈 곳이 없어집니다.
-    const busy = (event.active || []).filter(match=>number(match?.court) > courts).map(match=>number(match.court));
-    if(busy.length)return `${[...new Set(busy)].sort((a,b)=>a-b).join(', ')}코트에서 경기가 진행 중이라 코트 수를 줄일 수 없습니다.`;
+    const previous = Math.max(1, number(event.courts, 1));
+    // 진행 중인 초과 코트는 취소하지 않습니다. 새 목표 코트 밖에서는 더 이상
+    // 자동 투입하지 않고, 현재 경기 종료와 함께 자연스럽게 닫습니다.
+    const drainingCourts = [...new Set((event.active || [])
+      .map(match=>number(match?.court))
+      .filter(court=>court > courts))].sort((a,b)=>a-b);
     event.courts = courts;
     changes.courts = courts;
+    courtAdjustment = {
+      from:previous,
+      to:courts,
+      mode:courts < previous
+        ? (drainingCourts.length ? 'draining' : 'reduced')
+        : courts > previous ? 'expanded' : 'unchanged',
+      drainingCourts
+    };
   }
 
   // 운영 시간·자동 진행은 일부러 뺐습니다. 관리자 게시 payload(_dailyPublicEvent)가
@@ -2309,7 +2337,7 @@ function applySettingsUpdate(session, request, now, operation){
   // 여기에 저장해도 다음 게시 한 번에 사라집니다. 화면을 되살릴 때 payload 부터
   // 같이 고치고 나서 추가하십시오.
   if(!Object.keys(changes).length)return '바꿀 설정이 없습니다.';
-  if(operation)operation.result = {settings:changes};
+  if(operation)operation.result = {settings:changes, ...(courtAdjustment ? {courtAdjustment} : {})};
   return '';
 }
 
@@ -3025,6 +3053,12 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
   }
   if(!['official-temporary-grant','official-temporary-revoke'].includes(request.type)){
     replenishPrepared(session, {now, requestId});
+    if(request.type === 'official-settings-update'){
+      const releasedAutoQueue = trimAutomaticPreparedToTarget(session);
+      if(releasedAutoQueue && operation.result?.courtAdjustment){
+        operation.result.courtAdjustment.releasedAutoQueue = releasedAutoQueue;
+      }
+    }
     // '이번만 뒤로'는 미루려고 누르는 것이라, 그 직후에 자동 투입하면
     // 미룬 대진이 곧바로 다른 코트로 들어가 기능이 무의미해집니다.
     // 경기 취소는 '없던 일로' 되돌리는 것이라, 그 코트에 바로 다른 대진을 밀어넣으면

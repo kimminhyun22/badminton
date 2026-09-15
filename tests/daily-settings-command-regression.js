@@ -12,9 +12,10 @@
  *
  * 여기서 지키는 것:
  *   1) 관리자 연결이면 코트 수를 바꿀 수 있다
- *   2) 임원 연결로는 못 바꾼다 (운영 설정은 관리자 것)
- *   3) 진행 중인 코트를 잘라내는 축소는 거절한다
- *   4) 사라질 값을 저장한 척하지 않는다
+ *   2) 정식 임원도 같은 명령으로 바꿀 수 있다
+ *   3) 축소 시 진행 경기는 끝까지 두고 초과 코트만 배수한다
+ *   4) 증설 시 새 빈 코트를 즉시 채운다
+ *   5) 사라질 값을 저장한 척하지 않는다
  */
 const assert = require('assert');
 const fs = require('fs');
@@ -23,6 +24,8 @@ const {applyOfficialRequest, issueOfficialGrant} = require('../functions/daily-o
 
 const root = path.join(__dirname, '..');
 const daily = fs.readFileSync(path.join(root, 'js', 'daily.js'), 'utf8');
+const checkin = fs.readFileSync(path.join(root, 'checkin.html'), 'utf8');
+const {replenishPrepared} = require('../functions/daily-server-matchmaker');
 
 const NOW = 1_830_000_000_000;
 const SESSION_ID = 'DSET001';
@@ -33,6 +36,9 @@ const adminGrant = issueOfficialGrant({
 }, SECRET);
 const officialGrant = issueOfficialGrant({
   v:1, sid:SESSION_ID, cid:'official-client', pid:'p9', iat:NOW-1000, exp:NOW+60*60*1000
+}, SECRET);
+const secondOfficialGrant = issueOfficialGrant({
+  v:1, sid:SESSION_ID, cid:'official-client-2', pid:'p10', iat:NOW-1000, exp:NOW+60*60*1000
 }, SECRET);
 
 function player(id, name, extra = {}){
@@ -67,18 +73,22 @@ function makeSession(active){
   };
 }
 
-function send(patch, {admin = true, active = null} = {}){
-  return applyOfficialRequest(makeSession(active), {
-    type:'official-settings-update',
+function sendTo(session, patch, {admin = true, at = NOW + 1000, actorId = 'p9', grantToken = officialGrant} = {}){
+  return applyOfficialRequest(session, {
+    type:patch.type || 'official-settings-update',
     operationId:'set_'+Math.random().toString(36).slice(2,9),
     commandProtocol:2,
-    actorPlayerId:admin ? '' : 'p9',
+    actorPlayerId:admin ? '' : actorId,
     actorPlayerName:admin ? '관리자' : '임원선수',
-    officialGrantToken:admin ? adminGrant : officialGrant,
-    createdAt:NOW+1000,
-    expiresAt:NOW+30*60*1000,
+    officialGrantToken:admin ? adminGrant : grantToken,
+    createdAt:at,
+    expiresAt:at+30*60*1000,
     ...patch
-  }, {now:NOW+1000, grantSecret:SECRET, checkinId:SESSION_ID, adminClaim:admin});
+  }, {now:at, grantSecret:SECRET, checkinId:SESSION_ID, adminClaim:admin});
+}
+
+function send(patch, {admin = true, active = null} = {}){
+  return sendTo(makeSession(active), patch, {admin});
 }
 
 // 1) 관리자는 셋 다 바꿀 수 있습니다.
@@ -102,20 +112,71 @@ function send(patch, {admin = true, active = null} = {}){
   console.log('  임원 설정 변경: applied (2026-08-10 개방)');
 }
 
-// 3) 진행 중인 코트를 잘라내는 축소는 거절합니다.
+// 3) 진행 중 축소는 현재 경기를 보존한 채 높은 번호 코트부터 배수합니다.
 {
-  const active = [{
-    id:'m1', court:3, seq:1, startedAt:NOW-5*60*1000, expectedMinutes:15,
-    endAt:NOW+10*60*1000, playerIds:['p1','p2','p3','p4'], t1Ids:['p1','p2'], t2Ids:['p3','p4']
-  }];
-  const result = send({courts:2, expectedCourts:3}, {active});
-  assert.strictEqual(result.status, 'rejected', '진행 중인 코트를 없애는 축소는 거절되어야 합니다.');
-  assert(result.reason.includes('3코트'), `어느 코트가 걸렸는지 알려 줘야 합니다: ${result.reason}`);
-  console.log(`  진행 중 코트 축소: rejected (${result.reason})`);
+  const s=makeSession();
+  s.capabilities.officialAutoHandoffV1=true;
+  s.players=[player('p9','임원선수',{isClubOfficial:true}),
+    ...Array.from({length:40},(_,i)=>player(`d${i+1}`,`가명${i+1}`))];
+  s.event.courts=4;
+  s.event.nextTarget=4;
+  s.event.queuePolicy={official:4,auto:true};
+  s.serverRuntime.nextSeq=5;
+  s.event.active=Array.from({length:4},(_,index)=>{
+    const ids=Array.from({length:4},(__,offset)=>`d${index*4+offset+1}`);
+    ids.forEach(id=>{const p=s.players.find(row=>row.id===id);p.status='playing';p.currentMatchId=`m${index+1}`;});
+    return {id:`m${index+1}`,court:index+1,seq:index+1,startedAt:NOW-5*60*1000,
+      expectedMinutes:15,endAt:NOW+10*60*1000,playerIds:ids,t1Ids:ids.slice(0,2),t2Ids:ids.slice(2)};
+  });
+  replenishPrepared(s,{now:NOW,requestId:'seed_resize'});
+  assert.strictEqual(s.event.next.filter(item=>!item.manualComposed).length,4,'축소 전 자동 다음 대진 4개가 있어야 합니다.');
+  const occupied=new Set([...s.event.active,...s.event.next].flatMap(item=>item.playerIds||[]));
+  const manualIds=s.players.filter(p=>p.id!=='p9'&&!occupied.has(p.id)).slice(0,4).map(p=>p.id);
+  assert.strictEqual(manualIds.length,4,'직접 편성 보존을 시험할 여유 선수가 있어야 합니다.');
+  s.event.next.push({id:'manual_resize',queueId:'manual_resize',manualComposed:true,
+    playerIds:manualIds,t1Ids:manualIds.slice(0,2),t2Ids:manualIds.slice(2)});
 
-  // 진행 중이 아닌 코트까지만 줄이는 것은 됩니다.
-  const ok = send({courts:3, expectedCourts:3}, {active});
-  assert.strictEqual(ok.status, 'applied', '진행 중인 코트를 남기는 변경은 허용해야 합니다.');
+  const reduced=sendTo(s,{courts:3,expectedCourts:4},{admin:false});
+  assert.strictEqual(reduced.status,'applied',`진행 중 축소가 적용되어야 합니다: ${reduced.reason||''}`);
+  assert.strictEqual(reduced.session.event.courts,3,'운영 목표는 즉시 3코트로 바뀌어야 합니다.');
+  assert.deepStrictEqual(reduced.result.courtAdjustment.drainingCourts,[4],'4코트는 현재 경기 뒤 닫혀야 합니다.');
+  assert.strictEqual(reduced.session.event.active.length,4,'4코트의 현재 경기를 취소하면 안 됩니다.');
+  assert.strictEqual(reduced.session.event.next.filter(item=>!item.manualComposed).length,3,'자동 다음 대진은 새 코트 수에 맞춰야 합니다.');
+  assert(reduced.session.event.next.some(item=>item.queueId==='manual_resize'),'코트 축소가 임원이 직접 짠 대진을 지우면 안 됩니다.');
+
+  const court1=reduced.session.event.active.find(match=>match.court===1);
+  const lowerDone=sendTo(reduced.session,{type:'official-court-complete',matchId:court1.id,
+    expectedStartedAt:court1.startedAt,expectedPlayerIds:[...court1.playerIds]},{admin:false,at:NOW+2000});
+  assert.strictEqual(lowerDone.status,'applied',lowerDone.reason||'낮은 번호 코트 종료가 적용되어야 합니다.');
+  assert.deepStrictEqual(lowerDone.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3,4],
+    '배수 중에도 목표 범위 안의 빈 코트는 채우고 4코트 현재 경기는 유지해야 합니다.');
+  assert((lowerDone.result.autoEntries||[]).every(entry=>entry.court<=3),'닫는 코트에 새 경기를 투입하면 안 됩니다.');
+
+  const court4=lowerDone.session.event.active.find(match=>match.court===4);
+  const drained=sendTo(lowerDone.session,{type:'official-court-complete',matchId:court4.id,
+    expectedStartedAt:court4.startedAt,expectedPlayerIds:[...court4.playerIds]},{admin:false,at:NOW+3000});
+  assert.strictEqual(drained.status,'applied',drained.reason||'닫는 코트 종료가 적용되어야 합니다.');
+  assert.deepStrictEqual(drained.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3],
+    '4코트 종료 뒤에는 3코트만 운용해야 합니다.');
+
+  const expanded=sendTo(drained.session,{courts:4,expectedCourts:3},{admin:false,at:NOW+4000});
+  assert.strictEqual(expanded.status,'applied',expanded.reason||'운영 중 증설이 적용되어야 합니다.');
+  assert(expanded.result.autoEntries?.some(entry=>entry.court===4),'늘린 4코트는 즉시 자동 투입해야 합니다.');
+  assert.deepStrictEqual(expanded.session.event.active.map(match=>match.court).sort((a,b)=>a-b),[1,2,3,4]);
+  console.log('  진행 중 코트 조정: 4→3 배수 · 3코트 유지 · 3→4 즉시 투입');
+}
+
+// 3b) 두 임원이 같은 화면에서 동시에 바꾸면 먼저 확정된 값만 남깁니다.
+{
+  const s=makeSession();
+  s.players.push(player('p10','다른임원',{isClubOfficial:true}));
+  const first=sendTo(s,{courts:2,expectedCourts:3},{admin:false,actorId:'p9'});
+  assert.strictEqual(first.status,'applied');
+  const stale=sendTo(first.session,{courts:1,expectedCourts:3},
+    {admin:false,at:NOW+2000,actorId:'p10',grantToken:secondOfficialGrant});
+  assert.strictEqual(stale.status,'rejected','동시에 누른 옛 코트 수 요청은 거절되어야 합니다.');
+  assert.strictEqual(stale.session.event.courts,2,'먼저 확정된 코트 수를 뒤 요청이 덮으면 안 됩니다.');
+  console.log('  동시 임원 코트 변경: 먼저 확정된 요청 유지');
 }
 
 // 4) 형식·정합성이 틀리면 거절합니다.
@@ -139,6 +200,14 @@ const applyEnd = daily.indexOf('function _dailyApplyTemporaryOfficial', applySta
 const applySource = daily.slice(applyStart, applyEnd);
 assert(applySource.includes('req.serverResult?.settings'),
   '보낸 값이 아니라 서버가 적용한 값을 받아야 합니다.');
+assert(checkin.includes('줄이면 초과 코트는 현재 경기 종료 후 닫힙니다.'),
+  '임원은 코트를 줄이기 전에 현재 경기 보존 방식을 알아야 합니다.');
+assert(checkin.includes('event-court-drain-badge')&&checkin.includes('종료 후 닫힘'),
+  '임원 화면은 배수 중인 코트를 짧게 표시해야 합니다.');
+assert(daily.includes('daily-court-drain-badge')&&daily.includes('종료 후 닫힘'),
+  '관리자 화면도 배수 중인 코트를 표시해야 합니다.');
+assert(daily.includes("drainingCourts.length?`${active}→${courts}`"),
+  '관리자 진행 요약은 4/3 같은 오류 모양 대신 배수 방향을 보여야 합니다.');
 console.log('  관리자 화면 연결 확인');
 
 console.log('\ndaily settings command regression ok');

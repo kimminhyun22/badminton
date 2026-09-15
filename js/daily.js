@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.666';
+const APP_VERSION = '1.10.667';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5985,6 +5985,9 @@ function dailyRenderOpsStats(){
   const courts=_dailyCourtCount();
   const activeMatches=_dailyActiveMatches();
   const active=activeMatches.length;
+  const drainingCourts=[...new Set(activeMatches
+    .map(m=>parseInt(m.court,10)||0)
+    .filter(court=>court>courts))].sort((a,b)=>a-b);
   const endingSoon=activeMatches.filter(m=>['soon','due'].includes(_dailyTimerState(m))).length;
   const locked=Math.min(_dailyQueueLockCount(),_dailyQueue.length);
   const rest=_dailyPlayers.filter(p=>p.status==='rest').length;
@@ -5994,6 +5997,8 @@ function dailyRenderOpsStats(){
   const finishPlan=_dailyFinishPlanInfo();
   const courtHint=_dailyPaused
     ? '타이머 정지'
+    : drainingCourts.length
+    ? `${drainingCourts.join('·')}코트 종료 후 닫힘`
     : endingSoon
     ? `${endingSoon}코트 종료임박`
     : active
@@ -6015,7 +6020,7 @@ function dailyRenderOpsStats(){
       ? `게스트 ${guestLive}`
       : flow.label;
   const cards=[
-    {label:'진행',value:`${active}/${courts}`,hint:courtHint,cls:'primary',target:'active'},
+    {label:'진행',value:drainingCourts.length?`${active}→${courts}`:`${active}/${courts}`,hint:courtHint,cls:'primary',target:'active'},
     {label:'대진',value:_dailyFinishMode?(locked||0):(flow.auto?queueValue:(_dailyOperationStarted?'대기':'게시 전')),hint:_dailyFinishMode?(finishComplete?'자율게임':(locked?finishPlan.label:'새 대진 없음')):queueHint,cls:'primary',target:'queue'},
     {label:'라이브',value:flow.pool,hint:liveHint,cls:flow.auto?'primary':'warn',target:'players'}
   ];
@@ -10191,9 +10196,10 @@ function dailyRenderMatches(){
     const t1=m.team1.map(_dailyPlayer).filter(Boolean),t2=m.team2.map(_dailyPlayer).filter(Boolean);
     const state=_dailyTimerState(m);
     const playerButton=(side,p,i)=>`<button class="daily-active-player" type="button" ${pausedAttr} title="이름을 눌러 대기선수로 교체" onclick="dailyPickActiveReplacement('${m.id}','${side}',${i})">${_dailyNameHtml(p)}</button>`;
-    return `<div class="daily-court-card busy ${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
+    const drainingCourt=(parseInt(m.court,10)||0)>_dailyCourtCount();
+    return `<div class="daily-court-card busy ${drainingCourt?'closing ':''}${state==='due'?'due':state==='soon'?'soon':''}" data-daily-court-card="${m.id}">
       <div class="daily-court-head">
-        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" ${pausedAttr} title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button>${_dailyPartnerReservationBadge(m)}${_dailyFairnessCorrectionBadge(m)}</div>
+        <div class="daily-court-title"><button class="daily-court-title-btn" type="button" ${pausedAttr} title="코트 번호 변경" onclick="dailyEditActiveCourt('${m.id}')">${m.court}코트</button>${_dailyPartnerReservationBadge(m)}${_dailyFairnessCorrectionBadge(m)}${drainingCourt?'<span class="daily-court-drain-badge">종료 후 닫힘</span>':''}</div>
         <span class="daily-timer ${state==='soon'?'soon':''} ${state==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>
       </div>
       <div class="daily-court-body">
@@ -10686,7 +10692,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.666&from=daily';
+  location.href='team.html?v=1.10.667&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
