@@ -6980,12 +6980,15 @@ async function sendOfficialCourtUndo(actorId,token,operation){
   if(!actor||!token)return toast('되돌릴 종료 기록을 찾지 못했습니다.');
   const now=Date.now();
   const undoType=operation==='court-complete'?'official-court-complete-undo':'official-operation-undo';
+  const undoLabel=operation==='active-yield'&&getLastComplete()?.drainingCourt
+    ? '코트 즉시 닫기'
+    : ['queue-yield','active-yield'].includes(operation)?'이번만 뒤로':operation==='queue-enter'?'입장 처리':'경기 종료';
   const ok=await pushOfficialRequest({
     type:undoType,
     actorPlayerId:actor.id,actorPlayerName:actor.name,token,operation:operation||'court-complete',
     createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
     source:'club-official-support'
-  },`${['queue-yield','active-yield'].includes(operation)?'이번만 뒤로':operation==='queue-enter'?'입장 처리':'경기 종료'} 취소 요청`);
+  },`${undoLabel} 취소 요청`);
   if(ok)clearLastComplete();
 }
 async function sendStatus(playerId,status){

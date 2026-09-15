@@ -234,6 +234,8 @@ assert(checkin.includes("방금 투입된 경기는 2분 안에 '지금 닫기'�
   '코트 축소 입력창은 방금 자동 투입된 경기의 즉시 닫기 방법도 알려야 합니다.');
 assert(checkin.includes("drainingCourt?'지금 닫기':'이번만 뒤로'")&&checkin.includes("if(court>Math.max(1,Number(session?.event?.courts)||1))return true;"),
   '배수 중인 자동 투입 코트에는 대체 경기 없이도 지금 닫기 버튼이 보여야 합니다.');
+assert(checkin.includes("operation==='active-yield'&&getLastComplete()?.drainingCourt")&&checkin.includes('`${undoLabel} 취소 요청`'),
+  '즉시 닫기 되돌리기 안내도 기존 이번만 뒤로와 구분해야 합니다.');
 assert(daily.includes('const drainingCourtClosed=!!result.drainingCourtClosed')&&daily.includes("m.cancelReason=drainingCourtClosed?'club-official-draining-court-close'"),
   '관리자 원본은 즉시 닫기 결과를 대체 경기 없는 정상 명령으로 따라가야 합니다.');
 assert(checkin.includes('event-court-drain-badge')&&checkin.includes('종료 후 닫힘'),
