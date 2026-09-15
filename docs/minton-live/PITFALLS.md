@@ -25,6 +25,12 @@
 - 서버가 여러 코트를 채웠다면 첫 경기 하나만 반환하지 않는다. 모든 `autoEntries`를 보내고, 관리자는 이를 모두 복원·시작한 뒤 `queueSync`를 적용한다. 순서를 바꾸면 서버와 관리자 진행 경기가 다시 달라진다.
 - 막는 검사: `tests/daily-official-delegation-regression.js`의 자동 꺼짐 3코트 게시·기존 1경기 정체·종료·되돌리기와 `tests/daily-admin-member-sync-regression.js`의 다중 자동 투입 순서·멱등 케이스. 최종 확인은 옛 수동 정책으로 만든 버리는 실배포 세션에서 게시 → 종료 → 되돌리기까지 본다.
 
+## 2-2. 코트 개수와 물리 코트 번호는 다른 값이다
+- 증상: 4→3으로 줄이면 실제 마지막 투입 경기와 상관없이 4코트가 닫히거나, 관리자 재게시 뒤 운영 코트가 `[1,2,3]`으로 되돌아온다.
+- `event.courts`는 용량이고 `event.operatingCourtIds`는 실제 번호다. 축소는 빈 코트 우선, 모두 진행 중이면 `autoHandoffAt → startedAt → seq` 순 최신 경기의 코트를 뺀다. 번호가 큰 코트를 최신으로 추정하지 않는다.
+- 배수 중인 진행 코트는 `drainingCourtIds`로만 남긴다. 관리자 저장·게시·서버 채택·임원 화면의 빈 코트 계산이 모두 `operatingCourtIds`를 보존해야 한다. 코트 번호 정정도 숫자 직접 입력 대신 이 집합의 버튼만 보여 준다.
+- 막는 검사: `tests/daily-settings-command-regression.js`의 최신 경기 2코트 배수, 빈 2코트 우선 축소, 재증설, 1순위 복귀, 관리자 물리 계획 보존, 관리자·임원 번호 버튼 정적 핀. 최종 확인은 4코트 자동 투입 → 최신 경기를 낮은 번호로 맞교환 → 축소 → 즉시 닫기 → 관리자 재게시 E2E다.
+
 ## 3. 행위자 상태 게이트는 네 곳이다
 - 래퍼 `functions/daily-official-command.js`(`applyCommandTransaction`)와 엔진 `validateCommon` 이 각자 행위자 상태를 본다. 엔진만 고치면 래퍼에서 거절된다(2026-09-14 설계 검토에서 발견).
 - 서버 밖에도 둘 더 있다: 클레임 `applyOfficialClaimTransaction` 과 임원 화면의 운영자/사전 세팅 판정이다. 새 예외는 네 곳을 함께 본다.

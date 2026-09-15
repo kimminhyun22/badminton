@@ -13,17 +13,19 @@
 1. **관리자 기반 설정**(최초 한 번): 클럽 전체 명부와 정식 임원을 관리하고, 명부 스냅샷(`arrivalCandidates`)이 든 상시 세션·회원 링크를 만든다(`dailyPublishCheckinSession`).
 2. **임원 당일 명단 설정**(운영 시작 전): 도착 전 상태의 정식 임원도 같은 회원 링크로 연결할 수 있다. 「명부 불러오기」에서 오늘 선수를 여러 명 골라 `현장 참가` 또는 `도착 전`으로 한 번에 등록한다(`official-roster-setup`).
 3. **임원 게임 설정**: 코트 수 변경 → 진행 중 코트 등록(4명 고르기, 없으면 생략) → 「대진 게시」(`official-operation-start`). 이 순간부터 서버가 대기표를 짠다.
-4. **운영**: 임원·도우미가 경기 종료·교체·순서 조정·선수 상태를 처리한다. 서버 매치메이커가 빈 코트와 대기표를 자동 보충한다. 정식 임원은 진행 중에도 코트 수를 바꿀 수 있다. 감소하면 목표 밖 진행 코트는 현재 경기 뒤 배수한다. 단, 방금 자동 투입된 배수 코트는 2분 안에 `official-active-yield`를 누르면 대진을 다음 1순위로 복원하고 대체 투입 없이 즉시 닫는다. 증설하면 새 빈 코트를 즉시 채운다.
+4. **운영**: 임원·도우미가 경기 종료·교체·순서 조정·선수 상태를 처리한다. 서버 매치메이커가 빈 코트와 대기표를 자동 보충한다. 정식 임원은 진행 중에도 코트 수를 바꿀 수 있다. 감소하면 빈 운영 코트를 먼저 닫고, 모두 진행 중이면 가장 최근 투입된 경기의 코트를 현재 경기 뒤 배수한다. 단, 방금 자동 투입된 배수 코트는 2분 안에 `official-active-yield`를 누르면 대진을 다음 1순위로 복원하고 대체 투입 없이 즉시 닫는다. 증설하면 닫았던 실제 코트 번호를 다시 열어 즉시 채운다.
 5. **마무리**: `official-finish-mode` 로 새 대진 생성을 멈추고 남은 대진만 진행한다.
 6. **다음 운동일**: 클럽 임원이 「새 운동일 시작」(`official-session-rollover`). 같은 링크·같은 명단, 누른 임원만 현장이고 나머지는 도착 전. 관리자 게시가 다시 필요 없다.
 
 관리자 화면은 열려 있으면 서버를 따라가는 추종자로 동작하고, 닫혀 있어도 운영은 돈다.
 
+`event.courts`는 동시에 돌릴 **개수**, `event.operatingCourtIds`는 실제로 열린 **코트 번호 목록**이다. 둘을 `[1..courts]`로 다시 합치면 최근 투입 코트를 닫는 현장 규칙과 관리자 추종이 모두 깨진다. 진행 중이지만 닫기로 한 번호는 `event.drainingCourtIds`에만 남고 새 경기를 받지 않는다. 코트 번호 정정은 이 물리 번호 집합 안에서 빈 코트로 이동하거나 진행 경기끼리 맞교환한다.
+
 ## 데이터 경로 (Realtime Database)
 
 | 경로 | 내용 | 쓰는 쪽 |
 |---|---|---|
-| `live/checkin_<ID>/session` | 세션 원본: `players` · `event`(courts·active·next·expected·operationStarted·finishMode…) · `arrivalClub`·`arrivalCandidates`(관리자 명부 스냅샷) · `reservations` · `completedLog`(최근 80) · `archive`(최근 4, 요약) · `serverRevision` · `officialInvite` · `capabilities` · `expiresAt` · `rolloverAt` · `rolloverCount` | 관리자 게시 트랜잭션, 서버 명령 트랜잭션 |
+| `live/checkin_<ID>/session` | 세션 원본: `players` · `event`(courts·operatingCourtIds·drainingCourtIds·active·next·expected·operationStarted·finishMode…) · `arrivalClub`·`arrivalCandidates`(관리자 명부 스냅샷) · `reservations` · `completedLog`(최근 80) · `archive`(최근 4, 요약) · `serverRevision` · `officialInvite` · `capabilities` · `expiresAt` · `rolloverAt` · `rolloverCount` | 관리자 게시 트랜잭션, 서버 명령 트랜잭션 |
 | `live/checkin_<ID>/requests/<key>` | 회원·임원 요청과 서버 결과(`serverAppliedAt`·`serverRejectedAt`·`serverResult`). 행은 생성 15분 뒤 다음 명령 트랜잭션 때 정리(`pruneCommandLedger`) | 회원·임원 화면, 서버 |
 | `live/checkin_<ID>/serverCommands` · `serverOps` | 서버 명령 장부와 영수증(중복·재시도 판정, 되돌리기) | 서버 |
 | `live/checkin_<ID>/officialClaims/<clientId>` | 임원·관리자 연결(클레임) 기록 | 서버 |
