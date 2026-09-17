@@ -3335,3 +3335,28 @@ html,body{overscroll-behavior-y:none;}
   .team-live-step-num,.auto-flow-count{font-size:max(12px,.68rem);}
   .daily-start-step strong,.daily-start-step span:not(.daily-start-step-num){font-size:max(12px,.72rem);}
 }
+
+/* iPad·태블릿 운영: 카카오톡 인앱브라우저에서도 가로 공간과 큰 조작창을 사용합니다. */
+@media(min-width:700px) and (max-width:1100px){
+  .wrap{
+    max-width:none;
+    padding:22px 24px 48px;
+  }
+
+  #dailyImportModal .modal-box,
+  #dailyManualActiveModal .modal-box,
+  #dailyCourtNumberModal .modal-box{
+    max-width:min(720px,calc(100vw - 64px));
+  }
+
+  .daily-detail-stack{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+  }
+
+  .daily-dashboard-quick-action,
+  .daily-player-tool,
+  .daily-mini-btn{
+    min-height:44px;
+  }
+}

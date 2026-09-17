@@ -3464,3 +3464,29 @@ body{background:var(--bg)!important;}
   .match-mode-label{font-size:max(12px,.74rem);}
   .match-mode-option small{font-size:max(12px,.68rem);}
 }
+
+/* iPad·태블릿 운영: 명부와 대진 설정을 작은 폰 모달에 가두지 않습니다. */
+@media(min-width:700px) and (max-width:1100px){
+  .wrap{
+    max-width:none;
+    padding:22px 24px 48px;
+  }
+
+  #importModal .modal-box,
+  #addMemberModal .modal-box,
+  #editDirectModal .modal-box,
+  #changeModal .modal-box{
+    max-width:min(720px,calc(100vw - 64px));
+  }
+
+  .dir-list,
+  .rsvp-admin-list{
+    max-height:min(64vh,720px);
+  }
+
+  .btn,
+  .nav-tab,
+  .bracket-save-action{
+    min-height:44px;
+  }
+}
