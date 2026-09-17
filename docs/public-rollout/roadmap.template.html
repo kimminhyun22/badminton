@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>콕매치 클럽 자율 배포 로드맵</title>
+  <style>
+    :root{
+      --ink:#172033;--muted:#68758a;--line:#dce4ef;--paper:#fff;--canvas:#f4f7fb;
+      --blue:#2f6edb;--blue-soft:#edf4ff;--green:#227852;--green-soft:#eaf7f0;
+      --amber:#9a6400;--amber-soft:#fff6df;--red:#b53b42;--red-soft:#fff0f1;
+    }
+    *{box-sizing:border-box}
+    html{background:var(--canvas);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;letter-spacing:0}
+    body{margin:0;min-width:320px;font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+    a{color:inherit}
+    button,a{touch-action:manipulation}
+    .shell{max-width:980px;margin:0 auto;background:var(--paper);min-height:100vh;border-inline:1px solid var(--line)}
+    header{padding:28px clamp(20px,5vw,52px) 24px;border-bottom:1px solid var(--line);background:#f9fbfe}
+    .eyebrow{margin:0 0 6px;color:var(--blue);font-size:13px;font-weight:800}
+    h1{margin:0;font-size:clamp(25px,5vw,34px);line-height:1.25;font-weight:900}
+    .updated{margin:8px 0 0;color:var(--muted);font-size:13px}
+    .links{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+    .links a{display:inline-flex;align-items:center;min-height:40px;padding:8px 13px;border:1px solid #bfd1eb;border-radius:8px;background:#fff;color:#285da9;text-decoration:none;font-weight:800;font-size:13px}
+    .band{padding:24px clamp(20px,5vw,52px);border-bottom:1px solid var(--line)}
+    .band h2{margin:0 0 10px;font-size:19px;font-weight:900}
+    .goal{font-size:18px;font-weight:750;line-height:1.65}
+    .current{margin-top:14px;padding:14px 16px;border-left:4px solid var(--blue);background:var(--blue-soft);border-radius:0 6px 6px 0;color:#30415e}
+    .next{margin-top:14px;padding:14px 16px;border-left:4px solid var(--green);background:var(--green-soft);border-radius:0 6px 6px 0}
+    .next b{display:block;margin-bottom:3px;color:var(--green)}
+    .criteria{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px;margin:14px 0 0;padding:0;list-style:none}
+    .criteria li{position:relative;padding:8px 0 8px 20px;border-bottom:1px solid #edf1f6}
+    .criteria li::before{content:"";position:absolute;left:1px;top:16px;width:8px;height:8px;border-radius:50%;background:var(--green)}
+    .summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+    .summary span,.state{display:inline-flex;align-items:center;min-height:30px;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:850;border:1px solid var(--line);background:#fff}
+    main{padding:0}
+    .stage{padding:24px clamp(20px,5vw,52px);border-bottom:1px solid var(--line)}
+    .stage-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:14px}
+    .stage h2{margin:0;font-size:21px;font-weight:900}
+    .owner{margin-top:4px;color:var(--muted);font-size:13px}
+    .state.done,.status.done{color:var(--green);border-color:#b9dfcb;background:var(--green-soft)}
+    .state.in_progress,.status.in_progress{color:var(--blue);border-color:#bfd3f4;background:var(--blue-soft)}
+    .state.blocked,.status.blocked{color:var(--red);border-color:#efc6c9;background:var(--red-soft)}
+    .state.waiting,.status.waiting{color:var(--amber);border-color:#edd497;background:var(--amber-soft)}
+    .state.later,.status.later{color:#586477;background:#f2f5f8}
+    .items{border-top:1px solid var(--line)}
+    .item{display:grid;grid-template-columns:minmax(170px,.85fr) minmax(260px,1.65fr);gap:18px;padding:16px 0;border-bottom:1px solid var(--line)}
+    .item:last-child{border-bottom:0}
+    .item-title{font-weight:850}
+    .status{display:inline-flex;margin-top:6px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;font-size:11px;font-weight:850}
+    .detail{color:#46536a}
+    .evidence{display:inline-block;margin-top:7px;color:#2c65bd;font-size:13px;font-weight:750;text-decoration:none}
+    .risks{margin:12px 0 0;padding-left:20px}
+    .risks li{margin:8px 0;color:#49566d}
+    .note{color:var(--muted);font-size:13px}
+    footer{padding:20px clamp(20px,5vw,52px);color:var(--muted);font-size:12px;background:#f9fbfe}
+    @media(max-width:640px){
+      header,.band,.stage{padding-inline:20px}
+      .criteria{grid-template-columns:1fr}
+      .stage-head{display:block}
+      .state{margin-top:9px}
+      .item{grid-template-columns:1fr;gap:8px}
+      .links a{flex:1 1 calc(50% - 8px);justify-content:center}
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <p class="eyebrow">고정 진행 현황판</p>
+      <h1 id="title"></h1>
+      <p class="updated" id="updated"></p>
+      <nav class="links" id="links" aria-label="관련 링크"></nav>
+    </header>
+    <section class="band">
+      <h2>최종 목표</h2>
+      <div class="goal" id="goal"></div>
+      <div class="current" id="current"></div>
+      <div class="next"><b>다음 행동</b><span id="next"></span></div>
+      <div class="summary" id="summary" aria-label="작업 상태 요약"></div>
+    </section>
+    <section class="band">
+      <h2>완료 기준</h2>
+      <ul class="criteria" id="criteria"></ul>
+    </section>
+    <main id="stages"></main>
+    <section class="band">
+      <h2>위험과 의존성</h2>
+      <ul class="risks" id="risks"></ul>
+      <p class="note" id="note"></p>
+    </section>
+    <footer>이 현황판은 roadmap.json의 확인된 상태를 보여 줍니다. 실제 운영 성과와 계획을 구분합니다.</footer>
+  </div>
+  <script>
+    const data=__ROADMAP_DATA__;
+    const labels={done:'완료',in_progress:'진행 중',waiting:'대기',later:'후속',blocked:'막힘'};
+    const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    document.title=data.title;
+    document.getElementById('title').textContent=data.title;
+    document.getElementById('updated').textContent=`최종 갱신 ${data.updated}`;
+    document.getElementById('goal').textContent=data.goal;
+    document.getElementById('current').textContent=data.current;
+    document.getElementById('next').textContent=data.next;
+    document.getElementById('note').textContent=data.note;
+    document.getElementById('links').innerHTML=data.links.map(link=>`<a href="${esc(link.url)}">${esc(link.label)}</a>`).join('');
+    document.getElementById('criteria').innerHTML=data.criteria.map(text=>`<li>${esc(text)}</li>`).join('');
+    document.getElementById('risks').innerHTML=data.risks.map(text=>`<li>${esc(text)}</li>`).join('');
+    const items=data.stages.flatMap(stage=>stage.items);
+    const counts=items.reduce((acc,item)=>(acc[item.status]=(acc[item.status]||0)+1,acc),{});
+    document.getElementById('summary').innerHTML=['done','in_progress','waiting','blocked','later']
+      .filter(status=>counts[status])
+      .map(status=>`<span class="status ${status}">${labels[status]} ${counts[status]}</span>`).join('');
+    document.getElementById('stages').innerHTML=data.stages.map(stage=>{
+      const stageStatus=stage.state.includes('완료')?'done':stage.state.includes('진행')?'in_progress':stage.state.includes('필수')?'blocked':stage.state.includes('다음')?'waiting':'later';
+      const rows=stage.items.map(item=>`<div class="item">
+        <div><div class="item-title">${esc(item.name)}</div><span class="status ${esc(item.status)}">${esc(labels[item.status]||item.status)}</span></div>
+        <div class="detail">${esc(item.detail)}${item.evidence?`<br><a class="evidence" href="${esc(item.evidence)}">근거 보기</a>`:''}</div>
+      </div>`).join('');
+      return `<section class="stage" id="${esc(stage.id)}"><div class="stage-head"><div><h2>${esc(stage.name)}</h2><div class="owner">담당 ${esc(stage.owner)}</div></div><span class="state ${stageStatus}">${esc(stage.state)}</span></div><div class="items">${rows}</div></section>`;
+    }).join('');
+  </script>
+</body>
+</html>
