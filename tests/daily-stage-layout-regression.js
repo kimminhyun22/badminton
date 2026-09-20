@@ -182,10 +182,43 @@ assert(!manual.includes('daily-manual-registered') && !manual.includes("'대진 
   '요약 줄에 코트 카드와 겹치는 등록 목록이나 「대진 게시」 가짜 버튼이 있으면 안 됩니다.');
 assert(manual.includes("pickTitle.classList.toggle('hidden',pickHidden)") && manual.includes('const pickHidden=transition&&!freeCourt&&!selectedIds.length;'),
   '빈 코트가 없으면 선수 선택 구역을 접어야 합니다.');
-assert(manual.includes('`등록 ${registeredCount}/${max}`'), '코트 힌트는 등록 N/전체 코트 수여야 합니다.');
+assert(manual.includes('`등록 ${registeredCount}/${courtIds.length}`'), '코트 힌트는 현재 코트 목록으로 등록 N/전체 코트 수를 계산해야 합니다.');
+assert(!manual.includes('${registeredCount}/${max}'), '대진 게시 클릭 직후 정의되지 않은 max 때문에 화면이 멈추면 안 됩니다.');
 assert(manual.includes("const status='';"), '게시 전환 후보는 전부 참가라 상태 접두를 붙이지 않습니다.');
 assert(manual.includes('명은 게시 후 자동 대진'), '등록 뒤 남은 인원이 자동 대진으로 간다는 한 줄 상태가 있어야 합니다.');
 assert(html.includes('id="dailyManualPickTitle"'), '선수 선택 제목에 id 가 있어야 접을 수 있습니다.');
+
+const manualElements = new Map();
+const manualElement = id => {
+  if(!manualElements.has(id))manualElements.set(id,{
+    textContent:'',innerHTML:'',style:{},disabled:false,
+    classList:{toggle(){},add(){},remove(){}}
+  });
+  return manualElements.get(id);
+};
+const manualSandbox = {
+  document:{
+    getElementById:manualElement,
+    querySelector:manualElement
+  },
+  _dailyManualActiveDraft:{mode:'transition',court:1,ids:[],registeredCount:0},
+  _dailyManualActiveMode:()=> 'transition',
+  _dailyManualActiveCandidates:()=> [],
+  _dailyManualActiveUsedCourts:()=> new Set(),
+  _dailyManualActiveDefaultCourt:()=> 1,
+  _dailyManualActiveRegisteredMatches:()=> [],
+  _dailyCourtOrderForUse:()=> [1,2,3],
+  _dailyManualActiveMatchShortLabel:()=> '',
+  _dailyManualEscape:value=> String(value||''),
+  _dailyGenderLabel:()=> '남',
+  _dailyManualActiveSelected:()=> [],
+  _dailyManualActiveSelectionBoard:()=> '',
+  esc:value=> String(value||'')
+};
+vm.createContext(manualSandbox);
+vm.runInContext(`${manual}\ndailyRenderManualActiveModal();`,manualSandbox);
+assert.strictEqual(manualElement('dailyManualCourtHint').textContent,'등록 0/3',
+  '대진 게시 모달은 예외 없이 열리고 현재 코트 수를 표시해야 합니다.');
 
 // 공유는 채널별 버튼 — 누르면 그 앱의 공유가 바로 열리고, 안내창은 뜨지 않는다 (2026-09-02)
 assert(html.includes("onclick=\"dailyShareCheckinLink('kakao')\"") && html.includes("onclick=\"dailyShareCheckinLink('band')\""),
