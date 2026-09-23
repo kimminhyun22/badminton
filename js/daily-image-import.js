@@ -7,7 +7,7 @@ const MAX_EDGE=1800;
 const TIMEOUT_MS=65000;
 const ROLE_WORDS='회장|부회장|총무|재무|경기이사|이사|임원|고문|감사';
 let analyzerPromise=null;
-let state={files:[],roster:[],result:null};
+let state={files:[],clubName:'',roster:[],result:null};
 
 function byId(id){return document.getElementById(id);}
 function esc(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
@@ -198,9 +198,11 @@ function friendlyError(error){
 
 window.KokMatchDailyImageImport={
   normalizeName,resolve,
-  open({roster}={}){
-    state={files:[],roster:Array.isArray(roster)?roster:[],result:null};
+  open({clubName,roster}={}){
+    state={files:[],clubName:textValue(clubName),roster:Array.isArray(roster)?roster:[],result:null};
     const input=byId('dailyCaptureInput');if(input)input.value='';
+    const note=byId('dailyCaptureNote');
+    if(note)note.textContent=`${state.clubName||'선택한 클럽'} 명부와 비교합니다. 투표와 댓글 캡처를 모두 선택하세요. 원본 이미지는 저장하지 않습니다.`;
     renderFileNames();render();setBusy(false,'');
     byId('dailyImportModal')?.classList.add('hidden');
     byId('dailyCaptureModal')?.classList.remove('hidden');
