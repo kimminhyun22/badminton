@@ -54,6 +54,10 @@ assert(unresolved.warnings.some(message=>message.includes('투표 화면은 15�
 assert(index.includes('id="dailyCaptureInput"')&&index.includes('multiple')&&index.includes('KokMatchDailyImageImport.analyze()'),
   '관리자 참가자 모달에 여러 캡처 선택과 분석 입구가 있어야 합니다.');
 assert(index.includes('firebase-app-check-site-key'),'공개 AI 호출은 App Check로 보호해야 합니다.');
+assert(source.includes("AgentPlatformBackend('global')")&&!source.includes('new aiModule.GoogleAIBackend()'),
+  '캡처 분석은 선불 잔액과 분리된 Firebase 프로젝트 과금 경로를 사용해야 합니다.');
+assert(source.includes("message.includes('[429')")&&source.includes('오늘 AI 분석 한도를 확인하지 못했습니다.'),
+  'AI 한도 오류의 내부 결제 문구를 회원 화면에 그대로 노출하면 안 됩니다.');
 assert(index.indexOf('js/daily-image-import.js')<index.indexOf('js/daily.js'),'캡처 모듈은 적용 함수를 부르는 daily.js보다 먼저 로드해야 합니다.');
 assert(daily.includes('async function dailyApplyImageImportResult(payload)'),'확정 결과를 기존 참가자 등록 경로에 적용해야 합니다.');
 assert(source.includes("status:row.arrivalText?'planned':'wait'")&&daily.includes("raw.status==='planned'?'planned':'wait'"),

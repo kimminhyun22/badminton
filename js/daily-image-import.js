@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const SDK_VERSION='12.15.0';
+const SDK_VERSION='12.17.0';
 const MODEL_NAME='gemini-3.5-flash';
 const MAX_IMAGES=8;
 const MAX_EDGE=1800;
@@ -123,7 +123,9 @@ async function model(){
       },
       optionalProperties:['declaredVoteCount','warnings']
     });
-    const ai=aiModule.getAI(app,{backend:new aiModule.GoogleAIBackend()});
+    // Firebase 프로젝트의 Cloud Billing 안에서 과금되는 Agent Platform을 사용합니다.
+    // Gemini Developer API 선불 크레딧이 소진돼도 참가자 등록이 막히지 않습니다.
+    const ai=aiModule.getAI(app,{backend:new aiModule.AgentPlatformBackend('global')});
     return aiModule.getGenerativeModel(ai,{model:MODEL_NAME,generationConfig:{maxOutputTokens:2400,responseMimeType:'application/json',responseSchema:schema}});
   })().catch(error=>{modelPromise=null;throw error;});
   return modelPromise;
@@ -227,7 +229,8 @@ function setBusy(busy,message){
 function friendlyError(error){
   const code=String(error?.code||'');
   if(code.includes('app-check')||code.includes('permission-denied'))return 'AI 보안 연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도해 주세요.';
-  if(code.includes('quota')||code.includes('resource-exhausted'))return '오늘 AI 분석 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.';
+  const message=String(error?.message||'');
+  if(code.includes('quota')||code.includes('resource-exhausted')||message.includes('[429')||message.includes('credits are depleted'))return '오늘 AI 분석 한도를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.';
   return error?.message||'캡처를 분석하지 못했습니다.';
 }
 
