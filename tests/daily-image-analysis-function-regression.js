@@ -3,7 +3,7 @@ const assert=require('assert');
 const fs=require('fs');
 const path=require('path');
 const {
-  MODEL_NAME,MAX_IMAGES,participantImagePrompt,validateImages,analyzeParticipantImages
+  MODEL_NAME,MAX_IMAGES,MAX_OUTPUT_TOKENS,MAX_ATTEMPTS,participantImagePrompt,validateImages,parseResponseJson,analyzeParticipantImages
 }=require('../functions/daily-image-import');
 
 const index=fs.readFileSync(path.join(__dirname,'../functions/index.js'),'utf8');
@@ -11,6 +11,8 @@ const index=fs.readFileSync(path.join(__dirname,'../functions/index.js'),'utf8')
 (async()=>{
   assert.strictEqual(MODEL_NAME,'gemini-3.5-flash');
   assert.strictEqual(MAX_IMAGES,8);
+  assert.strictEqual(MAX_OUTPUT_TOKENS,8192);
+  assert.strictEqual(MAX_ATTEMPTS,2);
   assert(participantImagePrompt().includes('게스트만 신청한 댓글 작성자는 넣지 마세요.'),
     '게스트 접수 댓글의 작성자를 자동 참석으로 세면 안 됩니다.');
   const image={mimeType:'image/jpeg',data:Buffer.from('fake-image').toString('base64')};
@@ -18,6 +20,8 @@ const index=fs.readFileSync(path.join(__dirname,'../functions/index.js'),'utf8')
   assert.throws(()=>validateImages([]),/invalid-images/);
   assert.throws(()=>validateImages(Array.from({length:9},()=>image)),/invalid-images/);
   assert.throws(()=>validateImages([{mimeType:'text/plain',data:image.data}]),/invalid-image/);
+  assert.deepStrictEqual(parseResponseJson(`\`\`\`json\n${JSON.stringify({ok:true})}\n\`\`\``),{ok:true},
+    '아이폰 실캡처처럼 JSON이 코드 블록으로 감싸져도 읽어야 합니다.');
 
   let request=null;
   const expected={voteAttendees:[{name:'회원가'}],commentAttendees:[],guests:[],lateMentions:[],declaredVoteCount:1,warnings:[]};
@@ -33,6 +37,21 @@ const index=fs.readFileSync(path.join(__dirname,'../functions/index.js'),'utf8')
   assert.strictEqual(request.options.headers.Authorization,'Bearer test-token');
   assert.strictEqual(request.body.contents[0].parts.length,2,'서버 지침과 이미지가 함께 전달되어야 합니다.');
   assert.strictEqual(request.body.generationConfig.responseMimeType,'application/json');
+  assert.strictEqual(request.body.generationConfig.maxOutputTokens,8192,'긴 참석 명단이 출력 한도에서 잘리면 안 됩니다.');
+
+  let attempts=0;
+  const retried=await analyzeParticipantImages({
+    images:[image],projectId:'test-project',accessToken:'test-token',
+    fetchImpl:async()=>{
+      attempts++;
+      return {ok:true,json:async()=>attempts===1
+        ?{candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:'{"voteAttendees":['}]} }],usageMetadata:{candidatesTokenCount:2400}}
+        :{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(expected)}]}}]}};
+    }
+  });
+  assert.deepStrictEqual(retried,expected);
+  assert.strictEqual(attempts,2,'불완전한 AI 응답은 서버가 한 번 자동 재시도해야 합니다.');
+  assert(index.includes('timeoutSeconds:90'),'실캡처 자동 재시도 시간을 함수에 보장해야 합니다.');
   assert(index.includes('exports.analyzeDailyParticipantScreenshots = onCall(IMAGE_ANALYSIS_OPTIONS'),
     '전용 callable 함수가 배포 목록에 있어야 합니다.');
   assert(index.includes('enforceAppCheck:true'),'캡처 분석 함수는 App Check 없는 호출을 거절해야 합니다.');

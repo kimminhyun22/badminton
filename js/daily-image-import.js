@@ -4,7 +4,7 @@
 const SDK_VERSION='12.17.0';
 const MAX_IMAGES=8;
 const MAX_EDGE=1800;
-const TIMEOUT_MS=65000;
+const TIMEOUT_MS=105000;
 const ROLE_WORDS='회장|부회장|총무|재무|경기이사|이사|임원|고문|감사';
 let analyzerPromise=null;
 let state={files:[],clubName:'',roster:[],result:null};
@@ -104,7 +104,7 @@ async function analyzer(){
     const app=getApps().find(item=>item.name===appName)||initializeApp(config(),appName);
     initializeAppCheck(app,{provider:new ReCaptchaEnterpriseProvider(appCheckKey()),isTokenAutoRefreshEnabled:true});
     const functions=functionsModule.getFunctions(app,'us-central1');
-    return functionsModule.httpsCallable(functions,'analyzeDailyParticipantScreenshots',{timeout:60000});
+    return functionsModule.httpsCallable(functions,'analyzeDailyParticipantScreenshots',{timeout:100000});
   })().catch(error=>{analyzerPromise=null;throw error;});
   return analyzerPromise;
 }

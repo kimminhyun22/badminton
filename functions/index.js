@@ -39,7 +39,7 @@ const MEMBER_FUNCTION_OPTIONS = {
 const IMAGE_ANALYSIS_OPTIONS = {
   region:REGION,
   maxInstances:5,
-  timeoutSeconds:60,
+  timeoutSeconds:90,
   memory:'512MiB',
   enforceAppCheck:true
 };
@@ -56,7 +56,7 @@ exports.analyzeDailyParticipantScreenshots = onCall(IMAGE_ANALYSIS_OPTIONS, asyn
       fetchImpl:fetch
     });
   }catch(error){
-    console.error('participant screenshot analysis failed',error?.message,error?.status||'',error?.detail||'');
+    console.error('participant screenshot analysis failed',error?.message,error?.status||'',error?.detail||'',error?.diagnostic||'');
     if(String(error?.message||'').startsWith('invalid-')||String(error?.message||'').includes('too-large')){
       throw new HttpsError('invalid-argument','캡처 이미지를 다시 선택해 주세요.');
     }

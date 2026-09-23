@@ -4,6 +4,8 @@ const MODEL_NAME='gemini-3.5-flash';
 const MAX_IMAGES=8;
 const MAX_IMAGE_BYTES=3*1024*1024;
 const MAX_TOTAL_BYTES=12*1024*1024;
+const MAX_OUTPUT_TOKENS=8192;
+const MAX_ATTEMPTS=2;
 
 const RESPONSE_SCHEMA={
   type:'OBJECT',
@@ -53,6 +55,30 @@ function responseText(payload){
   return (payload?.candidates?.[0]?.content?.parts||[]).map(part=>String(part?.text||'')).join('').trim();
 }
 
+function parseResponseJson(text){
+  const value=String(text||'').trim();
+  if(!value)return null;
+  const candidates=[value];
+  const fenced=value.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if(fenced)candidates.push(fenced[1].trim());
+  const first=value.indexOf('{');
+  const last=value.lastIndexOf('}');
+  if(first>=0&&last>first)candidates.push(value.slice(first,last+1));
+  for(const candidate of candidates){
+    try{return JSON.parse(candidate);}catch(_){/* 다음 형식으로 시도 */}
+  }
+  return null;
+}
+
+function responseDiagnostic(payload,text){
+  const candidate=payload?.candidates?.[0]||{};
+  return {
+    finishReason:String(candidate.finishReason||''),
+    textLength:String(text||'').length,
+    outputTokens:Number(payload?.usageMetadata?.candidatesTokenCount)||0
+  };
+}
+
 async function analyzeParticipantImages(options){
   const images=validateImages(options?.images);
   const projectId=String(options?.projectId||'').trim();
@@ -60,25 +86,33 @@ async function analyzeParticipantImages(options){
   const fetchImpl=options?.fetchImpl||fetch;
   if(!projectId||!accessToken)throw new Error('server-config');
   const url=`https://aiplatform.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/locations/global/publishers/google/models/${MODEL_NAME}:generateContent`;
-  const response=await fetchImpl(url,{
-    method:'POST',
-    headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
-    body:JSON.stringify({
-      contents:[{role:'user',parts:[{text:participantImagePrompt()},...images]}],
-      generationConfig:{maxOutputTokens:2400,responseMimeType:'application/json',responseSchema:RESPONSE_SCHEMA}
-    })
-  });
-  if(!response.ok){
-    const detail=await response.text().catch(()=>'');
-    const error=new Error(`vertex-${response.status}`);
-    error.status=response.status;
-    error.detail=detail.slice(0,800);
-    throw error;
+  let lastDiagnostic={finishReason:'',textLength:0,outputTokens:0};
+  for(let attempt=1;attempt<=MAX_ATTEMPTS;attempt++){
+    const retryInstruction=attempt===1?'':'\n앞선 응답이 완전한 JSON이 아니었습니다. 설명이나 코드 블록 없이 더 간결한 JSON 객체만 반환하세요.';
+    const response=await fetchImpl(url,{
+      method:'POST',
+      headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        contents:[{role:'user',parts:[{text:participantImagePrompt()+retryInstruction},...images]}],
+        generationConfig:{temperature:0.1,maxOutputTokens:MAX_OUTPUT_TOKENS,responseMimeType:'application/json',responseSchema:RESPONSE_SCHEMA}
+      })
+    });
+    if(!response.ok){
+      const detail=await response.text().catch(()=>'');
+      const error=new Error(`vertex-${response.status}`);
+      error.status=response.status;
+      error.detail=detail.slice(0,800);
+      throw error;
+    }
+    const payload=await response.json();
+    const text=responseText(payload);
+    const parsed=parseResponseJson(text);
+    if(parsed)return parsed;
+    lastDiagnostic=responseDiagnostic(payload,text);
   }
-  const payload=await response.json();
-  const text=responseText(payload);
-  if(!text)throw new Error('empty-ai-response');
-  try{return JSON.parse(text);}catch(_){throw new Error('invalid-ai-response');}
+  const error=new Error('unreadable-ai-response');
+  error.diagnostic=lastDiagnostic;
+  throw error;
 }
 
-module.exports={MODEL_NAME,MAX_IMAGES,RESPONSE_SCHEMA,participantImagePrompt,validateImages,responseText,analyzeParticipantImages};
+module.exports={MODEL_NAME,MAX_IMAGES,MAX_OUTPUT_TOKENS,MAX_ATTEMPTS,RESPONSE_SCHEMA,participantImagePrompt,validateImages,responseText,parseResponseJson,responseDiagnostic,analyzeParticipantImages};
