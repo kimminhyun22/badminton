@@ -156,7 +156,7 @@ const importMembers = src.slice(src.indexOf('function renderDailyImportMembers('
 assert(importMembers.includes('명부 만들기') && importMembers.includes("switchNav('roster')"), '명부가 비면 모달 안에서 명부 만들기로 갈 수 있어야 합니다.');
 // 전원 도착 전 명단은 '등록'이 아니라 '도착 확인'을 안내한다
 const guide = src.slice(src.indexOf('function dailyRenderStartGuide('), src.indexOf('function _dailyHeadcountInfo('));
-assert(guide.includes("awaitingArrival?'도착 확인':'현장 참가'") && guide.includes("dailyOpenPlayerStatus('planned')"),
+assert(guide.includes("awaitingArrival?'도착 확인':'참가자'") && guide.includes("dailyOpenPlayerStatus('planned')"),
   '전원 도착 전이면 2단계가 도착 확인으로 바뀌어야 합니다.');
 assert(guide.includes('명부가 비어 있습니다'), '명부가 비면 안내가 명부로 가는 길을 말해야 합니다.');
 // 도우미 지정은 링크·게시가 있을 때만

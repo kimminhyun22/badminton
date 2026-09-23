@@ -21,18 +21,18 @@ function extractFunction(src, name, nextName) {
 }
 
 const importSelected = extractFunction(dailySrc, 'importDailySelected', 'syncFixedTeamNames');
-assert(importSelected.includes("status=status==='planned'?'planned':'wait'"), '현장 참가와 도착 전 등록 상태를 명확히 나눠야 합니다.');
+assert(importSelected.includes("status:'wait'"), '참가자 등록은 한 동작으로 참가 상태를 만들어야 합니다.');
 assert(importSelected.includes("['invited','planned']"), '도착 전 명단은 현장에서 다시 참가 등록할 수 있어야 합니다.');
 assert(!importSelected.includes('dailyShareCheckinLink'), '현장 참가 등록 뒤 회원 링크를 강제로 공유하면 안 됩니다.');
 assert.strictEqual(
-  (indexHtml.match(/importDailySelected\('wait'\)/g) || []).length,
+  (indexHtml.match(/onclick="importDailySelected\(\)"/g) || []).length,
   1,
-  '명부 모달에는 현장 참가 등록 동작이 하나 있어야 합니다.'
+  '명부 모달에는 등록 동작이 하나만 있어야 합니다.'
 );
 assert.strictEqual(
-  (indexHtml.match(/importDailySelected\('planned'\)/g) || []).length,
-  1,
-  '늦게 올 선수는 도착 전 상태로 미리 등록할 수 있어야 합니다.'
+  (indexHtml.match(/importDailySelected\('/g) || []).length,
+  0,
+  '등록 버튼에서 상태를 고르게 하면 안 됩니다.'
 );
 assert(!indexHtml.includes("importDailySelected('invited')"), '폐기된 자가 출석용 등록 버튼은 노출하면 안 됩니다.');
 

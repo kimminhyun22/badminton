@@ -114,7 +114,8 @@ assert(
   const daily = fs.readFileSync(path.join(__dirname, '..', 'js', 'daily.js'), 'utf8');
   assert(!source.includes("?'후 ':''"), '임원 화면 상태 버튼이 "후 휴식"으로 줄여 쓰면 안 됩니다 — "경기 후 휴식"으로 명확히.');
   assert(!daily.includes("?'후 ':''"), '관리자 화면 상태 버튼도 "경기 후 휴식"으로 명확히 써야 합니다.');
-  assert(source.includes("?'경기 후 ':''"), '경기중 회원의 상태 버튼은 "경기 후 " 접두어를 붙여야 합니다.');
+  assert(source.includes("label:'경기 후 휴식'")&&source.includes("label:'경기 후 종료'"),
+    '경기중 회원의 상태 버튼은 "경기 후" 동작을 완전한 문구로 보여야 합니다.');
   assert(source.includes('class="live-dot"') && source.includes('.live-dot{'),
     '경기중 표시에 빨간불(live-dot)이 있어야 합니다.');
   assert(source.includes('prefers-reduced-motion'), '깜빡임은 동작 축소 설정을 존중해야 합니다.');

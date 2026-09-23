@@ -157,14 +157,14 @@ console.log('  원자성: 없는 후보 · 다른 클럽 · 중복 후보 전체
 const checkin=fs.readFileSync(path.join(repo,'checkin.html'),'utf8');
 const daily=fs.readFileSync(path.join(repo,'js','daily.js'),'utf8');
 const claim=fs.readFileSync(path.join(repo,'functions','daily-official-claim.js'),'utf8');
-assert(checkin.includes('function sendOfficialRosterSetup(actorId,status)')&&checkin.includes("type:'official-roster-setup'"),
+assert(checkin.includes('function sendOfficialRosterSetup(actorId)')&&checkin.includes("type:'official-roster-setup'")&&checkin.includes("const status='wait'"),
   '임원 화면에 일괄 명부 전송기가 있어야 합니다.');
 assert(checkin.includes('toggleOfficialRosterSetupAll')&&checkin.includes('official-roster-setup-check'),
   '명부 시트에 다중 선택과 전체 선택이 있어야 합니다.');
 assert(checkin.includes('function sessionSetupEligible()'),
   '도착 전 임원이 운영 준비에 진입하는 조건을 화면에 명시해야 합니다.');
-assert(checkin.includes('명부 불러오기')&&checkin.includes('현장 참가 등록'),
-  '운영 준비에서 명부 불러오기와 현장 참가 액션이 보여야 합니다.');
+assert(checkin.includes('명부 불러오기')&&checkin.includes('>등록</button>'),
+  '운영 준비에서 명부 불러오기와 단일 등록 액션이 보여야 합니다.');
 assert(daily.includes('officialRosterSetupV1:!!_dailyOfficialInviteHash'),
   '관리자 게시 페이로드에 일괄 명부 능력 표시가 있어야 합니다.');
 assert(claim.includes('officialRosterSetupV1 = true'),

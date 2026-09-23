@@ -2367,6 +2367,7 @@ summary:focus-visible{
 }
 .official-overview-actions button.rest{border-color:#ead2a8;color:#8c672b;}
 .official-overview-actions button.done{border-color:#e6c3c3;color:#9c4b4b;}
+.official-overview-actions button.pre{border-color:#dbe3ec;color:#64748b;}
 .official-overview-actions button:disabled{opacity:.35;cursor:default;}
 .official-overview-actions button.join{border-color:#bcd3f3;color:#2f5da8;background:#f4f8ff;}
 .official-overview-actions button.pair{border-color:#ddd0fb;color:#5b3fa8;}
@@ -2471,9 +2472,8 @@ summary:focus-visible{
   width:100%;min-height:40px;border-radius:12px;border:1.5px solid var(--line);
   background:#fff;color:var(--mut);font:inherit;font-size:max(12px,.8rem);font-weight:800;cursor:pointer;
 }
-.replace-picker-foot .roster-setup-actions{display:grid;grid-template-columns:1fr 1.2fr;gap:7px;}
+.replace-picker-foot .roster-setup-actions{display:grid;grid-template-columns:1fr;gap:7px;}
 .replace-picker-foot .roster-setup-actions .rp-go{min-width:0;padding:8px 6px;}
-.replace-picker-foot .roster-setup-actions .rp-planned{border-color:#d99a1b;background:#fff8e8;color:#7a5200;}
 .complete-picker-list .replace-picker-row .official-roster-setup-check{
   flex:0 0 24px;width:24px;height:24px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;
   border:1.5px solid #cdd8e8;background:#fff;color:transparent;font-size:15px;font-weight:900;
@@ -2994,7 +2994,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.675">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.676">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -3009,7 +3009,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.675</span>
+    <span class="version-chip" id="appVersion">v1.10.676</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3072,7 +3072,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.675';
+const APP_VERSION='1.10.676';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3737,15 +3737,18 @@ function officialOverviewStatusButtons(actor,target,viewKey){
     </span>`;
   }
   const playing=!!target.locked||target.status==='playing';
-  const current=compactLabel(target.status);
-  return `<span class="official-overview-actions">${[
-    {status:'wait',label:'복귀',cls:''},
-    {status:'rest',label:'휴식',cls:'rest'},
-    {status:'done',label:'종료',cls:'done'}
-  ].filter(b=>!(playing&&b.status==='wait')).map(b=>{
-    const same=playing?target.afterMatchStatus===b.status:current===compactLabel(b.status);
-    return `<button type="button" class="${b.cls}" ${blocked||same?'disabled':''} onclick="sendOfficialPlayerStatus('${esc(actor.id)}','${b.status}','${esc(target.id)}')">${playing&&b.status!=='wait'?'경기 후 ':''}${b.label}</button>`;
-  }).join('')}</span>`;
+  const status=String(target.status||'');
+  const actions=playing
+    ? [{status:'rest',label:'경기 후 휴식',cls:'rest'},{status:'done',label:'경기 후 종료',cls:'done'}]
+    : status==='rest'
+      ? [{status:'wait',label:'복귀',cls:''},{status:'done',label:'종료',cls:'done'}]
+      : status==='done'
+        ? [{status:'wait',label:'복귀',cls:''}]
+        : [{status:'rest',label:'휴식',cls:'rest'},{status:'done',label:'종료',cls:'done'}];
+  const preArrival=!playing&&status==='wait'&&Number(target.games||0)===0
+    ? `<button type="button" class="pre" ${dis} onclick="sendOfficialUnarrive('${esc(actor.id)}','${esc(target.id)}')">도착 전</button>`
+    : '';
+  return `<span class="official-overview-actions">${actions.map(b=>`<button type="button" class="${b.cls}" ${dis} onclick="sendOfficialPlayerStatus('${esc(actor.id)}','${b.status}','${esc(target.id)}')">${b.label}</button>`).join('')}${preArrival}</span>`;
 }
 function setOfficialOverviewMode(mode){
   officialOverviewMode=officialOverviewMode===mode?'':mode;
@@ -3770,7 +3773,7 @@ function officialOperationsSummaryHtml(player){
   const summary=voteSummary();
   if(!summary)return '';
   const cards=[
-    {key:'total',label:'등록',value:summary.total},
+    {key:'total',label:'전체',value:summary.total},
     {key:'current',label:'현장',value:summary.current,cls:'current'},
     {key:'playing',label:'경기중',value:summary.playing},
     {key:'wait',label:'대기',value:summary.waitTotal},
@@ -6120,9 +6123,9 @@ function officialPrepPanelHtml(player){
   ).join('');
   return `<section class="official-prep" aria-label="운영 준비">
     <div class="official-prep-head"><b>운영 준비</b><span>${present}명 현장 · ${active.length}/${courts}코트 진행 중</span></div>
-    <button type="button" class="official-prep-roster" data-official-action ${blocked||!rosterReady?'disabled':''} onclick="openOfficialRosterPick('${esc(player.id)}')">${obIcon('users')}명부 불러오기<small>${rosterReady?'여러 명을 한 번에 현장 참가 또는 도착 전으로 등록':'운영 연결 확인 중'}</small></button>
+    <button type="button" class="official-prep-roster" data-official-action ${blocked||!rosterReady?'disabled':''} onclick="openOfficialRosterPick('${esc(player.id)}')">${obIcon('users')}명부 불러오기<small>${rosterReady?'여러 명을 한 번에 등록':'운영 연결 확인 중'}</small></button>
     <ol class="official-prep-steps">
-      <li><b>참가자 등록</b><span>명부에서 오늘 선수를 고르고 현장 참가 또는 도착 전으로 등록합니다.</span></li>
+      <li><b>참가자 등록</b><span>명부에서 오늘 선수를 고릅니다. 아직 안 온 선수만 도착 전으로 바꿉니다.</span></li>
       <li><b>진행 중 코트 등록</b><span>이미 뛰고 있는 코트가 있으면 그 4명을 먼저 올립니다. 비어 있으면 건너뜁니다.</span>
         <div class="official-prep-courts">${courtBtns}</div></li>
       <li><b>대진 게시</b><span>누르면 대기표가 자동으로 짜이고 회원 화면에 다음 대진이 뜹니다.</span></li>
@@ -6445,11 +6448,10 @@ function _officialRosterPickRender(){
     const allPicked=rows.length>0&&ctx.picked.length===rows.length;
     const blocked=!!sendingKey||claimingOfficial;
     foot.classList.remove('hidden');
-    foot.innerHTML=`<div class="rp-state">${ctx.picked.length}명 선택 · 도착 전은 대진에서 제외됩니다</div>
+    foot.innerHTML=`<div class="rp-state">${ctx.picked.length}명 선택</div>
       <button type="button" class="rp-clear" ${blocked?'disabled':''} onclick="toggleOfficialRosterSetupAll()">${allPicked?'전체 해제':'전체 선택'}</button>
       <div class="roster-setup-actions">
-        <button type="button" class="rp-go rp-planned" ${blocked||!ctx.picked.length?'disabled':''} onclick="sendOfficialRosterSetup('${esc(ctx.actorId)}','planned')">도착 전 등록</button>
-        <button type="button" class="rp-go" ${blocked||!ctx.picked.length?'disabled':''} onclick="sendOfficialRosterSetup('${esc(ctx.actorId)}','wait')">현장 참가 등록</button>
+        <button type="button" class="rp-go" ${blocked||!ctx.picked.length?'disabled':''} onclick="sendOfficialRosterSetup('${esc(ctx.actorId)}')">등록</button>
       </div>`;
   }
   document.getElementById('replacePicker')?.classList.remove('hidden');
@@ -6471,7 +6473,7 @@ function toggleOfficialRosterSetupAll(){
   ctx.picked=ctx.picked.length===ctx.candidates.length?[]:ctx.candidates.map(row=>row.id);
   _officialRosterPickRender();
 }
-async function sendOfficialRosterSetup(actorId,status){
+async function sendOfficialRosterSetup(actorId){
   const ctx=_officialReplaceCtx;
   const actor=officialActor(actorId);
   if(!ctx||ctx.kind!=='rosterSetup'||ctx.actorId!==String(actorId)||!actor?.isClubOfficial){
@@ -6479,9 +6481,8 @@ async function sendOfficialRosterSetup(actorId,status){
   }
   const candidateKeys=[...ctx.picked];
   if(!candidateKeys.length)return toast('등록할 선수를 선택해 주세요.');
-  status=status==='planned'?'planned':'wait';
-  const label=status==='planned'?'도착 전':'현장 참가';
-  if(!confirm(`선택한 ${candidateKeys.length}명을 ${label}로 등록할까요?`))return;
+  const status='wait';
+  if(!confirm(`선택한 ${candidateKeys.length}명을 등록할까요?`))return;
   const now=Date.now();
   const ok=await pushOfficialRequest({
     type:'official-roster-setup',
@@ -6491,7 +6492,7 @@ async function sendOfficialRosterSetup(actorId,status){
     createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,
     observedUpdatedAt:session.updatedAt||0,
     source:'club-official-roster-setup'
-  },`${candidateKeys.length}명 ${label} 등록`);
+  },`${candidateKeys.length}명 등록`);
   if(ok)closeOfficialReplacePicker();
 }
 async function sendOfficialCourtCancel(actorId,matchId){
