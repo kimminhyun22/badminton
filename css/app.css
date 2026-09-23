@@ -1019,6 +1019,14 @@ body.monthly-team-mode .team-partner-help{display:block;}
 }
 .daily-guest-rename .daily-ic{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .daily-guest-rename:disabled{opacity:.35;cursor:default;}
+.daily-player-remove-inline{
+  flex:0 0 28px;width:28px;height:28px;min-height:28px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid #f1cdcf;border-radius:8px;background:#fff9f9;color:#ae4b52;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.daily-player-remove-inline .daily-ic{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.daily-player-remove-inline:disabled{opacity:.28;cursor:default;}
 .daily-player-meta{display:block;font-size:.64rem;color:var(--dim);margin-top:3px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .daily-status{font-size:.62rem;font-weight:900;border-radius:999px;padding:3px 8px;border:1px solid var(--bdr);}
 .daily-status.invited{background:#f8fafc;border-color:#e2e8f0;color:#64748b;}

@@ -81,10 +81,12 @@ assert(/act\('dailyToggleFinishMode\(\)'/.test(dailySrc),'마무리가 상황판
 const dailyRowActions=functionSource(dailySrc,'_dailyPlayerRowActions','_dailyPlayerToolsHtml');
 ['복귀','휴식','종료'].forEach(label=>assert(dailyRowActions.includes(`label:'${label}'`),`관리자 선수 행에 ${label} 버튼이 있어야 합니다.`));
 assert(dailyRowActions.includes("onclick=\"dailySetStatus('${p.id}'"),'관리자 선수 행의 버튼이 상태를 바로 바꿔야 합니다.');
-assert(['pair','helper','remove'].every(mode=>dailySrc.includes(`_dailyPlayerTool==='${mode}'`)),'파트너 지정·운영 도우미·삭제는 도구 모드로 유지되어야 합니다.');
-assert(!dailySrc.includes("_dailyPlayerTool==='rename'")&&!dailySrc.includes("mode('rename'"),'게스트 이름 수정을 위해 상단 이름 변경 모드를 다시 두면 안 됩니다.');
+assert(['pair','helper'].every(mode=>dailySrc.includes(`_dailyPlayerTool==='${mode}'`)),'파트너 지정·운영 도우미 모드는 유지되어야 합니다.');
+assert(!dailySrc.includes("_dailyPlayerTool==='rename'")&&!dailySrc.includes("mode('rename'")&&!dailySrc.includes("mode('remove'"),'이름 수정·선수 삭제를 위해 상단 도구 모드를 다시 두면 안 됩니다.');
 assert(dailySrc.includes('${_dailyGuestRenameButton(p)}'),'관리자 선수 카드에 게스트 이름 수정 버튼을 그려야 합니다.');
 assert(checkin.includes('${officialGuestRenameButton(player,item,selected.key)}')&&!checkin.includes("setOfficialOverviewMode('rename')"),'임원 화면도 게스트 이름 옆 수정 버튼 하나로 통일해야 합니다.');
+assert(dailySrc.includes('${_dailyPlayerRemoveButton(p)}'),'관리자 선수 카드에 직접 삭제 버튼을 그려야 합니다.');
+assert(checkin.includes('${officialPlayerRemoveButton(player,item,selected.key)}')&&!checkin.includes("setOfficialOverviewMode('remove')"),'임원 화면도 선수 이름 옆 삭제 버튼 하나로 통일해야 합니다.');
 // 운영 도우미 입구는 하나여야 합니다 — 전용 카드는 도구 모드로 옮기며 없앴습니다.
 assert(!dailySrc.includes('dailyRenderTemporaryOfficials')&&!indexHtml.includes('id="dailyTemporaryOfficials"'),'운영 도우미 전용 카드가 남아 있으면 지정 입구가 둘이 됩니다.');
 assert(dailySrc.includes("dailySetTemporaryOfficial('${p.id}',true)")&&dailySrc.includes("dailySetTemporaryOfficial('${p.id}',false)"),'선수 행에서 운영 도우미를 지정·해제할 수 있어야 합니다.');
