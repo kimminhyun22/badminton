@@ -54,19 +54,6 @@ imported=null;
 assert.strictEqual(dailyEntry.run(),false,'민턴LIVE 진행 중에는 공통 명단으로 덮어쓰면 안 됩니다.');
 assert.strictEqual(imported,null,'진행 중 기록 보호 시 가져오기 함수를 호출하면 안 됩니다.');
 
-const teamHanded=[];
-const teamSandbox={
-  APP_VERSION:'1.2.3',_directPlayers:[{name:'다'},{name:'라'}],
-  currentMatches:[],teamAssignment:null,_liveOn:false,_liveId:'',
-  _teamStoredLiveId:()=>'',location:{href:''},
-  _teamRosterBridge:()=>({handoff:(source,rows)=>teamHanded.push({source,count:rows.length})})
-};
-vm.createContext(teamSandbox);
-vm.runInContext(`${functionSource(team,'teamOpenDailyWithParticipants','addDirectPlayer')}\nthis.run=teamOpenDailyWithParticipants;`,teamSandbox);
-teamSandbox.run();
-assert.deepStrictEqual(teamHanded,[{source:'team',count:2}],'팀전에서 민턴으로 갈 때도 현재 명단을 공통 스냅샷으로 건네야 합니다.');
-assert.strictEqual(teamSandbox.location.href,'index.html?v=1.2.3&from=participants&source=team','민턴도 자동 명단 승계 주소로 열려야 합니다.');
-
 assert(indexHtml.includes('participant-prep-register')&&indexHtml.includes('participantChooseDaily')&&indexHtml.includes('participantChooseTeam'),
   '첫 화면은 참가자 등록 뒤 운영 방식을 선택하는 두 단계여야 합니다.');
 const dailyPage=indexHtml.indexOf('id="pageDaily"');
@@ -76,6 +63,8 @@ assert(dailyPage>=0&&prepCard>dailyPage&&dashboard>prepCard,
   '참가자 준비 카드는 숨은 옛 페이지가 아니라 실제 민턴 상황판 바로 위에 있어야 합니다.');
 assert(!indexHtml.includes('dailyImportTeamRosterBtn')&&!teamHtml.includes('teamImportDailyRosterBtn'),
   '수동 명단 복사 버튼이 다시 생기면 안 됩니다.');
+assert(!indexHtml.includes('live-mode-switch')&&!teamHtml.includes('live-mode-switch'),
+  '운영 방식을 고른 뒤 상단에 같은 선택을 다시 노출하면 안 됩니다.');
 assert(css.includes('.participant-operation-grid .operation-option:disabled'),
   '참가자가 없을 때 운영 방식 선택을 비활성화하는 화면 규칙이 있어야 합니다.');
 

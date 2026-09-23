@@ -22,8 +22,8 @@ function sourceBetween(src,startName,endName){
 
 assert(indexHtml.includes('id="participantPrepCount"')&&indexHtml.includes("dailyChooseOperation('team')"),
   '참가자 등록 뒤 민턴LIVE·팀전을 고르는 공통 시작 흐름이 있어야 합니다.');
-assert(teamHtml.includes('onclick="teamOpenDailyWithParticipants()"'),
-  '팀전에서 민턴LIVE로 돌아갈 때 현재 참가자 명단을 자동 승계해야 합니다.');
+assert(!indexHtml.includes('live-mode-switch')&&!teamHtml.includes('live-mode-switch'),
+  '운영 화면의 상단 전환 바는 참가자 준비 선택과 중복되므로 없어야 합니다.');
 assert(!indexHtml.includes('id="dailyImportTeamRosterBtn"')&&!teamHtml.includes('id="teamImportDailyRosterBtn"'),
   '다른 LIVE 명단을 수동으로 가져오는 중복 버튼이 남으면 안 됩니다.');
 assert(!indexHtml.includes('등록 전 상태'),'명단 복사 UI에 폐기된 출석 상태를 다시 노출하면 안 됩니다.');

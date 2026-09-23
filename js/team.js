@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.685';
+const APP_VERSION = '1.10.686';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6593,14 +6593,6 @@ function teamApplyParticipantHandoff(){
   if(snapshot.source!=='daily'||!(snapshot.players||[]).length)return false;
   return !!teamImportDailyRoster({snapshot,silent:true});
 }
-function teamOpenDailyWithParticipants(){
-  const bridge=_teamRosterBridge();
-  if(_directPlayers.length&&bridge&&typeof bridge.handoff==='function')bridge.handoff('team',_directPlayers);
-  const progressed=currentMatches.length||teamAssignment||_liveOn||_liveId||_teamStoredLiveId();
-  const from=!progressed&&_directPlayers.length?'participants&source=team':'team';
-  location.href=`index.html?v=${encodeURIComponent(APP_VERSION)}&from=${from}`;
-}
-
 function addDirectPlayer(){
   const nameEl = document.getElementById('dirName');
   const name = nameEl.value.trim();
