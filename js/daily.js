@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.688';
+const APP_VERSION = '1.10.689';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1783,7 +1783,19 @@ function _dailyBalancePolicyText(flowInfo){
   return parts.join(' · ');
 }
 function _dailyCourtRecommendation(flowInfo){
-  return null;
+  const info=flowInfo||_dailyNaturalAutoInfo();
+  if(!info.auto||_dailyTeamMode||_dailyFinishMode||_dailyPaused||!_dailyOperationStarted)return null;
+  const api=globalThis.KokMatchCourtRecommendation;
+  if(!api||typeof api.evaluate!=='function')return null;
+  const recommendation=api.evaluate({
+    courts:info.operatingCourts||_dailyCourtCount(),
+    pool:info.pool,
+    completed:_dailyMatches.filter(match=>match.completedAt&&!match.cancelledAt),
+    active:_dailyActiveMatches(),
+    startedAt:_dailyOperationStartedAt||_dailyFirstMatchStartedAt(),
+    now:_dailyNow()
+  });
+  return recommendation?{...recommendation,cls:'warn'}:null;
 }
 function _dailyQueueLockCount(){
   return _dailyQueueCapacity().target;
@@ -5939,7 +5951,7 @@ function dailyRenderAdminAlerts(){
       cls:courtRec.cls,
       title:courtRec.title,
       desc:courtRec.desc,
-      actions:`<button class="daily-mini-btn" onclick="dailyOpenFold('dailySetupDetails','dailySetupDetails')">코트 설정</button>`
+      actions:`<button class="daily-mini-btn" onclick="dailyStepCourts(-1)">${courtRec.target}코트로 줄이기</button>`
     });
   }
   if(!alerts.length){
@@ -10906,7 +10918,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.688&from=daily';
+  location.href='team.html?v=1.10.689&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

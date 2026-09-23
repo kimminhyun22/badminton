@@ -2298,6 +2298,13 @@ summary:focus-visible{
   border-color:#7096c7;
   box-shadow:0 0 0 2px rgba(87,127,186,.13);
 }
+.official-court-recommendation{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-top:9px;padding:10px;border:1px solid #efd59b;border-radius:10px;background:#fff9eb;color:#795715;}
+.official-court-recommendation span{min-width:0;}
+.official-court-recommendation b{display:block;font-size:13px;}
+.official-court-recommendation small{display:block;margin-top:3px;font-size:11px;font-weight:700;line-height:1.4;}
+.official-court-recommendation button{flex:none;min-height:42px;padding:7px 10px;border:1px solid #d8a947;border-radius:9px;background:#fff;color:#795715;font:inherit;font-size:12px;font-weight:900;}
+.official-court-recommendation button:disabled{opacity:.4;}
+@media(max-width:380px){.official-court-recommendation{align-items:stretch;flex-direction:column;}.official-court-recommendation button{width:100%;}}
 .official-overview-detail{
   margin-top:9px;
   border-top:1px solid #dfe7e4;
@@ -3011,7 +3018,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.688">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.689">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -3026,7 +3033,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.688</span>
+    <span class="version-chip" id="appVersion">v1.10.689</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3078,6 +3085,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+<script src="js/court-recommendation.js?v=1.10.689"></script>
 <script>
 const FB_CONFIG={
   apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
@@ -3089,7 +3097,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.688';
+const APP_VERSION='1.10.689';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3808,6 +3816,7 @@ function officialOperationsSummaryHtml(player){
   const rosterToolsOn=player.isClubOfficial;   // 관리자 동일 기능(2026-08-10)
   const blocked=eventFlowPaused()||!!sendingKey||claimingOfficial;
   const courtCount=Math.max(1,Math.min(12,parseInt(session?.event?.courts,10)||1));
+  const courtRec=officialCourtRecommendation(player);
   // 쓰임새로 묶습니다(운영자 2026-08-13 "사용자 관점에서"): 윗줄은 명단을
   // 다루는 기능(선수 추가), 이어서 운영 설정(코트 수·
   // 운영 도우미·마무리). 3열 두 줄로 고정해 묶음이 흐트러지지 않게 합니다.
@@ -3856,11 +3865,26 @@ function officialOperationsSummaryHtml(player){
   return `<div class="official-overview">
     <div class="official-overview-head"><b>운영 현황</b><span>현장 ${summary.current}명</span></div>
     <div class="official-overview-grid">${cards.map(card=>`<button type="button" class="official-overview-stat ${card.cls||''} ${officialOverviewFilter===card.key?'active':''}" onclick="setOfficialOverviewFilter('${card.key}')" aria-pressed="${officialOverviewFilter===card.key?'true':'false'}" aria-label="${card.label} ${card.value}명 명단 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('')}</div>
+    ${courtRec?`<div class="official-court-recommendation"><span><b>${esc(courtRec.title)}</b><small>${esc(courtRec.desc)}</small></span><button type="button" ${blocked?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}',-1)">${courtRec.target}코트로 줄이기</button></div>`:''}
     ${tools?`<div class="official-overview-tools">${tools}</div>`:''}
     ${modeBanner}
     ${addForm}
     ${detail}
   </div>`;
+}
+function officialCourtRecommendation(player){
+  if(!player?.isClubOfficial||eventFlowPaused()||session?.event?.finishMode||session?.event?.operationStarted!==true)return null;
+  const api=globalThis.KokMatchCourtRecommendation;
+  if(!api||typeof api.evaluate!=='function')return null;
+  const current=(session?.players||[]).filter(row=>['wait','playing'].includes(String(row?.status||''))&&!row?.registrationCancelled);
+  return api.evaluate({
+    courts:session?.event?.courts,
+    pool:current.length,
+    completed:session?.completedLog||[],
+    active:session?.event?.active||[],
+    startedAt:session?.event?.operationStartedAt||session?.matchStartedAt||0,
+    now:Date.now()
+  });
 }
 function renderBalancePolicy(){
   // 회원 화면에서는 관리자용 운영 정보를 노출하지 않는다.
