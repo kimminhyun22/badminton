@@ -25,9 +25,11 @@ assert(dash > 0 && setup > dash && active > setup, '세팅 폴드는 상황판 �
 assert(!html.includes('class="daily-side"'), '세팅 폴드를 담던 옆 칸(.daily-side)은 없어야 합니다 — 맨 아래 닫힌 채 묻혀 있던 자리입니다.');
 assert(!html.includes('id="dailyName"') && !html.includes('onclick="dailyAddPlayer()"'),
   '세팅 폴드의 직접 입력 폼은 모달 게스트 폼과 같은 일이라 없어야 합니다 — 등록 입구는 하나.');
-assert(html.includes('onclick="dailyImportRoster()"'), '세팅 폴드에서 「오늘 참가자 등록」 모달을 열 수 있어야 합니다.');
+assert(html.includes('onclick="dailyImportRoster()"'), '세팅 폴드에서 「참가자 등록」 모달을 열 수 있어야 합니다.');
 assert(html.includes('id="dailyImportTeamRosterBtn"') && /class="roster-transfer-btn hidden" id="dailyImportTeamRosterBtn"/.test(html),
   '팀전 선수 가져오기 버튼은 기본 숨김이어야 합니다(없을 때 비활성 버튼은 소음).');
+assert(html.includes('<span>☀️ 참가자 등록</span>')&&!html.includes('<span>☀️ 오늘 참가자 등록</span>'),
+  '참가자 등록 제목에 불필요한 「오늘」을 붙이면 안 됩니다.');
 assert(html.split('id="dailyCourts"').length === 2, '코트 수 입력은 한 개만 있어야 합니다.');
 for (const id of ['dailyQuickShareBtn', 'dailyQuickStopBtn', 'dailyQuickResetBtn'])
   assert(html.includes(`id="${id}"`), `${id} 가 있어야 단계별로 감출 수 있습니다.`);
