@@ -123,7 +123,7 @@ assert(src.includes("flow.classList.toggle('need',!preparing&&!_dailyPaused&&!!t
 r = run({});
 assert(r.hidden('#dailyDashboardTools'), '빈 세팅 화면에서는 운영 도구 줄이 감춰져야 합니다.');
 r = run({ players: [{}] });
-assert(!r.hidden('#dailyDashboardTools'), '명단이 있으면 이름 변경·삭제 도구가 보여야 합니다.');
+assert(!r.hidden('#dailyDashboardTools'), '명단이 있으면 선수 추가·삭제 등 운영 도구가 보여야 합니다.');
 // 게시 전 인원 수는 등록·현장·도착 전 3칸만
 assert(src.includes("const shown=_dailyUiStage()==='live'?cards:cards.filter(card=>['all','current','planned'].includes(card.filter));"),
   '게시 전 인원 수는 등록·현장·도착 전만 보여야 합니다.');

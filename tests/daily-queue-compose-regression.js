@@ -418,7 +418,7 @@ this.club=officialPrimaryClub();`,legacy);
     // 이름만 읽도록 aria-hidden 이어야 합니다. 코트 수는 숫자 스테퍼라 제외합니다.
     assert(/const emo=ch=>`<span class="ot-emo" aria-hidden="true">/.test(summarySrc),
       '도구 이모지는 aria-hidden 으로 감싸야 합니다 — 안 그러면 이름을 두 번 읽습니다.');
-    ['🙋','🏁','🤝','✏️','🚫'].forEach(ch=>assert(summarySrc.includes(`emo('${ch}')`),
+    ['🙋','🏁','🤝','🚫'].forEach(ch=>assert(summarySrc.includes(`emo('${ch}')`),
       `도구 이모지 ${ch} 가 있어야 합니다.`));
     assert(checkin.includes('.official-overview-tool .ot-emo{'),'이모지 간격 스타일이 있어야 합니다.');
     assert(summarySrc.includes('class="official-court-stepper"')
@@ -436,7 +436,6 @@ this.club=officialPrimaryClub();`,legacy);
       '도구 줄은 3열 그리드여야 묶음이 유지됩니다.');
     const grouped=[
       ['선수 추가',"setOfficialOverviewMode('add')"],
-      ['이름 변경',"setOfficialOverviewMode('rename')"],
       ['제외',"setOfficialOverviewMode('remove')"],
       ['코트 수','sendOfficialSettingsCourts'],
       ['운영 도우미',"setOfficialOverviewMode('helper')"],

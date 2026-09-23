@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.681';
+const APP_VERSION = '1.10.682';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3395,7 +3395,7 @@ async function dailyRenamePlayer(id){
   if(!_dailyCanChangeRoster())return;
   const p=_dailyPlayer(id);
   if(!p)return;
-  const name=prompt('이름 변경',p.name);
+  const name=prompt(p.isGuest?'게스트 이름 수정':'이름 변경',p.name);
   if(name==null)return;
   const next=name.trim();
   if(!next)return;
@@ -3422,11 +3422,18 @@ async function dailyRenamePlayer(id){
 // ── 선수 목록에서 바로 처리합니다(임원 화면과 같은 구조, 2026-08-03).
 // 평소에는 행에 상태 버튼만 두고, 가끔 쓰는 파트너·이름·삭제는 상단 도구 모드를 켰을 때만
 // 그 버튼만 보여 줍니다. 예전의 선수 시트(모달)는 없앴습니다.
+// 명부 원본이 없는 게스트만 선수 카드에서 바로 이름을 고칩니다.
+// 회원 이름은 클럽 명부에서 관리해 당일 세션과 원본이 어긋나지 않게 합니다.
+function _dailyGuestRenameButton(p){
+  if(!p?.isGuest)return '';
+  const disabled=_dailyPaused?'disabled':'';
+  return `<button type="button" class="daily-guest-rename" ${disabled} onclick="dailyRenamePlayer('${p.id}')" aria-label="${esc(p.name)} 게스트 이름 수정" title="게스트 이름 수정">${_dailyIcon('edit')}</button>`;
+}
 function setDailyPlayerTool(mode){
   // 임원 화면은 모드를 켜면 처리할 명단을 자동으로 펼칩니다. 관리자도 같게 —
   // 도구가 상황판에 있으므로 켠 뒤 선수 목록으로 데려갑니다.
   const willOpen = _dailyPlayerTool!==mode;
-  const allowed=['pair','helper','rename','remove'];
+  const allowed=['pair','helper','remove'];
   _dailyPlayerTool=allowed.includes(mode)&&_dailyPlayerTool!==mode?mode:'';
   if(_dailyPlayerTool!=='pair')dailyCancelPair();
   else dailyRender();
@@ -3462,9 +3469,6 @@ function _dailyPlayerRowActions(p){
     if(!_dailyTemporaryOfficialEligible(p))return `<span class="daily-player-hint">${p.isGuest?'게스트는 지정 불가':'현장 회원만'}</span>`;
     return `<span class="daily-player-actions"><button type="button" class="helper" ${busy} onclick="dailySetTemporaryOfficial('${p.id}',true)">지정</button></span>`;
   }
-  if(_dailyPlayerTool==='rename'){
-    return `<span class="daily-player-actions"><button type="button" ${dis} onclick="dailyRenamePlayer('${p.id}')">이름 변경</button></span>`;
-  }
   if(_dailyPlayerTool==='remove'){
     if(playing)return '<span class="daily-player-hint">경기중 — 경기 정리 후</span>';
     return `<span class="daily-player-actions"><button type="button" class="danger" ${dis} onclick="dailyRemovePlayer('${p.id}')">삭제</button></span>`;
@@ -3497,7 +3501,8 @@ function _dailyIcon(name){
     check:'M5 12.5l4.5 4.5L19 7',
     x:'M6.5 6.5l11 11M17.5 6.5l-11 11',
     redo:'M20 11a8 8 0 1 0-2.2 5.5M20 5v6h-6',
-    trash:'M4.5 7h15M9.5 7V4.5h5V7M7 7l1 12.5h8L17 7'
+    trash:'M4.5 7h15M9.5 7V4.5h5V7M7 7l1 12.5h8L17 7',
+    edit:'M4.5 19.5l4.2-.8L19 8.4a2.1 2.1 0 0 0-3-3L5.3 16.1l-.8 3.4zM14.8 6.6l3 3'
   };
   const d=paths[name];
   return d?`<svg class="daily-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`:'';
@@ -3517,14 +3522,11 @@ function _dailyPlayerToolsHtml(){
     _dailyOperationStarted?act('dailyToggleFinishMode()','🏁',finishOn?'마무리 해제':'마무리','',finishOn):'',
     act('dailyOpenCourtSetting()','🏸',`코트 ${courts}`),
     (_dailyOperationStarted||_dailyCheckinId)?mode('helper','🤝',`도우미 ${helperCount}`):'',   // 게시 전엔 링크 강제 생성 부작용만
-    mode('rename','✏️','이름 변경'),
     mode('remove','🚫','삭제','danger')
   ].filter(Boolean).join('');
   const note=_dailyPlayerTool==='helper'
     ? `오늘만 운영을 도울 회원을 <b>지정</b>하세요(최대 ${DAILY_TEMPORARY_OFFICIAL_LIMIT}명). 운동이 끝나면 자동으로 해제됩니다.`
-    : _dailyPlayerTool==='rename'
-      ? '이름을 바꿀 선수의 <b>이름 변경</b>을 누르세요.'
-      : _dailyPlayerTool==='remove'
+    : _dailyPlayerTool==='remove'
         ? '명단에서 뺄 선수의 <b>삭제</b>를 누르세요. 경기중 선수는 경기를 먼저 정리해야 합니다.'
         : '';
   const banner=note?`<div class="daily-pair-banner">${note}<button type="button" onclick="setDailyPlayerTool('${_dailyPlayerTool}')">닫기</button></div>`:'';
@@ -9824,7 +9826,7 @@ function dailyRender(){
       const sorted=_dailySortPlayersForManage(filtered);
       const rows=sorted.length?sorted.map(p=>`<div class="daily-player ${_dailyPairSelectId===p.id?'daily-pair-selecting':''} ${_dailyReservationOfPlayer(p.id)?'daily-paired':''}">
         <span class="daily-player-main">
-          <span class="daily-player-name">${_dailyNameHtml(p)} ${_dailyStatusBadge(p.status)} ${_dailyQueueLabelForPlayer(p.id)}</span>
+          <span class="daily-player-name">${_dailyNameHtml(p)}${_dailyGuestRenameButton(p)} ${_dailyStatusBadge(p.status)} ${_dailyQueueLabelForPlayer(p.id)}</span>
           <span class="daily-player-meta">${_dailyPlayerMetaText(p)}</span>
         </span>
         ${_dailyPlayerRowActions(p)}
@@ -10829,7 +10831,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.681&from=daily';
+  location.href='team.html?v=1.10.682&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

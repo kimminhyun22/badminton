@@ -212,7 +212,7 @@ t=15;
     expectedPlayerIds:[...del.playerIds]},at(),'del'));
 }
 
-// 4) 운영 현황 도구 6개 — 선수 추가 · 이름 변경 · 제외 · 코트 수 · 도우미 · 마무리
+// 4) 운영 현황 — 선수 추가 · 게스트 카드 이름 수정 · 제외 · 코트 수 · 도우미 · 마무리
 t=25;
 {
   check('🙋 선수 추가(게스트)',send({type:'official-player-create',playerId:'dpv2_sim_guest',
