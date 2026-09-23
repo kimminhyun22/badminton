@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.687';
+const APP_VERSION = '1.10.688';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3571,8 +3571,8 @@ function _dailyIcon(name){
   return d?`<svg class="daily-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`:'';
 }
 function _dailyPlayerToolsHtml(){
-  // 임원 화면 「운영 현황」의 도구 줄과 같은 구성·순서입니다(운영자 2026-08-13
-  // "ux/ui 거의 동일하게"). 진입점은 상황판 하나뿐 — 선수 목록에는 두지 않습니다.
+  // 라이브 중 선수 추가는 인원 현황의 「도착 전」 옆에 둡니다. 이 줄에는
+  // 경기 운영 도구만 남겨 역할을 분명하게 합니다.
   const helperCount=_dailyPlayers.filter(player=>player?.isTemporaryOfficial&&!player.isClubOfficial).length;
   const courts=_dailyCourtCount();
   const finishOn=!!_dailyFinishMode;
@@ -3581,7 +3581,6 @@ function _dailyPlayerToolsHtml(){
   const mode=(key,emo,label,cls)=>`<button type="button" class="daily-player-tool ${cls||''} ${_dailyPlayerTool===key?'active':''}" onclick="setDailyPlayerTool('${key}')" aria-pressed="${_dailyPlayerTool===key?'true':'false'}"><span class="dt-emo" aria-hidden="true">${emo}</span>${label}</button>`;
   const act=(onclick,emo,label,cls,pressed)=>`<button type="button" class="daily-player-tool ${cls||''} ${pressed?'active':''}" ${dis} onclick="${onclick}" ${pressed!=null?`aria-pressed="${pressed?'true':'false'}"`:''}><span class="dt-emo" aria-hidden="true">${emo}</span>${label}</button>`;
   const tools=[
-    act('dailyImportRoster()','🙋','선수 추가'),
     _dailyOperationStarted?act('dailyToggleFinishMode()','🏁',finishOn?'마무리 해제':'마무리','',finishOn):'',
     act('dailyOpenCourtSetting()','🏸',`코트 ${courts}`),
     (_dailyOperationStarted||_dailyCheckinId)?mode('helper','🤝',`도우미 ${helperCount}`):''   // 게시 전엔 링크 강제 생성 부작용만
@@ -6094,9 +6093,16 @@ function dailyRenderHeadcount(){
     {label:'도착 전',value:count.preArrival,filter:'planned',cls:count.preArrival?'pending':''}
   ];
   // 게시 전에는 등록·현장·도착 전만 — 경기중·휴식·종료 0 은 아직 뜻이 없는 숫자다 (2026-09-02)
-  const shown=_dailyUiStage()==='live'?cards:cards.filter(card=>['all','current','planned'].includes(card.filter));
+  const live=_dailyUiStage()==='live';
+  const shown=live
+    ? [...cards,{label:'선수 추가',value:'＋',action:'dailyImportRoster()',cls:'add-player'}]
+    : cards.filter(card=>['all','current','planned'].includes(card.filter));
   el.classList.toggle('compact',shown.length<=3);
-  el.innerHTML=shown.map(card=>`<button type="button" class="daily-headcount-item ${card.cls||''}" onclick="dailyOpenPlayerStatus('${card.filter}')" aria-label="${card.label} ${card.value}명 보기"><b>${card.value}</b><span>${card.label}</span></button>`).join('');
+  el.innerHTML=shown.map(card=>{
+    const onclick=card.action||`dailyOpenPlayerStatus('${card.filter}')`;
+    const aria=card.action?card.label:`${card.label} ${card.value}명 보기`;
+    return `<button type="button" class="daily-headcount-item ${card.cls||''}" onclick="${onclick}" aria-label="${aria}"><b>${card.value}</b><span>${card.label}</span></button>`;
+  }).join('');
 }
 function _dailyLiveAdditionRows(){
   const startedAt=Math.max(0,Number(_dailyOperationStartedAt||_dailyFirstMatchStartedAt()||0));
@@ -10900,7 +10906,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.687&from=daily';
+  location.href='team.html?v=1.10.688&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

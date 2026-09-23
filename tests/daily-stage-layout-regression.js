@@ -123,13 +123,14 @@ assert.strictEqual(r.stage, 'live');
 assert(src.includes("preparing?'운영 준비':todo?(entryReady?'입장 준비'"), '게시 전 상태 알약은 운영 준비여야 합니다.');
 assert(src.includes("const preparing=!_dailyOperationStarted&&!_dailyPaused;"), '상태 알약은 게시 여부만 본다 — 모달에서 등록한 진행 경기가 있어도 게시 전은 운영 준비다.');
 assert(src.includes("flow.classList.toggle('need',!preparing&&!_dailyPaused&&!!todo);"), '게시 전에는 노란 경고 알약이 켜지면 안 됩니다.');
-// 빈 화면에서는 도구 줄(선수 추가·코트·도우미…)도 접는다 — 등록 입구 사본만 늘린다
+// 빈 화면에서는 경기 운영 도구 줄도 접는다 — 등록 입구 사본만 늘린다
 r = run({});
 assert(r.hidden('#dailyDashboardTools'), '빈 세팅 화면에서는 운영 도구 줄이 감춰져야 합니다.');
 r = run({ players: [{}] });
-assert(!r.hidden('#dailyDashboardTools'), '명단이 있으면 선수 추가·코트 설정 등 운영 도구가 보여야 합니다.');
+assert(!r.hidden('#dailyDashboardTools'), '명단이 있으면 코트 설정 등 운영 도구가 보여야 합니다.');
 // 게시 전 인원 수는 등록·현장·도착 전 3칸만
-assert(src.includes("const shown=_dailyUiStage()==='live'?cards:cards.filter(card=>['all','current','planned'].includes(card.filter));"),
+assert(src.includes("const live=_dailyUiStage()==='live';")
+  &&src.includes(": cards.filter(card=>['all','current','planned'].includes(card.filter));"),
   '게시 전 인원 수는 등록·현장·도착 전만 보여야 합니다.');
 assert(css.includes('.daily-headcount.compact{grid-template-columns:repeat(3,minmax(0,1fr))!important;}'), '3칸 인원 수는 3열이어야 합니다.');
 
