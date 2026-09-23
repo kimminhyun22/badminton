@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.689';
+const APP_VERSION = '1.10.690';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3760,6 +3760,7 @@ function renderQualityDashboard(matches,participants,settings){
       </div>
       <div class="op-chip-row">${opChips}</div>
     </div>
+    <details class="team-quality-details"><summary>상세 점검</summary>
     <div class="op-issues">
       <div class="op-issues-title">실전 특이사항</div>
       <div class="op-issue-list">${issueHtml}</div>
@@ -3781,6 +3782,7 @@ function renderQualityDashboard(matches,participants,settings){
           </div>
         </div>`).join('')}
     </div>
+    </details>
     <div class="qd-footer">
       <div style="display:flex;gap:8px;">
         <button class="btn btn-gen" style="flex:1;padding:10px;font-size:.88rem;" onclick="reshuffleMatches()">🎲 재배정</button>
@@ -5240,7 +5242,7 @@ function renderBracketSaveQuick(){
   const hasBracket=!!currentMatches.length;
   const canSave=hasBracket&&!sample;
   const quick=document.getElementById('bracketSaveQuick');
-  if(quick)quick.classList.toggle('hidden',sample||_liveOn||(!hasBracket&&count===0));
+  if(quick)quick.classList.toggle('hidden',sample);
   document.querySelectorAll('[data-bracket-save]').forEach(btn=>{
     btn.disabled=!canSave;
     btn.title=canSave?'현재 대진안을 이름 붙여 저장':'대진표를 먼저 생성하세요';
@@ -8391,14 +8393,11 @@ function renderAutoFlowDashboard(){
     } else if(matches){
       stage='broadcast';
       cfg={badge:'운영 준비',sub:''};
-    } else if(teamReady||(!fixedTeamMode&&players>=4&&_rsvpId)){
+    } else if(teamReady||(!fixedTeamMode&&players>=4)){
       stage='generate';
       cfg={badge:'운영 준비',sub:''};
-    } else if(players>=4&&_rsvpId){
-      stage='playerReview';
-      cfg={badge:'운영 준비',sub:''};
     } else if(players>=4){
-      stage='link';
+      stage='playerReview';
       cfg={badge:'운영 준비',sub:''};
     }
     if(card)card.classList.toggle('live-compact',live);
@@ -8495,15 +8494,12 @@ function renderAutoFlowDashboard(){
         <div class="auto-flow-focus">
           <div class="auto-flow-focus-main">
             <div>
-              <span>다음 할 일</span>
-              <b>${esc(stageGuide.k)}</b>
-              <small>${esc(stageGuide.t)}</small>
+              <b>${directResumeMode||restoreBracket?esc(stageGuide.k):`${players}명 · ${esc(teamValue)}`}</b>
             </div>
-            ${directResumeMode||restoreBracket?'':`<div class="auto-flow-count">${doneSteps}/5</div>`}
           </div>
           ${actionHtml}
         </div>
-        ${supportHtml}`;
+        ${directResumeMode||restoreBracket?supportHtml:''}`;
     }
     _autoFlowSetSection('sec-rsvp',stage==='link');
     _autoFlowSetSection('sec-players',stage==='playerSetup'||stage==='playerReview');

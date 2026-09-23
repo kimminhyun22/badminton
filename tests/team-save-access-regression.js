@@ -9,9 +9,9 @@ const html = fs.readFileSync(path.join(root, 'team.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'css', 'team.css'), 'utf8');
 
 assert(html.includes('id="bracketSaveQuick"'), '상황판에 대진안 빠른 저장 영역이 있어야 합니다.');
-assert(html.includes('id="bracketSavePrimaryMeta"'), '대진 생성 버튼 아래에 저장 상태 안내가 있어야 합니다.');
-assert((html.match(/data-bracket-save/g) || []).length >= 2, '상황판과 진행 설정에서 모두 대진안을 저장할 수 있어야 합니다.');
-assert((html.match(/data-slot-count/g) || []).length >= 2, '상황판과 진행 설정에서 저장본 개수를 보여야 합니다.');
+assert(!html.includes('id="bracketSavePrimaryMeta"'), '저장 입구는 상황판 한 곳으로 통합합니다.');
+assert((html.match(/data-bracket-save/g) || []).length === 1, '저장 버튼은 하나여야 합니다.');
+assert((html.match(/data-slot-count/g) || []).length === 1, '저장 목록은 한 곳이어야 합니다.');
 assert(html.includes('<summary>백업·기타 관리</summary>'), '저빈도 백업 기능은 별도 보조 영역으로 구분해야 합니다.');
 assert(html.includes('현재 대진안을 따로 보관합니다.'), '저장 모달이 현재 대진안을 보관한다는 목적을 알려야 합니다.');
 assert(html.includes('id="slotListCount"'), '저장 목록에서 사용 중인 슬롯 수를 보여야 합니다.');
@@ -25,8 +25,8 @@ assert(!/class="nav-sync-btn"/.test(html),
 /* 2026-08-12 계약 뒤집음 (운영자 "정신 없고 한눈에 안 들어와"): 초기화는
    **되돌릴 수 없는** 동작인데 늘 맨 위에 떠 있었고, 접힌 「백업·기타 관리」에도
    같은 것이 있어 진입점이 둘이었습니다. 접힌 쪽 하나만 남깁니다. */
-assert(!/onclick="resetAll\(\)"[^>]*>초기화<\/button>/.test(html),
-  '되돌릴 수 없는 초기화가 상단에 상시 노출되면 안 됩니다.');
+assert(/class="sync-btn s-reset team-reset-top"[^>]*onclick="resetAll\(\)"/.test(html),
+  '초기화는 상단에서 찾을 수 있어야 합니다. 실행 확인은 resetAll에서 유지합니다.');
 assert((html.match(/resetAll\(\)/g) || []).length === 1,
   '초기화 진입점은 한 곳이어야 합니다.');
 assert(/id="liveConsoleTopBtn"/.test(html),
@@ -78,6 +78,8 @@ assert(confirmBody.includes('slots.unshift(slot)'), '가장 최근 저장본이 
 const statusStart = src.indexOf('function setSaveStatus');
 const statusEnd = src.indexOf('function saveState', statusStart);
 assert(src.slice(statusStart, statusEnd).includes('renderBracketSaveQuick()'), '자동저장 상태가 빠른 저장 영역에도 즉시 반영되어야 합니다.');
-assert(src.includes("quick.classList.toggle('hidden',sample||_liveOn||(!hasBracket&&count===0))"), 'LIVE 중에는 저장 UI가 운영 집중을 방해하지 않아야 합니다.');
+assert(src.includes("quick.classList.toggle('hidden',sample)"), '준비와 LIVE 중 모두 상단 저장 목록에 접근할 수 있어야 합니다.');
+assert(src.includes("if(!confirm('팀전을 전체 초기화할까요?"), '초기화 확인을 유지해야 합니다.');
+assert(src.includes('<details class="team-quality-details"><summary>상세 점검</summary>'), '세부 품질 점검은 접어서 표시해야 합니다.');
 
 console.log('team save access regression ok');

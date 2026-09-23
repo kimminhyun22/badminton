@@ -628,6 +628,9 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .bracket-save-quick-copy b{font-size:.78rem;color:var(--txt);letter-spacing:0;}
 .bracket-save-quick-copy span{font-size:.65rem;color:var(--dim);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .bracket-save-actions{display:grid;grid-template-columns:auto auto;gap:6px;}
+.team-reset-top{min-height:44px;white-space:nowrap;}
+.team-quality-details>summary{padding:12px 16px;cursor:pointer;font-size:14px;font-weight:700;color:var(--dim);}
+.auto-flow-focus-main b{font-size:16px;overflow-wrap:anywhere;}
 .bracket-save-primary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:8px;}
 .bracket-save-primary-meta{grid-column:1/-1;font-size:.66rem;font-weight:700;color:var(--dim);line-height:1.4;padding:0 2px;}
 .bracket-save-action{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:42px;

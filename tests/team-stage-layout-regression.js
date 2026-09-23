@@ -328,7 +328,8 @@ assert(src.includes('class="team-live-step-num"') && src.includes('class="team-l
   '흐름 표시는 번호와 값을 가진 타일이어야 합니다.');
 assert(!/team-live-step \$\{stepState\('playerSetup'\)\}">참가자<\/span>/.test(src),
   '옛 칩 문법으로 되돌리면 안 됩니다.');
-assert(/\$\{doneSteps\}\/5/.test(src), '민턴LIVE 의 「n/2」와 같은 자리에 진행 개수가 있어야 합니다.');
+assert(!/\$\{doneSteps\}\/5/.test(src), '단계 개수 대신 현재 상태와 다음 행동만 표시합니다.');
+assert(src.includes("${directResumeMode||restoreBracket?supportHtml:''}"), '일반 준비 화면에서는 중복 단계 타일을 표시하지 않습니다.');
 // 갈 곳이 없는 단계는 누를 수 없어야 한다 — 눌리면 단계 게이팅이 감춘 카드를 몰래 연다.
 assert(src.includes("f.target?` role=\"button\""),
   '이동 대상이 없는 흐름 타일에는 role/onclick 을 붙이면 안 됩니다.');
