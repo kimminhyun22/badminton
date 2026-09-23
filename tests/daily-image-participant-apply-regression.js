@@ -34,7 +34,7 @@ function extractFunction(name){
   const alerts=[];
   const sandbox={
     _dailyBlockServerSync:()=>false,_dailyCanChangeRoster:()=>true,
-    rosters:{clubs:[{name:'테스트클럽',members:roster}]},_dailyImportClubIdx:0,
+    rosters:{clubs:[{id:'wrong',name:'잘못선택',members:[]},{id:'right',name:'테스트클럽',members:roster}]},_dailyImportClubIdx:0,
     _dailySessionClubName:'',_dailyCheckinId:'',_dailyPlayers:[],_dailyNext:{old:true},
     _dailyNormalizeStatus:value=>value,
     _dailyGender:value=>value==='여'?'F':'M',_dailyGenderLabel:value=>value==='F'?'여':'남',
@@ -48,11 +48,14 @@ function extractFunction(name){
   vm.createContext(sandbox);
   vm.runInContext(`${extractFunction('dailyApplyImageImportResult')};this.apply=dailyApplyImageImportResult;`,sandbox);
   await sandbox.apply({
+    clubId:'right',clubName:'테스트클럽',
     members:[{...roster[0],status:'wait'},{...roster[1],status:'planned'}],
     guests:[{name:'게스트가',grade:'A',gender:'남',ageGroup:'50대',isGuest:true,status:'wait'}],
     counts:{vote:1,comment:1,guest:1,total:3}
   });
   assert.strictEqual(sandbox._dailyPlayers.length,3,'캡처 확정 회원과 게스트를 모두 등록해야 합니다.');
+  assert.strictEqual(sandbox._dailyImportClubIdx,1,'분석 중 자동 보정한 클럽을 최종 등록에도 사용해야 합니다.');
+  assert.strictEqual(sandbox._dailySessionClubName,'테스트클럽','세션 클럽도 최초 오선택이 아니라 확정 명부여야 합니다.');
   assert.strictEqual(sandbox._dailyPlayers.find(row=>row.name==='회원나').status,'planned','지각 회원은 도착 전이어야 합니다.');
   assert.strictEqual(sandbox._dailyPlayers.find(row=>row.name==='게스트가').isGuest,true,'게스트 표시는 유지해야 합니다.');
   assert(alerts[0].includes('3명을 등록')&&alerts[0].includes('투표 1 · 댓글 추가 1 · 게스트 1'),'등록 결과 집계를 한 번에 알려야 합니다.');

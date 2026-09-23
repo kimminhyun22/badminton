@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.686';
+const APP_VERSION = '1.10.687';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2912,12 +2912,18 @@ function dailyOpenImageImport(){
     alert('캡처 분석 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
     return;
   }
-  window.KokMatchDailyImageImport.open({clubName:club.name||'',roster:club.members||[]});
+  window.KokMatchDailyImageImport.open({
+    clubId:club.id||'',clubName:club.name||'',roster:club.members||[],
+    clubs:(rosters.clubs||[]).filter(item=>(item.members||[]).length)
+  });
 }
 async function dailyApplyImageImportResult(payload){
   if(_dailyBlockServerSync({action:'캡처 참가자 등록'}))return;
   if(!_dailyCanChangeRoster())return;
-  const club=(rosters.clubs||[])[_dailyImportClubIdx];
+  const clubs=rosters.clubs||[];
+  const payloadClubIndex=clubs.findIndex(item=>(payload?.clubId&&String(item?.id||'')===String(payload.clubId))||(!payload?.clubId&&payload?.clubName&&String(item?.name||'')===String(payload.clubName)));
+  if(payloadClubIndex>=0)_dailyImportClubIdx=payloadClubIndex;
+  const club=clubs[_dailyImportClubIdx];
   if(!club)return;
   const seen=new Set();
   const rows=[...(payload?.members||[]),...(payload?.guests||[])].filter(row=>{
@@ -10894,7 +10900,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.686&from=daily';
+  location.href='team.html?v=1.10.687&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

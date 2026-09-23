@@ -47,6 +47,18 @@ assert.strictEqual(result.members.filter(row=>row.arrivalText).length,2,'지각 
 assert(result.members.every(row=>row.match),'정확히 일치한 회원은 명부 프로필과 연결되어야 합니다.');
 assert.strictEqual(result.guests[0].ageGroup,'40대','게스트 연령 미기재 시 화면에서 확인 가능한 기본값을 제공해야 합니다.');
 
+const wrongRoster=Array.from({length:20},(_,index)=>({name:`다른회원${index+1}`,grade:'C',gender:'남'}));
+const rankings=api.rankRosters(raw,[
+  {id:'wrong',name:'잘못 고른 클럽',members:wrongRoster},
+  {id:'right',name:'실제 참가 클럽',members:roster}
+]);
+assert.strictEqual(rankings[0].id,'right','판독 이름과 가장 많이 일치하는 명부가 첫 후보여야 합니다.');
+assert.strictEqual(rankings[0].matched,16,'투표와 댓글 추가 회원을 합쳐 명부 일치 수를 계산해야 합니다.');
+assert.strictEqual(rankings[1].matched,0,'잘못 선택한 명부의 우연하지 않은 이름은 일치로 세면 안 됩니다.');
+assert.strictEqual(api.recommendRoster(rankings,0).id,'right','일치 수가 충분히 우세하면 잘못 선택한 명부를 자동 보정해야 합니다.');
+assert.strictEqual(api.recommendRoster([{index:0,id:'a',matched:8,total:16},{index:1,id:'b',matched:8,total:16}],0),null,
+  '명부 일치 수가 동률이면 앱이 임의로 자동 선택하면 안 됩니다.');
+
 const unresolved=api.resolve({...raw,voteAttendees:[...raw.voteAttendees,{name:'잘못읽은이름'}]},roster);
 assert(unresolved.members.some(row=>!row.match),'명부에 없는 회원 이름을 자동 확정하면 안 됩니다.');
 assert(unresolved.warnings.some(message=>message.includes('투표 화면은 15명')),'투표 머리글과 추출 인원이 다르면 경고해야 합니다.');
@@ -55,8 +67,12 @@ assert(index.includes('id="dailyCaptureInput"')&&index.includes('multiple')&&ind
   '관리자 참가자 모달에 여러 캡처 선택과 분석 입구가 있어야 합니다.');
 assert(index.indexOf('id="dailyImportClubTabs"')<index.indexOf('class="daily-capture-open"'),
   '캡처 등록 전에 비교할 클럽을 먼저 선택할 수 있어야 합니다.');
-assert(daily.includes("open({clubName:club.name||'',roster:club.members||[]})")&&source.includes("명부와 비교합니다."),
-  '분석창에 현재 선택한 클럽 명부를 명시해야 합니다.');
+assert(daily.includes("clubs:(rosters.clubs||[]).filter")&&source.includes('잘못 골라도 분석 후 가장 잘 맞는 명부를 찾습니다.'),
+  '분석창은 모든 저장 명부를 받아 잘못 선택한 클럽을 보정해야 합니다.');
+assert(source.includes('function confidentRoster(')&&source.includes('daily-capture-roster-match')&&source.includes('setClub(value)'),
+  '명확한 최다 일치 명부는 자동 선택하고 애매할 때는 명부별 일치 수를 보고 바꿀 수 있어야 합니다.');
+assert(source.includes('clubId:state.clubId,clubName:state.clubName')&&daily.includes('payloadClubIndex>=0'),
+  '최종 등록은 최초 선택이 아니라 분석에서 확정한 클럽 명부를 사용해야 합니다.');
 assert(index.includes('firebase-app-check-site-key'),'공개 AI 호출은 App Check로 보호해야 합니다.');
 assert(source.includes("httpsCallable(functions,'analyzeDailyParticipantScreenshots'")&&!source.includes('GoogleAIBackend'),
   '캡처 분석은 App Check가 적용된 전용 서버 함수로 보내야 합니다.');

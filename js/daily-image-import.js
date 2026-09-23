@@ -7,7 +7,7 @@ const MAX_EDGE=1800;
 const TIMEOUT_MS=105000;
 const ROLE_WORDS='회장|부회장|총무|재무|경기이사|이사|임원|고문|감사';
 let analyzerPromise=null;
-let state={files:[],clubName:'',roster:[],result:null};
+let state={files:[],clubId:'',clubName:'',roster:[],clubs:[],selectedClubIndex:0,raw:null,ranking:[],result:null,notice:''};
 
 function byId(id){return document.getElementById(id);}
 function esc(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
@@ -38,6 +38,27 @@ function rosterIndex(roster){
     map.get(key).push(member);
   });
   return map;
+}
+function attendeeKeys(raw){
+  return new Set(uniqueRows([...(raw?.voteAttendees||[]),...(raw?.commentAttendees||[])]).map(row=>normalizeName(row.name)).filter(Boolean));
+}
+function rankRosters(raw,clubs){
+  const names=attendeeKeys(raw);
+  return (Array.isArray(clubs)?clubs:[]).map((club,index)=>{
+    const members=rosterIndex(club?.members||[]);
+    let matched=0;
+    names.forEach(name=>{if((members.get(name)||[]).length===1)matched++;});
+    return {index,id:textValue(club?.id),name:textValue(club?.name)||`클럽 ${index+1}`,matched,total:names.size};
+  }).sort((a,b)=>b.matched-a.matched||a.name.localeCompare(b.name,'ko'));
+}
+function confidentRoster(ranking,currentIndex){
+  const best=ranking[0];
+  if(!best||best.index===currentIndex)return null;
+  const second=ranking[1]?.matched||0;
+  const current=ranking.find(row=>row.index===currentIndex)?.matched||0;
+  const threshold=Math.max(2,Math.ceil((best.total||0)*0.35));
+  const margin=(best.total||0)<=4?1:2;
+  return best.matched>=threshold&&best.matched-current>=margin&&best.matched-second>=margin?best:null;
 }
 function lateMap(raw){
   const map=new Map();
@@ -131,7 +152,7 @@ function canvasData(file){
 function timeout(promise){
   return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error('분석 시간이 초과되었습니다. 다시 시도해 주세요.')),TIMEOUT_MS))]);
 }
-async function analyze(files,roster){
+async function analyze(files){
   const selected=[...(files||[])].filter(file=>String(file.type||'').startsWith('image/')).slice(0,MAX_IMAGES);
   if(!selected.length)throw new Error('캡처 이미지를 선택해 주세요.');
   const parts=await Promise.all(selected.map(canvasData));
@@ -139,7 +160,7 @@ async function analyze(files,roster){
   const response=await timeout(analyzeScreenshots({images:parts.map(part=>part.inlineData)}));
   const raw=response?.data;
   if(!raw||typeof raw!=='object')throw new Error('분석 결과를 읽지 못했습니다. 다시 시도해 주세요.');
-  return resolve(raw,roster);
+  return raw;
 }
 
 function renderFileNames(){
@@ -165,8 +186,14 @@ function render(){
   const lateCount=[...result.members,...result.guests].filter(row=>row.arrivalText).length;
   summary.innerHTML=`<b>총 ${result.total}명</b><span>투표 ${result.voteCount} · 댓글 추가 ${result.commentCount} · 게스트 ${result.guests.length} · 지각 ${lateCount}</span>`;
   const warnings=[...result.warnings];
+  if(state.notice)warnings.unshift(state.notice);
   if(unmatched)warnings.unshift(`명부에서 못 찾은 회원 ${unmatched}명의 이름을 선택해 주세요.`);
   const warningHtml=warnings.length?`<div class="daily-capture-warning">${warnings.map(item=>`<p>${esc(item)}</p>`).join('')}</div>`:'';
+  const rankByIndex=new Map(state.ranking.map(row=>[row.index,row]));
+  const rosterHtml=state.clubs.length>1?`<label class="daily-capture-roster-match"><span>비교 명부</span><select onchange="KokMatchDailyImageImport.setClub(this.value)">${state.clubs.map((club,index)=>{
+    const count=rankByIndex.get(index)?.matched||0;
+    return option(index,`${club.name||`클럽 ${index+1}`} · ${count}명 일치`,state.selectedClubIndex);
+  }).join('')}</select></label>`:'';
   const memberHtml=result.members.map(row=>`<div class="daily-capture-row ${row.match?'ok':'needs-check'}">
     <div><b>${esc(row.rawName)}</b><small>${row.source==='vote'?'투표':'댓글 추가'}${row.arrivalText?` · 도착 전 (${esc(row.arrivalText)})`:''}</small></div>
     ${row.match?`<span>${esc(row.match.grade||'-')} · ${esc(row.match.gender||'-')} · ${esc(row.match.ageGroup||'-')}</span>`:memberSelect(row)}
@@ -177,7 +204,7 @@ function render(){
     <select onchange="KokMatchDailyImageImport.setGuest(${row.id},'gender',this.value)">${['','남','여'].map(value=>option(value,value||'성별',row.gender)).join('')}</select>
     <select onchange="KokMatchDailyImageImport.setGuest(${row.id},'ageGroup',this.value)">${['20대','30대','40대','50대','60대+'].map(value=>option(value,value,row.ageGroup)).join('')}</select>
   </div>`).join('');
-  body.innerHTML=warningHtml+`<div class="daily-capture-section"><h4>회원 ${result.members.length}명</h4>${memberHtml||'<p class="dir-empty">읽은 회원이 없습니다.</p>'}</div>`+
+  body.innerHTML=rosterHtml+warningHtml+`<div class="daily-capture-section"><h4>회원 ${result.members.length}명</h4>${memberHtml||'<p class="dir-empty">읽은 회원이 없습니다.</p>'}</div>`+
     `<div class="daily-capture-section"><h4>게스트 ${result.guests.length}명</h4>${guestHtml||'<p class="dir-empty">게스트 신청이 없습니다.</p>'}</div>`;
   apply.textContent=`${result.total}명 등록`;
   apply.disabled=unmatched>0||result.guests.some(row=>!row.name||!row.grade||!['남','여'].includes(row.gender));
@@ -197,24 +224,53 @@ function friendlyError(error){
 }
 
 window.KokMatchDailyImageImport={
-  normalizeName,resolve,
-  open({clubName,roster}={}){
-    state={files:[],clubName:textValue(clubName),roster:Array.isArray(roster)?roster:[],result:null};
+  normalizeName,resolve,rankRosters,recommendRoster:confidentRoster,
+  open({clubId,clubName,roster,clubs}={}){
+    const available=(Array.isArray(clubs)?clubs:[]).filter(club=>Array.isArray(club?.members)&&club.members.length);
+    let selected=available.findIndex(club=>(clubId&&textValue(club.id)===textValue(clubId))||(clubName&&textValue(club.name)===textValue(clubName)));
+    if(selected<0){available.unshift({id:textValue(clubId),name:textValue(clubName),members:Array.isArray(roster)?roster:[]});selected=0;}
+    const club=available[selected]||{id:'',name:textValue(clubName),members:Array.isArray(roster)?roster:[]};
+    state={files:[],clubId:textValue(club.id),clubName:textValue(club.name),roster:club.members||[],clubs:available,selectedClubIndex:selected,raw:null,ranking:[],result:null,notice:''};
     const input=byId('dailyCaptureInput');if(input)input.value='';
     const note=byId('dailyCaptureNote');
-    if(note)note.textContent=`${state.clubName||'선택한 클럽'} 명부와 비교합니다. 투표와 댓글 캡처를 모두 선택하세요. 원본 이미지는 저장하지 않습니다.`;
+    if(note)note.textContent=`${state.clubName||'선택한 클럽'} 명부와 비교합니다. 잘못 골라도 분석 후 가장 잘 맞는 명부를 찾습니다. 원본 이미지는 저장하지 않습니다.`;
     renderFileNames();render();setBusy(false,'');
     byId('dailyImportModal')?.classList.add('hidden');
     byId('dailyCaptureModal')?.classList.remove('hidden');
   },
   close(){byId('dailyCaptureModal')?.classList.add('hidden');byId('dailyImportModal')?.classList.remove('hidden');},
   choose(){byId('dailyCaptureInput')?.click();},
-  filesChanged(input){state.files=[...(input?.files||[])].slice(0,MAX_IMAGES);state.result=null;renderFileNames();render();setBusy(false,'');},
+  filesChanged(input){state.files=[...(input?.files||[])].slice(0,MAX_IMAGES);state.raw=null;state.ranking=[];state.result=null;state.notice='';renderFileNames();render();setBusy(false,'');},
   async analyze(){
     if(!state.files.length){setBusy(false,'캡처 이미지를 선택해 주세요.');return;}
     setBusy(true,'명단과 댓글을 읽는 중입니다...');
-    try{state.result=await analyze(state.files,state.roster);render();setBusy(false,'분석 완료 · 등록 전 명단을 확인하세요.');}
+    try{
+      state.raw=await analyze(state.files);
+      state.ranking=rankRosters(state.raw,state.clubs);
+      const recommended=confidentRoster(state.ranking,state.selectedClubIndex);
+      if(recommended){
+        state.selectedClubIndex=recommended.index;
+        const club=state.clubs[recommended.index];
+        state.clubId=textValue(club.id);state.clubName=textValue(club.name);state.roster=club.members||[];
+        state.notice=`${state.clubName} 명부와 ${recommended.matched}명이 일치해 비교 명부를 자동 변경했습니다.`;
+      }else{
+        const best=state.ranking[0];
+        const current=state.ranking.find(row=>row.index===state.selectedClubIndex);
+        state.notice=best&&current&&best.index!==current.index&&best.matched>current.matched
+          ? `${best.name} 명부가 더 많이 일치합니다. 비교 명부를 확인해 주세요.`:'';
+      }
+      state.result=resolve(state.raw,state.roster);render();setBusy(false,'분석 완료 · 등록 전 명단을 확인하세요.');
+    }
     catch(error){console.warn('캡처 참가자 분석 실패',error);setBusy(false,friendlyError(error));}
+  },
+  setClub(value){
+    const index=Number(value);
+    const club=state.clubs[index];
+    if(!club||!state.raw)return;
+    state.selectedClubIndex=index;state.clubId=textValue(club.id);state.clubName=textValue(club.name);state.roster=club.members||[];
+    const matched=state.ranking.find(row=>row.index===index)?.matched||0;
+    state.notice=`${state.clubName} 명부로 변경했습니다. ${matched}명이 일치합니다.`;
+    state.result=resolve(state.raw,state.roster);render();
   },
   setMember(id,key){
     const row=state.result?.members?.find(item=>item.id===Number(id));
@@ -227,7 +283,7 @@ window.KokMatchDailyImageImport={
     if(!state.result||byId('dailyCaptureApply')?.disabled)return;
     const members=state.result.members.map(row=>({...row.match,status:row.arrivalText?'planned':'wait',arrivalText:row.arrivalText,source:row.source}));
     const guests=state.result.guests.map(row=>({name:row.name,grade:row.grade,gender:row.gender,ageGroup:row.ageGroup,isGuest:true,status:row.arrivalText?'planned':'wait',arrivalText:row.arrivalText}));
-    if(typeof window.dailyApplyImageImportResult==='function')window.dailyApplyImageImportResult({members,guests,counts:{vote:state.result.voteCount,comment:state.result.commentCount,guest:guests.length,total:state.result.total}});
+    if(typeof window.dailyApplyImageImportResult==='function')window.dailyApplyImageImportResult({clubId:state.clubId,clubName:state.clubName,members,guests,counts:{vote:state.result.voteCount,comment:state.result.commentCount,guest:guests.length,total:state.result.total}});
   }
 };
 
