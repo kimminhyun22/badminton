@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.676';
+const APP_VERSION = '1.10.677';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2845,6 +2845,97 @@ function dailyImportRoster(){
   const guestBox=document.getElementById('dailyImportGuestBox');
   if(guestBox)guestBox.open=_dailyImportClubIdx<0;
   document.getElementById('dailyImportModal').classList.remove('hidden');
+}
+function dailyOpenImageImport(){
+  if(!_dailyCanChangeRoster())return;
+  const club=(rosters.clubs||[])[_dailyImportClubIdx];
+  if(!club){
+    alert('먼저 명부에서 클럽과 회원을 만들어 주세요.');
+    return;
+  }
+  if(!window.KokMatchDailyImageImport){
+    alert('캡처 분석 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+    return;
+  }
+  window.KokMatchDailyImageImport.open({roster:club.members||[]});
+}
+async function dailyApplyImageImportResult(payload){
+  if(_dailyBlockServerSync({action:'캡처 참가자 등록'}))return;
+  if(!_dailyCanChangeRoster())return;
+  const club=(rosters.clubs||[])[_dailyImportClubIdx];
+  if(!club)return;
+  const seen=new Set();
+  const rows=[...(payload?.members||[]),...(payload?.guests||[])].filter(row=>{
+    const key=String(row?.name||'').replace(/\s+/g,'').toLocaleLowerCase('ko-KR');
+    if(!key||seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+  if(!rows.length){alert('등록할 참가자가 없습니다.');return;}
+  if(!_dailySessionClubName&&club.name){
+    _dailySessionClubName=String(club.name);
+    if(_dailyCheckinId)_dailySyncArrivalCandidates();
+  }
+  const normal=rows.filter(row=>row.status!=='planned'&&!row.isGuest);
+  const planned=rows.filter(row=>row.status==='planned'&&!row.isGuest);
+  const guests=rows.filter(row=>row.isGuest);
+  let added=0,failed=0;
+  const reasons=[];
+  if(_dailyCheckinId){
+    const arrived=await _dailyRegisterArrivalsViaServer(normal,club);
+    const waiting=await _dailyRegisterPreArrivalsViaServer(planned,club);
+    added+=arrived.sent+waiting.sent;
+    failed+=arrived.failed+waiting.failed;
+    reasons.push(...arrived.reasons,...waiting.reasons);
+    for(const guest of guests){
+      const result=await _dailyCreatePlayerDirect({
+        name:guest.name,grade:guest.grade,gender:guest.gender,ageGroup:guest.ageGroup,
+        isGuest:true,status:guest.status==='planned'?'planned':'wait',source:'system-admin-capture-import'
+      });
+      if(result.ok)added++;
+      else{failed++;if(result.reason)reasons.push(`${guest.name}: ${result.reason}`);}
+    }
+  }else{
+    rows.forEach(raw=>{
+      const existing=_dailyPlayers.find(player=>player.name===raw.name);
+      if(existing){
+        if(['planned','invited'].includes(_dailyNormalizeStatus(existing.status))&&raw.status!=='planned'){
+          existing.grade=raw.grade||existing.grade;
+          existing.gender=_dailyGender(raw.gender||existing.gender);
+          existing.ageGroup=raw.ageGroup||existing.ageGroup;
+          existing.level=raw.level||gradeToLevel(existing.grade,_dailyGenderLabel(existing.gender))||existing.level;
+          existing.memberId=raw.memberId||existing.memberId;
+          existing.club=raw.club||club.name||existing.club;
+          existing.isClubOfficial=!!raw.isClubOfficial;
+          _dailyApplyPlayerStatus(existing,'wait');
+          existing.preArrivalVisible=false;
+          added++;
+        }
+        return;
+      }
+      const status=raw.status==='planned'?'planned':'wait';
+      const profile=_dailyNormalize({
+        ...raw,
+        club:raw.club||club.name||'',
+        memberId:raw.memberId||(!raw.isGuest?_rsvpMemberId({name:raw.name,club:club.name||''}):''),
+        isGuest:!!raw.isGuest,
+        status,
+        preArrivalVisible:status==='planned'
+      });
+      _dailyPlayers.push(profile);
+      if(status==='wait')_dailyMarkLiveAddition(profile,{origin:raw.isGuest?'capture-guest':'capture-roster',source:'system-admin-capture-import'});
+      added++;
+    });
+    if(added){_dailyNext=null;dailySave();dailyRender();dailyMaybeAutoAssign();}
+  }
+  document.getElementById('dailyCaptureModal')?.classList.add('hidden');
+  document.getElementById('dailyImportModal')?.classList.add('hidden');
+  dailyRender();
+  const counts=payload?.counts||{};
+  const summary=`투표 ${Number(counts.vote)||0} · 댓글 추가 ${Number(counts.comment)||0} · 게스트 ${Number(counts.guest)||0}`;
+  alert(added
+    ? `${added}명을 등록했습니다.\n${summary}${failed?`\n\n${failed}명은 처리하지 못했습니다.${reasons.length?`\n${reasons.join('\n')}`:''}`:''}`
+    : `새로 등록된 선수가 없습니다.${reasons.length?`\n\n${reasons.join('\n')}`:''}`);
 }
 function _dailyApplyPlayerStatus(p,status,operationAt){
   status=_dailyNormalizeStatus(status);
@@ -10738,7 +10829,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.676&from=daily';
+  location.href='team.html?v=1.10.677&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

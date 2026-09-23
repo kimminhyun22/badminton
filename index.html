@@ -9,11 +9,12 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.676  (2026-07)
+     APP VERSION: 1.10.677  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.676">
+<meta name="app-version" content="1.10.677">
+<meta name="firebase-app-check-site-key" content="6LfspU0tAAAAAMGsRpLVdJsTBPnEWk0fJINVGsSj">
 <!-- 기본 진입 전환 스크립트를 뺐다 — 루트 주소·홈 아이콘은 이제 이 화면(민턴LIVE)에 그대로 머문다.
      매일 쓰는 쪽이 기본이어야 한다(운영자 2026-09-03). 팀전은 상단 모드 필로 간다. -->
 <meta name="theme-color" content="#ffffff">
@@ -26,14 +27,14 @@
 <title>🏸 민턴LIVE | 클럽 운동 운영</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/app.css?v=1.10.676">
+<link rel="stylesheet" href="css/app.css?v=1.10.677">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/storage.js?v=1.10.676"></script>
+<script src="js/storage.js?v=1.10.677"></script>
 </head>
 <body>
 
@@ -52,8 +53,8 @@
 </header>
 
 <div class="live-mode-switch" aria-label="LIVE 전환">
-  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.676&from=daily'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
-  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.676&from=daily'">팀전</button>
+  <button class="live-mode-pill active" type="button" onclick="location.href='index.html?v=1.10.677&from=daily'"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></button>
+  <button class="live-mode-pill team" type="button" onclick="location.href='team.html?v=1.10.677&from=daily'">팀전</button>
 </div>
 
 <div class="nav-bar">
@@ -83,7 +84,7 @@
           <span>현장 참가자를 등록하고 대진을 게시하면 휴식·복귀 상태를 반영해 대기표를 계속 보충합니다.</span>
           <small>기본 시작 화면</small>
         </button>
-        <button class="operation-option team" onclick="location.href='team.html?v=1.10.676&from=daily'">
+        <button class="operation-option team" onclick="location.href='team.html?v=1.10.677&from=daily'">
           <b>팀전</b>
           <span>청팀/홍팀으로 나누어 전체 라운드 대진표, 품질 점검, 승패 집계, 실시간 중계를 안정적으로 운영합니다.</span>
           <small>월례 팀전</small>
@@ -762,6 +763,11 @@
       <p style="font-size:.76rem;color:var(--dim);line-height:1.6;margin-bottom:10px;">
         오늘 선수를 등록하세요. 아직 안 온 선수만 선수 목록에서 「도착 전」으로 바꾸면 대진에서 제외됩니다.
       </p>
+      <button type="button" class="daily-capture-open" onclick="dailyOpenImageImport()">
+        <span class="daily-capture-open-icon" aria-hidden="true">▣</span>
+        <span><b>캡처로 등록</b><small>투표와 댓글 여러 장을 한 번에</small></span>
+        <span aria-hidden="true">›</span>
+      </button>
       <div id="dailyImportClubTabs"></div>
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;flex-wrap:wrap;">
         <span style="font-size:.62rem;color:var(--dim);font-weight:600;">정렬</span>
@@ -798,6 +804,29 @@
       <div class="daily-import-actions">
         <button class="btn btn-go" style="flex:1;padding:10px;min-width:180px;" onclick="importDailySelected()">등록</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 민턴LIVE 캡처 참가자 등록 ── -->
+<div class="modal-overlay hidden" id="dailyCaptureModal">
+  <div class="modal-box daily-capture-modal">
+    <div class="modal-head">
+      <span>캡처로 참가자 등록</span>
+      <button type="button" aria-label="닫기" onclick="KokMatchDailyImageImport.close()">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="daily-capture-note">참석 투표와 댓글 캡처를 모두 선택하세요. 원본 이미지는 저장하지 않습니다.</p>
+      <input id="dailyCaptureInput" type="file" accept="image/*" multiple hidden onchange="KokMatchDailyImageImport.filesChanged(this)">
+      <button type="button" class="daily-capture-picker" onclick="KokMatchDailyImageImport.choose()">
+        <span aria-hidden="true">＋</span><b>캡처 선택</b><small>최대 8장</small>
+      </button>
+      <p id="dailyCaptureFiles" class="daily-capture-files"></p>
+      <button type="button" id="dailyCaptureAnalyze" class="btn btn-gen daily-capture-analyze" onclick="KokMatchDailyImageImport.analyze()">명단 읽기</button>
+      <p id="dailyCaptureStatus" class="daily-capture-status" aria-live="polite"></p>
+      <div id="dailyCaptureSummary" class="daily-capture-summary"></div>
+      <div id="dailyCaptureResult" class="daily-capture-result"></div>
+      <button type="button" id="dailyCaptureApply" class="btn btn-go daily-capture-apply" disabled onclick="KokMatchDailyImageImport.apply()">등록</button>
     </div>
   </div>
 </div>
@@ -934,12 +963,13 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.676"></script>
-<script src="js/mobile-nav.js?v=1.10.676"></script>
+<script src="js/match-quality.js?v=1.10.677"></script>
+<script src="js/mobile-nav.js?v=1.10.677"></script>
 <!-- 카카오톡 바로 공유용 JavaScript 키 — developers.kakao.com 에서 앱을 만들고 이 사이트 도메인을
      플랫폼(Web)에 등록한 뒤 키를 넣으세요. 비어 있으면 카카오톡 버튼은 기기 공유 시트를 엽니다. -->
 <script>window.KOKMATCH_KAKAO_JS_KEY=window.KOKMATCH_KAKAO_JS_KEY||'';</script>
-<script src="js/daily.js?v=1.10.676"></script>
+<script src="js/daily-image-import.js?v=1.10.677"></script>
+<script src="js/daily.js?v=1.10.677"></script>
 
 <!-- 현재 진행 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 경기로 이동" title="현재 진행 경기로 이동">
@@ -1010,7 +1040,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.676</span>
+  <span class="app-version" id="appVersion">v1.10.677</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
