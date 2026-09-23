@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.674';
+const APP_VERSION = '1.10.675';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6273,7 +6273,7 @@ let _dirGrade = 'C';
 let _dirGender = '남';
 let _dirAge = '40대';
 let _directPlayers = [];
-let _dirSort = 'reg'; // 'reg' | 'name' | 'level'
+let _dirSort = 'name'; // 'name' | 'level'
 let _rsvpSyncingImportedPlayers = false;
 
 function _teamEnsureMemberId(player){
@@ -6418,10 +6418,10 @@ function renderTeamTemporaryOperatorPanel(){
 }
 
 function setDirSort(mode){
-  _dirSort = mode;
-  ['reg','name','level'].forEach(m=>{
+  _dirSort = mode==='level'?'level':'name';
+  ['name','level'].forEach(m=>{
     const btn=document.getElementById('dsb-'+m);
-    if(btn) btn.classList.toggle('active', m===mode);
+    if(btn) btn.classList.toggle('active', m===_dirSort);
   });
   renderDirectPlayerList();
 }
@@ -6858,8 +6858,6 @@ function renderDirectPlayerList(){
   } else if(_dirSort==='level'){
     indexed.sort((a,b)=>b.level-a.level || a.name.localeCompare(b.name,'ko'));
   }
-  // 'reg' 는 등록순 그대로
-
   const LV_COLOR={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
   list.innerHTML = indexed.map((p)=>{
     const pair=getPartnerInfo(p.name);
@@ -9118,14 +9116,16 @@ function openImportModal(){
     alert('등록된 클럽이 없습니다.\n명부 탭에서 클럽을 먼저 추가해주세요.');return;
   }
   _importClubIdx=0;
-  renderImportTabs();renderImportMembers();
+  _importSort='name';
+  renderImportTabs();setImportSort('name');
   document.getElementById('importModal').classList.remove('hidden');
 }
 function openImportFromClub(clubId){
   loadRosters();
   const idx=rosters.clubs.findIndex(c=>c.id===clubId);
   _importClubIdx=idx>=0?idx:0;
-  renderImportTabs();renderImportMembers();
+  _importSort='name';
+  renderImportTabs();setImportSort('name');
   document.getElementById('importModal').classList.remove('hidden');
   switchNav('main');
 }
@@ -9140,22 +9140,22 @@ function renderImportTabs(){
 }
 function selectImportClub(idx){
   _importClubIdx=idx;
-  _importSort='reg';
-  ['reg','name','gender'].forEach(m=>{
+  _importSort='name';
+  ['name','gender'].forEach(m=>{
     const btn=document.getElementById('isb-'+m);
-    if(btn) btn.classList.toggle('active', m==='reg');
+    if(btn) btn.classList.toggle('active', m==='name');
   });
   renderImportTabs();
   renderImportMembers();
 }
 
-let _importSort='reg'; // 'reg' | 'name' | 'gender'
+let _importSort='name'; // 'name' | 'gender'
 
 function setImportSort(mode){
-  _importSort=mode;
-  ['reg','name','gender'].forEach(m=>{
+  _importSort=mode==='gender'?'gender':'name';
+  ['name','gender'].forEach(m=>{
     const btn=document.getElementById('isb-'+m);
-    if(btn) btn.classList.toggle('active', m===mode);
+    if(btn) btn.classList.toggle('active', m===_importSort);
   });
   renderImportMembers();
 }

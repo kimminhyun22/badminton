@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.674';
+const APP_VERSION = '1.10.675';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2828,7 +2828,11 @@ function dailyImportRoster(){
   const all=(rosters.clubs||[]);
   const sessionIdx=all.findIndex(c=>_dailySessionClubName&&String(c?.name||'').trim()===String(_dailySessionClubName).trim()&&(c.members||[]).length);
   _dailyImportClubIdx=sessionIdx>=0?sessionIdx:all.findIndex(c=>(c.members||[]).length);
-  _dailyImportSort='reg';
+  _dailyImportSort='name';
+  ['name','gender'].forEach(m=>{
+    const btn=document.getElementById('disb-'+m);
+    if(btn)btn.classList.toggle('active',m==='name');
+  });
   _dailyImportFilter='all';
   ['all','planned'].forEach(m=>{
     const btn=document.getElementById('disf-'+m);
@@ -10319,7 +10323,7 @@ function dailyRenderMatches(){
 }
 
 let _dailyImportClubIdx=0;
-let _dailyImportSort='reg';
+let _dailyImportSort='name';
 let _dailyImportFilter='all';
 
 function closeDailyImportModal(){
@@ -10335,19 +10339,19 @@ function renderDailyImportTabs(){
 function selectDailyImportClub(idx){
   document.querySelectorAll('.daily-import-chk').forEach(c=>{c.checked=false;});
   _dailyImportClubIdx=idx;
-  _dailyImportSort='reg';
-  ['reg','name','gender'].forEach(m=>{
+  _dailyImportSort='name';
+  ['name','gender'].forEach(m=>{
     const btn=document.getElementById('disb-'+m);
-    if(btn)btn.classList.toggle('active',m==='reg');
+    if(btn)btn.classList.toggle('active',m==='name');
   });
   renderDailyImportTabs();
   renderDailyImportMembers();
 }
 function setDailyImportSort(mode){
-  _dailyImportSort=mode;
-  ['reg','name','gender'].forEach(m=>{
+  _dailyImportSort=mode==='gender'?'gender':'name';
+  ['name','gender'].forEach(m=>{
     const btn=document.getElementById('disb-'+m);
-    if(btn)btn.classList.toggle('active',m===mode);
+    if(btn)btn.classList.toggle('active',m===_dailyImportSort);
   });
   renderDailyImportMembers();
 }
@@ -10785,7 +10789,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.674&from=daily';
+  location.href='team.html?v=1.10.675&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -15514,13 +15518,13 @@ let _dirGrade = 'C';
 let _dirGender = '남';
 let _dirAge = '40대';
 let _directPlayers = [];
-let _dirSort = 'reg'; // 'reg' | 'name' | 'level'
+let _dirSort = 'name'; // 'name' | 'level'
 
 function setDirSort(mode){
-  _dirSort = mode;
-  ['reg','name','level'].forEach(m=>{
+  _dirSort = mode==='level'?'level':'name';
+  ['name','level'].forEach(m=>{
     const btn=document.getElementById('dsb-'+m);
-    if(btn) btn.classList.toggle('active', m===mode);
+    if(btn) btn.classList.toggle('active', m===_dirSort);
   });
   renderDirectPlayerList();
 }
@@ -15777,8 +15781,6 @@ function renderDirectPlayerList(){
   } else if(_dirSort==='level'){
     indexed.sort((a,b)=>b.level-a.level || a.name.localeCompare(b.name,'ko'));
   }
-  // 'reg' 는 등록순 그대로
-
   const LV_COLOR={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
   list.innerHTML = indexed.map((p)=>{
     const pair=getPartnerInfo(p.name);
@@ -16152,14 +16154,16 @@ function openImportModal(){
     alert('등록된 클럽이 없습니다.\n명부 탭에서 클럽을 먼저 추가해주세요.');return;
   }
   _importClubIdx=0;
-  renderImportTabs();renderImportMembers();
+  _importSort='name';
+  renderImportTabs();setImportSort('name');
   document.getElementById('importModal').classList.remove('hidden');
 }
 function openImportFromClub(clubId){
   loadRosters();
   const idx=rosters.clubs.findIndex(c=>c.id===clubId);
   _importClubIdx=idx>=0?idx:0;
-  renderImportTabs();renderImportMembers();
+  _importSort='name';
+  renderImportTabs();setImportSort('name');
   document.getElementById('importModal').classList.remove('hidden');
   switchNav('main');
 }
@@ -16174,22 +16178,22 @@ function renderImportTabs(){
 }
 function selectImportClub(idx){
   _importClubIdx=idx;
-  _importSort='reg';
-  ['reg','name','gender'].forEach(m=>{
+  _importSort='name';
+  ['name','gender'].forEach(m=>{
     const btn=document.getElementById('isb-'+m);
-    if(btn) btn.classList.toggle('active', m==='reg');
+    if(btn) btn.classList.toggle('active', m==='name');
   });
   renderImportTabs();
   renderImportMembers();
 }
 
-let _importSort='reg'; // 'reg' | 'name' | 'gender'
+let _importSort='name'; // 'name' | 'gender'
 
 function setImportSort(mode){
-  _importSort=mode;
-  ['reg','name','gender'].forEach(m=>{
+  _importSort=mode==='gender'?'gender':'name';
+  ['name','gender'].forEach(m=>{
     const btn=document.getElementById('isb-'+m);
-    if(btn) btn.classList.toggle('active', m===mode);
+    if(btn) btn.classList.toggle('active', m===_importSort);
   });
   renderImportMembers();
 }
