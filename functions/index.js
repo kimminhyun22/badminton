@@ -15,6 +15,7 @@ const {
 const {applyCommandTransaction} = require('./daily-official-command');
 const {applyMemberCommandTransaction} = require('./daily-member-command');
 const {applyOfficialClaimTransaction} = require('./daily-official-claim');
+const {analyzeParticipantImages} = require('./daily-image-import');
 
 admin.initializeApp();
 
@@ -35,6 +36,34 @@ const MEMBER_FUNCTION_OPTIONS = {
   timeoutSeconds:20,
   memory:'256MiB'
 };
+const IMAGE_ANALYSIS_OPTIONS = {
+  region:REGION,
+  maxInstances:5,
+  timeoutSeconds:60,
+  memory:'512MiB',
+  enforceAppCheck:true
+};
+
+exports.analyzeDailyParticipantScreenshots = onCall(IMAGE_ANALYSIS_OPTIONS, async request=>{
+  if(!request.app)throw new HttpsError('unauthenticated','앱 연결을 다시 확인해 주세요.');
+  try{
+    const credential=admin.app().options.credential;
+    const token=await credential.getAccessToken();
+    return await analyzeParticipantImages({
+      images:request.data?.images,
+      projectId:process.env.GCLOUD_PROJECT||process.env.GOOGLE_CLOUD_PROJECT||'kokmatch-23b31',
+      accessToken:token?.access_token,
+      fetchImpl:fetch
+    });
+  }catch(error){
+    console.error('participant screenshot analysis failed',error?.message,error?.status||'',error?.detail||'');
+    if(String(error?.message||'').startsWith('invalid-')||String(error?.message||'').includes('too-large')){
+      throw new HttpsError('invalid-argument','캡처 이미지를 다시 선택해 주세요.');
+    }
+    if(error?.status===429)throw new HttpsError('resource-exhausted','잠시 후 다시 시도해 주세요.');
+    throw new HttpsError('internal','캡처를 분석하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  }
+});
 
 function cleanCheckinId(value){
   const id = String(value || '').trim().toUpperCase();
