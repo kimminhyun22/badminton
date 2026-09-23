@@ -20,12 +20,12 @@ function sourceBetween(src,startName,endName){
   return src.slice(start,endAsync);
 }
 
-assert(indexHtml.includes('id="dailyImportTeamRosterBtn"')&&indexHtml.includes('onclick="dailyImportTeamRoster()"'),'민턴LIVE 선수 영역에서 팀전 명단을 가져올 수 있어야 합니다.');
-assert(teamHtml.includes('id="teamImportDailyRosterBtn"')&&teamHtml.includes('onclick="teamImportDailyRoster()"'),'팀전 참가자 영역에서 민턴LIVE 명단을 가져올 수 있어야 합니다.');
-// 2026-09-03: 모달 사본은 뺐다. 「저쪽에 넘길 명단이 있다」는 신호는 카드에 떠 있어야
-// 임원이 모달을 열기 전에 안다 — 민턴LIVE 도 이 버튼을 카드에 둔다(index.html).
-assert(!teamHtml.includes('id="teamImportDailyRosterModalBtn"'),
-  '명단 가져오기 버튼은 카드 한 곳뿐이어야 합니다(모달 사본 금지).');
+assert(indexHtml.includes('id="participantPrepCount"')&&indexHtml.includes("dailyChooseOperation('team')"),
+  '참가자 등록 뒤 민턴LIVE·팀전을 고르는 공통 시작 흐름이 있어야 합니다.');
+assert(teamHtml.includes('onclick="teamOpenDailyWithParticipants()"'),
+  '팀전에서 민턴LIVE로 돌아갈 때 현재 참가자 명단을 자동 승계해야 합니다.');
+assert(!indexHtml.includes('id="dailyImportTeamRosterBtn"')&&!teamHtml.includes('id="teamImportDailyRosterBtn"'),
+  '다른 LIVE 명단을 수동으로 가져오는 중복 버튼이 남으면 안 됩니다.');
 assert(!indexHtml.includes('등록 전 상태'),'명단 복사 UI에 폐기된 출석 상태를 다시 노출하면 안 됩니다.');
 
 const memory=new Map();
@@ -47,6 +47,7 @@ vm.createContext(storageSandbox);
 vm.runInContext(storageSrc,storageSandbox);
 const bridge=storageSandbox.window.KokMatchRosterBridge;
 assert(bridge,'공통 선수 명단 브리지가 준비되어야 합니다.');
+assert(bridge.keys.shared,'운영 방식 선택 때 건네는 공통 참가자 스냅샷 키가 있어야 합니다.');
 assert.strictEqual(
   bridge.normalizePlayer({id:'daily-runtime-id',name:'세션아이디검증'}).memberId,
   '',
@@ -100,6 +101,17 @@ assert.strictEqual(snapshot.players.length,2,'팀전 현재 참가자 명단을 
 assert(!Object.prototype.hasOwnProperty.call(snapshot.players[0],'team'),'청·홍팀 배정은 민턴LIVE로 복사하면 안 됩니다.');
 assert(!Object.prototype.hasOwnProperty.call(snapshot.players[0],'partnerName'),'팀전 파트너 지정은 민턴LIVE로 복사하면 안 됩니다.');
 
+now=3500;
+const handoff=bridge.handoff('team',[
+  {memberId:'h1',name:'공통하나',grade:'B',level:5,gender:'여',status:'playing',team:'청팀'},
+  {memberId:'h2',name:'공통둘',grade:'C',level:4,gender:'남',currentMatchId:'m1'}
+]);
+assert.strictEqual(handoff.source,'team','공통 참가자 스냅샷에 출발 운영 방식을 기록해야 합니다.');
+const loadedHandoff=bridge.loadHandoff();
+assert.deepStrictEqual(JSON.parse(JSON.stringify(loadedHandoff.players.map(player=>player.name))),['공통하나','공통둘'],'공통 참가자 스냅샷을 그대로 읽어야 합니다.');
+assert(!Object.prototype.hasOwnProperty.call(loadedHandoff.players[0],'status')&&!Object.prototype.hasOwnProperty.call(loadedHandoff.players[0],'team'),
+  '공통 참가자에는 진행 상태와 팀 배정을 섞으면 안 됩니다.');
+
 now=4000;
 bridge.clear('daily');
 snapshot=bridge.load('daily');
@@ -109,6 +121,8 @@ const teamImportSource=sourceBetween(teamSrc,'_teamRosterBridge','addDirectPlaye
 assert(teamImportSource.includes('currentMatches.length||teamAssignment||_liveOn||_liveId||_teamStoredLiveId()||_teamSavedBracketRestoreInfo()'),'팀 배정·저장 대진·LIVE 시작 후 명단 덮어쓰기를 막아야 합니다.');
 assert(teamImportSource.includes('_partners=[]'),'민턴LIVE에서 팀전로 파트너 지정을 복사하면 안 됩니다.');
 assert(teamImportSource.includes('isClubOfficial:!!raw.isClubOfficial'),'민턴LIVE 임원 프로필을 팀전에 보존해야 합니다.');
+assert(teamImportSource.includes("params.get('from')!=='participants'")&&teamImportSource.includes("snapshot.source!=='daily'"),
+  '팀전은 참가자 준비 화면에서 넘어온 민턴LIVE 명단만 자동 적용해야 합니다.');
 const savedRestoreSource=sourceBetween(teamSrc,'_teamSavedBracketRestoreInfo','_teamSavedLiveRestoreInfo');
 assert(!savedRestoreSource.includes('_teamSaveLiveId('),'저장 여부를 확인하는 것만으로 종료한 LIVE ID를 되살리면 안 됩니다.');
 const clearLiveSource=sourceBetween(teamSrc,'_teamClearLiveBroadcastData','stopLiveBroadcast');
@@ -166,6 +180,8 @@ assert(dailyImportSource.includes('_dailyCheckinId||_dailyOperationStarted||_dai
 assert(dailyImportSource.includes("status:'wait'"),'가져온 선수는 출석 단계 없이 바로 민턴LIVE 대진 가능 상태가 되어야 합니다.');
 assert(!dailyImportSource.includes('등록 전'),'민턴LIVE 가져오기 로직에 폐기된 출석 용어를 다시 넣으면 안 됩니다.');
 assert(dailyImportSource.includes('_dailyQueue=[]')&&dailyImportSource.includes('_dailyReservations=[]'),'명단만 가져오고 이전 대기표와 파트너 신청은 비워야 합니다.');
+assert(dailyImportSource.includes("params.get('from')!=='participants'")&&dailyImportSource.includes("snapshot.source!=='team'"),
+  '민턴LIVE는 팀전에서 명시적으로 넘어온 공통 명단만 자동 적용해야 합니다.');
 
 const dailySandbox={window:{KokMatchRosterBridge:{
   load:()=>({players:[

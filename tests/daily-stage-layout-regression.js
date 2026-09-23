@@ -5,7 +5,7 @@
  *
  * 화면 단계(empty/roster/live)에 따라 운영용 카드·숫자·버튼을 감추고, 세팅 폴드는
  * 게시 전엔 상황판 바로 아래 펼쳐진 채, 게시 뒤엔 맨 아래로 접힌다.
- * 선수 등록 입구는 「오늘 참가자 등록」 모달 하나 — 직접 입력 폼 사본은 뺐다.
+ * 선수 등록 입구는 맨 위 「참가자 준비」 한 곳 — 직접 입력 폼 사본은 뺐다.
  */
 const assert = require('assert');
 const fs = require('fs');
@@ -25,9 +25,9 @@ assert(dash > 0 && setup > dash && active > setup, '세팅 폴드는 상황판 �
 assert(!html.includes('class="daily-side"'), '세팅 폴드를 담던 옆 칸(.daily-side)은 없어야 합니다 — 맨 아래 닫힌 채 묻혀 있던 자리입니다.');
 assert(!html.includes('id="dailyName"') && !html.includes('onclick="dailyAddPlayer()"'),
   '세팅 폴드의 직접 입력 폼은 모달 게스트 폼과 같은 일이라 없어야 합니다 — 등록 입구는 하나.');
-assert(html.includes('onclick="dailyImportRoster()"'), '세팅 폴드에서 「참가자 등록」 모달을 열 수 있어야 합니다.');
-assert(html.includes('id="dailyImportTeamRosterBtn"') && /class="roster-transfer-btn hidden" id="dailyImportTeamRosterBtn"/.test(html),
-  '팀전 선수 가져오기 버튼은 기본 숨김이어야 합니다(없을 때 비활성 버튼은 소음).');
+assert(html.includes('class="participant-prep-register"')&&html.includes('onclick="dailyImportRoster()"'),
+  '맨 위 참가자 준비에서 등록 모달을 열 수 있어야 합니다.');
+assert(!html.includes('id="dailyImportTeamRosterBtn"'),'팀전 명단 수동 가져오기 버튼을 다시 두면 안 됩니다.');
 assert(html.includes('<span>☀️ 참가자 등록</span>')&&!html.includes('<span>☀️ 오늘 참가자 등록</span>'),
   '참가자 등록 제목에 불필요한 「오늘」을 붙이면 안 됩니다.');
 assert(html.split('id="dailyCourts"').length === 2, '코트 수 입력은 한 개만 있어야 합니다.');
@@ -39,8 +39,8 @@ assert(!html.includes('class="nav-sync-btn"') && !html.includes('class="hbs"'),
 // ── daily.js: 게시 버튼 가드, 폴드 토글, 단계 함수 호출 ──
 assert(src.includes("const showTransition=!_dailyOperationStarted&&(_dailyStartedPoolCount()>0||_dailyActiveMatches().length>0);"),
   '「대진 게시」는 현장 참가자가 있을 때만 보여야 합니다 — 0명이면 눌러도 안내창뿐입니다.');
-assert(/btn\.textContent=count\?`팀전 선수 \$\{count\}명 가져오기`:'팀전 선수 없음';\n\s*btn\.classList\.toggle\('hidden',!count\)/.test(src),
-  '팀전 선수가 없으면 가져오기 버튼을 감춰야 합니다.');
+assert(src.includes('function dailyApplyParticipantHandoff()')&&src.includes('function dailyChooseOperation(mode)'),
+  '운영 방식을 고르면 참가자 명단을 자동 승계해야 합니다.');
 const ops = src.slice(src.indexOf('function dailyRenderOpsStats('), src.indexOf('function _dailyTemporaryOfficialEligible('));
 assert(ops.includes('dailyApplyStageLayout();'), '상황판을 그릴 때마다 단계 배치를 적용해야 합니다.');
 
@@ -79,30 +79,32 @@ function run(state){
     _dailyQueue: state.queue || [],
     _dailyPlayers: state.players || [],
     _dailyMatches: state.matches || [],
-    _dailyCheckinId: state.checkinId || null
+    _dailyCheckinId: state.checkinId || null,
+    _dailyPreparedOperation: state.prepared ? 'daily' : ''
   };
   vm.createContext(ctx);
-  vm.runInContext(code + '\nthis.stage=_dailyUiStage();dailyApplyStageLayout();this.setupOpen=document.getElementById("dailySetupDetails").open;', ctx);
-  return { stage: ctx.stage, setupOpen: ctx.setupOpen, hidden: dom.hidden, layout: dom.els['.daily-layout'].classes };
+  vm.runInContext(code + '\nthis.stage=_dailyUiStage();dailyApplyStageLayout();this.setupOpen=document.getElementById("dailySetupDetails").open;this.setupHidden=document.getElementById("dailySetupDetails").hidden;', ctx);
+  return { stage: ctx.stage, setupOpen: ctx.setupOpen, setupHidden:ctx.setupHidden, hidden: dom.hidden, layout: dom.els['.daily-layout'].classes };
 }
 
-// empty: 선수 0명 — 등록 입구와 코트만. 운영 카드·0 숫자·링크 종료·초기화 전부 숨김, 폴드 열림
+// empty: 참가자 준비만. 코트 설정과 운영 카드·0 숫자·링크 종료·초기화는 숨김
 let r = run({});
 assert.strictEqual(r.stage, 'empty');
 assert(r.layout.has('stage-empty'));
 for (const sel of ['.daily-active-card', '.daily-urgent-card', '#dailyResultDetails', '#dailyOpsStats', '#dailyHeadcount', '#dailyPlayersManage',
   '#dailyQuickShareBtn', '#dailyQuickStopBtn', '#dailyQuickResetBtn'])
   assert(r.hidden(sel), `빈 세팅 화면에서 ${sel} 은 감춰져야 합니다.`);
-assert.strictEqual(r.setupOpen, true, '빈 세팅 화면에서는 참가자 등록 폴드가 펼쳐져 있어야 합니다.');
+assert.strictEqual(r.setupHidden, true, '운영 방식을 고르기 전에는 코트 설정을 먼저 보여 주면 안 됩니다.');
 
 // roster: 명단 있음·게시 전 — 인원 수·명단·초기화·링크 공유는 보이고, 운영 카드는 숨김
-r = run({ players: [{}, {}, {}, {}] });
+r = run({ players: [{}, {}, {}, {}], prepared:true });
 assert.strictEqual(r.stage, 'roster');
 assert(!r.hidden('#dailyHeadcount') && !r.hidden('#dailyPlayersManage') && !r.hidden('#dailyQuickResetBtn') && !r.hidden('#dailyQuickShareBtn'),
   '명단이 있으면 인원 수·전체 선수 상태·초기화·링크 공유가 보여야 합니다.');
 assert(r.hidden('.daily-active-card') && r.hidden('.daily-urgent-card') && r.hidden('#dailyOpsStats') && r.hidden('#dailyQuickStopBtn'),
   '게시 전에는 진행·다음 대진·운영 지표·링크 종료가 감춰져야 합니다.');
 assert.strictEqual(r.setupOpen, true);
+assert.strictEqual(r.setupHidden, false);
 
 // live: 게시 뒤 — 운영 카드 전부 보이고, 폴드는 접힘. 링크가 있으면 종료 버튼도 보임
 r = run({ started: true, players: [{}], matches: [{}], checkinId: 'DX' });

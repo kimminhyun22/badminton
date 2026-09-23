@@ -849,6 +849,18 @@ header{background:#ffffff;border-bottom:1px solid var(--bdr);
 .operation-option.daily small{color:#166534;background:#ecfdf3;border-color:#bbf7d0;}
 .operation-hint{margin-top:10px;font-size:.7rem;color:var(--dim);line-height:1.55;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:9px 10px;}
 .operation-current{font-size:.62rem;font-weight:900;color:var(--bl-deep);background:var(--bl-soft);border:1px solid var(--bl-softbdr);border-radius:999px;padding:4px 9px;letter-spacing:0;text-transform:none;}
+.participant-prep-card{border-color:#d6e4f7;background:#fff;}
+.participant-prep-register{width:100%;min-height:54px;padding:9px 12px;display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:9px;border:1.5px solid var(--bl-softbdr);border-radius:10px;background:#f7faff;color:var(--txt);font-family:'Noto Sans KR',sans-serif;cursor:pointer;text-align:left;}
+.participant-prep-register>span{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bl);color:#fff;font-size:.76rem;font-weight:900;}
+.participant-prep-register>b{font-size:.88rem;}
+.participant-prep-register>small{font-size:.65rem;color:var(--dim);font-weight:800;white-space:nowrap;}
+.participant-prep-label{margin:13px 1px 7px;font-size:.68rem;color:var(--dim);font-weight:900;}
+.participant-operation-grid .operation-option{min-height:76px;padding:11px 12px;gap:3px;border-radius:10px;text-align:center;align-items:center;justify-content:center;}
+.participant-operation-grid .operation-option b{font-size:.9rem;}
+.participant-operation-grid .operation-option span{font-size:.67rem;line-height:1.35;}
+.participant-operation-grid .operation-option:disabled{opacity:.38;cursor:default;box-shadow:none;transform:none;}
+.participant-prep-hint{margin-top:9px;font-size:.68rem;color:var(--dim);text-align:center;line-height:1.45;}
+.daily-layout.stage-live #operationModeCard{display:none;}
 .operation-flow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .operation-flow span{font-size:.64rem;font-weight:800;color:var(--dim);background:#fff;border:1px solid var(--bdr);border-radius:999px;padding:4px 8px;}
 .operation-flow span.active{background:var(--bl);border-color:var(--bl);color:#fff;box-shadow:0 6px 14px rgba(91,141,239,.22);}

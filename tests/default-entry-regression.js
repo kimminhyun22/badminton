@@ -34,9 +34,9 @@ assert(!/location\.replace\(\s*['"`]index\.html/.test(teamHtml),
   '팀전이 민턴LIVE 로 자동 전환하면 안 됩니다 — 모드 필로만 오갑니다.');
 
 // ③ 두 화면 모두 상대 모드로 가는 입구가 있어야 한다(자동 전환을 없앤 대신).
-assert(indexHtml.includes(`team.html?v=${version}&from=daily`),
+assert(indexHtml.includes("onclick=\"dailyChooseOperation('team')\""),
   '민턴LIVE 에 팀전으로 가는 모드 필이 있어야 합니다.');
-assert(teamHtml.includes(`index.html?v=${version}&from=team`),
+assert(teamHtml.includes('onclick="teamOpenDailyWithParticipants()"'),
   '팀전에 민턴LIVE 로 가는 모드 필이 있어야 합니다.');
 
 // ④ 모드 필 순서 — 자주 쓰는 쪽이 왼쪽(엄지에 가까운 자리). 두 화면이 같아야
@@ -58,16 +58,15 @@ const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 assert(sw.includes("'/badminton/index.html'") && sw.includes("'/badminton/team.html'"),
   '두 화면 모두 오프라인 캐시에 있어야 합니다.');
 
-// ⑥ 화면이 스스로를 설명하는 문구도 기본이 바뀐 것을 알아야 한다 — 「운영 방식 선택」 카드가
-//    옛 기본(팀전)을 계속 말하면 사용자는 화면과 설명 중 어느 쪽을 믿을지 고민하게 된다.
-assert(indexHtml.includes('기본 시작 화면은 민턴LIVE입니다'),
-  '운영 방식 안내가 기본 화면을 민턴LIVE 라고 말해야 합니다.');
+// ⑥ 기본 화면은 참가자를 먼저 준비한 뒤 두 운영 방식 중 하나를 고른다.
+assert(indexHtml.includes('참가자를 먼저 등록하면 같은 명단으로 원하는 방식을 시작합니다.'),
+  '기본 화면이 참가자 우선 흐름을 짧게 안내해야 합니다.');
 assert(!indexHtml.includes('기본 시작 화면은 팀전'),
   '옛 기본(팀전) 설명이 남아 있으면 안 됩니다.');
 {
-  const grid = indexHtml.match(/<div class="operation-grid">([\s\S]*?)<\/div>\s*<div class="operation-hint"/)?.[1] || '';
+  const grid = indexHtml.match(/<div class="operation-grid participant-operation-grid">([\s\S]*?)<\/div>\s*<div class="participant-prep-hint"/)?.[1] || '';
   assert(grid, '운영 방식 두 갈래를 찾을 수 있어야 합니다.');
-  assert(grid.indexOf('data-operation-option="daily"') < grid.indexOf('operation-option team'),
+  assert(grid.indexOf('participantChooseDaily') < grid.indexOf('participantChooseTeam'),
     '두 갈래 순서도 모드 필과 같이 민턴LIVE 가 먼저여야 합니다.');
 }
 

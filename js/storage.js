@@ -59,7 +59,8 @@ window.KokMatchStorage = {
 const LIVE_ROSTER_BRIDGE_VERSION = 1;
 const LIVE_ROSTER_BRIDGE_KEYS = Object.freeze({
   daily:'kokmatch_live_roster_daily_v1',
-  team:'kokmatch_live_roster_team_v1'
+  team:'kokmatch_live_roster_team_v1',
+  shared:'kokmatch_live_roster_shared_v1'
 });
 const LIVE_ROSTER_STATE_KEYS = Object.freeze({
   daily:'kokmatch_daily_v1',
@@ -155,6 +156,34 @@ window.KokMatchRosterBridge = Object.freeze({
   },
   clear(mode){
     return this.save(mode, []);
+  },
+  handoff(source, rows){
+    source = _liveRosterBridgeMode(source);
+    if(!source)return null;
+    const snapshot = {
+      version:LIVE_ROSTER_BRIDGE_VERSION,
+      mode:'shared',
+      source,
+      savedAt:Date.now(),
+      players:_liveRosterBridgePlayers(rows)
+    };
+    try{
+      localStorage.setItem(LIVE_ROSTER_BRIDGE_KEYS.shared, JSON.stringify(snapshot));
+      return snapshot;
+    }catch(e){
+      return null;
+    }
+  },
+  loadHandoff(){
+    const raw = _liveRosterBridgeRead(LIVE_ROSTER_BRIDGE_KEYS.shared);
+    if(!raw || raw.mode !== 'shared')return {version:LIVE_ROSTER_BRIDGE_VERSION,mode:'shared',source:'',savedAt:0,players:[]};
+    return {
+      version:LIVE_ROSTER_BRIDGE_VERSION,
+      mode:'shared',
+      source:_liveRosterBridgeMode(raw.source),
+      savedAt:Math.max(0,Number(raw.savedAt || 0)),
+      players:_liveRosterBridgePlayers(raw.players)
+    };
   },
   load(mode){
     mode = _liveRosterBridgeMode(mode);

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.684';
+const APP_VERSION = '1.10.685';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -42,6 +42,8 @@ let currentMatches=[];
 let currentParticipants=[];
 let currentSettings={};
 let _operationPreset='daily';
+let _dailyPreparedOperation='';
+try{_dailyPreparedOperation=sessionStorage.getItem('kokmatch_daily_prepared_operation_v1')==='daily'?'daily':'';}catch(e){}
 const OPERATION_PRESETS={
   monthlyTeam:{
     label:'민턴LIVE',
@@ -2674,28 +2676,11 @@ function _dailyTeamRosterSnapshot(){
   const bridge=_dailyRosterBridge();
   return bridge?bridge.load('team'):{players:[],savedAt:0};
 }
-function renderDailyRosterTransferButton(){
-  const btn=document.getElementById('dailyImportTeamRosterBtn');
-  if(!btn)return;
-  const count=_dailyTeamRosterSnapshot().players.length;
-  btn.disabled=!count;
-  btn.textContent=count?`팀전 선수 ${count}명 가져오기`:'팀전 선수 없음';
-  btn.classList.toggle('hidden',!count);   // 없을 때는 버튼 자체를 감춘다 — 비활성 버튼은 세팅 화면의 소음
+function _dailyParticipantHandoffSnapshot(){
+  const bridge=_dailyRosterBridge();
+  return bridge&&typeof bridge.loadHandoff==='function'?bridge.loadHandoff():{players:[],source:'',savedAt:0};
 }
-function dailyImportTeamRoster(){
-  if(_dailyBlockServerSync({action:'팀전 선수 명단 가져오기'}))return;
-  if(_dailyCheckinId||_dailyOperationStarted||_dailyMatches.length){
-    alert('민턴LIVE 운영 또는 회원 링크가 시작된 뒤에는 선수 명단을 바꿀 수 없습니다.\n필요하면 현재 운영을 종료하고 초기화한 뒤 가져와 주세요.');
-    return;
-  }
-  const snapshot=_dailyTeamRosterSnapshot();
-  const source=snapshot.players||[];
-  if(!source.length){
-    alert('가져올 팀전 선수 명단이 없습니다.');
-    renderDailyRosterTransferButton();
-    return;
-  }
-  if(_dailyPlayers.length&&!confirm(`현재 민턴LIVE 선수 ${_dailyPlayers.length}명을 지우고\n팀전 선수 ${source.length}명을 가져올까요?`))return;
+function _dailyApplyParticipantProfiles(source){
   const now=_dailyNow();
   _dailyPlayers=source.map(raw=>_dailyNormalize({
     memberId:raw.memberId||_rsvpMemberId({name:raw.name||'',club:raw.club||''}),
@@ -2722,6 +2707,8 @@ function dailyImportTeamRoster(){
   _dailyAutoAssign=false;
   _dailyOperationStarted=false;
   _dailyOperationStartedAt=0;
+  _dailyPreparedOperation='';
+  try{sessionStorage.removeItem('kokmatch_daily_prepared_operation_v1');}catch(e){}
   _dailyRolloverAt=0;
   _dailyFinishMode=false;
   _dailyFinishStartedAt=0;
@@ -2733,9 +2720,77 @@ function dailyImportTeamRoster(){
   _dailyMarkFourCacheDirty();
   dailySave();
   dailyRender();
+}
+function dailyImportTeamRoster(options={}){
+  if(_dailyBlockServerSync({action:'팀전 선수 명단 가져오기'}))return;
+  if(_dailyCheckinId||_dailyOperationStarted||_dailyMatches.length){
+    alert('민턴LIVE 운영 또는 회원 링크가 시작된 뒤에는 선수 명단을 바꿀 수 없습니다.\n필요하면 현재 운영을 종료하고 초기화한 뒤 가져와 주세요.');
+    return;
+  }
+  const snapshot=options.snapshot||_dailyTeamRosterSnapshot();
+  const source=snapshot.players||[];
+  if(!source.length){
+    alert('가져올 팀전 선수 명단이 없습니다.');
+    return;
+  }
+  if(!options.silent&&_dailyPlayers.length&&!confirm(`현재 민턴LIVE 선수 ${_dailyPlayers.length}명을 지우고\n팀전 선수 ${source.length}명을 가져올까요?`))return;
+  _dailyApplyParticipantProfiles(source);
   const setup=document.getElementById('dailySetupDetails');
   if(setup)setup.open=true;
-  alert(`팀전 선수 ${_dailyPlayers.length}명을 민턴LIVE 명단으로 가져왔습니다.`);
+  if(!options.silent)alert(`팀전 선수 ${_dailyPlayers.length}명을 민턴LIVE 명단으로 가져왔습니다.`);
+  return true;
+}
+function dailyApplyParticipantHandoff(){
+  const params=new URLSearchParams(location.search);
+  if(params.get('from')!=='participants'||params.get('source')!=='team')return false;
+  if(_dailyCheckinId||_dailyOperationStarted||_dailyMatches.length)return false;
+  const snapshot=_dailyParticipantHandoffSnapshot();
+  if(snapshot.source!=='team'||!(snapshot.players||[]).length)return false;
+  return !!dailyImportTeamRoster({snapshot,silent:true});
+}
+function renderParticipantPreparation(){
+  const count=_dailyPlayers.filter(player=>player&&!player.registrationCancelled).length;
+  if(!count&&_dailyPreparedOperation){
+    _dailyPreparedOperation='';
+    try{sessionStorage.removeItem('kokmatch_daily_prepared_operation_v1');}catch(e){}
+  }
+  const card=document.getElementById('operationModeCard');
+  if(card)card.hidden=!!(_dailyPreparedOperation==='daily'||_dailyOperationStarted);
+  const countEl=document.getElementById('participantPrepCount');
+  const meta=document.getElementById('participantPrepRegisterMeta');
+  const hint=document.getElementById('participantPrepHint');
+  if(countEl)countEl.textContent=`${count}명`;
+  if(meta)meta.textContent=count?`${count}명 등록됨`:'명부·캡처·게스트';
+  ['participantChooseDaily','participantChooseTeam'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(btn)btn.disabled=!count;
+  });
+  if(hint)hint.textContent=count
+    ? `${count}명 준비 완료 · 선택한 운영 방식으로 같은 명단이 이어집니다.`
+    : '참가자를 먼저 등록하면 같은 명단으로 원하는 방식을 시작합니다.';
+}
+function dailyChooseOperation(mode){
+  if(mode!=='daily'&&mode!=='team')return;
+  if(!_dailyPlayers.length){
+    dailyImportRoster();
+    return;
+  }
+  const bridge=_dailyRosterBridge();
+  if(bridge&&typeof bridge.handoff==='function')bridge.handoff('daily',_dailyPlayers);
+  if(mode==='team'){
+    const progressed=_dailyCheckinId||_dailyOperationStarted||_dailyMatches.length;
+    const from=progressed?'daily':'participants&source=daily';
+    location.href=`team.html?v=${encodeURIComponent(APP_VERSION)}&from=${from}`;
+    return;
+  }
+  _dailyPreparedOperation='daily';
+  try{sessionStorage.setItem('kokmatch_daily_prepared_operation_v1','daily');}catch(e){}
+  dailyRender();
+  const setup=document.getElementById('dailySetupDetails');
+  if(setup)setup.open=true;
+  const hint=document.getElementById('participantPrepHint');
+  if(hint)hint.textContent='민턴LIVE 준비 완료 · 코트 수를 확인하고 대진을 게시하세요.';
+  dailyOpenBoardTarget('setup');
 }
 // 선수 추가의 공용 코어. 「선수 추가」 폼과 참가자 모달의 게스트 추가가 같이 씁니다.
 // 두 벌로 복사하면 한쪽만 고치는 사고가 납니다(서버·클라이언트 이중 검사와 같은 덫).
@@ -3575,6 +3630,8 @@ function dailyReset(){
   _dailyAutoAssign=false;
   _dailyOperationStarted=false;
   _dailyOperationStartedAt=0;
+  _dailyPreparedOperation='';
+  try{sessionStorage.removeItem('kokmatch_daily_prepared_operation_v1');}catch(e){}
   _dailyRolloverAt=0;
   _dailyFinishMode=false;
   _dailyFinishStartedAt=0;
@@ -5948,6 +6005,11 @@ function dailyRenderPreparationDraft(){
 function dailyRenderStartGuide(){
   const el=document.getElementById('dailyStartGuide');
   if(!el)return;
+  if(!_dailyPreparedOperation&&!_dailyOperationStarted){
+    el.hidden=true;
+    el.innerHTML='';
+    return;
+  }
   if(_dailyOperationStarted){
     el.hidden=true;
     el.innerHTML='';
@@ -6098,6 +6160,7 @@ function dailyApplyStageLayout(){
   hide('#dailyQuickStopBtn',!_dailyCheckinId);                    // 종료할 링크가 없다
   hide('#dailyQuickResetBtn',stage==='empty'&&!_dailyCheckinId);  // 지울 것이 없다
   const setup=document.getElementById('dailySetupDetails');
+  if(setup)setup.hidden=!live&&!_dailyPreparedOperation;
   if(setup&&_dailyUiStageShown!==stage){
     // 단계가 바뀌는 순간에만 손댄다 — 사용자가 접었다 펼친 상태를 매 렌더마다 뒤집지 않도록
     setup.open=!live;
@@ -9789,6 +9852,7 @@ function dailyRenderCheckinRequests(){
 function dailyRender(){
   const queueChanged=_dailyPaused?false:dailyEnsureQueue();
   if(queueChanged)dailySave();
+  renderParticipantPreparation();
   dailyRenderClosingSchedule();
   dailyRenderCourtSettings();
   dailyRenderTeamControls();
@@ -10830,7 +10894,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.684&from=daily';
+  location.href='team.html?v=1.10.685&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -16914,12 +16978,13 @@ window.addEventListener('DOMContentLoaded', () => {
   rsvpLoad();
   rsvpRender();
   dailyLoad();
+  if(_dailyOperationStarted||_dailyCheckinId||_dailyMatches.length)_dailyPreparedOperation='daily';
+  dailyApplyParticipantHandoff();
   _dailyTryRestoreAug3Preparation();
   _dailySyncPlayerRolesFromRoster();
   dailyApplyReviewSample();
   dailyResumeCheckin().catch(()=>{});
   dailyRender();
-  renderDailyRosterTransferButton();
   dailyMaybeAutoRecommend();
   if(!_dailyTimerId)_dailyTimerId=setInterval(dailyRefreshTimers,10000);
   setInterval(dailyRefreshUndoCountdown,1000);
@@ -16933,8 +16998,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if([DAILY_KEY,DAILY_CHECKIN_KEY,DAILY_CHECKIN_CREATED_KEY].includes(event.key)){
       dailyResumeCheckin().catch(()=>{});
     }
-    const bridge=_dailyRosterBridge();
-    if(event.key==='badminton_team_bracket_v7'||event.key===bridge?.keys?.team)renderDailyRosterTransferButton();
   });
   updateTeamModeBadge(); // 팀 컨트롤 초기 상태(개인전) 반영
   setOperationPreset(_operationPreset);

@@ -141,9 +141,8 @@ assert(html.indexOf('openImportModal()') < html.indexOf('teamDirectAddBox'),
   '명부에서 불러오기가 직접 추가보다 먼저 와야 합니다(기본 경로).');
 assert(src.includes("directBox.open=empty&&rosterEmpty;"),
   '명부가 비어 직접 추가가 유일한 길일 때만 자동으로 펼쳐야 합니다.');
-assert(html.includes('class="roster-transfer-btn hidden" id="teamImportDailyRosterBtn"')
-  && src.includes("btn.classList.toggle('hidden',!count);"),
-  '민턴LIVE 선수가 없으면 가져오기 버튼을 감춰야 합니다.');
+assert(!html.includes('id="teamImportDailyRosterBtn"')&&src.includes('function teamApplyParticipantHandoff()'),
+  '민턴LIVE 명단 수동 가져오기 대신 공통 참가자 자동 승계를 사용해야 합니다.');
 assert(css.includes('.team-direct-add summary{') && css.includes('min-height:44px'),
   '직접 추가 요약 줄은 터치 높이를 확보해야 합니다.');
 
