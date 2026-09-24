@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.713  (2026-07)
+     APP VERSION: 1.10.714  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.713">
+<meta name="app-version" content="1.10.714">
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="only light">
 <link rel="manifest" href="manifest.json">
@@ -24,13 +24,13 @@
 <title>🏸 민턴LIVE 팀전 | 청·홍전·자유 대진</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/team.css?v=1.10.713">
+<link rel="stylesheet" href="css/team.css?v=1.10.714">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.713"></script>
+<script src="js/storage.js?v=1.10.714"></script>
 </head>
 <body>
 
@@ -153,6 +153,11 @@
           <div class="time-compare" id="timeCompare"></div>
           <div class="stat-row low-priority" id="statRow"></div>
           <div class="qual-dash" id="qualDash"></div>
+          <details id="teamQuizTools" style="margin-top:12px;">
+            <summary style="padding:12px 0;cursor:pointer;">예측 설문</summary>
+            <button type="button" class="btn btn-sm" onclick="teamQuizShare()">설문 링크 공유</button>
+            <div id="quizPanel" class="hidden" style="margin-top:10px;font-size:13px;line-height:1.5;"></div>
+          </details>
         </div>
       </details>
 
@@ -369,12 +374,10 @@
               <button onclick="doPrint('all')">👥 선수 전체 명단</button>
               <button data-team-only onclick="doPrint('blue')">🔵 청팀 명단</button>
               <button data-team-only onclick="doPrint('white')">🔴 홍팀 명단</button>
-              <button onclick="teamQuizShare()">🎯 예측 설문 링크</button>
             </div>
           </div>
         </div>
         <div class="card-body">
-          <div id="quizPanel" class="hidden" style="margin-bottom:10px;padding:9px 12px;border:1px solid var(--line,#e3e9f3);border-radius:10px;font-size:13px;line-height:1.5;background:rgba(240,167,58,.07)"></div>
           <div id="tabBracket"></div>
           <div id="tabPlayers" class="hidden"></div>
           <div id="tabSummary" class="hidden"></div>
@@ -746,11 +749,11 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.713"></script>
-<script src="js/mobile-nav.js?v=1.10.713"></script>
+<script src="js/match-quality.js?v=1.10.714"></script>
+<script src="js/mobile-nav.js?v=1.10.714"></script>
 <!-- 카카오톡 바로 공유용 JavaScript 키 — index.html 과 같은 값을 넣으면 두 화면이 함께 동작합니다. -->
 <script>window.KOKMATCH_KAKAO_JS_KEY=window.KOKMATCH_KAKAO_JS_KEY||'';</script>
-<script src="js/team.js?v=1.10.713"></script>
+<script src="js/team.js?v=1.10.714"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 라운드로 이동" title="현재 진행 라운드로 이동">
@@ -828,7 +831,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.713</span>
+  <span class="app-version" id="appVersion">v1.10.714</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
@@ -903,7 +906,6 @@
   <button class="print-sheet-btn" onclick="doPrint('all')">👥 선수 전체 명단</button>
   <button class="print-sheet-btn" data-team-only onclick="doPrint('blue')">🔵 청팀 명단</button>
   <button class="print-sheet-btn" data-team-only onclick="doPrint('white')">🔴 홍팀 명단</button>
-  <button class="print-sheet-btn" onclick="teamQuizShare()">🎯 예측 설문 링크</button>
   <button class="print-sheet-cancel" onclick="closePrintMenu()">취소</button>
 </div>
 </body>

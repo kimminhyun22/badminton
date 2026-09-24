@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.713';
+const APP_VERSION = '1.10.714';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4229,7 +4229,7 @@ function _teamQuizAutoWatch(){
     const el=document.getElementById('quizPanel');
     if(el){
       el.classList.remove('hidden');
-      el.innerHTML='🎯 이전 예측 설문은 <b>대진이 바뀌어 마감됐습니다</b> — 받은 응답은 선수 영점 조정 데이터로 남습니다(실전 채점·예측왕만 새 설문이 필요합니다). 대진을 확정한 뒤 📤 공유 메뉴에서 「예측 설문 링크」를 다시 만들어 주세요.';
+      el.innerHTML='이전 설문은 <b>대진이 바뀌어 마감됐습니다</b>. 기존 응답은 보관됩니다. 위의 「설문 링크 공유」에서 새 설문을 만들 수 있습니다.';
     }
     return;
   }

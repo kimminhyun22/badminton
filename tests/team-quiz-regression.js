@@ -174,11 +174,15 @@ this.api={quizSeededOrder,quizOwnMatches};
   console.log('  응답 페이지: 결정적 셔플 · 자기 경기 제외 · 숫자 미노출');
 }
 
-// 4) 진입점 — 공유 메뉴 두 UI(드롭다운·바텀시트) 모두에서 열리고, 집계 패널이 있다.
+// 4) Survey tools belong in a collapsed quality section, not general sharing.
 {
   const menuCount = (teamHtml.match(/teamQuizShare\(\)/g) || []).length;
-  assert.strictEqual(menuCount, 2,
-    `설문 버튼은 데스크탑 드롭다운과 모바일 바텀시트 두 곳이어야 합니다: ${menuCount}곳`);
+  assert.strictEqual(menuCount, 1, 'Keep a single optional survey entry');
+  const tools=teamHtml.slice(teamHtml.indexOf('<details id="teamQuizTools"'),teamHtml.indexOf('</details>',teamHtml.indexOf('<details id="teamQuizTools"')));
+  assert(tools.includes('teamQuizShare()')&&tools.includes('id="quizPanel"'));
+  assert(!tools.slice(0,tools.indexOf('>')).includes(' open'),'Collapsed by default');
+  assert(!teamHtml.slice(teamHtml.indexOf('id="printMenu"'),teamHtml.indexOf('id="tabBracket"')).includes('teamQuizShare()'));
+  assert(!teamHtml.slice(teamHtml.indexOf('id="printSheet"')).includes('teamQuizShare()'));
   assert(teamHtml.includes('id="quizPanel"'), '응답 집계 패널 자리가 있어야 합니다.');
   assert(teamSrc.includes('_teamQuizAutoWatch();'),
     '대진을 다시 그릴 때 저장된 설문을 자동으로 감시해야 합니다(새로고침 생존).');
@@ -186,7 +190,7 @@ this.api={quizSeededOrder,quizOwnMatches};
     '대진 재생성으로 설문이 낡으면 조용히 숨기지 말고 안내해야 합니다(2026-08-14 운영자).');
   // 낡은 설문의 응답은 버리지 않는다 — 설문의 산출물은 대진이 아니라 선수 보정이다
   // (운영자: "해당 경기가 아니더라도 … 드랍할 일은 아니라는 말이야").
-  assert(teamSrc.includes('영점 조정 데이터로 남습니다'),
+  assert(teamSrc.includes('기존 응답은 보관됩니다'),
     '안내문이 응답 보존을 말해야 합니다.');
   assert(teamSrc.includes("TEAM_QUIZ_HISTORY_KEY='badminton_team_quizHistory'")
     && teamSrc.includes('_teamQuizRemember(qid,sig)'),
