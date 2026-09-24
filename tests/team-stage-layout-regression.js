@@ -15,6 +15,10 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 const src = read('js/team.js');
 const html = read('team.html');
 const css = read('css/team.css');
+assert(css.includes('.auto-flow-card .auto-flow-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'),
+  '진행 중 운영 버튼은 좁은 화면에서도 2열로 배치해야 합니다.');
+assert(css.includes('.auto-flow-actions>.auto-flow-resume-btn{grid-column:1/-1;}'),
+  '이어가기와 공유 버튼 그룹은 독립된 행을 사용해야 합니다.');
 
 // ── 단계 판정과 적용이 있고, 매 렌더마다 돈다 ──
 assert(src.includes('function _teamUiStage()') && src.includes('function teamApplyStageLayout()'),
