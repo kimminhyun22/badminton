@@ -130,6 +130,12 @@ assert.strictEqual(scheduleContext.teamMonitorSchedule([1,3,5],5,1000,21).nextRo
 assert.strictEqual(scheduleContext.teamMonitorSchedule([1,3,5],1,1000,25).endAt,2701000);
 assert.strictEqual(scheduleContext.teamMonitorSchedule([1],1,null,15).endAt,null);
 assert(html.includes('onclick="teamToggleMonitorManagement(this)"')&&html.includes('onclick="teamToggleMonitorMatches(this)"'), '운영 메뉴와 전체 대진에 다시 접근할 수 있어야 합니다.');
+assert(html.includes('onclick="teamGoHome()"')&&html.includes('icons/lucide/house.svg'), '홈은 명시적인 버튼과 집 아이콘으로 표시합니다.');
+const monitorNavigation=cut('function teamToggleMonitorManagement(', 'function teamToggleSetupReview(');
+assert(monitorNavigation.includes("page.classList.add('team-management-open')")&&monitorNavigation.includes("page.classList.add('team-all-rounds')"), '메뉴 버튼 재클릭은 홈 복귀로 동작하지 않습니다.');
+assert(monitorNavigation.includes("page.classList.remove('team-management-open','team-all-rounds','team-review-open')"), '홈에서 운영·전체·설정 화면을 모두 정리합니다.');
+const strip=cut('function _teamLiveLiveStripHtml(', 'function _autoFlowSetSection(');
+assert(!strip.includes('team-live-primary'), '승패 입력은 코트 버튼만 사용하고 운영 메뉴에 중복하지 않습니다.');
 
 // 빈 화면의 죽은 상태 타일과, 갈 곳 없는 하단 탭
 r = run({});

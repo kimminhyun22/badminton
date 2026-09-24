@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.698';
+const APP_VERSION = '1.10.699';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6427,7 +6427,8 @@ function renderTeamTemporaryOperatorPanel(){
   const opener=document.getElementById('teamOperatorOpenBtn');
   if(opener){
     opener.classList.toggle('hidden',!players.length||!_liveOn);
-    opener.textContent=`운영 도우미${temporaryOperators.length?' '+temporaryOperators.length+'명':''}`;
+    const label=opener.querySelector('span');
+    if(label)label.textContent=`운영 도우미${temporaryOperators.length?' '+temporaryOperators.length+'명':''}`;
   }
   if(!players.length||!_liveOn){
     const dialog=document.getElementById('teamOperatorDialog');
@@ -8158,8 +8159,6 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
       : pendingCourts.length
         ? pendingCourts.join(' · ')
         : '다음 라운드를 확인하세요';
-  const primaryLabel=allDone?'결과 보기':'승패 입력';
-  const primaryTarget=allDone?'scoreboard':'bracket';
   const chips=[];
   if(conflictCount)chips.push(`<button class="team-live-alert warn" type="button" onclick="teamLiveOpenPanel('scoreboard')">승패 확인 ${conflictCount}</button>`);
   if(lateCount)chips.push(`<button class="team-live-alert" type="button" onclick="teamLiveOpenPanel('late')">제외 ${lateCount}명 · 대체 확인</button>`);
@@ -8168,9 +8167,6 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
         <span>${esc(status)}</span>
         <b>${esc(title)}</b>
         <small>${esc(detail)}</small>
-      </div>
-      <div class="team-live-ops-actions">
-        <button class="team-live-primary" type="button" onclick="teamLiveOpenPanel('${primaryTarget}')">${esc(primaryLabel)}</button>
       </div>
     </div>
     ${chips.length?`<div class="team-live-alert-row">${chips.join('')}</div>`:''}`;
@@ -8255,15 +8251,30 @@ function teamLiveOpenPanel(target){
    live  : 대진이 만들어진 뒤 → 결과가 먼저 오도록 세팅 카드는 접는다. */
 function teamToggleMonitorManagement(button){
   const page=document.getElementById('pageMain');
-  const open=!page.classList.contains('team-management-open');
-  page.classList.toggle('team-management-open',open);
-  if(button)button.setAttribute('aria-expanded',String(open));
+  page.classList.add('team-management-open');
+  if(button)button.setAttribute('aria-expanded','true');
 }
 function teamToggleMonitorMatches(button){
   const page=document.getElementById('pageMain');
-  const all=!page.classList.contains('team-all-rounds');
-  page.classList.toggle('team-all-rounds',all);
-  if(button){button.setAttribute('aria-pressed',String(all));button.textContent=all?'현재 코트':'전체 대진';}
+  page.classList.add('team-all-rounds');
+  showTab('bracket');
+  if(button)button.setAttribute('aria-pressed','true');
+}
+function teamGoHome(){
+  switchNav('main');
+  const page=document.getElementById('pageMain');
+  page.classList.remove('team-management-open','team-all-rounds','team-review-open');
+  ['sec-players','sec-rsvp'].forEach(id=>{const el=document.getElementById(id);if(el)delete el.dataset.editing;});
+  teamToggleSetupReview(false);
+  document.querySelectorAll('#teamMonitorTools [aria-expanded],#teamMonitorTools [aria-pressed]').forEach(el=>{
+    if(el.hasAttribute('aria-expanded'))el.setAttribute('aria-expanded','false');
+    if(el.hasAttribute('aria-pressed'))el.setAttribute('aria-pressed','false');
+  });
+  showTab('bracket');
+  teamApplyStageLayout();
+  document.querySelectorAll('.bnav-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('bnav-dashboard')?.classList.add('active');
+  document.getElementById(_liveOn?'teamMonitorTools':'autoFlowCard')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function teamToggleSetupReview(force){
   const page=document.getElementById('pageMain');
@@ -8273,7 +8284,8 @@ function teamToggleSetupReview(force){
   const button=document.getElementById('teamReviewToggle');
   if(button){
     button.setAttribute('aria-expanded',String(open));
-    button.textContent=open?'설정·점검 닫기':'설정·점검';
+    const label=button.querySelector('span');
+    if(label)label.textContent=open?'설정·점검 닫기':'설정·점검';
   }
 }
 function _teamUiStage(){
@@ -9696,6 +9708,7 @@ function isMobile(){ return window.innerWidth <= 768; }
 
 function switchMobileTab(tab){
   _mobileTab = tab;
+  if(tab==='dashboard'){teamGoHome();return;}
 
   // 하단 탭 버튼 활성화
   document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));

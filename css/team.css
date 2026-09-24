@@ -1468,6 +1468,17 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .team-stage-live:not(.team-review-open) #sec-settings{display:none;}
 #teamReviewToggle{margin-top:10px;min-height:44px;}
 #teamOperatorOpenBtn{margin-top:10px;min-height:44px;}
+.team-management-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;}
+.team-management-shortcuts .team-participant-quick{display:contents;}
+.team-management-shortcuts #teamParticipantCount{grid-column:1/-1;order:-1;font-size:13px;color:var(--dim);}
+.team-tool-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:76px;min-width:0;padding:10px 5px;border:1px solid #dce5ef;border-radius:8px;background:#f7fafc;color:#32485b;font:inherit;font-size:13px;font-weight:700;line-height:1.4;cursor:pointer;}
+.team-tool-btn img{width:22px;height:22px;opacity:.7;}
+.team-tool-btn:hover,.team-tool-btn[aria-expanded="true"]{background:#edf6f2;border-color:#a5cbb9;}
+.team-management-shortcuts #teamReviewToggle,.team-management-shortcuts #teamOperatorOpenBtn{margin-top:0;min-height:76px;}
+.team-home-btn{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:10px 18px;border:1px solid #a5cbb9;border-radius:8px;background:#e5f4ed;color:#235e46;font:inherit;font-weight:800;cursor:pointer;margin-right:auto;}
+.team-home-btn img{width:21px;height:21px;}
+#bnav-dashboard .bnav-icon{background:#e5f4ed;border-color:#a5cbb9;}
+#bnav-dashboard .bnav-label{color:#235e46;font-weight:800;}
 #teamOperatorDialog{margin:auto;width:calc(100% - 32px);max-width:460px;max-height:85dvh;padding:0;border-radius:8px;}
 #teamOperatorDialog::backdrop{background:rgba(0,0,0,.35);}
 .team-monitor-tools{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;order:-1;}
