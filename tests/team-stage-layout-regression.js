@@ -236,7 +236,7 @@ assert(run({ players: [{}], quickVisible: true }).hidden('.bracket-save-primary'
 // 자유 대진에는 청·홍 명단이 없다
 assert(src.includes("document.querySelectorAll('[data-team-only]').forEach(el=>el.classList.toggle('hidden',!wantTeam));"),
   '자유 대진에서는 공유·인쇄 메뉴의 청팀·홍팀 항목을 감춰야 합니다.');
-assert((html.match(/data-team-only/g) || []).length === 4, '청팀·홍팀 항목 네 개에 표시가 있어야 합니다.');
+assert((html.match(/data-team-only/g) || []).length === 5, '청팀·홍팀 메뉴 네 개와 편성 확인에 표시가 있어야 합니다.');
 assert(!html.includes('⚪ 홍팀 명단') && html.includes('🔴 홍팀 명단'), '홍팀 아이콘은 붉은색이어야 합니다.');
 // 저장 이름칸은 모바일에서 16px — 인라인 font-size 가 규칙을 이기면 iOS 가 확대한다
 assert(!/id="slotNameInput"[\s\S]{0,320}?font-size:\.92rem/.test(html),

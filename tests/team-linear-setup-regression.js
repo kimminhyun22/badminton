@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
+const src=read('js/team.js'),html=read('team.html');
+assert(src.includes("_autoFlowSetSection('sec-settings',stage==='generate'||stage==='playerReview'||(stage==='playerSetup'&&players>0))"),'Registered players must see settings without a separate assignment step');
+assert(src.includes("else if(!matches&&players&&!directResumeMode&&!restoreBracket){\n      body.innerHTML='';"),'Preparation must not duplicate generation actions');
+assert(html.includes('<details class="team-lineup-review" data-team-only>'),'Manual team review must be optional and team-only');
+assert(!html.slice(html.indexOf('id="sec-settings"'),html.indexOf('id="resultArea"')).includes("switchMobileTab('roster')"),'Settings should not repeat roster management');
+assert(src.includes('if(useFixedTeams&&!teamAssignment){\n    doTeamAssign({forGenerate:true});'),'Generation must retain automatic team assignment');
+console.log('team linear setup regression passed');

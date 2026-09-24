@@ -1466,6 +1466,12 @@ details.card:not([open]) .card-head{border-bottom:none;}
 /* ── 팀전LIVE 운영 보드 ── */
 .team-stage-live:not(.team-review-open) #sec-quality,
 .team-stage-live:not(.team-review-open) #sec-settings{display:none;}
+.team-stage-roster .auto-flow-quick-actions{display:none;}
+.team-stage-roster .team-management-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr));}
+.team-stage-roster #autoFlowBody:empty{display:none;}
+.team-lineup-review{margin:16px 0;border-top:1px solid var(--border,#dde5ef);padding-top:12px;}
+.team-lineup-review>summary{cursor:pointer;font-size:14px;font-weight:600;padding:10px 0;}
+.team-lineup-review .team-list-wrap{margin-top:12px;}
 #teamReviewToggle{margin-top:10px;min-height:44px;}
 #teamOperatorOpenBtn{margin-top:10px;min-height:44px;}
 .team-management-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;}

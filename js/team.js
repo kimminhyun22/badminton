@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.702';
+const APP_VERSION = '1.10.703';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8382,6 +8382,7 @@ function teamApplyStageLayout(){
   // 대진을 버리는 경로(전체 초기화·미진행 대진 정리)는 renderResults 를 부르지 않는다 —
   // 지난 총 경기·라운드·예상 시간·품질 등급이 참가자 0명 화면에 남지 않도록 여기서도 접는다.
   const hasBracket=!!(typeof currentMatches!=='undefined'&&currentMatches.length);
+  hide('#resultArea',!hasBracket);
   hide('#sec-quality',!hasBracket);
   // 팀 배정·대진 생성은 4명부터다 — 그 아래에서 누르면 빨간 안내막대만 뜬다
   const canBuild=(typeof _directPlayers!=='undefined'?_directPlayers.length:0)>=4;
@@ -8428,6 +8429,10 @@ function teamApplyStageLayout(){
   hide('#undoBtnMain',stage==='live');
   // 접힘은 단계가 바뀌는 순간에만 손댄다 — 사용자가 펼쳐 둔 것을 매 렌더마다 뒤집지 않도록
   if(_teamUiStageShown!==stage){
+    if(stage==='roster'){
+      const settings=document.getElementById('sec-settings');
+      if(settings&&settings.tagName==='DETAILS')_teamSetOpenSilently(settings,true);
+    }
     if(empty){
       _teamForceOpenSection('sec-players');
       const settings=document.getElementById('sec-settings');
@@ -8628,6 +8633,8 @@ function renderAutoFlowDashboard(){
     if(live){
       body.innerHTML=`
         ${_teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remaining,counts})}`;
+    }else if(!matches&&players&&!directResumeMode&&!restoreBracket){
+      body.innerHTML='';
     }else{
       body.innerHTML=`
         <div class="auto-flow-focus">
@@ -8642,7 +8649,7 @@ function renderAutoFlowDashboard(){
     }
     _autoFlowSetSection('sec-rsvp',stage==='link');
     _autoFlowSetSection('sec-players',stage==='playerSetup');
-    _autoFlowSetSection('sec-settings',stage==='generate');
+    _autoFlowSetSection('sec-settings',stage==='generate'||stage==='playerReview'||(stage==='playerSetup'&&players>0));
     _autoFlowSetResultSections(stage);
     _teamRestoreHint=stage==='restoreBracket'||stage==='restoreLive';
     teamApplyStageLayout();
