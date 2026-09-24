@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.708';
+const APP_VERSION = '1.10.709';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -24,6 +24,13 @@ function effLevel(p){
   const ageMod = _AGE_BONUS[p.ageGroup] || 0;
   return Math.round((p.level - (isF ? 0.5 : 0) + ageMod) * 10) / 10;
 }
+function _teamRosterAverageBalance(blue,white){
+  const average=t=>t.length?t.reduce((sum,p)=>sum+effLevel(p),0)/t.length:0;
+  const rawDelta=average(blue)-average(white);
+  const targetDelta=(blue.length-white.length)*0.1;
+  return {rawDelta,targetDelta,residual:Math.abs(rawDelta-targetDelta)};
+}
+
 const BALANCE_PARTNER_GAP_OK=MATCH_QUALITY?.constants.partnerGapOk??1.25;
 const BALANCE_PARTNER_GAP_CAUTION=MATCH_QUALITY?.constants.partnerGapCaution??2.25;
 const BALANCE_PARTNER_GAP_HARD=MATCH_QUALITY?.constants.partnerGapHard??3;
@@ -771,7 +778,6 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
   const W_CNT=100, W_FEM=100, W_LV=1, W_WEAK=2, W_SPREAD=30;
   // 인원이 1명 많은 팀은 한 사람당 출전이 그만큼 줄어 불리하다(운영자 2026-09-03).
   // 그래서 인원이 많은 쪽은 1인당 평균을 이만큼 더 세게 잡아 준다.
-  const CNT_TILT=0.1;
   // 약체 부담: 합이 같아도 약한 선수가 몰린 팀이 진다. 상대가 그 선수만 집중
   // 공략하고, 강한 파트너를 붙여 줘도 파트너 실력차가 커질수록 실점이 커지기
   // 때문이다 (운영자 2026-09-03; 2026-08-13 9ZJ2VH: 초심 2명이 모두 홍팀 →
@@ -815,7 +821,7 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
     // 단위다. 합을 맞추면 인원 많은 팀이 경기마다 약해진다 (9ZJ2VH: 16:17명에
     // 합 58.5:56 → 슬롯당 3.61:3.35 → 14:7 패배). 인원이 같으면 합 차와 같다.
     const nB=fullB.length, nW=fullW.length;
-    const lvD=(nB&&nW)?Math.abs((sum(fullB)/nB-sum(fullW)/nW)-(nB-nW)*CNT_TILT)*(nB+nW)/2
+    const lvD=(nB&&nW)?_teamRosterAverageBalance(fullB,fullW).residual*(nB+nW)/2
                       :Math.abs(sum(fullB)-sum(fullW));
     // 약체 부담도 1인당으로 — 인원이 다르면 합끼리 비교가 인원 많은 쪽으로 기운다
     const weakD=(nB&&nW)?Math.abs(weakLoad(fullB)/nB-weakLoad(fullW)/nW)*(nB+nW)/2
@@ -3594,7 +3600,8 @@ function _qualityAssessment(matches,participants,settings){
     const blue=participants.filter(p=>p.team==='청팀'),white=participants.filter(p=>p.team==='홍팀');
     if(!blue.length||!white.length)return null;
     const sum=t=>t.reduce((s,p)=>s+effLevel(p),0);
-    const avgGap=Math.abs(sum(blue)/blue.length-sum(white)/white.length);
+    const rosterBalance=_teamRosterAverageBalance(blue,white);
+    const avgGap=rosterBalance.residual;
     // 초심 기준선은 「풀 최하위 +0.5」였는데, 유난히 낮은 한 명이 섞이면 기준이
     // 끌려 내려가 정작 E조가 초심에서 빠졌다 — 그래서 E조 2명이 한 팀에 몰렸는데도
     // 이 경고가 안 떴다 (2026-09-03 운영자 제보). 나누기와 같은 잣대(가장 낮은 조)로
@@ -3608,7 +3615,8 @@ function _qualityAssessment(matches,participants,settings){
     const femGap=Math.abs(blue.filter(isF).length-white.filter(isF).length);
     return {nB:blue.length,nW:white.length,
       sumB:Math.round(sum(blue)*10)/10,sumW:Math.round(sum(white)*10)/10,
-      avgGap:Math.round(avgGap*100)/100,lowCount:lows.length,lowStacked,femGap};
+      avgGap:Math.round(avgGap*100)/100,rawAvgGap:Math.round(Math.abs(rosterBalance.rawDelta)*100)/100,
+      countCompensation:Math.round(Math.abs(rosterBalance.targetDelta)*100)/100,lowCount:lows.length,lowStacked,femGap};
   })();
   const sTeamSplit=splitAudit
     ?clamp(10
@@ -3710,7 +3718,7 @@ function renderQualityDashboard(matches,participants,settings){
     ...(splitAudit?[(()=>{
       const pct=sTeamSplit/10;
       const parts=[`${splitAudit.nB}명 ${splitAudit.sumB} vs ${splitAudit.nW}명 ${splitAudit.sumW}`,
-        `1인당 평균 차 ${splitAudit.avgGap}`];
+        splitAudit.countCompensation?`인원 보정 후 차 ${splitAudit.avgGap} · 인원 보정 ${splitAudit.countCompensation}`:`1인당 평균 차 ${splitAudit.avgGap}`];
       if(splitAudit.lowStacked)parts.push(`⚠ 초심 ${splitAudit.lowCount}명이 한 팀에 몰림`);
       else if(splitAudit.lowCount>=2)parts.push(`초심 ${splitAudit.lowCount}명 분산됨`);
       if(splitAudit.femGap>1)parts.push(`여성 수 차 ${splitAudit.femGap}`);

@@ -53,6 +53,7 @@ function effLevel(p){
 }
 ${cut('function levelToGrade(level,gender)', 'function effLevel(p){')}
 ${cut('function fisherYates(arr)', '\n')}
+${src.includes('function _teamRosterAverageBalance(')?cut('function _teamRosterAverageBalance(', 'const BALANCE_PARTNER_GAP_OK'):''}
 ${cut('function balanceTeams(all', '\n/* ═══ GENERATE ═══ */')}
 this.api = {balanceTeams, effLevel};
 `, sandbox);

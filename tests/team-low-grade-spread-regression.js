@@ -49,6 +49,7 @@ function effLevel(p){
   return Math.round((p.level - (isF ? 0.5 : 0) + ageMod) * 10) / 10;
 }
 ${cut('function fisherYates(arr)', '\n')}
+${src.includes('function _teamRosterAverageBalance(')?cut('function _teamRosterAverageBalance(', 'const BALANCE_PARTNER_GAP_OK'):''}
 ${cut('function balanceTeams(all', '\n/* ═══ GENERATE ═══ */')}
 this.api = {balanceTeams, effLevel};
 `, sandbox);
@@ -113,7 +114,9 @@ for (const file of ['js/team.js', 'js/daily.js']){
   assert(src.includes('const d=Math.max(0,avgAll-effLevel(p));return s+d*d;'),
     `${file}: 약체 부담은 명수가 아니라 「평균 대비 부족분의 제곱합」이어야 합니다.`);
   // 인원이 많은 팀은 1인당 출전이 줄어 불리하다 → 평균을 그만큼 더 세게 잡아 준다.
-  assert(src.includes('const CNT_TILT=0.1;') && src.includes('-(nB-nW)*CNT_TILT'),
+  assert(file==='js/team.js'
+    ?src.includes('const targetDelta=(blue.length-white.length)*0.1;')&&src.includes('_teamRosterAverageBalance(fullB,fullW).residual')
+    :src.includes('const CNT_TILT=0.1;') && src.includes('-(nB-nW)*CNT_TILT'),
     `${file}: 인원 많은 팀 보정이 있어야 합니다.`);
   // 나누기 감사도 같은 잣대여야 수동 이동으로 다시 몰릴 때 경고가 뜬다.
   assert(/const lowGrade=\['E','D','C'\]\.find/.test(src),

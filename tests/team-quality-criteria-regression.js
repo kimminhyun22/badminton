@@ -56,6 +56,20 @@ const M = (num, t1, t2, type) => {
 };
 const settings = {teamMode: true, gamesPerPlayer: 1, courts: 1};
 
+// The larger side's intended strength compensation is not an imbalance.
+{
+  const blue=Array.from({length:4},(_,i)=>P('E2EB'+i,4,'청팀'));
+  const red=Array.from({length:6},(_,i)=>P('E2ER'+i,4.2,'홍팀'));
+  const q=api._qualityAssessment([M(1,blue.slice(0,2),red.slice(0,2))],[...blue,...red],settings);
+  assert.strictEqual(q.splitAudit.countCompensation,0.2);
+  assert.strictEqual(q.splitAudit.avgGap,0);
+  assert.strictEqual(q.sTeamSplit,10,'Do not penalize intentional headcount compensation');
+  red.forEach(p=>p.level=3.8);
+  const wrong=api._qualityAssessment([M(1,blue.slice(0,2),red.slice(0,2))],[...blue,...red],settings);
+  assert(wrong.splitAudit.avgGap>=0.4,'Compensation direction matters');
+  assert(wrong.sTeamSplit<q.sTeamSplit);
+}
+
 // 1) 어제의 나누기(합은 비슷·평균은 기움·초심 몰림)는 이제 걸린다.
 {
   // 청 4명 실효 16(평균 4) vs 홍 5명 실효 11(평균 2.2), 초심 0.5 둘 다 홍.
