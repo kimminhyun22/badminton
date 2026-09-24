@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.712';
+const APP_VERSION = '1.10.713';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2306,9 +2306,10 @@ function _teamFinalQualityKey(matches,participants,settings){
   const q=_qualityAssessment(matches,participants,settings);
   // Never trade invalid games, missing appearances or severe imbalance for points.
   return [q.structureErr,q.genderErr,q.avoidableUnderSlots,q.balanceHardCount,
-    q.balanceSevereCount,q.balanceCautionCount,
-    Math.round(Math.max(0,(q.maxLD||0)-1)*10)/10,-q.total,-q.sBalance,
-    q.avoidableOverSlots,q.avoidablePartnerExcess,q.excessConsec];
+    q.balanceSevereCount,q.balanceCautionCount,q.avoidableOverSlots,q.asymSevereCount||0,
+    Math.round(Math.max(0,(q.maxLD||0)-1)*10)/10,
+    -(q.total+2*q.sBalance),-q.sBalance,-q.total,
+    q.avoidablePartnerExcess,q.excessConsec];
 }
 
 function _teamKeepFinalist(finalists,candidate,settings){
@@ -2324,6 +2325,8 @@ function _teamKeepFinalist(finalists,candidate,settings){
 function _teamOptimizeFinalists(finalists,settings){
   let best=null;
   for(const candidate of finalists){
+    _teamRefineRoundPairs(candidate,settings);
+    candidate.key=_teamFinalQualityKey(candidate.matches,candidate.participants,settings);
     const slots=candidate.matches.map(m=>({round:m.round,court:m.court}));
     _optimizeFutureRounds(candidate.matches,settings);
     const key=_teamFinalQualityKey(candidate.matches,candidate.participants,settings);
@@ -2338,6 +2341,47 @@ function _teamOptimizeFinalists(finalists,settings){
     }));
   }
   return best;
+}
+
+function _teamRefineRoundPairs(candidate,settings){
+  const fields=['team1A','team1B','team2C','team2D'];
+  const groups=[...fields.map(f=>[f]),['team1A','team1B'],['team2C','team2D']];
+  const matches=candidate.matches,players=candidate.participants;
+  const baseline=_qualityAssessment(matches,players,settings);
+  let quality=baseline,key=_teamFinalQualityKey(matches,players,settings);
+  const update=m=>{
+    m.team1Level=effLevel(m.team1A)+effLevel(m.team1B);
+    m.team2Level=effLevel(m.team2C)+effLevel(m.team2D);
+    m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;
+  };
+  // Same-round swaps preserve appearances, rest, team membership and match type.
+  // Bound the work and keep fixed partners intact.
+  for(let pass=0;pass<2;pass++){
+    let improved=false,attempts=0;
+    const risk=m=>Math.max(m.levelDiff||0,Math.abs(Math.abs(effLevel(m.team1A)-effLevel(m.team1B))-Math.abs(effLevel(m.team2C)-effLevel(m.team2D))));
+    const order=matches.map((_,i)=>i).sort((i,j)=>risk(matches[j])-risk(matches[i]));
+    scan:for(const i of order)for(let j=0;j<matches.length;j++){
+      if(i===j)continue;
+      const a=matches[i],b=matches[j];
+      if(a.round!==b.round||fields.some(f=>a[f].partnerName||b[f].partnerName))continue;
+      for(const ga of groups)for(const gb of groups){
+        if(ga.length!==gb.length||ga.some((fa,k)=>a[fa].gender!==b[gb[k]].gender||(settings.teamMode&&a[fa].team!==b[gb[k]].team)))continue;
+        if(++attempts>160)break scan;
+        const beforeA={...a},beforeB={...b};
+        ga.forEach((fa,k)=>{a[fa]=beforeB[gb[k]];b[gb[k]]=beforeA[fa];});update(a);update(b);
+        const next=_qualityAssessment(matches,players,settings);
+        const nextKey=_teamFinalQualityKey(matches,players,settings);
+        if(next.sBalance>quality.sBalance+0.001&&next.total>=baseline.total-3&&_isBetterQualityKey(nextKey,key)){
+          quality=next;key=nextKey;improved=true;
+        }else{Object.assign(a,beforeA);Object.assign(b,beforeB);}
+      }
+    }
+    if(!improved)break;
+  }
+  const history=_buildHistoryFromMatches(matches);
+  players.forEach(p=>{if(history[p.name]){
+    p.partnerCount=history[p.name].partnerCount;p.opponentCount=history[p.name].opponentCount;
+  }});
 }
 
 function shuffleArray(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}}
@@ -5878,9 +5922,12 @@ function _genBestMatches(activeParticipants, settings, totalNewMatches, tries=5,
 function _teamAcceptReshuffle(matches,participants,previousMatches,previousParticipants,settings){
   const next=_teamFinalQualityKey(matches,participants,settings);
   const previous=_teamFinalQualityKey(previousMatches,previousParticipants,settings);
-  // Preserve both safety priorities and the visible score, including ties.
-  return !_isBetterQualityKey(previous,next)
-    &&_qualityAssessment(matches,participants,settings).total>=_qualityAssessment(previousMatches,previousParticipants,settings).total;
+  const nextQuality=_qualityAssessment(matches,participants,settings);
+  const previousQuality=_qualityAssessment(previousMatches,previousParticipants,settings);
+  // A small total-score trade is allowed only for a real balance improvement.
+  const acceptableScore=nextQuality.total>=previousQuality.total
+    ||(nextQuality.sBalance>previousQuality.sBalance&&nextQuality.total>=previousQuality.total-3);
+  return !_isBetterQualityKey(previous,next)&&acceptableScore;
 }
 
 /* ═══ 완료 게임에서 대진 기록(상대/파트너) 역산 헬퍼 ═══ */

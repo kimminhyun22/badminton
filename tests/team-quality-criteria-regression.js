@@ -56,6 +56,30 @@ const M = (num, t1, t2, type) => {
 };
 const settings = {teamMode: true, gamesPerPlayer: 1, courts: 1};
 
+// Refine two simultaneous courts without changing attendance or rest slots.
+vm.runInContext(cut(teamSrc,'function _isBetterQualityKey(','function _autoSearchTries(','team.js')
+  +cut(teamSrc,'function _teamFinalQualityKey(','function shuffleArray(','team.js')
+  +cut(teamSrc,'function _buildHistoryFromMatches(','/* ═══ 간편 재배정','team.js'),sandbox);
+{
+  const b=[1,5,3,3].map((v,i)=>P('E2E청'+i,v,'청팀'));
+  const r=[3,3,1,5].map((v,i)=>P('E2E홍'+i,v,'홍팀'));
+  const matches=[M(1,b.slice(0,2),r.slice(0,2)),M(2,b.slice(2),r.slice(2))];
+  matches.forEach((m,i)=>{m.round=1;m.court=i+1;});
+  const players=[...b,...r],s={...settings,courts:2};
+  const before=api._qualityAssessment(matches,players,s);
+  sandbox._teamRefineRoundPairs({matches,participants:players},s);
+  const after=api._qualityAssessment(matches,players,s);
+  assert(after.sBalance>before.sBalance,'Repair partner asymmetry even when sums already match');
+  assert(after.asymMatches.length<before.asymMatches.length);
+  assert.deepStrictEqual(after.counts,before.counts,'Preserve appearances');
+  assert(matches.every(m=>m.round===1),'Preserve rest schedule');
+  assert(matches.every(m=>m.team1A.team===m.team1B.team&&m.team2C.team===m.team2D.team));
+  players.forEach(p=>p.partnerName='E2E고정');
+  const locked=JSON.stringify(matches);
+  sandbox._teamRefineRoundPairs({matches,participants:players},s);
+  assert.equal(JSON.stringify(matches),locked,'Do not change fixed partners');
+}
+
 // The larger side's intended strength compensation is not an imbalance.
 {
   const blue=Array.from({length:4},(_,i)=>P('E2EB'+i,4,'청팀'));
