@@ -6,22 +6,39 @@
   let refreshing=false;
   const same=(a,b)=>a&&b&&['name','grade','gender','ageGroup','level','skillStep'].every(k=>String(a[k]??(k==='skillStep'?0:''))===String(b[k]??(k==='skillStep'?0:'')));
   function paint(){
-    const entries=read(KEY,[]).filter(l=>l.readyCount>0&&Date.now()-l.createdAt<37*86400000);
+    const all=read(KEY,[]),now=Date.now();
+    const entries=all.filter(l=>l.readyCount>0&&now-l.createdAt<37*86400000);
+    const clubs=read('badminton_rosters_v1',{}).clubs||[];
+    const due=clubs.filter(c=>{
+      const records=all.filter(l=>l.clubId===c.id&&!l.pending);
+      if(!records.length)return false;
+      const latest=Math.max(...records.map(l=>l.reviewedAt||l.createdAt));
+      return now-latest>=90*86400000;
+    });
     let box=document.getElementById('clubSkillNotice');
-    if(!entries.length){box?.remove();return;}
+    if(!entries.length&&!due.length){box?.remove();return;}
     if(!box){box=document.createElement('div');box.id='clubSkillNotice';box.setAttribute('role','status');box.style.cssText='padding:10px 16px;background:#edf7f1;color:#285d44;font-size:14px;';document.querySelector('header')?.after(box);}
-    const link=document.createElement('a');link.href=`skill-review.html?from=${mode}&review=${encodeURIComponent(entries[entries.length-1].id)}`;
-    link.textContent='우리 클럽 미세조정 · 적용 검토할 보정안이 있습니다';link.style.color='inherit';box.replaceChildren(link);
+    const items=[];
+    for(const entry of entries){
+      const link=document.createElement('a');link.href=`skill-review.html?from=${mode}&review=${encodeURIComponent(entry.id)}`;
+      link.textContent=`${entry.clubName} · 미세조정 적용 확인`;items.push(link);
+    }
+    for(const club of due){
+      const link=document.createElement('a');link.href=`skill-review.html?from=${mode}&club=${encodeURIComponent(club.id)}&quick=1`;
+      link.textContent=`${club.name} · 3개월 실력 점검, 5문제 풀기`;items.push(link);
+    }
+    items.forEach(link=>{link.style.cssText='color:inherit;display:block;padding:6px 0';});box.replaceChildren(...items);
   }
   async function refresh(){
     if(document.hidden||refreshing)return;
     refreshing=true;
-    const entries=read(KEY,[]).filter(l=>!l.pending).slice(-3);
+    const entries=read(KEY,[]).filter(l=>!l.pending&&Date.now()-l.createdAt<37*86400000);
     for(const l of entries){
       try{
         const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{action:'read',id:l.id,key:l.key}}),signal:AbortSignal.timeout(15000)});
         const data=await response.json();if(!response.ok||!data.result)continue;
         const all=read(KEY,[]),current=all.find(v=>v.id===l.id);if(!current)continue;
+        current.reviewedAt=data.result.reviewedAt||current.reviewedAt||0;
         current.readyCount=data.result.proposals.filter(p=>{
           const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===l.clubId);
           const original=l.snapshots?.[Number(p.id.slice(1))];

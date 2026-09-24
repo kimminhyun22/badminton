@@ -50,6 +50,16 @@ function fakeDb(){
     }
   };}};
 }
+// Quarterly notice survives expired survey cleanup and routes to the right club.
+function reminder(days,source=fs.readFileSync('js/club-skill-notice.js','utf8')){
+  let ready,box;
+  const values={badminton_rosters_v1:JSON.stringify({clubs:[{id:'test',name:'E2E클럽'}]}),kokmatch_club_skill_links_v1:JSON.stringify([{id:'old',clubId:'test',createdAt:Date.now()-120*86400000,reviewedAt:Date.now()-days*86400000}])};
+  vm.runInNewContext(source,{URLSearchParams,Date,location:{pathname:'/team.html',search:''},localStorage:{getItem:k=>values[k]},document:{hidden:true,getElementById:()=>box,createElement:()=>({style:{},setAttribute(){},replaceChildren(...items){this.items=items;}}),querySelector:()=>({after:b=>box=b}),addEventListener:(name,fn)=>{if(name==='DOMContentLoaded')ready=fn;}},window:{addEventListener(){}},setTimeout:fn=>fn(),setInterval(){}});
+  ready();return box;
+}
+assert(!reminder(89));assert(reminder(90).items[0].href.includes('club=test'));
+assert(reminder(100).items[0].textContent.includes('5문제'));
+assert.throws(()=>assert(reminder(90,fs.readFileSync('js/club-skill-notice.js','utf8').replace('>=90*86400000','>=900*86400000'))));
 (async()=>{
   const db=fakeDb(),now=Date.now(),id='1'.repeat(32),key='2'.repeat(32),invites=['3','4','5'].map(v=>v.repeat(32));
   const request={action:'create',id,key,invites,clubName:'E2E클럽',players:fixtures()};
@@ -72,6 +82,11 @@ function fakeDb(){
   await assert.rejects(handle(db,input,'test',now));
   const id2='6'.repeat(32);await handle(db,{...request,id:id2},'test',now);
   assert.equal((await handle(db,{action:'read',id:id2,key},'test',now)).count,0,'club isolation');
+  const five=Object.fromEntries(questions.slice(0,5).map(q=>[q.id,'tie']));
+  const skipped=Object.fromEntries(questions.slice(0,5).map(q=>[q.id,'skip']));
+  assert.equal((await handle(db,{...input,id:id2,answers:skipped},'test',now)).reviewedAt,0);
+  assert.equal((await handle(db,{...input,id:id2,answers:five},'test',now)).reviewedAt,now);
+  assert.equal((await handle(db,{...input,id:id2,answers:five},'test',now+1000)).reviewedAt,now,'retry must not reset reminder');
   await assert.rejects(handle(db,{...input,id:id2},'test',now+31*86400000));
   console.log('club skill calibration: bounded residuals, no demographic double count, consistency, mutation, capabilities, idempotency, concurrency, isolation, expiry passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

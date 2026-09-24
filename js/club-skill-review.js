@@ -6,6 +6,7 @@
   const write=(key,data)=>localStorage.setItem(key,JSON.stringify(data));
   let links=read(KEY,[]),active=null,session=null,batch=[],answers={},at=0,busy=false,flipped=false;
   const from=new URLSearchParams(location.search).get('from')==='team'?'team.html':'index.html';
+  const quick=new URLSearchParams(location.search).get('quick')==='1';
   $('back').href=from;
   const clubs=read('badminton_rosters_v1',{}).clubs||[];
   const nonce=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');
@@ -28,6 +29,9 @@
   function setup(){
     panels('setup');
     $('club').innerHTML=clubs.map((c,i)=>`<option value="${i}">${esc(c.name)}</option>`).join('');
+    const requested=new URLSearchParams(location.search).get('club');
+    const selected=clubs.findIndex(c=>String(c.id)===requested);
+    if(selected>=0)$('club').value=String(selected);
     $('create').disabled=!clubs.length;
     if(!clubs.length)message('명부에 클럽과 회원을 먼저 등록해 주세요.');
     $('historyLabel').hidden=!links.length;
@@ -48,7 +52,7 @@
     };
     session.proposals.forEach(p=>{if(!unchanged(p)){p.ready=false;p.state='명부 변경됨';}});
     const ready=session.proposals.filter(p=>p.ready);
-    own.readyCount=ready.length;own.closed=session.closed;persist(own);
+    own.readyCount=ready.length;own.closed=session.closed;own.reviewedAt=session.reviewedAt||own.reviewedAt||0;persist(own);
     $('notice').textContent=ready.length?`개인 보정 ${ready.length}명, 적용을 검토해 주세요.`:`${session.count}개 의견 · 임시 보정 검토 중`;
     $('notice').className=ready.length?'ready-notice':'muted';
     $('proposals').innerHTML=session.proposals.filter(p=>p.opponents).map(p=>`<article class="result-row"><strong>${esc(p.name)}</strong><p>${label(p.current)} → ${label(p.step)} · ${p.state}</p><p class="muted">상대 ${p.opponents}명 비교 · 판단자 ${p.experts}명${p.conflicts?' · 의견 충돌 '+p.conflicts+'건':''}</p>${p.ready?`<button data-apply="${p.id}">명부에서 적용 확인</button>`:''}</article>`).join('')||'<p class="muted">첫 의견을 기다리고 있습니다.</p>';
@@ -62,12 +66,13 @@
       const players=C.players(club.members);
       if(!C.pairs(players).length)throw Error('같은 급수에서 비교할 회원이 부족합니다.');
       const reusable=links.slice().reverse().find(l=>l.clubId===club.id&&!l.pending&&!l.closed&&Date.now()-l.createdAt<30*86400000&&JSON.stringify(l.snapshots)===JSON.stringify(club.members));
-      if(reusable){await open({id:reusable.id,key:reusable.key});return;}
+      if(reusable){await open({id:reusable.id,key:quick?reusable.invites[0]:reusable.key});return;}
       let entry=links.find(l=>l.clubId===club.id&&l.pending);
       if(!entry){entry={id:nonce(),key:nonce(),invites:[nonce(),nonce(),nonce()],clubId:club.id,clubName:club.name,createdAt:Date.now(),snapshots:JSON.parse(JSON.stringify(club.members)),players,pending:true};persist(entry);}
       busy=true;$('create').disabled=true;message('퀴즈를 만드는 중');
       session=await api({action:'create',id:entry.id,key:entry.key,invites:entry.invites,clubName:entry.clubName,players:entry.players});
-      entry.pending=false;persist(entry);active={id:entry.id,key:entry.key};message('');renderOwner();
+      entry.pending=false;persist(entry);active={id:entry.id,key:entry.key};message('');
+      if(quick){busy=false;await open({id:entry.id,key:entry.invites[0]});}else renderOwner();
     }catch(e){message(e.message);}finally{busy=false;$('create').disabled=false;}
   };
   $('history').onchange=()=>{const l=links.find(l=>l.id===$('history').value);if(l)open({id:l.id,key:l.key});};
@@ -108,6 +113,7 @@
     if(busy)return;busy=true;$('choices').hidden=true;$('retry').hidden=true;message('의견을 저장하는 중');
     try{
       session=await api({action:'answer',...active,answers});
+      const own=ownerLink();if(own&&session.reviewedAt){own.reviewedAt=session.reviewedAt;persist(own);}
       localStorage.removeItem('kokmatch_skill_draft_'+active.id+'_'+active.key);
       answers={};panels('done');$('doneText').textContent='실제 명부는 바뀌지 않습니다. 클럽 운영자가 보정안을 확인합니다.';
       $('more').hidden=session.questions.every(q=>Object.hasOwn(session.answers,q.id));message('');showOwnerReturn();
@@ -133,6 +139,10 @@
   if(parts.length===2&&parts.every(s=>/^[a-f0-9]{32}$/.test(s)))open({id:parts[0],key:parts[1]});
   else{
     const wanted=new URLSearchParams(location.search).get('review'),entry=links.find(l=>l.id===wanted);
-    if(entry)open({id:entry.id,key:entry.key});else setup();
+    if(entry)open({id:entry.id,key:entry.key});else{
+      setup();
+      const requested=new URLSearchParams(location.search).get('club');
+      if(quick&&clubs.some(c=>String(c.id)===requested))$('create').onclick();
+    }
   }
 })();

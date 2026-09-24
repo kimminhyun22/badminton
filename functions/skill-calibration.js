@@ -14,6 +14,7 @@ function authorize(s,key){
 function project(s,role){
   const players=role==='owner'?s.players:s.players.map(({id,name,grade,gender,ageGroup})=>({id,name,grade,gender,ageGroup}));
   return {id:s.id,clubName:s.clubName,players,questions:s.questions,expiresAt:s.expiresAt,closed:!!s.closed,
+    reviewedAt:s.reviewedAt||0,
     answers:role==='owner'?{}:s.votes?.[role]||{},
     proposals:role==='owner'?core.proposals(s.players,s.questions,s.votes):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
@@ -56,7 +57,11 @@ async function handle(db,data,ip,now=Date.now()){
     // Null lets the server compare-and-retry; undefined would abort immediately.
     if(!old)return null;
     if(old.closed||old.expiresAt<=now)return;
-    return {...old,votes:{...old.votes,[role]:{...old.votes?.[role],...data.answers}}};
+    const votes={...old.votes,[role]:{...old.votes?.[role],...data.answers}};
+    const meaningful=Object.values(votes[role]).filter(v=>v!=='skip').length;
+    // First completed batch only: retries and reopening must not postpone review.
+    const reviewedAt=old.reviewedAt||(meaningful>=Math.min(5,old.questions.length)?now:0);
+    return {...old,votes,reviewedAt};
   });
   if(!result.committed||!result.snapshot.val())throw Error('마감되었거나 만료된 링크입니다.');
   return project(result.snapshot.val(),role);
