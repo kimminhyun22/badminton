@@ -1464,6 +1464,9 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .rsvp-saved-btn.danger{color:#b91c1c;border-color:#fecaca;}
 
 /* ── 팀전LIVE 운영 보드 ── */
+.team-stage-live:not(.team-review-open) #sec-quality,
+.team-stage-live:not(.team-review-open) #sec-settings{display:none;}
+#teamReviewToggle{margin-top:10px;min-height:44px;}
 .auto-flow-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 52%,#f0fdf4 100%);
   box-shadow:0 14px 34px rgba(37,99,235,.1);}
 .auto-flow-card .auto-flow-head{display:flex;flex-direction:column;align-items:stretch;gap:12px;margin-bottom:12px;}

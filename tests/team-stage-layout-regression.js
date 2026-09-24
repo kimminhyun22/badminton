@@ -111,6 +111,10 @@ assert(!r.hidden('gen-row'), '명단이 있으면 대진 생성 줄이 보여야
 // live: 대진 생성 뒤 — 결과가 먼저 오도록 세팅 카드는 접힌다
 r = run({ players: [{}], matches: [{}, {}] });
 assert.strictEqual(r.stage, 'live');
+assert(r.hidden('#bnav-roster')&&!r.hidden('#teamReviewToggle'), '게시 후 명부 탭 대신 설정·점검 입구만 남깁니다.');
+assert(css.includes('.team-stage-live:not(.team-review-open) #sec-quality,')&&css.includes('.team-stage-live:not(.team-review-open) #sec-settings{display:none;}'), '게시 후 준비 카드는 명시적으로 열 때만 보입니다.');
+assert(html.includes('onclick="teamToggleSetupReview()"'), '설정·점검을 다시 열 수 있어야 합니다.');
+assert(src.includes("if(cfg.open==='sec-settings')teamToggleSetupReview(true);"), '설정 바로가기도 숨긴 카드를 열어야 합니다.');
 for (const id of ['sec-players', 'sec-settings', 'sec-rsvp'])
   assert.strictEqual(r.open(id), false, `대진 생성 뒤에는 ${id} 가 접혀야 합니다.`);
 // 중계만 켜져 있어도 live 로 본다

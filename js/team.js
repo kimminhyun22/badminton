@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.694';
+const APP_VERSION = '1.10.695';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8198,6 +8198,7 @@ function teamLiveOpenPanel(target){
     live:{tab:'result',id:'scoreboardSec',open:'sec-scoreboard'}
   };
   const cfg=map[target]||map.rsvp;
+  if(cfg.open==='sec-settings')teamToggleSetupReview(true);
   if(typeof switchMobileTab==='function')switchMobileTab(cfg.tab||'dashboard');
   else switchNav('main');
   document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
@@ -8219,6 +8220,17 @@ function teamLiveOpenPanel(target){
    empty : 참가자 0명·대진 없음 → 참가자 확인 카드만. 링크·팀 배정·대진 생성은 눌러도 안내창뿐이다.
    roster: 참가자 있음·대진 없음 → 링크·진행 설정까지 열린다.
    live  : 대진이 만들어진 뒤 → 결과가 먼저 오도록 세팅 카드는 접는다. */
+function teamToggleSetupReview(force){
+  const page=document.getElementById('pageMain');
+  if(!page)return;
+  const open=typeof force==='boolean'?force:!page.classList.contains('team-review-open');
+  page.classList.toggle('team-review-open',open);
+  const button=document.getElementById('teamReviewToggle');
+  if(button){
+    button.setAttribute('aria-expanded',String(open));
+    button.textContent=open?'설정·점검 닫기':'설정·점검';
+  }
+}
 function _teamUiStage(){
   if((typeof currentMatches!=='undefined'&&currentMatches.length)||(typeof _liveOn!=='undefined'&&_liveOn))return 'live';
   return (typeof _directPlayers!=='undefined'&&_directPlayers.length)?'roster':'empty';
@@ -8296,6 +8308,8 @@ function teamApplyStageLayout(){
   hide('.auto-flow-board.setup-board',!_teamRestoreHint);
   // 대진표·결과 탭은 대진이 만들어진 뒤에야 갈 곳이 있다
   hide('#bnav-bracket,#bnav-result',stage!=='live');
+  hide('#bnav-roster',stage==='live');
+  hide('#teamReviewToggle',stage!=='live');
   // 참가자가 없으면 공유는 눌러도 안내창뿐이다 — 민턴LIVE 와 같은 기준.
   // 「다음 할 일」이 공유일 때도 머리쪽 사본을 감춘다 — 같은 버튼 넷이 한 화면에 서지 않게.
   const shareCta=!!document.querySelector('#autoFlowBody .auto-flow-share-btns');
