@@ -25,7 +25,7 @@
     }
     for(const club of due){
       const link=document.createElement('a');link.href=`skill-review.html?from=${mode}&club=${encodeURIComponent(club.id)}&quick=1`;
-      link.textContent=`${club.name} · 3개월 실력 점검, 5문제 풀기`;items.push(link);
+      link.textContent=`${club.name} · 3개월 실력 점검 시작`;items.push(link);
     }
     items.forEach(link=>{link.style.cssText='color:inherit;display:block;padding:6px 0';});box.replaceChildren(...items);
   }

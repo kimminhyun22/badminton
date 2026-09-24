@@ -79,19 +79,35 @@
   $('share').onclick=async()=>{
     const own=ownerLink();if(!own)return;
     const url=new URL('skill-review.html',location.href);url.hash=own.id+'.'+own.invites[Number($('expert').value)];
-    try{if(navigator.share)await navigator.share({title:'우리 클럽 미세조정',text:'회원 비교 5문제만 부탁드려요.',url:url.href});else{await navigator.clipboard.writeText(url.href);message('링크를 복사했습니다.');}}
+    try{if(navigator.share)await navigator.share({title:'우리 클럽 미세조정',text:'누구와 편을 할까요? 클럽 실력 비교에 참여해 주세요.',url:url.href});else{await navigator.clipboard.writeText(url.href);message('링크를 복사했습니다.');}}
     catch(e){if(e.name!=='AbortError'){message('링크를 복사해 보내 주세요.');prompt('공유 링크',url.href);}}
   };
   $('answerSelf').onclick=()=>{const own=ownerLink();open({id:own.id,key:own.invites[0]});};
+  function reviewQuestions(questions,previous,limit=20){
+    const counts={};
+    for(const q of questions)if(previous[q.id]&&previous[q.id]!=='skip'){
+      counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;
+    }
+    const remaining=questions.filter(q=>!Object.hasOwn(previous,q.id)),chosen=[];
+    while(remaining.length&&chosen.length<limit){
+      remaining.sort((a,b)=>Math.max(counts[a.a]||0,counts[a.b]||0)-Math.max(counts[b.a]||0,counts[b.b]||0)||
+        ((counts[a.a]||0)+(counts[a.b]||0))-((counts[b.a]||0)+(counts[b.b]||0))||a.id.localeCompare(b.id));
+      const q=remaining.shift();chosen.push(q);counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;
+    }
+    return chosen;
+  }
+  const draftKey=()=> 'kokmatch_skill_draft_'+active.id+'_'+active.key;
   function startBatch(){
     if(session.closed||session.expiresAt<=Date.now()){panels('done');$('doneText').textContent='마감되었거나 만료된 퀴즈입니다.';$('more').hidden=true;showOwnerReturn();return;}
-    const pending=read('kokmatch_skill_draft_'+active.id+'_'+active.key,{});
+    const pending=read(draftKey(),{});
     answers=Object.fromEntries(Object.entries(pending).filter(([id,v])=>session.questions.some(q=>q.id===id)&&['a','b','tie','skip'].includes(v)));
-    if(Object.keys(answers).length){batch=session.questions.filter(q=>Object.hasOwn(answers,q.id));at=batch.length;panels('quiz');$('choices').hidden=true;$('retry').hidden=false;message('보내지 못한 응답이 있습니다. 다시 보내 주세요.');return;}
-    const remaining=session.questions.filter(q=>!Object.hasOwn(session.answers,q.id));
-    const offset=remaining.length?parseInt(active.key.slice(0,4),16)%remaining.length:0;
-    batch=[...remaining.slice(offset),...remaining.slice(0,offset)].slice(0,5);at=0;answers={};
+    const saved=read(draftKey()+'_plan',[]);
+    batch=saved.length?saved.map(id=>session.questions.find(q=>q.id===id)).filter(Boolean):reviewQuestions(session.questions,session.answers);
+    if(!saved.length&&Object.keys(answers).length)batch=session.questions.filter(q=>Object.hasOwn(answers,q.id));
+    at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers,q.id));
+    if(at<0&&batch.length){panels('quiz');$('choices').hidden=true;$('retry').hidden=false;message('저장할 응답이 있습니다.');return;}
     if(!batch.length){panels('done');$('doneText').textContent='모든 비교를 마쳤습니다.';$('more').hidden=true;showOwnerReturn();return;}
+    write(draftKey()+'_plan',batch.map(q=>q.id));
     panels('quiz');$('retry').hidden=true;renderQuestion();
   }
   function renderQuestion(){
@@ -99,11 +115,11 @@
     flipped=(parseInt(active.key.slice(-2),16)+at)%2===1;
     const a=session.players.find(p=>p.id===(flipped?q.b:q.a)),b=session.players.find(p=>p.id===(flipped?q.a:q.b));
     $('progress').textContent=`${session.clubName} · ${at+1} / ${batch.length}`;
-    $('sides').innerHTML=[a,b].map(p=>`<article class="side"><h3>${esc(p.name)}</h3><p>${esc(p.grade)}급 · ${esc(p.gender)} · ${esc(p.ageGroup)}</p></article>`).join('');
-    $('leftChoice').textContent=a.name+' 님';$('rightChoice').textContent=b.name+' 님';$('choices').hidden=false;
+    $('sides').innerHTML=[a,b].map((p,i)=>`${i?'<span class="versus" aria-hidden="true">VS</span>':''}<button class="side" id="${i?'rightChoice':'leftChoice'}" data-vote="${i?'b':'a'}"><strong>${esc(p.name)}</strong><span>${esc(p.grade)}급 · ${esc(p.gender)}</span><span>${esc(p.ageGroup)}</span></button>`).join('');
+    $('choices').hidden=false;
   }
   $('choices').onclick=async event=>{
-    let value=event.target.dataset.vote;if(!value||busy)return;
+    let value=event.target.closest('[data-vote]')?.dataset.vote;if(!value||busy)return;
     if(flipped&&['a','b'].includes(value))value=value==='a'?'b':'a';
     answers[batch[at].id]=value;
     try{write('kokmatch_skill_draft_'+active.id+'_'+active.key,answers);}catch(_){message('기기 저장이 제한됩니다. 창을 닫지 말고 완료해 주세요.');}
@@ -112,9 +128,14 @@
   async function submit(){
     if(busy)return;busy=true;$('choices').hidden=true;$('retry').hidden=true;message('의견을 저장하는 중');
     try{
-      session=await api({action:'answer',...active,answers});
+      // The interface is uninterrupted; bounded server writes remain retry-safe.
+      for(const chunk of Array.from({length:Math.ceil(Object.keys(answers).length/5)},(_,i)=>Object.entries(answers).slice(i*5,i*5+5))){
+        session=await api({action:'answer',...active,answers:Object.fromEntries(chunk)});
+        chunk.forEach(([id])=>delete answers[id]);write(draftKey(),answers);
+      }
       const own=ownerLink();if(own&&session.reviewedAt){own.reviewedAt=session.reviewedAt;persist(own);}
       localStorage.removeItem('kokmatch_skill_draft_'+active.id+'_'+active.key);
+      localStorage.removeItem(draftKey()+'_plan');
       answers={};panels('done');$('doneText').textContent='실제 명부는 바뀌지 않습니다. 클럽 운영자가 보정안을 확인합니다.';
       $('more').hidden=session.questions.every(q=>Object.hasOwn(session.answers,q.id));message('');showOwnerReturn();
     }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;}

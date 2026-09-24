@@ -2,11 +2,11 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="app-version" content="1.10.717"><meta name="referrer" content="no-referrer">
+  <meta name="app-version" content="1.10.718"><meta name="referrer" content="no-referrer">
   <title>우리 클럽 미세조정 · 콕매치</title>
-  <link rel="stylesheet" href="css/skill-review.css?v=1.10.717">
-  <script defer src="functions/skill-calibration-core.js?v=1.10.717"></script>
-  <script defer src="js/club-skill-review.js?v=1.10.717"></script>
+  <link rel="stylesheet" href="css/skill-review.css?v=1.10.718">
+  <script defer src="functions/skill-calibration-core.js?v=1.10.718"></script>
+  <script defer src="js/club-skill-review.js?v=1.10.718"></script>
 </head>
 <body>
   <header><a id="back" href="index.html">돌아가기</a><h1>우리 클럽 미세조정</h1></header>
@@ -21,7 +21,7 @@
     <section id="owner" hidden>
       <h2 id="clubTitle"></h2>
       <div class="toolbar"><label>공유 대상<select id="expert"><option value="0">판단자 1</option><option value="1">판단자 2</option><option value="2">판단자 3</option></select></label><button id="share">링크 공유</button></div>
-      <button id="answerSelf" class="primary">내가 먼저 5문제</button>
+      <button id="answerSelf" class="primary">비교 시작</button>
       <p class="muted">직접 답하면 판단자 1입니다. 다른 분께는 2·3번 링크를 보내 주세요.</p>
       <p id="notice" role="status"></p><div id="proposals"></div>
       <details><summary>관리</summary><div class="toolbar"><button id="refresh">결과 새로고침</button><button id="close">응답 마감</button></div><p id="expiry" class="muted"></p>
@@ -31,10 +31,12 @@
     <section id="quiz" hidden>
       <p id="progress" class="muted"></p><h2>누구와 편을 하면 더 유리할까요?</h2>
       <p class="muted">파트너와 상대는 같다고 생각해 주세요.</p>
-      <div id="sides" class="question-sides"></div>
-      <div id="choices" class="choices"><button data-vote="a" id="leftChoice"></button><button data-vote="tie">비슷해요</button><button data-vote="b" id="rightChoice"></button><button data-vote="skip">잘 모르겠어요</button></div>
+      <div id="choices" class="choices">
+        <div id="sides" class="question-sides"></div>
+        <button data-vote="tie">비슷해요</button><button data-vote="skip">잘 모르겠어요</button>
+      </div>
       <button id="retry" hidden>응답 다시 보내기</button>
     </section>
-    <section id="done" hidden><h2>고맙습니다. 의견을 담았습니다.</h2><p id="doneText" class="muted"></p><button id="more" class="primary">5문제 더</button><button id="ownerReturn" hidden>보정안 보기</button></section>
+    <section id="done" hidden><h2>비교를 마쳤습니다.</h2><p id="doneText" class="muted"></p><button id="more">남은 비교 계속</button><button id="ownerReturn" class="primary" hidden>보정안 보기</button></section>
   </main>
 </body></html>

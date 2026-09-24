@@ -58,8 +58,19 @@ function reminder(days,source=fs.readFileSync('js/club-skill-notice.js','utf8'))
   ready();return box;
 }
 assert(!reminder(89));assert(reminder(90).items[0].href.includes('club=test'));
-assert(reminder(100).items[0].textContent.includes('5문제'));
+assert(reminder(100).items[0].textContent.includes('실력 점검 시작'));
 assert.throws(()=>assert(reminder(90,fs.readFileSync('js/club-skill-notice.js','utf8').replace('>=90*86400000','>=900*86400000'))));
+const reviewSource=fs.readFileSync('js/club-skill-review.js','utf8');
+const planner=reviewSource.slice(reviewSource.indexOf('  function reviewQuestions('),reviewSource.indexOf('  const draftKey='));
+const planContext={};vm.runInNewContext(planner+';this.plan=reviewQuestions;',planContext);
+assert.equal(planContext.plan(questions,{}).length,10,'no five-question interruption');
+const many=core.pairs(core.players(Array.from({length:16},(_,i)=>({...fixtures()[0],name:'E2E'+i}))));
+const selected=planContext.plan(many,{});
+assert.equal(selected.length,20);assert.equal(new Set(selected.map(q=>q.id)).size,20);
+assert.equal(new Set(selected.flatMap(q=>[q.a,q.b])).size,16,'cover all comparable members before repeating');
+assert(!planContext.plan(many,Object.fromEntries(selected.map(q=>[q.id,'tie']))).some(q=>selected.some(p=>p.id===q.id)));
+const broken={};vm.runInNewContext(planner.replace('limit=20','limit=5')+';this.plan=reviewQuestions;',broken);
+assert.throws(()=>assert.equal(broken.plan(questions,{}).length,10));
 (async()=>{
   const db=fakeDb(),now=Date.now(),id='1'.repeat(32),key='2'.repeat(32),invites=['3','4','5'].map(v=>v.repeat(32));
   const request={action:'create',id,key,invites,clubName:'E2E클럽',players:fixtures()};
