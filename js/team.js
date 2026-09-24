@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.711';
+const APP_VERSION = '1.10.712';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4995,7 +4995,7 @@ function _teamApplyDirectProfileToPlayer(p,byName){
   if(!src)return false;
   const gender=_teamGenderCode(src.gender||p.gender);
   const grade=src.grade||p.grade||levelToGrade(p.level||src.level||4,gender)||'C';
-  const level=gradeToLevel(grade,gender)||src.level||p.level||4;
+  const level=src.level||gradeToLevel(grade,gender)||p.level||4;
   const next={
     memberId:src.memberId||p.memberId||'',
     grade,
@@ -6955,7 +6955,7 @@ function _rsvpSyncImportedPlayersFromRoster(){
       if(!roster)return p;
       const gender=roster.gender||p.gender||'남';
       const grade=roster.grade||p.grade||levelToGrade(p.level||4,gender)||'C';
-      const level=gradeToLevel(grade,gender)||p.level||4;
+      const level=roster.level||gradeToLevel(grade,gender)||p.level||4;
       const next={
         ...p,
         memberId:roster.id,
@@ -7440,7 +7440,7 @@ function _rsvpRosterMembers(){
   selectedClubs.forEach(club=>{
     (club.members||[]).forEach(m=>{
       if(!m||!m.name)return;
-      const base={name:m.name,grade:m.grade||'C',gender:m.gender||'남',ageGroup:m.ageGroup||'40대',club:club.name||'',isClubOfficial:!!m.isClubOfficial};
+      const base={name:m.name,grade:m.grade||'C',level:m.level,gender:m.gender||'남',ageGroup:m.ageGroup||'40대',club:club.name||'',isClubOfficial:!!m.isClubOfficial};
       base.id=_rsvpMemberId(base);
       if(!map.has(base.id))map.set(base.id,base);
     });
@@ -7458,7 +7458,8 @@ function _rsvpManagedMembers(){
       name:p.name,grade,gender,ageGroup:p.ageGroup||'40대',club:p.club||'',
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial,
-      id:p.memberId||_rsvpMemberId({name:p.name,club:p.club||''})
+      id:p.memberId||_rsvpMemberId({name:p.name,club:p.club||''}),
+      level:p.level
     };
     if(!map.has(base.id))map.set(base.id,base);
   });
@@ -7479,6 +7480,7 @@ function _rsvpEventMembers(){
     const club=p.club||src.club||'';
     const base={
       id:p.memberId||src.memberId||_rsvpMemberId({name:p.name,club}),
+      level:p.level||src.level,
       name:p.name,
       grade,
       gender,
@@ -7512,6 +7514,7 @@ function _rsvpMergedMemberProfile(memberId,fallback={},rosterMap=null){
   return {
     memberId,
     memberName:base.name||fallback.memberName||fallback.name||'',
+    level:base.level||fallback.level,
     name:base.name||fallback.name||fallback.memberName||'',
     club:base.club||fallback.club||'',
     grade,
@@ -9070,7 +9073,7 @@ function _legacyRsvpImportAttendees(){
       name,
       grade,
       gender,
-      level:gradeToLevel(grade,gender)||4,
+      level:p.level||gradeToLevel(grade,gender)||4,
       ageGroup:p.ageGroup||'40대',
       club:p.club||'',
       isGuest:!!p.isGuest,
@@ -9311,6 +9314,7 @@ function openAddMemberModal(clubId){
   document.getElementById('memberName').value='';
   const errEl=document.getElementById('memberErrMsg');if(errEl)errEl.textContent='';
   _memberGrade='D';_memberGender='남';_memberAge='40대';
+  selectMemberSkill(0);
   const official=document.getElementById('memberOfficial');if(official)official.checked=false;
   document.querySelectorAll('#memberGradeBtns .grade-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade==='D'));
   document.querySelectorAll('#memberGenderBtns .gender-sel-btn').forEach(b=>{
@@ -9345,7 +9349,8 @@ function saveMember(){
   if(!name){document.getElementById('memberName').focus();return;}
   const club=rosters.clubs.find(c=>c.id===_editingClubId);
   if(!club)return;
-  const level=gradeToLevel(_memberGrade,_memberGender)??1;
+  const skillStep=rosterSkillStep(document.getElementById('memberSkill')?.value);
+  const level=rosterSkillLevel({grade:_memberGrade,gender:_memberGender,skillStep});
   const isClubOfficial=!!document.getElementById('memberOfficial')?.checked;
   if(_editingMemberIdx===null){
     // ── 신규 추가 (중복 방지) ──
@@ -9354,9 +9359,10 @@ function saveMember(){
       document.getElementById('memberName').select();return;
     }
     if(errEl)errEl.textContent='';
-    club.members.push({name,grade:_memberGrade,gender:_memberGender,level,ageGroup:_memberAge,isClubOfficial});
+    club.members.push({name,grade:_memberGrade,gender:_memberGender,level,skillStep,ageGroup:_memberAge,isClubOfficial});
     saveRosters();renderClubList();renderDirectPlayerList();
     document.getElementById('memberName').value='';
+    selectMemberSkill(0);
     document.getElementById('memberName').focus();
   } else {
     // ── 기존 수정 (본인 제외 중복 방지) ──
@@ -9365,7 +9371,7 @@ function saveMember(){
       document.getElementById('memberName').select();return;
     }
     if(errEl)errEl.textContent='';
-    club.members[_editingMemberIdx]={...club.members[_editingMemberIdx],name,grade:_memberGrade,gender:_memberGender,level,ageGroup:_memberAge,isClubOfficial};
+    club.members[_editingMemberIdx]={...club.members[_editingMemberIdx],name,grade:_memberGrade,gender:_memberGender,level,skillStep,ageGroup:_memberAge,isClubOfficial};
     saveRosters();renderClubList();renderDirectPlayerList();closeMemberModal();
   }
 }
@@ -9553,6 +9559,7 @@ function editMember(clubId,idx){
   document.getElementById('memberName').value=m.name;
   const errEl=document.getElementById('memberErrMsg');if(errEl)errEl.textContent='';
   _memberGrade=m.grade||'D';_memberGender=m.gender||'남';_memberAge=m.ageGroup||'40대';
+  selectMemberSkill(m.skillStep);
   const official=document.getElementById('memberOfficial');if(official)official.checked=!!m.isClubOfficial;
   document.querySelectorAll('#memberGradeBtns .grade-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade===_memberGrade));
   document.querySelectorAll('#memberGenderBtns .gender-sel-btn').forEach(b=>{
@@ -9626,12 +9633,12 @@ function importRosters(evt){
 /* ── 구글 시트 CSV 내보내기 (외부 라이브러리 불필요) ── */
 function exportRostersXLSX(){
   if(!rosters.clubs.length){alert('내보낼 클럽이 없습니다.');return;}
-  const rows=[['클럽명','이름','급수','성별','클럽임원']];
+  const rows=[['클럽명','이름','급수','성별','클럽임원','실력보정']];
   rosters.clubs.forEach(club=>{
     if(!club.members.length){
       rows.push([club.name,'','','','']);
     } else {
-      club.members.forEach(m=>rows.push([club.name,m.name,m.grade,m.gender,m.isClubOfficial?'Y':'']));
+      club.members.forEach(m=>rows.push([club.name,m.name,m.grade,m.gender,m.isClubOfficial?'Y':'',rosterSkillStep(m.skillStep)]));
     }
   });
   // RFC 4180 CSV + UTF-8 BOM (구글시트/엑셀 한글 깨짐 방지)
@@ -9673,7 +9680,8 @@ function importRostersXLSX(evt){
         name:_findCol(hdr,['이름','name','성명']),
         grade:_findCol(hdr,['급수','grade','등급']),
         gender:_findCol(hdr,['성별','gender','sex']),
-        official:_findCol(hdr,['클럽임원','임원','official','clubofficial'])
+        official:_findCol(hdr,['클럽임원','임원','official','clubofficial']),
+        skill:_findCol(hdr,['실력보정','skillstep'])
       };
       if(ci.club<0)ci.club=0;if(ci.name<0)ci.name=1;
       if(ci.grade<0)ci.grade=2;if(ci.gender<0)ci.gender=3;
@@ -9686,17 +9694,17 @@ function importRostersXLSX(evt){
         if(!clubName||!name)continue;
         const grade=((row[ci.grade]||'').trim().toUpperCase())||'D';
         const genderRaw=(row[ci.gender]||'').trim();
-        const validGrade=/^[A-E]$/.test(grade)?grade:'D';
+        const validGrade=/^[SABCDE]$/.test(grade)?grade:'D';
         // 성별 정규화: 여/여자/여성/F/f/female/w → '여', 그 외 → '남'
         const gN=genderRaw.toLowerCase();
         const validGender=(gN.startsWith('여')||gN==='f'||gN.startsWith('fe')||gN==='w'||gN==='woman'||gN==='women')?'여':'남';
-        const _lvRaw=gradeToLevel(validGrade,validGender==='여'?'여':'남');
-        const level=(_lvRaw!==null&&_lvRaw!==undefined)?_lvRaw:1;
+        const skillStep=rosterSkillStep(ci.skill>=0?row[ci.skill]:0);
+        const level=rosterSkillLevel({grade:validGrade,gender:validGender,skillStep});
         const officialRaw=ci.official>=0?String(row[ci.official]||'').trim().toLowerCase():'';
         const isClubOfficial=['y','yes','1','true','임원','운영임원'].includes(officialRaw);
         if(!imported[clubName])imported[clubName]=[];
         if(!imported[clubName].some(m=>m.name===name))
-          imported[clubName].push({name,grade:validGrade,gender:validGender,level,isClubOfficial});
+          imported[clubName].push({name,grade:validGrade,gender:validGender,level,skillStep,isClubOfficial});
       }
       const clubNames=Object.keys(imported);
       if(!clubNames.length){

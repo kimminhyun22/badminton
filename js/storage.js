@@ -57,6 +57,20 @@ window.KokMatchStorage = {
 };
 
 const LIVE_ROSTER_BRIDGE_VERSION = 1;
+// Store the adjusted numeric level once; all engines already consume level.
+function rosterSkillStep(value){
+  const n=Number(value);
+  return Number.isInteger(n)&&n>=-2&&n<=2?n:0;
+}
+function rosterSkillLevel(member){
+  const base=gradeToLevel(member.grade||'C',member.gender||'남');
+  return Math.round(((base??(Number(member.level)||1))+rosterSkillStep(member.skillStep)*0.2)*10)/10;
+}
+function selectMemberSkill(value){
+  const el=document.getElementById('memberSkill');
+  if(el)el.value=String(rosterSkillStep(value));
+}
+
 const LIVE_ROSTER_BRIDGE_KEYS = Object.freeze({
   daily:'kokmatch_live_roster_daily_v1',
   team:'kokmatch_live_roster_team_v1',

@@ -520,7 +520,7 @@ const editBody=dailyFull.slice(dailyFull.indexOf('function saveMember('),dailyFu
 require('assert')(editBody.includes('_dailyPropagateMemberEdit(club,prevName,'),
   '명부 수정 저장은 참가자 행에도 전파해야 합니다.');
 const prop=dailyFull.slice(dailyFull.indexOf('function _dailyPropagateMemberEdit('),dailyFull.indexOf('/* ── 회원 편집 ── */'));
-for(const field of ['p.grade=next.grade','p.gender=_dailyGender(next.gender)','p.ageGroup=next.ageGroup','p.level=gradeToLevel(next.grade','p.isClubOfficial=!!next.isClubOfficial']){
+for(const field of ['p.grade=next.grade','p.gender=_dailyGender(next.gender)','p.ageGroup=next.ageGroup','p.level=next.level??gradeToLevel(next.grade','p.isClubOfficial=!!next.isClubOfficial']){
   require('assert')(prop.includes(field),'전파는 '+field+' 를 포함해야 합니다.');
 }
 require('assert')(prop.includes('if(_dailyCheckinId)dailyPushCheckinSession();'),
