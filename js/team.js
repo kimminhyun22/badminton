@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.707';
+const APP_VERSION = '1.10.708';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -965,9 +965,8 @@ function generate(opts={}){
   document.getElementById('loadingOverlay').classList.add('on');
   setTimeout(()=>{
     try{
-      // 4명 단위 경기이므로 목표 슬롯을 모두 담는 최소 경기 수를 사용한다.
-      // 나누어떨어지지 않는 경우에만 1~3명분의 최소 초과가 발생한다.
-      const totalMatches=Math.ceil(total/4);
+      // Fixed teams need two slots from each side per match, including unequal rosters.
+      const totalMatches=_participationSlotStats(participants,settings,{}).minimumMatches;
       const numF=participants.filter(p=>p.gender==='F').length;
       const numM=participants.filter(p=>p.gender==='M').length;
       // 혼복 타겟: 입력값 기반
@@ -1901,7 +1900,10 @@ function _participationSlotStats(participants,settings,counts){
   const gpp=settings.gamesPerPlayer||4;
   const goal=p=>p._goal!=null?p._goal:gpp;
   const totalGoalSlots=participants.reduce((s,p)=>s+goal(p),0);
-  const minimumMatches=Math.ceil(totalGoalSlots/4);
+  const teamGoals=settings.teamMode?['청팀','홍팀'].map(team=>participants.filter(p=>p.team===team).reduce((s,p)=>s+goal(p),0)):[];
+  const minimumMatches=teamGoals.length&&teamGoals.every(n=>n>0)
+    ?Math.max(...teamGoals.map(n=>Math.ceil(n/2)))
+    :Math.ceil(totalGoalSlots/4);
   const minimumOver=Math.max(0,minimumMatches*4-totalGoalSlots);
   const underSlots=participants.reduce((s,p)=>s+Math.max(0,goal(p)-(counts[p.name]||0)),0);
   const overSlots=participants.reduce((s,p)=>s+Math.max(0,(counts[p.name]||0)-goal(p)),0);
@@ -3758,7 +3760,7 @@ function renderQualityDashboard(matches,participants,settings){
     (()=>{
       const pct=sEfficiency/5;
       const detail=extraMatchCount===0&&avoidableOverSlots===0
-        ?(minimumOver>0?`최소 ${minimumMatches}게임 · 불가피한 초과 ${minimumOver}명`:'추가 경기·초과 출전 없음')
+        ?(minimumOver>0?`최소 ${minimumMatches}게임 · 불가피한 추가 출전 ${minimumOver}회`:'추가 경기·초과 출전 없음')
         :`추가 경기 ${extraMatchCount}개 · 추가 초과 ${avoidableOverSlots}게임분`;
       return {label:'일정 효율성',detail,score:sEfficiency,max:5,pct};
     })(),
@@ -8626,6 +8628,7 @@ function renderAutoFlowDashboard(){
       stage='playerReview';
       cfg={badge:'운영 준비',sub:''};
     }
+    document.getElementById('pageMain')?.classList.toggle('team-ready',stage==='broadcast');
     if(card)card.classList.toggle('live-compact',live);
     if(card)card.classList.toggle('live-resume-ready',stage==='restoreLive'||stage==='resume');
     /* 점(.daily-dot)은 형제로 두고 글자만 갈아 끼운다 — textContent 로 통째 쓰면 점이 지워진다 */
@@ -8730,6 +8733,12 @@ function renderAutoFlowDashboard(){
         ${directResumeMode||restoreBracket?supportHtml:''}`;
     }
     _autoFlowSetSection('sec-rsvp',stage==='link');
+    document.getElementById('teamPublishAction')?.remove();
+    if(stage==='broadcast'){
+      const action=body.querySelector('.auto-flow-action.live-start');
+      const quality=document.getElementById('qualDash');
+      if(action&&quality){action.id='teamPublishAction';quality.prepend(action);}
+    }
     _autoFlowSetSection('sec-players',stage==='playerSetup');
     _autoFlowSetSection('sec-settings',stage==='generate'||stage==='playerReview'||(stage==='playerSetup'&&players>0));
     _autoFlowSetResultSections(stage);

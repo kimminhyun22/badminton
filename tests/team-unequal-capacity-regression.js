@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('assert'),fs=require('fs'),path=require('path'),vm=require('vm');
+const src=fs.readFileSync(path.join(__dirname,'../js/team.js'),'utf8');
+const ctx={};vm.createContext(ctx);vm.runInContext(src.slice(src.indexOf('function _participationSlotStats('),src.indexOf('function formTeams(')),ctx);
+const players=Array.from({length:29},(_,i)=>({name:'E2E'+i,team:i<14?'청팀':'홍팀',gender:'M'}));
+const counts=Object.fromEntries(players.map((p,i)=>[p.name,i<4?5:4]));
+const q=ctx._participationSlotStats(players,{teamMode:true,gamesPerPlayer:4},counts);
+assert.equal(q.minimumMatches,30);assert.equal(q.minimumOver,4);assert.equal(q.avoidableOverSlots,0);assert.equal(q.avoidableUnderSlots,0);
+counts.E2E28=3;assert.equal(ctx._participationSlotStats(players,{teamMode:true,gamesPerPlayer:4},counts).avoidableUnderSlots,1,'Do not excuse actual missing appearances');
+assert.equal(ctx._participationSlotStats(players,{teamMode:false,gamesPerPlayer:4},{}).minimumMatches,29);
+assert(src.includes('const totalMatches=_participationSlotStats(participants,settings,{}).minimumMatches;'));
+assert(src.includes("quality.prepend(action)"));
+console.log('team unequal capacity regression passed');

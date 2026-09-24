@@ -1593,8 +1593,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
   box-shadow:0 14px 28px rgba(227,91,85,.24);
 }
 .auto-flow-action.live-start{
-  border-color:#fecdd3!important;
-  background:#fff7f7!important;
+  border-color:#c8dbfb!important;
+  background:#f8fbff!important;
 }
 .auto-flow-btn:active{transform:translateY(1px);}
 .auto-flow-checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
@@ -3002,11 +3002,14 @@ header,.nav-bar{
 .auto-flow-action.live-start .auto-flow-btn,
 .auto-flow-focus .auto-flow-action.live-start .auto-flow-btn,
 .auto-flow-focus .auto-flow-btn.live-start{
-  background:linear-gradient(135deg,#ef4444 0%,#be123c 100%)!important;
-  border-color:#ef4444!important;
-  color:#fff!important;
-  box-shadow:0 14px 30px rgba(225,29,72,.28)!important;
+  background:linear-gradient(180deg,#f8fbff 0%,#edf4ff 100%)!important;
+  border-color:#c8dbfb!important;
+  color:#2a5ca8!important;
+  box-shadow:none!important;
 }
+#teamPublishAction{padding:14px;margin:0;border-bottom:1px solid #dce6f4;}
+#teamPublishAction .auto-flow-btn{width:100%;min-height:52px;}
+.team-stage-live.team-ready #sec-quality{display:block;}
 .auto-flow-action.live-start .auto-flow-btn::before,
 .auto-flow-focus .auto-flow-action.live-start .auto-flow-btn::before,
 .auto-flow-focus .auto-flow-btn.live-start::before{
