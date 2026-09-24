@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.697';
+const APP_VERSION = '1.10.698';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3327,6 +3327,15 @@ async function shareTeamStatus(){
 
 
 /* 현재 진행 라운드 하이라이트 갱신 (점수 입력에 따라 이동) */
+function teamMonitorSchedule(rounds,current,startedAt,pointSystem){
+  const index=rounds.indexOf(current);
+  const minutes=_POINT_MINUTES[pointSystem]||15;
+  return {
+    nextRound:index>=0?rounds[index+1]||null:null,
+    lastRound:rounds[rounds.length-1]||null,
+    endAt:startedAt>0?Number(startedAt)+rounds.length*minutes*60000:null
+  };
+}
 function updateCurrentRoundHighlight(){
   if(!currentMatches.length) return;
   const byRound={};
@@ -3338,9 +3347,22 @@ function updateCurrentRoundHighlight(){
     if(!allDone){ cur=rn; break; }
   }
   window._currentPlayRound=cur;
+  const schedule=teamMonitorSchedule(roundNums,cur,_liveMatchStartedAt,_pointSystem);
+  const timing=document.getElementById('teamMonitorTiming');
+  if(timing){
+    const end=schedule.endAt?new Date(schedule.endAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):null;
+    timing.textContent=cur===null?'전체 경기 완료':`마지막 R${schedule.lastRound}${end?' · 종료 예상 '+end:''}`;
+    timing.title=`${_pointSystem}점 기준, 라운드당 ${_POINT_MINUTES[_pointSystem]||15}분 예상 (휴식·코트 전환 포함)`;
+  }
   // 모든 블록에서 강조 제거 후 현재에만 부여
   document.querySelectorAll('.round-block').forEach(el=>{
     el.classList.remove('round-current');
+    el.classList.toggle('round-next',el.id==='roundBlock_'+schedule.nextRound);
+    const oldNext=el.querySelector('.round-next-badge');if(oldNext)oldNext.remove();
+    if(el.id==='roundBlock_'+schedule.nextRound){
+      const label=document.createElement('span');label.className='round-next-badge';label.textContent='다음 준비';
+      el.querySelector('.round-badge')?.insertAdjacentElement('afterend',label);
+    }
     const nb=el.querySelector('.round-now-badge'); if(nb) nb.remove();
   });
   const goBtn=document.getElementById('gotoCurrentBtn');
@@ -8270,6 +8292,7 @@ function teamApplyStageLayout(){
   if(page)page.classList.toggle('team-monitoring',!!_liveOn);
   const hide=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hidden',!!on));
   hide('#teamMonitorTools',!_liveOn);
+  if(_liveOn&&typeof updateCurrentRoundHighlight==='function')updateCurrentRoundHighlight();
   // 명부가 비어 있으면 직접 추가가 유일한 등록 길이라 자동으로 펼친다
   const directBox=document.getElementById('teamDirectAddBox');
   if(directBox&&_teamUiStageShown!==stage){

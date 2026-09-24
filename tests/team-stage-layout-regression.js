@@ -121,7 +121,14 @@ for (const id of ['sec-players', 'sec-settings', 'sec-rsvp'])
 assert.strictEqual(run({ players: [{}], live: true }).stage, 'live');
 assert(run({players:[{}],live:true}).page.has('team-monitoring'), '중계 시작 후 모니터링 화면으로 전환합니다.');
 assert(!run({players:[{}],matches:[{}]}).page.has('team-monitoring'), '대진 생성만으로 준비 화면을 감추지 않습니다.');
-assert(css.includes('#tabBracket:has(.round-current) .round-block:not(.round-current){display:none;}'), '진행 중에는 현재 라운드만, 종료 후에는 전체 결과를 표시합니다.');
+assert(css.includes('#tabBracket:has(.round-current) .round-block:not(.round-current):not(.round-next){display:none;}'), '진행 중에는 현재·다음 라운드, 종료 후에는 전체 결과를 표시합니다.');
+const scheduleCode=cut('function teamMonitorSchedule(', 'function updateCurrentRoundHighlight(');
+const scheduleContext={_POINT_MINUTES:{25:15,21:12,15:9}};
+vm.createContext(scheduleContext);vm.runInContext(scheduleCode,scheduleContext);
+assert.strictEqual(scheduleContext.teamMonitorSchedule([1,3,5],1,1000,25).nextRound,3);
+assert.strictEqual(scheduleContext.teamMonitorSchedule([1,3,5],5,1000,21).nextRound,null);
+assert.strictEqual(scheduleContext.teamMonitorSchedule([1,3,5],1,1000,25).endAt,2701000);
+assert.strictEqual(scheduleContext.teamMonitorSchedule([1],1,null,15).endAt,null);
 assert(html.includes('onclick="teamToggleMonitorManagement(this)"')&&html.includes('onclick="teamToggleMonitorMatches(this)"'), '운영 메뉴와 전체 대진에 다시 접근할 수 있어야 합니다.');
 
 // 빈 화면의 죽은 상태 타일과, 갈 곳 없는 하단 탭

@@ -1480,7 +1480,10 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .team-monitoring:not(.team-management-open) #liveOpsSummary{display:none;}
 .team-monitoring:not(.team-management-open) #warnBar,
 .team-monitoring:not(.team-management-open) #printMenuWrap{display:none;}
-.team-monitoring:not(.team-all-rounds) #tabBracket:has(.round-current) .round-block:not(.round-current){display:none;}
+.team-monitoring:not(.team-all-rounds) #tabBracket:has(.round-current) .round-block:not(.round-current):not(.round-next){display:none;}
+#teamMonitorTiming{flex:1 1 100%;font-size:13px;font-weight:700;color:var(--dim);}
+.team-monitor-tools{flex-wrap:wrap;}
+.round-next-badge{font-size:12px;font-weight:700;color:#397558;}
 .team-monitoring:not(.team-management-open) .scoreboard{grid-template-columns:repeat(2,minmax(0,1fr));}
 .team-monitoring:not(.team-management-open) .sb-stats{display:none;}
 .auto-flow-card{border:2px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 52%,#f0fdf4 100%);
