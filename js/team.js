@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.706';
+const APP_VERSION = '1.10.707';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8535,6 +8535,13 @@ function _autoFlowSetResultSections(stage){
   _autoFlowSetSection('sec-quality',stage==='broadcast'||stage==='resume');
   _autoFlowSetSection('sec-scoreboard',stage==='live');
 }
+function _teamPrepareAutomaticLineup(){
+  if(!_teamUsesFixedTeams()||_directPlayers.length<4||currentMatches.length||_liveOn||_teamFinishedAt)return;
+  if(!teamAssignment)doTeamAssign();
+  const review=document.querySelector('.team-lineup-review');
+  if(review&&teamAssignment)review.open=true;
+}
+
 function renderAutoFlowDashboard(){
   if(_autoFlowRendering)return;
   const subEl=document.getElementById('autoFlowSub');
@@ -8546,6 +8553,7 @@ function renderAutoFlowDashboard(){
   const savedBracketRestore=_teamSavedBracketRestoreInfo();
   _autoFlowRendering=true;
   try{
+    if(!savedBracketRestore&&!_teamHasResumeLiveHint())_teamPrepareAutomaticLineup();
     let stats={counts:{late:0,party:0,partner:0,total:0},responses:[],members:[]};
     try{ stats=_rsvpStats(); }catch(e){}
     const counts=stats.counts||{};
@@ -8643,7 +8651,7 @@ function renderAutoFlowDashboard(){
       link:_autoFlowShareAction(),
       playerReview:_autoFlowAction('청·홍 배정','doTeamAssign'),
       generate:_autoFlowAction('대진 생성','generate'),
-      broadcast:_autoFlowAction('팀전 시작','onLiveBtnClick','live-start'),
+      broadcast:_autoFlowAction('대진 게시','onLiveBtnClick','live-start'),
       restoreLive:_autoFlowAction('팀전 이어가기','restoreTeamLiveAndResume','live-start'),
       restoreBracket:_autoFlowAction('이전 대진표 불러오기','restoreState','live-start'),
       resume:_autoFlowAction('팀전 이어가기','resumeTeamLiveBroadcast','live-start'),
