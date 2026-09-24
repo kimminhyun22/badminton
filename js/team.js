@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.709';
+const APP_VERSION = '1.10.710';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5819,7 +5819,7 @@ function _cpUpdateSummary(){
 /* ═══ 다중 시도 → 최고점 선택 헬퍼 (재배정 품질 최적화) ═══ */
 // 동일 조건으로 N회 시도 후 품질 점수 최고인 결과 반환
 // 시뮬: 5회 시도 시 평균 +0.9점, 10회 +1.4점 (속도/품질 균형상 5회 채택)
-function _genBestMatches(activeParticipants, settings, totalNewMatches, tries=5, historyMatches=[]){
+function _genBestMatches(activeParticipants, settings, totalNewMatches, tries=5, historyMatches=[], finalQuality=false){
   // _bracketQualityScore는 페널티 점수 → 낮을수록 좋은 대진
   const _njNames=new Set(activeParticipants.filter(p=>p.isNewJoiner).map(p=>p.name));
   const _hasNJ=_njNames.size>0;
@@ -5830,6 +5830,7 @@ function _genBestMatches(activeParticipants, settings, totalNewMatches, tries=5,
   const maxTries=_hasNJ?Math.max(minTries,200):minTries;
   const _isTeam=!!(settings.teamMode);
   let bestMatches=null, bestParticipants=null, bestKey=null;
+  const finalists=[];
   for(let t=0;t<maxTries;t++){
     const pCopy=activeParticipants.map(p=>({...p,
       partnerCount:{...p.partnerCount},opponentCount:{...p.opponentCount}}));
@@ -5855,14 +5856,29 @@ function _genBestMatches(activeParticipants, settings, totalNewMatches, tries=5,
     }
     // 완료 경기까지 함께 비교해야 같은 4명·같은 파트너 재등장을 피할 수 있다.
     const qualityMatches=historyMatches.length?[...historyMatches,...m]:m;
-    const key=_candidateQualityKey(qualityMatches,pCopy,settings,score);
+    const key=finalQuality?_teamFinalQualityKey(qualityMatches,pCopy,settings):_candidateQualityKey(qualityMatches,pCopy,settings,score);
+    if(finalQuality&&!historyMatches.length){
+      compactSchedule(m,settings);
+      _teamKeepFinalist(finalists,{matches:m,participants:pCopy},settings);
+    }
     if(_isBetterQualityKey(key,bestKey)){bestKey=key;bestMatches=m;bestParticipants=pCopy;}
     const requiredSlots=activeParticipants.reduce((sum,p)=>
       sum+Math.max(0,(p._goal!=null?p._goal:settings.gamesPerPlayer)-(p.gamesPlayed||0)),0);
     const minimumOver=Math.max(0,totalNewMatches*4-requiredSlots);
     if(t+1>=minTries&&bestKey&&bestKey[0]===0&&bestKey[1]===0&&bestKey[2]===0)break;
   }
+  if(finalists.length){
+    const best=_teamOptimizeFinalists(finalists,settings);
+    return {matches:best.matches,participants:best.participants};
+  }
   return{matches:bestMatches||[],participants:bestParticipants||activeParticipants};
+}
+
+function _teamAcceptReshuffle(matches,participants,previousMatches,previousParticipants,settings){
+  const next=_teamFinalQualityKey(matches,participants,settings);
+  const previous=_teamFinalQualityKey(previousMatches,previousParticipants,settings);
+  // Preserve both safety priorities and the visible score, including ties.
+  return !_isBetterQualityKey(previous,next)&&next[6]<=previous[6];
 }
 
 /* ═══ 완료 게임에서 대진 기록(상대/파트너) 역산 헬퍼 ═══ */
@@ -5996,25 +6012,31 @@ function reshuffleMatches(){
     });
   });
 
-  const remaining=activeParticipants.reduce((s,p)=>s+Math.max(0,(p._goal!=null?p._goal:target)-p.gamesPlayed),0);
-  const totalNewMatches=Math.ceil(remaining/4);
+  const remainingParticipants=activeParticipants.map(p=>({...p,_goal:Math.max(0,(p._goal!=null?p._goal:target)-p.gamesPlayed)}));
+  const totalNewMatches=_participationSlotStats(remainingParticipants,currentSettings,{}).minimumMatches;
   if(totalNewMatches===0){alert('모든 선수가 목표 게임 수를 달성해 재배정할 게임이 없습니다.');return;}
 
-  _captureUndoSnapshot('재배정 전');
   document.getElementById('loadingOverlay').classList.add('on');
   setTimeout(()=>{
     try{
       _skipNewFirstRound=false; // 이미 투입된 선수이므로 1라운드 제외 안 함
       const _tries=_autoSearchTries(activeParticipants.length,activeParticipants.some(p=>p.isNewJoiner));
-      const {matches:newMatches,participants:bestP2}=_genBestMatches(activeParticipants,currentSettings,totalNewMatches,_tries,completedMatches);
-      compactSchedule(newMatches,currentSettings);
-      _optimizeFutureRounds(newMatches,currentSettings,_lastCompletedRoundPlayers(completedMatches));
+      const {matches:newMatches,participants:bestP2}=_genBestMatches(activeParticipants,currentSettings,totalNewMatches,_tries,completedMatches,true);
+      if(completedMatches.length){
+        compactSchedule(newMatches,currentSettings);
+        _optimizeFutureRounds(newMatches,currentSettings,_lastCompletedRoundPlayers(completedMatches));
+      }
       newMatches.sort((a,b)=>a.round-b.round||a.court-b.court);
       const lastDoneRound=completedMatches.length?Math.max(...completedMatches.map(m=>m.round)):0;
       // 잠금 라운드를 완료 라운드+1로 동기화 → 서명 일치로 점수 누적 비교 보장
       if(lastDoneRound>0) _lockedBeforeRound=Math.max(_lockedBeforeRound||0, lastDoneRound+1);
       newMatches.forEach(m=>m.round+=lastDoneRound);
       const allMatches=[...completedMatches,...newMatches];
+      if(!_teamAcceptReshuffle(allMatches,bestP2,currentMatches,currentParticipants,currentSettings)){
+        alert('더 나은 대진을 찾지 못해 기존 대진을 유지합니다.');
+        return;
+      }
+      _captureUndoSnapshot('재배정 전');
       allMatches.forEach((m,i)=>m.matchNumber=i+1);
       currentMatches=allMatches;
       currentParticipants=bestP2;

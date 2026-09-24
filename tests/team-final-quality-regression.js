@@ -12,6 +12,18 @@ assert(players.every(p=>p.lastRoundPlayed===2),'Refresh participant round record
 const safe=make({total:85}),missing=make({total:100,avoidableUnderSlots:1}),unbalanced=make({total:100,balanceHardCount:1});
 assert(ctx._isBetterQualityKey(ctx._teamFinalQualityKey(safe.matches,players,{}),ctx._teamFinalQualityKey(missing.matches,players,{})));
 assert(ctx._isBetterQualityKey(ctx._teamFinalQualityKey(safe.matches,players,{}),ctx._teamFinalQualityKey(unbalanced.matches,players,{})));
+vm.runInContext(src.slice(src.indexOf('function _teamAcceptReshuffle('),src.indexOf('/* ═══ 완료 게임에서')),ctx);
+const accept=(next,prev)=>ctx._teamAcceptReshuffle(next.matches,players,prev.matches,players,{});
+assert(!accept(make({total:84}),safe),'Reject lower visible score');
+assert(accept(make({total:86}),safe),'Accept better quality');
+assert(accept(make({total:85}),safe),'Allow equally good alternatives');
+assert(!accept(missing,safe),'Do not trade attendance for points');
+assert(!accept(unbalanced,safe),'Do not trade balance for points');
+assert(!accept(make({total:80}),missing),'Safety improvement must not silently lower displayed score');
+const reshuffle=src.slice(src.indexOf('function reshuffleMatches(){'),src.indexOf('function _teamSyncAssignmentAfterExclusion('));
+assert(reshuffle.includes('_participationSlotStats(remainingParticipants,currentSettings,{}).minimumMatches'),'Use team-aware remaining slots');
+assert(reshuffle.includes('_tries,completedMatches,true)'),'Use final quality candidate selection');
+assert(reshuffle.indexOf('if(!_teamAcceptReshuffle(')<reshuffle.indexOf('currentMatches=allMatches;'),'Reject before replacing the current schedule');
 ctx._qualityAssessment=matches=>({structureErr:0,genderErr:0,avoidableUnderSlots:0,balanceHardCount:0,balanceSevereCount:0,balanceCautionCount:0,total:matches[0].round===1?95:85,sBalance:30,avoidableOverSlots:0,avoidablePartnerExcess:0,excessConsec:0});
 finalists=[];ctx._teamKeepFinalist(finalists,make(),{});assert.equal(ctx._teamOptimizeFinalists(finalists,{}).matches[0].round,1,'Retain original schedule if optimization lowers quality');
 assert(src.includes('const finalChoice=_teamOptimizeFinalists(finalists,settings);'),'Initial generation must select finalized candidates');
