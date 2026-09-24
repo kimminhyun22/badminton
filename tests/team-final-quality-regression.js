@@ -14,6 +14,11 @@ assert(ctx._isBetterQualityKey(ctx._teamFinalQualityKey(safe.matches,players,{})
 assert(ctx._isBetterQualityKey(ctx._teamFinalQualityKey(safe.matches,players,{}),ctx._teamFinalQualityKey(unbalanced.matches,players,{})));
 vm.runInContext(src.slice(src.indexOf('function _teamAcceptReshuffle('),src.indexOf('/* ═══ 완료 게임에서')),ctx);
 const accept=(next,prev)=>ctx._teamAcceptReshuffle(next.matches,players,prev.matches,players,{});
+const better=(a,b)=>ctx._isBetterQualityKey(ctx._teamFinalQualityKey(a.matches,players,{}),ctx._teamFinalQualityKey(b.matches,players,{}));
+assert(better(make({maxLD:1.5,total:88}),make({maxLD:1.9,total:95})),'Prioritize reducing the worst game over average-driven total');
+assert(better(make({maxLD:0.9,total:95}),make({maxLD:0.2,total:88})),'Do not sacrifice diversity for tiny differences within excellent balance');
+assert(!accept(make({maxLD:1.5,total:88}),make({maxLD:1.9,total:95})),'Reshuffle still preserves the visible score');
+assert(!better(make({maxLD:0.5,avoidableUnderSlots:1}),safe),'Worst-game improvement must preserve participation');
 assert(!accept(make({total:84}),safe),'Reject lower visible score');
 assert(accept(make({total:86}),safe),'Accept better quality');
 assert(accept(make({total:85}),safe),'Allow equally good alternatives');

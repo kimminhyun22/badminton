@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.710';
+const APP_VERSION = '1.10.711';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2306,7 +2306,8 @@ function _teamFinalQualityKey(matches,participants,settings){
   const q=_qualityAssessment(matches,participants,settings);
   // Never trade invalid games, missing appearances or severe imbalance for points.
   return [q.structureErr,q.genderErr,q.avoidableUnderSlots,q.balanceHardCount,
-    q.balanceSevereCount,q.balanceCautionCount,-q.total,-q.sBalance,
+    q.balanceSevereCount,q.balanceCautionCount,
+    Math.round(Math.max(0,(q.maxLD||0)-1)*10)/10,-q.total,-q.sBalance,
     q.avoidableOverSlots,q.avoidablePartnerExcess,q.excessConsec];
 }
 
@@ -5878,7 +5879,8 @@ function _teamAcceptReshuffle(matches,participants,previousMatches,previousParti
   const next=_teamFinalQualityKey(matches,participants,settings);
   const previous=_teamFinalQualityKey(previousMatches,previousParticipants,settings);
   // Preserve both safety priorities and the visible score, including ties.
-  return !_isBetterQualityKey(previous,next)&&next[6]<=previous[6];
+  return !_isBetterQualityKey(previous,next)
+    &&_qualityAssessment(matches,participants,settings).total>=_qualityAssessment(previousMatches,previousParticipants,settings).total;
 }
 
 /* ═══ 완료 게임에서 대진 기록(상대/파트너) 역산 헬퍼 ═══ */
