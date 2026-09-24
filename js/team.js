@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.700';
+const APP_VERSION = '1.10.701';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2372,6 +2372,7 @@ function updateScores(){
 /* 팀전 중간 현황 공유 (단톡방/밴드) */
 const LIVE_TTL_MS=48*60*60*1000;
 let _liveId=null, _liveOn=false, _liveMatchStartedAt=null;
+let _teamFinishedAt=null;
 const TEAM_LIVE_STORAGE_KEY='badminton_team_liveId';
 const LEGACY_LIVE_STORAGE_KEY='badminton_liveId';
 let _liveLate={}, _liveParty={}, _liveResultInputs={}, _liveResultConflicts={}, _liveAdminRef=null, _liveAdminHandler=null, _liveAdminId=null;
@@ -2441,7 +2442,7 @@ function _teamConfirmDetachLiveBeforeChange(actionLabel){
   const liveId=_liveId||_teamStoredLiveId();
   if(!liveId)return true;
   if(_liveOn){
-    alert(`팀전 중계 중입니다.\n\n${actionLabel} 전에 홈 상단의 "종료·새로 시작"에서 "중계만 종료"를 선택해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
+    alert(`팀전 중계 중입니다.\n\n${actionLabel} 전에 홈 상단의 "운동 종료"를 눌러 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
     return false;
   }
   if(!confirm(`진행 중이던 팀전 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
@@ -3004,7 +3005,8 @@ async function startLiveBroadcast(){
     _teamAdoptServerMatchesAndRender(prevData);
     if(!_teamValidateLiveDataForCurrent(prevData))return;
     _liveOn=true;
-    temporaryOperators=_teamNormalizeTemporaryOperators(prevData.officials?.temporaryOperators);
+    temporaryOperators=prevData.officials?_teamNormalizeTemporaryOperators(prevData.officials.temporaryOperators):_teamNormalizeTemporaryOperators(temporaryOperators);
+    _teamFinishedAt=null;
     _teamResolveTemporaryOperators(currentParticipants);
     _liveMatchStartedAt=prevData.matchStartedAt||Date.now();
     const ownerRsvpId=_currentBracketRsvpId();
@@ -3195,10 +3197,13 @@ function _teamResetLocalLiveState(liveId){
 }
 
 function _teamDiscardLiveForNewBracket(){
+  const planned=!_liveOn?temporaryOperators.slice():[];
   const liveId=_liveId||_teamStoredLiveId();
   // 새 대진을 만들 때 기존 회원 링크를 지우면 실전에서 혼란이 커진다.
   // 관리자 화면의 연결만 끊고, 기존 LIVE 노드는 그대로 둔다.
   _teamResetLocalLiveState(liveId);
+  temporaryOperators=planned;
+  _teamFinishedAt=null;
 }
 
 async function _teamClearLiveBroadcastData(explicitLiveId){
@@ -3211,21 +3216,35 @@ async function _teamClearLiveBroadcastData(explicitLiveId){
 }
 
 /* 실시간 중계 종료 */
-function openTeamFinishDialog(){
-  const dialog=document.getElementById('teamFinishDialog');
-  if(dialog&&!dialog.open)dialog.showModal();
-}
 async function stopLiveBroadcast(){
+  if(!confirm('운동을 종료할까요?\n회원 중계를 마치고 최종 결과를 이 기기에 보관합니다.'))return;
+  _teamFinishedAt=Date.now();
   if(!_liveId || !_fbDb){
     await _teamClearLiveBroadcastData();
     saveState();
+    renderAutoFlowDashboard();
     return;
   }
-  if(!confirm('중계만 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.\n이 기기의 참가자·대진표·승패는 그대로 남습니다.')) return;
   await _teamClearLiveBroadcastData();
   await rsvpPushEventState();
   saveState();
-  alert('중계를 종료했습니다. 참가자·대진표·승패는 이 기기에 남아 있습니다.');
+  renderAutoFlowDashboard();
+  teamGoHome();
+}
+function startNewTeamWorkout(){
+  if(_teamFinishedAt){
+    saveState();
+    try{
+      const state=JSON.parse(localStorage.getItem(SAVE_KEY));
+      if(!state||state.finishedAt!==_teamFinishedAt)throw new Error('결과 저장을 확인하지 못했습니다.');
+      const slots=getSlots(),id='finished_'+_teamFinishedAt;
+      if(!slots.some(s=>s.id===id)){
+        if(slots.length>=MAX_SLOTS){alert('결과 보관함이 가득 찼습니다. 저장 목록에서 공간을 확보한 뒤 새 운동을 시작해 주세요.');openLoadSlotModal();return;}
+        saveSlots([{id,name:'종료 '+_defaultBracketSlotName(),savedAt:Date.now(),participants:currentParticipants.length,matches:currentMatches.length,state},...slots]);
+      }
+    }catch(e){alert('결과를 보관하지 못했습니다. 현재 결과를 유지합니다.');return;}
+  }
+  return resetAll();
 }
 
 /* 중계 버튼 UI 갱신 */
@@ -3355,7 +3374,7 @@ function updateCurrentRoundHighlight(){
   const timing=document.getElementById('teamMonitorTiming');
   if(timing){
     const end=schedule.endAt?new Date(schedule.endAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):null;
-    timing.textContent=cur===null?'전체 경기 완료':`마지막 R${schedule.lastRound}${end?' · 종료 예상 '+end:''}`;
+    timing.textContent=_teamFinishedAt?'운동 종료 · 최종 결과':cur===null?'전체 경기 완료':`마지막 R${schedule.lastRound}${end?' · 종료 예상 '+end:''}`;
     timing.title=`${_pointSystem}점 기준, 라운드당 ${_POINT_MINUTES[_pointSystem]||15}분 예상 (휴식·코트 전환 포함)`;
   }
   // 모든 블록에서 강조 제거 후 현재에만 부여
@@ -4993,6 +5012,8 @@ function saveState(){
     liveWinAt:JSON.parse(JSON.stringify(liveWinAt)),
     liveId:_liveOn?(_liveId||_teamStoredLiveId()||null):null,
     liveOn:!!_liveOn,
+    finishedAt:_teamFinishedAt,
+    plannedOperators:!_liveOn?_teamNormalizeTemporaryOperators(temporaryOperators):[],
     liveMatchStartedAt:_liveMatchStartedAt||null,
     lockedBeforeRound:_lockedBeforeRound,
     pointSystem:_pointSystem
@@ -5140,7 +5161,8 @@ function restoreState(opts={}){
         gender:p.gender==='M'?'남':'여',team:p.team||''
       }));
     }
-    temporaryOperators=[];
+    _teamFinishedAt=state.finishedAt||null;
+    temporaryOperators=_teamNormalizeTemporaryOperators(state.plannedOperators);
     renderDirectPlayerList();
     const parseStatus=document.getElementById('parseStatus');
     if(_directPlayers.length&&parseStatus){
@@ -6244,7 +6266,7 @@ function hideErr(){document.getElementById('errBar').classList.remove('on');}
 function showWarn(m){const b=document.getElementById('warnBar');if(!b)return;b.textContent=m;b.classList.add('on');}
 function hideWarn(){const b=document.getElementById('warnBar');if(b)b.classList.remove('on');}
 async function resetAll(){
-  if(!confirm('팀전을 전체 초기화할까요?\n팀전 링크, 늦음, 참가자, 팀 배정, 대진표, 승패 입력, 진행 중 LIVE가 모두 지워집니다.\n클럽 명부는 삭제되지 않습니다.'))return;
+  if(!confirm(_teamFinishedAt?'새 운동을 시작할까요?\n최종 결과는 저장 목록에 보관됩니다.\n참가자 등록 화면으로 돌아갑니다.':'새로 시작할까요?\n현재 참가자·대진표·승패와 중계를 비웁니다.\n클럽 명부는 유지됩니다.'))return;
   const resetLiveId=_liveId||_teamStoredLiveId()||_teamSavedBracketRestoreInfo()?.liveId||'';
   if(saveTimer)clearTimeout(saveTimer);
   saveTimer=null;
@@ -6360,8 +6382,8 @@ function _teamResolveTemporaryOperators(players=_directPlayers){
 
 async function setTeamTemporaryOperator(memberId,enabled){
   if(_teamTemporaryOperatorBusy)return false;
-  if(!_liveOn||!_liveId){
-    alert('자유대진 LIVE를 시작한 뒤 운영 도우미를 지정해 주세요.');
+  if(_teamFinishedAt){
+    alert('새 운동에서 운영 도우미를 지정해 주세요.');
     return false;
   }
   _teamResolveTemporaryOperators();
@@ -6388,6 +6410,7 @@ async function setTeamTemporaryOperator(memberId,enabled){
   _teamTemporaryOperatorBusy=true;
   renderTeamTemporaryOperatorPanel();
   try{
+    if(!_liveOn){saveState();return true;}
     if(!_fbDb&&!_fbInit())throw new Error('실시간 서버에 연결하지 못했습니다.');
     const state=_buildLiveState();
     await _fbDb.ref('live/'+_liveId).update({
@@ -6417,7 +6440,7 @@ function grantTeamTemporaryOperator(){
 }
 
 function openTeamOperatorDialog(){
-  if(!_liveOn)return;
+  if(_teamFinishedAt||!_directPlayers.length)return;
   renderTeamTemporaryOperatorPanel();
   const dialog=document.getElementById('teamOperatorDialog');
   if(dialog&&!dialog.open)dialog.showModal();
@@ -6430,11 +6453,11 @@ function renderTeamTemporaryOperatorPanel(){
   _teamResolveTemporaryOperators(players);
   const opener=document.getElementById('teamOperatorOpenBtn');
   if(opener){
-    opener.classList.toggle('hidden',!players.length||!_liveOn);
+    opener.classList.toggle('hidden',!players.length||!!_teamFinishedAt);
     const label=opener.querySelector('span');
     if(label)label.textContent=`운영 도우미${temporaryOperators.length?' '+temporaryOperators.length+'명':''}`;
   }
-  if(!players.length||!_liveOn){
+  if(!players.length||_teamFinishedAt){
     const dialog=document.getElementById('teamOperatorDialog');
     if(dialog?.open)dialog.close();
     panel.classList.add('hidden');
@@ -6454,7 +6477,7 @@ function renderTeamTemporaryOperatorPanel(){
   </span>`).join('');
   const officialCount=players.filter(p=>p.isClubOfficial).length;
   panel.innerHTML=`<div class="team-temporary-operator-head">
-      <div><b>자유대진 운영 도우미</b><small>${officialCount?`클럽 임원 ${officialCount}명은 자동 권한 · `:''}이번 LIVE에서만 모든 경기 승패 입력</small></div>
+      <div><b>운영 도우미</b><small>${officialCount?`클럽 임원 ${officialCount}명은 자동 권한 · `:''}${_liveOn?'이번 운동에서 승패 입력':'운동 시작 시 권한 적용'}</small></div>
       <span>${temporaryOperators.length}/${TEAM_TEMPORARY_OPERATOR_MAX}명</span>
     </div>
     ${chips?`<div class="team-temporary-operator-list">${chips}</div>`:''}
@@ -8278,7 +8301,7 @@ function teamGoHome(){
   teamApplyStageLayout();
   document.querySelectorAll('.bnav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('bnav-dashboard')?.classList.add('active');
-  document.getElementById(_liveOn?'teamMonitorTools':'autoFlowCard')?.scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById(_liveOn||_teamFinishedAt?'teamMonitorTools':'autoFlowCard')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function teamToggleSetupReview(force){
   const page=document.getElementById('pageMain');
@@ -8303,12 +8326,14 @@ let _teamRestoreHint=false;
 function teamApplyStageLayout(){
   const stage=_teamUiStage();
   const empty=stage==='empty';
+  const finished=typeof _teamFinishedAt!=='undefined'&&!!_teamFinishedAt;
   const page=document.getElementById('pageMain');
   if(page)['empty','roster','live'].forEach(s=>page.classList.toggle('team-stage-'+s,stage===s));
-  if(page)page.classList.toggle('team-monitoring',!!_liveOn);
+  if(page){page.classList.toggle('team-monitoring',!!_liveOn||finished);page.classList.toggle('team-finished',finished);}
   const hide=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hidden',!!on));
-  hide('#teamMonitorTools',!_liveOn);
-  if(_liveOn&&typeof updateCurrentRoundHighlight==='function')updateCurrentRoundHighlight();
+  hide('#teamMonitorTools',!_liveOn&&!finished);
+  hide('#teamNewWorkoutBtn',!finished);
+  if((_liveOn||finished)&&typeof updateCurrentRoundHighlight==='function')updateCurrentRoundHighlight();
   // 명부가 비어 있으면 직접 추가가 유일한 등록 길이라 자동으로 펼친다
   const directBox=document.getElementById('teamDirectAddBox');
   if(directBox&&_teamUiStageShown!==stage){
@@ -8472,7 +8497,9 @@ function renderAutoFlowDashboard(){
        이미 두 번 말하고 있었다(운영자 2026-09-03 "다른 서비스를 붙여놓은 것 같다"). */
     let stage='playerSetup';
     let cfg={badge:'운영 준비',sub:''};
-    if(live){
+    if(_teamFinishedAt){
+      body.innerHTML='<strong>최종 결과</strong>';
+    }else if(live){
       stage='live';
       cfg={badge:'진행 중',sub:''};
     } else if(restoreLive){

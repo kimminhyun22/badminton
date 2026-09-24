@@ -1481,13 +1481,6 @@ details.card:not([open]) .card-head{border-bottom:none;}
 #bnav-dashboard .bnav-label{color:#235e46;font-weight:800;}
 #teamOperatorDialog{margin:auto;width:calc(100% - 32px);max-width:460px;max-height:85dvh;padding:0;border-radius:8px;}
 #teamOperatorDialog::backdrop{background:rgba(0,0,0,.35);}
-#teamFinishDialog{margin:auto;width:calc(100% - 32px);max-width:460px;max-height:85dvh;padding:0;border-radius:8px;}
-#teamFinishDialog::backdrop{background:rgba(0,0,0,.35);}
-.team-finish-options{display:grid;gap:12px;}
-.team-finish-options>button{text-align:left;padding:16px;border:1px solid #d6e2dc;background:#f5faf7;border-radius:8px;color:#294e3c;font:inherit;cursor:pointer;}
-.team-finish-options strong{display:block;font-size:16px;margin-bottom:8px;}
-.team-finish-options span{font-size:13px;line-height:1.6;}
-.team-finish-options>button.danger{background:#fff8f8;border-color:#ebcccc;color:#984343;}
 .team-end-entry{min-height:44px;padding:9px 12px;border:1px solid #ebcccc;background:#fff8f8;color:#984343;border-radius:8px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;}
 .team-monitoring .team-reset-top{display:none;}
 .team-monitor-tools{display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;order:-1;}
@@ -1500,7 +1493,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .team-monitoring:not(.team-management-open) #liveOpsSummary{display:none;}
 .team-monitoring:not(.team-management-open) #warnBar,
 .team-monitoring:not(.team-management-open) #printMenuWrap{display:none;}
-.team-monitoring:not(.team-all-rounds) #tabBracket:has(.round-current) .round-block:not(.round-current):not(.round-next){display:none;}
+.team-monitoring:not(.team-finished):not(.team-all-rounds) #tabBracket:has(.round-current) .round-block:not(.round-current):not(.round-next){display:none;}
+.team-finished .round-now-badge,.team-finished .round-next-badge{display:none;}
 #teamMonitorTiming{flex:1 1 100%;font-size:13px;font-weight:700;color:var(--dim);}
 .team-monitor-tools{flex-wrap:wrap;}
 .round-next-badge{font-size:12px;font-weight:700;color:#397558;}

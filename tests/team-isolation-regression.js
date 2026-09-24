@@ -115,7 +115,7 @@ const importBody = teamJs.match(/function rsvpImportAttendees\(\)\{([\s\S]*?)\n\
 assert(importBody.includes('관리자가 참가자 명단을 직접 세팅'), '이전 응답자 불러오기는 관리자 참가자 세팅으로 안내해야 합니다.');
 assert(!teamJs.includes("_autoFlowAction('참가자 불러오기'"), '운영 흐름이 회원 응답자 불러오기를 요구하면 안 됩니다.');
 assert(teamJs.includes('function _rsvpOwnsCurrentEvent()'), 'RSVP 링크와 현재 대진의 소유권 확인 함수가 필요합니다.');
-assert(teamJs.includes('홈 상단의 "종료·새로 시작"에서 "중계만 종료"'), '불러오기 차단 안내에서 종료 버튼 위치와 선택지를 알려야 합니다.');
+assert(teamJs.includes('홈 상단의 "운동 종료"'), '불러오기 차단 안내에서 종료 버튼 위치를 알려야 합니다.');
 // 2026-08-12: 「임원 화면 열기」도 중계 중에만 뜨므로 같은 목록에서 함께 켭니다.
 assert(teamJs.includes("['liveStopTopBtn','liveConsoleTopBtn']"),
   'LIVE 중에만 뜨는 버튼들을 한 목록에서 동기화해야 합니다.');
@@ -143,7 +143,7 @@ assert(teamJs.includes('if(state.liveOn&&state.liveId)_teamSaveLiveId(state.live
 
 const teamHtml = fs.readFileSync(path.join(__dirname, '..', 'team.html'), 'utf8');
 assert(teamHtml.includes('id="liveStopTopBtn"'), '운영 보드에 팀전 종료 버튼이 있어야 합니다.');
-assert(!teamHtml.includes('id="liveStopManageBtn"')&&teamHtml.includes('id="teamFinishDialog"'), '종료 입구는 홈 상단 선택창으로 통합합니다.');
+assert(!teamHtml.includes('id="liveStopManageBtn"')&&teamHtml.includes('>운동 종료</button>'), '종료 입구는 홈 상단으로 통합합니다.');
 assert(teamHtml.includes('id="liveResumeTopBtn"'), '운영 보드에 팀전 이어 켜기 버튼이 있어야 합니다.');
 /* 2026-08-12 계약 뒤집음: 「팀전 이어가기」·「중계 종료」 사본을 참가자 카드의
    저장 바에서 뺐습니다 — 맨 위 운영 보드에 이미 있고, 명단을 고치는 카드 안에

@@ -27,7 +27,7 @@ assert(!/class="nav-sync-btn"/.test(html),
    같은 것이 있어 진입점이 둘이었습니다. 접힌 쪽 하나만 남깁니다. */
 assert(/class="sync-btn s-reset team-reset-top"[^>]*onclick="resetAll\(\)"/.test(html),
   '초기화는 상단에서 찾을 수 있어야 합니다. 실행 확인은 resetAll에서 유지합니다.');
-assert((html.match(/resetAll\(\)/g) || []).length === 2 &&
+assert((html.match(/resetAll\(\)/g) || []).length === 1 &&
   css.includes('.team-monitoring .team-reset-top{display:none;}'),
   '준비 중 상단 초기화와 중계 중 선택창은 동시에 노출하지 않습니다.');
 assert(/id="liveConsoleTopBtn"/.test(html),
@@ -80,7 +80,19 @@ const statusStart = src.indexOf('function setSaveStatus');
 const statusEnd = src.indexOf('function saveState', statusStart);
 assert(src.slice(statusStart, statusEnd).includes('renderBracketSaveQuick()'), '자동저장 상태가 빠른 저장 영역에도 즉시 반영되어야 합니다.');
 assert(src.includes("quick.classList.toggle('hidden',sample)"), '준비와 LIVE 중 모두 상단 저장 목록에 접근할 수 있어야 합니다.');
-assert(src.includes("if(!confirm('팀전을 전체 초기화할까요?"), '초기화 확인을 유지해야 합니다.');
+assert(src.includes("if(!confirm(_teamFinishedAt?"), '새 운동 시작 전 확인을 유지해야 합니다.');
 assert(src.includes('<details class="team-quality-details"><summary>상세 점검</summary>'), '세부 품질 점검은 접어서 표시해야 합니다.');
 
+const archiveSource=src.slice(src.indexOf('function startNewTeamWorkout(){'),src.indexOf('/* 중계 버튼 UI 갱신 */'));
+function archiveCase(full=false,stored=true){
+  let slots=full?Array.from({length:10},(_,i)=>({id:String(i)})):[],resets=0;
+  const ctx={_teamFinishedAt:123,SAVE_KEY:'test',MAX_SLOTS:10,currentParticipants:[{}],currentMatches:[{}],
+    saveState(){},localStorage:{getItem:()=>JSON.stringify(stored?{finishedAt:123}:null)},getSlots:()=>slots,
+    saveSlots:v=>{slots=v},_defaultBracketSlotName:()=> 'E2E',alert(){},openLoadSlotModal(){},resetAll:()=>resets++};
+  vm.createContext(ctx);vm.runInContext(archiveSource,ctx);ctx.startNewTeamWorkout();ctx.startNewTeamWorkout();
+  return {slots,resets};
+}
+assert.strictEqual(archiveCase().slots.length,1,'같은 종료 결과를 중복 보관하지 않습니다.');
+assert.strictEqual(archiveCase(true).resets,0,'보관함이 가득 차면 결과를 지우지 않습니다.');
+assert.strictEqual(archiveCase(false,false).resets,0,'저장 실패 시 새 운동으로 넘어가지 않습니다.');
 console.log('team save access regression ok');

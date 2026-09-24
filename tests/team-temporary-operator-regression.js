@@ -150,7 +150,7 @@ assert.strictEqual(members.find(p=>p.id==='m3').isTemporaryOperator,false,
   '일반 회원에게 운영 권한이 번지면 안 됩니다.');
 
 const setSource = functionSource(teamSrc, 'setTeamTemporaryOperator', 'grantTeamTemporaryOperator');
-assert(setSource.includes("if(!_liveOn||!_liveId)"), '실제 LIVE 중에만 운영 도우미를 지정해야 합니다.');
+assert(setSource.includes("if(!_liveOn){saveState();return true;}"), '시작 전 지정은 로컬 준비 상태만 저장합니다.');
 assert(setSource.includes("ref('live/'+_liveId).update({"), '지정·해제는 현재 LIVE에 직접 저장해야 합니다.');
 assert(setSource.includes('officials:state.officials'), '권한 원본을 Firebase에 즉시 반영해야 합니다.');
 assert(setSource.includes('members:state.members'), '열린 회원 화면의 권한 표시도 즉시 갱신해야 합니다.');
@@ -158,7 +158,7 @@ assert(!setSource.includes('scheduleSave()'), '임시 권한을 가대진 자동
 
 const saveSource = functionSource(teamSrc, 'saveState', 'slim');
 const undoSource = functionSource(teamSrc, '_captureUndoSnapshot', '_updateUndoBtn');
-assert(!saveSource.includes('temporaryOperators'), '임시 권한을 가대진 저장·내보내기에 포함하면 안 됩니다.');
+assert(saveSource.includes('plannedOperators:!_liveOn?'), '시작 전 선택만 준비 상태로 저장하고 실행 중 권한은 서버에서 읽습니다.');
 assert(!undoSource.includes('temporaryOperators'), '임시 권한을 가대진 되돌리기에 포함하면 안 됩니다.');
 assert(teamSrc.includes("temporaryOperators=_teamNormalizeTemporaryOperators(data.officials?.temporaryOperators)"),
   '앱 재실행 후 같은 LIVE를 이어갈 때 Firebase 권한을 복원해야 합니다.');
