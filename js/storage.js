@@ -133,6 +133,21 @@ function _liveRosterBridgeLegacy(mode){
 }
 
 window.KokMatchRosterBridge = Object.freeze({
+  preferredClubIndex(clubs,players,{clubName='',clubId=''}={}){
+    const list=Array.isArray(clubs)?clubs:[];
+    const byName=name=>name?list.findIndex(c=>String(c.name||'').trim()===String(name).trim()):-1;
+    const session=byName(clubName);
+    if(session>=0)return session;
+    // 명단 이동·재실행 뒤에도 등록된 회원의 소속을 따른다. 게스트 소속은 기준으로 삼지 않는다.
+    for(const player of players||[]){
+      if(!player||player.isGuest||player.registrationCancelled)continue;
+      const index=byName(player.club);
+      if(index>=0)return index;
+    }
+    const saved=clubId?list.findIndex(c=>c.id===clubId):-1;
+    if(saved>=0)return saved;
+    return list.findIndex(c=>(c.members||[]).length);
+  },
   version:LIVE_ROSTER_BRIDGE_VERSION,
   keys:LIVE_ROSTER_BRIDGE_KEYS,
   normalizePlayer:_liveRosterBridgeProfile,

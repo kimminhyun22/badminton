@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.692';
+const APP_VERSION = '1.10.693';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2905,7 +2905,10 @@ function dailyImportRoster(){
   // 기본 클럽은 오늘 세션 클럽(이름 일치) → 회원 있는 첫 클럽 순.
   const all=(rosters.clubs||[]);
   const sessionIdx=all.findIndex(c=>_dailySessionClubName&&String(c?.name||'').trim()===String(_dailySessionClubName).trim()&&(c.members||[]).length);
-  _dailyImportClubIdx=sessionIdx>=0?sessionIdx:all.findIndex(c=>(c.members||[]).length);
+  const preferred=_dailyRosterBridge()?.preferredClubIndex?.(all,_dailyPlayers,{
+    clubName:_dailySessionClubName,clubId:localStorage.getItem(RSVP_CLUB_KEY)||''
+  });
+  _dailyImportClubIdx=Number.isInteger(preferred)?preferred:(sessionIdx>=0?sessionIdx:all.findIndex(c=>(c.members||[]).length));
   _dailyImportSort='name';
   ['name','gender'].forEach(m=>{
     const btn=document.getElementById('disb-'+m);
@@ -10930,7 +10933,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.692&from=daily';
+  location.href='team.html?v=1.10.693&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
