@@ -119,6 +119,10 @@ for (const id of ['sec-players', 'sec-settings', 'sec-rsvp'])
   assert.strictEqual(r.open(id), false, `대진 생성 뒤에는 ${id} 가 접혀야 합니다.`);
 // 중계만 켜져 있어도 live 로 본다
 assert.strictEqual(run({ players: [{}], live: true }).stage, 'live');
+assert(run({players:[{}],live:true}).page.has('team-monitoring'), '중계 시작 후 모니터링 화면으로 전환합니다.');
+assert(!run({players:[{}],matches:[{}]}).page.has('team-monitoring'), '대진 생성만으로 준비 화면을 감추지 않습니다.');
+assert(css.includes('#tabBracket:has(.round-current) .round-block:not(.round-current){display:none;}'), '진행 중에는 현재 라운드만, 종료 후에는 전체 결과를 표시합니다.');
+assert(html.includes('onclick="teamToggleMonitorManagement(this)"')&&html.includes('onclick="teamToggleMonitorMatches(this)"'), '운영 메뉴와 전체 대진에 다시 접근할 수 있어야 합니다.');
 
 // 빈 화면의 죽은 상태 타일과, 갈 곳 없는 하단 탭
 r = run({});

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.696';
+const APP_VERSION = '1.10.697';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8231,6 +8231,18 @@ function teamLiveOpenPanel(target){
    empty : 참가자 0명·대진 없음 → 참가자 확인 카드만. 링크·팀 배정·대진 생성은 눌러도 안내창뿐이다.
    roster: 참가자 있음·대진 없음 → 링크·진행 설정까지 열린다.
    live  : 대진이 만들어진 뒤 → 결과가 먼저 오도록 세팅 카드는 접는다. */
+function teamToggleMonitorManagement(button){
+  const page=document.getElementById('pageMain');
+  const open=!page.classList.contains('team-management-open');
+  page.classList.toggle('team-management-open',open);
+  if(button)button.setAttribute('aria-expanded',String(open));
+}
+function teamToggleMonitorMatches(button){
+  const page=document.getElementById('pageMain');
+  const all=!page.classList.contains('team-all-rounds');
+  page.classList.toggle('team-all-rounds',all);
+  if(button){button.setAttribute('aria-pressed',String(all));button.textContent=all?'현재 코트':'전체 대진';}
+}
 function teamToggleSetupReview(force){
   const page=document.getElementById('pageMain');
   if(!page)return;
@@ -8255,7 +8267,9 @@ function teamApplyStageLayout(){
   const empty=stage==='empty';
   const page=document.getElementById('pageMain');
   if(page)['empty','roster','live'].forEach(s=>page.classList.toggle('team-stage-'+s,stage===s));
+  if(page)page.classList.toggle('team-monitoring',!!_liveOn);
   const hide=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hidden',!!on));
+  hide('#teamMonitorTools',!_liveOn);
   // 명부가 비어 있으면 직접 추가가 유일한 등록 길이라 자동으로 펼친다
   const directBox=document.getElementById('teamDirectAddBox');
   if(directBox&&_teamUiStageShown!==stage){
@@ -9675,13 +9689,14 @@ function switchMobileTab(tab){
   // 메인 페이지로 복귀 (명부에서 돌아올 때)
   switchNav('main');
   if(tab === 'dashboard'){
-    const el=document.getElementById('autoFlowCard');
+    const el=document.getElementById(_liveOn?'teamMonitorTools':'autoFlowCard');
     if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
     else window.scrollTo({top:0,behavior:'smooth'});
     return;
   }
   if(tab === 'bracket' && typeof showTab==='function')showTab('bracket');
   if(tab === 'players')_teamForceOpenSection('sec-players');
+  if(tab === 'players')document.getElementById('pageMain')?.classList.add('team-management-open');
   if(tab === 'result'){
     teamLiveOpenScoreboard();
     return;
