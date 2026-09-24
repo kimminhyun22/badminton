@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.701';
+const APP_VERSION = '1.10.702';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -399,6 +399,7 @@ function parseParticipants(raw){
 
 /* ═══ TEAM ASSIGNMENT ═══ */
 function _teamConfirmOverwriteGeneratedBracket(actionText, actionLabel){
+  if(_teamBlockFullReassignment())return false;
   if(!currentMatches.length)return true;
   if(!_teamConfirmDetachLiveBeforeChange(actionLabel||actionText))return false;
   const enteredScores=Object.keys(winOverride).filter(k=>winOverride[k]).length;
@@ -409,6 +410,7 @@ function _teamConfirmOverwriteGeneratedBracket(actionText, actionLabel){
 }
 
 function doTeamAssign(opts={}){
+  if(_teamBlockFullReassignment())return false;
   if(currentMatches.length&&!opts.forGenerate){
     if(!_teamConfirmOverwriteGeneratedBracket('청/홍팀을 다시 배정하고 새 대진표를 생성','청/홍팀 재배정과 새 대진표 생성'))return false;
     _captureUndoSnapshot('팀 재배정 전');
@@ -877,6 +879,7 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
 
 /* ═══ GENERATE ═══ */
 function generate(opts={}){
+  if(_teamBlockFullReassignment())return false;
   hideErr();hideWarn();
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   const useFixedTeams=_teamUsesFixedTeams();
@@ -3834,7 +3837,7 @@ function renderQualityDashboard(matches,participants,settings){
     </details>
     <div class="qd-footer">
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-gen" style="flex:1;padding:10px;font-size:.88rem;" onclick="reshuffleMatches()">🎲 재배정</button>
+        <button class="btn btn-gen" style="flex:1;padding:10px;font-size:.88rem;" onclick="reshuffleMatches()" ${_teamFullReassignmentLocked()?'disabled title="운동 시작 후 재배정할 수 없습니다"':''}>🎲 재배정</button>
         <button id="undoBtn" class="btn btn-undo" style="padding:10px 14px;font-size:.88rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩ 복원</button>
       </div>
     </div>
@@ -5874,7 +5877,18 @@ function reshuffleFromRound(r){
   },50);
 }
 
+function _teamFullReassignmentLocked(){
+  return !!currentMatches.length && (!!_liveOn || !!_liveMatchStartedAt || !!_teamFinishedAt || currentMatches.some((_,i)=>_isMatchDone(i)));
+}
+
+function _teamBlockFullReassignment(){
+  if(!_teamFullReassignmentLocked())return false;
+  alert('운동 시작 후에는 전체 재배정할 수 없습니다.\n선수 변동은 참가자 수정에서 처리해 주세요.');
+  return true;
+}
+
 function reshuffleMatches(){
+  if(_teamBlockFullReassignment())return false;
   if(!currentMatches.length){alert('먼저 대진표를 생성해주세요.');return;}
   // 완료된 게임과 변경 잠금 이전 라운드는 유지하고, 나머지만 재생성
   const doneIdxs=[];
@@ -8324,6 +8338,10 @@ let _teamUiStageShown='';
    그 화면은 참가자 0명이라 단계는 empty 지만, 판 넷이 「무엇을 되살리는지」를 말하는 유일한 자리다. */
 let _teamRestoreHint=false;
 function teamApplyStageLayout(){
+  document.querySelectorAll('[onclick="reshuffleMatches()"]').forEach(button=>{
+    button.disabled=_teamFullReassignmentLocked();
+    button.title=button.disabled?'운동 시작 후 재배정할 수 없습니다':'';
+  });
   const stage=_teamUiStage();
   const empty=stage==='empty';
   const finished=typeof _teamFinishedAt!=='undefined'&&!!_teamFinishedAt;

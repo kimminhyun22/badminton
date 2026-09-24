@@ -62,6 +62,9 @@ function run(state){
   const ctx = {
     currentMatches: state.matches || [],
     _liveOn: !!state.live,
+    _liveMatchStartedAt: null,
+    _teamFinishedAt: null,
+    _isMatchDone: () => false,
     _directPlayers: state.players || [],
     _rsvpId: state.rsvpId || null,
     _teamForceOpenSection: id => { get('#' + id).open = true; },
@@ -72,7 +75,8 @@ function run(state){
     },
   };
   vm.createContext(ctx);
-  vm.runInContext(code + '\nthis.stage=_teamUiStage();teamApplyStageLayout();', ctx);
+  const lock = src.slice(src.indexOf('function _teamFullReassignmentLocked(){'), src.indexOf('function _teamBlockFullReassignment(){'));
+  vm.runInContext(lock + code + '\nthis.stage=_teamUiStage();teamApplyStageLayout();', ctx);
   return {
     stage: ctx.stage,
     hidden: key => els[key]?.classes.has('hidden') === true,
