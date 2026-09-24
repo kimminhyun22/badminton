@@ -16,6 +16,7 @@ const {applyCommandTransaction} = require('./daily-official-command');
 const {applyMemberCommandTransaction} = require('./daily-member-command');
 const {applyOfficialClaimTransaction} = require('./daily-official-claim');
 const {analyzeParticipantImages} = require('./daily-image-import');
+const {handle:handleSkillCalibration} = require('./skill-calibration');
 
 admin.initializeApp();
 
@@ -43,6 +44,11 @@ const IMAGE_ANALYSIS_OPTIONS = {
   memory:'512MiB',
   enforceAppCheck:true
 };
+
+exports.clubSkillCalibration = onCall({...MEMBER_FUNCTION_OPTIONS,maxInstances:2},async request=>{
+  try{return await handleSkillCalibration(admin.database(),request.data,request.rawRequest.ip);}
+  catch(error){throw new HttpsError('failed-precondition',error.message||'미세조정을 처리하지 못했습니다.');}
+});
 
 exports.analyzeDailyParticipantScreenshots = onCall(IMAGE_ANALYSIS_OPTIONS, async request=>{
   if(!request.app)throw new HttpsError('unauthenticated','앱 연결을 다시 확인해 주세요.');
@@ -480,4 +486,12 @@ exports.cleanupExpiredLive = onSchedule({
     await admin.database().ref('liveArchive/' + id).remove().catch(()=>{});
   }
   console.info('민턴LIVE 만료 세션 정리', {검사:Object.keys(all).length, 삭제:dead.length});
+  const reviews=(await admin.database().ref('skillCalibration').once('value')).val()||{};
+  for(const [id,review] of Object.entries(reviews)){
+    if(review.expiresAt>0&&review.expiresAt<now-7*86400000)await admin.database().ref('skillCalibration/'+id).remove();
+  }
+  const reviewLimits=(await admin.database().ref('skillCalibrationLimits').once('value')).val()||{};
+  for(const [id,limit] of Object.entries(reviewLimits)){
+    if(limit.at>0&&limit.at<now-2*86400000)await admin.database().ref('skillCalibrationLimits/'+id).remove();
+  }
 });
