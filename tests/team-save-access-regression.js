@@ -27,8 +27,9 @@ assert(!/class="nav-sync-btn"/.test(html),
    같은 것이 있어 진입점이 둘이었습니다. 접힌 쪽 하나만 남깁니다. */
 assert(/class="sync-btn s-reset team-reset-top"[^>]*onclick="resetAll\(\)"/.test(html),
   '초기화는 상단에서 찾을 수 있어야 합니다. 실행 확인은 resetAll에서 유지합니다.');
-assert((html.match(/resetAll\(\)/g) || []).length === 1,
-  '초기화 진입점은 한 곳이어야 합니다.');
+assert((html.match(/resetAll\(\)/g) || []).length === 2 &&
+  css.includes('.team-monitoring .team-reset-top{display:none;}'),
+  '준비 중 상단 초기화와 중계 중 선택창은 동시에 노출하지 않습니다.');
 assert(/id="liveConsoleTopBtn"/.test(html),
   '상단에는 운영을 여는 입구(임원 화면)가 있어야 합니다.');
 

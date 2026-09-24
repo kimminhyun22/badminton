@@ -131,6 +131,9 @@ assert.strictEqual(scheduleContext.teamMonitorSchedule([1,3,5],1,1000,25).endAt,
 assert.strictEqual(scheduleContext.teamMonitorSchedule([1],1,null,15).endAt,null);
 assert(html.includes('onclick="teamToggleMonitorManagement(this)"')&&html.includes('onclick="teamToggleMonitorMatches(this)"'), '운영 메뉴와 전체 대진에 다시 접근할 수 있어야 합니다.');
 assert(html.includes('onclick="teamGoHome()"')&&html.includes('icons/lucide/house.svg'), '홈은 명시적인 버튼과 집 아이콘으로 표시합니다.');
+assert(html.includes('id="teamFinishDialog"')&&html.includes('onclick="openTeamFinishDialog()"'), '홈에서 종료와 새 시작의 차이를 선택창으로 확인합니다.');
+assert(html.includes('이 기기의 참가자·대진표·승패는 남습니다.')&&html.includes('참가자·대진표·승패를 지웁니다.'), '유지와 삭제의 차이를 표시합니다.');
+assert(!html.includes('id="liveStopManageBtn"'), '중계 종료 입구를 중복하지 않습니다.');
 const monitorNavigation=cut('function teamToggleMonitorManagement(', 'function teamToggleSetupReview(');
 assert(monitorNavigation.includes("page.classList.add('team-management-open')")&&monitorNavigation.includes("page.classList.add('team-all-rounds')"), '메뉴 버튼 재클릭은 홈 복귀로 동작하지 않습니다.');
 assert(monitorNavigation.includes("page.classList.remove('team-management-open','team-all-rounds','team-review-open')"), '홈에서 운영·전체·설정 화면을 모두 정리합니다.');

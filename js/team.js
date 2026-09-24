@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.699';
+const APP_VERSION = '1.10.700';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2441,7 +2441,7 @@ function _teamConfirmDetachLiveBeforeChange(actionLabel){
   const liveId=_liveId||_teamStoredLiveId();
   if(!liveId)return true;
   if(_liveOn){
-    alert(`팀전 중계 중입니다.\n\n${actionLabel} 전에 상단 운영 보드의 "중계 종료" 버튼으로 현재 중계를 먼저 종료해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
+    alert(`팀전 중계 중입니다.\n\n${actionLabel} 전에 홈 상단의 "종료·새로 시작"에서 "중계만 종료"를 선택해 주세요.\n기존 회원 링크에 다른 대진이 섞이지 않도록 막았습니다.`);
     return false;
   }
   if(!confirm(`진행 중이던 팀전 복구 정보가 있습니다.\n\n${actionLabel}하면 기존 회원 링크와 관리자 화면이 분리됩니다.\n기존 링크 내용은 건드리지 않고, 이 화면에서만 연결을 끊을까요?`))return false;
@@ -3211,17 +3211,21 @@ async function _teamClearLiveBroadcastData(explicitLiveId){
 }
 
 /* 실시간 중계 종료 */
+function openTeamFinishDialog(){
+  const dialog=document.getElementById('teamFinishDialog');
+  if(dialog&&!dialog.open)dialog.showModal();
+}
 async function stopLiveBroadcast(){
   if(!_liveId || !_fbDb){
     await _teamClearLiveBroadcastData();
     saveState();
     return;
   }
-  if(!confirm('팀전을 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.')) return;
+  if(!confirm('중계만 종료할까요?\n회원 링크에서 더 이상 현황을 볼 수 없습니다.\n이 기기의 참가자·대진표·승패는 그대로 남습니다.')) return;
   await _teamClearLiveBroadcastData();
   await rsvpPushEventState();
   saveState();
-  alert('팀전을 종료했어요.');
+  alert('중계를 종료했습니다. 참가자·대진표·승패는 이 기기에 남아 있습니다.');
 }
 
 /* 중계 버튼 UI 갱신 */
@@ -3244,7 +3248,7 @@ function _teamSyncLiveStopShortcuts(){
   // 보드 본문이 같은 「팀전 이어가기」 CTA 를 그리는 단계에서는 머리쪽 사본을 감춘다(2026-09-03 감사)
   const resumeTop=document.getElementById('liveResumeTopBtn');
   if(resumeTop&&document.querySelector('#autoFlowBody .auto-flow-action.live-start'))resumeTop.classList.add('hidden');
-  ['liveStopTopBtn','liveStopManageBtn','liveConsoleTopBtn'].forEach(id=>{
+  ['liveStopTopBtn','liveConsoleTopBtn'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.classList.toggle('hidden',!_liveOn);
   });

@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.699  (2026-07)
+     APP VERSION: 1.10.700  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.699">
+<meta name="app-version" content="1.10.700">
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="only light">
 <link rel="manifest" href="manifest.json">
@@ -24,13 +24,13 @@
 <title>🏸 민턴LIVE 팀전 | 청·홍전·자유 대진</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/team.css?v=1.10.699">
+<link rel="stylesheet" href="css/team.css?v=1.10.700">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.699"></script>
+<script src="js/storage.js?v=1.10.700"></script>
 </head>
 <body>
 
@@ -75,6 +75,7 @@
         <button type="button" class="team-home-btn" onclick="teamGoHome()"><img src="icons/lucide/house.svg" alt="">홈</button>
         <button type="button" class="sync-btn" onclick="teamToggleMonitorMatches(this)" aria-pressed="false">전체 대진</button>
         <button type="button" class="sync-btn" onclick="teamToggleMonitorManagement(this)" aria-expanded="false">운영 메뉴</button>
+        <button type="button" class="team-end-entry hidden" id="liveStopTopBtn" onclick="openTeamFinishDialog()">종료·새로 시작</button>
       </div>
       <div class="card auto-flow-card" id="autoFlowCard">
         <div class="auto-flow-head">
@@ -91,14 +92,13 @@
                  따로 익힐 필요가 없고, 같은 사실을 두 모양으로 보지 않습니다. -->
             <button class="auto-flow-console-btn hidden" id="liveConsoleTopBtn" type="button"
               onclick="openOfficialConsole()" title="임원과 같은 운영 화면을 엽니다">임원 화면 열기</button>
-            <button class="auto-flow-stop-btn hidden" id="liveStopTopBtn" onclick="stopLiveBroadcast()" title="현재 팀전 중계를 종료">중계 종료</button>
             <div class="auto-flow-quick-actions" aria-label="자주 쓰는 팀전 관리">
               <!-- 공유는 채널별 버튼 — 누르면 그 앱의 공유가 바로 열린다(민턴LIVE와 동일, 2026-09-03).
                    카카오톡: KOKMATCH_KAKAO_JS_KEY 가 있으면 SDK 로 바로, 없으면 기기 공유 시트. 밴드: band.us 공유 플러그인. -->
               <button class="team-share-top kakao" type="button" onclick="rsvpShareLink('kakao')" aria-label="카카오톡으로 팀전 링크 공유"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#191919" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.8c0 2.7 1.8 5.1 4.5 6.5l-1.1 4.1c-.1.3.3.6.6.4l4.8-3.2c.3 0 .6.1.9.1 5.4 0 9.7-3.4 9.7-7.6S17.4 3.2 12 3.2z"/></svg>카카오톡</button>
               <button class="team-share-top band" type="button" onclick="rsvpShareLink('band')" aria-label="밴드로 팀전 링크 공유"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#1EC800"/><path fill="#fff" d="M8.2 6.5h2.4v4.1c.6-.5 1.4-.8 2.3-.8 2.3 0 4 1.8 4 4.1s-1.7 4.1-4 4.1c-1 0-1.8-.3-2.4-.9v.7H8.2V6.5zm4.4 5.4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>밴드</button>
             </div>
-            <button class="sync-btn s-reset team-reset-top" type="button" onclick="resetAll()">초기화</button>
+            <button class="sync-btn s-reset team-reset-top" type="button" onclick="resetAll()">새로 시작</button>
           </div>
         </div>
         <div id="autoFlowBody"></div>
@@ -294,7 +294,6 @@
           <details class="sync-details">
             <summary>백업·기타 관리</summary>
             <div class="sync-bar">
-              <button class="sync-btn s-live-stop hidden" id="liveStopManageBtn" onclick="stopLiveBroadcast()">중계 종료</button>
               <button class="sync-btn s-export" onclick="exportBracketAll()">⬆ 내보내기</button>
               <label  class="sync-btn s-import">⬇ 불러오기
                 <input type="file" accept=".json" style="display:none" onchange="importBracketAll(event)">
@@ -383,6 +382,13 @@
 </div>
 
 <!-- ── 선수 변동 재배정 모달 ── -->
+<dialog id="teamFinishDialog" class="modal-box" aria-label="종료·새로 시작">
+  <div class="modal-head"><span>종료·새로 시작</span><button type="button" aria-label="닫기" onclick="document.getElementById('teamFinishDialog').close()">×</button></div>
+  <div class="modal-body team-finish-options">
+    <button type="button" onclick="document.getElementById('teamFinishDialog').close();stopLiveBroadcast()"><strong>중계만 종료</strong><span>회원 중계를 닫습니다.<br>이 기기의 참가자·대진표·승패는 남습니다.</span></button>
+    <button type="button" class="danger" onclick="document.getElementById('teamFinishDialog').close();resetAll()"><strong>비우고 새로 시작</strong><span>중계를 종료하고 참가자·대진표·승패를 지웁니다.<br>클럽 명부는 유지됩니다.</span></button>
+  </div>
+</dialog>
 <dialog id="teamOperatorDialog" class="modal-box" aria-label="운영 도우미">
   <div class="modal-head"><span>운영 도우미</span><button type="button" aria-label="닫기" onclick="document.getElementById('teamOperatorDialog').close()">×</button></div>
   <div class="modal-body"><div class="team-temporary-operator-panel hidden" id="teamTemporaryOperatorPanel"></div></div>
@@ -733,11 +739,11 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.699"></script>
-<script src="js/mobile-nav.js?v=1.10.699"></script>
+<script src="js/match-quality.js?v=1.10.700"></script>
+<script src="js/mobile-nav.js?v=1.10.700"></script>
 <!-- 카카오톡 바로 공유용 JavaScript 키 — index.html 과 같은 값을 넣으면 두 화면이 함께 동작합니다. -->
 <script>window.KOKMATCH_KAKAO_JS_KEY=window.KOKMATCH_KAKAO_JS_KEY||'';</script>
-<script src="js/team.js?v=1.10.699"></script>
+<script src="js/team.js?v=1.10.700"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 라운드로 이동" title="현재 진행 라운드로 이동">
@@ -815,7 +821,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.699</span>
+  <span class="app-version" id="appVersion">v1.10.700</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->
