@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.704';
+const APP_VERSION = '1.10.705';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -978,10 +978,12 @@ function generate(opts={}){
       const _basePlayers=participants.map(p=>({...p, partnerCount:{}, opponentCount:{}}));
       const _TRIES=_autoSearchTries(participants.length,false);
       let matches=null, bestKey=null, bestPlayers=null;
+      const finalists=[];
       let _extraStarted=0,_lastImprovement=0;
       for(let _t=0;_teamContinueInitialSearch(_t,_TRIES,_extraStarted?Date.now()-_extraStarted:0,_t-_lastImprovement);_t++){
         if(_t===_TRIES)_extraStarted=Date.now();
         const _try=_basePlayers.map(p=>({...p, gamesPlayed:0, lastRoundPlayed:0,
+          _goal:gpp,
           womenDoublesPlayed:0, menDoublesPlayed:0, mixedDoublesPlayed:0, adjustmentPlayed:0,
           partnerCount:{}, opponentCount:{}}));
         const _m=generateMatches(_try,settings,totalMatches);
@@ -1003,9 +1005,12 @@ function generate(opts={}){
           _sc+=Object.values(_pc).filter(c=>c>=2).reduce((s,c)=>s+(c-1)*25,0);
         }
         const _key=_candidateQualityKey(_m,_try,settings,_sc);
+        _teamKeepFinalist(finalists,{matches:_m,participants:_try},settings);
         if(_isBetterQualityKey(_key,bestKey)){bestKey=_key;matches=_m;bestPlayers=_try;_lastImprovement=_t;}
       }
       // 최고 후보 채택
+      const finalChoice=_teamOptimizeFinalists(finalists,settings);
+      if(finalChoice){matches=finalChoice.matches;bestPlayers=finalChoice.participants;}
       participants=bestPlayers;
       matches.sort((a,b)=>a.round-b.round||a.court-b.court);
       matches.forEach((m,i)=>m.matchNumber=i+1);
@@ -2276,6 +2281,43 @@ function _teamContinueInitialSearch(attempt,minimum,extraElapsed,staleAttempts){
   if(attempt<minimum)return true;
   if(attempt>=minimum*3||extraElapsed>=3000)return false;
   return attempt<minimum*2||staleAttempts<minimum;
+}
+
+function _teamFinalQualityKey(matches,participants,settings){
+  const q=_qualityAssessment(matches,participants,settings);
+  // Never trade invalid games, missing appearances or severe imbalance for points.
+  return [q.structureErr,q.genderErr,q.avoidableUnderSlots,q.balanceHardCount,
+    q.balanceSevereCount,q.balanceCautionCount,-q.total,-q.sBalance,
+    q.avoidableOverSlots,q.avoidablePartnerExcess,q.excessConsec];
+}
+
+function _teamKeepFinalist(finalists,candidate,settings){
+  candidate.key=_teamFinalQualityKey(candidate.matches,candidate.participants,settings);
+  const signature=candidate.matches.map(m=>[m.round,m.court,m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name].join('|')).join(';');
+  if(finalists.some(c=>c.signature===signature))return;
+  candidate.signature=signature;
+  finalists.push(candidate);
+  finalists.sort((a,b)=>_isBetterQualityKey(a.key,b.key)?-1:_isBetterQualityKey(b.key,a.key)?1:0);
+  finalists.length=Math.min(finalists.length,4);
+}
+
+function _teamOptimizeFinalists(finalists,settings){
+  let best=null;
+  for(const candidate of finalists){
+    const slots=candidate.matches.map(m=>({round:m.round,court:m.court}));
+    _optimizeFutureRounds(candidate.matches,settings);
+    const key=_teamFinalQualityKey(candidate.matches,candidate.participants,settings);
+    if(_isBetterQualityKey(key,candidate.key))candidate.key=key;
+    else candidate.matches.forEach((m,i)=>Object.assign(m,slots[i]));
+    if(!best||_isBetterQualityKey(candidate.key,best.key))best=candidate;
+  }
+  if(best){
+    best.participants.forEach(p=>p.lastRoundPlayed=0);
+    best.matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
+      p.lastRoundPlayed=Math.max(p.lastRoundPlayed||0,m.round);
+    }));
+  }
+  return best;
 }
 
 function shuffleArray(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}}
