@@ -16,6 +16,7 @@ const files = [
   'view.html',
   'checkin.html',
   'rsvp.html',
+  'skill-review.html',
   'manifest.json',
   'js/daily.js',
   'js/team.js',

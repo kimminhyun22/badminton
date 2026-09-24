@@ -12,13 +12,30 @@
     teamDiffSevere:3
   });
   const ageBonus=Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
+  // This version describes the existing production formula, not a new rating.
+  const skillPolicy=Object.freeze({id:'skill-v1',grade:Object.freeze({S:7,A:6,B:5,C:4,D:3,E:2}),age:ageBonus,femaleRoster:-1,femaleEffective:-0.5,step:0.2});
+  function gradeLevel(grade,gender){
+    const base=skillPolicy.grade[String(grade||'').toUpperCase()];
+    return base==null?null:base+((gender==='여'||gender==='F')?skillPolicy.femaleRoster:0);
+  }
+  function skillBreakdown(player){
+    const p=player||{},base=skillPolicy.grade[String(p.grade||'').toUpperCase()];
+    const female=p.gender==='F'||p.gender==='여';
+    const stored=Number.isFinite(+p.level)?+p.level:null;
+    const step=Number.isInteger(+p.skillStep)&&Math.abs(+p.skillStep)<=2?+p.skillStep:0;
+    const level=stored??(base==null?0:base+(female?skillPolicy.femaleRoster:0)+step*skillPolicy.step);
+    const age=ageBonus[p.ageGroup]||0;
+    return {policyId:skillPolicy.id,base:base??null,gender:female?skillPolicy.femaleRoster+skillPolicy.femaleEffective:0,age,
+      personal:base==null?null:Math.round((level-base-(female?skillPolicy.femaleRoster:0))*10)/10,
+      level,total:effectiveLevel({...p,level}),missing:base==null||!['남','여','M','F'].includes(p.gender)||!Object.hasOwn(ageBonus,p.ageGroup)};
+  }
 
   function effectiveLevel(player){
     const p=player||{};
     const level=Number.isFinite(+p.level)?+p.level:0;
     const female=p.gender==='F'||p.gender==='여';
     const age=ageBonus[p.ageGroup]||0;
-    return Math.round((level-(female?0.5:0)+age)*10)/10;
+    return Math.round((level+(female?skillPolicy.femaleEffective:0)+age)*10)/10;
   }
   function teamLevel(team){
     return Array.isArray(team)?team.reduce((sum,p)=>sum+effectiveLevel(p),0):0;
@@ -64,6 +81,9 @@
   }
 
   root.KokMatchQuality=Object.freeze({
+    skillPolicy,
+    gradeLevel,
+    skillBreakdown,
     constants,
     effectiveLevel,
     teamLevel,

@@ -93,6 +93,15 @@ const byName = list => Object.fromEntries(list.map(c => [c.name, c]));
   });
   // 여성 −0.5 도 세 곳 모두.
   [['서버 엔진', engine], ['회원 화면', view], ['관리자 품질', quality]].forEach(([what, src]) => {
+    if(what==='관리자 품질'){
+      const context={};
+      require('vm').runInNewContext(src,context);
+      for(const ageGroup of Object.keys(want)){
+        const score=gender=>context.KokMatchQuality.effectiveLevel({level:4,gender,ageGroup});
+        assert(Math.abs(score('남')-score('여')-0.5)<1e-8,`${what} 여성 보정 실제 계산`);
+      }
+      return;
+    }
     assert(/female\s*\?\s*0\.5\s*:\s*0/.test(src) || /isF\s*\?\s*0\.5\s*:\s*0/.test(src),
       `${what} 에 여성 보정(−0.5)이 있어야 합니다.`);
   });

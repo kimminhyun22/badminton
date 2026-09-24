@@ -1,7 +1,11 @@
 {
-  "updated": "2026-09-17",
+  "updated": "2026-09-24",
   "title": "콕매치 · 클럽 자율 배포 로드맵",
   "links": [
+    {
+      "label": "실력 기준 점검",
+      "url": "../../skill-review.html"
+    },
     {
       "label": "콕매치",
       "url": "https://kimminhyun22.github.io/badminton/"
@@ -47,6 +51,12 @@
       "state": "진행 중",
       "owner": "Codex",
       "items": [
+        {
+          "name": "실력 기준 시각 비교와 운영진 설문",
+          "status": "done",
+          "detail": "기존 계수를 유지한 시험용 비교·설문 도구. 600조건 서버 동등성, 모바일 표시·응답 중복 방지 검사. 실제 계수 보정과 운영진 판단 검증은 다음 단계입니다.",
+          "evidence": "../minton-live/SKILL_POLICY_REVIEW.md"
+        },
         {
           "name": "목표·완료 기준·실행 순서 고정",
           "status": "done",
