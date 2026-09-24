@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.691';
+const APP_VERSION = '1.10.692';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -141,6 +141,10 @@ document.addEventListener('toggle',(e)=>{      // toggle 은 버블하지 않는
   if(_teamProgrammaticOpen)return;
   if(el.open)_teamManualClosedSections.delete(el.id);
   else _teamManualClosedSections.add(el.id);
+  if(!el.open&&['sec-players','sec-rsvp'].includes(el.id)){
+    delete el.dataset.editing;
+    if(el.id==='sec-rsvp'||_directPlayers.length)el.classList.add('hidden');
+  }
 },true);
 
 /* ═══ 되돌리기(Undo) 스택 ═══ */
@@ -6566,7 +6570,6 @@ function _teamApplyParticipantProfiles(source){
   updateTeamModeBadge();
   rsvpSyncRosterChange();
   renderAutoFlowDashboard();
-  _autoFlowSetSection('sec-players',true,true);
   closeImportModal();
 }
 function teamImportDailyRoster(options={}){
@@ -8143,13 +8146,15 @@ function _autoFlowSetSection(id,open,force=false){
   const el=document.getElementById(id);
   if(!el||el.tagName!=='DETAILS')return;
   if(!open)return;
-  if(force)_teamManualClosedSections.delete(id);
+  if(force)_teamForceOpenSection(id);
   if(!_teamManualClosedSections.has(id))el.open=true;
 }
 function _teamForceOpenSection(id){
   const el=document.getElementById(id);
   if(!el||el.tagName!=='DETAILS')return null;
   _teamManualClosedSections.delete(id);
+  if(id==='sec-rsvp'||(id==='sec-players'&&_directPlayers.length))el.dataset.editing='1';
+  el.classList.remove('hidden');
   el.open=true;
   return el;
 }
@@ -8243,8 +8248,16 @@ function teamApplyStageLayout(){
     const hasRestore=!!(restore&&!restore.classList.contains('hidden'));
     saveBar.classList.toggle('hidden',!hasStatus&&!hasRestore);
   }
-  // 참가자가 없으면 링크 카드는 "참가자를 세팅하면 준비됩니다" 안내만 남는다
-  hide('#sec-rsvp',empty&&!_rsvpId);
+  // 등록이 끝난 화면에는 설정을 반복하지 않는다. 수정할 때만 펼친다.
+  hide('#sec-rsvp',!document.getElementById('sec-rsvp')?.dataset.editing);
+  hide('#sec-players',!empty&&!document.getElementById('sec-players')?.dataset.editing);
+  hide('#teamParticipantQuick',empty);
+  const participantCount=document.getElementById('teamParticipantCount');
+  if(participantCount)participantCount.textContent=`참가자 ${_directPlayers.length}명`;
+  const playersTitle=document.getElementById('teamPlayersTitle');
+  if(playersTitle)playersTitle.textContent=empty?'참가자 등록':'참가자 수정';
+  const playersAdd=document.getElementById('teamPlayersAdd');
+  if(playersAdd)playersAdd.textContent=empty?'참가자 등록':'선수 추가';
   // 팀 배정·빈 청홍 상자·대진 생성·대진안 저장은 참가자가 있어야 뜻이 있다
   hide('#teamListWrap',empty);
   // 대진을 버리는 경로(전체 초기화·미진행 대진 정리)는 renderResults 를 부르지 않는다 —
@@ -8497,7 +8510,7 @@ function renderAutoFlowDashboard(){
         <div class="auto-flow-focus">
           <div class="auto-flow-focus-main">
             <div>
-              <b>${directResumeMode||restoreBracket?esc(stageGuide.k):`${players}명 · ${esc(teamValue)}`}</b>
+              <b>${directResumeMode||restoreBracket?esc(stageGuide.k):esc(teamValue)}</b>
             </div>
           </div>
           ${actionHtml}
@@ -8505,7 +8518,7 @@ function renderAutoFlowDashboard(){
         ${directResumeMode||restoreBracket?supportHtml:''}`;
     }
     _autoFlowSetSection('sec-rsvp',stage==='link');
-    _autoFlowSetSection('sec-players',stage==='playerSetup'||stage==='playerReview');
+    _autoFlowSetSection('sec-players',stage==='playerSetup');
     _autoFlowSetSection('sec-settings',stage==='generate');
     _autoFlowSetResultSections(stage);
     _teamRestoreHint=stage==='restoreBracket'||stage==='restoreLive';
@@ -9640,6 +9653,7 @@ function switchMobileTab(tab){
     return;
   }
   if(tab === 'bracket' && typeof showTab==='function')showTab('bracket');
+  if(tab === 'players')_teamForceOpenSection('sec-players');
   if(tab === 'result'){
     teamLiveOpenScoreboard();
     return;

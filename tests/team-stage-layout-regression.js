@@ -54,6 +54,7 @@ function run(state){
   // team.html 의 #bracketSaveQuick 는 class="bracket-save-quick hidden" 로 시작한다
   if (!state.quickVisible) get('#bracketSaveQuick').classes.add('hidden');
   (state.preHidden || []).forEach(sel => get(sel).classes.add('hidden'));
+  (state.editing || []).forEach(id => { get('#'+id).dataset.editing='1'; });
   const ctx = {
     currentMatches: state.matches || [],
     _liveOn: !!state.live,
@@ -88,13 +89,19 @@ assert.strictEqual(r.open('sec-settings'), false, '빈 화면에서는 진행 �
 
 // 이미 링크를 만든 뒤라면 참가자가 비어도 링크 카드는 남긴다(운영 중 명단을 비우는 경우)
 r = run({ rsvpId: 'ABCDEFGH' });
-assert(!r.hidden('#sec-rsvp'), '링크가 이미 있으면 링크 카드를 감추면 안 됩니다.');
+assert(r.hidden('#sec-rsvp'), '링크 공유는 상단을 사용하고 링크 관리는 요청 시에만 엽니다.');
 
 // roster: 참가자 있음 — 세팅이 모두 열린다
 r = run({ players: [{}, {}, {}, {}] });
 assert.strictEqual(r.stage, 'roster');
-for (const sel of ['#sec-rsvp', '#teamAssignBtn', '#teamListWrap', '.bracket-save-primary'])
+for (const sel of ['#teamAssignBtn', '#teamListWrap', '.bracket-save-primary'])
   assert(!r.hidden(sel), `명단이 있으면 ${sel} 이 보여야 합니다.`);
+assert(r.hidden('#sec-rsvp')&&r.hidden('#sec-players'), '등록 완료 후 중복 설정을 감춥니다.');
+assert(!r.hidden('#teamParticipantQuick'), '참가자 수정 입구는 남깁니다.');
+const editing=run({players:[{}, {}, {}, {}],editing:['sec-players','sec-rsvp']});
+assert(!editing.hidden('#sec-players')&&!editing.hidden('#sec-rsvp'), '직접 연 수정 화면은 갱신 중에도 유지합니다.');
+assert(src.includes("if(tab === 'players')_teamForceOpenSection('sec-players');"), '하단 참가자 탭에서도 수정 화면을 엽니다.');
+assert(html.includes('id="teamParticipantQuick"')&&html.includes('onclick="teamLiveOpenPlayers()"'), '상단 수정 버튼을 연결합니다.');
 assert(!r.hidden('gen-row'), '명단이 있으면 대진 생성 줄이 보여야 합니다.');
 
 // live: 대진 생성 뒤 — 결과가 먼저 오도록 세팅 카드는 접힌다

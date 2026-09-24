@@ -629,6 +629,8 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .bracket-save-quick-copy span{font-size:.65rem;color:var(--dim);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .bracket-save-actions{display:grid;grid-template-columns:auto auto;gap:6px;}
 .team-reset-top{min-height:44px;white-space:nowrap;}
+.team-participant-quick{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:14px;}
+.team-participant-quick .sync-btn{min-height:44px;flex:0 0 auto;}
 .team-quality-details>summary{padding:12px 16px;cursor:pointer;font-size:14px;font-weight:700;color:var(--dim);}
 .auto-flow-focus-main b{font-size:16px;overflow-wrap:anywhere;}
 .bracket-save-primary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:8px;}
