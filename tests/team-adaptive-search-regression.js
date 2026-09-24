@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('assert'),fs=require('fs'),vm=require('vm'),path=require('path');
+const src=fs.readFileSync(path.join(__dirname,'../js/team.js'),'utf8');
+const block=src.slice(src.indexOf('function _teamContinueInitialSearch('),src.indexOf('function shuffleArray('));
+const ctx={};vm.createContext(ctx);vm.runInContext(block,ctx);
+const more=ctx._teamContinueInitialSearch;
+assert(more(49,50,9999,49),'Original candidate budget must remain intact');
+assert(more(50,50,0,50),'Explore beyond the old stopping point');
+assert(more(99,50,100,99),'Complete an extra batch when time allows');
+assert(!more(100,50,100,100),'Stop on a plateau');
+assert(more(100,50,100,1),'Continue while quality improves');
+assert(!more(150,50,100,0),'Attempt cap');
+assert(!more(55,50,3000,0),'Extra time cap');
+assert(src.includes('for(let _t=0;_teamContinueInitialSearch('),'Initial generation must use adaptive search');
+assert(src.includes('bestPlayers=_try;_lastImprovement=_t;'),'Keep the best candidate and its improvement age');
+console.log('team adaptive search regression passed');

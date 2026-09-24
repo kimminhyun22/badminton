@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.703';
+const APP_VERSION = '1.10.704';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -978,12 +978,17 @@ function generate(opts={}){
       const _basePlayers=participants.map(p=>({...p, partnerCount:{}, opponentCount:{}}));
       const _TRIES=_autoSearchTries(participants.length,false);
       let matches=null, bestKey=null, bestPlayers=null;
-      for(let _t=0;_t<_TRIES;_t++){
+      let _extraStarted=0,_lastImprovement=0;
+      for(let _t=0;_teamContinueInitialSearch(_t,_TRIES,_extraStarted?Date.now()-_extraStarted:0,_t-_lastImprovement);_t++){
+        if(_t===_TRIES)_extraStarted=Date.now();
         const _try=_basePlayers.map(p=>({...p, gamesPlayed:0, lastRoundPlayed:0,
           womenDoublesPlayed:0, menDoublesPlayed:0, mixedDoublesPlayed:0, adjustmentPlayed:0,
           partnerCount:{}, opponentCount:{}}));
         const _m=generateMatches(_try,settings,totalMatches);
         fillMissingGames(_try,settings,_m,totalMatches);
+        // Extra candidates also repair under/over participation, as reassignment does.
+        // The original candidates remain available if repair worsens the quality key.
+        if(_t>=_TRIES)_repairParticipation(_m,_try,settings);
         compactSchedule(_m,settings);
         let _sc=_bracketQualityScore(_m,_try,settings);
         // 혼복 0은 금지가 아니라 동성복식 우선이다.
@@ -998,7 +1003,7 @@ function generate(opts={}){
           _sc+=Object.values(_pc).filter(c=>c>=2).reduce((s,c)=>s+(c-1)*25,0);
         }
         const _key=_candidateQualityKey(_m,_try,settings,_sc);
-        if(_isBetterQualityKey(_key,bestKey)){bestKey=_key;matches=_m;bestPlayers=_try;}
+        if(_isBetterQualityKey(_key,bestKey)){bestKey=_key;matches=_m;bestPlayers=_try;_lastImprovement=_t;}
       }
       // 최고 후보 채택
       participants=bestPlayers;
@@ -2263,6 +2268,14 @@ function _autoSearchTries(playerCount,hasNewJoiner=false){
   if(playerCount>=30)return 120;
   if(playerCount>=24)return 90;
   return 50;
+}
+
+function _teamContinueInitialSearch(attempt,minimum,extraElapsed,staleAttempts){
+  // Keep the previous search budget, then explore at least one extra batch.
+  // Stop at a plateau, three batches, or three extra seconds (between candidates).
+  if(attempt<minimum)return true;
+  if(attempt>=minimum*3||extraElapsed>=3000)return false;
+  return attempt<minimum*2||staleAttempts<minimum;
 }
 
 function shuffleArray(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}}
