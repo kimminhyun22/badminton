@@ -176,7 +176,7 @@ assert(src.includes('const TEAM_KAKAO_SVG=') && src.includes('function _autoFlow
   '채널 버튼 로고와 공유 CTA 헬퍼가 있어야 합니다.');
 assert(src.includes("link:_autoFlowShareAction(),"),
   '링크 단계 CTA 도 채널 버튼이어야 합니다 — 채널 없는 사본을 남기면 안 됩니다.');
-assert((src.match(/TEAM_KAKAO_SVG\}/g) || []).length >= 3, '로고는 CTA·LIVE 스트립·링크 카드에도 붙어야 합니다.');
+assert((src.match(/TEAM_KAKAO_SVG\}/g) || []).length >= 2, '로고는 공유 CTA·링크 카드에 유지합니다. 라운드 진행의 중복 공유는 제거합니다.');
 assert(css.includes('.rsvp-action-btn.primary.soft.kakao'),
   '링크 카드 채널 색은 .primary.soft 규칙을 이길 특이도가 필요합니다.');
 assert(/\.auto-flow-btn\.kakao[^{]*\{[^}]*background:#FEE500!important/.test(css),

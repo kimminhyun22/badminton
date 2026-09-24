@@ -7,6 +7,9 @@ const root = path.join(__dirname, '..');
 const teamSrc = fs.readFileSync(path.join(root, 'js', 'team.js'), 'utf8');
 const liveSrc = fs.readFileSync(path.join(root, 'js', 'live-view.js'), 'utf8');
 const teamHtml = fs.readFileSync(path.join(root, 'team.html'), 'utf8');
+assert(teamHtml.includes('<dialog id="teamOperatorDialog"'), '도우미 선택은 대화상자에서만 노출합니다.');
+assert(teamHtml.includes('onclick="openTeamOperatorDialog()"'), '작은 버튼으로 도우미 창을 엽니다.');
+assert(!teamSrc.includes('class="team-live-secondary share'), '라운드 진행에 중복 공유 버튼을 두지 않습니다.');
 
 function functionSource(src, name, nextName) {
   const start = src.indexOf(`function ${name}`);

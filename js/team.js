@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.695';
+const APP_VERSION = '1.10.696';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6390,13 +6390,26 @@ function grantTeamTemporaryOperator(){
   return setTeamTemporaryOperator(memberId,true);
 }
 
+function openTeamOperatorDialog(){
+  if(!_liveOn)return;
+  renderTeamTemporaryOperatorPanel();
+  const dialog=document.getElementById('teamOperatorDialog');
+  if(dialog&&!dialog.open)dialog.showModal();
+}
 function renderTeamTemporaryOperatorPanel(){
   const panel=document.getElementById('teamTemporaryOperatorPanel');
   if(!panel)return;
   const players=(_directPlayers||[]).filter(p=>p&&p.name);
   players.forEach(_teamEnsureMemberId);
   _teamResolveTemporaryOperators(players);
+  const opener=document.getElementById('teamOperatorOpenBtn');
+  if(opener){
+    opener.classList.toggle('hidden',!players.length||!_liveOn);
+    opener.textContent=`운영 도우미${temporaryOperators.length?' '+temporaryOperators.length+'명':''}`;
+  }
   if(!players.length||!_liveOn){
+    const dialog=document.getElementById('teamOperatorDialog');
+    if(dialog?.open)dialog.close();
     panel.classList.add('hidden');
     panel.innerHTML='';
     return;
@@ -8136,8 +8149,6 @@ function _teamLiveLiveStripHtml({currentRound,currentRoundNum,done,matches,remai
       </div>
       <div class="team-live-ops-actions">
         <button class="team-live-primary" type="button" onclick="teamLiveOpenPanel('${primaryTarget}')">${esc(primaryLabel)}</button>
-        <button class="team-live-secondary share kakao" type="button" onclick="rsvpShareLink('kakao')">${TEAM_KAKAO_SVG}카카오톡</button>
-        <button class="team-live-secondary share band" type="button" onclick="rsvpShareLink('band')">${TEAM_BAND_SVG}밴드</button>
       </div>
     </div>
     ${chips.length?`<div class="team-live-alert-row">${chips.join('')}</div>`:''}`;
