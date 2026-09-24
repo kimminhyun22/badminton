@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.690';
+const APP_VERSION = '1.10.691';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -6266,7 +6266,10 @@ async function resetAll(){
     const btn=document.getElementById(id);
     if(btn)btn.classList.add('hidden');
   });
-  // (직접입력 전용 모드 — 별도 전환 불필요)
+  // 삭제가 끝난 뒤 공통 준비 화면으로 이동한다. 뒤로가기로 초기화 전 화면을 열지 않는다.
+  if(saveTimer)clearTimeout(saveTimer);
+  saveTimer=null;
+  location.replace('index.html?from=team-reset');
 }
 
 

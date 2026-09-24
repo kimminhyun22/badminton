@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.690';
+const APP_VERSION = '1.10.691';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2759,6 +2759,18 @@ function dailyApplyParticipantHandoff(){
   const snapshot=_dailyParticipantHandoffSnapshot();
   if(snapshot.source!=='team'||!(snapshot.players||[]).length)return false;
   return !!dailyImportTeamRoster({snapshot,silent:true});
+}
+function dailyApplyTeamResetReturn(){
+  const url=new URL(location.href);
+  if(url.searchParams.get('from')!=='team-reset')return false;
+  // 팀전 초기화로 별도의 민턴LIVE 운영·명단을 삭제하지 않는다.
+  if(!_dailyCheckinId&&!_dailyOperationStarted&&!_dailyMatches.length){
+    _dailyPreparedOperation='';
+    try{sessionStorage.removeItem('kokmatch_daily_prepared_operation_v1');}catch(e){}
+  }
+  url.searchParams.delete('from');
+  history.replaceState(null,'',url.pathname+url.search+url.hash);
+  return true;
 }
 function renderParticipantPreparation(){
   const count=_dailyPlayers.filter(player=>player&&!player.registrationCancelled).length;
@@ -10918,7 +10930,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.690&from=daily';
+  location.href='team.html?v=1.10.691&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -17004,6 +17016,7 @@ window.addEventListener('DOMContentLoaded', () => {
   dailyLoad();
   if(_dailyOperationStarted||_dailyCheckinId||_dailyMatches.length)_dailyPreparedOperation='daily';
   dailyApplyParticipantHandoff();
+  dailyApplyTeamResetReturn();
   _dailyTryRestoreAug3Preparation();
   _dailySyncPlayerRolesFromRoster();
   dailyApplyReviewSample();
