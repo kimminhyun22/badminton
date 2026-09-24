@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.705';
+const APP_VERSION = '1.10.706';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -608,9 +608,18 @@ function setCaptain(team, role, name){
 }
 
 function movePlayer(name,toTeam){
+  if(_teamBlockFullReassignment())return false;
   if(!teamAssignment)return;
+  const rebuild=!!currentMatches.length;
+  if(rebuild&&!confirm('선수를 이동하고 대진표를 다시 생성할까요?'))return false;
   const fi=teamAssignment.blue.findIndex(p=>p.name===name);
   const wi=teamAssignment.white.findIndex(p=>p.name===name);
+  const source=toTeam==='white'&&fi>=0?teamAssignment.blue:toTeam==='blue'&&wi>=0?teamAssignment.white:null;
+  if(!source)return false;
+  if(rebuild&&source.length<=2){alert('각 팀에 최소 2명이 필요합니다.');return false;}
+  const partner=getPartnerOf(name);
+  if(partner&&source.some(p=>p.name===partner)){alert('지정 파트너를 해제한 뒤 팀을 이동해 주세요.');return false;}
+  _captureUndoSnapshot('팀 이동 전');
   let player;
   if(toTeam==='white'&&fi>=0){
     player=teamAssignment.blue.splice(fi,1)[0];player.team='홍팀';teamAssignment.white.push(player);
@@ -624,6 +633,8 @@ function movePlayer(name,toTeam){
     if(captains.white.sub===name) captains.white.sub='';
   }
   renderTeamList();
+  if(rebuild)generate({skipExistingConfirm:true,skipUndoSnapshot:true});
+  else scheduleSave();
 }
 
 let _teamModeOverride=null; // null=청·홍 팀전, false=자유 대진
@@ -8332,6 +8343,13 @@ function teamLiveOpenPanel(target){
   if(cfg.open){
     _teamForceOpenSection(cfg.open);
   }
+  if(target==='team'){
+    const review=document.querySelector('.team-lineup-review');
+    if(review)review.open=true;
+    if(!teamAssignment&&!_teamFullReassignmentLocked())doTeamAssign();
+    renderTeamList();
+    document.querySelectorAll('#teamListWrap .move-btn').forEach(b=>b.disabled=_teamFullReassignmentLocked());
+  }
   const el=document.getElementById(cfg.id);
   if(el){
     if(el.classList&&el.classList.contains('hidden'))el.classList.remove('hidden');
@@ -8426,6 +8444,7 @@ function teamApplyStageLayout(){
   hide('#sec-rsvp',!document.getElementById('sec-rsvp')?.dataset.editing);
   hide('#sec-players',!empty&&!document.getElementById('sec-players')?.dataset.editing);
   hide('#teamParticipantQuick',empty);
+  hide('#teamLineupOpenBtn',empty||!_teamUsesFixedTeams());
   const participantCount=document.getElementById('teamParticipantCount');
   if(participantCount)participantCount.textContent=`참가자 ${_directPlayers.length}명`;
   const playersTitle=document.getElementById('teamPlayersTitle');

@@ -62,6 +62,7 @@ function run(state){
   const ctx = {
     currentMatches: state.matches || [],
     _liveOn: !!state.live,
+    _teamUsesFixedTeams: () => !state.free,
     _liveMatchStartedAt: null,
     _teamFinishedAt: null,
     _isMatchDone: () => false,
