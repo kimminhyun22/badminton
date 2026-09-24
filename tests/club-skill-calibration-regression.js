@@ -42,7 +42,12 @@ for(const stale of [false,true]){
 function fakeDb(){
   const values={};return {values,ref(path){return {
     async once(){return {val:()=>structuredClone(values[path]??null)};},
-    async transaction(fn){const next=fn(structuredClone(values[path]??null));if(next!==undefined)values[path]=next;return {committed:next!==undefined,snapshot:{val:()=>structuredClone(values[path]??null)}};}
+    async transaction(fn){
+      const first=fn(null);
+      if(first===undefined)return {committed:false,snapshot:{val:()=>structuredClone(values[path]??null)}};
+      const next=fn(structuredClone(values[path]??null));if(next!==undefined)values[path]=next;
+      return {committed:next!==undefined,snapshot:{val:()=>structuredClone(values[path]??null)}};
+    }
   };}};
 }
 (async()=>{

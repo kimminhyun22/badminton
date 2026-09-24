@@ -44,16 +44,21 @@ async function handle(db,data,ip,now=Date.now()){
   if(data.action==='read')return project(s,role);
   if(data.action==='close'){
     if(role!=='owner')throw Error('만든 기기에서만 마감할 수 있습니다.');
-    const r=await ref.transaction(old=>old?{...old,closed:true}:undefined);return project(r.snapshot.val(),role);
+    const r=await ref.transaction(old=>old?{...old,closed:true}:null);
+    if(!r.snapshot.val())throw Error('링크를 확인해 주세요.');
+    return project(r.snapshot.val(),role);
   }
   if(data.action!=='answer'||role==='owner')throw Error('응답 링크를 확인해 주세요.');
   if(!data.answers||typeof data.answers!=='object'||Array.isArray(data.answers)||Object.keys(data.answers).length<1||Object.keys(data.answers).length>5)throw Error('한 번에 1~5문제만 응답할 수 있습니다.');
   for(const [id,value] of Object.entries(data.answers))if(!s.questions.some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
   const result=await ref.transaction(old=>{
-    if(!old||old.closed||old.expiresAt<=now)return;
+    // RTDB may first invoke with an empty local cache despite the preceding read.
+    // Null lets the server compare-and-retry; undefined would abort immediately.
+    if(!old)return null;
+    if(old.closed||old.expiresAt<=now)return;
     return {...old,votes:{...old.votes,[role]:{...old.votes?.[role],...data.answers}}};
   });
-  if(!result.committed)throw Error('마감되었거나 만료된 링크입니다.');
+  if(!result.committed||!result.snapshot.val())throw Error('마감되었거나 만료된 링크입니다.');
   return project(result.snapshot.val(),role);
 }
 module.exports={handle,authorize,project};
