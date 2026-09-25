@@ -26,13 +26,29 @@
     write(KEY,fresh);links=fresh;
   }
   function panels(id){['setup','owner','quiz','done'].forEach(s=>$(s).hidden=s!==id);}
+  function eligible(club){
+    const members=[],issues=[],names=new Map();
+    for(const m of club?.members||[]){const name=String(m?.name||'').trim();names.set(name,(names.get(name)||0)+1);}
+    for(const m of club?.members||[]){
+      try{const p=C.player(m);if(names.get(p.name)>1)throw Error('이름 중복');members.push(m);}
+      catch(e){issues.push({name:m?.name||'이름 없음',reason:e.message});}
+    }
+    return {members,issues};
+  }
+  function checkRoster(){
+    const {members,issues}=eligible(clubs[Number($('club').value)]);
+    $('rosterCheck').innerHTML=issues.length?`<p>${members.length}명 비교 가능 · ${issues.length}명 정보 확인 필요</p><details><summary>확인할 회원 ${issues.length}명</summary>${issues.map(p=>`<p>${esc(p.name)} · ${esc(p.reason)}</p>`).join('')}</details>`:'';
+    $('create').textContent=issues.length?'확인된 '+members.length+'명으로 시작':'퀴즈 만들기';
+    $('create').disabled=members.length<2;
+    return {members,issues};
+  }
   function setup(){
     panels('setup');
     $('club').innerHTML=clubs.map((c,i)=>`<option value="${i}">${esc(c.name)}</option>`).join('');
     const requested=new URLSearchParams(location.search).get('club');
     const selected=clubs.findIndex(c=>String(c.id)===requested);
     if(selected>=0)$('club').value=String(selected);
-    $('create').disabled=!clubs.length;
+    checkRoster();
     if(!clubs.length)message('명부에 클럽과 회원을 먼저 등록해 주세요.');
     $('historyLabel').hidden=!links.length;
     $('history').innerHTML='<option value="">선택</option>'+links.slice().reverse().map(l=>`<option value="${l.id}">${esc(l.clubName)} · ${new Date(l.createdAt).toLocaleDateString('ko-KR')}</option>`).join('');
@@ -63,18 +79,21 @@
     if(busy)return;
     const club=clubs[Number($('club').value)];if(!club)return;
     try{
-      const players=C.players(club.members);
+      const {members,issues}=checkRoster();
+      if(issues.length&&!confirm(`${issues.length}명은 정보를 확인해야 합니다. 명부는 그대로 두고 확인된 ${members.length}명으로 비교할까요?`))return;
+      const players=C.players(members);
       if(!C.pairs(players).length)throw Error('같은 급수에서 비교할 회원이 부족합니다.');
-      const reusable=links.slice().reverse().find(l=>l.clubId===club.id&&!l.pending&&!l.closed&&Date.now()-l.createdAt<30*86400000&&JSON.stringify(l.snapshots)===JSON.stringify(club.members));
+      const reusable=links.slice().reverse().find(l=>l.clubId===club.id&&!l.pending&&!l.closed&&Date.now()-l.createdAt<30*86400000&&JSON.stringify(l.snapshots)===JSON.stringify(members));
       if(reusable){await open({id:reusable.id,key:quick?reusable.invites[0]:reusable.key});return;}
-      let entry=links.find(l=>l.clubId===club.id&&l.pending);
-      if(!entry){entry={id:nonce(),key:nonce(),invites:[nonce(),nonce(),nonce()],clubId:club.id,clubName:club.name,createdAt:Date.now(),snapshots:JSON.parse(JSON.stringify(club.members)),players,pending:true};persist(entry);}
+      let entry=links.find(l=>l.clubId===club.id&&l.pending&&JSON.stringify(l.snapshots)===JSON.stringify(members));
+      if(!entry){entry={id:nonce(),key:nonce(),invites:[nonce(),nonce(),nonce()],clubId:club.id,clubName:club.name,createdAt:Date.now(),snapshots:JSON.parse(JSON.stringify(members)),players,pending:true};persist(entry);}
       busy=true;$('create').disabled=true;message('퀴즈를 만드는 중');
       session=await api({action:'create',id:entry.id,key:entry.key,invites:entry.invites,clubName:entry.clubName,players:entry.players});
       entry.pending=false;persist(entry);active={id:entry.id,key:entry.key};message('');
       if(quick){busy=false;await open({id:entry.id,key:entry.invites[0]});}else renderOwner();
     }catch(e){message(e.message);}finally{busy=false;$('create').disabled=false;}
   };
+  $('club').onchange=checkRoster;
   $('history').onchange=()=>{const l=links.find(l=>l.id===$('history').value);if(l)open({id:l.id,key:l.key});};
   $('share').onclick=async()=>{
     const own=ownerLink();if(!own)return;

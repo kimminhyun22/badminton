@@ -3,19 +3,24 @@
   const grade={S:7,A:6,B:5,C:4,D:3,E:2};
   const age={'20대':0,'30대':-.2,'40대':-.5,'50대':-1.2,'60대+':-2};
   const round=n=>Math.round(n*10)/10;
-  function players(raw){
-    if(!Array.isArray(raw)||raw.length<2||raw.length>150)throw Error('회원은 2~150명이어야 합니다.');
-    const names=new Set();
-    return raw.map((m,i)=>{
-      if(!m||typeof m.name!=='string'||!m.name.trim()||m.name.length>40||names.has(m.name.trim()))throw Error('회원 이름을 확인해 주세요.');
-      names.add(m.name.trim());
+  function player(m,i=0){
+      if(!m||typeof m.name!=='string'||!m.name.trim()||m.name.length>40)throw Error('이름 확인 필요');
       const gender=['여','F'].includes(m.gender)?'여':['남','M'].includes(m.gender)?'남':null;
-      if(!gender||!Object.hasOwn(grade,m.grade)||!Object.hasOwn(age,m.ageGroup))throw Error('급수·성별·연령이 모두 입력된 명부가 필요합니다.');
+      const missing=[!Object.hasOwn(grade,m.grade)&&'급수',!gender&&'성별',!Object.hasOwn(age,m.ageGroup)&&'연령'].filter(Boolean);
+      if(missing.length)throw Error(missing.join('·')+' 확인 필요');
       const step=Number(m.skillStep||0);
       if(!Number.isInteger(step)||Math.abs(step)>2)throw Error('개인 보정값을 확인해 주세요.');
       const level=round(grade[m.grade]-(gender==='여'?1:0)+step*.2);
       if(m.level!=null&&(!Number.isFinite(Number(m.level))||Math.abs(Number(m.level)-level)>.01))throw Error('명부의 급수와 보정값을 먼저 확인해 주세요.');
       return {id:'p'+i,name:m.name.trim(),grade:m.grade,gender,ageGroup:m.ageGroup,skillStep:step,level,base:round(grade[m.grade]-(gender==='여'?1.5:0)+age[m.ageGroup])};
+  }
+  function players(raw){
+    if(!Array.isArray(raw)||raw.length<2||raw.length>150)throw Error('회원은 2~150명이어야 합니다.');
+    const names=new Set();
+    return raw.map((m,i)=>{
+      const p=player(m,i);
+      if(names.has(p.name))throw Error('회원 이름을 확인해 주세요.');
+      names.add(p.name);return p;
     });
   }
   function pairs(list){
@@ -61,7 +66,7 @@
         state:all.some(e=>!e.consistent)?'의견 나뉨':ready?'적용 검토':step!==p.skillStep?'임시 보정':'기준 유지'};
     });
   }
-  const api={players,pairs,proposals,version:'club-skill-v1'};
+  const api={player,players,pairs,proposals,version:'club-skill-v1'};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.KokClubSkill=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
