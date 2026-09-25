@@ -26,11 +26,13 @@
     write(KEY,fresh);links=fresh;
   }
   function panels(id){['setup','owner','quiz','done'].forEach(s=>$(s).hidden=s!==id);}
+  // Legacy roster screens and both match engines already use 40대 when absent.
+  const reviewProfile=m=>({...m,ageGroup:m.ageGroup||'40대'});
   function eligible(club){
     const members=[],issues=[],names=new Map();
     for(const m of club?.members||[]){const name=String(m?.name||'').trim();names.set(name,(names.get(name)||0)+1);}
     for(const m of club?.members||[]){
-      try{const p=C.player(m);if(names.get(p.name)>1)throw Error('이름 중복');members.push(m);}
+      try{const p=C.player(reviewProfile(m));if(names.get(p.name)>1)throw Error('이름 중복');members.push(m);}
       catch(e){issues.push({name:m?.name||'이름 없음',reason:e.message});}
     }
     return {members,issues};
@@ -38,6 +40,8 @@
   function checkRoster(){
     const {members,issues}=eligible(clubs[Number($('club').value)]);
     $('rosterCheck').innerHTML=issues.length?`<p>${members.length}명 비교 가능 · ${issues.length}명 정보 확인 필요</p><details><summary>확인할 회원 ${issues.length}명</summary>${issues.map(p=>`<p>${esc(p.name)} · ${esc(p.reason)}</p>`).join('')}</details>`:'';
+    const legacy=members.filter(m=>!m.ageGroup).length;
+    if(legacy)$('rosterCheck').innerHTML+=`<p class="muted">연령 미입력 ${legacy}명은 기존 명부와 같은 40대 기준입니다.</p>`;
     $('create').textContent=issues.length?'확인된 '+members.length+'명으로 시작':'퀴즈 만들기';
     $('create').disabled=members.length<2;
     return {members,issues};
@@ -81,7 +85,7 @@
     try{
       const {members,issues}=checkRoster();
       if(issues.length&&!confirm(`${issues.length}명은 정보를 확인해야 합니다. 명부는 그대로 두고 확인된 ${members.length}명으로 비교할까요?`))return;
-      const players=C.players(members);
+      const players=C.players(members.map(reviewProfile));
       if(!C.pairs(players).length)throw Error('같은 급수에서 비교할 회원이 부족합니다.');
       const reusable=links.slice().reverse().find(l=>l.clubId===club.id&&!l.pending&&!l.closed&&Date.now()-l.createdAt<30*86400000&&JSON.stringify(l.snapshots)===JSON.stringify(members));
       if(reusable){await open({id:reusable.id,key:quick?reusable.invites[0]:reusable.key});return;}
