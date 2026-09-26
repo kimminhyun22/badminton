@@ -1,3 +1,6 @@
+.daily-score-options{display:flex;gap:6px;align-items:center;margin-top:10px;}
+.daily-score-options button{flex:1;min-height:44px;padding:8px;border:1px solid #d7e3dd;border-radius:8px;background:#fff;color:#52645b;font-size:14px;font-weight:700;}
+.daily-score-options button.active{background:#e7f4ed;border-color:#7bb799;color:#256248;}
 :root{
   --bg:#f7f8fb;--sur:#ffffff;--sur2:#f3f5f9;
   --bdr:#e9edf3;--bdr2:#d4dae4;

@@ -3020,7 +3020,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.731">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.732">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -3035,7 +3035,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.731</span>
+    <span class="version-chip" id="appVersion">v1.10.732</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3087,7 +3087,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/court-recommendation.js?v=1.10.731"></script>
+<script src="js/court-recommendation.js?v=1.10.732"></script>
 <script>
 const FB_CONFIG={
   apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
@@ -3099,7 +3099,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.731';
+const APP_VERSION='1.10.732';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3834,6 +3834,7 @@ function officialOperationsSummaryHtml(player){
       <button type="button" class="official-court-step" ${blocked||courtCount>=12?'disabled':''} onclick="sendOfficialSettingsCourts('${esc(player.id)}',1)" aria-label="코트 수 늘리기, 현재 ${courtCount}코트" title="코트 수 늘리기">+</button>
     </div>`:'',
     helperOn?`<button type="button" class="official-overview-tool ${officialOverviewMode==='helper'?'active':''}" onclick="setOfficialOverviewMode('helper')" aria-pressed="${officialOverviewMode==='helper'?'true':'false'}">${emo('🤝')}도우미${helperCount?` ${helperCount}`:''}</button>`:'',
+    rosterToolsOn?`<div class="daily-score-options" role="group" aria-label="경기 점수">${[21,25].map(points=>`<button type="button" ${blocked?'disabled':''} class="${(Number(session?.event?.pointSystem)===21?21:25)===points?'active':''}" aria-pressed="${(Number(session?.event?.pointSystem)===21?21:25)===points}" onclick="sendOfficialSettingsPoints('${esc(player.id)}',${points})">${points}점</button>`).join('')}</div>`:'',
     rosterToolsOn&&session?.event?.operationStarted!==false?`<button type="button" class="official-overview-tool ${session?.event?.finishMode?'active':''}" ${blocked?'disabled':''} onclick="sendOfficialFinishMode('${esc(player.id)}')" aria-pressed="${session?.event?.finishMode?'true':'false'}">${emo('🏁')}${session?.event?.finishMode?'마무리 해제':'마무리'}</button>`:''
   ].filter(Boolean).join('');
   // 파트너 지정 도구는 은퇴했지만(「다음 대진 짜기」가 대신), 모드 자체는
@@ -4540,7 +4541,7 @@ function renderEvent(){
           // 「진행중」 글자는 뺍니다(운영자 2026-08-13). 남은 시간 배지와 코트
           // 번호, 붉은 카드가 이미 진행 중이라고 말합니다. 배지가 있을 때만
           // 머리줄을 남겨 빈 줄이 생기지 않게 합니다.
-          const badges=`${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}${canOfficialOperate&&drainingCourt?'<span class="event-court-drain-badge">종료 후 닫힘</span>':''}`;
+          const badges=`<span class="event-court-drain-badge">${Number(m.pointSystem)===21?21:25}점</span>${partnerMatchBadge(m)}${fairnessCorrectionBadge(m)}${canOfficialOperate&&drainingCourt?'<span class="event-court-drain-badge">종료 후 닫힘</span>':''}`;
           return badges?`<div class="event-match-heading">${badges}</div>`:'';
         })()}
         <div class="event-teams active-teams">${teamLines(m,replaceCtx)}</div>
@@ -6682,6 +6683,18 @@ async function sendOfficialSettingsCourts(actorId,direction){
     observedUpdatedAt:session.updatedAt||0,
     source:'club-official-settings'
   },`코트 ${current}→${next} 변경`);
+}
+async function sendOfficialSettingsPoints(actorId,points){
+  const actor=officialActor(actorId);
+  if(!actor||!actor.isClubOfficial||![21,25].includes(points))return;
+  const current=Number(session?.event?.pointSystem)===21?21:25;
+  if(points===current)return;
+  if((session?.event?.active||[]).length&&!confirm(`${points}점으로 변경할까요?\n진행 중 경기는 유지하고, 다음 시작 경기부터 적용합니다.`))return;
+  const now=Date.now();
+  await pushOfficialRequest({type:'official-settings-update',operationId:createOfficialOperationId('settings'),
+    actorPlayerId:actor.id,actorPlayerName:actor.name,pointSystem:points,expectedPointSystem:current,
+    createdAt:now,expiresAt:now+OFFICIAL_OPERATION_TTL_MS,observedUpdatedAt:session.updatedAt||0,
+    source:'club-official-settings'},`${points}점 · 다음 시작 경기부터 적용`);
 }
 // 진행 중인 경기의 코트 번호 정정(운영자 2026-08-13). 화면 번호와 실제로 쓰는
 // 코트가 어긋났을 때. 대상 번호에 다른 경기가 있으면 물어보고 맞바꿉니다.

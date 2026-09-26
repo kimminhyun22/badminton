@@ -30,6 +30,12 @@ const source=fs.readFileSync('js/club-skill-batch.js','utf8'),ctx={module:{expor
 vm.runInNewContext(source.replace('!same(matches[0],e.after)','false'),ctx);
 assert.throws(()=>assert.equal(ctx.module.exports.undo(applied.state,'test','batch').state.clubs[0].members[1].level,4.4),'manual-protection mutation caught');
 const review=fs.readFileSync('js/club-skill-review.js','utf8');
+const help=review.slice(review.indexOf("    $('resultHelp').textContent="),review.indexOf("    if(count('unreviewed'))"));
+const helpNode={textContent:''};
+vm.runInNewContext(help,{$:()=>helpNode,ready:[],count:key=>({applied:28,pending:17,same:3}[key]||0)});
+assert(helpNode.textContent.startsWith('28명 보정값 명부 반영 완료'),'saved adjustments must take precedence over pending comparisons');
+assert(helpNode.textContent.includes('추가 확인 17명은 현재 값을 유지'));
+assert(!helpNode.textContent.includes('아직 적용할 보정안이 없습니다'));
 const frag=review.slice(review.indexOf('  function resultState('),review.indexOf('  function renderOwner('));
 const env={window:{KokSkillBatch:B}};vm.runInNewContext(frag+';this.row=proposalRow;',env);
 const own={id:'review',snapshots:members};

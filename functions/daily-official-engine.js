@@ -35,6 +35,8 @@ const STANDING_SESSION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;   // 9일은 추석
 const ROLLOVER_MIN_AGE_MS = 4 * 60 * 60 * 1000;
 const ROLLOVER_ARCHIVE_KEEP = 4;
 const MATCH_MINUTES = 15;
+function matchPointSystem(event){return Number(event?.pointSystem)===21?21:25;}
+function matchMinutes(event){return matchPointSystem(event)===21?12:MATCH_MINUTES;}
 const MAX_COURTS = 12;
 const TEMPORARY_OFFICIAL_LIMIT = 4;
 const AGE_BONUS = Object.freeze({'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2});
@@ -1619,6 +1621,9 @@ function autoEnterResult(match){
     matchId:text(match.id),
     court:number(match.court),
     startedAt:number(match.startedAt),
+    pointSystem:matchPointSystem(match),
+    expectedMinutes:number(match.expectedMinutes, MATCH_MINUTES),
+    endAt:number(match.endAt),
     expiresAt:number(match.autoHandoffExpiresAt),
     sourceMatchId:text(match.autoHandoffSourceMatchId),
     reservation:match.autoHandoffReservation || null,
@@ -1681,9 +1686,10 @@ function startPreparedItem(session, item, index, court, now, requestId, options 
     t2Ids:team2Ids,
     playerIds:ids,
     startedAt:now,
-    expectedMinutes:MATCH_MINUTES,
-    endAt:now + MATCH_MINUTES * 60000,
-    remain:MATCH_MINUTES,
+    pointSystem:matchPointSystem(event),
+    expectedMinutes:matchMinutes(event),
+    endAt:now + matchMinutes(event) * 60000,
+    remain:matchMinutes(event),
     timerState:'normal',
     transitionStarted:false,
     reservationId:item.reservationId || null,
@@ -1846,6 +1852,9 @@ function applyComplete(session, request, now, requestId, operation){
         matchId:autoEntered.id,
         court:autoEntered.court,
         startedAt:autoEntered.startedAt,
+        pointSystem:autoEntered.pointSystem,
+        expectedMinutes:autoEntered.expectedMinutes,
+        endAt:autoEntered.endAt,
         expiresAt:autoEntered.autoHandoffExpiresAt,
         sourceMatchId:text(match.id),
         reservation:autoEntered.autoHandoffReservation || null,
@@ -2008,6 +2017,9 @@ function applyActiveYield(session, request, now, requestId, operation){
         matchId:autoEntered.id,
         court:autoEntered.court,
         startedAt:autoEntered.startedAt,
+        pointSystem:autoEntered.pointSystem,
+        expectedMinutes:autoEntered.expectedMinutes,
+        endAt:autoEntered.endAt,
         expiresAt:autoEntered.autoHandoffExpiresAt,
         sourceMatchId:text(match.id),
         reservation:autoEntered.autoHandoffReservation || null,
@@ -2417,6 +2429,14 @@ function applySettingsUpdate(session, request, now, operation){
   const has = key=>Object.prototype.hasOwnProperty.call(request, key);
   const changes = {};
   let courtAdjustment = null;
+
+  if(has('pointSystem')){
+    const points=Number(request.pointSystem);
+    if(![21,25].includes(points))return '경기 점수는 21점 또는 25점으로 선택해 주세요.';
+    if(Number(request.expectedPointSystem)!==matchPointSystem(event))return '경기 점수가 이미 바뀌었습니다. 다시 확인해 주세요.';
+    event.pointSystem=points;
+    changes.pointSystem=points;
+  }
 
   if(has('courts')){
     const courts = number(request.courts);
@@ -2949,9 +2969,10 @@ function applyManualMatch(session, request, now, requestId, operation){
     t1Ids:team1Ids, t2Ids:team2Ids,
     playerIds:ids,
     startedAt:now,
-    expectedMinutes:MATCH_MINUTES,
-    endAt:now + MATCH_MINUTES * 60000,
-    remain:MATCH_MINUTES,
+    pointSystem:matchPointSystem(event),
+    expectedMinutes:matchMinutes(event),
+    endAt:now + matchMinutes(event) * 60000,
+    remain:matchMinutes(event),
     timerState:'normal',
     transitionStarted:transition,
     manualStarted:true,
@@ -2977,7 +2998,7 @@ function applyManualMatch(session, request, now, requestId, operation){
   });
   delete runtime.holds[text(court)];
   promotePrepared(session);
-  if(operation)operation.result = {manualMatch:{matchId, court, seq:match.seq, playerIds:ids, transition, label}};
+  if(operation)operation.result = {manualMatch:{matchId, court, seq:match.seq, playerIds:ids, transition, label, pointSystem:match.pointSystem, expectedMinutes:match.expectedMinutes, endAt:match.endAt}};
   return '';
 }
 

@@ -133,7 +133,9 @@
     $('notice').textContent=`${session.count}개 응답 저장됨 · ${rows.filter(r=>r.p.opponents).length}/${rows.length}명 비교`;
     $('notice').className=ready.length?'ready-notice':'muted';
     $('resultSummary').innerHTML=[['applied','반영 완료'],['ready','적용 가능'],['pending','추가 확인'],['same','변경 없음']].map(([key,title])=>`<div><strong>${count(key)}명</strong><span>${title}</span></div>`).join('');
-    $('resultHelp').textContent=ready.length?'적용 가능 회원의 비교 근거를 확인하고, 명부에 저장하면 반영됩니다.':count('pending')?'응답은 저장됐지만 아직 적용할 보정안이 없습니다. 추가 비교가 필요합니다.':count('applied')?'현재 명부에 보정값이 반영돼 있습니다. 이미 생성한 대진은 자동 재배정하지 않습니다.':'비교 결과와 명부 반영 여부를 아래에서 확인하세요.';
+    $('resultHelp').textContent=count('applied')?`${count('applied')}명 보정값 명부 반영 완료. 이 기기의 명부로 새 대진을 생성하면 적용됩니다. 이미 생성한 대진은 그대로 유지됩니다.`:ready.length?'보정안을 명부에 저장하면 새 대진에 적용됩니다.':'현재 명부 값을 유지합니다.';
+    if(ready.length)$('resultHelp').textContent+=` 추가 저장 가능 ${ready.length}명.`;
+    if(count('pending'))$('resultHelp').textContent+=` 추가 확인 ${count('pending')}명은 현재 값을 유지하며, 추가 비교 후 조정할 수 있습니다.`;
     if(count('unreviewed'))$('resultHelp').textContent+=` 아직 비교하지 않은 회원 ${count('unreviewed')}명.`;
     if(session.legacyCount)$('resultHelp').textContent+=` 기존 개별 링크 응답 ${session.legacyCount}개도 포함됩니다. 이미 참여한 분은 중복 참여하지 말고 기존 링크에서 수정해 주세요.`;
     const order={ready:0,pending:1,applied:2,changed:3,same:4};

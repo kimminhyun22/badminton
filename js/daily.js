@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.731';
+const APP_VERSION = '1.10.732';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -254,6 +254,24 @@ const DAILY_CHECKIN_CREATED_KEY='kokmatch_daily_checkin_created_at';
 const DAILY_PREPARATION_DRAFT_KEY='kokmatch_daily_preparation_drafts_v1';
 const DAILY_AUG3_RECOVERY_MARKER='kokmatch_daily_recovery_2026_08_03_v1';
 const DAILY_MATCH_MINUTES=15;
+let _dailyPointSystem=25;
+function _dailyGameMinutes(){return _dailyPointSystem===21?12:DAILY_MATCH_MINUTES;}
+async function dailySetPointSystem(points){
+  if(![21,25].includes(points)||points===_dailyPointSystem)return;
+  if(_dailyBlockServerSync({action:'경기 점수 변경'}))return;
+  if(_dailyMatches.some(m=>!m.completedAt&&!m.cancelledAt)&&!confirm(`${points}점으로 변경할까요?\n진행 중 경기는 유지하고, 다음 시작 경기부터 적용합니다.`))return;
+  if(_dailyCheckinId){
+    return (await _dailySendAdminCommand({type:'official-settings-update',pointSystem:points,expectedPointSystem:_dailyPointSystem,source:'system-admin-settings'},{action:'경기 점수 변경',tag:'settings'})).ok;
+  }
+  _dailyPointSystem=points;
+  dailySave();dailyRender();
+}
+function _dailyRenderPointSystem(){
+  document.querySelectorAll('[data-daily-points]').forEach(btn=>{
+    const selected=Number(btn.dataset.dailyPoints)===_dailyPointSystem;
+    btn.classList.toggle('active',selected);btn.setAttribute('aria-pressed',String(selected));
+  });
+}
 const DAILY_AUTO_MIN_START=8;
 const DAILY_AUTO_FULL_START=12;
 const DAILY_AUTO_GRACE_MS=3*60*1000;
@@ -2177,6 +2195,7 @@ function _dailyStorePreparationDraft(input){
     targetDate,
     updatedAt:_dailyNow(),
     courts:Math.max(1,Number(input?.courts||_dailyCourtCount()||3)),
+    pointSystem:Number(input?.pointSystem||_dailyPointSystem)===21?21:25,
     operatingStart:String(input?.operatingStart||_dailyStartTime||'19:00'),
     operatingEnd:String(input?.operatingEnd||_dailyEndTime||'22:00'),
     players
@@ -2202,6 +2221,7 @@ function _dailyLatestPreparationDraft(){
 }
 function _dailyApplyPreparationDraft(draft,options){
   if(!draft||!(draft.players||[]).length)return false;
+  _dailyPointSystem=Number(draft.pointSystem)===21?21:25;
   _dailyPlayers=_dailyPreparationPlayers(draft.players);
   if(!_dailyPlayers.length)return false;
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
@@ -2305,6 +2325,7 @@ function dailySave(options){
       appMode:'dailyLive',
       savedAt:_dailyNow(),
       courts:document.getElementById('dailyCourts')?.value||3,
+      pointSystem:_dailyPointSystem,
       autoAssign:_dailyAutoAssign,
       operationStarted:_dailyOperationStarted,
       operationStartedAt:_dailyOperationStartedAt,
@@ -2389,6 +2410,7 @@ function _dailySyncControls(courts){
   dailyRenderCourtSettings();
 }
 function dailyRenderCourtSettings(){
+  _dailyRenderPointSystem();
   _dailyCourtOrder=_dailyNormalizeCourtOrder(_dailyCourtOrder,_dailyCourtCount());
 }
 function _dailyPruneForeignDormantCarryover(){
@@ -2439,6 +2461,7 @@ function _dailyPruneForeignDormantCarryover(){
 }
 function _dailyLoadAsNewDay(s){
   const now=_dailyNow();
+  _dailyPointSystem=Number(s.pointSystem)===21?21:25;
   const preservedPlayers=_dailyPreparationState(s,now)?_dailyPreparationPlayers(s.players):[];
   _dailyPlayers=preservedPlayers;
   _dailyMatches=[];_dailyNext=null;_dailyQueue=[];_dailyReservations=[];_dailySeq=1;_dailyWaveStarts=0;
@@ -2523,6 +2546,7 @@ function dailyLoad(){
     _dailySessionClubName=String(s.sessionClub||'');
     _dailyOfficialRestoreDismissed=Array.isArray(s.officialRestoreDismissed)?s.officialRestoreDismissed.map(String):[];
     _dailyCourtOrder=_dailyNormalizeCourtOrder(s.courtOrder,s.courts||3);
+    _dailyPointSystem=Number(s.pointSystem)===21?21:25;
     const storedCheckinId=String(localStorage.getItem(DAILY_CHECKIN_KEY)||'');
     const savedCheckinId=String(s.checkinId||'');
     const storedCheckinCreatedAt=parseInt(localStorage.getItem(DAILY_CHECKIN_CREATED_KEY)||'0',10)||0;
@@ -2624,6 +2648,7 @@ function dailyApplyReviewSample(){
   _dailyStartTime='19:00';
   _dailyEndTime='22:00';
   _dailyCourtOrder=[1,2,3];
+  _dailyPointSystem=25;
   _dailyStopCheckinListener();
   _dailyCheckinId='DFAKE201';
   _dailyCheckinCreatedAt=now;
@@ -3733,7 +3758,7 @@ function _dailyFinishPlanInfo(){
   while(remain>0){
     const t=queue.shift()??0;
     remain--;
-    queue.push(t+DAILY_MATCH_MINUTES);
+    queue.push(t+_dailyGameMinutes());
     queue.sort((a,b)=>a-b);
   }
   const eta=Math.max(0,...queue);
@@ -4357,7 +4382,7 @@ function _dailyReasons(next){
     `${label} · ${m.type}${m.isFlexible?' 조합':''} · 팀 실력차 ${m.levelDiff}`,
     `${low.length?low.join(', '):'대상자'} 선수의 오늘 경기 수가 가장 적습니다.`,
     `${_dailyNameText(wait)} 선수가 약 ${_dailyMinutes(wait.waitFrom)}분 대기했습니다.`,
-    `25점 기준 약 ${DAILY_MATCH_MINUTES}분 경기로 보고 종료 시간을 예측합니다.`
+    `${_dailyPointSystem}점 기준 약 ${_dailyGameMinutes()}분 경기로 보고 종료 시간을 예측합니다.`
   ];
   if(m.reservationLabel)reasons.unshift(`게임신청: ${m.reservationLabel} 요청을 반영했습니다.`);
   if(recent.length)reasons.push(`${recent.join(', ')} 선수는 최근 경기자라 대기 인원 여유에 따라 우선순위를 낮춰 반영했습니다.`);
@@ -5168,11 +5193,12 @@ async function dailyConfirmManualActiveMatch(){
     seq,
     court,
     startedAt,
-    endAt:startedAt+DAILY_MATCH_MINUTES*60000,
+    pointSystem:_dailyPointSystem,
+    endAt:startedAt+_dailyGameMinutes()*60000,
     type:q.type||'자율',
     levelDiff:q.levelDiff||0,
-    expectedMinutes:DAILY_MATCH_MINUTES,
-    durationMin:DAILY_MATCH_MINUTES,
+    expectedMinutes:_dailyGameMinutes(),
+    durationMin:_dailyGameMinutes(),
     team1:ids.slice(0,2),
     team2:ids.slice(2,4),
     teamMode:false,
@@ -5303,8 +5329,9 @@ function dailyStartQueueItem(queueId,options){
   const startedMatch={
     id,seq,court,
     startedAt:operationAt,type:m.type,levelDiff:m.levelDiff,
-    endAt:operationAt+DAILY_MATCH_MINUTES*60000,
-    expectedMinutes:DAILY_MATCH_MINUTES,
+    pointSystem:options.pointSystem||_dailyPointSystem,
+    endAt:Number(options.endAt)||operationAt+(Number(options.expectedMinutes)||_dailyGameMinutes())*60000,
+    expectedMinutes:Number(options.expectedMinutes)||_dailyGameMinutes(),
     team1:[m.team1A.id,m.team1B.id],team2:[m.team2C.id,m.team2D.id],
     teamMode:!!(q.teamMode||m.teamMode),
     fourKey:_dailyFourKey([m.team1A,m.team1B,m.team2C,m.team2D]),
@@ -5569,6 +5596,8 @@ function _dailyPublicEvent(){
       playerIds:[...teams.t1,...teams.t2].map(p=>p.id),
       remain:_dailyRemainingMinutes(m),
       startedAt:m.startedAt||0,
+      pointSystem:m.pointSystem||25,
+      expectedMinutes:m.expectedMinutes||DAILY_MATCH_MINUTES,
       endAt:_dailyMatchEndAt(m),
       timerState:_dailyTimerState(m),
       transitionStarted:!!m.transitionStarted,
@@ -5681,6 +5710,7 @@ function _dailyPublicEvent(){
     activeCount:st.active.length,
     courts:_dailyCourtCount(),
     operatingCourtIds,
+    pointSystem:_dailyPointSystem,
     drainingCourtIds,
     nextTarget:cap.target,
     nextGoal:cap.goal,
@@ -7129,6 +7159,7 @@ function _dailyArchiveLocalDay(at){
 function _dailyAdoptServerSnapshot(remote,options){
   const now=_dailyNow();
   const rollover=!!options?.rollover;
+  _dailyPointSystem=Number(remote?.event?.pointSystem)===21?21:25;
   const remoteCourts=Math.max(1,Math.min(12,parseInt(remote?.event?.courts,10)||_dailyCourtCount()));
   const courtControl=document.getElementById('dailyCourts');
   if(courtControl)courtControl.value=remoteCourts;
@@ -7157,6 +7188,7 @@ function _dailyAdoptServerSnapshot(remote,options){
       court:Number(m.court)||0,
       startedAt,
       endAt:Number(m.endAt)||startedAt+DAILY_MATCH_MINUTES*60000,
+      pointSystem:Number(m.pointSystem)===21?21:25,
       type:m.type||'예외',
       levelDiff:Number(m.levelDiff||0),
       expectedMinutes:Number(m.expectedMinutes)||DAILY_MATCH_MINUTES,
@@ -9124,9 +9156,10 @@ function _dailyApplyAdminOperation(req){
     _dailySeq=Math.max(_dailySeq,seq+1);
     const match={
       id:info.matchId,seq,court:Number(info.court)||1,
-      startedAt:at,endAt:at+DAILY_MATCH_MINUTES*60000,
+      startedAt:at,endAt:Number(info.endAt)||at+(Number(info.expectedMinutes)||DAILY_MATCH_MINUTES)*60000,
+      pointSystem:Number(info.pointSystem)===21?21:25,
       type:'자율',levelDiff:0,
-      expectedMinutes:DAILY_MATCH_MINUTES,durationMin:DAILY_MATCH_MINUTES,
+      expectedMinutes:Number(info.expectedMinutes)||DAILY_MATCH_MINUTES,durationMin:Number(info.expectedMinutes)||DAILY_MATCH_MINUTES,
       team1:ids.slice(0,2),team2:ids.slice(2,4),teamMode:false,
       fourKey:_dailyFourKey(selected),flexible:false,
       reservationId:null,reservationLabel:info.label||'자율게임',
@@ -9201,6 +9234,9 @@ function _dailyApplyOfficialSettings(req){
   const settings=req.serverResult?.settings;
   if(!settings||typeof settings!=='object')return false;
   let touched=false;
+  if([21,25].includes(Number(settings.pointSystem))){
+    _dailyPointSystem=Number(settings.pointSystem);touched=true;
+  }
   if(Object.prototype.hasOwnProperty.call(settings,'courts')){
     const courts=Math.max(1,Math.min(12,parseInt(settings.courts,10)||0));
     if(courts){
@@ -9246,6 +9282,9 @@ function _dailyStartServerAutoEnter(req,options){
     skipWaveTrack:!!options.skipWaveTrack,
     matchId:auto.matchId,
     startedAt:auto.startedAt||req.serverAppliedAt||req.createdAt,
+    pointSystem:auto.pointSystem,
+    expectedMinutes:auto.expectedMinutes,
+    endAt:auto.endAt,
     autoHandoffAt:auto.startedAt||req.serverAppliedAt||req.createdAt,
     autoHandoffExpiresAt:auto.expiresAt||0,
     autoHandoffSource:options.source||'official-complete',
@@ -10452,7 +10491,7 @@ function dailyRenderMatches(){
     const labelB=_dailyMatchSideLabel(m,'t2');
     return `<div class="daily-match">
       <div class="daily-match-top">
-        <div class="daily-match-title">${done?'최근 완료':'진행중'} · 투입 ${m.seq} · 코트 ${m.court} · ${m.reservationLabel&&!_dailyIsPartnerReservation(m)?'신청경기 · ':''}${esc(m.type)}${m.flexible?' · 예외':''} · 25점 ${_dailyPartnerReservationBadge(m)}${_dailyFairnessCorrectionBadge(m)}</div>
+        <div class="daily-match-title">${done?'최근 완료':'진행중'} · 투입 ${m.seq} · 코트 ${m.court} · ${m.reservationLabel&&!_dailyIsPartnerReservation(m)?'신청경기 · ':''}${esc(m.type)}${m.flexible?' · 예외':''} · ${m.pointSystem===21?21:25}점 ${_dailyPartnerReservationBadge(m)}${_dailyFairnessCorrectionBadge(m)}</div>
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
           ${done?`<span class="daily-status done">완료</span>`:`<span class="daily-timer ${_dailyTimerState(m)==='soon'?'soon':''} ${_dailyTimerState(m)==='due'?'due':''}" data-daily-timer="${m.id}">${esc(_dailyTimerText(m))}</span>`}
         </div>
@@ -10935,7 +10974,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.731&from=daily';
+  location.href='team.html?v=1.10.732&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

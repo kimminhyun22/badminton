@@ -49,6 +49,8 @@ const finishSandbox={};
 vm.createContext(finishSandbox);
 vm.runInContext(`
 const DAILY_MATCH_MINUTES=15;
+let _dailyPointSystem=25;
+${extractFunction('_dailyGameMinutes','dailySetPointSystem')}
 let _dailyQueue=[];
 let active=[];
 function _dailyQueueItemValid(){return true;}
@@ -58,12 +60,14 @@ function _dailyRemainingMinutes(match){return match.remain;}
 ${finishPlan}
 ${finishEta}
 this.api={
-  set(queueCount,remaining){_dailyQueue=Array.from({length:queueCount},()=>({}));active=remaining.map(remain=>({remain}));},
+  set(queueCount,remaining,points=25){_dailyPointSystem=points;_dailyQueue=Array.from({length:queueCount},()=>({}));active=remaining.map(remain=>({remain}));},
   plan:_dailyFinishPlanInfo
 };
 `,finishSandbox);
 finishSandbox.api.set(3,[5,5,5]);
 assert.strictEqual(finishSandbox.api.plan().etaMin,20,'현재 경기 뒤 다음 세 경기를 마치려면 시작 시각이 아니라 최종 종료까지 20분으로 계산해야 합니다.');
+finishSandbox.api.set(3,[5,5,5],21);
+assert.strictEqual(finishSandbox.api.plan().etaMin,17,'21점 전환 후 대기 경기는 12분으로 계산해야 합니다.');
 finishSandbox.api.set(0,[12,7,3]);
 assert.strictEqual(finishSandbox.api.plan().etaMin,12,'다음 대진이 없어도 진행 중인 마지막 경기 종료까지 남은 시간을 보여야 합니다.');
 finishSandbox.api.set(0,[]);

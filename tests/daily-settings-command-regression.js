@@ -229,6 +229,40 @@ function send(patch, {admin = true, active = null} = {}){
 }
 
 // 4) 형식·정합성이 틀리면 거절합니다.
+{
+  const s=makeSession();
+  s.capabilities.officialAutoHandoffV1=true;
+  s.players=Array.from({length:12},(_,i)=>player(`p${i+1}`,`E2E${i+1}`,{isClubOfficial:i===8}));
+  s.event.courts=1;
+  const first=sendTo(s,{pointSystem:21,expectedPointSystem:25},{admin:false});
+  assert.strictEqual(first.status,'applied',first.reason);
+  assert.strictEqual(first.session.event.pointSystem,21);
+  const active=first.session.event.active[0];
+  assert(active,'점수 설정 후 자동 투입');
+  assert.strictEqual(active.expectedMinutes,12);
+  assert.strictEqual(active.endAt-active.startedAt,12*60000);
+  assert.strictEqual(first.result.autoEntries[0].pointSystem,21);
+  assert.strictEqual(first.result.autoEntries[0].expectedMinutes,12);
+  const changed=sendTo(first.session,{pointSystem:25,expectedPointSystem:21});
+  assert.strictEqual(changed.status,'applied',changed.reason);
+  assert.strictEqual(changed.result.settings.pointSystem,25);
+  assert.deepStrictEqual(changed.session.event.active[0],active,'진행 중 경기 타이머 보존');
+  const stale=sendTo(changed.session,{pointSystem:21,expectedPointSystem:21});
+  assert.strictEqual(stale.status,'rejected','다른 임원의 옛 화면 변경 거절');
+  const done=sendTo(changed.session,{type:'official-court-complete',matchId:active.id,
+    expectedStartedAt:active.startedAt,expectedPlayerIds:active.playerIds},{admin:false,at:NOW+13*60000});
+  assert.strictEqual(done.status,'applied',done.reason);
+  const next=done.session.event.active[0];
+  assert(next,'종료 후 다음 경기 자동 투입');
+  assert.strictEqual(next.pointSystem,25);
+  assert.strictEqual(next.endAt-next.startedAt,15*60000);
+  assert.strictEqual(done.result.autoEnter.expectedMinutes,15);
+  assert.strictEqual(send({pointSystem:30,expectedPointSystem:25}).status,'rejected');
+  assert.strictEqual(send({pointSystem:21}).status,'rejected','동시성 기준 필수');
+  assert(daily.includes('pointSystem:_dailyPointSystem')&&daily.includes('pointSystem:auto.pointSystem'));
+  assert(checkin.includes('sendOfficialSettingsPoints')&&indexHtml.includes('dailySetPointSystem(21)'));
+  console.log('  점수 21→25: 기존 12분 유지 · 신규 15분 · 동시 변경 거절');
+}
 const badCases = [
   [{courts:0}, '코트 수 하한'],
   [{courts:13}, '코트 수 상한'],
