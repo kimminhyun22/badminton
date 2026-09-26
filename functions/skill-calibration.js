@@ -16,7 +16,14 @@ function authorize(s,key){
 }
 function project(s,role){
   const players=role==='owner'?s.players:s.players.map(({id,name,grade,gender,ageGroup})=>({id,name,grade,gender,ageGroup}));
+  const evidence=Object.fromEntries(s.questions.map(q=>{
+    const counts={a:0,b:0,tie:0};
+    Object.values(s.votes||{}).forEach(a=>{if(Object.hasOwn(counts,a[q.id]))counts[a[q.id]]++;});
+    const count=Object.values(counts).reduce((a,b)=>a+b,0);
+    return [q.id,{count,needsReview:count>0&&Math.max(...Object.values(counts))<=count/2}];
+  }));
   return {id:s.id,clubName:s.clubName,players,questions:s.questions,expiresAt:s.expiresAt,closed:!!s.closed,
+    evidence,
     reviewedAt:s.reviewedAt||0,
     legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
     needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,

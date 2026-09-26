@@ -10,7 +10,7 @@ function check(run){
   let r=run(players,questions,[]);assert.equal(r.percent,0);assert.equal(r.remaining,100);assert.equal(r.pending.length,4);assert.equal(r.minimumQuestions,6);
   r=run(players,questions,[p(0,{opponents:2,experts:20})]);assert.equal(r.done,0,'many people do not replace distinct opponents');
   r=run(players,questions,[p(0,{opponents:3}),p(1,{opponents:3,ready:true,step:1,support:3}),p(2,{opponents:3,conflicts:1}),p(3,{opponents:3,step:1,support:2})]);
-  assert.equal(r.percent,50);assert.equal(r.remaining,50);assert.equal(r.done,2);assert(r.pending[0].reason.includes('의견'));assert(r.pending[1].reason.includes('1건'));
+  assert.equal(r.percent,100);assert.equal(r.remaining,0);assert.equal(r.done,4,'collection progress is independent of proposal approval');assert.equal(r.pending.length,0);
   r=run(players,questions,players.map((_,i)=>p(i,{opponents:3})));assert.equal(r.percent,100);assert.equal(r.pending.length,0);assert.equal(r.minimumQuestions,0);
   r=run([...players,{id:'rare',name:'E2E희소'}],questions,players.map((_,i)=>p(i,{opponents:3})));
   assert.equal(r.total,4);assert.equal(r.excluded.length,1,'unreachable members remain visible separately');

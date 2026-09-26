@@ -34,7 +34,7 @@
       const values=Object.entries(votes).flatMap(([who,answers])=>['a','b','tie'].includes(answers[q.id])?[{who,value:answers[q.id]}]:[]);
       const counts={a:0,b:0,tie:0};values.forEach(v=>counts[v.value]++);
       const winner=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
-      return {...q,values,winner,consistent:values.length>0&&counts[winner]/values.length>=.8};
+      return {...q,values,winner,consistent:values.length>0&&counts[winner]/values.length>.5};
     });
     const delta=Object.fromEntries(list.map(p=>[p.id,p.skillStep*.2]));
     // Bounded least-change fit of ordinal constraints; never changes demographic coefficients.
@@ -61,11 +61,18 @@
         return Math.sign(shift)===direction&&Math.abs(shift)>.05;
       });
       const experts=new Set(good.flatMap(e=>e.values.map(v=>v.who))).size;
-      const ready=step!==p.skillStep&&all.length===good.length&&support.length>=3&&support.length/good.length>=.8;
+      // Rank evidence is relational: a middle-ranked member may both win and lose.
+      // Check fit to the resolved comparisons, not the fraction of wins or losses.
+      const fitError=good.length?good.reduce((sum,e)=>{
+        const diff=byId[e.a].base+delta[e.a]-byId[e.b].base-delta[e.b];
+        return sum+(e.winner==='tie'?Math.abs(diff):e.winner==='a'?Math.max(0,.3-diff):Math.max(0,.3+diff));
+      },0)/good.length:1;
+      const reviewed=good.length>=3&&good.length/all.length>=2/3&&fitError<=.15;
+      const ready=step!==p.skillStep&&reviewed;
       const comparisons=all.map(e=>({name:byId[e.a===p.id?e.b:e.a].name,agree:e.consistent,
         outcome:e.winner==='tie'?'tie':((e.winner==='a')===(e.a===p.id)?'higher':'lower'),votes:e.values.length}));
-      return {id:p.id,name:p.name,current:p.skillStep,step,ready,opponents:all.length,experts,conflicts:all.length-good.length,support:support.length,comparisons,
-        state:all.some(e=>!e.consistent)?'의견 나뉨':ready?'적용 검토':step!==p.skillStep?'임시 보정':'기준 유지'};
+      return {id:p.id,name:p.name,current:p.skillStep,step,ready,reviewed,fitError,resolved:good.length,opponents:all.length,experts,conflicts:all.length-good.length,support:support.length,comparisons,
+        state:ready?'적용 검토':reviewed?'기준 유지':all.some(e=>!e.consistent)?'의견 나뉨':step!==p.skillStep?'임시 보정':'추가 비교'};
     });
   }
   const api={player,players,pairs,proposals,version:'club-skill-v1'};

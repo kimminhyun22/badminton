@@ -26,7 +26,7 @@ assert.equal(core.proposals(agePlayers,core.pairs(agePlayers),{e0:answers})[0].s
 const mixed=core.players(fixtures().map((p,i)=>i===1?{...p,grade:'B',level:5}:p));
 assert(core.pairs(mixed).every(q=>q.a!=='p1'&&q.b!=='p1'));
 const source=fs.readFileSync('functions/skill-calibration-core.js','utf8');
-const mutated={module:{exports:{}}};vm.runInNewContext(source.replace('support.length>=3','support.length>=1'),mutated);
+const mutated={module:{exports:{}}};vm.runInNewContext(source.replace('good.length>=3','good.length>=1'),mutated);
 assert.throws(()=>assert(mutated.module.exports.proposals(players,questions,{e0:two}).every(p=>!p.ready)));
 // Approval hands off to the existing member editor, never writes the roster automatically.
 for(const stale of [false,true]){
@@ -72,7 +72,9 @@ assert.equal(resultContext.state(proposal,{...original,ageGroup:undefined},{...o
 assert.equal(resultContext.state(proposal,original,{...original,skillStep:1,level:4}).key,'changed');
 assert.equal(resultContext.state(proposal,original,{...original,grade:'B',skillStep:1,level:4.2}).key,'changed');
 assert.equal(resultContext.state({...proposal,ready:false,opponents:1,support:1},original,original).key,'pending');
-assert.equal(resultContext.state({...proposal,ready:false,step:0},original,original).key,'same');
+assert.equal(resultContext.state({...proposal,ready:false,step:0,reviewed:true},original,original).key,'same');
+assert.equal(resultContext.state({...proposal,ready:false,step:0,reviewed:false},original,original).key,'pending');
+assert.equal(resultContext.state({...proposal,conflicts:1},original,original).key,'ready','one disputed edge does not override server review');
 assert.equal(resultContext.state({...proposal,opponents:0},original,original).key,'unreviewed');
 const falseApplied={};vm.runInNewContext(resultFn.replace('if(applied)','if(true)')+';this.state=resultState;',falseApplied);
 assert.throws(()=>assert.equal(falseApplied.state(proposal,original,original).key,'ready'));
@@ -100,6 +102,23 @@ assert.equal(new Set(selected.flatMap(q=>[q.a,q.b])).size,16,'cover all comparab
 assert(!planContext.plan(many,Object.fromEntries(selected.map(q=>[q.id,'tie']))).some(q=>selected.some(p=>p.id===q.id)));
 const broken={};vm.runInNewContext(planner.replace('limit=20','limit=5')+';this.plan=reviewQuestions;',broken);
 assert.throws(()=>assert.equal(broken.plan(questions,{}).length,10));
+const evidence=Object.fromEntries(many.map(q=>[q.id,{count:3,needsReview:false}]));
+evidence[many.at(-1).id].needsReview=true;
+assert.equal(planContext.plan(many,{},1,evidence)[0].id,many.at(-1).id,'global unresolved comparison first');
+const ranked=core.players(Array.from({length:15},(_,i)=>({...fixtures()[0],name:'E2E順位'+i})));
+const rankedQuestions=core.pairs(ranked).slice(0,100),rankedAnswers=Object.fromEntries(rankedQuestions.map(q=>[q.id,'a']));
+const rankedVotes={e0:rankedAnswers,e1:rankedAnswers,e2:rankedAnswers};
+const beforeVotes=JSON.stringify(rankedVotes);
+const rankedResults=core.proposals(ranked,rankedQuestions,rankedVotes);
+assert(rankedResults.find(p=>p.id==='p4').ready,'middle rank can be adjusted without winning 80%');
+const majority=core.proposals(ranked,rankedQuestions,{...rankedVotes,e2:Object.fromEntries(rankedQuestions.map(q=>[q.id,'b']))});
+assert(majority.find(p=>p.id==='p4').ready,'two of three experts can agree');
+assert.equal(JSON.stringify(rankedVotes),beforeVotes,'read-time recalculation preserves all votes');
+const cyclePlayers=core.players(fixtures().slice(0,4)),cycleQuestions=core.pairs(cyclePlayers);
+const cycle=Object.fromEntries(cycleQuestions.map(q=>[q.id,['p0_p3','p1_p2','p2_p3'].includes(q.id)?'b':'a']));
+assert(core.proposals(cyclePlayers,cycleQuestions,{e0:cycle}).some(p=>!p.reviewed),'incompatible cyclic rankings remain for review');
+const oldMajority={module:{exports:{}}};vm.runInNewContext(source.replace('>.5','>=.8'),oldMajority);
+assert(!oldMajority.module.exports.proposals(ranked,rankedQuestions,{...rankedVotes,e2:Object.fromEntries(rankedQuestions.map(q=>[q.id,'b']))}).find(p=>p.id==='p4').ready,'majority mutation caught');
 (async()=>{
   const db=fakeDb(),now=Date.now(),id='1'.repeat(32),key='2'.repeat(32),invites=['3','4','5'].map(v=>v.repeat(32));
   const request={action:'create',id,key,invites,clubName:'E2E클럽',players:fixtures()};

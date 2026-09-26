@@ -73,12 +73,10 @@
     if(applied)return {key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
     if(!sameProfile||step!==before||!sameLevel)return {key:'changed',title:'명부 변경됨',reason:'현재 명부와 달라 이 제안은 적용할 수 없습니다. 새 점검이 필요합니다.'};
     if(!p.opponents)return {key:'unreviewed',title:'비교 전',reason:'아직 비교 응답이 없습니다.'};
-    if(p.conflicts)return {key:'pending',title:'판단 엇갈림',reason:`${p.conflicts}개 비교에서 의견이 나뉘었습니다. 다른 운영진의 확인이 필요합니다.`};
     if(p.ready)return {key:'ready',title:'적용 가능 · 미반영',reason:'비교 근거를 확인한 뒤 명부에 저장해 주세요.'};
-    if(p.step===p.current)return {key:'same',title:'변경 제안 없음',reason:'현재 응답에서는 점수를 바꿀 근거가 없습니다. 실력이 확정됐다는 뜻은 아닙니다.'};
-    const left=Math.max(0,3-(p.support||0));
+    if(p.reviewed&&p.step===p.current)return {key:'same',title:'현재 값 유지',reason:'전체 비교 관계에서 현재 보정값을 유지하는 안입니다.'};
     return {key:'pending',title:'추가 확인 · 미반영',reason:p.opponents<3?`서로 다른 상대 ${3-p.opponents}명 이상과 추가 비교가 필요합니다.`:
-      left?`같은 조정 방향을 뒷받침하는 비교가 ${left}개 이상 더 필요합니다.`:'조정 방향의 일관성이 부족합니다. 추가 비교 후 다시 계산합니다.'};
+      p.conflicts?`${p.conflicts}개 비교에서 판단이 나뉘었습니다. 해당 비교를 추가 확인해 주세요.`:'전체 비교 관계가 충분히 맞지 않아 추가 확인이 필요합니다.'};
   }
   function reviewProgress(players,questions,proposals){
     const required=3;
@@ -86,8 +84,8 @@
       const candidates=new Set(questions.filter(q=>q.a===player.id||q.b===player.id).map(q=>q.a===player.id?q.b:q.a)).size;
       const p=proposals.find(p=>p.id===player.id),opponents=p?.opponents||0;
       if(candidates<required)return {name:player.name,excluded:true,reason:`비교 가능한 상대 ${candidates}명 · 자동보정 대상 부족`};
-      const complete=!!p&&!p.conflicts&&opponents>=required&&(p.ready||p.step===p.current);
-      const reason=complete?'검토 준비됨':p?.conflicts?`의견이 나뉜 비교 ${p.conflicts}건 확인`:opponents<required?`서로 다른 상대 ${required-opponents}명 추가 비교`:p.step!==p.current&&(p.support||0)<required?`같은 조정 방향을 뒷받침할 비교 ${required-(p.support||0)}건 이상 필요`:'조정 방향 추가 확인';
+      const complete=opponents>=required;
+      const reason=complete?'기초 비교 수집 완료':`서로 다른 상대 ${required-opponents}명 추가 비교`;
       return {name:player.name,complete,reason,missing:Math.max(0,required-opponents)};
     });
     const eligible=rows.filter(r=>!r.excluded),done=eligible.filter(r=>r.complete).length;
@@ -99,7 +97,7 @@
     $('ownerResults').hidden=!session.count;
     $('clubTitle').textContent=session.clubName;
     const progress=reviewProgress(session.players,session.questions,session.proposals);
-    $('collectionProgress').innerHTML=progress.total?`<h2>보정 검토 준비 ${progress.percent}% <span class="muted">· 남은 ${progress.remaining}%</span></h2><progress class="collection-bar" value="${progress.done}" max="${progress.total}" aria-label="보정 검토 준비"></progress><p class="muted">${progress.total}명 중 ${progress.done}명 준비 · ${progress.pending.length}명 추가 확인</p><p class="muted">서로 다른 상대 3명 이상 비교 기준 · 명부 적용률은 아닙니다.</p>`:'<h2>비교 대상이 부족합니다.</h2><p class="muted">회원별 비교 가능한 상대가 3명 이상 필요합니다.</p>';
+    $('collectionProgress').innerHTML=progress.total?`<h2>기초 비교 수집 ${progress.percent}% <span class="muted">· 남은 ${progress.remaining}%</span></h2><progress class="collection-bar" value="${progress.done}" max="${progress.total}" aria-label="기초 비교 수집"></progress><p class="muted">${progress.total}명 중 ${progress.done}명 · 회원별 서로 다른 상대 3명 기준</p><p class="muted">수집 완료와 보정 확정은 다릅니다. 추가 판단은 아래 점검 결과에서 확인하세요.</p>`:'<h2>비교 대상이 부족합니다.</h2><p class="muted">회원별 비교 가능한 상대가 3명 이상 필요합니다.</p>';
     if(progress.pending.length||progress.excluded.length)$('collectionProgress').innerHTML+=`<details><summary>남은 확인 ${progress.pending.length}명${progress.excluded.length?` · 대상 부족 ${progress.excluded.length}명`:''}</summary>${[...progress.pending,...progress.excluded].map(r=>`<p class="muted"><strong>${esc(r.name)}</strong> · ${esc(r.reason)}</p>`).join('')}</details>`;
     if(progress.minimumQuestions)$('collectionProgress').innerHTML+=`<p class="muted">새로운 상대 비교 최소 ${progress.minimumQuestions}문항 필요 · 의견에 따라 추가될 수 있어요.</p>`;
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
@@ -122,7 +120,7 @@
       const player=session.players.find(v=>v.id===p.id),before=player.base+p.current*.2,after=player.base+p.step*.2,delta=Math.round((p.step-p.current)*2)/10;
       const change=delta>0?'+'+delta.toFixed(1):delta.toFixed(1);
       const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'더 유리':'덜 유리'} · ${c.votes}명 응답</li>`).join('');
-      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(1)} <span>→</span> ${after.toFixed(1)} <b>${change}</b></p><p>${label(p.current)} → ${label(p.step)}</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 같은 조정 방향 ${p.support??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">급수·성별·연령 기준은 그대로입니다. 표시 점수는 개인 보정을 포함한 대진 실력점수이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
+      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(1)} <span>→</span> ${after.toFixed(1)} <b>${change}</b></p><p>${label(p.current)} → ${label(p.step)}</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">급수·성별·연령 기준은 그대로입니다. 표시 점수는 개인 보정을 포함한 대진 실력점수이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
     }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
     $('answerSelf').textContent='나도 참여하기';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
@@ -203,16 +201,18 @@
       active={id:active.id,key:credential};message('');startBatch();
     }catch(e){message(e.message);}finally{busy=false;$('join').disabled=false;}
   };
-  function reviewQuestions(questions,previous,limit=20){
+  function reviewQuestions(questions,previous,limit=20,evidence={}){
     const counts={};
-    for(const q of questions)if(previous[q.id]&&previous[q.id]!=='skip'){
+    for(const q of questions)if(evidence[q.id]?.count||(previous[q.id]&&previous[q.id]!=='skip')){
       counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;
     }
     const remaining=questions.filter(q=>!Object.hasOwn(previous,q.id)),chosen=[];
     while(remaining.length&&chosen.length<limit){
-      remaining.sort((a,b)=>Math.max(counts[a.a]||0,counts[a.b]||0)-Math.max(counts[b.a]||0,counts[b.b]||0)||
+      const need=q=>evidence[q.id]?.count?0:Math.max(0,3-(counts[q.a]||0))+Math.max(0,3-(counts[q.b]||0));
+      remaining.sort((a,b)=>need(b)-need(a)||Number(!!evidence[b.id]?.needsReview)-Number(!!evidence[a.id]?.needsReview)||
+        (evidence[a.id]?.count||0)-(evidence[b.id]?.count||0)||Math.max(counts[a.a]||0,counts[a.b]||0)-Math.max(counts[b.a]||0,counts[b.b]||0)||
         ((counts[a.a]||0)+(counts[a.b]||0))-((counts[b.a]||0)+(counts[b.b]||0))||a.id.localeCompare(b.id));
-      const q=remaining.shift();chosen.push(q);counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;
+      const q=remaining.shift();chosen.push(q);if(!evidence[q.id]?.count){counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;}
     }
     return chosen;
   }
@@ -232,7 +232,7 @@
     const pending=read(draftKey(),{});
     answers=Object.fromEntries(Object.entries(pending).filter(([id,v])=>session.questions.some(q=>q.id===id)&&['a','b','tie','skip'].includes(v)));
     const saved=read(draftKey()+'_plan',[]);
-    batch=saved.length?saved.map(id=>session.questions.find(q=>q.id===id)).filter(Boolean):reviewQuestions(session.questions,session.answers);
+    batch=saved.length?saved.map(id=>session.questions.find(q=>q.id===id)).filter(Boolean):reviewQuestions(session.questions,session.answers,20,session.evidence);
     if(!saved.length&&Object.keys(answers).length)batch=session.questions.filter(q=>Object.hasOwn(answers,q.id));
     at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers,q.id));
     if(at<0&&batch.length){at=batch.length;panels('quiz');finishReview();return;}
