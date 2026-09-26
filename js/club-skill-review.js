@@ -62,20 +62,49 @@
     try{session=await api({action:'read',...link});message('');if(ownerLink()?.key===link.key)renderOwner();else startBatch();}
     catch(e){message(e.message);setup();}finally{busy=false;}
   }
+  function resultState(p,original,current){
+    const fields=['name','grade','gender','ageGroup'];
+    const profileValue=(m,k)=>k==='ageGroup'?(m[k]||'40대'):k==='gender'?(['F','여'].includes(m[k])?'여':['M','남'].includes(m[k])?'남':m[k]):m[k];
+    const sameProfile=original&&current&&fields.every(k=>String(profileValue(current,k)??'')===String(profileValue(original,k)??''));
+    const step=Number(current?.skillStep||0),before=Number(original?.skillStep||0);
+    const sameLevel=String(current?.level??'')===String(original?.level??'');
+    const expected=Math.round((Number(original?.level)+(p.step-before)*.2)*10)/10;
+    const applied=sameProfile&&p.step!==p.current&&step===p.step&&Number.isFinite(expected)&&Math.abs(Number(current.level)-expected)<.001;
+    if(applied)return {key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
+    if(!sameProfile||step!==before||!sameLevel)return {key:'changed',title:'명부 변경됨',reason:'현재 명부와 달라 이 제안은 적용할 수 없습니다. 새 점검이 필요합니다.'};
+    if(!p.opponents)return {key:'unreviewed',title:'비교 전',reason:'아직 비교 응답이 없습니다.'};
+    if(p.conflicts)return {key:'pending',title:'판단 엇갈림',reason:`${p.conflicts}개 비교에서 의견이 나뉘었습니다. 다른 운영진의 확인이 필요합니다.`};
+    if(p.ready)return {key:'ready',title:'적용 가능 · 미반영',reason:'비교 근거를 확인한 뒤 명부에 저장해 주세요.'};
+    if(p.step===p.current)return {key:'same',title:'변경 제안 없음',reason:'현재 응답에서는 점수를 바꿀 근거가 없습니다. 실력이 확정됐다는 뜻은 아닙니다.'};
+    const left=Math.max(0,3-(p.support||0));
+    return {key:'pending',title:'추가 확인 · 미반영',reason:p.opponents<3?`서로 다른 상대 ${3-p.opponents}명 이상과 추가 비교가 필요합니다.`:
+      left?`같은 조정 방향을 뒷받침하는 비교가 ${left}개 이상 더 필요합니다.`:'조정 방향의 일관성이 부족합니다. 추가 비교 후 다시 계산합니다.'};
+  }
   function renderOwner(){
     panels('owner');const own=ownerLink();
     $('clubTitle').textContent=session.clubName;
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
-    const unchanged=p=>{
-      const original=own.snapshots[Number(p.id.slice(1))],current=currentClub?.members?.find(m=>m.name===original.name);
-      return current&&['grade','gender','ageGroup','level','skillStep'].every(k=>String(current[k]??(k==='skillStep'?0:''))===String(original[k]??(k==='skillStep'?0:'')));
-    };
-    session.proposals.forEach(p=>{if(!unchanged(p)){p.ready=false;p.state='명부 변경됨';}});
-    const ready=session.proposals.filter(p=>p.ready);
+    const rows=session.proposals.map(p=>{
+      const original=own.snapshots[Number(p.id.slice(1))],matches=currentClub?.members?.filter(m=>m.name===original?.name)||[];
+      return {p,state:resultState(p,original,matches.length===1?matches[0]:null)};
+    });
+    const count=key=>rows.filter(r=>r.state.key===key).length;
+    const ready=rows.filter(r=>r.state.key==='ready');
+    session.proposals.forEach(p=>{if(!ready.some(r=>r.p.id===p.id))p.ready=false;});
     own.readyCount=ready.length;own.closed=session.closed;own.reviewedAt=session.reviewedAt||own.reviewedAt||0;persist(own);
-    $('notice').textContent=ready.length?`개인 보정 ${ready.length}명, 적용을 검토해 주세요.`:`${session.count}개 의견 · 임시 보정 검토 중`;
+    $('notice').textContent=`${session.count}개 응답 저장됨 · ${rows.filter(r=>r.p.opponents).length}/${rows.length}명 비교`;
     $('notice').className=ready.length?'ready-notice':'muted';
-    $('proposals').innerHTML=session.proposals.filter(p=>p.opponents).map(p=>`<article class="result-row"><strong>${esc(p.name)}</strong><p>${label(p.current)} → ${label(p.step)} · ${p.state}</p><p class="muted">상대 ${p.opponents}명 비교 · 판단자 ${p.experts}명${p.conflicts?' · 의견 충돌 '+p.conflicts+'건':''}</p>${p.ready?`<button data-apply="${p.id}">명부에서 적용 확인</button>`:''}</article>`).join('')||'<p class="muted">첫 의견을 기다리고 있습니다.</p>';
+    $('resultSummary').innerHTML=[['applied','반영 완료'],['ready','적용 가능'],['pending','추가 확인'],['same','변경 없음']].map(([key,title])=>`<div><strong>${count(key)}명</strong><span>${title}</span></div>`).join('');
+    $('resultHelp').textContent=ready.length?'적용 가능 회원의 비교 근거를 확인하고, 명부에 저장하면 반영됩니다.':count('pending')?'응답은 저장됐지만 아직 적용할 보정안이 없습니다. 추가 비교가 필요합니다.':count('applied')?'현재 명부에 보정값이 반영돼 있습니다. 이미 생성한 대진은 자동 재배정하지 않습니다.':'비교 결과와 명부 반영 여부를 아래에서 확인하세요.';
+    if(count('unreviewed'))$('resultHelp').textContent+=` 아직 비교하지 않은 회원 ${count('unreviewed')}명.`;
+    const order={ready:0,pending:1,applied:2,changed:3,same:4};
+    $('proposals').innerHTML=rows.filter(r=>r.p.opponents).sort((a,b)=>order[a.state.key]-order[b.state.key]).map(({p,state})=>{
+      const player=session.players.find(v=>v.id===p.id),before=player.base+p.current*.2,after=player.base+p.step*.2,delta=Math.round((p.step-p.current)*2)/10;
+      const change=delta>0?'+'+delta.toFixed(1):delta.toFixed(1);
+      const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'더 유리':'덜 유리'} · ${c.votes}명 응답</li>`).join('');
+      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(1)} <span>→</span> ${after.toFixed(1)} <b>${change}</b></p><p>${label(p.current)} → ${label(p.step)}</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 같은 조정 방향 ${p.support??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">급수·성별·연령 기준은 그대로입니다. 표시 점수는 개인 보정을 포함한 대진 실력점수이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
+    }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
+    $('answerSelf').textContent=session.count?'추가 비교하기':'비교 시작';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
     $('close').disabled=session.closed;$('answerSelf').disabled=session.closed||session.expiresAt<=Date.now();
   }
@@ -159,7 +188,7 @@
       const own=ownerLink();if(own&&session.reviewedAt){own.reviewedAt=session.reviewedAt;persist(own);}
       localStorage.removeItem('kokmatch_skill_draft_'+active.id+'_'+active.key);
       localStorage.removeItem(draftKey()+'_plan');
-      answers={};panels('done');$('doneText').textContent='실제 명부는 바뀌지 않습니다. 클럽 운영자가 보정안을 확인합니다.';
+      answers={};panels('done');$('doneText').textContent='응답 저장과 명부 적용은 별개입니다. 결과에서 조정 폭과 비교 근거를 확인해 주세요.';
       $('more').hidden=session.questions.every(q=>Object.hasOwn(session.answers,q.id));message('');showOwnerReturn();
     }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;}
   }

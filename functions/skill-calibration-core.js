@@ -62,7 +62,9 @@
       });
       const experts=new Set(good.flatMap(e=>e.values.map(v=>v.who))).size;
       const ready=step!==p.skillStep&&all.length===good.length&&support.length>=3&&support.length/good.length>=.8;
-      return {id:p.id,name:p.name,current:p.skillStep,step,ready,opponents:all.length,experts,conflicts:all.length-good.length,
+      const comparisons=all.map(e=>({name:byId[e.a===p.id?e.b:e.a].name,agree:e.consistent,
+        outcome:e.winner==='tie'?'tie':((e.winner==='a')===(e.a===p.id)?'higher':'lower'),votes:e.values.length}));
+      return {id:p.id,name:p.name,current:p.skillStep,step,ready,opponents:all.length,experts,conflicts:all.length-good.length,support:support.length,comparisons,
         state:all.some(e=>!e.consistent)?'의견 나뉨':ready?'적용 검토':step!==p.skillStep?'임시 보정':'기준 유지'};
     });
   }
