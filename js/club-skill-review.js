@@ -80,10 +80,28 @@
     return {key:'pending',title:'추가 확인 · 미반영',reason:p.opponents<3?`서로 다른 상대 ${3-p.opponents}명 이상과 추가 비교가 필요합니다.`:
       left?`같은 조정 방향을 뒷받침하는 비교가 ${left}개 이상 더 필요합니다.`:'조정 방향의 일관성이 부족합니다. 추가 비교 후 다시 계산합니다.'};
   }
+  function reviewProgress(players,questions,proposals){
+    const required=3;
+    const rows=players.map(player=>{
+      const candidates=new Set(questions.filter(q=>q.a===player.id||q.b===player.id).map(q=>q.a===player.id?q.b:q.a)).size;
+      const p=proposals.find(p=>p.id===player.id),opponents=p?.opponents||0;
+      if(candidates<required)return {name:player.name,excluded:true,reason:`비교 가능한 상대 ${candidates}명 · 자동보정 대상 부족`};
+      const complete=!!p&&!p.conflicts&&opponents>=required&&(p.ready||p.step===p.current);
+      const reason=complete?'검토 준비됨':p?.conflicts?`의견이 나뉜 비교 ${p.conflicts}건 확인`:opponents<required?`서로 다른 상대 ${required-opponents}명 추가 비교`:p.step!==p.current&&(p.support||0)<required?`같은 조정 방향을 뒷받침할 비교 ${required-(p.support||0)}건 이상 필요`:'조정 방향 추가 확인';
+      return {name:player.name,complete,reason,missing:Math.max(0,required-opponents)};
+    });
+    const eligible=rows.filter(r=>!r.excluded),done=eligible.filter(r=>r.complete).length;
+    const percent=eligible.length?Math.floor(done/eligible.length*100):null;
+    return {total:eligible.length,done,percent,remaining:percent===null?null:100-percent,minimumQuestions:Math.ceil(eligible.reduce((n,r)=>n+r.missing,0)/2),pending:eligible.filter(r=>!r.complete),excluded:rows.filter(r=>r.excluded)};
+  }
   function renderOwner(){
     panels('owner');const own=ownerLink();
     $('ownerResults').hidden=!session.count;
     $('clubTitle').textContent=session.clubName;
+    const progress=reviewProgress(session.players,session.questions,session.proposals);
+    $('collectionProgress').innerHTML=progress.total?`<h2>보정 검토 준비 ${progress.percent}% <span class="muted">· 남은 ${progress.remaining}%</span></h2><progress class="collection-bar" value="${progress.done}" max="${progress.total}" aria-label="보정 검토 준비"></progress><p class="muted">${progress.total}명 중 ${progress.done}명 준비 · ${progress.pending.length}명 추가 확인</p><p class="muted">서로 다른 상대 3명 이상 비교 기준 · 명부 적용률은 아닙니다.</p>`:'<h2>비교 대상이 부족합니다.</h2><p class="muted">회원별 비교 가능한 상대가 3명 이상 필요합니다.</p>';
+    if(progress.pending.length||progress.excluded.length)$('collectionProgress').innerHTML+=`<details><summary>남은 확인 ${progress.pending.length}명${progress.excluded.length?` · 대상 부족 ${progress.excluded.length}명`:''}</summary>${[...progress.pending,...progress.excluded].map(r=>`<p class="muted"><strong>${esc(r.name)}</strong> · ${esc(r.reason)}</p>`).join('')}</details>`;
+    if(progress.minimumQuestions)$('collectionProgress').innerHTML+=`<p class="muted">새로운 상대 비교 최소 ${progress.minimumQuestions}문항 필요 · 의견에 따라 추가될 수 있어요.</p>`;
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
     const rows=session.proposals.map(p=>{
       const original=own.snapshots[Number(p.id.slice(1))],matches=currentClub?.members?.filter(m=>m.name===original?.name)||[];
