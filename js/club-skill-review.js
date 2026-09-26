@@ -149,6 +149,16 @@
     return chosen;
   }
   const draftKey=()=> 'kokmatch_skill_draft_'+active.id+'_'+active.key;
+  function renderQuizProgress(complete=false){
+    const count=batch.filter(q=>Object.hasOwn(answers,q.id)||Object.hasOwn(session.answers,q.id)).length;
+    $('quizProgress').max=batch.length||1;$('quizProgress').value=count;
+    $('encouragement').textContent=complete?'클럽을 위한 경험을 나눠주셨어요.':count===0?'우리 클럽을 잘 아는 분의 안목이 필요해요.':count<batch.length/2?'평소 함께 운동하며 느낀 대로 골라주세요.':'비슷하거나 잘 모르겠어도 괜찮아요.';
+  }
+  function contributionText(){
+    const compared=batch.filter(q=>{const v=Object.hasOwn(answers,q.id)?answers[q.id]:session.answers[q.id];return v&&v!=='skip';});
+    const members=new Set(compared.flatMap(q=>[q.a,q.b])).size;
+    return `${members}명의 실력을 ${compared.length}번 비교했어요.`;
+  }
   function startBatch(){
     if(session.closed||session.expiresAt<=Date.now()){panels('done');$('doneText').textContent='마감되었거나 만료된 퀴즈입니다.';$('more').hidden=true;showOwnerReturn();return;}
     const pending=read(draftKey(),{});
@@ -169,8 +179,10 @@
     flipped=(parseInt(active.key.slice(-2),16)+at)%2===1;
     const a=session.players.find(p=>p.id===(flipped?q.b:q.a)),b=session.players.find(p=>p.id===(flipped?q.a:q.b));
     $('progress').textContent=`${session.clubName} · ${at+1} / ${batch.length}`;
+    renderQuizProgress();
     $('sides').innerHTML=[a,b].map((p,i)=>`${i?'<span class="versus" aria-hidden="true">VS</span>':''}<button class="side" id="${i?'rightChoice':'leftChoice'}" data-vote="${i?'b':'a'}"><strong>${esc(p.name)}</strong><span>${esc(p.grade)}급 · ${esc(p.gender)}</span><span>${esc(p.ageGroup)}</span></button>`).join('');
     $('choices').hidden=false;
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)$('sides').animate?.([{opacity:.65,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease-out'});
     const chosen=Object.hasOwn(answers,q.id)?answers[q.id]:session.answers[q.id];
     const visible=flipped&&['a','b'].includes(chosen)?(chosen==='a'?'b':'a'):chosen;
     $('choices').querySelectorAll('[data-vote]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.vote===visible)));
@@ -179,6 +191,7 @@
   function finishReview(){
     $('choices').hidden=true;$('questionTitle').hidden=true;$('questionHint').hidden=true;$('retry').hidden=true;
     $('progress').textContent=`${session.clubName} · ${batch.length} / ${batch.length}`;
+    renderQuizProgress(true);$('contribution').textContent=contributionText();
     $('finishReview').hidden=false;$('previousQuestion').disabled=!batch.length;$('nextQuestion').hidden=true;message('');
   }
   $('previousQuestion').onclick=()=>{if(busy||at<=0)return;at--;renderQuestion();};
@@ -202,7 +215,7 @@
       write(draftKey()+'_last',batch.map(q=>q.id));
       localStorage.removeItem('kokmatch_skill_draft_'+active.id+'_'+active.key);
       localStorage.removeItem(draftKey()+'_plan');
-      answers={};panels('done');$('doneText').textContent='응답 저장과 명부 적용은 별개입니다. 결과에서 조정 폭과 비교 근거를 확인해 주세요.';
+      answers={};panels('done');$('doneText').textContent=contributionText()+' 안목을 나눠주셔서 감사합니다. 명부에는 아직 자동 적용되지 않으며, 운영자가 결과에서 조정 폭과 비교 근거를 확인할 수 있습니다.';
       $('more').hidden=session.questions.every(q=>Object.hasOwn(session.answers,q.id));message('');showOwnerReturn();
     }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;$('saveAnswers').disabled=false;$('previousQuestion').disabled=at<=0;}
   }
