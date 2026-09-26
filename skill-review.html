@@ -2,11 +2,11 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="app-version" content="1.10.721"><meta name="referrer" content="no-referrer">
+  <meta name="app-version" content="1.10.722"><meta name="referrer" content="no-referrer">
   <title>우리 클럽 미세조정 · 콕매치</title>
-  <link rel="stylesheet" href="css/skill-review.css?v=1.10.721">
-  <script defer src="functions/skill-calibration-core.js?v=1.10.721"></script>
-  <script defer src="js/club-skill-review.js?v=1.10.721"></script>
+  <link rel="stylesheet" href="css/skill-review.css?v=1.10.722">
+  <script defer src="functions/skill-calibration-core.js?v=1.10.722"></script>
+  <script defer src="js/club-skill-review.js?v=1.10.722"></script>
 </head>
 <body>
   <header><a id="back" href="index.html">돌아가기</a><h1>우리 클럽 미세조정</h1></header>
@@ -35,14 +35,16 @@
       </details>
     </section>
     <section id="quiz" hidden>
-      <p id="progress" class="muted"></p><h2>누구와 편을 하면 더 유리할까요?</h2>
-      <p class="muted">파트너와 상대는 같다고 생각해 주세요.</p>
+      <p id="progress" class="muted"></p><h2 id="questionTitle">누구와 편을 하면 더 유리할까요?</h2>
+      <p id="questionHint" class="muted">파트너와 상대는 같다고 생각해 주세요.</p>
       <div id="choices" class="choices">
         <div id="sides" class="question-sides"></div>
-        <button data-vote="tie">비슷해요</button><button data-vote="skip">잘 모르겠어요</button>
+        <button data-vote="tie" class="tie-choice">실력이 비슷해요</button><button data-vote="skip">잘 모르겠어요</button>
       </div>
+      <div id="finishReview" hidden><h2>선택을 마쳤습니다.</h2><p class="muted">아직 저장 전입니다. 잘못 누른 답은 이전 문항에서 고칠 수 있습니다.</p><button id="saveAnswers" class="primary">응답 저장</button></div>
+      <nav class="question-nav" aria-label="문항 이동"><button id="previousQuestion" disabled>← 이전 문항</button><button id="nextQuestion" hidden>다음 →</button></nav>
       <button id="retry" hidden>응답 다시 보내기</button>
     </section>
-    <section id="done" hidden><h2>응답을 저장했습니다.</h2><p id="doneText" class="muted"></p><button id="more">남은 비교 계속</button><button id="ownerReturn" class="primary" hidden>점검 결과 확인</button></section>
+    <section id="done" hidden><h2>응답을 저장했습니다.</h2><p id="doneText" class="muted"></p><button id="editAnswers" hidden>방금 응답 수정</button><button id="more">남은 비교 계속</button><button id="ownerReturn" class="primary" hidden>점검 결과 확인</button></section>
   </main>
 </body></html>

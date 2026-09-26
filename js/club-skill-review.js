@@ -157,28 +157,41 @@
     batch=saved.length?saved.map(id=>session.questions.find(q=>q.id===id)).filter(Boolean):reviewQuestions(session.questions,session.answers);
     if(!saved.length&&Object.keys(answers).length)batch=session.questions.filter(q=>Object.hasOwn(answers,q.id));
     at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers,q.id));
-    if(at<0&&batch.length){panels('quiz');$('choices').hidden=true;$('retry').hidden=false;message('저장할 응답이 있습니다.');return;}
+    if(at<0&&batch.length){at=batch.length;panels('quiz');finishReview();return;}
     if(!batch.length){panels('done');$('doneText').textContent='모든 비교를 마쳤습니다.';$('more').hidden=true;showOwnerReturn();return;}
     write(draftKey()+'_plan',batch.map(q=>q.id));
     panels('quiz');$('retry').hidden=true;renderQuestion();
   }
   function renderQuestion(){
     const q=batch[at];if(!q)return;
+    $('finishReview').hidden=true;$('retry').hidden=true;$('questionTitle').hidden=false;$('questionHint').hidden=false;
+    $('previousQuestion').disabled=at===0;
     flipped=(parseInt(active.key.slice(-2),16)+at)%2===1;
     const a=session.players.find(p=>p.id===(flipped?q.b:q.a)),b=session.players.find(p=>p.id===(flipped?q.a:q.b));
     $('progress').textContent=`${session.clubName} · ${at+1} / ${batch.length}`;
     $('sides').innerHTML=[a,b].map((p,i)=>`${i?'<span class="versus" aria-hidden="true">VS</span>':''}<button class="side" id="${i?'rightChoice':'leftChoice'}" data-vote="${i?'b':'a'}"><strong>${esc(p.name)}</strong><span>${esc(p.grade)}급 · ${esc(p.gender)}</span><span>${esc(p.ageGroup)}</span></button>`).join('');
     $('choices').hidden=false;
+    const chosen=Object.hasOwn(answers,q.id)?answers[q.id]:session.answers[q.id];
+    const visible=flipped&&['a','b'].includes(chosen)?(chosen==='a'?'b':'a'):chosen;
+    $('choices').querySelectorAll('[data-vote]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.vote===visible)));
+    $('nextQuestion').hidden=!chosen;message('');
   }
+  function finishReview(){
+    $('choices').hidden=true;$('questionTitle').hidden=true;$('questionHint').hidden=true;$('retry').hidden=true;
+    $('progress').textContent=`${session.clubName} · ${batch.length} / ${batch.length}`;
+    $('finishReview').hidden=false;$('previousQuestion').disabled=!batch.length;$('nextQuestion').hidden=true;message('');
+  }
+  $('previousQuestion').onclick=()=>{if(busy||at<=0)return;at--;renderQuestion();};
+  $('nextQuestion').onclick=()=>{if(busy)return;const q=batch[at];if(!q||(!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers,q.id)))return;at++;if(at===batch.length)finishReview();else renderQuestion();};
   $('choices').onclick=async event=>{
     let value=event.target.closest('[data-vote]')?.dataset.vote;if(!value||busy)return;
     if(flipped&&['a','b'].includes(value))value=value==='a'?'b':'a';
     answers[batch[at].id]=value;
     try{write('kokmatch_skill_draft_'+active.id+'_'+active.key,answers);}catch(_){message('기기 저장이 제한됩니다. 창을 닫지 말고 완료해 주세요.');}
-    at++;if(at===batch.length)await submit();else renderQuestion();
+    at++;if(at===batch.length)finishReview();else renderQuestion();
   };
   async function submit(){
-    if(busy)return;busy=true;$('choices').hidden=true;$('retry').hidden=true;message('의견을 저장하는 중');
+    if(busy)return;busy=true;$('saveAnswers').disabled=true;$('previousQuestion').disabled=true;$('choices').hidden=true;$('retry').hidden=true;message('의견을 저장하는 중');
     try{
       // The interface is uninterrupted; bounded server writes remain retry-safe.
       for(const chunk of Array.from({length:Math.ceil(Object.keys(answers).length/5)},(_,i)=>Object.entries(answers).slice(i*5,i*5+5))){
@@ -186,13 +199,24 @@
         chunk.forEach(([id])=>delete answers[id]);write(draftKey(),answers);
       }
       const own=ownerLink();if(own&&session.reviewedAt){own.reviewedAt=session.reviewedAt;persist(own);}
+      write(draftKey()+'_last',batch.map(q=>q.id));
       localStorage.removeItem('kokmatch_skill_draft_'+active.id+'_'+active.key);
       localStorage.removeItem(draftKey()+'_plan');
       answers={};panels('done');$('doneText').textContent='응답 저장과 명부 적용은 별개입니다. 결과에서 조정 폭과 비교 근거를 확인해 주세요.';
       $('more').hidden=session.questions.every(q=>Object.hasOwn(session.answers,q.id));message('');showOwnerReturn();
-    }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;}
+    }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;$('saveAnswers').disabled=false;$('previousQuestion').disabled=at<=0;}
   }
-  function showOwnerReturn(){$('ownerReturn').hidden=!ownerLink();}
+  function showOwnerReturn(){
+    $('ownerReturn').hidden=!ownerLink();
+    $('editAnswers').hidden=session.closed||session.expiresAt<=Date.now()||!read(draftKey()+'_last',[]).length;
+  }
+  $('editAnswers').onclick=()=>{
+    if(busy||session.closed||session.expiresAt<=Date.now())return;
+    batch=read(draftKey()+'_last',[]).map(id=>session.questions.find(q=>q.id===id)).filter(Boolean);
+    if(!batch.length)return;
+    answers={};at=0;write(draftKey()+'_plan',batch.map(q=>q.id));panels('quiz');renderQuestion();
+  };
+  $('saveAnswers').onclick=submit;
   $('retry').onclick=submit;$('more').onclick=startBatch;
   $('ownerReturn').onclick=()=>{const l=ownerLink();open({id:l.id,key:l.key});};
   $('refresh').onclick=()=>open(active);
