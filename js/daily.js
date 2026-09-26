@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.732';
+const APP_VERSION = '1.10.733';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2411,6 +2411,8 @@ function _dailySyncControls(courts){
 }
 function dailyRenderCourtSettings(){
   _dailyRenderPointSystem();
+  const summary=document.getElementById('dailySetupSummary');
+  if(summary)summary.textContent=`${_dailyCourtCount()}코트 · ${_dailyPointSystem}점`;
   _dailyCourtOrder=_dailyNormalizeCourtOrder(_dailyCourtOrder,_dailyCourtCount());
 }
 function _dailyPruneForeignDormantCarryover(){
@@ -6098,7 +6100,7 @@ function dailyRenderStartGuide(){
       :rosterEmpty?'명부 만들기'
         :'참가자 등록';
   const steps=[
-    {n:1,title:'코트',value:`${courts}개`,done:true,current:false,action:"dailyOpenFold('dailySetupDetails','dailySetupDetails')"},
+    {n:1,title:'경기 설정',value:`${courts}코트 · ${_dailyPointSystem}점`,done:true,current:false,action:"dailyOpenFold('dailySetupDetails','dailySetupDetails')"},
     {n:2,title:awaitingArrival?'도착 확인':'참가자',value:playerCount?`${playerCount}명`:awaitingArrival?`도착 전 ${preArrival}명`:'등록',done:!!playerCount,current:nextIndex===2,
       action:playerCount?"dailyOpenBoardTarget('players')":awaitingArrival?"dailyOpenPlayerStatus('planned')":"dailyImportRoster()"}
   ];
@@ -6232,7 +6234,7 @@ function dailyApplyStageLayout(){
   if(setup)setup.hidden=!live&&!_dailyPreparedOperation;
   if(setup&&_dailyUiStageShown!==stage){
     // 단계가 바뀌는 순간에만 손댄다 — 사용자가 접었다 펼친 상태를 매 렌더마다 뒤집지 않도록
-    setup.open=!live;
+    setup.open=true;
   }
   if(_dailyUiStageShown&&_dailyUiStageShown!==stage){
     _dailyPlayerTool='';   // 삭제·이름 변경 모드가 단계를 넘어 남지 않게
@@ -10974,7 +10976,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.732&from=daily';
+  location.href='team.html?v=1.10.733&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

@@ -45,8 +45,12 @@ const ops = src.slice(src.indexOf('function dailyRenderOpsStats('), src.indexOf(
 assert(ops.includes('dailyApplyStageLayout();'), '상황판을 그릴 때마다 단계 배치를 적용해야 합니다.');
 
 // ── CSS: 폴드 순서 ──
-assert(css.includes('#dailySetupDetails{order:1;}') && css.includes('.daily-layout.stage-live #dailySetupDetails{order:9;}'),
-  '세팅 폴드는 게시 전 상황판 바로 아래, 게시 뒤 맨 아래여야 합니다.');
+assert(setup<html.indexOf('id="dailyTransitionBtn"')&&html.includes('id="dailySetupSummary"'),
+  '코트·점수 설정은 상황판 게시 버튼 위에 있어야 합니다.');
+assert(!css.includes('.daily-layout.stage-live #dailySetupDetails{order:9;}'),
+  '진행 중에도 설정을 상황판에서 맨 아래로 이동하지 않습니다.');
+assert(html.split('data-daily-points="21"').length===2&&html.split('data-daily-points="25"').length===2,
+  '점수 선택은 중복 없이 같은 설정에 한 벌만 있어야 합니다.');
 
 // ── 기능: 단계 판정과 노출을 가짜 DOM으로 실행 ──
 const cut = (begin, end) => {
@@ -113,7 +117,7 @@ assert(r.layout.has('stage-live'));
 for (const sel of ['.daily-active-card', '.daily-urgent-card', '#dailyResultDetails', '#dailyOpsStats', '#dailyHeadcount', '#dailyPlayersManage',
   '#dailyQuickShareBtn', '#dailyQuickStopBtn', '#dailyQuickResetBtn'])
   assert(!r.hidden(sel), `운영 중에는 ${sel} 이 보여야 합니다.`);
-assert.strictEqual(r.setupOpen, false, '게시 뒤에는 세팅 폴드가 접혀야 합니다.');
+assert.strictEqual(r.setupOpen, true, '게시 뒤에도 상황판에서 코트·점수를 바로 조정해야 합니다.');
 
 // 큐만 있어도(게시 직후 대기표) live 로 본다
 r = run({ players: [{}], queue: [{}] });

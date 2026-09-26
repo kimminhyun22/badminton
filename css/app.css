@@ -968,10 +968,14 @@ body.monthly-team-mode .team-partner-help{display:block;}
 #dailyCheckinDetails{order:4;}
 #dailyResultDetails{order:5;}
 #dailyPlayersManage{order:6;}
-/* 세팅 폴드: 게시 전엔 상황판 바로 아래(같은 order 1 → DOM 순서로 상황판 다음),
-   게시 뒤(.stage-live)엔 맨 아래로. 접힘 상태 전환은 dailyApplyStageLayout 이 맡는다. */
-#dailySetupDetails{order:1;}
-.daily-layout.stage-live #dailySetupDetails{order:9;}
+/* 경기 설정은 준비·진행 모두 상황판 상단 한 곳에서 조정합니다. */
+#dailySetupDetails{margin:12px 0;border-radius:8px;box-shadow:none;}
+.daily-dashboard-settings{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:12px;}
+.daily-setting-label{display:block;font-size:12px;font-weight:700;color:var(--dim);margin-bottom:6px;}
+.daily-dashboard-settings .daily-score-options{margin-top:0;}
+.daily-dashboard-settings .stepper{height:44px;}
+.daily-dashboard-settings .stepper-btn{width:36px;min-width:36px;}
+.daily-dashboard-settings .stepper input{min-width:0;width:100%;}
 .daily-main>.daily-section-fold{margin-bottom:0;}
 .daily-headcount.compact{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
 /* 참가자 등록 모달의 게스트 폼 — 접이식 */
