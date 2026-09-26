@@ -2,11 +2,14 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="app-version" content="1.10.725"><meta name="referrer" content="no-referrer">
-  <title>우리 클럽 밸런스게임 · 콕매치</title>
-  <link rel="stylesheet" href="css/skill-review.css?v=1.10.725">
-  <script defer src="functions/skill-calibration-core.js?v=1.10.725"></script>
-  <script defer src="js/club-skill-review.js?v=1.10.725"></script>
+  <meta name="app-version" content="1.10.726"><meta name="referrer" content="no-referrer">
+  <title>우리 클럽 밸런스게임 · 민턴라이브</title>
+  <meta property="og:site_name" content="민턴라이브">
+  <meta property="og:title" content="우리 클럽 밸런스게임 · 민턴라이브">
+  <meta property="og:description" content="반드시 이겨야 하는 게임, 누구와 파트너를 하시겠어요?">
+  <link rel="stylesheet" href="css/skill-review.css?v=1.10.726">
+  <script defer src="functions/skill-calibration-core.js?v=1.10.726"></script>
+  <script defer src="js/club-skill-review.js?v=1.10.726"></script>
 </head>
 <body>
   <header><a id="back" href="index.html">돌아가기</a><h1>우리 클럽 밸런스게임</h1></header>
@@ -35,18 +38,15 @@
       </details>
     </section>
     <section id="identity" hidden>
-      <h2>클럽을 잘 아는 당신의 안목을 나눠주세요.</h2>
       <label>본인 이름<select id="respondent"><option value="">이름 선택</option></select></label>
       <button id="join" class="primary">선택한 이름으로 시작</button>
       <p class="muted">한 분당 한 이름으로 참여해 주세요. 응답 수정은 처음 참여한 브라우저에서 가능합니다.</p>
     </section>
     <section id="quiz" hidden>
       <p id="respondentLabel" class="muted"></p>
-      <div class="quiz-heading"><span class="quiz-label">CLUB BALANCE</span><p id="progress" class="muted"></p></div>
+      <div class="quiz-heading"><p id="progress" class="muted"></p></div>
       <progress id="quizProgress" value="0" max="20" aria-label="응답 진행"></progress>
-      <p id="encouragement" class="encouragement" aria-live="polite"></p>
-      <h2 id="questionTitle">누구와 한 편을 하시겠어요?</h2>
-      <p id="questionHint" class="muted">파트너와 상대는 같다고 생각해 주세요.</p>
+      <h2 id="questionTitle">반드시 이겨야 하는 게임, 누구와 파트너를 하시겠어요?</h2>
       <div id="choices" class="choices">
         <div id="sides" class="question-sides"></div>
         <button data-vote="tie" class="tie-choice">실력이 비슷해요</button><button data-vote="skip">잘 모르겠어요</button>

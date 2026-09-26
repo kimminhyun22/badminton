@@ -144,8 +144,8 @@
     const own=ownerLink();if(!own||busy)return;busy=true;
     try{
       const link=own.sharedReady?{id:own.id,key:own.sharedKey}:await sharedLink(own),url=new URL('skill-review.html',location.href);
-      url.search='';url.hash=link.id+'.'+link.key;
-      try{if(navigator.share)await navigator.share({title:'우리 클럽 밸런스게임',text:'본인 이름을 선택하고 안목을 나눠주세요.',url:url.href});else{await navigator.clipboard.writeText(url.href);message('단톡방에 보낼 링크를 복사했습니다.');}}
+      url.search='';url.searchParams.set('v',document.querySelector('meta[name="app-version"]').content);url.hash=link.id+'.'+link.key;
+      try{if(navigator.share)await navigator.share({title:'민턴라이브 · 우리 클럽 밸런스게임',text:'반드시 이겨야 하는 게임, 누구와 파트너를 하시겠어요?',url:url.href});else{await navigator.clipboard.writeText(url.href);message('단톡방에 보낼 링크를 복사했습니다.');}}
       catch(e){if(e.name!=='AbortError')prompt('단톡방 공유 링크',url.href);}
     }catch(e){message(e.message);}finally{busy=false;}
   };
@@ -184,10 +184,9 @@
     return chosen;
   }
   const draftKey=()=> 'kokmatch_skill_draft_'+active.id+'_'+active.key;
-  function renderQuizProgress(complete=false){
+  function renderQuizProgress(){
     const count=batch.filter(q=>Object.hasOwn(answers,q.id)||Object.hasOwn(session.answers,q.id)).length;
     $('quizProgress').max=batch.length||1;$('quizProgress').value=count;
-    $('encouragement').textContent=complete?'클럽을 위한 경험을 나눠주셨어요.':count===0?'우리 클럽을 잘 아는 분의 안목이 필요해요.':count<batch.length/2?'평소 함께 운동하며 느낀 대로 골라주세요.':'비슷하거나 잘 모르겠어도 괜찮아요.';
   }
   function contributionText(){
     const compared=batch.filter(q=>{const v=Object.hasOwn(answers,q.id)?answers[q.id]:session.answers[q.id];return v&&v!=='skip';});
@@ -210,7 +209,7 @@
   }
   function renderQuestion(){
     const q=batch[at];if(!q)return;
-    $('finishReview').hidden=true;$('retry').hidden=true;$('questionTitle').hidden=false;$('questionHint').hidden=false;
+    $('finishReview').hidden=true;$('retry').hidden=true;$('questionTitle').hidden=false;
     $('previousQuestion').disabled=at===0;
     flipped=(parseInt(active.key.slice(-2),16)+at)%2===1;
     const a=session.players.find(p=>p.id===(flipped?q.b:q.a)),b=session.players.find(p=>p.id===(flipped?q.a:q.b));
@@ -225,9 +224,9 @@
     $('nextQuestion').hidden=!chosen;message('');
   }
   function finishReview(){
-    $('choices').hidden=true;$('questionTitle').hidden=true;$('questionHint').hidden=true;$('retry').hidden=true;
+    $('choices').hidden=true;$('questionTitle').hidden=true;$('retry').hidden=true;
     $('progress').textContent=`${session.clubName} · ${batch.length} / ${batch.length}`;
-    renderQuizProgress(true);$('contribution').textContent=contributionText();
+    renderQuizProgress();$('contribution').textContent=contributionText();
     $('finishReview').hidden=false;$('previousQuestion').disabled=!batch.length;$('nextQuestion').hidden=true;message('');
   }
   $('previousQuestion').onclick=()=>{if(busy||at<=0)return;at--;renderQuestion();};
