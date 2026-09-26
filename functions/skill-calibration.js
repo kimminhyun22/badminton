@@ -7,6 +7,9 @@ function authorize(s,key){
   if(!s||!token(key))throw Error('링크를 확인해 주세요.');
   const h=hash(key);
   if(h===s.owner)return 'owner';
+  if(h===s.shared)return 'shared';
+  const participant=Object.entries(s.participants||{}).find(([,p])=>p.key===h);
+  if(participant)return 'u_'+participant[0];
   const i=s.invites.indexOf(h);
   if(i<0)throw Error('링크를 확인해 주세요.');
   return 'e'+i;
@@ -15,7 +18,9 @@ function project(s,role){
   const players=role==='owner'?s.players:s.players.map(({id,name,grade,gender,ageGroup})=>({id,name,grade,gender,ageGroup}));
   return {id:s.id,clubName:s.clubName,players,questions:s.questions,expiresAt:s.expiresAt,closed:!!s.closed,
     reviewedAt:s.reviewedAt||0,
-    answers:role==='owner'?{}:s.votes?.[role]||{},
+    legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
+    needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
+    answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},
     proposals:role==='owner'?core.proposals(s.players,s.questions,s.votes):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
 }
@@ -43,13 +48,38 @@ async function handle(db,data,ip,now=Date.now()){
   let s=(await ref.once('value')).val(),role=authorize(s,data.key);
   if(role!=='owner'&&s.expiresAt<=now)throw Error('만료된 링크입니다.');
   if(data.action==='read')return project(s,role);
+  if(data.action==='share'){
+    if(role!=='owner'||!token(data.sharedKey)||data.sharedKey===data.key)throw Error('공유 정보를 확인해 주세요.');
+    const shared=hash(data.sharedKey);
+    const r=await ref.transaction(old=>{
+      if(!old)return null;
+      if(old.closed||old.expiresAt<=now||old.invites.includes(shared)||Object.values(old.participants||{}).some(p=>p.key===shared)||(old.shared&&old.shared!==shared))return;
+      return {...old,shared};
+    });
+    if(!r.committed||!r.snapshot.val())throw Error('공유 링크를 만들 수 없습니다. 만든 기기에서 다시 확인해 주세요.');
+    return project(r.snapshot.val(),'owner');
+  }
+  if(data.action==='join'){
+    if(role!=='shared'||!token(data.respondentKey)||!s.players.some(p=>p.id===data.playerId))throw Error('본인 이름을 선택해 주세요.');
+    const credential=hash(data.respondentKey);
+    const r=await ref.transaction(old=>{
+      if(!old)return null;
+      if(old.closed||old.expiresAt<=now||[old.owner,old.shared,...old.invites].includes(credential))return;
+      const participants=old.participants||{},existing=participants[data.playerId];
+      if(existing&&existing.key!==credential)return;
+      if(Object.entries(participants).some(([id,p])=>id!==data.playerId&&p.key===credential))return;
+      return {...old,participants:{...participants,[data.playerId]:{key:credential}}};
+    });
+    if(!r.committed||!r.snapshot.val())throw Error('이미 다른 이름이나 기기로 참여했습니다. 처음 참여한 기기에서 이어가 주세요. 마감된 링크는 참여할 수 없습니다.');
+    return project(r.snapshot.val(),'u_'+data.playerId);
+  }
   if(data.action==='close'){
     if(role!=='owner')throw Error('만든 기기에서만 마감할 수 있습니다.');
     const r=await ref.transaction(old=>old?{...old,closed:true}:null);
     if(!r.snapshot.val())throw Error('링크를 확인해 주세요.');
     return project(r.snapshot.val(),role);
   }
-  if(data.action!=='answer'||role==='owner')throw Error('응답 링크를 확인해 주세요.');
+  if(data.action!=='answer'||role==='owner'||role==='shared')throw Error('응답 링크를 확인해 주세요.');
   if(!data.answers||typeof data.answers!=='object'||Array.isArray(data.answers)||Object.keys(data.answers).length<1||Object.keys(data.answers).length>5)throw Error('한 번에 1~5문제만 응답할 수 있습니다.');
   for(const [id,value] of Object.entries(data.answers))if(!s.questions.some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
   const result=await ref.transaction(old=>{

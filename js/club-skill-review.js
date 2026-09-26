@@ -25,7 +25,7 @@
     if(i<0)fresh.push(entry);else fresh[i]=entry;
     write(KEY,fresh);links=fresh;
   }
-  function panels(id){['setup','owner','quiz','done'].forEach(s=>$(s).hidden=s!==id);}
+  function panels(id){['setup','owner','identity','quiz','done'].forEach(s=>$(s).hidden=s!==id);}
   // Legacy roster screens and both match engines already use 40대 when absent.
   const reviewProfile=m=>({...m,ageGroup:m.ageGroup||'40대'});
   function eligible(club){
@@ -59,7 +59,7 @@
   }
   async function open(link){
     if(busy)return;busy=true;active=link;message('불러오는 중');
-    try{session=await api({action:'read',...link});message('');if(ownerLink()?.key===link.key)renderOwner();else startBatch();}
+    try{session=await api({action:'read',...link});message('');if(ownerLink()?.key===link.key)renderOwner();else if(session.needsIdentity)renderIdentity();else startBatch();}
     catch(e){message(e.message);setup();}finally{busy=false;}
   }
   function resultState(p,original,current){
@@ -97,6 +97,7 @@
     $('resultSummary').innerHTML=[['applied','반영 완료'],['ready','적용 가능'],['pending','추가 확인'],['same','변경 없음']].map(([key,title])=>`<div><strong>${count(key)}명</strong><span>${title}</span></div>`).join('');
     $('resultHelp').textContent=ready.length?'적용 가능 회원의 비교 근거를 확인하고, 명부에 저장하면 반영됩니다.':count('pending')?'응답은 저장됐지만 아직 적용할 보정안이 없습니다. 추가 비교가 필요합니다.':count('applied')?'현재 명부에 보정값이 반영돼 있습니다. 이미 생성한 대진은 자동 재배정하지 않습니다.':'비교 결과와 명부 반영 여부를 아래에서 확인하세요.';
     if(count('unreviewed'))$('resultHelp').textContent+=` 아직 비교하지 않은 회원 ${count('unreviewed')}명.`;
+    if(session.legacyCount)$('resultHelp').textContent+=` 기존 개별 링크 응답 ${session.legacyCount}개도 포함됩니다. 이미 참여한 분은 중복 참여하지 말고 기존 링크에서 수정해 주세요.`;
     const order={ready:0,pending:1,applied:2,changed:3,same:4};
     $('proposals').innerHTML=rows.filter(r=>r.p.opponents).sort((a,b)=>order[a.state.key]-order[b.state.key]).map(({p,state})=>{
       const player=session.players.find(v=>v.id===p.id),before=player.base+p.current*.2,after=player.base+p.step*.2,delta=Math.round((p.step-p.current)*2)/10;
@@ -107,6 +108,8 @@
     $('answerSelf').textContent=session.count?'추가 비교하기':'비교 시작';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
     $('close').disabled=session.closed;$('answerSelf').disabled=session.closed||session.expiresAt<=Date.now();
+    $('share').disabled=true;
+    if(!$('answerSelf').disabled)sharedLink(own).then(()=>{$('share').disabled=false;}).catch(e=>message(e.message));
   }
   $('create').onclick=async()=>{
     if(busy)return;
@@ -117,24 +120,56 @@
       const players=C.players(members.map(reviewProfile));
       if(!C.pairs(players).length)throw Error('같은 급수에서 비교할 회원이 부족합니다.');
       const reusable=links.slice().reverse().find(l=>l.clubId===club.id&&!l.pending&&!l.closed&&Date.now()-l.createdAt<30*86400000&&JSON.stringify(l.snapshots)===JSON.stringify(members));
-      if(reusable){await open({id:reusable.id,key:quick?reusable.invites[0]:reusable.key});return;}
+      if(reusable){if(quick)await openShared(reusable);else await open({id:reusable.id,key:reusable.key});return;}
       let entry=links.find(l=>l.clubId===club.id&&l.pending&&JSON.stringify(l.snapshots)===JSON.stringify(members));
       if(!entry){entry={id:nonce(),key:nonce(),invites:[nonce(),nonce(),nonce()],clubId:club.id,clubName:club.name,createdAt:Date.now(),snapshots:JSON.parse(JSON.stringify(members)),players,pending:true};persist(entry);}
       busy=true;$('create').disabled=true;message('퀴즈를 만드는 중');
       session=await api({action:'create',id:entry.id,key:entry.key,invites:entry.invites,clubName:entry.clubName,players:entry.players});
       entry.pending=false;persist(entry);active={id:entry.id,key:entry.key};message('');
-      if(quick){busy=false;await open({id:entry.id,key:entry.invites[0]});}else renderOwner();
+      if(quick){busy=false;await openShared(entry);}else renderOwner();
     }catch(e){message(e.message);}finally{busy=false;$('create').disabled=false;}
   };
   $('club').onchange=checkRoster;
   $('history').onchange=()=>{const l=links.find(l=>l.id===$('history').value);if(l)open({id:l.id,key:l.key});};
+  async function sharedLink(own){
+    if(!own.sharedKey){own.sharedKey=nonce();persist(own);}
+    if(!own.sharedReady){await api({action:'share',id:own.id,key:own.key,sharedKey:own.sharedKey});own.sharedReady=true;persist(own);}
+    return {id:own.id,key:own.sharedKey};
+  }
+  async function openShared(own){
+    if(busy||!own)return;busy=true;
+    try{const link=await sharedLink(own);busy=false;await open(link);}catch(e){message(e.message);}finally{busy=false;}
+  }
   $('share').onclick=async()=>{
-    const own=ownerLink();if(!own)return;
-    const url=new URL('skill-review.html',location.href);url.hash=own.id+'.'+own.invites[Number($('expert').value)];
-    try{if(navigator.share)await navigator.share({title:'우리 클럽 밸런스게임',text:'누구와 편을 할까요? 클럽 실력 비교에 참여해 주세요.',url:url.href});else{await navigator.clipboard.writeText(url.href);message('링크를 복사했습니다.');}}
-    catch(e){if(e.name!=='AbortError'){message('링크를 복사해 보내 주세요.');prompt('공유 링크',url.href);}}
+    const own=ownerLink();if(!own||busy)return;busy=true;
+    try{
+      const link=own.sharedReady?{id:own.id,key:own.sharedKey}:await sharedLink(own),url=new URL('skill-review.html',location.href);
+      url.search='';url.hash=link.id+'.'+link.key;
+      try{if(navigator.share)await navigator.share({title:'우리 클럽 밸런스게임',text:'본인 이름을 선택하고 안목을 나눠주세요.',url:url.href});else{await navigator.clipboard.writeText(url.href);message('단톡방에 보낼 링크를 복사했습니다.');}}
+      catch(e){if(e.name!=='AbortError')prompt('단톡방 공유 링크',url.href);}
+    }catch(e){message(e.message);}finally{busy=false;}
   };
-  $('answerSelf').onclick=()=>{const own=ownerLink();open({id:own.id,key:own.invites[0]});};
+  $('answerSelf').onclick=()=>openShared(ownerLink());
+  function renderIdentity(){
+    panels('identity');
+    $('respondent').innerHTML='<option value="">이름 선택</option>'+session.players.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+    const saved=read('kokmatch_skill_identity_'+active.id,null);
+    if(saved?.playerId)$('respondent').value=saved.playerId;
+    $('join').disabled=session.closed||session.expiresAt<=Date.now();
+    if($('join').disabled)message('마감되었거나 만료된 퀴즈입니다.');
+  }
+  $('join').onclick=async()=>{
+    if(busy)return;
+    const player=session.players.find(p=>p.id===$('respondent').value);if(!player){message('본인 이름을 선택해 주세요.');return;}
+    const storageKey='kokmatch_skill_identity_'+active.id,saved=read(storageKey,null);
+    if(saved?.playerId!==player.id&&!confirm(`${player.name} 님으로 참여할까요?`))return;
+    busy=true;$('join').disabled=true;
+    try{
+      const credential=saved?.key||nonce();write(storageKey,{key:credential,playerId:player.id});
+      session=await api({action:'join',...active,playerId:player.id,respondentKey:credential});
+      active={id:active.id,key:credential};message('');startBatch();
+    }catch(e){message(e.message);}finally{busy=false;$('join').disabled=false;}
+  };
   function reviewQuestions(questions,previous,limit=20){
     const counts={};
     for(const q of questions)if(previous[q.id]&&previous[q.id]!=='skip'){
@@ -160,6 +195,7 @@
     return `${members}명의 실력을 ${compared.length}번 비교했어요.`;
   }
   function startBatch(){
+    $('respondentLabel').textContent=session.respondentName?session.respondentName+' 님의 안목':'';
     if(session.closed||session.expiresAt<=Date.now()){panels('done');$('doneText').textContent='마감되었거나 만료된 퀴즈입니다.';$('more').hidden=true;showOwnerReturn();return;}
     const pending=read(draftKey(),{});
     answers=Object.fromEntries(Object.entries(pending).filter(([id,v])=>session.questions.some(q=>q.id===id)&&['a','b','tie','skip'].includes(v)));
