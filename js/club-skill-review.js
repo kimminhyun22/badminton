@@ -131,7 +131,7 @@
   $('share').onclick=async()=>{
     const own=ownerLink();if(!own)return;
     const url=new URL('skill-review.html',location.href);url.hash=own.id+'.'+own.invites[Number($('expert').value)];
-    try{if(navigator.share)await navigator.share({title:'우리 클럽 미세조정',text:'누구와 편을 할까요? 클럽 실력 비교에 참여해 주세요.',url:url.href});else{await navigator.clipboard.writeText(url.href);message('링크를 복사했습니다.');}}
+    try{if(navigator.share)await navigator.share({title:'우리 클럽 밸런스게임',text:'누구와 편을 할까요? 클럽 실력 비교에 참여해 주세요.',url:url.href});else{await navigator.clipboard.writeText(url.href);message('링크를 복사했습니다.');}}
     catch(e){if(e.name!=='AbortError'){message('링크를 복사해 보내 주세요.');prompt('공유 링크',url.href);}}
   };
   $('answerSelf').onclick=()=>{const own=ownerLink();open({id:own.id,key:own.invites[0]});};
