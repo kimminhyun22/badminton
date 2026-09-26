@@ -4,6 +4,17 @@
   const value=(m,k)=>k==='skillStep'?Number(m[k]||0):k==='ageGroup'?(m[k]||'40대'):k==='gender'?(['F','여'].includes(m[k])?'여':['M','남'].includes(m[k])?'남':m[k]):m[k];
   const same=(a,b)=>!!a&&!!b&&fields.every(k=>String(value(a,k))===String(value(b,k)));
   const profile=m=>Object.fromEntries(fields.map(k=>[k,value(m,k)]));
+  const sameIdentity=(a,b)=>!!a&&!!b&&fields.slice(0,4).every(k=>String(value(a,k))===String(value(b,k)));
+  function reviewBaselines(own,club){
+    return (own?.snapshots||[]).flatMap((original,i)=>{
+      const matches=club?.members?.filter(m=>m.name===original.name)||[],m=matches.length===1?matches[0]:null;
+      if(!sameIdentity(original,m))return [];
+      const p=profile(m),grade={S:7,A:6,B:5,C:4,D:3,E:2}[p.grade];
+      const expected=Math.round((grade-(p.gender==='여'?1:0)+p.skillStep*.2)*10)/10;
+      if(!grade||!['남','여'].includes(p.gender)||!Number.isInteger(p.skillStep)||Math.abs(p.skillStep)>2||!Number.isFinite(Number(p.level))||Math.abs(Number(p.level)-expected)>.001)return [];
+      return [{id:'p'+i,...p}];
+    });
+  }
   function baseline(club,reviewId,id,current){
     const record=club?.skillReview?.baselines?.[reviewId]?.[id];
     return record&&same(current,record.after)?record.after:null;
@@ -49,6 +60,6 @@
     delete club.skillReview.latest;
     return {state:next,count,skipped};
   }
-  const api={same,profile,baseline,prepare,undo};
+  const api={same,profile,sameIdentity,reviewBaselines,baseline,prepare,undo};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.KokSkillBatch=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

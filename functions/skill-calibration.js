@@ -14,8 +14,21 @@ function authorize(s,key){
   if(i<0)throw Error('링크를 확인해 주세요.');
   return 'e'+i;
 }
-function project(s,role){
-  const players=role==='owner'?s.players:s.players.map(({id,name,grade,gender,ageGroup})=>({id,name,grade,gender,ageGroup}));
+function project(s,role,baselines){
+  let effective=s.players;
+  if(baselines!==undefined){
+    if(role!=='owner'||!Array.isArray(baselines)||baselines.length>s.players.length)throw Error('보정 기준을 확인해 주세요.');
+    const byId=new Map();
+    for(const raw of baselines){
+      const original=s.players.find(p=>p.id===raw?.id);
+      if(!original||byId.has(raw.id))throw Error('보정 대상이 올바르지 않습니다.');
+      const p=core.player(raw);
+      if(['name','grade','gender','ageGroup'].some(k=>p[k]!==original[k]))throw Error('급수·성별·연령이 변경됐습니다. 새 점검이 필요합니다.');
+      byId.set(raw.id,{...p,id:original.id});
+    }
+    effective=s.players.map(p=>byId.get(p.id)||p);
+  }
+  const players=role==='owner'?effective:s.players.map(({id,name,grade,gender,ageGroup})=>({id,name,grade,gender,ageGroup}));
   const evidence=Object.fromEntries(s.questions.map(q=>{
     const counts={a:0,b:0,tie:0};
     Object.values(s.votes||{}).forEach(a=>{if(Object.hasOwn(counts,a[q.id]))counts[a[q.id]]++;});
@@ -28,7 +41,7 @@ function project(s,role){
     legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
     needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
     answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},
-    proposals:role==='owner'?core.proposals(s.players,s.questions,s.votes):[],
+    proposals:role==='owner'?core.proposals(effective,s.questions,s.votes).map((p,i)=>({...p,basis:effective[i]})):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
 }
 async function handle(db,data,ip,now=Date.now()){
@@ -54,7 +67,7 @@ async function handle(db,data,ip,now=Date.now()){
   }
   let s=(await ref.once('value')).val(),role=authorize(s,data.key);
   if(role!=='owner'&&s.expiresAt<=now)throw Error('만료된 링크입니다.');
-  if(data.action==='read')return project(s,role);
+  if(data.action==='read')return project(s,role,data.baselines);
   if(data.action==='share'){
     if(role!=='owner'||!token(data.sharedKey)||data.sharedKey===data.key)throw Error('공유 정보를 확인해 주세요.');
     const shared=hash(data.sharedKey);

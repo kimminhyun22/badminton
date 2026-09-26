@@ -35,7 +35,9 @@
     const entries=read(KEY,[]).filter(l=>!l.pending&&Date.now()-l.createdAt<37*86400000);
     for(const l of entries){
       try{
-        const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{action:'read',id:l.id,key:l.key}}),signal:AbortSignal.timeout(15000)});
+        const clubBefore=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===l.clubId);
+        const baselines=window.KokSkillBatch?.reviewBaselines(l,clubBefore);
+        const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{action:'read',id:l.id,key:l.key,baselines}}),signal:AbortSignal.timeout(15000)});
         const data=await response.json();if(!response.ok||!data.result)continue;
         const all=read(KEY,[]),current=all.find(v=>v.id===l.id);if(!current)continue;
         current.reviewedAt=data.result.reviewedAt||current.reviewedAt||0;
@@ -43,6 +45,7 @@
           const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===l.clubId);
           const original=l.snapshots?.[Number(p.id.slice(1))];
           const member=club?.members?.find(m=>m.name===p.name);
+          if(p.basis)return p.ready&&window.KokSkillBatch?.same(member,p.basis)&&window.KokSkillBatch?.sameIdentity(original,member);
           const baseline=window.KokSkillBatch?.baseline(club,l.id,p.id,member);
           return baseline?!!p.reviewed&&p.step!==baseline.skillStep:p.ready&&same(member,original);
         }).length;

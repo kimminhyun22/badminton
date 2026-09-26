@@ -14,6 +14,11 @@
   const label=step=>['낮게','조금 낮게','기본','조금 높게','높게'][step+2];
   const ownerLink=()=>links.find(l=>l.id===active?.id);
   async function api(data){
+    const own=links.find(l=>l.id===data.id&&l.key===data.key);
+    if(data.action==='read'&&own&&window.KokSkillBatch){
+      const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
+      data={...data,baselines:window.KokSkillBatch.reviewBaselines(own,club)};
+    }
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
     try{
       const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data}),signal:controller.signal});
@@ -96,6 +101,15 @@
     const original=own.snapshots[Number(proposal.id.slice(1))],matches=club?.members?.filter(m=>m.name===original?.name)||[];
     const current=matches.length===1?matches[0]:null;
     const baseline=window.KokSkillBatch?.baseline(club,own.id,proposal.id,current);
+    if(proposal.basis){
+      const matchesBasis=window.KokSkillBatch?.same(current,proposal.basis);
+      const sameIdentity=window.KokSkillBatch?.sameIdentity(original,current);
+      if(!matchesBasis||!sameIdentity)return {p:proposal,current,original,state:{key:'changed',title:'명부 확인 필요',reason:'회원 정보가 변경됐습니다. 결과를 새로고침해 주세요. 급수·성별·연령 변경은 새 점검이 필요합니다.'}};
+      const p={...proposal,current:Number(current.skillStep||0)};
+      let state=resultState(p,current,current);
+      if(baseline&&p.step===p.current)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
+      return {p,state,original:current,current};
+    }
     const p=baseline?{...proposal,current:baseline.skillStep,ready:!!proposal.reviewed&&proposal.step!==baseline.skillStep}:{...proposal};
     let state=resultState(p,baseline||original,current);
     if(baseline&&proposal.step===baseline.skillStep)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
@@ -327,7 +341,7 @@
       const own=ownerLink(),club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
       const rows=session.proposals.map(p=>proposalRow(p,own,club)).filter(r=>r.state.key==='ready');
       if(!rows.length){message('현재 적용 가능한 보정안이 없습니다.');return;}
-      if(!confirm(`${rows.length}명의 보정안을 명부에 일괄 저장할까요?\n수동 수정된 회원은 제외합니다. 이미 생성한 대진은 재배정하지 않습니다.`))return;
+      if(!confirm(`${rows.length}명의 보정안을 명부에 일괄 저장할까요?\n현재 명부 값을 기준으로 계산했습니다. 이미 생성한 대진은 재배정하지 않습니다.`))return;
       write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:rows.map(r=>({id:r.p.id,original:r.current,step:r.p.step})),createdAt:Date.now()});
       location.href=from+'?skillReviewApply=1';
     }catch(e){message(e.message);}finally{busy=false;}
