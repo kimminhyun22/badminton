@@ -2,14 +2,15 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="app-version" content="1.10.729"><meta name="referrer" content="no-referrer">
+  <meta name="app-version" content="1.10.730"><meta name="referrer" content="no-referrer">
   <title>우리 클럽 밸런스게임 · 민턴라이브</title>
   <meta property="og:site_name" content="민턴라이브">
   <meta property="og:title" content="우리 클럽 밸런스게임 · 민턴라이브">
   <meta property="og:description" content="반드시 이겨야 하는 게임, 누구와 파트너를 하시겠어요?">
-  <link rel="stylesheet" href="css/skill-review.css?v=1.10.729">
-  <script defer src="functions/skill-calibration-core.js?v=1.10.729"></script>
-  <script defer src="js/club-skill-review.js?v=1.10.729"></script>
+  <link rel="stylesheet" href="css/skill-review.css?v=1.10.730">
+  <script defer src="functions/skill-calibration-core.js?v=1.10.730"></script>
+  <script defer src="js/club-skill-batch.js?v=1.10.730"></script>
+  <script defer src="js/club-skill-review.js?v=1.10.730"></script>
 </head>
 <body>
   <header><a id="back" href="index.html">돌아가기</a><h1>우리 클럽 밸런스게임</h1></header>
@@ -34,11 +35,13 @@
       <p id="notice" role="status"></p>
       <div id="resultSummary" class="result-summary"></div>
       <p id="resultHelp" class="muted"></p>
+      <button id="applyAll" class="primary" hidden>보정안 일괄 저장</button>
+      <button id="undoBatch" hidden>최근 일괄 저장 되돌리기</button>
       <div id="proposals"></div>
       </div>
       <details><summary>관리</summary>
         <div class="toolbar"><button id="refresh">결과 새로고침</button><button id="close">응답 마감</button></div><p id="expiry" class="muted"></p>
-        <p class="muted">임시 보정은 명부·대진에 적용되지 않습니다. 같은 선수의 서로 다른 상대 3명 이상에서 80% 이상 같은 조정 방향이고 판단자 간 충돌이 없으면 적용 검토를 알립니다. 통계적 확정이 아닌 검토 기준입니다.</p>
+        <p class="muted">보정안은 명부에 저장해야 적용됩니다. 수동 미세조정과 추가 응답은 언제든 가능합니다. 이미 생성한 대진은 자동 재배정하지 않습니다.</p>
       </details>
     </section>
     <section id="identity" hidden>

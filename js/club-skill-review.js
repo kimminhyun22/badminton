@@ -92,6 +92,15 @@
     const percent=eligible.length?Math.floor(done/eligible.length*100):null;
     return {total:eligible.length,done,percent,remaining:percent===null?null:100-percent,minimumQuestions:Math.ceil(eligible.reduce((n,r)=>n+r.missing,0)/2),pending:eligible.filter(r=>!r.complete),excluded:rows.filter(r=>r.excluded)};
   }
+  function proposalRow(proposal,own,club){
+    const original=own.snapshots[Number(proposal.id.slice(1))],matches=club?.members?.filter(m=>m.name===original?.name)||[];
+    const current=matches.length===1?matches[0]:null;
+    const baseline=window.KokSkillBatch?.baseline(club,own.id,proposal.id,current);
+    const p=baseline?{...proposal,current:baseline.skillStep,ready:!!proposal.reviewed&&proposal.step!==baseline.skillStep}:{...proposal};
+    let state=resultState(p,baseline||original,current);
+    if(baseline&&proposal.step===baseline.skillStep)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
+    return {p,state,original:baseline||original,current};
+  }
   function renderOwner(){
     panels('owner');const own=ownerLink();
     $('ownerResults').hidden=!session.count;
@@ -101,14 +110,12 @@
     if(progress.pending.length||progress.excluded.length)$('collectionProgress').innerHTML+=`<details><summary>남은 확인 ${progress.pending.length}명${progress.excluded.length?` · 대상 부족 ${progress.excluded.length}명`:''}</summary>${[...progress.pending,...progress.excluded].map(r=>`<p class="muted"><strong>${esc(r.name)}</strong> · ${esc(r.reason)}</p>`).join('')}</details>`;
     if(progress.minimumQuestions)$('collectionProgress').innerHTML+=`<p class="muted">새로운 상대 비교 최소 ${progress.minimumQuestions}문항 필요 · 의견에 따라 추가될 수 있어요.</p>`;
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
-    const rows=session.proposals.map(p=>{
-      const original=own.snapshots[Number(p.id.slice(1))],matches=currentClub?.members?.filter(m=>m.name===original?.name)||[];
-      return {p,state:resultState(p,original,matches.length===1?matches[0]:null)};
-    });
+    const rows=session.proposals.map(p=>proposalRow(p,own,currentClub));
     const count=key=>rows.filter(r=>r.state.key===key).length;
     const ready=rows.filter(r=>r.state.key==='ready');
-    session.proposals.forEach(p=>{if(!ready.some(r=>r.p.id===p.id))p.ready=false;});
     own.readyCount=ready.length;own.closed=session.closed;own.reviewedAt=session.reviewedAt||own.reviewedAt||0;persist(own);
+    $('applyAll').hidden=!ready.length;$('applyAll').textContent=`보정안 ${ready.length}명 일괄 저장`;
+    $('undoBatch').hidden=!currentClub?.skillReview?.latest;
     $('notice').textContent=`${session.count}개 응답 저장됨 · ${rows.filter(r=>r.p.opponents).length}/${rows.length}명 비교`;
     $('notice').className=ready.length?'ready-notice':'muted';
     $('resultSummary').innerHTML=[['applied','반영 완료'],['ready','적용 가능'],['pending','추가 확인'],['same','변경 없음']].map(([key,title])=>`<div><strong>${count(key)}명</strong><span>${title}</span></div>`).join('');
@@ -307,9 +314,28 @@
   };
   $('proposals').onclick=event=>{
     const id=event.target.dataset.apply;if(!id)return;
-    const p=session.proposals.find(p=>p.id===id&&p.ready),own=ownerLink();if(!p||!own)return;
-    const original=own.snapshots[Number(id.slice(1))];
+    const proposal=session.proposals.find(p=>p.id===id),own=ownerLink();if(!proposal||!own)return;
+    const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId),row=proposalRow(proposal,own,club);
+    if(row.state.key!=='ready')return;
+    const p=row.p,original=row.original;
     try{write('kokmatch_skill_apply_v1',{clubId:own.clubId,original,step:p.step,createdAt:Date.now()});location.href=from+'?skillReviewApply=1';}catch(e){message('보정안을 저장하지 못했습니다. 저장 공간을 확인해 주세요.');}
+  };
+  $('applyAll').onclick=async()=>{
+    if(busy)return;busy=true;
+    try{
+      session=await api({action:'read',...active});renderOwner();
+      const own=ownerLink(),club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
+      const rows=session.proposals.map(p=>proposalRow(p,own,club)).filter(r=>r.state.key==='ready');
+      if(!rows.length){message('현재 적용 가능한 보정안이 없습니다.');return;}
+      if(!confirm(`${rows.length}명의 보정안을 명부에 일괄 저장할까요?\n수동 수정된 회원은 제외합니다. 이미 생성한 대진은 재배정하지 않습니다.`))return;
+      write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:rows.map(r=>({id:r.p.id,original:r.current,step:r.p.step})),createdAt:Date.now()});
+      location.href=from+'?skillReviewApply=1';
+    }catch(e){message(e.message);}finally{busy=false;}
+  };
+  $('undoBatch').onclick=()=>{
+    const own=ownerLink(),batch=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId)?.skillReview?.latest;
+    if(!batch||busy||!confirm('최근 일괄 저장을 되돌릴까요? 이후 수동 수정된 회원은 그대로 둡니다.'))return;
+    try{write('kokmatch_skill_apply_v1',{batch:true,undo:true,reviewId:own.id,clubId:own.clubId,batchId:batch.id,createdAt:Date.now()});location.href=from+'?skillReviewApply=1';}catch(e){message(e.message);}
   };
   setInterval(()=>{if(!document.hidden&&!$('owner').hidden&&!busy)open(active);},60000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('owner').hidden&&!busy)open(active);});

@@ -42,7 +42,9 @@
         current.readyCount=data.result.proposals.filter(p=>{
           const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===l.clubId);
           const original=l.snapshots?.[Number(p.id.slice(1))];
-          return p.ready&&same(club?.members?.find(m=>m.name===p.name),original);
+          const member=club?.members?.find(m=>m.name===p.name);
+          const baseline=window.KokSkillBatch?.baseline(club,l.id,p.id,member);
+          return baseline?!!p.reviewed&&p.step!==baseline.skillStep:p.ready&&same(member,original);
         }).length;
         localStorage.setItem(KEY,JSON.stringify(all));
       }catch(_){}
@@ -54,7 +56,24 @@
     const proposal=read('kokmatch_skill_apply_v1',null);
     localStorage.removeItem('kokmatch_skill_apply_v1');
     const url=new URL(location.href);url.searchParams.delete('skillReviewApply');history.replaceState(null,'',url);
-    if(!proposal||Date.now()-proposal.createdAt>86400000||!Number.isInteger(proposal.step)||Math.abs(proposal.step)>2)return;
+    if(!proposal||Date.now()-proposal.createdAt>86400000)return;
+    if(proposal.batch){
+      try{
+        const raw=localStorage.getItem('badminton_rosters_v1'),fresh=JSON.parse(raw);
+        const result=proposal.undo?window.KokSkillBatch.undo(fresh,proposal.clubId,proposal.batchId):window.KokSkillBatch.prepare(fresh,proposal.clubId,proposal.items,proposal.reviewId,proposal.batchId);
+        if(localStorage.getItem('badminton_rosters_v1')!==raw)throw Error('명부가 변경됐습니다. 다시 확인해 주세요.');
+        // One storage write commits both roster changes and the undo record.
+        localStorage.setItem('badminton_rosters_v1',JSON.stringify(result.state));
+        rosters=result.state;
+        saveRosters();renderClubList();switchNav('roster');
+        const box=document.createElement('div');box.setAttribute('role','status');
+        const link=document.createElement('a');link.href=`skill-review.html?from=${mode}&review=${encodeURIComponent(proposal.reviewId)}`;
+        link.textContent=`${result.count}명 ${proposal.undo?'되돌림':'일괄 저장 완료'}${result.skipped?` · 수동 수정 ${result.skipped}명 유지`:''} · 결과 확인`;
+        box.append(link);document.querySelector('header')?.after(box);
+      }catch(e){alert('일괄 처리 확인: '+e.message);}
+      return;
+    }
+    if(!Number.isInteger(proposal.step)||Math.abs(proposal.step)>2)return;
     const club=rosters.clubs.find(c=>c.id===proposal.clubId);
     const idx=club?.members.findIndex(m=>m.name===proposal.original?.name)??-1;
     const persisted=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===proposal.clubId)?.members?.find(m=>m.name===proposal.original?.name);
