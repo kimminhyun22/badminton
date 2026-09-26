@@ -42,7 +42,7 @@
     $('rosterCheck').innerHTML=issues.length?`<p>${members.length}명 비교 가능 · ${issues.length}명 정보 확인 필요</p><details><summary>확인할 회원 ${issues.length}명</summary>${issues.map(p=>`<p>${esc(p.name)} · ${esc(p.reason)}</p>`).join('')}</details>`:'';
     const legacy=members.filter(m=>!m.ageGroup).length;
     if(legacy)$('rosterCheck').innerHTML+=`<p class="muted">연령 미입력 ${legacy}명은 기존 명부와 같은 40대 기준입니다.</p>`;
-    $('create').textContent=issues.length?'확인된 '+members.length+'명으로 시작':'퀴즈 만들기';
+    $('create').textContent=issues.length?'확인된 '+members.length+'명으로 준비':'밸런스게임 준비';
     $('create').disabled=members.length<2;
     return {members,issues};
   }
@@ -82,6 +82,7 @@
   }
   function renderOwner(){
     panels('owner');const own=ownerLink();
+    $('ownerResults').hidden=!session.count;
     $('clubTitle').textContent=session.clubName;
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
     const rows=session.proposals.map(p=>{
@@ -105,11 +106,12 @@
       const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'더 유리':'덜 유리'} · ${c.votes}명 응답</li>`).join('');
       return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(1)} <span>→</span> ${after.toFixed(1)} <b>${change}</b></p><p>${label(p.current)} → ${label(p.step)}</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 같은 조정 방향 ${p.support??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">급수·성별·연령 기준은 그대로입니다. 표시 점수는 개인 보정을 포함한 대진 실력점수이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
     }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
-    $('answerSelf').textContent=session.count?'추가 비교하기':'비교 시작';
+    $('answerSelf').textContent='나도 참여하기';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
     $('close').disabled=session.closed;$('answerSelf').disabled=session.closed||session.expiresAt<=Date.now();
-    $('share').disabled=true;
-    if(!$('answerSelf').disabled)sharedLink(own).then(()=>{$('share').disabled=false;}).catch(e=>message(e.message));
+    $('share').disabled=true;$('retryShare').hidden=true;
+    if($('answerSelf').disabled)$('ownerState').textContent='응답 마감';
+    else prepareOwnerShare(own);
   }
   $('create').onclick=async()=>{
     if(busy)return;
@@ -120,13 +122,13 @@
       const players=C.players(members.map(reviewProfile));
       if(!C.pairs(players).length)throw Error('같은 급수에서 비교할 회원이 부족합니다.');
       const reusable=links.slice().reverse().find(l=>l.clubId===club.id&&!l.pending&&!l.closed&&Date.now()-l.createdAt<30*86400000&&JSON.stringify(l.snapshots)===JSON.stringify(members));
-      if(reusable){if(quick)await openShared(reusable);else await open({id:reusable.id,key:reusable.key});return;}
+      if(reusable){await open({id:reusable.id,key:reusable.key});return;}
       let entry=links.find(l=>l.clubId===club.id&&l.pending&&JSON.stringify(l.snapshots)===JSON.stringify(members));
       if(!entry){entry={id:nonce(),key:nonce(),invites:[nonce(),nonce(),nonce()],clubId:club.id,clubName:club.name,createdAt:Date.now(),snapshots:JSON.parse(JSON.stringify(members)),players,pending:true};persist(entry);}
       busy=true;$('create').disabled=true;message('퀴즈를 만드는 중');
       session=await api({action:'create',id:entry.id,key:entry.key,invites:entry.invites,clubName:entry.clubName,players:entry.players});
       entry.pending=false;persist(entry);active={id:entry.id,key:entry.key};message('');
-      if(quick){busy=false;await openShared(entry);}else renderOwner();
+      renderOwner();
     }catch(e){message(e.message);}finally{busy=false;$('create').disabled=false;}
   };
   $('club').onchange=checkRoster;
@@ -136,6 +138,19 @@
     if(!own.sharedReady){await api({action:'share',id:own.id,key:own.key,sharedKey:own.sharedKey});own.sharedReady=true;persist(own);}
     return {id:own.id,key:own.sharedKey};
   }
+  async function prepareOwnerShare(own){
+    $('ownerState').textContent='공유 링크 준비 중';$('retryShare').hidden=true;$('share').disabled=true;
+    try{
+      await sharedLink(own);
+      if(active?.key!==own.key||$('owner').hidden||session.closed||session.expiresAt<=Date.now())return;
+      $('share').disabled=false;
+      $('ownerState').textContent=session.count?'응답 수집 중':`준비 완료 · ${session.players.length}명`;
+    }catch(e){
+      if(active?.key!==own.key||$('owner').hidden||session.closed||session.expiresAt<=Date.now())return;
+      $('ownerState').textContent='공유 준비를 완료하지 못했습니다.';$('retryShare').hidden=false;message(e.message);
+    }
+  }
+  $('retryShare').onclick=()=>{const own=ownerLink();if(own)prepareOwnerShare(own);};
   async function openShared(own){
     if(busy||!own)return;busy=true;
     try{const link=await sharedLink(own);busy=false;await open(link);}catch(e){message(e.message);}finally{busy=false;}
