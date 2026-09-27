@@ -78,7 +78,10 @@ const base={type:'official-active-replace', matchId:'m1', court:1,
   const w=r.session.players.find(p=>p.id==='w1');
   const out=r.session.players.find(p=>p.id==='p1');
   assert.strictEqual(w.status,'playing','들어온 선수는 경기중이어야 합니다.');
-  assert.strictEqual(out.status,'rest','나간 선수는 휴식으로 전환됩니다.');
+  assert.strictEqual(out.status,'wait','나간 선수는 대기로 전환됩니다.');
+  assert.strictEqual(out.waitFrom,NOW+1000,'교체 시점부터 대기 시간을 계산합니다.');
+  assert.strictEqual(out.locked,false);
+  assert.strictEqual(out.currentMatchId,'');
   // 결정 1: 종료하면 끝까지 뛴 사람이 경기를 가져갑니다.
   const done=send(r.session, {type:'official-court-complete', matchId:'m1', court:1,
     expectedStartedAt:NOW-5*60_000, expectedPlayerIds:['w1','p2','p3','p4']});
@@ -197,6 +200,25 @@ function extractFunction(src, name){
   assert(daily.includes('대기(다음 대진 예정)'),'관리자 화면이 예약 상태를 표시해야 합니다.');
   assert(checkin.includes('다음 대진 예정'),'임원 화면이 예약 상태를 표시해야 합니다.');
   console.log('  후보 목록: 상한 없음 · 다음 대진 예약 선수도 후보(뒤로 정렬)');
+}
+
+// 서버 재생과 게시 전 교체가 모두 같은 대기 상태로 돌아가야 합니다.
+{
+  const vm=require('vm');
+  const players=[{id:'out',status:'playing',waitFrom:1,currentMatchId:'m'},
+    {id:'in',status:'wait',currentMatchId:null}];
+  const match={id:'m',team1:['out','a'],team2:['b','c']};
+  const box={_dailyNow:()=>NOW,_dailyActiveMatches:()=>[match],
+    _dailyPlayer:id=>players.find(p=>p.id===id),_dailyQueue:[],
+    _dailyCancelReservationsForPlayer:()=>{},_dailyMarkFourCacheDirty:()=>{}};
+  vm.createContext(box);
+  vm.runInContext(extractFunction(daily,'_dailyApplyActiveReplaceLocal'),box);
+  box._dailyApplyActiveReplaceLocal(match,'out','in',NOW+1000);
+  assert.strictEqual(players[0].status,'wait');
+  assert.strictEqual(players[0].waitFrom,NOW+1000);
+  assert.strictEqual(players[0].currentMatchId,null);
+  assert.strictEqual(players[1].status,'playing');
+  assert(checkin.includes('님은 대기로 전환됩니다.'));
 }
 
 // 8) 관리자 화면은 목록이 길어 번호 대신 이름으로도 골라야 합니다.

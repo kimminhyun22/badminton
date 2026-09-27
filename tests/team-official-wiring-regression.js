@@ -105,13 +105,13 @@ assert(/if\(_usesFixedTeams\(d\)\)return submitTeamResult\(/.test(winEntry),
 const canSubmit = liveView.slice(liveView.indexOf('function _canSubmitResult'),
   liveView.indexOf('// ── 팀전 대체 투입'));
 assert(/if\(_usesFixedTeams\(d\)\)return !!\(viewer\.isClubOfficial\|\|viewer\.isLeader\|\|viewer\.isSub\|\|viewer\.isTemporaryOperator\)/.test(canSubmit),
-  '청홍 팀전은 임원·단장·운영 도우미만 승패를 입력합니다 — 참가자는 보기만 합니다.');
+  '청홍 팀전은 임원·단장·운영진만 승패를 입력합니다 — 참가자는 보기만 합니다.');
 
 // 4) 권한 — 임원만. 일반 회원 화면에는 뜨지 않아야 합니다.
 const canSub = liveView.slice(liveView.indexOf('function _canSubstitute'),
   liveView.indexOf('function _teamOfName'));
 assert(/isClubOfficial\|\|viewer\.isLeader\|\|viewer\.isSub\|\|viewer\.isTemporaryOperator/.test(canSub),
-  '단장·부단장·클럽 임원·운영 도우미만 대체 투입을 볼 수 있어야 합니다.');
+  '단장·부단장·클럽 임원·운영진만 대체 투입을 볼 수 있어야 합니다.');
 assert(/_canSubstitute\(d\)/.test(scope),
   '교체 가능 판정이 권한을 먼저 봐야 합니다 — 일반 회원에게 버튼이 뜨면 안 됩니다.');
 assert(/_canSubstitute\(d\)/.test(liveView.slice(liveView.indexOf('function _substituteHintHtml'),

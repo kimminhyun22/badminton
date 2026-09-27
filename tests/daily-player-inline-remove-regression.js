@@ -49,7 +49,7 @@ const target={id:'p1',name:'선수가',status:'wait'};
 assert(official.renderRemove(actor,target,'current').includes("sendOfficialPlayerRemove('o1','p1')"),
   '임원 선수 명단에서도 이름 옆 삭제를 바로 실행해야 합니다.');
 assert(official.renderRemove({id:'h1',isClubOfficial:false},target,'current')==='',
-  '임시 도우미나 일반 회원에게 선수 삭제 권한을 넘기면 안 됩니다.');
+  '임시 운영진나 일반 회원에게 선수 삭제 권한을 넘기면 안 됩니다.');
 assert(official.renderRemove(actor,target,'party')==='',
   '뒷풀이 명단에는 선수 삭제 버튼을 중복 노출하면 안 됩니다.');
 assert(official.renderRemove(actor,{...target,status:'playing'},'current').includes('disabled'),

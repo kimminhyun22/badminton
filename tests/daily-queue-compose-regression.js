@@ -437,7 +437,7 @@ this.club=officialPrimaryClub();`,legacy);
     const grouped=[
       ['선수 추가',"setOfficialOverviewMode('add')"],
       ['코트 수','sendOfficialSettingsCourts'],
-      ['운영 도우미',"setOfficialOverviewMode('helper')"],
+      ['운영진',"setOfficialOverviewMode('helper')"],
       ['마무리','sendOfficialFinishMode']
     ].map(([label,marker])=>({label,pos:summarySrc.indexOf(marker)}));
     grouped.slice(1).forEach((cur,i)=>assert(cur.pos>grouped[i].pos,

@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.733';
+const APP_VERSION='1.10.734';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -906,7 +906,7 @@ function _viewerRoleText(p){
   if(p.isLeader) return p.isClubOfficial?'단장 · 클럽 임원':'단장';
   if(p.isSub) return p.isClubOfficial?'부단장 · 클럽 임원':'부단장';
   if(p.isClubOfficial) return '클럽 임원';
-  if(p.isTemporaryOperator) return '운영 도우미';
+  if(p.isTemporaryOperator) return '운영진';
   return '선수';
 }
 function _viewerPartnerText(p){
@@ -1474,7 +1474,7 @@ async function _sendTeamOfficialCommand(kind, command, okMessage){
   const d=window._lastLiveData;
   const viewer=_viewerInfo(d);
   if(!viewer)return alert('내 이름을 먼저 선택해주세요.');
-  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영진만 처리할 수 있어요.');
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
   try{
     const callable=firebase.functions().httpsCallable('submitTeamOfficialRequest');
@@ -1500,7 +1500,7 @@ async function changeTeamCourt(matchNum){
   const d=window._lastLiveData;
   const match=_matchByNum(d,matchNum);
   if(!match)return alert('경기를 다시 확인해주세요.');
-  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영진만 처리할 수 있어요.');
   const courts=Math.max(1,Number(d&&d.courts)||0);
   const raw=prompt(`${match.round}라운드 ${matchNum}번 경기의 코트 번호를 바꿉니다.`
     +`\n1 ~ ${courts} 중에서 입력해 주세요.`, String(match.court||''));
@@ -1521,7 +1521,7 @@ async function changeTeamCourt(matchNum){
 function _liveFinished(d){ return !!Number(d&&d.finishedAt); }
 async function finishTeamLive(){
   const d=window._lastLiveData;
-  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영진만 처리할 수 있어요.');
   if(_liveFinished(d)){
     if(!confirm('마무리를 해제하고 다시 운영할까요?'))return;
     return void await _sendTeamOfficialCommand('tfin', {type:'team-official-finish', finished:false},
@@ -1540,7 +1540,7 @@ async function finishTeamLive(){
  */
 async function addTeamPlayer(){
   const d=window._lastLiveData;
-  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영 도우미만 처리할 수 있어요.');
+  if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영진만 처리할 수 있어요.');
   const name=(prompt('명단에 추가할 선수 이름을 입력해 주세요.')||'').trim();
   if(!name)return;
   const fixed=_usesFixedTeams(d);
@@ -2043,7 +2043,7 @@ async function submitLiveWin(matchIdx,side){
      권한·기록·중복 방지가 서버 한 곳에 모입니다. 자유대진은 아래 예전 경로. */
   if(_usesFixedTeams(d))return submitTeamResult(Number(m.num), side, String(m.win||''));
   if(!_canSubmitResult(m,d)){
-    alert('이 경기 선수·단장/부단장·클럽 임원·자유대진 운영 도우미만 승패를 입력할 수 있어요.');
+    alert('이 경기 선수·단장/부단장·클럽 임원·자유대진 운영진만 승패를 입력할 수 있어요.');
     return;
   }
   if(!liveDb || !liveId){
@@ -2251,7 +2251,7 @@ async function toggleMemberLate(name, team){
   if(!name) return;
   const d=window._lastLiveData;
   if(!_canOperateAttendance(d||{})){
-    alert('제외·복귀 표시는 단장·부단장·클럽 임원·운영 도우미가 처리합니다.');
+    alert('제외·복귀 표시는 단장·부단장·클럽 임원·운영진이 처리합니다.');
     return;
   }
   const viewer=_viewerInfo(d);
@@ -2335,7 +2335,7 @@ function buildTeamRosterCard(d){
     if(!arr.length) return '<div class="faq-note">명단이 없습니다.</div>';
     return arr.map(p=>{
       const officialBadge=p.isClubOfficial?'<span class="team-member-badge official" title="클럽 임원">임</span>':'';
-      const operatorBadge=p.isTemporaryOperator?'<span class="team-member-badge temporary-operator" title="운영 도우미">운</span>':'';
+      const operatorBadge=p.isTemporaryOperator?'<span class="team-member-badge temporary-operator" title="운영진">운</span>':'';
       const badge=(p.isLeader?'<span class="team-member-badge" title="단장">단</span>':p.isSub?'<span class="team-member-badge" title="부단장">부</span>':'')
         +officialBadge+operatorBadge;
       const on=_lateOn(p.n);

@@ -7,8 +7,8 @@ const root = path.join(__dirname, '..');
 const teamSrc = fs.readFileSync(path.join(root, 'js', 'team.js'), 'utf8');
 const liveSrc = fs.readFileSync(path.join(root, 'js', 'live-view.js'), 'utf8');
 const teamHtml = fs.readFileSync(path.join(root, 'team.html'), 'utf8');
-assert(teamHtml.includes('<dialog id="teamOperatorDialog"'), '도우미 선택은 대화상자에서만 노출합니다.');
-assert(teamHtml.includes('onclick="openTeamOperatorDialog()"'), '작은 버튼으로 도우미 창을 엽니다.');
+assert(teamHtml.includes('<dialog id="teamOperatorDialog"'), '운영진 선택은 대화상자에서만 노출합니다.');
+assert(teamHtml.includes('onclick="openTeamOperatorDialog()"'), '작은 버튼으로 운영진 창을 엽니다.');
 assert(!teamSrc.includes('class="team-live-secondary share'), '라운드 진행에 중복 공유 버튼을 두지 않습니다.');
 
 function functionSource(src, name, nextName) {
@@ -20,7 +20,7 @@ function functionSource(src, name, nextName) {
 }
 
 assert(teamHtml.includes('id="teamTemporaryOperatorPanel"'),
-  '상단 운영 보드에 자유대진 운영 도우미 영역이 있어야 합니다.');
+  '상단 운영 보드에 자유대진 운영진 영역이 있어야 합니다.');
 assert(!teamHtml.includes('matchDirectorPanel'), '경기이사 정·부 지정 영역은 제거되어야 합니다.');
 assert(!teamSrc.includes('matchDirectors'), '관리자 상태에서 경기이사 정·부 모델을 제거해야 합니다.');
 assert(!teamSrc.includes('경기이사'), '관리자 안내에서 경기이사 표현을 제거해야 합니다.');
@@ -50,7 +50,7 @@ assert.deepStrictEqual(normalized(normalizeSandbox.api.normalize(fiveOperators))
   {memberId:'m2',name:'둘'},
   {memberId:'m3',name:'셋'},
   {memberId:'m4',name:'넷'}
-], '운영 도우미는 회원 ID 중복 없이 최대 4명이어야 합니다.');
+], '운영진은 회원 ID 중복 없이 최대 4명이어야 합니다.');
 
 const resolveCode = `
 const TEAM_TEMPORARY_OPERATOR_MAX=4;
@@ -79,7 +79,7 @@ const resolved = normalized(resolveSandbox.api.resolve([
   {memberId:'guest',name:'게스트',isGuest:true}
 ]));
 assert.deepStrictEqual(resolved, [{memberId:'same-1',name:'동명이인'}],
-  '정확한 회원 ID의 일반 회원만 운영 도우미로 남아야 합니다.');
+  '정확한 회원 ID의 일반 회원만 운영진으로 남아야 합니다.');
 assert.deepStrictEqual(normalized(resolveSandbox.api.state()), [{memberId:'same-1',name:'동명이인'}],
   '정식 임원과 게스트 권한은 자동 정리되어야 합니다.');
 
@@ -105,14 +105,14 @@ const openMatch={t1:['선수1','선수2'],t2:['선수3','선수4'],win:null};
 const doneMatch={...openMatch,win:'t1'};
 const free={kind:'teamLive',matchMode:'free',isTeam:false};
 const team={kind:'teamLive',matchMode:'team',isTeam:true};
-const helper={id:'helper',n:'도우미',isTemporaryOperator:true};
+const helper={id:'helper',n:'운영진',isTemporaryOperator:true};
 
 assert.strictEqual(permissionSandbox.api.can(openMatch,free,helper),true,
-  '자유대진 운영 도우미는 전체 경기 승패를 입력할 수 있어야 합니다.');
-// 2026-08-14 계약 갱신: 운영 도우미는 **팀전에서도** 둘 수 있습니다(운영자
+  '자유대진 운영진은 전체 경기 승패를 입력할 수 있어야 합니다.');
+// 2026-08-14 계약 갱신: 운영진은 **팀전에서도** 둘 수 있습니다(운영자
 // "꼭 필수는 아니니까 설정해둬도 좋을 듯"). 단장 혼자 여러 코트를 돌지 않아도 됩니다.
 assert.strictEqual(permissionSandbox.api.can(openMatch,team,helper),true,
-  '팀전에서도 운영 도우미는 승패를 입력할 수 있어야 합니다.');
+  '팀전에서도 운영진은 승패를 입력할 수 있어야 합니다.');
 assert.strictEqual(permissionSandbox.api.can(openMatch,team,{n:'단장',isLeader:true}),true,
   '청홍팀전 단장은 기존 전체 경기 권한을 유지해야 합니다.');
 assert.strictEqual(permissionSandbox.api.can(openMatch,free,{n:'단장',isLeader:true}),false,
@@ -124,9 +124,9 @@ assert.strictEqual(permissionSandbox.api.can(openMatch,free,{n:'일반회원'}),
 assert.strictEqual(permissionSandbox.api.can(openMatch,free,{n:'임원',isClubOfficial:true}),true,
   '클럽 임원은 자유대진 전체 경기 권한을 유지해야 합니다.');
 assert.strictEqual(permissionSandbox.api.can(doneMatch,free,helper),false,
-  '운영 도우미도 완료 결과를 임의 정정할 수 없어야 합니다.');
+  '운영진도 완료 결과를 임의 정정할 수 없어야 합니다.');
 assert.strictEqual(permissionSandbox.api.role(openMatch,free,helper),'temporaryOperator',
-  '운영 도우미 입력은 별도 감사 역할로 기록해야 합니다.');
+  '운영진 입력은 별도 감사 역할로 기록해야 합니다.');
 
 const memberCode = `${functionSource(liveSrc, '_normalizeMembers', '_sortMembers')}
 ${functionSource(liveSrc, '_allLiveMembers', '_viewerInfo')}
@@ -232,9 +232,9 @@ const liveBase = {
 (async()=>{
   const granted = await transactionSandbox.api.submit(liveBase, liveBase);
   assert.strictEqual(granted.remote.matches[0].win,'t1',
-    '운영 도우미의 승패 입력이 Firebase 최신 권한 확인 후 저장되어야 합니다.');
+    '운영진의 승패 입력이 Firebase 최신 권한 확인 후 저장되어야 합니다.');
   assert.strictEqual(granted.remote.matches[0].winByRole,'temporaryOperator',
-    '운영 도우미 입력은 감사 역할로 남아야 합니다.');
+    '운영진 입력은 감사 역할로 남아야 합니다.');
 
   const revokedRemote = JSON.parse(JSON.stringify(liveBase));
   revokedRemote.officials.temporaryOperators=[];

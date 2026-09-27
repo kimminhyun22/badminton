@@ -48,7 +48,7 @@ const guest={id:'g1',name:'게스트가',isGuest:true};
 assert(official.renderGuest(actor,guest,'current').includes("sendOfficialPlayerRename('o1','g1')"),
   '임원 명단도 게스트 이름 옆에서 바로 수정해야 합니다.');
 assert(official.renderGuest({id:'h1',isClubOfficial:false},guest,'current')==='',
-  '임시 도우미나 일반 회원에게 이름 수정 권한을 넘기면 안 됩니다.');
+  '임시 운영진나 일반 회원에게 이름 수정 권한을 넘기면 안 됩니다.');
 assert(official.renderGuest(actor,{id:'m1',name:'회원가',isGuest:false},'current')==='',
   '임원 화면에서도 명부 회원은 인라인 수정 대상이 아닙니다.');
 assert(official.renderGuest(actor,guest,'party')==='',

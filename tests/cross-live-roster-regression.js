@@ -172,7 +172,7 @@ let teamState=JSON.parse(JSON.stringify(teamSandbox.api.state()));
 assert.deepStrictEqual(teamState.players.map(player=>player.name),['민턴하나','민턴둘'],'민턴LIVE 선수 명단이 팀전 참가자 목록을 정확히 교체해야 합니다.');
 assert.strictEqual(teamState.players[0].isClubOfficial,true,'양방향 복사 뒤에도 임원 정보를 유지해야 합니다.');
 assert.deepStrictEqual(teamState.partners,[],'팀전 기존 파트너 지정은 명단 교체와 함께 비워야 합니다.');
-assert.deepStrictEqual(teamState.temporaryOperators,[],'명단 교체 시 이전 자유대진 운영 도우미 권한을 남기면 안 됩니다.');
+assert.deepStrictEqual(teamState.temporaryOperators,[],'명단 교체 시 이전 자유대진 운영진 권한을 남기면 안 됩니다.');
 assert.strictEqual(teamState.teamAssignment,null,'이전 청·홍팀 배정을 새 명단에 남기면 안 됩니다.');
 
 const dailyImportSource=sourceBetween(dailySrc,'_dailyRosterBridge','dailyAddPlayer');

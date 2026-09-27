@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.733  (2026-07)
+     APP VERSION: 1.10.734  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.733">
+<meta name="app-version" content="1.10.734">
 <meta name="theme-color" content="#ffffff">
 <meta name="color-scheme" content="only light">
 <link rel="manifest" href="manifest.json">
@@ -26,13 +26,13 @@
 <meta property="og:title" content="민턴라이브 팀전">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/team.css?v=1.10.733">
+<link rel="stylesheet" href="css/team.css?v=1.10.734">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="js/storage.js?v=1.10.733"></script>
+<script src="js/storage.js?v=1.10.734"></script>
 </head>
 <body>
 
@@ -112,7 +112,7 @@
           <strong id="teamParticipantCount"></strong>
           <button type="button" class="team-tool-btn" onclick="teamLiveOpenPlayers()"><img src="icons/lucide/users-round.svg" alt=""><span>참가자 수정</span></button>
         </div>
-        <button type="button" class="team-tool-btn hidden" id="teamOperatorOpenBtn" onclick="openTeamOperatorDialog()"><img src="icons/lucide/user-round-cog.svg" alt=""><span>운영 도우미</span></button>
+        <button type="button" class="team-tool-btn hidden" id="teamOperatorOpenBtn" onclick="openTeamOperatorDialog()"><img src="icons/lucide/user-round-cog.svg" alt=""><span>운영진</span></button>
         </div>
         <div class="bracket-save-quick hidden" id="bracketSaveQuick" aria-label="대진안 빠른 저장">
           <div class="bracket-save-quick-copy">
@@ -391,8 +391,8 @@
 </div>
 
 <!-- ── 선수 변동 재배정 모달 ── -->
-<dialog id="teamOperatorDialog" class="modal-box" aria-label="운영 도우미">
-  <div class="modal-head"><span>운영 도우미</span><button type="button" aria-label="닫기" onclick="document.getElementById('teamOperatorDialog').close()">×</button></div>
+<dialog id="teamOperatorDialog" class="modal-box" aria-label="운영진">
+  <div class="modal-head"><span>운영진</span><button type="button" aria-label="닫기" onclick="document.getElementById('teamOperatorDialog').close()">×</button></div>
   <div class="modal-body"><div class="team-temporary-operator-panel hidden" id="teamTemporaryOperatorPanel"></div></div>
 </dialog>
 <div class="modal-overlay hidden" id="changeModal">
@@ -660,7 +660,7 @@
   <button class="manual-back-btn" onclick="switchNav('main');window.scrollTo({top:0});">← 대진표로 돌아가기</button>
   <div class="manual-section">
     <h2>📌 팀전 한눈에 보기</h2>
-    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">청팀·홍팀 월례전을 기본으로 하되, 인원이 적거나 팀 구성이 맞지 않으면 자유 대진으로 전환합니다. 시스템 관리자는 세팅과 예외 처리를, 클럽 임원과 자유대진 운영 도우미는 현장 진행을 맡습니다.</p>
+    <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">청팀·홍팀 월례전을 기본으로 하되, 인원이 적거나 팀 구성이 맞지 않으면 자유 대진으로 전환합니다. 시스템 관리자는 세팅과 예외 처리를, 클럽 임원과 자유대진 운영진은 현장 진행을 맡습니다.</p>
     <div class="feat-grid">
       <div class="feat-card"><h4>1. 명단 재사용</h4><p>민턴LIVE에서 준비한 선수 명단도 바로 가져올 수 있습니다.</p></div>
       <div class="feat-card"><h4>2. 방식 선택</h4><p>청·홍 팀전과 자유대진 중 현장에 맞는 방식을 고릅니다.</p></div>
@@ -674,8 +674,8 @@
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>선수 확정</strong> — 사전 명단을 직접 고르거나 민턴LIVE 선수 명단을 가져옵니다. 회원 응답 없이 관리자가 명단을 확정합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>방식 선택</strong> — 청·홍 팀전은 좌우 명단과 팀 균형을 확인하고, 자유대진은 팀 배정 없이 바로 편성합니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>대진 생성</strong> — 게임 수와 종목을 맞춘 뒤 품질점수와 보정경기를 확인합니다.</p></div>
-      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>LIVE 시작</strong> — 명부의 클럽 임원 참가자는 본인 확인 즉시 운영 권한이 열립니다. 자유대진 도우미는 LIVE 시작 후 지정합니다.</p></div>
-      <div class="step-item"><span class="step-num">5</span><p class="step-text"><strong>현장 운영</strong> — 임원과 도우미가 늦음, 현재 라운드와 승패를 처리하고 시스템 관리자는 충돌·복구 때만 확인합니다.</p></div>
+      <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>LIVE 시작</strong> — 명부의 클럽 임원 참가자는 본인 확인 즉시 운영 권한이 열립니다. 자유대진 운영진은 LIVE 시작 후 지정합니다.</p></div>
+      <div class="step-item"><span class="step-num">5</span><p class="step-text"><strong>현장 운영</strong> — 임원과 운영진이 늦음, 현재 라운드와 승패를 처리하고 시스템 관리자는 충돌·복구 때만 확인합니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -684,7 +684,7 @@
       <div class="step-item"><span class="step-num ico">본인</span><p class="step-text">내 이름을 확인하면 별도 단계 없이 진행 중인 실중계로 바로 들어갑니다.</p></div>
       <div class="step-item"><span class="step-num ico">늦음</span><p class="step-text">오고 있지만 아직 도착 전입니다. 대진에는 포함하되 임원 운영 현황에 표시됩니다.</p></div>
       <div class="step-item"><span class="step-num ico">뒷풀이</span><p class="step-text">실중계 상단 내 경기의 작은 뒷풀이 버튼으로 신청하거나 취소합니다.</p></div>
-      <div class="step-item"><span class="step-num ico">안내</span><p class="step-text">스마트폰이 없어도 임원과 도우미의 호명에 따라 그대로 참여할 수 있습니다.</p></div>
+      <div class="step-item"><span class="step-num ico">안내</span><p class="step-text">스마트폰이 없어도 임원과 운영진의 호명에 따라 그대로 참여할 수 있습니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
@@ -708,18 +708,18 @@
   <div class="manual-section">
     <h2>👥 비상 조정</h2>
     <div class="step-list">
-      <div class="step-item"><span class="step-num ico">상태</span><p class="step-text">링크 사용이 어려운 회원의 현장 처리는 임원과 운영 도우미가 대신합니다.</p></div>
+      <div class="step-item"><span class="step-num ico">상태</span><p class="step-text">링크 사용이 어려운 회원의 현장 처리는 임원과 운영진이 대신합니다.</p></div>
       <div class="step-item"><span class="step-num ico">P</span><p class="step-text">대회 준비용 파트너 요청은 팀 배정 전에 묶어 같은 편으로 배정합니다.</p></div>
       <div class="step-item"><span class="step-num ico">교체</span><p class="step-text">늦음 선수가 라운드 전까지 도착하지 않으면 시스템 관리자가 대체·재생성 여부를 확인합니다.</p></div>
-      <div class="step-item"><span class="step-num ico">도우미</span><p class="step-text">자유대진에서 임원이 부족하면 신뢰 회원을 운영 도우미로 최대 4명 지정합니다. 권한은 해당 LIVE 종료와 함께 끝납니다.</p></div>
+      <div class="step-item"><span class="step-num ico">운영진</span><p class="step-text">자유대진에서 임원이 부족하면 신뢰 회원을 운영진으로 최대 4명 지정합니다. 권한은 해당 LIVE 종료와 함께 끝납니다.</p></div>
     </div>
   </div>
   <div class="manual-section">
     <h2>📡 중계와 결과 입력</h2>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">중계</span><p class="step-text">회원 링크 하나가 본인 확인, 대진표, 실시간 현황으로 이어집니다.</p></div>
-      <div class="step-item"><span class="step-num ico">현황</span><p class="step-text">임원과 자유대진 운영 도우미는 등록·현장·경기중·대기·늦음·뒷풀이 명단을 함께 봅니다.</p></div>
-      <div class="step-item"><span class="step-num ico">승패</span><p class="step-text">현재 경기 선수는 자기 결과를 입력합니다. 클럽 임원은 현재 라운드 전체를 입력하며, 청·홍 단장·부단장과 자유대진 운영 도우미도 같은 권한을 가집니다.</p></div>
+      <div class="step-item"><span class="step-num ico">현황</span><p class="step-text">임원과 자유대진 운영진은 등록·현장·경기중·대기·늦음·뒷풀이 명단을 함께 봅니다.</p></div>
+      <div class="step-item"><span class="step-num ico">승패</span><p class="step-text">현재 경기 선수는 자기 결과를 입력합니다. 클럽 임원은 현재 라운드 전체를 입력하며, 청·홍 단장·부단장과 자유대진 운영진도 같은 권한을 가집니다.</p></div>
       <div class="step-item"><span class="step-num ico">즉시</span><p class="step-text">관리자 앱이 꺼져 있어도 승패는 즉시 반영됩니다. 반대 결과가 동시에 들어오면 첫 결과를 유지하고 승패 확인 건으로 남깁니다.</p></div>
       <div class="step-item"><span class="step-num ico">재개</span><p class="step-text">앱이 꺼졌다면 팀전 이어가기로 같은 대진과 회원 링크를 그대로 재개합니다.</p></div>
       <div class="step-item"><span class="step-num ico">명단</span><p class="step-text">운영 현황의 숫자를 누르면 운영진과 뒷풀이 신청 인원·이름을 확인할 수 있습니다.</p></div>
@@ -752,13 +752,13 @@
 </div>
 </div>
 
-<script src="js/match-quality.js?v=1.10.733"></script>
-<script src="js/mobile-nav.js?v=1.10.733"></script>
+<script src="js/match-quality.js?v=1.10.734"></script>
+<script src="js/mobile-nav.js?v=1.10.734"></script>
 <!-- 카카오톡 바로 공유용 JavaScript 키 — index.html 과 같은 값을 넣으면 두 화면이 함께 동작합니다. -->
 <script>window.KOKMATCH_KAKAO_JS_KEY=window.KOKMATCH_KAKAO_JS_KEY||'';</script>
-<script src="js/team.js?v=1.10.733"></script>
-<script src="js/club-skill-batch.js?v=1.10.733"></script>
-<script src="js/club-skill-notice.js?v=1.10.733"></script>
+<script src="js/team.js?v=1.10.734"></script>
+<script src="js/club-skill-batch.js?v=1.10.734"></script>
+<script src="js/club-skill-notice.js?v=1.10.734"></script>
 
 <!-- 현재 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 라운드로 이동" title="현재 진행 라운드로 이동">
@@ -836,7 +836,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.733</span>
+  <span class="app-version" id="appVersion">v1.10.734</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

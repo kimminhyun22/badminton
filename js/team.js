@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.733';
+const APP_VERSION = '1.10.734';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -649,7 +649,7 @@ let _teamWanted=true; // 기본값은 청·홍 팀전
 // 단장/부단장 지정 { blue:{leader:'',sub:''}, white:{leader:'',sub:''} }
 let captains={blue:{leader:'',sub:''},white:{leader:'',sub:''}};
 const TEAM_TEMPORARY_OPERATOR_MAX=4;
-// 자유대진 운영 도우미는 현재 팀전에서만 전체 경기 승패를 입력할 수 있다.
+// 자유대진 운영진은 현재 팀전에서만 전체 경기 승패를 입력할 수 있다.
 let temporaryOperators=[];
 let _teamTemporaryOperatorBusy=false;
 
@@ -2656,7 +2656,7 @@ function _buildLiveState(){
   const _subBlue=captains?.blue?.sub||null;
   const _leaderWhite=captains?.white?.leader||null;
   const _subWhite=captains?.white?.sub||null;
-  // 운영 도우미는 팀전에서도 둘 수 있습니다(운영자 2026-08-14 "꼭 필수는 아니니까
+  // 운영진은 팀전에서도 둘 수 있습니다(운영자 2026-08-14 "꼭 필수는 아니니까
   // 설정해둬도 좋을 듯"). 단장 혼자 3코트를 도는 대신 손을 나눌 수 있습니다.
   const resolvedTemporaryOperators=_teamResolveTemporaryOperators(currentParticipants);
   const temporaryOperatorIds=new Set(resolvedTemporaryOperators.map(_teamEnsureMemberId).filter(Boolean));
@@ -6544,7 +6544,7 @@ function _teamResolveTemporaryOperators(players=_directPlayers){
 async function setTeamTemporaryOperator(memberId,enabled){
   if(_teamTemporaryOperatorBusy)return false;
   if(_teamFinishedAt){
-    alert('새 운동에서 운영 도우미를 지정해 주세요.');
+    alert('새 운동에서 운영진을 지정해 주세요.');
     return false;
   }
   _teamResolveTemporaryOperators();
@@ -6558,7 +6558,7 @@ async function setTeamTemporaryOperator(memberId,enabled){
   const exists=temporaryOperators.some(operator=>operator.memberId===next);
   if(!!enabled===exists)return true;
   if(enabled&&temporaryOperators.length>=TEAM_TEMPORARY_OPERATOR_MAX){
-    alert(`운영 도우미는 최대 ${TEAM_TEMPORARY_OPERATOR_MAX}명까지 지정할 수 있습니다.`);
+    alert(`운영진은 최대 ${TEAM_TEMPORARY_OPERATOR_MAX}명까지 지정할 수 있습니다.`);
     return false;
   }
   const previous=temporaryOperators.map(operator=>({...operator}));
@@ -6583,7 +6583,7 @@ async function setTeamTemporaryOperator(memberId,enabled){
     return true;
   }catch(error){
     temporaryOperators=previous;
-    alert('운영 도우미 변경을 저장하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+    alert('운영진 변경을 저장하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
     return false;
   }finally{
     _teamTemporaryOperatorBusy=false;
@@ -6616,7 +6616,7 @@ function renderTeamTemporaryOperatorPanel(){
   if(opener){
     opener.classList.toggle('hidden',!players.length||!!_teamFinishedAt);
     const label=opener.querySelector('span');
-    if(label)label.textContent=`운영 도우미${temporaryOperators.length?' '+temporaryOperators.length+'명':''}`;
+    if(label)label.textContent=`운영진${temporaryOperators.length?' '+temporaryOperators.length+'명':''}`;
   }
   if(!players.length||_teamFinishedAt){
     const dialog=document.getElementById('teamOperatorDialog');
@@ -6634,16 +6634,16 @@ function renderTeamTemporaryOperatorPanel(){
   const disabled=_teamTemporaryOperatorBusy?'disabled':'';
   const chips=temporaryOperators.map(operator=>`<span class="team-temporary-operator-chip">
     <b>${esc(operator.name)}</b>
-    <button type="button" ${disabled} onclick="setTeamTemporaryOperator('${esc(operator.memberId)}',false)" aria-label="${esc(operator.name)} 운영 도우미 해제">해제</button>
+    <button type="button" ${disabled} onclick="setTeamTemporaryOperator('${esc(operator.memberId)}',false)" aria-label="${esc(operator.name)} 운영진 해제">해제</button>
   </span>`).join('');
   const officialCount=players.filter(p=>p.isClubOfficial).length;
   panel.innerHTML=`<div class="team-temporary-operator-head">
-      <div><b>운영 도우미</b><small>${officialCount?`클럽 임원 ${officialCount}명은 자동 권한 · `:''}${_liveOn?'이번 운동에서 승패 입력':'운동 시작 시 권한 적용'}</small></div>
+      <div><b>운영진</b><small>${officialCount?`클럽 임원 ${officialCount}명은 자동 권한 · `:''}${_liveOn?'이번 운동에서 승패 입력':'운동 시작 시 권한 적용'}</small></div>
       <span>${temporaryOperators.length}/${TEAM_TEMPORARY_OPERATOR_MAX}명</span>
     </div>
     ${chips?`<div class="team-temporary-operator-list">${chips}</div>`:''}
     <div class="team-temporary-operator-add">
-      <select id="teamTemporaryOperatorSelect" ${disabled||!options||temporaryOperators.length>=TEAM_TEMPORARY_OPERATOR_MAX?'disabled':''} aria-label="자유대진 운영 도우미 선택">
+      <select id="teamTemporaryOperatorSelect" ${disabled||!options||temporaryOperators.length>=TEAM_TEMPORARY_OPERATOR_MAX?'disabled':''} aria-label="자유대진 운영진 선택">
         <option value="">회원 선택</option>${options}
       </select>
       <button type="button" ${disabled||!options||temporaryOperators.length>=TEAM_TEMPORARY_OPERATOR_MAX?'disabled':''} onclick="grantTeamTemporaryOperator()">지정</button>

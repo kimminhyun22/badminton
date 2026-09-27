@@ -212,7 +212,7 @@ t=15;
     expectedPlayerIds:[...del.playerIds]},at(),'del'));
 }
 
-// 4) 운영 현황 — 선수 추가 · 게스트 카드 이름 수정 · 제외 · 코트 수 · 도우미 · 마무리
+// 4) 운영 현황 — 선수 추가 · 게스트 카드 이름 수정 · 제외 · 코트 수 · 운영진 · 마무리
 t=25;
 {
   check('🙋 선수 추가(게스트)',send({type:'official-player-create',playerId:'dpv2_sim_guest',
@@ -229,9 +229,9 @@ t=25;
   assert.strictEqual(S().event.courts,before+1);
   send({type:'official-settings-update',courts:before,expectedCourts:before+1},at(),'courts_back');
   const helper=S().players.find(p=>p.status==='wait'&&!p.isClubOfficial&&!p.currentMatchId);
-  check('🤝 운영 도우미 지정',send({type:'official-temporary-grant',playerId:helper.id,
+  check('🤝 운영진 지정',send({type:'official-temporary-grant',playerId:helper.id,
     expectedName:helper.name},at(),'grant'));
-  check('🤝 운영 도우미 해제',send({type:'official-temporary-revoke',playerId:helper.id,
+  check('🤝 운영진 해제',send({type:'official-temporary-revoke',playerId:helper.id,
     expectedName:helper.name},at(),'revoke'));
 }
 

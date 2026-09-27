@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.733';
+const APP_VERSION = '1.10.734';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3536,7 +3536,7 @@ async function dailyRenamePlayer(id){
 }
 // ── 선수 목록에서 바로 처리합니다(임원 화면과 같은 구조, 2026-08-03).
 // 평소에는 행에 상태 버튼을 두고, 삭제는 이름 옆에서 바로 처리합니다.
-// 가끔 쓰는 파트너·도우미만 상단 도구 모드로 전환합니다. 예전 선수 시트는 없앴습니다.
+// 가끔 쓰는 파트너·운영진만 상단 도구 모드로 전환합니다. 예전 선수 시트는 없앴습니다.
 // 명부 원본이 없는 게스트만 선수 카드에서 바로 이름을 고칩니다.
 // 회원 이름은 클럽 명부에서 관리해 당일 세션과 원본이 어긋나지 않게 합니다.
 function _dailyGuestRenameButton(p){
@@ -3637,7 +3637,7 @@ function _dailyPlayerToolsHtml(){
   const tools=[
     _dailyOperationStarted?act('dailyToggleFinishMode()','🏁',finishOn?'마무리 해제':'마무리','',finishOn):'',
     act('dailyOpenCourtSetting()','🏸',`코트 ${courts}`),
-    (_dailyOperationStarted||_dailyCheckinId)?mode('helper','🤝',`도우미 ${helperCount}`):''   // 게시 전엔 링크 강제 생성 부작용만
+    (_dailyOperationStarted||_dailyCheckinId)?mode('helper','🤝',`운영진 ${helperCount}`):''   // 게시 전엔 링크 강제 생성 부작용만
   ].filter(Boolean).join('');
   const note=_dailyPlayerTool==='helper'
     ? `오늘만 운영을 도울 회원을 <b>지정</b>하세요(최대 ${DAILY_TEMPORARY_OFFICIAL_LIMIT}명). 운동이 끝나면 자동으로 해제됩니다.`
@@ -4684,7 +4684,7 @@ async function dailyPickActiveReplacement(matchId,side,pos){
   const candidates=[...waiting,...playing];
   if(!candidates.length){alert('교체 가능한 선수가 없습니다.');return;}
   const list=candidates.map((c,i2)=>`${i2+1}. ${c.label}`).join('\n');
-  const raw=prompt(`${current?.name||'선수'} 대신 들어갈 선수를 번호 또는 이름으로 선택하세요.\n대기 선수를 넣으면 ${current?.name||'기존 선수'}님은 휴식으로 전환되고,\n경기중 선수를 고르면 두 코트가 맞교환됩니다.\n\n${list}`,'1');
+  const raw=prompt(`${current?.name||'선수'} 대신 들어갈 선수를 번호 또는 이름으로 선택하세요.\n대기 선수를 넣으면 ${current?.name||'기존 선수'}님은 대기로 전환되고,\n경기중 선수를 고르면 두 코트가 맞교환됩니다.\n\n${list}`,'1');
   if(raw==null)return;
   const chosen=_dailyPickFromCandidates(candidates,raw);
   if(typeof chosen==='string'){alert(chosen);return;}
@@ -4735,7 +4735,8 @@ function _dailyApplyActiveReplaceLocal(m,outId,inId,operationAt){
     inPlayer.lastStatusAt=at;
   }
   if(outPlayer){
-    outPlayer.status='rest';
+    outPlayer.status='wait';
+    outPlayer.waitFrom=at;
     outPlayer.currentMatchId=null;
     outPlayer.afterMatchStatus=null;
     outPlayer.lastStatusAt=at;
@@ -6332,7 +6333,7 @@ function dailyRenderOpsStats(){
   dailyRenderAdminAlerts();
   dailyApplyStageLayout();
 }
-// 운영 도우미도 선수 목록의 도구 모드에서 지정합니다(임원 화면과 같은 구조).
+// 운영진도 선수 목록의 도구 모드에서 지정합니다(임원 화면과 같은 구조).
 // 전용 카드는 없앴습니다 — 입구가 둘이면 어디서 지정했는지 헷갈립니다.
 function _dailyTemporaryOfficialEligible(player){
   return !!(player?.name)
@@ -6457,12 +6458,12 @@ async function dailySetTemporaryOfficial(playerId,enabled){
   if(_dailyTemporaryOfficialBusy)return false;
   const player=_dailyPlayer(playerId);
   if(!player){alert('선택한 회원을 찾지 못했습니다.');return false;}
-  const action=enabled?'운영 도우미로 지정':'운영 도우미 권한을 해제';
+  const action=enabled?'운영진으로 지정':'운영진 권한을 해제';
   if(!confirm(`${player.name}님을 ${action}할까요?\n\n${enabled?'오늘 민턴LIVE의 경기 종료·회원 상태·대진 처리를 도울 수 있습니다.':'운영 버튼이 즉시 사라집니다.'}`))return false;
   _dailyTemporaryOfficialBusy=true;
   dailyRender();
   try{
-    // 운영 도우미는 서버에 세션이 있어야 지정할 수 있어 여기서만 강제로 게시합니다.
+    // 운영진은 서버에 세션이 있어야 지정할 수 있어 여기서만 강제로 게시합니다.
     if(!_dailyCheckinId&&!await dailyPublishCheckinSession(true)){
       alert('민턴LIVE 회원 링크를 먼저 열어 주세요.');
       return false;
@@ -6474,9 +6475,9 @@ async function dailySetTemporaryOfficial(playerId,enabled){
       playerName:player.name,
       expectedIsTemporaryOfficial:!!player.isTemporaryOfficial,
       source:'system-admin-temporary-official'
-    },{action:'운영 도우미 변경'});
+    },{action:'운영진 변경'});
     if(!sent.ok)return false;
-    alert(`${player.name}님 ${enabled?'운영 도우미 지정':'운영 권한 해제'}이 바로 반영되었습니다.`);
+    alert(`${player.name}님 ${enabled?'운영진 지정':'운영 권한 해제'}이 바로 반영되었습니다.`);
     return true;
   }finally{
     _dailyTemporaryOfficialBusy=false;
@@ -8763,7 +8764,7 @@ function _dailyOfficialRequestError(req){
   if(rosterSetupCommand){
     if(!serverAdmin&&(!actor||!actor.isClubOfficial))return '오늘 명단 일괄 설정은 클럽 임원만 할 수 있습니다.';
   }else if(temporaryRoleCommand){
-    if(!serverAdmin&&(!actor||!actor.isClubOfficial))return '운영 도우미 지정은 관리자 또는 정식 클럽 임원만 할 수 있습니다.';
+    if(!serverAdmin&&(!actor||!actor.isClubOfficial))return '운영진 지정은 관리자 또는 정식 클럽 임원만 할 수 있습니다.';
   }else if(!serverAdmin&&(!actor||(!actor.isClubOfficial&&!actor.isTemporaryOfficial))){
     return '현재 운영 권한이 있는 회원만 운영 지원을 사용할 수 있습니다.';
   }
@@ -8908,13 +8909,13 @@ function _dailyOfficialRequestError(req){
   }
   if(temporaryRoleCommand){
     const p=_dailyPlayer(req.playerId);
-    if(!p)return '운영 도우미로 지정할 회원을 찾지 못했습니다.';
-    if(p.isGuest)return '클럽 회원만 운영 도우미로 지정할 수 있습니다.';
-    if(p.isClubOfficial)return '정식 클럽 임원은 운영 도우미 지정이 필요하지 않습니다.';
+    if(!p)return '운영진으로 지정할 회원을 찾지 못했습니다.';
+    if(p.isGuest)return '클럽 회원만 운영진으로 지정할 수 있습니다.';
+    if(p.isClubOfficial)return '정식 클럽 임원은 운영진 지정이 필요하지 않습니다.';
     const enabled=req.type==='official-temporary-grant';
-    if(enabled&&['invited','planned','done'].includes(_dailyNormalizeStatus(p.status)))return '현장 참가가 확인된 회원만 운영 도우미로 지정할 수 있습니다.';
-    if(Object.prototype.hasOwnProperty.call(req,'expectedIsTemporaryOfficial')&&!!req.expectedIsTemporaryOfficial!==!!p.isTemporaryOfficial)return '운영 도우미 상태가 이미 바뀌었습니다.';
-    if(enabled&&!p.isTemporaryOfficial&&_dailyPlayers.filter(player=>player.isTemporaryOfficial&&!player.isClubOfficial).length>=4)return '운영 도우미는 최대 4명까지 지정할 수 있습니다.';
+    if(enabled&&['invited','planned','done'].includes(_dailyNormalizeStatus(p.status)))return '현장 참가가 확인된 회원만 운영진으로 지정할 수 있습니다.';
+    if(Object.prototype.hasOwnProperty.call(req,'expectedIsTemporaryOfficial')&&!!req.expectedIsTemporaryOfficial!==!!p.isTemporaryOfficial)return '운영진 상태가 이미 바뀌었습니다.';
+    if(enabled&&!p.isTemporaryOfficial&&_dailyPlayers.filter(player=>player.isTemporaryOfficial&&!player.isClubOfficial).length>=4)return '운영진은 최대 4명까지 지정할 수 있습니다.';
     return '';
   }
   if(['official-court-complete-undo','official-operation-undo'].includes(req.type))return req.token?'':'되돌릴 운영 기록을 다시 확인해야 합니다.';
@@ -9479,7 +9480,7 @@ function dailyProcessCheckinRequests(){
         }
         if(['official-temporary-grant','official-temporary-revoke'].includes(req.type)){
           const ok=_dailyApplyTemporaryOfficial(req);
-          finishOfficial(req,ok,'운영 도우미 변경을 관리자 원본에 연결하지 못했습니다.');
+          finishOfficial(req,ok,'운영진 변경을 관리자 원본에 연결하지 못했습니다.');
           return;
         }
         if(req.type==='official-settings-update'){
@@ -10976,7 +10977,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.733&from=daily';
+  location.href='team.html?v=1.10.734&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

@@ -5,7 +5,7 @@
  * 회원은 기본적으로 보기만 합니다. 회원이 서로의 출결을 켜고 끄면 결국
  * "이거 맞나요?" 확인이 임원에게 몰려 일이 늘어납니다. 그래서
  *
- *   지각·도착 확인 → 단장·부단장·클럽 임원·운영 도우미
+ *   지각·도착 확인 → 단장·부단장·클럽 임원·운영진
  *   뒷풀이 참석    → 본인(의사 표시) 또는 운영진이 대신
  *   승패 입력      → 그 경기 선수 + 운영진 (기존 유지)
  *
@@ -26,7 +26,7 @@ const canOp = live.slice(live.indexOf('function _canOperateAttendance'),
 ['isClubOfficial','isLeader','isSub','isTemporaryOperator'].forEach(role=>{
   assert(canOp.includes(role), `${role} 도 출결을 처리할 수 있어야 합니다.`);
 });
-console.log('  출결 권한: 단장·부단장·클럽 임원·운영 도우미');
+console.log('  출결 권한: 단장·부단장·클럽 임원·운영진');
 
 // 2) 버튼을 감추는 것만으로는 부족합니다. 저장 함수가 스스로 막아야 합니다.
 const lateFn = live.slice(live.indexOf('async function toggleMemberLate'),

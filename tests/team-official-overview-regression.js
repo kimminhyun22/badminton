@@ -17,10 +17,10 @@ const overviewSource = liveSrc.slice(overviewStart, overviewEnd);
 
 // 2026-08-13 계약 갱신: 팀전을 실제로 이끄는 사람은 단장·부단장입니다. 서버는
 // 이미 이들에게 운영 권한을 주는데 화면이 가려 두면 버튼이 아예 안 뜹니다.
-// 2026-08-14 계약 갱신: 운영 도우미는 자유대진·팀전 **양쪽**에서 운영합니다.
+// 2026-08-14 계약 갱신: 운영진은 자유대진·팀전 **양쪽**에서 운영합니다.
 assert(overviewSource.includes("viewer.isClubOfficial||viewer.isTemporaryOperator")
   && overviewSource.includes("(_usesFixedTeams(d)&&(viewer.isLeader||viewer.isSub))"),
-  '정식 임원·운영 도우미·청홍팀전 단장/부단장이 운영 현황을 볼 수 있어야 합니다.');
+  '정식 임원·운영진·청홍팀전 단장/부단장이 운영 현황을 볼 수 있어야 합니다.');
 // 2026-08-12 계약 갱신(운영자 "중복이나 불필요한 요소를 체킹"): 타일 일곱 개 중
 // **현장**(등록−지각)과 **대기**(현장−경기중)는 서로에게서 계산되는 값이고,
 // **운영진**은 경기 중에 누를 일이 없었습니다. 손이 실제로 가는 다섯 개만 둡니다.
@@ -91,7 +91,7 @@ function _lateMapFromData(d){return d&&d.late||{};}
 function _viewerInfo(){return viewer;}
 function _viewerRoleText(player){
   if(player&&player.isClubOfficial)return '클럽 임원';
-  if(player&&player.isTemporaryOperator)return '운영 도우미';
+  if(player&&player.isTemporaryOperator)return '운영진';
   return '선수';
 }
 function _allLiveMembers(d){
@@ -123,7 +123,7 @@ const liveData = {
   currentRound:1,
   members:{all:[
     {id:'official',n:'정식임원',isClubOfficial:true},
-    {id:'helper',n:'운영도우미'},
+    {id:'helper',n:'운영운영진'},
     {id:'party',n:'뒷풀이회원'},
     {id:'p1',n:'현재선수1'},
     {id:'p2',n:'현재선수2'},
@@ -131,13 +131,13 @@ const liveData = {
     {id:'p3',n:'대기선수1'},
     {id:'p4',n:'대기선수2'}
   ]},
-  officials:{temporaryOperators:[{memberId:'helper',name:'운영도우미'}]},
+  officials:{temporaryOperators:[{memberId:'helper',name:'운영운영진'}]},
   late:{늦은회원:{name:'늦은회원'}},
   party:{뒷풀이회원:{name:'뒷풀이회원'}},
   resultConflicts:{'1_1':{a:{},b:{}}},
   matches:[
     {round:1,court:1,t1:['정식임원','뒷풀이회원'],t2:['현재선수1','현재선수2'],win:null},
-    {round:2,court:1,t1:['운영도우미','늦은회원'],t2:['대기선수1','대기선수2'],win:null}
+    {round:2,court:1,t1:['운영운영진','늦은회원'],t2:['대기선수1','대기선수2'],win:null}
   ]
 };
 
@@ -147,7 +147,7 @@ assert.strictEqual(summary.onSite.length,7,'현장은 등록 인원에서 명시
 assert.strictEqual(summary.playing.length,4,'현재 라운드의 현장 선수를 경기중으로 집계해야 합니다.');
 assert.strictEqual(summary.waiting.length,3,'현장에 있으나 현재 경기 밖인 선수를 대기로 집계해야 합니다.');
 assert.strictEqual(summary.late.length,1,'지각은 명시적 지각 지도만 사용해야 합니다.');
-assert.strictEqual(summary.operators.length,2,'정식 임원과 자유대진 운영 도우미를 운영진으로 집계해야 합니다.');
+assert.strictEqual(summary.operators.length,2,'정식 임원과 자유대진 운영진을 운영진으로 집계해야 합니다.');
 assert.strictEqual(summary.party.length,1,'뒷풀이 신청 인원을 별도로 집계해야 합니다.');
 assert.strictEqual(summary.conflictCount,2,'승패 충돌 입력 수를 정확히 집계해야 합니다.');
 
@@ -160,14 +160,14 @@ assert(officialHtml.includes('team-official-overview')&&officialHtml.includes('�
 assert(!officialHtml.includes('R1 · 0/2경기'),
   '진행 상황은 점수판 한 곳에서만 말해야 합니다.');
 
-sandbox.api.setViewer({id:'helper',n:'운영도우미',isTemporaryOperator:true});
+sandbox.api.setViewer({id:'helper',n:'운영운영진',isTemporaryOperator:true});
 assert(sandbox.api.build(liveData).includes('운영 현황'),
-  '자유대진 운영 도우미에게도 같은 운영 현황을 보여야 합니다.');
+  '자유대진 운영진에게도 같은 운영 현황을 보여야 합니다.');
 
 const fixedData = {...liveData,matchMode:'team',isTeam:true};
-sandbox.api.setViewer({id:'helper',n:'운영도우미',isTemporaryOperator:true});
+sandbox.api.setViewer({id:'helper',n:'운영운영진',isTemporaryOperator:true});
 assert(sandbox.api.build(fixedData).includes('운영 현황'),
-  '팀전에서도 운영 도우미에게 운영 현황을 보여야 합니다.');
+  '팀전에서도 운영진에게 운영 현황을 보여야 합니다.');
 
 // 단장·부단장은 청홍팀전의 운영자입니다(2026-08-13). 자유대진에서는 아닙니다.
 sandbox.api.setViewer({id:'leader',n:'청단장',isLeader:true});
@@ -195,7 +195,7 @@ assert(readme.includes('시스템 관리자 세팅·예외')||readme.includes('�
   '운영지침에 시스템 관리자 세팅·예외 역할을 명시해야 합니다.');
 assert(readme.includes('스마트폰 사용은 참가 조건이 아닙니다.'),
   '운영지침에 스마트폰 없이도 참여 가능한 원칙을 명시해야 합니다.');
-assert(development.includes('클럽 임원·임시 도우미 현장 운영'),
-  '개발 원칙에도 임원·도우미 중심 현장 운영을 고정해야 합니다.');
+assert(development.includes('클럽 임원·임시 운영진 현장 운영'),
+  '개발 원칙에도 임원·운영진 중심 현장 운영을 고정해야 합니다.');
 
 console.log('team official overview regression ok');

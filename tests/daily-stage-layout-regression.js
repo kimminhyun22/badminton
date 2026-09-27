@@ -168,8 +168,8 @@ const guide = src.slice(src.indexOf('function dailyRenderStartGuide('), src.inde
 assert(guide.includes("awaitingArrival?'도착 확인':'참가자'") && guide.includes("dailyOpenPlayerStatus('planned')"),
   '전원 도착 전이면 2단계가 도착 확인으로 바뀌어야 합니다.');
 assert(guide.includes('명부가 비어 있습니다'), '명부가 비면 안내가 명부로 가는 길을 말해야 합니다.');
-// 도우미 지정은 링크·게시가 있을 때만
-assert(src.includes("(_dailyOperationStarted||_dailyCheckinId)?mode('helper'"), '게시 전 도우미 버튼은 링크 강제 생성 부작용만 있어 감춰야 합니다.');
+// 운영진 지정은 링크·게시가 있을 때만
+assert(src.includes("(_dailyOperationStarted||_dailyCheckinId)?mode('helper'"), '게시 전 운영진 버튼은 링크 강제 생성 부작용만 있어 감춰야 합니다.');
 // 게시 전 링크 공유는 준비 명단 승계가 끊김을 한 번 묻는다
 assert(src.includes('지금 링크를 만들면 오늘 운동으로 시작되어'), '게시 전 링크 공유는 확인을 거쳐야 합니다.');
 // 내비: 상황판 탭이 있고 옛 대진표 복구 버튼은 없다

@@ -172,7 +172,7 @@ function bracketKey(session){
 }
 
 /**
- * 운영할 수 있는 사람 = 클럽 임원 · 운영 도우미 · **단장/부단장**.
+ * 운영할 수 있는 사람 = 클럽 임원 · 운영진 · **단장/부단장**.
  * `officials.leaders` 가 없던 시절 팀전에서는 팀원 명단의 `isLeader`/`isSub`
  * 표시가 유일한 근거라 함께 봅니다(연결 판정 `team-official-claim` 과 같은 기준).
  */

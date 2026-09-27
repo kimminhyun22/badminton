@@ -1139,7 +1139,7 @@ function validateCommon(session, request, now, options){
   const rolloverCommand = request.type === 'official-session-rollover';
   // 「새 운동일 시작」은 지난 운동을 접는 명령이다. 지난주 마지막에 「종료」로 남은 임원이
   // 이번 주에 이걸 못 보내면 아무도 세션을 굴릴 수 없다 — 상태 게이트를 이 명령만 비켜 간다.
-  // 대신 정식 클럽 임원만 보낼 수 있다(운영 도우미 제외).
+  // 대신 정식 클럽 임원만 보낼 수 있다(운영진 제외).
   if(rolloverCommand && !adminClaim && !actor?.isClubOfficial){
     return {reason:'새 운동일 시작은 클럽 임원만 할 수 있습니다.'};
   }
@@ -1153,10 +1153,10 @@ function validateCommon(session, request, now, options){
     && actor?.isClubOfficial
     && ['invited','planned'].includes(normalizeStatus(actor?.status));
   if(!rolloverCommand && !setupBeforeStart && !adminClaim && ['invited','planned','done'].includes(normalizeStatus(actor?.status))){
-    return {reason:'현장 참가 중인 임원 또는 운영 도우미만 운영 지원을 사용할 수 있습니다.'};
+    return {reason:'현장 참가 중인 임원 또는 운영진만 운영 지원을 사용할 수 있습니다.'};
   }
   if(temporaryRoleCommand && !adminClaim && !actor?.isClubOfficial){
-    return {reason:'운영 도우미 지정은 관리자 또는 정식 클럽 임원만 할 수 있습니다.'};
+    return {reason:'운영진 지정은 관리자 또는 정식 클럽 임원만 할 수 있습니다.'};
   }
   const createdAt = number(request.createdAt);
   const expiresAt = number(request.expiresAt, createdAt + OFFICIAL_OPERATION_TTL_MS);
@@ -1172,28 +1172,28 @@ function validateCommon(session, request, now, options){
 
 function applyTemporaryOfficial(session, request, now, operation, enabled){
   const player = playerById(session, request.playerId);
-  if(!player)return '운영 도우미로 지정할 회원을 찾지 못했습니다.';
-  if(player.isGuest)return '클럽 회원만 운영 도우미로 지정할 수 있습니다.';
-  if(player.isClubOfficial)return '정식 클럽 임원은 운영 도우미 지정이 필요하지 않습니다.';
+  if(!player)return '운영진으로 지정할 회원을 찾지 못했습니다.';
+  if(player.isGuest)return '클럽 회원만 운영진으로 지정할 수 있습니다.';
+  if(player.isClubOfficial)return '정식 클럽 임원은 운영진 지정이 필요하지 않습니다.';
   if(enabled && ['invited','planned','done'].includes(normalizeStatus(player.status))){
-    return '현장 참가가 확인된 회원만 운영 도우미로 지정할 수 있습니다.';
+    return '현장 참가가 확인된 회원만 운영진으로 지정할 수 있습니다.';
   }
   if(Object.prototype.hasOwnProperty.call(request, 'expectedIsTemporaryOfficial')
     && !!request.expectedIsTemporaryOfficial !== !!player.isTemporaryOfficial){
-    return '운영 도우미 상태가 이미 바뀌었습니다. 화면을 확인해 주세요.';
+    return '운영진 상태가 이미 바뀌었습니다. 화면을 확인해 주세요.';
   }
   if(enabled){
-    if(player.isTemporaryOfficial)return '이미 운영 도우미로 지정된 회원입니다.';
+    if(player.isTemporaryOfficial)return '이미 운영진으로 지정된 회원입니다.';
     const currentCount = session.players.filter(item=>item?.isTemporaryOfficial && !item.isClubOfficial).length;
     if(currentCount >= TEMPORARY_OFFICIAL_LIMIT){
-      return `운영 도우미는 최대 ${TEMPORARY_OFFICIAL_LIMIT}명까지 지정할 수 있습니다.`;
+      return `운영진은 최대 ${TEMPORARY_OFFICIAL_LIMIT}명까지 지정할 수 있습니다.`;
     }
     player.isTemporaryOfficial = true;
     player.temporaryOfficialGrantedAt = now;
     player.temporaryOfficialGrantedBy = request.actorPlayerId || 'system-admin';
     player.temporaryOfficialGrantedByName = request.actorPlayerName || '관리자';
   }else{
-    if(!player.isTemporaryOfficial)return '이미 운영 도우미 권한이 해제된 회원입니다.';
+    if(!player.isTemporaryOfficial)return '이미 운영진 권한이 해제된 회원입니다.';
     player.isTemporaryOfficial = false;
     delete player.temporaryOfficialGrantedAt;
     delete player.temporaryOfficialGrantedBy;
@@ -2629,7 +2629,7 @@ function applyPlayerCreate(session, request, now, operation, adminClaim){
     partnerCountById: {},
     opponentCountById: {},
     isGuest: request.isGuest === true,
-    // 선수 추가는 임원·운영 도우미도 쓰므로 요청의 자격 표시는 믿지 않습니다.
+    // 선수 추가는 임원·운영진도 쓰므로 요청의 자격 표시는 믿지 않습니다.
     // 서버가 확인한 관리자 연결만 명부의 임원 자격을 옮길 수 있습니다.
     isClubOfficial: adminClaim === true && request.isClubOfficial === true,
     isTemporaryOfficial: false,
@@ -2729,7 +2729,7 @@ function applyPlayerOfficial(session, request, now, operation){
   if(!!player.isClubOfficial === next)return next ? '이미 클럽 임원입니다.' : '이미 임원이 아닙니다.';
   player.isClubOfficial = next;
   if(next){
-    // 임원이 되면 임시 도우미 표시는 정리합니다.
+    // 임원이 되면 임시 운영진 표시는 정리합니다.
     player.isTemporaryOfficial = false;
   }
   player.lastStatusAt = now;
@@ -2824,7 +2824,7 @@ function applySessionRollover(session, request, now, requestId, operation){
     player.partnerCount = {}; player.opponentCount = {}; player.partnerCountById = {}; player.opponentCountById = {};
     player.locked = false; player.currentMatchId = ''; player.afterMatchStatus = '';
     player.waitFrom = stays ? now : 0; player.lastStatusAt = now; player.restPausedMs = 0;
-    player.isTemporaryOfficial = false;   // 도우미는 그날만
+    player.isTemporaryOfficial = false;   // 운영진은 그날만
     // 지난주 흔적이 남으면 「오등록 취소」·도착 확인 표시가 이번 주 것으로 오인된다(E4)
     clearLiveAddition(player);
     player.registrationCancelled = false;
@@ -3067,8 +3067,9 @@ function applyActiveReplace(session, request, now, operation){
   inPlayer.afterMatchStatus = '';
   inPlayer.lastStatusAt = now;
   inPlayer.restPausedMs = 0;
-  outPlayer.status = 'rest';
-  outPlayer.statusLabel = statusLabel('rest');
+  outPlayer.status = 'wait';
+  outPlayer.statusLabel = statusLabel('wait');
+  outPlayer.waitFrom = now;
   outPlayer.locked = false;
   outPlayer.currentMatchId = '';
   outPlayer.afterMatchStatus = '';

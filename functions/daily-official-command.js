@@ -47,7 +47,7 @@ function applyCommandTransaction(current, input){
       // 세션을 굴려야 한다. 엔진(applyOfficialRequest)이 클럽 임원 한정·4시간·진행 코트 0 을 다시 검사한다.
       // 이 래퍼 게이트를 놓쳐 엔진 예외만 두었다가 실제 경로에서 막혔다(2026-09-14 설계 검토).
       || (String(storedCommand?.type || '') !== 'official-session-rollover' && !rosterSetupBeforeStart && ['invited','planned','done'].includes(currentStatus))){
-      return {action:'abort',failureCode:'permission-denied',failureMessage:'현장 참가 중인 임원 또는 운영 도우미만 운영 지원을 사용할 수 있습니다.'};
+      return {action:'abort',failureCode:'permission-denied',failureMessage:'현장 참가 중인 임원 또는 운영진만 운영 지원을 사용할 수 있습니다.'};
     }
   }
   const claimNonce=String(claim.claimNonce || '');

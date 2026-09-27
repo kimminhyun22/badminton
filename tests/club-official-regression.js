@@ -34,7 +34,7 @@ assert(dailySrc.includes('officialQueueCardOpsV1:true'),'민턴LIVE 세션이 �
 assert(dailySrc.includes('officialAutoHandoffV1:!!_dailyOfficialInviteHash'),'민턴LIVE 세션은 서버 즉시 처리가 준비된 경우에만 다음 대진 자동 투입 기능을 명시해야 합니다.');
 assert(dailySrc.includes('officialOperationUndoV1:true'),'민턴LIVE 세션이 임원의 입장·순서 작업 취소 기능을 명시해야 합니다.');
 assert(dailySrc.includes('isClubOfficial:!!p.isClubOfficial'),'민턴LIVE 참가자 세션에 임원 역할을 전달해야 합니다.');
-assert(dailySrc.includes('maxClaims:Math.min(20,Math.max(8,_dailyPlayers.filter(player=>player.isClubOfficial||player.isTemporaryOfficial).length*2+2))'),'카카오·Safari·PWA를 오가는 임원·운영 도우미 기기를 충분히 연결할 수 있어야 합니다.');
+assert(dailySrc.includes('maxClaims:Math.min(20,Math.max(8,_dailyPlayers.filter(player=>player.isClubOfficial||player.isTemporaryOfficial).length*2+2))'),'카카오·Safari·PWA를 오가는 임원·운영진 기기를 충분히 연결할 수 있어야 합니다.');
 assert(dailySrc.includes("source:'club-official-complete'"),'임원 경기 종료는 관리자 원본에서 별도 출처로 기록해야 합니다.');
 assert(functionSource(dailySrc,'importDirectFromDaily','openEditDirectPlayer').includes('isClubOfficial:!!p.isClubOfficial'),'민턴LIVE 참가자를 팀전으로 가져올 때 임원 역할을 보존해야 합니다.');
 assert(functionSource(dailySrc,'dailyReset','_dailyFinishPlanInfo').includes('_dailyStopOperatorHeartbeat'),'민턴LIVE 초기화 시 운영 연결과 화면 켜짐 요청을 정리해야 합니다.');
@@ -61,7 +61,7 @@ assert(dailySrc.includes("onclick=\"setDailyPlayerFilter('${f}')\""),'관리자 
 assert(dailySrc.includes("let _dailyPlayerSort='name'"),'관리자 선수 목록 기본 정렬은 이름순이어야 합니다.');
 // 파트너 지정(게임신청)은 임원·관리자 양쪽에서 가능해야 합니다.
 assert(checkin.includes('data-official-partner-panel'),'임원 화면에 파트너 지정 패널이 있어야 합니다.');
-// 임원·운영 도우미도 일반 선수와 똑같이 대진에 들어갑니다. 대진 후보에서 빼면 안 됩니다.
+// 임원·운영진도 일반 선수와 똑같이 대진에 들어갑니다. 대진 후보에서 빼면 안 됩니다.
 const matchmaker=fs.readFileSync(path.join(root,'functions','daily-server-matchmaker.js'),'utf8');
 assert(!/isClubOfficial|isTemporaryOfficial/.test(matchmaker),'대진 생성은 임원 여부를 보지 않아야 합니다.');
 assert(!/isClubOfficial/.test(functionSource(dailySrc,'_dailyEligible','_dailyFairActual')),'관리자 대진 후보에서 임원을 빼면 안 됩니다.');
@@ -81,17 +81,17 @@ assert(/act\('dailyToggleFinishMode\(\)'/.test(dailySrc),'마무리가 상황판
 const dailyRowActions=functionSource(dailySrc,'_dailyPlayerRowActions','_dailyPlayerToolsHtml');
 ['복귀','휴식','종료'].forEach(label=>assert(dailyRowActions.includes(`label:'${label}'`),`관리자 선수 행에 ${label} 버튼이 있어야 합니다.`));
 assert(dailyRowActions.includes("onclick=\"dailySetStatus('${p.id}'"),'관리자 선수 행의 버튼이 상태를 바로 바꿔야 합니다.');
-assert(['pair','helper'].every(mode=>dailySrc.includes(`_dailyPlayerTool==='${mode}'`)),'파트너 지정·운영 도우미 모드는 유지되어야 합니다.');
+assert(['pair','helper'].every(mode=>dailySrc.includes(`_dailyPlayerTool==='${mode}'`)),'파트너 지정·운영진 모드는 유지되어야 합니다.');
 assert(!dailySrc.includes("_dailyPlayerTool==='rename'")&&!dailySrc.includes("mode('rename'")&&!dailySrc.includes("mode('remove'"),'이름 수정·선수 삭제를 위해 상단 도구 모드를 다시 두면 안 됩니다.');
 assert(dailySrc.includes('${_dailyGuestRenameButton(p)}'),'관리자 선수 카드에 게스트 이름 수정 버튼을 그려야 합니다.');
 assert(checkin.includes('${officialGuestRenameButton(player,item,selected.key)}')&&!checkin.includes("setOfficialOverviewMode('rename')"),'임원 화면도 게스트 이름 옆 수정 버튼 하나로 통일해야 합니다.');
 assert(dailySrc.includes('${_dailyPlayerRemoveButton(p)}'),'관리자 선수 카드에 직접 삭제 버튼을 그려야 합니다.');
 assert(checkin.includes('${officialPlayerRemoveButton(player,item,selected.key)}')&&!checkin.includes("setOfficialOverviewMode('remove')"),'임원 화면도 선수 이름 옆 삭제 버튼 하나로 통일해야 합니다.');
-// 운영 도우미 입구는 하나여야 합니다 — 전용 카드는 도구 모드로 옮기며 없앴습니다.
-assert(!dailySrc.includes('dailyRenderTemporaryOfficials')&&!indexHtml.includes('id="dailyTemporaryOfficials"'),'운영 도우미 전용 카드가 남아 있으면 지정 입구가 둘이 됩니다.');
-assert(dailySrc.includes("dailySetTemporaryOfficial('${p.id}',true)")&&dailySrc.includes("dailySetTemporaryOfficial('${p.id}',false)"),'선수 행에서 운영 도우미를 지정·해제할 수 있어야 합니다.');
-assert(dailySrc.includes('const DAILY_TEMPORARY_OFFICIAL_LIMIT=4'),'화면에 표시하는 운영 도우미 상한은 서버 TEMPORARY_OFFICIAL_LIMIT 과 같아야 합니다.');
-assert(/TEMPORARY_OFFICIAL_LIMIT\s*=\s*4/.test(fs.readFileSync(path.join(root,'functions','daily-official-engine.js'),'utf8')),'서버 운영 도우미 상한이 바뀌면 화면 표시도 함께 고쳐야 합니다.');
+// 운영진 입구는 하나여야 합니다 — 전용 카드는 도구 모드로 옮기며 없앴습니다.
+assert(!dailySrc.includes('dailyRenderTemporaryOfficials')&&!indexHtml.includes('id="dailyTemporaryOfficials"'),'운영진 전용 카드가 남아 있으면 지정 입구가 둘이 됩니다.');
+assert(dailySrc.includes("dailySetTemporaryOfficial('${p.id}',true)")&&dailySrc.includes("dailySetTemporaryOfficial('${p.id}',false)"),'선수 행에서 운영진을 지정·해제할 수 있어야 합니다.');
+assert(dailySrc.includes('const DAILY_TEMPORARY_OFFICIAL_LIMIT=4'),'화면에 표시하는 운영진 상한은 서버 TEMPORARY_OFFICIAL_LIMIT 과 같아야 합니다.');
+assert(/TEMPORARY_OFFICIAL_LIMIT\s*=\s*4/.test(fs.readFileSync(path.join(root,'functions','daily-official-engine.js'),'utf8')),'서버 운영진 상한이 바뀌면 화면 표시도 함께 고쳐야 합니다.');
 assert(functionSource(dailySrc,'setDailyPlayerFilter','_dailyUpdatePlayerSortButtons').includes("_dailyPlayerTool=''"),'상태 숫자를 누르면 켜 둔 도구 모드를 닫아 엉뚱한 선수를 지정하지 않아야 합니다.');
 assert(!dailySrc.includes('dailyOpenPlayerSheet')&&!indexHtml.includes('id="dailyPlayerSheet"'),'관리자 선수 시트(모달)는 행 처리로 대체되어 남아 있으면 안 됩니다.');
 assert(['전체','현장','경기중','대기','휴식','종료','도착 전','뒷풀이'].every(label=>checkin.includes(`label:'${label}'`)),'임원 운영 현황에는 전체·현장 상태와 뒷풀이 신청 인원이 있어야 합니다.');
@@ -169,16 +169,16 @@ const officialWaitHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임�
 assert(officialWaitHtml.includes('official-overview-actions'),'운영 현황 명단에 상태 변경 버튼이 있어야 합니다.');
 assert(officialWaitHtml.includes("sendOfficialPlayerStatus('o','rest'"),'명단 버튼은 그 회원을 바로 지정해 처리해야 합니다.');
 // 운영 도구를 전부 운영 현황 명단으로 모았습니다(2026-08-03 운영자 결정).
-// 파트너·도우미는 가끔 쓰는 기능이라 평소 명단에는 안 나오고,
+// 파트너·운영진은 가끔 쓰는 기능이라 평소 명단에는 안 나오고,
 // 상단 도구 버튼으로 모드를 켰을 때만 보입니다(운영자 요청 2026-08-03).
 assert(!officialWaitHtml.includes('setOfficialPartnerPick'),'평소 명단에는 상태 버튼만 보여야 합니다.');
-assert(officialWaitHtml.includes('official-overview-tool'),'상단에 파트너·도우미 도구 버튼이 있어야 합니다.');
+assert(officialWaitHtml.includes('official-overview-tool'),'상단에 파트너·운영진 도구 버튼이 있어야 합니다.');
 officialOverviewSandbox.api.mode('partner');
 const officialPartnerModeHtml=officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true});
 assert(officialPartnerModeHtml.includes('setOfficialPartnerPick'),'파트너 모드에서는 명단에서 두 선수를 고를 수 있어야 합니다.');
 officialOverviewSandbox.api.mode('helper');
 assert(officialOverviewSandbox.api.html({id:'o',name:'운영임원',status:'wait',isClubOfficial:true}).includes('sendOfficialTemporaryGrant'),
-  '도우미 모드에서는 명단에서 지정할 수 있어야 합니다.');
+  '운영진 모드에서는 명단에서 지정할 수 있어야 합니다.');
 officialOverviewSandbox.api.mode('');
 // 도구 모드를 켜 둔 채 다른 숫자를 누르면 자동으로 닫혀야 합니다.
 // 켜 둔 걸 잊고 엉뚱한 사람을 지정하는 사고를 막습니다.

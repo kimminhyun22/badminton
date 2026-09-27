@@ -58,7 +58,7 @@ function root(){
       officialInvite:{tokenHash:INVITE_HASH,expiresAt:NOW+48*60*60_000,maxClaims:12},
       players:[
         player('official',{name:'정식임원',isClubOfficial:true}),
-        player('helper',{name:'도우미후보'}),
+        player('helper',{name:'운영진후보'}),
         player('member2',{name:'일반회원2'}),
         player('member3',{name:'일반회원3'}),
         player('member4',{name:'일반회원4'}),
@@ -117,7 +117,7 @@ function command(type,operationId,actorPlayerId,extra={}){
     operationId,
     commandProtocol:2,
     actorPlayerId,
-    actorPlayerName:actorPlayerId==='official'?'정식임원':actorPlayerId==='helper'?'도우미후보':'관리자',
+    actorPlayerName:actorPlayerId==='official'?'정식임원':actorPlayerId==='helper'?'운영진후보':'관리자',
     createdAt:NOW,
     expiresAt:NOW+30*60_000,
     source:'temporary-official-regression',
@@ -147,9 +147,9 @@ const grant=submit(current,command(
   'official-temporary-grant',
   'operation_temp_grant_001',
   'official',
-  {playerId:'helper',playerName:'도우미후보',expectedIsTemporaryOfficial:false}
+  {playerId:'helper',playerName:'운영진후보',expectedIsTemporaryOfficial:false}
 ),OFFICIAL_CLIENT,'official');
-assert.strictEqual(grant.terminal.status,'applied','정식 임원은 운영 도우미를 즉시 지정할 수 있어야 합니다.');
+assert.strictEqual(grant.terminal.status,'applied','정식 임원은 운영진을 즉시 지정할 수 있어야 합니다.');
 current=grant.current;
 assert.strictEqual(current.session.players.find(item=>item.id==='helper').isTemporaryOfficial,true);
 assert.strictEqual(grant.terminal.serverResult.temporaryOfficial.enabled,true);
@@ -161,7 +161,7 @@ const helperClaim=applyOfficialClaimTransaction(current,{
   now:NOW+1,
   maxGrantMs:48*60*60_000
 });
-assert.strictEqual(helperClaim.action,'commit','지정된 운영 도우미는 같은 회원 링크에서 권한을 연결해야 합니다.');
+assert.strictEqual(helperClaim.action,'commit','지정된 운영진은 같은 회원 링크에서 권한을 연결해야 합니다.');
 assert.strictEqual(helperClaim.officialPlayerId,'helper');
 const firstHelperClaimNonce=helperClaim.claimNonce;
 
@@ -178,7 +178,7 @@ const helperStatus=submit(current,command(
     expectedLastStatusAt:NOW-1000
   }
 ),HELPER_CLIENT,'helper');
-assert.strictEqual(helperStatus.terminal.status,'applied','운영 도우미는 경기 운영 명령을 정식 임원처럼 처리할 수 있어야 합니다.');
+assert.strictEqual(helperStatus.terminal.status,'applied','운영진은 경기 운영 명령을 정식 임원처럼 처리할 수 있어야 합니다.');
 current=helperStatus.current;
 assert.strictEqual(current.session.players.find(item=>item.id==='member2').status,'rest');
 
@@ -188,7 +188,7 @@ const delegatedByHelper=submit(current,command(
   'helper',
   {playerId:'member3',playerName:'일반회원3',expectedIsTemporaryOfficial:false}
 ),HELPER_CLIENT,'helper');
-assert.strictEqual(delegatedByHelper.terminal.status,'rejected','운영 도우미가 다른 도우미를 지정하는 권한 연쇄를 허용하면 안 됩니다.');
+assert.strictEqual(delegatedByHelper.terminal.status,'rejected','운영진이 다른 운영진을 지정하는 권한 연쇄를 허용하면 안 됩니다.');
 assert.match(delegatedByHelper.terminal.reason,/관리자 또는 정식 클럽 임원/);
 
 const adminGrant=submit(current,command(
@@ -197,7 +197,7 @@ const adminGrant=submit(current,command(
   '',
   {playerId:'member3',playerName:'일반회원3',expectedIsTemporaryOfficial:false}
 ),ADMIN_CLIENT,'');
-assert.strictEqual(adminGrant.terminal.status,'applied','관리자 앱의 무기명 관리자 권한도 운영 도우미를 지정할 수 있어야 합니다.');
+assert.strictEqual(adminGrant.terminal.status,'applied','관리자 앱의 무기명 관리자 권한도 운영진을 지정할 수 있어야 합니다.');
 current=adminGrant.current;
 assert.strictEqual(current.session.players.find(item=>item.id==='member3').isTemporaryOfficial,true);
 
@@ -235,25 +235,25 @@ const overLimit=submit(current,command(
   'official',
   {playerId:'member6',playerName:'일반회원6',expectedIsTemporaryOfficial:false}
 ),OFFICIAL_CLIENT,'official');
-assert.strictEqual(overLimit.terminal.status,'rejected','운영 도우미는 현장 보조에 필요한 소수 인원으로 제한해야 합니다.');
+assert.strictEqual(overLimit.terminal.status,'rejected','운영진은 현장 보조에 필요한 소수 인원으로 제한해야 합니다.');
 assert.match(overLimit.terminal.reason,/최대 4명/);
 
 const revoke=submit(current,command(
   'official-temporary-revoke',
   'operation_temp_revoke_001',
   'official',
-  {playerId:'helper',playerName:'도우미후보',expectedIsTemporaryOfficial:true}
+  {playerId:'helper',playerName:'운영진후보',expectedIsTemporaryOfficial:true}
 ),OFFICIAL_CLIENT,'official');
-assert.strictEqual(revoke.terminal.status,'applied','정식 임원은 운영 도우미 권한을 즉시 해제할 수 있어야 합니다.');
+assert.strictEqual(revoke.terminal.status,'applied','정식 임원은 운영진 권한을 즉시 해제할 수 있어야 합니다.');
 current=revoke.current;
 assert.strictEqual(current.session.players.find(item=>item.id==='helper').isTemporaryOfficial,false);
-assert.strictEqual(current.officialClaims[HELPER_CLIENT],undefined,'해제 시 이미 발급된 도우미 기기 연결도 즉시 폐기해야 합니다.');
+assert.strictEqual(current.officialClaims[HELPER_CLIENT],undefined,'해제 시 이미 발급된 운영진 기기 연결도 즉시 폐기해야 합니다.');
 
 const concurrentDuplicateRevoke=submit(current,command(
   'official-temporary-revoke',
   'operation_temp_concurrent_revoke_001',
   'official',
-  {playerId:'helper',playerName:'도우미후보',expectedIsTemporaryOfficial:true}
+  {playerId:'helper',playerName:'운영진후보',expectedIsTemporaryOfficial:true}
 ),OFFICIAL_CLIENT,'official');
 assert.strictEqual(concurrentDuplicateRevoke.terminal.status,'rejected','두 운영자가 같은 권한을 동시에 해제해도 두 번째 요청은 현재 상태를 보고 멈춰야 합니다.');
 assert.match(concurrentDuplicateRevoke.terminal.reason,/이미 바뀌었습니다/);
@@ -271,14 +271,14 @@ const revokedReuse=submit(current,command(
     expectedLastStatusAt:NOW-1000
   }
 ),HELPER_CLIENT,'helper');
-assert.strictEqual(revokedReuse.action,'abort','해제된 도우미가 기존 서명 토큰을 재사용해도 명령을 실행하면 안 됩니다.');
+assert.strictEqual(revokedReuse.action,'abort','해제된 운영진이 기존 서명 토큰을 재사용해도 명령을 실행하면 안 됩니다.');
 assert.strictEqual(revokedReuse.failureCode,'permission-denied');
 
 const regrant=submit(current,command(
   'official-temporary-grant',
   'operation_temp_regrant_001',
   'official',
-  {playerId:'helper',playerName:'도우미후보',expectedIsTemporaryOfficial:false}
+  {playerId:'helper',playerName:'운영진후보',expectedIsTemporaryOfficial:false}
 ),OFFICIAL_CLIENT,'official');
 assert.strictEqual(regrant.terminal.status,'applied');
 current=regrant.current;
@@ -331,10 +331,10 @@ assert.strictEqual(ordinaryClaim.action,'abort','지정되지 않은 일반 회�
 
 const checkinSource=fs.readFileSync(path.join(__dirname,'..','checkin.html'),'utf8');
 const dailySource=fs.readFileSync(path.join(__dirname,'..','js','daily.js'),'utf8');
-assert(checkinSource.includes('isLiveOperatorPlayer'),'회원 화면은 정식 임원과 운영 도우미를 같은 운영 권한 경로로 판단해야 합니다.');
-assert(checkinSource.includes('officialTemporaryToolsHtml'),'정식 임원 화면에 운영 도우미 지정 도구가 있어야 합니다.');
-assert(checkinSource.includes("if(!actor?.isClubOfficial)return toast('정식 클럽 임원만 운영 도우미"),'도우미 화면에서 재위임 기능을 사용할 수 없어야 합니다.');
-assert(dailySource.includes('dailySetTemporaryOfficial'),'관리자 화면에서도 운영 도우미를 즉시 지정·해제할 수 있어야 합니다.');
+assert(checkinSource.includes('isLiveOperatorPlayer'),'회원 화면은 정식 임원과 운영진을 같은 운영 권한 경로로 판단해야 합니다.');
+assert(checkinSource.includes('officialTemporaryToolsHtml'),'정식 임원 화면에 운영진 지정 도구가 있어야 합니다.');
+assert(checkinSource.includes("if(!actor?.isClubOfficial)return toast('정식 클럽 임원만 운영진"),'운영진 화면에서 재위임 기능을 사용할 수 없어야 합니다.');
+assert(dailySource.includes('dailySetTemporaryOfficial'),'관리자 화면에서도 운영진을 즉시 지정·해제할 수 있어야 합니다.');
 assert(dailySource.includes('isTemporaryOfficial:!!p.isTemporaryOfficial'),'임시 권한이 현재 민턴LIVE 세션에만 게시되어야 합니다.');
 assert(dailySource.split('_dailyClearTemporaryOfficials()').length-1>=4,'링크 종료·만료·교체 시 임시 권한을 지워 다음 세션으로 넘기면 안 됩니다.');
 assert(dailySource.includes('if(player.isClubOfficial&&player.isTemporaryOfficial){'),'정식 임원으로 승격된 회원의 임시 권한 표시는 정리해야 합니다.');

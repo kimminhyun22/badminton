@@ -308,7 +308,7 @@ console.log(`  옛 관리자 전용 ${formerlyAdminOnly.length}종: 임원 권�
   assert.strictEqual(grant.status, 'applied', `관리자 자격 복구가 적용되어야 합니다: ${grant.reason||''}`);
   const after = grant.session.players.find(p=>p.id==='p1');
   assert.strictEqual(after.isClubOfficial, true, '임원 자격이 복구되어야 합니다.');
-  assert.strictEqual(after.isTemporaryOfficial, false, '임원이 되면 도우미 표시는 정리되어야 합니다.');
+  assert.strictEqual(after.isTemporaryOfficial, false, '임원이 되면 운영진 표시는 정리되어야 합니다.');
   const wrongName = send(makeSession(), {type:'official-player-official', playerId:'p1', expectedName:'딴사람', isClubOfficial:true});
   assert.strictEqual(wrongName.status, 'rejected', '이름 지문이 어긋나면 거절되어야 합니다.');
   console.log('  임원 자격 복구: 관리자 applied · 임원 rejected · 지문 검증');

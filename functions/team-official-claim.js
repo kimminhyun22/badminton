@@ -26,7 +26,7 @@ function abort(failureCode, failureMessage){
 }
 
 /**
- * 운영할 수 있는 사람 = 클럽 임원 · 운영 도우미 · **단장/부단장**.
+ * 운영할 수 있는 사람 = 클럽 임원 · 운영진 · **단장/부단장**.
  *
  * **판정 근거를 화면과 똑같이 맞춥니다.** 화면(`_canSubstitute`)은 팀원 한 줄에
  * 실린 `isClubOfficial/isLeader/isSub/isTemporaryOperator` 표시를 보고 버튼을

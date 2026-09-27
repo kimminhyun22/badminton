@@ -41,7 +41,7 @@ function session(){
     capabilities:{officialOpsServerV2:true,officialRosterSetupV1:true},
     players:[
       player('p1','도착전선수',{status:'planned',statusLabel:'도착 전',preArrivalVisible:true}),
-      player('p8','운영도우미',{isTemporaryOfficial:true}),
+      player('p8','운영운영진',{isTemporaryOfficial:true}),
       player('p9','클럽임원',{isClubOfficial:true})
     ],
     arrivalCandidates:[
@@ -65,7 +65,7 @@ function submit(currentSession, extra, actorId = 'p9'){
   const operationId='setup_'+Math.random().toString(36).slice(2,10);
   const stored={
     type:'official-roster-setup',operationId,actorPlayerId:actorId,
-    actorPlayerName:actorId==='p9'?'클럽임원':'운영도우미',
+    actorPlayerName:actorId==='p9'?'클럽임원':'운영운영진',
     createdAt:NOW,expiresAt:NOW+30*60_000,source:'test',...extra
   };
   const grant=issueOfficialGrant({v:1,sid:SESSION_ID,cid:CLIENT,pid:actorId,iat:NOW-1000,exp:NOW+3600_000,cn:'nonce1'},SECRET);
@@ -126,10 +126,10 @@ for(const [label,keys] of [
 }
 console.log('  원자성: 없는 후보 · 다른 클럽 · 중복 후보 전체 거절');
 
-// 4) 운영 도우미는 일상 진행만 맡고, 오늘 명단 일괄 설정은 정식 클럽 임원만 한다.
+// 4) 운영진은 일상 진행만 맡고, 오늘 명단 일괄 설정은 정식 클럽 임원만 한다.
 {
   const result=submit(session(),{candidateKeys:['roster:m1'],status:'wait'},'p8');
-  assert.notStrictEqual(result.terminal?.status,'applied','운영 도우미가 전체 명부를 설정하면 안 됩니다.');
+  assert.notStrictEqual(result.terminal?.status,'applied','운영진이 전체 명부를 설정하면 안 됩니다.');
   assert(String(result.failureMessage||result.terminal?.reason||'').includes('클럽 임원'),'거절 이유가 정식 임원 경계를 알려야 합니다.');
   console.log('  권한: 클럽 임원만 일괄 명부 설정');
 }

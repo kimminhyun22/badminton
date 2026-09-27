@@ -52,7 +52,7 @@ function prepSession(overrides){
     players:[
       player('p1','가선수'), player('p2','나선수'), player('p3','다선수'), player('p4','라선수'),
       player('p5','마선수'), player('p6','바선수'), player('p7','사선수'),
-      player('p8','도우미',{isTemporaryOfficial:true}),
+      player('p8','운영진',{isTemporaryOfficial:true}),
       player('p9','임원선수',{isClubOfficial:true})
     ],
     reservations:[], arrivalCandidates:[],
@@ -145,11 +145,11 @@ function send(session, request, {grant = officialGrant, actor = 'p9', name = '�
   console.log(`  마무리 중 게시: rejected (${r.reason})`);
 }
 
-// 6) 운영 도우미(임시 임원)도 서버에서는 허용 — 화면은 클럽 임원만 버튼을 보여 준다(마무리와 같은 경계).
+// 6) 운영진(임시 임원)도 서버에서는 허용 — 화면은 클럽 임원만 버튼을 보여 준다(마무리와 같은 경계).
 {
-  const r = send(prepSession(), {type:'official-operation-start'}, {grant:helperGrant, actor:'p8', name:'도우미'});
-  assert.strictEqual(r.status, 'applied', `운영 도우미의 게시도 서버는 받아야 합니다: ${r.reason || ''}`);
-  console.log('  운영 도우미: 서버는 허용(화면 게이트는 클럽 임원)');
+  const r = send(prepSession(), {type:'official-operation-start'}, {grant:helperGrant, actor:'p8', name:'운영진'});
+  assert.strictEqual(r.status, 'applied', `운영진의 게시도 서버는 받아야 합니다: ${r.reason || ''}`);
+  console.log('  운영진: 서버는 허용(화면 게이트는 클럽 임원)');
 }
 
 // 7) 실전 재현: 관리자에서 자동 대진을 끈 채 임원이 3코트·25명을 게시해도
@@ -286,7 +286,7 @@ assert(!/_dailyMarkFourCacheDirty\(\);\n\s*_dailyMarkOperationStarted\(\);\n\s*_
 // ── 새 운동일 시작(rollover): 관리자가 매주 게시하지 않아도 같은 링크로 굴린다 ──
 const D9 = 30 * 24 * 60 * 60 * 1000, H4 = 4 * 60 * 60 * 1000;   // 상시 창 30일(연휴 흡수)
 function playedSession(){
-  // 어제 운동을 마친 세션: 게시 6시간 전, 완료 3경기, 임원은 「종료」로 퇴장, 도우미 1명, 진행 중 코트 없음
+  // 어제 운동을 마친 세션: 게시 6시간 전, 완료 3경기, 임원은 「종료」로 퇴장, 운영진 1명, 진행 중 코트 없음
   const s = prepSession({expiresAt:NOW+30*60*60*1000, officialInvite:{tokenHash:'deadbeef', expiresAt:NOW+30*60*60*1000, maxClaims:8}});
   s.event.operationStarted = true; s.event.operationStartedAt = NOW - 6*60*60*1000; s.event.completed = 3;
   s.completedLog = [{seq:1,court:1,type:'남복',t1:['가선수','나선수'],t2:['다선수','라선수'],startAt:NOW-5*3600e3,endAt:NOW-5*3600e3+15*60e3}];
@@ -310,7 +310,7 @@ function playedSession(){
   assert.strictEqual(me.status, 'wait', '누른 임원은 현장 참가로 남아야 합니다(도착 전이면 자기 도착 처리도 못 보냅니다).');
   assert.strictEqual(other.status, 'planned', '나머지는 도착 전으로 돌아가야 합니다.');
   assert.strictEqual(other.games, 0); assert.deepStrictEqual(other.partnerCountById, {});
-  assert.strictEqual(helper.isTemporaryOfficial, false, '운영 도우미는 그날만입니다.');
+  assert.strictEqual(helper.isTemporaryOfficial, false, '운영진은 그날만입니다.');
   assert.strictEqual(s.serverRuntime.nextSeq, 1, '경기 번호는 1부터 다시.');
   assert(s.expiresAt >= NOW+1000+D9-1 && s.officialInvite.expiresAt >= NOW+1000+D9-1, '세션·초대 만료가 30일로 늘어야 연휴를 건너도 임원이 클레임할 수 있습니다.');
   assert.strictEqual(s.officialInvite.tokenHash, 'deadbeef', '초대 토큰은 불변입니다.');
@@ -333,7 +333,7 @@ function playedSession(){
   assert(st.session.event.next.length >= 1, '대기 8명이면 게시 직후 대기표가 최소 1개 짜여야 합니다.');
   console.log(`  롤오버 → 도착 처리(대기 ${waiting}) → 대진 게시: applied · 대기표 ${st.session.event.next.length}`);
 }
-// 2) 거절 조건: 게시 전 / 4시간 안 됨 / 진행 중 코트 / 운영 도우미
+// 2) 거절 조건: 게시 전 / 4시간 안 됨 / 진행 중 코트 / 운영진
 {
   const pre = send(prepSession(), {type:'official-session-rollover'});
   assert.strictEqual(pre.status, 'rejected', '게시 전 세션은 굴릴 게 없습니다.');
@@ -341,9 +341,9 @@ function playedSession(){
   assert.strictEqual(send(young, {type:'official-session-rollover'}).status, 'rejected', '게시 4시간 안에는 거절.');
   const busy = playedSession(); busy.event.active = [{id:'m1',court:1,startedAt:NOW-5*60e3,playerIds:['p1','p2','p3','p4'],t1Ids:['p1','p2'],t2Ids:['p3','p4']}];
   assert.strictEqual(send(busy, {type:'official-session-rollover'}).status, 'rejected', '진행 중 코트가 있으면 거절.');
-  const helperTry = send(playedSession(), {type:'official-session-rollover'}, {grant:helperGrant, actor:'p8', name:'도우미'});
-  assert.strictEqual(helperTry.status, 'rejected', '운영 도우미는 새 운동일을 시작할 수 없습니다.');
-  console.log('  거절: 게시 전 · 4시간 미만 · 진행 중 코트 · 운영 도우미');
+  const helperTry = send(playedSession(), {type:'official-session-rollover'}, {grant:helperGrant, actor:'p8', name:'운영진'});
+  assert.strictEqual(helperTry.status, 'rejected', '운영진은 새 운동일을 시작할 수 없습니다.');
+  console.log('  거절: 게시 전 · 4시간 미만 · 진행 중 코트 · 운영진');
 }
 // 3) 보관함 상한
 {
@@ -448,7 +448,7 @@ assert(cmdSrc.includes("const rosterSetupBeforeStart = String(storedCommand?.typ
   assert.strictEqual(send(queued, {type:'official-session-rollover'}).status, 'rejected', '대기표가 남아 있으면 거절.');
   console.log('  미종료 코트 접기 · 4시간 미만 진행 경기 거절 · 대기표 잔존 거절');
 }
-// E4·AF-5: 지난주 흔적(현장 추가·도착 확인·도우미 지정 표시) 정리, 일시정지 리비전 올림
+// E4·AF-5: 지난주 흔적(현장 추가·도착 확인·운영진 지정 표시) 정리, 일시정지 리비전 올림
 {
   const s = playedSession();
   const p1 = s.players.find(p=>p.id==='p1'); p1.liveAddedAt = NOW-3*3600e3; p1.arrivalConfirmedBy = 'p9'; p1.registrationCancelled = true;

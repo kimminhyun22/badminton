@@ -24,7 +24,7 @@ function live(extra){
     members:{blue:[],red:[],all:[]},
     officials:{
       clubOfficials:[{memberId:'m1', name:'청하나'}],
-      temporaryOperators:[{memberId:'m2', name:'도우미'}]
+      temporaryOperators:[{memberId:'m2', name:'운영진'}]
     },
     ...(extra || {})
   };
@@ -42,13 +42,13 @@ function claim(current, name, clientId, now){
   assert.strictEqual(ok.officialName, '청하나');
   assert(ok.grantExpiresAt > NOW, '만료 시각이 있어야 합니다.');
 
-  const helper = claim(live(), '도우미', 'client-b');
-  assert.strictEqual(helper.action, 'commit', '운영 도우미도 연결돼야 합니다.');
+  const helper = claim(live(), '운영진', 'client-b');
+  assert.strictEqual(helper.action, 'commit', '운영진도 연결돼야 합니다.');
 
   const stranger = claim(live(), '홍하나', 'client-c');
   assert.strictEqual(stranger.action, 'abort', '임원이 아닌 사람은 연결되면 안 됩니다.');
   assert(/본인 이름/.test(stranger.failureMessage || ''), `안내가 분명해야 합니다: ${stranger.failureMessage}`);
-  console.log('  연결 권한: 임원·도우미 commit · 일반 회원 abort');
+  console.log('  연결 권한: 임원·운영진 commit · 일반 회원 abort');
 }
 
 // 2) 공백·대소문자가 달라도 같은 사람으로 봅니다(현장에서 이름 표기가 흔들립니다).
@@ -86,7 +86,7 @@ function claim(current, name, clientId, now){
     state = r.action === 'commit' ? r.current : state;
   }
   // 자리가 다 찼을 때: **다른 사람**은 기다려야 합니다(민턴LIVE 와 같은 규칙).
-  const other = claim(state, '도우미', 'c-other');
+  const other = claim(state, '운영진', 'c-other');
   assert.strictEqual(other.action, 'abort', '자리가 다 차면 다른 임원은 기다려야 합니다.');
   assert(/인원/.test(other.failureMessage || ''), `이유가 분명해야 합니다: ${other.failureMessage}`);
   // 반면 **같은 사람이 기기를 바꿔** 들어오면 그 사람의 옛 연결을 정리하고 받습니다.
