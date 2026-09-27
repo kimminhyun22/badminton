@@ -248,7 +248,7 @@ function extractFunction(src, name){
       assert(got&&got.id===expectId,`관리자: ${label} — ${expectId} 를 골라야 합니다 (입력 ${JSON.stringify(input)}).`);
     }
   });
-  assert(daily.includes('번호 또는 이름으로 선택'),'관리자 안내 문구가 이름 입력을 알려야 합니다.');
+  assert(daily.includes("search.placeholder='이름 검색'")&&daily.includes('dialog.showModal()'),'관리자 교체는 이름 검색·터치 선택창으로 진행합니다.');
   console.log(`  관리자 번호·이름 선택 ${cases.length}가지 확인`);
 }
 

@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.736';
+const APP_VERSION = '1.10.737';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4626,7 +4626,31 @@ async function dailyEditQueuePlayer(queueId,side,pos,newId){
   _dailyRecalcQueueItem(q);
   dailySave();dailyRender();
 }
-function dailyPickQueueReplacement(queueId,side,pos){
+function _dailyChooseReplacement(name,candidates){
+  return new Promise(resolve=>{
+    const dialog=document.createElement('dialog');
+    dialog.className='daily-replacement-picker';
+    const title=document.createElement('h2');
+    title.textContent=`${name} 대신 들어갈 선수`;
+    dialog.append(title);
+    const search=document.createElement('input');
+    search.type='search';search.placeholder='이름 검색';search.setAttribute('aria-label','교체 선수 검색');
+    dialog.append(search);
+    const list=document.createElement('div');list.className='daily-replacement-options';dialog.append(list);
+    let result=null;
+    candidates.forEach(candidate=>{
+      const button=document.createElement('button');button.type='button';
+      button.textContent=candidate.label;button.dataset.name=candidate.name;
+      button.onclick=()=>{result=candidate;dialog.close();};list.append(button);
+    });
+    search.oninput=()=>{for(const button of list.children)button.hidden=!button.dataset.name.includes(search.value.trim());};
+    const cancel=document.createElement('button');cancel.type='button';cancel.className='daily-replacement-cancel';cancel.textContent='취소';
+    cancel.onclick=()=>dialog.close();dialog.append(cancel);
+    dialog.addEventListener('close',()=>{dialog.remove();resolve(result);},{once:true});
+    document.body.append(dialog);dialog.showModal();cancel.focus();
+  });
+}
+async function dailyPickQueueReplacement(queueId,side,pos){
   if(_dailyBlockPaused({action:'대진 선수를 교체'}))return;
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0)return;
@@ -4637,21 +4661,18 @@ function dailyPickQueueReplacement(queueId,side,pos){
     return;
   }
   const currentId=q[side]?.[pos];
-  const candidates=_dailyQueueReplacementCandidates(q,currentId).slice(0,12);
+  const candidates=_dailyQueueReplacementCandidates(q,currentId);
   if(!candidates.length){
     alert('교체 가능한 순수 대기선수가 없습니다.');
     return;
   }
   const current=_dailyPlayer(currentId);
-  const list=candidates.map((p,i)=>`${i+1}. ${p.name}${p.isGuest?'(G)':''} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}G`).join('\n');
-  const raw=prompt(`${current?.name||'선수'} 대신 넣을 대기선수를 번호로 선택하세요.\n\n${list}`,'1');
-  if(raw==null)return;
-  const pick=parseInt(String(raw).trim(),10);
-  if(!pick||pick<1||pick>candidates.length){
-    alert('번호를 다시 확인해 주세요.');
-    return;
-  }
-  dailyEditQueuePlayer(queueId,side,pos,candidates[pick-1].id);
+  const chosen=await _dailyChooseReplacement(current?.name||'선수',candidates.map(p=>({player:p,name:p.name,label:`${p.name}${p.isGuest?'(G)':''} · ${_dailyGenderLabel(p.gender)} · ${p.grade||'C'} · ${p.games||0}게임`})));
+  if(!chosen)return;
+  const latest=_dailyQueue.find(item=>item.id===queueId);
+  if(!latest||latest[side]?.[pos]!==currentId||!_dailyQueueReplacementCandidates(latest,currentId).some(p=>p.id===chosen.player.id))return alert('대진이 변경되었습니다. 다시 선택해 주세요.');
+  if(!confirm(`${current?.name||'선수'} → ${chosen.name}\n선수를 교체할까요?`))return;
+  return dailyEditQueuePlayer(queueId,side,pos,chosen.player.id);
 }
 // 번호로도 이름으로도 고를 수 있게 합니다. 후보 상한을 없앤 뒤로는 목록이 스무 줄을
 // 넘길 수 있어, 급할 때 번호를 세는 것보다 이름을 적는 쪽이 빠르고 오조작도 적습니다.
@@ -4674,7 +4695,7 @@ function _dailyPickFromCandidates(candidates,raw){
 }
 async function dailyPickActiveReplacement(matchId,side,pos){
   if(_dailyBlockPaused({action:'진행 선수를 교체'}))return;
-  const m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
+  let m=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
   if(!m)return;
   const arr=side==='team2'?m.team2:m.team1;
   if(!arr||!arr[pos])return;
@@ -4692,15 +4713,22 @@ async function dailyPickActiveReplacement(matchId,side,pos){
   });
   const candidates=[...waiting,...playing];
   if(!candidates.length){alert('교체 가능한 선수가 없습니다.');return;}
-  const list=candidates.map((c,i2)=>`${i2+1}. ${c.label}`).join('\n');
-  const raw=prompt(`${current?.name||'선수'} 대신 들어갈 선수를 번호 또는 이름으로 선택하세요.\n대기 선수를 넣으면 ${current?.name||'기존 선수'}님은 대기로 전환되고,\n경기중 선수를 고르면 두 코트가 맞교환됩니다.\n\n${list}`,'1');
-  if(raw==null)return;
-  const chosen=_dailyPickFromCandidates(candidates,raw);
-  if(typeof chosen==='string'){alert(chosen);return;}
+  const before=JSON.stringify([m.startedAt,m.team1,m.team2]);
+  const chosen=await _dailyChooseReplacement(current?.name||'선수',candidates);
+  if(!chosen)return;
+  const latest=_dailyMatches.find(x=>x.id===matchId&&!x.completedAt&&!x.cancelledAt);
+  if(!latest||JSON.stringify([latest.startedAt,latest.team1,latest.team2])!==before)return alert('대진이 변경되었습니다. 다시 선택해 주세요.');
+  if(_dailyBlockPaused({action:'진행 선수를 교체'}))return;
+  m=latest;
+  const stillAvailable=chosen.swap
+    ? _dailyActiveMatches().some(other=>other.id!==matchId&&other.court===chosen.court&&_dailyMatchPlayers(other).some(p=>p.id===chosen.player.id))
+    : _dailyActiveReplacementCandidates(latest,currentId).some(p=>p.id===chosen.player.id);
+  if(!stillAvailable)return alert('선수 상태가 변경되었습니다. 다시 선택해 주세요.');
   const candidate=chosen.player;
   if(_dailyMatchPlayers(m).some(p=>p.id===candidate.id)){alert('이미 이 경기에 포함된 선수입니다.');return;}
   // 맞교환은 두 코트의 대진이 함께 바뀝니다. 실수로 누르면 여덟 명이 흔들리니 한 번 더 확인합니다.
   if(chosen.swap&&!confirm(`⚠️ 맞교환\n${candidate.name} 선수는 ${chosen.court}코트에서 경기 중입니다.\n${m.court}코트 ↔ ${chosen.court}코트 두 경기의 대진이 함께 바뀝니다.\n\n${current?.name||'선수'} ↔ ${candidate.name} 교체할까요?`))return;
+  if(!chosen.swap&&!confirm(`${current?.name||'선수'} → ${candidate.name}\n선수를 교체할까요?\n${current?.name||'기존 선수'}님은 대기로 전환됩니다.`))return;
   if(_dailyCheckinId){
     const sent=await _dailySendAdminCommand({
       type:'official-active-replace',
@@ -10986,7 +11014,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.736&from=daily';
+  location.href='team.html?v=1.10.737&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
