@@ -7,6 +7,7 @@
     partnerGapHard:3,
     partnerGapCorrectionLimit:4.5,
     partnerGapSymmetryLimit:1.5,
+    partnerGapWeight:0.35,
     dailyPartnerGapWeight:0.35,
     teamDiffTarget:1.5,
     teamDiffLimit:2,
@@ -51,11 +52,11 @@
     if(d>constants.teamDiffLimit)penalty+=50000+(d-constants.teamDiffLimit)*12000;
     return penalty;
   }
-  function dailyPairBalance(team1,team2){
+  function pairBalance(team1,team2){
     const sum1=teamLevel(team1),sum2=teamLevel(team2);
     const gap1=partnerGap(team1),gap2=partnerGap(team2);
     const raw=sum1-sum2,asymmetry=gap1-gap2;
-    const adjusted=raw-constants.dailyPartnerGapWeight*asymmetry;
+    const adjusted=raw-constants.partnerGapWeight*asymmetry;
     const compoundDisadvantage=Math.abs(asymmetry)>constants.partnerGapSymmetryLimit+1e-9&&raw*asymmetry< -1e-9;
     const limit=compoundDisadvantage?constants.teamDiffTarget:constants.teamDiffLimit;
     return {rawDiff:Math.round(Math.abs(raw)*100)/100,adjustedDiff:Math.round(Math.abs(adjusted)*100)/100,
@@ -99,7 +100,8 @@
     effectiveLevel,
     teamLevel,
     teamDiff,
-    dailyPairBalance,
+    pairBalance,
+    dailyPairBalance:pairBalance,
     teamDiffPenalty,
     partnerGap,
     partnerGapSymmetry,

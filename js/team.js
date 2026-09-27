@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.738';
+const APP_VERSION = '1.10.739';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -46,12 +46,12 @@ function balanceTeamDiffPenalty(diff){
   return penalty;
 }
 function _balanceQualityStats(matches,settings={}){
-  const list=(matches||[]).map(m=>Math.abs(Number(m&&m.levelDiff)||0));
+  const list=(matches||[]).map(_teamBalanceDiff);
   const count=list.length||1;
   const avgLD=list.reduce((s,v)=>s+v,0)/count;
   const maxLD=list.reduce((m,v)=>Math.max(m,v),0);
   const cautionCount=list.filter(v=>v>BALANCE_TEAM_DIFF_TARGET).length;
-  const hardCount=list.filter(v=>v>BALANCE_TEAM_DIFF_LIMIT).length;
+  const hardCount=(matches||[]).filter((m,i)=>list[i]>BALANCE_TEAM_DIFF_LIMIT||!_teamPairBalance([m.team1A,m.team1B],[m.team2C,m.team2D]).allowed).length;
   const severeCount=list.filter(v=>v>=BALANCE_TEAM_DIFF_SEVERE).length;
   const weightedPenalty=list.reduce((s,v)=>s+balanceTeamDiffPenalty(v),0);
   const roundBias=!!settings.teamMode?_teamRoundLevelBias(matches):{maxBias:0,totalBias:0};
@@ -75,7 +75,9 @@ function _teamRoundLevelBias(matches){
     if(!m||!m.round||!m.team1A||!m.team2C)return;
     const t1=Number.isFinite(+m.team1Level)?+m.team1Level:effLevel(m.team1A)+effLevel(m.team1B);
     const t2=Number.isFinite(+m.team2Level)?+m.team2Level:effLevel(m.team2C)+effLevel(m.team2D);
-    const blueDelta=_teamMatchIsBlueFirst(m)?t1-t2:t2-t1;
+    const adjusted=t1-t2-(MATCH_QUALITY?.constants.partnerGapWeight??0.35)
+      *(balancePartnerLevelGap([m.team1A,m.team1B])-balancePartnerLevelGap([m.team2C,m.team2D]));
+    const blueDelta=_teamMatchIsBlueFirst(m)?adjusted:-adjusted;
     byRound[m.round]=(byRound[m.round]||0)+blueDelta;
   });
   const vals=Object.values(byRound).map(v=>Math.abs(v));
@@ -88,6 +90,23 @@ function balancePartnerLevelGap(team){
   if(MATCH_QUALITY)return MATCH_QUALITY.partnerGap(team);
   if(!team||team.length<2)return 0;
   return Math.abs(effLevel(team[0])-effLevel(team[1]));
+}
+function _teamPairBalance(t1,t2){
+  if(MATCH_QUALITY?.pairBalance)return MATCH_QUALITY.pairBalance(t1,t2);
+  const sum=t=>t.reduce((n,p)=>n+effLevel(p),0);
+  const raw=sum(t1)-sum(t2),asymmetry=balancePartnerLevelGap(t1)-balancePartnerLevelGap(t2);
+  const adjusted=raw-0.35*asymmetry;
+  const compoundDisadvantage=Math.abs(asymmetry)>1.5+1e-9&&raw*asymmetry< -1e-9;
+  return {rawDiff:Math.round(Math.abs(raw)*100)/100,adjustedDiff:Math.round(Math.abs(adjusted)*100)/100,
+    compoundDisadvantage,allowed:Math.abs(raw)<=2+1e-9&&Math.abs(adjusted)<=(compoundDisadvantage?1.5:2)+1e-9};
+}
+function _teamBalanceDiff(m){
+  const balance=_teamPairBalance([m.team1A,m.team1B],[m.team2C,m.team2D]);
+  return Math.max(Math.abs(Number(m.levelDiff)||0),balance.rawDiff,balance.adjustedDiff);
+}
+function _teamPairBalancePenalty(t1,t2){
+  const balance=_teamPairBalance(t1,t2);
+  return balanceTeamDiffPenalty(Math.max(balance.rawDiff,balance.adjustedDiff))+(balance.allowed?0:50000);
 }
 const BALANCE_PARTNER_GAP_SYMMETRY=MATCH_QUALITY?.constants.partnerGapSymmetryLimit??1.5;
 /* 약한 고리 집중공략 (운영자 2026-08-14): 복식은 약한 파트너를 노려 점수를 딴다.
@@ -1668,9 +1687,12 @@ function selectFourTeamMode(pool,gf,maxLD){
       if(!four.every(p=>!p.partnerName||four.some(x=>x.name===p.partnerName)))continue;
       const ld=Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3])));
       if(ld>maxLD)continue;
+      const balance=_teamPairBalance(four.slice(0,2),four.slice(2));
+      if(maxLD<=BALANCE_TEAM_DIFF_LIMIT&&!balance.allowed)continue;
       // 팀전은 짝이 팀 소속으로 고정 — 페어 격차 비대칭을 여기서 걸러야 한다
       // (formTeams 단계에서는 조합 선택지가 하나뿐이라 벌점이 무력하다).
       const score=diversityScore(four,ld)
+        +_teamPairBalancePenalty(four.slice(0,2),four.slice(2))
         +pairGapAsymmetryPenalty([four[0],four[1]],[four[2],four[3]]);
       if(score<bestScore){bestScore=score;best=four;}
     }
@@ -1729,7 +1751,7 @@ function selectFourTeamAdjustment(pool,settings,maxLD){
       const help=four.reduce((s,p)=>s+Math.max(0,_goalForPlayer(p,settings)-(p.gamesPlayed||0)),0);
       const newOver=four.reduce((s,p)=>s+Math.max(0,(p.gamesPlayed||0)+1-_goalForPlayer(p,settings)),0);
       const wait=four.reduce((s,p)=>s+Math.min(_currentRound-(p.lastRoundPlayed||0),10),0);
-      const score=balanceTeamDiffPenalty(m.levelDiff||0)+diversityScore(four,m.levelDiff||0)*0.7
+      const score=_teamPairBalancePenalty([m.team1A,m.team1B],[m.team2C,m.team2D])+diversityScore(four,_teamBalanceDiff(m))*0.7
         +pairGapAsymmetryPenalty([m.team1A,m.team1B],[m.team2C,m.team2D])
         -help*220+newOver*160-wait*8;
       if(score<bestScore){bestScore=score;best=four;}
@@ -1785,7 +1807,9 @@ function selectFourFreeMode(pool,type,maxLD){
       Math.abs((effLevel(four[0])+effLevel(four[3]))-(effLevel(four[1])+effLevel(four[2])))
     );
     if(minLD>maxLD)continue;
-    const score=diversityScore(four,minLD);
+    const pairing=formTeams(four,false,type,maxLD);
+    if(!pairing)continue;
+    const score=diversityScore(four,_teamBalanceDiff(pairing))+_teamPairBalancePenalty([pairing.team1A,pairing.team1B],[pairing.team2C,pairing.team2D]);
     if(score<bestScore){bestScore=score;best=four;}
   }
   return best;
@@ -1809,15 +1833,13 @@ function selectFillerFour(pool,unmet,target,settings){
     if(!four.some(p=>p.gamesPlayed<goal(p)))continue;
     if(settings.teamMode){const b=four.filter(p=>p.team==='청팀'),w=four.filter(p=>p.team==='홍팀');if(b.length<2||w.length<2)continue;}
     if(!four.every(p=>!p.partnerName||four.some(x=>x.name===p.partnerName)))continue;
-    const minLD=Math.min(
-      Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3]))),
-      Math.abs((effLevel(four[0])+effLevel(four[2]))-(effLevel(four[1])+effLevel(four[3]))),
-      Math.abs((effLevel(four[0])+effLevel(four[3]))-(effLevel(four[1])+effLevel(four[2])))
-    );
     const uc=four.filter(p=>p.gamesPlayed<goal(p)).length;
     // 미달 인원 많을수록, 오래 쉰 선수 포함할수록 우선
     const waitBonus=four.reduce((s,p)=>s+Math.min(_currentRound-(p.lastRoundPlayed||0),10)*5,0);
-    const score=minLD*20+diversityScore(four,minLD)-uc*200-waitBonus;
+    const pairing=formTeams(four,settings.teamMode,'any',99)||formTeams(four,settings.teamMode,'adjust',99);
+    if(!pairing)continue;
+    const score=_teamPairBalancePenalty([pairing.team1A,pairing.team1B],[pairing.team2C,pairing.team2D])
+      +diversityScore(four,_teamBalanceDiff(pairing))-uc*200-waitBonus;
     if(score<bestScore){bestScore=score;best=four;}
   }
   return best;
@@ -1970,7 +1992,9 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     if(teamMode){if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)continue;}
     const ld=Math.abs((effLevel(t1[0])+effLevel(t1[1]))-(effLevel(t2[0])+effLevel(t2[1])));
     if(ld>maxLD)continue;
-    let score=balanceTeamDiffPenalty(ld); // 실력차 최우선
+    const balance=_teamPairBalance(t1,t2);
+    if(maxLD<=BALANCE_TEAM_DIFF_LIMIT&&!balance.allowed)continue;
+    let score=_teamPairBalancePenalty(t1,t2);
     score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
     score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
     score+=balancePartnerLevelGapPenalty(t1)+balancePartnerLevelGapPenalty(t2);
@@ -3545,7 +3569,7 @@ function _qualityAssessment(matches,participants,settings){
   const gpp=settings.gamesPerPlayer||4;
   const balance=_balanceQualityStats(matches,settings);
   const avgLD=balance.avgLD;
-  const spikes=matches.filter(m=>(m.levelDiff||0)>=3);
+  const spikes=matches.filter(m=>_teamBalanceDiff(m)>=3);
   const maxLD=balance.maxLD;
   const counts={};participants.forEach(p=>counts[p.name]=0);
   matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
@@ -3634,7 +3658,7 @@ function _qualityAssessment(matches,participants,settings){
   const asymSevereCount=asymMatches.filter(a=>a.sym>=3).length;
   // 백중 비율 — 공정성의 헤드라인. 좋은 대진일수록 우세가 뻔한 경기가 적다
   // (어제 9ZJ2VH: 우세 16/25 → 18:7. 새 생성기: 우세 4/25).
-  const evenCount=matches.filter(m=>Math.abs(m.levelDiff||0)<=0.5).length;
+  const evenCount=matches.filter(m=>_teamBalanceDiff(m)<=0.5).length;
   const favCount=matches.length-evenCount;
 
   // 팀 나누기 점검 — 경기가 아니라 나누기 단위의 결함은 경기 잣대에 안 잡힌다
@@ -3751,7 +3775,7 @@ function renderQualityDashboard(matches,participants,settings){
     (()=>{
       const pct=sBalance/30;
       // 백중이 많을수록 좋은 대진 — 우세가 뻔한 경기가 승패를 미리 정한다 (9ZJ2VH 18:7).
-      let detail=`백중 ${evenCount} · 우세 ${favCount} · 평균 실력차 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
+      let detail=`백중 ${evenCount} · 우세 ${favCount} · 보정 실력차 평균 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
       if(balanceHardCount) detail+=` · 재배정 우선 ${balanceHardCount}경기`;
       else if(balanceCautionCount) detail+=` · 주의 ${balanceCautionCount}경기`;
       if(asymMatches.length) detail+=` · 페어 격차 비대칭 ${asymMatches.length}경기(${asymMatches.map(a=>a.num).join(',')}번)`;
@@ -3849,7 +3873,7 @@ function renderQualityDashboard(matches,participants,settings){
   const blocking=[];
   if(structureErr>0)blocking.push(`${structureDetail}/선수 중복 오류`);
   if(genderErr>0)blocking.push('종목 성별 오류');
-  if(balanceHardCount>0)blocking.push('실력차 2.0 초과');
+  if(balanceHardCount>0)blocking.push('보정 실력균형 기준 초과');
   if(splitAudit&&splitAudit.lowStacked)blocking.push('초심 한 팀 몰림');
   if(splitAudit&&splitAudit.avgGap>0.3)blocking.push('팀 1인당 평균 차 과다');
   if(avoidableUnderSlots>0)blocking.push('목표 미달');
@@ -3884,7 +3908,7 @@ function renderQualityDashboard(matches,participants,settings){
     fixedPairs.length?chip(`P 파트너 ${fixedPairs.length}쌍`,splitFixed.length?'warn':'ok'):''
   ].filter(Boolean).join('');
   const issueItems=[];
-  if(balanceHardCount>0)issueItems.push(`실력차 2.0 초과 경기 ${balanceHardCount}개는 재배정을 권장합니다.`);
+  if(balanceHardCount>0)issueItems.push(`파트너 격차를 반영한 균형 기준 초과 경기 ${balanceHardCount}개는 재배정을 권장합니다.`);
   else if(balanceCautionCount>0)issueItems.push(`실력 균형 주의 경기 ${balanceCautionCount}개가 있습니다.`);
   if(avoidableExact>0)issueItems.push(`완전히 같은 경기 반복 ${avoidableExact}건은 클레임 가능성이 높습니다.`);
   else if(avoidableSameFour>0)issueItems.push(`같은 4명 재경기 ${avoidableSameFour}건은 필요 시 재배정하세요.`);

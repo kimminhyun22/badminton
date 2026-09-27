@@ -137,7 +137,9 @@ vm.runInContext(cut(teamSrc,'function _isBetterQualityKey(','function _autoSearc
   const symMatch = M(1, [ps[4], ps[3]], [i, j]);      // 4+2.5 vs 4.5+2 — 격차 1.5 vs 2.5
   const qAsym = api._qualityAssessment([asym], [...ps, i, j], settings);
   const qSym = api._qualityAssessment([symMatch], [...ps, i, j], settings);
-  assert.strictEqual(qAsym.avgLD, qSym.avgLD, '두 비교 경기의 합 차는 같아야 합니다.');
+  assert.strictEqual(asym.levelDiff,symMatch.levelDiff,'원래 합산 차이는 동일합니다.');
+  assert.strictEqual(qAsym.avgLD,1.4,'파트너 격차 차이4에 공통 보정0.35를 적용합니다.');
+  assert.strictEqual(qSym.avgLD,0.35,'파트너 격차 차이1에 공통 보정0.35를 적용합니다.');
   assert(qSym.sBalance > qAsym.sBalance,
     `합이 같아도 비대칭이면 감점돼야 합니다: 비대칭 ${qAsym.sBalance} vs 대칭 ${qSym.sBalance}`);
   console.log(`  비대칭 감점: 비대칭 ${qAsym.sBalance} < 대칭 ${qSym.sBalance} (만점 30)`);

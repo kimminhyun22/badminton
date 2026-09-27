@@ -45,6 +45,7 @@ let _partnerGapThreshold=2;
 ${isTeam
     ? cut('const BALANCE_PARTNER_GAP_OK', 'function balanceTeamDiffPenalty')
     : cut('const DAILY_PARTNER_GAP_OK', 'const DAILY_RECENT_SOFT_MIN')}
+${isTeam ? cut('function balanceTeamDiffPenalty(', 'function _balanceQualityStats(') : ''}
 ${isTeam
     ? cut('function balancePartnerLevelGap(team)', 'let _currentRound')
     : cut('function _dailyPartnerLevelGap(team)', 'function _dailyMatchMaxPartnerGap')}
