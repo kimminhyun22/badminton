@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.735';
+const APP_VERSION = '1.10.736';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3218,6 +3218,12 @@ async function dailySetStatus(id,status){
   const p=_dailyPlayer(id);
   if(!p)return;
   const nextStatus=_dailyNormalizeStatus(status);
+  if((p.status==='playing'||p.currentMatchId)&&['rest','done'].includes(nextStatus)){
+    const label=nextStatus==='rest'?'휴식':'종료';
+    const cancel=!_dailyCheckinId&&p.afterMatchStatus===nextStatus;
+    if(!confirm(cancel?`${p.name}님의 경기 후 ${label} 예약을 취소할까요?`:
+      `${p.name}님은 경기 중입니다.\n현재 경기가 끝난 뒤 ${label}로 변경할까요?`))return;
+  }
   // 게시된 뒤에는 서버 명령으로만 바꿉니다. 다만 서버가 받는 상태는 wait·rest·done 뿐이라
   // 도착 전(planned)·초대(invited) 전환은 아직 명령이 없어 그대로 로컬로 둡니다.
   if(_dailyCheckinId
@@ -3471,6 +3477,9 @@ function _dailyFilterPlayersForManage(players){
 function _dailySortPlayersForManage(players){
   const statusOrder={wait:0,playing:1,rest:2,done:3,planned:4,invited:4};
   const nameSort=(a,b)=>a.name.localeCompare(b.name,'ko');
+  if(_dailyPlayerTool==='helper')return [...players].sort((a,b)=>
+    Number(!!b.isTemporaryOfficial)-Number(!!a.isTemporaryOfficial)||
+    Number(!!b.isClubOfficial)-Number(!!a.isClubOfficial)||nameSort(a,b));
   if(_dailyPlayerSort==='name')return [...players].sort(nameSort);
   if(_dailyPlayerSort==='gender'){
     return [...players].sort((a,b)=>{
@@ -3598,7 +3607,7 @@ function _dailyPlayerRowActions(p){
     </span>`;
   }
   const actions=playing
-    ? [{status:'rest',label:'경기 후 휴식',cls:'rest'},{status:'done',label:'경기 후 종료',cls:'done'}]
+    ? [{status:'rest',label:'휴식',cls:'rest'},{status:'done',label:'종료',cls:'done'}]
     : status==='rest'
       ? [{status:'wait',label:'복귀',cls:''},{status:'done',label:'종료',cls:'done'}]
       : status==='done'
@@ -10977,7 +10986,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.735&from=daily';
+  location.href='team.html?v=1.10.736&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

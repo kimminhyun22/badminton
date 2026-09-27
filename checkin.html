@@ -3020,7 +3020,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.735">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.736">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
@@ -3035,7 +3035,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.735</span>
+    <span class="version-chip" id="appVersion">v1.10.736</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3087,7 +3087,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/court-recommendation.js?v=1.10.735"></script>
+<script src="js/court-recommendation.js?v=1.10.736"></script>
 <script>
 const FB_CONFIG={
   apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
@@ -3099,7 +3099,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.735';
+const APP_VERSION='1.10.736';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3692,8 +3692,10 @@ function officialOverviewPlayers(filter){
   };
   const allowed=statuses[filter];
   const list=filter==='total'?players:players.filter(player=>allowed?.has(String(player.status||'')));
-  // 이름순 고정. 카드가 이미 상태로 걸러 주기 때문에 이름으로 찾는 편이 빠릅니다.
-  return list.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ko'));
+  // 운영진 지정 중에는 지정된 사람을 먼저, 평소에는 이름순으로 표시합니다.
+  return list.sort((a,b)=>(officialOverviewMode==='helper'
+    ? Number(!!b.isTemporaryOfficial)-Number(!!a.isTemporaryOfficial)||Number(!!b.isClubOfficial)-Number(!!a.isClubOfficial):0)
+    ||String(a.name).localeCompare(String(b.name),'ko'));
 }
 // 운영 현황 명단에서 바로 처리합니다.
 // 상태 변경·참가 등록·파트너 지정·운영진·뒷풀이를 전부 여기서 끝내고,
@@ -3760,7 +3762,7 @@ function officialOverviewStatusButtons(actor,target,viewKey){
   const playing=!!target.locked||target.status==='playing';
   const status=String(target.status||'');
   const actions=playing
-    ? [{status:'rest',label:'경기 후 휴식',cls:'rest'},{status:'done',label:'경기 후 종료',cls:'done'}]
+    ? [{status:'rest',label:'휴식',cls:'rest'},{status:'done',label:'종료',cls:'done'}]
     : status==='rest'
       ? [{status:'wait',label:'복귀',cls:''},{status:'done',label:'종료',cls:'done'}]
       : status==='done'
@@ -4768,6 +4770,9 @@ function confirmPlayerIdentity(p){
 function confirmStatusChange(p,status){
   const current=getSelectedStatus(p);
   if(current===status)return true;
+  if((p.status==='playing'||p.currentMatchId)&&['rest','done'].includes(status)){
+    return confirm(`${p.name}님은 경기 중입니다.\n현재 경기가 끝난 뒤 ${status==='rest'?'휴식':'종료'}로 변경할까요?`);
+  }
   const nextQ=nextQueueForPlayer(p.id);
   const nextOrder=nextQ?parseInt(nextQ.idx,10)||(eventNextList().findIndex(q=>queueIdentity(q)===queueIdentity(nextQ))+1):0;
   const nextWarn=nextQ&&['rest','done'].includes(status)
@@ -5031,8 +5036,8 @@ function officialPlayerStatusToolsHtml(p,disabled){
     <div id="officialPlayerStatusNote_${esc(p.id)}" class="official-member-status-note">회원을 선택하면 현재 상태에 맞는 버튼만 활성화됩니다.</div>
     <div class="official-status-actions">
       <button type="button" data-official-action data-official-status-action data-status="wait" disabled onclick="sendOfficialPlayerStatus('${esc(p.id)}','wait')">복귀</button>
-      <button type="button" class="rest" data-official-action data-official-status-action data-status="rest" disabled onclick="sendOfficialPlayerStatus('${esc(p.id)}','rest')">잠시 휴식</button>
-      <button type="button" class="done" data-official-action data-official-status-action data-status="done" disabled onclick="sendOfficialPlayerStatus('${esc(p.id)}','done')">운동 종료</button>
+      <button type="button" class="rest" data-official-action data-official-status-action data-status="rest" disabled onclick="sendOfficialPlayerStatus('${esc(p.id)}','rest')">휴식</button>
+      <button type="button" class="done" data-official-action data-official-status-action data-status="done" disabled onclick="sendOfficialPlayerStatus('${esc(p.id)}','done')">종료</button>
     </div>
   </div>`;
 }
@@ -5254,11 +5259,7 @@ function refreshOfficialPlayerStatusActions(actorId){
   }
   select.closest('.official-member-status')?.querySelectorAll('[data-official-status-action]').forEach(button=>{
     const status=button.dataset.status||'';
-    button.textContent=status==='rest'
-      ? (playing?'경기 후 휴식':'잠시 휴식')
-      : status==='done'
-        ? (playing?'경기 후 종료':'운동 종료')
-        : '복귀';
+    button.textContent=status==='rest'?'휴식':status==='done'?'종료':'복귀';
     const sameStatus=!!target&&(playing
       ? target.afterMatchStatus===status
       : compactLabel(target.status)===compactLabel(status));
@@ -5880,7 +5881,9 @@ async function sendOfficialPlayerStatus(actorId,status,targetId){
   if(playing&&target.afterMatchStatus===status)return toast(`이미 경기 후 ${compactLabel(status)}로 표시되어 있습니다.`);
   if(!playing&&compactLabel(target.status)===compactLabel(status))return toast('이미 같은 상태입니다.');
   const actionLabel=playing?`경기 후 ${compactLabel(status)}`:compactLabel(status);
-  if(status==='done'&&!confirm(`${target.name}님을 ${playing?'경기가 끝난 뒤 ':'오늘 '}운동 종료로 처리할까요?`))return;
+  if(playing){
+    if(!confirm(`${target.name}님은 경기 중입니다.\n현재 경기가 끝난 뒤 ${compactLabel(status)}로 변경할까요?`))return;
+  }else if(status==='done'&&!confirm(`${target.name}님을 오늘 운동 종료로 처리할까요?`))return;
   const now=Date.now();
   const ok=await pushOfficialRequest({
     type:'official-player-status',

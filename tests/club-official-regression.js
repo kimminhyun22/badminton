@@ -523,7 +523,7 @@ assert.strictEqual(officialStatusUiSandbox.api.buttons().map(button=>button.disa
 officialStatusUiSandbox.api.select('done');
 assert.strictEqual(officialStatusUiSandbox.api.buttons().map(button=>button.disabled).join(','),'false,true,true','운동 종료 회원은 복귀만 가능해야 합니다.');
 officialStatusUiSandbox.api.select('playing');
-assert.strictEqual(officialStatusUiSandbox.api.buttons().map(button=>button.label).join(','),'복귀,경기 후 휴식,경기 후 종료','경기중 회원에게는 적용 시점을 버튼에서 바로 알려야 합니다.');
+assert.strictEqual(officialStatusUiSandbox.api.buttons().map(button=>button.label).join(','),'복귀,휴식,종료','상태 버튼은 간결하게 표시하고 적용 시점은 확인창에서 알립니다.');
 assert.strictEqual(officialStatusUiSandbox.api.buttons().map(button=>button.disabled).join(','),'true,false,false','경기중 회원은 현재 경기 후 휴식·종료만 선택할 수 있어야 합니다.');
 officialStatusUiSandbox.api.setAfter('rest');
 officialStatusUiSandbox.api.select('playing');
@@ -601,7 +601,7 @@ assert(!checkin.includes('회원 요청 대신 처리')&&!checkin.includes('구�
 assert(checkin.includes('officialOverviewStatusButtons(player,item,selected.key)'),'임원은 운영 현황 명단에서 바로 처리할 수 있어야 합니다.');
 assert(!checkin.includes('event-official-member-jump'),'상단 회원 상태 수정 바로가기는 제거되어야 합니다.');
 assert(!checkin.includes('<summary>선수 휴식·복귀·종료 처리</summary>'),'현장 핵심 상태 처리를 접힌 상세 메뉴 안에 숨기면 안 됩니다.');
-assert(checkin.includes("playing?'경기 후 휴식':'잠시 휴식'")&&checkin.includes("playing?'경기 후 종료':'운동 종료'"),'경기중 선수는 현재 경기 종료 후 적용된다는 버튼 문구를 보여야 합니다.');
+assert(checkin.includes('현재 경기가 끝난 뒤 ${compactLabel(status)}로 변경할까요?'),'경기중 선수의 상태 변경은 적용 시점을 확인합니다.');
 assert(checkin.includes("(playing&&status==='wait')||sameStatus"),'경기중 복귀와 같은 상태의 중복 처리는 버튼 단계에서 차단해야 합니다.');
 assert(dailySrc.includes('afterMatchStatus:p.afterMatchStatus'), '임원 화면에 경기 후 휴식·종료 예약 상태를 전달해야 합니다.');
 assert(checkin.includes('expectedCurrentMatchId:target.currentMatchId'), '임원 요청이 경기 종료와 엇갈려 도착해도 같은 경기를 식별할 수 있어야 합니다.');

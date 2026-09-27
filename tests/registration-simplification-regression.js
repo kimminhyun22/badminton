@@ -51,7 +51,7 @@ assert(officialSubmit.includes("const status='wait'"),
 const adminActions=sourceBetween(daily,'function _dailyPlayerRowActions(p)','function _dailyIcon');
 const officialActions=sourceBetween(checkin,'function officialOverviewStatusButtons(actor,target,viewKey)','function setOfficialOverviewMode');
 [adminActions,officialActions].forEach((src,index)=>{
-  assert(src.includes("label:'경기 후 휴식'")&&src.includes("label:'경기 후 종료'"),
+  assert(src.includes("label:'휴식'")&&src.includes("label:'종료'"),
     `${index?'임원':'관리자'} 경기중 상태 동작이 명확해야 합니다.`);
   assert(src.includes("status==='done'")&&src.includes("label:'복귀'"),
     `${index?'임원':'관리자'} 종료 선수에게는 복귀 동작이 있어야 합니다.`);
