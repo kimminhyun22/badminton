@@ -157,11 +157,11 @@ assert(!r.hidden('#bnav-bracket') && !r.hidden('#bnav-result'), '대진 생성 �
 const mobileTab = src.slice(src.indexOf('function switchMobileTab('), src.indexOf('function syncBottomNav('));
 assert(mobileTab.includes('el.offsetParent===null'), '감춘 구역을 가리키는 하단 탭은 상황판으로 보내야 합니다.');
 
-// ── 공유 채널 분리 (민턴LIVE 와 같은 방식) ──
-assert(html.includes("onclick=\"rsvpShareLink('kakao')\"") && html.includes("onclick=\"rsvpShareLink('band')\""),
-  '팀전도 카카오톡·밴드 버튼으로 나뉘어야 합니다.');
-assert(html.includes('class="team-share-top kakao"') && html.includes('<svg viewBox="0 0 24 24"'),
-  '공유 버튼은 로고를 써야 합니다.');
+// ── 공유 진입점 통일 (2026-09-28 운영자 요청) ──
+assert(html.includes('onclick="rsvpShareLink()"')&&!html.includes("rsvpShareLink('kakao')")&&!html.includes("rsvpShareLink('band')"),
+  '팀전도 공유하기 버튼 하나로 통일합니다.');
+assert(html.includes('class="team-share-top share-primary"')&&html.includes('icons/lucide/share-2.svg'),
+  '공유 버튼은 공통 공유 아이콘을 사용합니다.');
 assert(html.includes('window.KOKMATCH_KAKAO_JS_KEY'), '팀전에도 카카오 키 설정 자리가 있어야 합니다.');
 const share = src.slice(src.indexOf('async function rsvpShareLink('), src.indexOf('function rsvpLoad('));
 assert(share.includes("const popup=channel==='band'?_teamOpenSharePopup():null;"),
@@ -196,11 +196,10 @@ assert(r.hidden('#teamLiveActionRow'), 'LIVE 중 「팀전 진행 중」처럼 �
 assert(r.hidden('#undoBtnMain'), '대진이 생기면 되돌리기는 대진 옆 하나만 남아야 합니다.');
 assert(src.includes("hide('.auto-flow-quick-actions',(empty&&!_rsvpId)||shareCta);"),
   '안내 CTA 가 공유일 때는 머리쪽 공유 사본을 감춰야 합니다 — 같은 버튼이 한 화면에 넷이 되면 안 됩니다.');
-assert(src.includes('const TEAM_KAKAO_SVG=') && src.includes('function _autoFlowShareAction('),
-  '채널 버튼 로고와 공유 CTA 헬퍼가 있어야 합니다.');
+assert(src.includes('function _autoFlowShareAction('), '공유 CTA 헬퍼가 있어야 합니다.');
 assert(src.includes("link:_autoFlowShareAction(),"),
   '링크 단계 CTA 도 채널 버튼이어야 합니다 — 채널 없는 사본을 남기면 안 됩니다.');
-assert((src.match(/TEAM_KAKAO_SVG\}/g) || []).length >= 2, '로고는 공유 CTA·링크 카드에 유지합니다. 라운드 진행의 중복 공유는 제거합니다.');
+assert((src.match(/icons\/lucide\/share-2.svg/g)||[]).length===2,'공유 CTA·링크 카드도 같은 공유 버튼을 사용합니다.');
 assert(css.includes('.rsvp-action-btn.primary.soft.kakao'),
   '링크 카드 채널 색은 .primary.soft 규칙을 이길 특이도가 필요합니다.');
 assert(/\.auto-flow-btn\.kakao[^{]*\{[^}]*background:#FEE500!important/.test(css),

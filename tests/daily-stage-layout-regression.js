@@ -229,17 +229,17 @@ vm.runInContext(`${manual}\ndailyRenderManualActiveModal();`,manualSandbox);
 assert.strictEqual(manualElement('dailyManualCourtHint').textContent,'등록 0/3',
   '대진 게시 모달은 예외 없이 열리고 현재 코트 수를 표시해야 합니다.');
 
-// 공유는 채널별 버튼 — 누르면 그 앱의 공유가 바로 열리고, 안내창은 뜨지 않는다 (2026-09-02)
-assert(html.includes("onclick=\"dailyShareCheckinLink('kakao')\"") && html.includes("onclick=\"dailyShareCheckinLink('band')\""),
-  '카카오톡·밴드 공유 버튼이 각각 있어야 합니다.');
-assert(html.includes('class="daily-dashboard-quick-action share kakao"') && html.includes('<svg viewBox="0 0 24 24"'), '공유 버튼은 로고를 써야 합니다.');
+// 2026-09-28: 채널 선택은 기기 공유 창에 맡기고 진입점은 하나로 통일한다.
+assert(html.includes('onclick="dailyShareCheckinLink()"')&&!html.includes('dailyQuickShareBandBtn'),
+  '공유하기 버튼은 하나만 있어야 합니다.');
+assert(html.includes('class="daily-dashboard-quick-action share share-primary"')&&html.includes('icons/lucide/share-2.svg'),'공통 공유 모양을 사용합니다.');
 const share = src.slice(src.indexOf('async function dailyShareCheckinLink('), src.indexOf('async function dailyShareOfficialLink('));
 assert(!share.includes('alert('), '공유 흐름에 확인을 눌러야 하는 안내창이 있으면 안 됩니다.');
 assert(share.includes("https://band.us/plugin/share?body="), '밴드 버튼은 밴드 공유 플러그인으로 바로 가야 합니다.');
 assert(share.includes("Kakao.Share.sendDefault(") && share.includes('KOKMATCH_KAKAO_JS_KEY'), '카카오톡 버튼은 키가 있으면 SDK 로 바로 공유해야 합니다.');
 assert(share.includes("const popup=channel==='band'?_dailyOpenSharePopup():null;"), '밴드 창은 사용자 제스처 안에서 먼저 열어야 팝업 차단을 피합니다.');
-assert(src.includes("hide('#dailyQuickShareBtn,#dailyQuickShareBandBtn'"), '두 공유 버튼이 같은 단계 규칙으로 감춰져야 합니다.');
+assert(src.includes("hide('#dailyQuickShareBtn'"), '공유 버튼에 기존 단계 규칙을 유지합니다.');
 r = run({});
-assert(r.hidden('#dailyQuickShareBandBtn'), '빈 화면에서는 밴드 공유 버튼도 감춰져야 합니다.');
+assert(r.hidden('#dailyQuickShareBtn'), '빈 화면에서는 공유 버튼을 감춰야 합니다.');
 
 console.log('daily stage layout regression ok');

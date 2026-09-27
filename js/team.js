@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.743';
+const APP_VERSION = '1.10.744';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -7943,7 +7943,7 @@ async function rsvpCopyShareText(auto,channel){
   if(channel==='kakao'&&await _teamShareToKakao(body,url))return true;
   if(navigator.share){
     try{
-      await navigator.share({title,text});
+      await navigator.share({title,text:body,url});
       return true;
     }catch(e){
       if(e&&e.name==='AbortError'){
@@ -8257,15 +8257,11 @@ function _rsvpAdminRosterHtml(members,responses){
 function _autoFlowMetric(label,value){
   return `<div class="auto-flow-metric"><b>${esc(String(value))}</b><span>${esc(label)}</span></div>`;
 }
-/* 채널 버튼 로고 — 상단·CTA·LIVE 스트립·링크 카드가 같은 모양을 쓴다(2026-09-03 감사: 상단만 로고였다) */
-const TEAM_KAKAO_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#191919" d="M12 3.2C6.6 3.2 2.3 6.6 2.3 10.8c0 2.7 1.8 5.1 4.5 6.5l-1.1 4.1c-.1.3.3.6.6.4l4.8-3.2c.3 0 .6.1.9.1 5.4 0 9.7-3.4 9.7-7.6S17.4 3.2 12 3.2z"/></svg>';
-const TEAM_BAND_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#1EC800"/><path fill="#fff" d="M8.2 6.5h2.4v4.1c.6-.5 1.4-.8 2.3-.8 2.3 0 4 1.8 4 4.1s-1.7 4.1-4 4.1c-1 0-1.8-.3-2.4-.9v.7H8.2V6.5zm4.4 5.4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>';
-/* 「다음 할 일」 CTA 가 공유일 때는 채널 버튼 둘로 — 채널 없는 사본을 남기지 않는다 */
+/* 준비 단계와 상황판에서 같은 공유 동작을 사용한다. */
 function _autoFlowShareAction(){
   return `<div class="auto-flow-action share">
     <div class="auto-flow-share-btns">
-      <button class="auto-flow-btn kakao" type="button" onclick="rsvpShareLink('kakao')">${TEAM_KAKAO_SVG}카카오톡</button>
-      <button class="auto-flow-btn band" type="button" onclick="rsvpShareLink('band')">${TEAM_BAND_SVG}밴드</button>
+      <button class="auto-flow-btn share-primary" type="button" onclick="rsvpShareLink()"><img src="icons/lucide/share-2.svg" alt="">공유하기</button>
     </div>
   </div>`;
 }
@@ -8886,8 +8882,7 @@ if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정)`:'';
         </div>
       </div>
       <div class="rsvp-current-actions">
-        <button class="rsvp-action-btn primary soft share kakao" onclick="rsvpShareLink('kakao')">${TEAM_KAKAO_SVG}카카오톡</button>
-        <button class="rsvp-action-btn primary soft share band" onclick="rsvpShareLink('band')">${TEAM_BAND_SVG}밴드</button>
+        <button class="rsvp-action-btn primary soft share share-primary" onclick="rsvpShareLink()"><img src="icons/lucide/share-2.svg" alt="">공유하기</button>
         <button class="rsvp-action-btn primary soft" onclick="teamLiveOpenPlayers()">참가자 수정</button>
       </div>
     </div>

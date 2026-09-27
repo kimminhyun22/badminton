@@ -67,6 +67,16 @@ body.km-admin-page *,body.km-member-page *{letter-spacing:0!important;}
 .km-admin-page .team-management-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr));}
 .km-admin-page .team-management-shortcuts :is(.team-tool-btn,#teamReviewToggle,#teamOperatorOpenBtn){flex-direction:row;min-height:48px;background:#fff;border-color:var(--ui-line);padding:10px 8px;}
 .km-admin-page .team-tool-btn img{width:19px;height:19px;}
+.km-admin-page button.share-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;background:#fee500!important;border:1px solid #dbc900!important;color:#191919!important;font-size:14px;font-weight:700;line-height:1.3;box-shadow:none!important;border-radius:8px!important;}
+.km-admin-page button.share-primary:hover{background:#f2d900!important;}
+.km-admin-page button.share-primary img{width:18px;height:18px;flex:none;}
+.km-admin-page button.share-primary::before{display:none!important;}
+.km-admin-page .auto-flow-quick-actions{grid-template-columns:minmax(0,1fr);}
+.km-admin-page .auto-flow-share-btns{grid-template-columns:minmax(0,1fr);}
+.km-admin-page .rsvp-current-actions:has(.share-primary){grid-template-columns:repeat(2,minmax(0,1fr));}
+.km-admin-page .rsvp-current-actions:has(.share-primary)>.rsvp-action-btn:last-child{grid-column:auto;}
+.km-admin-page .daily-dashboard-quick-actions:has(.share-primary){grid-template-columns:repeat(2,minmax(0,1fr));}
+.km-admin-page .daily-dashboard-quick-actions .share-primary{grid-column:1/-1;}
 
 /* Same hierarchy for daily, team and attendance member views. */
 body.km-member-page :is(.event-panel,.event-panel.live,.hero,.panel,.current-panel,.next-panel,.score-hero,.official-overview,.official-arrival,.my-page-panel){border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;}

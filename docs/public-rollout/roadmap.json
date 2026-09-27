@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-27",
+  "updated": "2026-09-28",
   "title": "민턴라이브 · 클럽 자율 배포 로드맵",
   "links": [
     {
@@ -51,6 +51,12 @@
       "state": "진행 중",
       "owner": "Codex",
       "items": [
+        {
+          "name": "민턴/팀전 공유 동선 간소화",
+          "status": "done",
+          "detail": "v744 카카오톡/밴드를 노란색 공유하기 하나로 통합. 회귀137개 및 공유10개 시나리오, 샘플320/375/768px 배치 검증. 서버 변경 없음. 실제 iPhone 앱별 공유 완료는 현장 확인 대상.",
+          "evidence": "../minton-live/WORKLOG.md"
+        },
         {
           "name": "로그인 기반 명부 서버 저장",
           "status": "in_progress",

@@ -71,13 +71,13 @@ assert(commonShareSource.includes('const clipboardText=`${text}\\n\\n${url}`'),'
 // 링크종료·초기화"): 공용 링크 카드는 은퇴. 진입점은 상황판 퀵 액션 한 줄
 // (링크 공유·링크 종료·초기화 각 1개)뿐이고, 카드가 품던 확인 필요 요청 상자
 // (dailyCheckinBox)는 상황판 안으로 들어가 요청이 있을 때만 나타납니다.
-assert.strictEqual((index.match(/dailyShareCheckinLink\('kakao'\)/g)||[]).length,1,'카카오톡 공유 진입점은 상황판 퀵 하나뿐이어야 합니다.');
-assert.strictEqual((index.match(/dailyShareCheckinLink\('band'\)/g)||[]).length,1,'밴드 공유 진입점은 상황판 퀵 하나뿐이어야 합니다.');
+assert.strictEqual((index.match(/onclick="dailyShareCheckinLink\(\)"/g)||[]).length,1,'공유 진입점은 상황판 퀵 하나뿐이어야 합니다.');
+assert(!index.includes("dailyShareCheckinLink('band')")&&!index.includes("dailyShareCheckinLink('kakao')"),'채널별 공유 사본을 남기지 않습니다.');
 assert.strictEqual((index.match(/dailyStopCheckinLink\(\)/g)||[]).length,1,'링크 종료 진입점은 상황판 퀵 하나뿐이어야 합니다.');
 assert.strictEqual((index.match(/onclick="dailyReset\(\)"/g)||[]).length,1,'초기화 진입점은 상황판 퀵 하나뿐이어야 합니다.');
-assert(index.includes('daily-dashboard-quick-actions')&&index.includes('id="dailyQuickShareBtn"')&&index.includes('id="dailyQuickShareBandBtn"')
+assert(index.includes('daily-dashboard-quick-actions')&&index.includes('id="dailyQuickShareBtn"')&&!index.includes('id="dailyQuickShareBandBtn"')
   &&index.includes('onclick="dailyStopCheckinLink()">링크 종료</button>')&&index.includes('onclick="dailyReset()">초기화</button>'),
-  '상황판 상단 퀵 액션은 카카오톡·밴드 공유, 링크 종료, 초기화여야 합니다.');
+  '상황판 상단 퀵 액션은 공유하기, 링크 종료, 초기화여야 합니다.');
 assert(!index.includes('dailyCheckinDetails')&&!index.includes('dailyCheckinSummary'),'공용 링크 카드는 남아 있으면 안 됩니다.');
 assert(index.includes('id="dailyCheckinBox" hidden'),'확인 필요 요청 상자는 상황판 안에 숨김 상태로 있어야 합니다.');
 const requestRender=functionSource(daily,'dailyRenderCheckinRequests','dailyRender');

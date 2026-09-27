@@ -15,11 +15,10 @@ assert((html.match(/data-slot-count/g) || []).length === 1, '저장 목록은 �
 assert(html.includes('<summary>백업·기타 관리</summary>'), '저빈도 백업 기능은 별도 보조 영역으로 구분해야 합니다.');
 assert(html.includes('현재 대진안을 따로 보관합니다.'), '저장 모달이 현재 대진안을 보관한다는 목적을 알려야 합니다.');
 assert(html.includes('id="slotListCount"'), '저장 목록에서 사용 중인 슬롯 수를 보여야 합니다.');
-/* 2026-09-03: 「링크 공유」 하나를 카카오톡·밴드 로고 버튼 둘로 나눴습니다(민턴LIVE와 동일).
-   누르면 그 앱의 공유가 바로 열리고, 공유 경로에는 확인창을 두지 않습니다. */
+/* 2026-09-28: 채널별 버튼 대신 기기 공유 창을 여는 진입점 하나를 둡니다. */
 assert(html.includes('auto-flow-quick-actions')
-  &&html.includes(`onclick="rsvpShareLink('kakao')"`)&&html.includes(`onclick="rsvpShareLink('band')"`),
-  '팀전 링크 공유는 운영 보드 상단에 카카오톡·밴드 버튼으로 있어야 합니다(참가자 세팅 전에는 감춥니다).');
+  &&html.includes('onclick="rsvpShareLink()"')&&!html.includes("rsvpShareLink('band')"),
+  '팀전 공유하기는 운영 보드 상단 하나여야 합니다(참가자 세팅 전에는 감춥니다).');
 assert(!/class="nav-sync-btn"/.test(html),
   '대진안 저장·목록·내보내기·불러오기의 내비 사본은 없어야 합니다(상황판·진행 설정·백업 관리에 이미 있습니다).');
 /* 2026-08-12 계약 뒤집음 (운영자 "정신 없고 한눈에 안 들어와"): 초기화는

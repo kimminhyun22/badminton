@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.743';
+const APP_VERSION = '1.10.744';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -6276,7 +6276,7 @@ function dailyApplyStageLayout(){
   hide('#bnav-players',stage==='empty');
   // 게시 전 선수 필터는 등록·현재·도착 전만 — 대기/경기중/휴식/종료/다음대진은 아직 뜻이 없다
   hide('#dailyPlayerFilterWait,#dailyPlayerFilterPlaying,#dailyPlayerFilterRest,#dailyPlayerFilterDone,#dailyPlayerFilterQueued',!live);
-  hide('#dailyQuickShareBtn,#dailyQuickShareBandBtn',stage==='empty'&&!_dailyCheckinId);   // 보낼 명단이 없다
+  hide('#dailyQuickShareBtn',stage==='empty'&&!_dailyCheckinId);   // 보낼 명단이 없다
   hide('#dailyQuickStopBtn',!_dailyCheckinId);                    // 종료할 링크가 없다
   hide('#dailyQuickResetBtn',stage==='empty'&&!_dailyCheckinId);  // 지울 것이 없다
   const setup=document.getElementById('dailySetupDetails');
@@ -11025,7 +11025,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.743&from=daily';
+  location.href='team.html?v=1.10.744&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
