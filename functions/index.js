@@ -17,6 +17,7 @@ const {applyMemberCommandTransaction} = require('./daily-member-command');
 const {applyOfficialClaimTransaction} = require('./daily-official-claim');
 const {analyzeParticipantImages} = require('./daily-image-import');
 const {handle:handleSkillCalibration} = require('./skill-calibration');
+const {handle:handleRosterCloud} = require('./roster-cloud');
 
 admin.initializeApp();
 
@@ -48,6 +49,11 @@ const IMAGE_ANALYSIS_OPTIONS = {
 exports.clubSkillCalibration = onCall({...MEMBER_FUNCTION_OPTIONS,maxInstances:2},async request=>{
   try{return await handleSkillCalibration(admin.database(),request.data,request.rawRequest.ip);}
   catch(error){throw new HttpsError('failed-precondition',error.message||'미세조정을 처리하지 못했습니다.');}
+});
+
+exports.clubRosterCloud = onCall({...MEMBER_FUNCTION_OPTIONS,maxInstances:2},async request=>{
+  try{return await handleRosterCloud(admin.database(),request.auth,request.data);}
+  catch(error){throw new HttpsError(['unauthenticated','permission-denied','aborted','failed-precondition'].includes(error.code)?error.code:'internal',error.message||'명부 서버 연결을 확인해 주세요.');}
 });
 
 exports.analyzeDailyParticipantScreenshots = onCall(IMAGE_ANALYSIS_OPTIONS, async request=>{
