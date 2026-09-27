@@ -6,6 +6,7 @@ const {
   PARTNER_GAP_HARD,
   PARTNER_GAP_CORRECTION_LIMIT,
   partnerGapSymmetryAllowed,
+  pairBalance,
   TEAM_DIFF_LIMIT,
   preparedPairing,
   replenishPrepared,
@@ -258,7 +259,7 @@ function queuePairingMetrics(session, team1Ids, team2Ids, options = {}){
   const team1Level = Math.round(teamLevel(team1) * 10) / 10;
   const team2Level = Math.round(teamLevel(team2) * 10) / 10;
   const levelDiff = Math.round(Math.abs(team1Level - team2Level) * 10) / 10;
-  if(levelDiff > TEAM_DIFF_LIMIT)return null;
+  if(!pairBalance(team1, team2).allowed)return null;
   if(
     fairnessCorrection &&
     (
@@ -284,7 +285,7 @@ function preparedQualityValid(session, item){
     fairnessCorrection,
     reservation:item?.reservationId
   }))return false;
-  if(Math.abs(teamLevel(team1) - teamLevel(team2)) > TEAM_DIFF_LIMIT)return false;
+  if(!pairBalance(team1, team2).allowed)return false;
   if(fairnessCorrection && (item?.flexible || teamShape(team1) !== teamShape(team2)))return false;
   if(item?.teamMode){
     const firstSides = new Set(team1.map(player=>text(player?.team)).filter(Boolean));
@@ -319,6 +320,8 @@ function writePreparedTeams(session, item, team1Ids, team2Ids, metrics){
   item.team1Level = team1Level;
   item.team2Level = team2Level;
   item.levelDiff = metrics?.levelDiff ?? Math.round(Math.abs(team1Level - team2Level) * 10) / 10;
+  item.adjustedLevelDiff = pairBalance(team1, team2).adjustedDiff;
+  item.balancePolicy = 'partner-gap-v1';
   item.flexible = metrics?.flexible ?? type === '예외';
   item.strict = !item.flexible;
   if(metrics?.score != null)item.score = Math.round(metrics.score);

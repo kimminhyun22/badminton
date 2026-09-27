@@ -102,6 +102,8 @@ function _dailyTeamDiffPenalty(diff){return MATCH_QUALITY.teamDiffPenalty(diff);
 function _dailyPartnerLevelGapPenalty(team){return MATCH_QUALITY.partnerGapPenalty(team);}
 function _dailyPartnerRepeatPenalty(count){return MATCH_QUALITY.partnerRepeatPenalty(count);}
 function _dailyPartnerLevelGap(team){return MATCH_QUALITY.partnerGap(team);}
+function _dailyPairBalance(t1,t2){return MATCH_QUALITY.dailyPairBalance(t1,t2);}
+const DAILY_TEAM_DIFF_LIMIT=MATCH_QUALITY.constants.teamDiffLimit;
 const DAILY_PARTNER_GAP_SYMMETRY_LIMIT=MATCH_QUALITY.constants.partnerGapSymmetryLimit;
 const DAILY_PARTNER_GAP_CAUTION=MATCH_QUALITY.constants.partnerGapCaution;
 ${sourceBetween(dailySrc,'pairGapAsymmetryPenalty','_dailyPartnerLevelGapPenalty')}

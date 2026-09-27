@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.737';
+const APP_VERSION = '1.10.738';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4179,7 +4179,18 @@ function _dailyMatchTeamLevelDiff(m){
   return _dailyTeamLevelDiff([m.team1A,m.team1B],[m.team2C,m.team2D]);
 }
 function _dailyMatchTeamBalanceOk(m){
-  return _dailyMatchTeamLevelDiff(m)<=DAILY_TEAM_DIFF_LIMIT;
+  if(!m?.team1A||!m?.team1B||!m?.team2C||!m?.team2D)return false;
+  return _dailyPairBalance([m.team1A,m.team1B],[m.team2C,m.team2D]).allowed;
+}
+function _dailyPairBalance(t1,t2){
+  if(MATCH_QUALITY?.dailyPairBalance)return MATCH_QUALITY.dailyPairBalance(t1,t2);
+  const raw=_dailyTeamLevel(t1)-_dailyTeamLevel(t2);
+  const asymmetry=_dailyPartnerLevelGap(t1)-_dailyPartnerLevelGap(t2);
+  const adjusted=raw-0.35*asymmetry;
+  const compoundDisadvantage=Math.abs(asymmetry)>DAILY_PARTNER_GAP_SYMMETRY_LIMIT+1e-9&&raw*asymmetry< -1e-9;
+  const limit=compoundDisadvantage?DAILY_TEAM_DIFF_TARGET:DAILY_TEAM_DIFF_LIMIT;
+  return {rawDiff:Math.round(Math.abs(raw)*100)/100,adjustedDiff:Math.round(Math.abs(adjusted)*100)/100,
+    compoundDisadvantage,allowed:Math.abs(raw)<=DAILY_TEAM_DIFF_LIMIT+1e-9&&Math.abs(adjusted)<=limit+1e-9};
 }
 function _dailyTeamDiffPenalty(diff){
   if(MATCH_QUALITY)return MATCH_QUALITY.teamDiffPenalty(diff);
@@ -4318,7 +4329,7 @@ function _dailyFlexibleMatch(four){
     const match={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],type:'예외',levelDiff:ld,team1Level,team2Level,isFlexible:true};
     if(!_dailyMatchTeamBalanceOk(match))return;
     if(!_dailyMatchPartnerGapOfficialOk(match))return;
-    let score=_dailyTeamDiffPenalty(ld)+Math.abs(effLevel(t1[0])-effLevel(t1[1]))*18+Math.abs(effLevel(t2[0])-effLevel(t2[1]))*18;
+    let score=_dailyTeamDiffPenalty(Math.max(ld,_dailyPairBalance(t1,t2).adjustedDiff))+Math.abs(effLevel(t1[0])-effLevel(t1[1]))*18+Math.abs(effLevel(t2[0])-effLevel(t2[1]))*18;
     score+=_dailyPartnerLevelGapPenalty(t1)+_dailyPartnerLevelGapPenalty(t2)+_dailyMatchLevelSpreadPenalty([t1[0],t1[1],t2[0],t2[1]]);
     score+=pairGapAsymmetryPenalty(t1,t2);
     t1.forEach(a=>t2.forEach(b=>{score+=_dailyOpponentRepeatPenalty(a.opponentCount[b.name]||0);}));
@@ -4339,7 +4350,7 @@ function _dailyScoreMatch(m,strict){
   const ref=fairnessPool.length?fairnessPool:_dailyPlayers;
   const minGames=ref.length?Math.min(...ref.map(p=>p.games||0)):0;
   const maxGames=ref.length?Math.max(...ref.map(p=>p.games||0)):0;
-  let score=_dailyTeamDiffPenalty(_dailyMatchTeamLevelDiff(m));
+  let score=_dailyTeamDiffPenalty(Math.max(_dailyMatchTeamLevelDiff(m),_dailyPairBalance([m.team1A,m.team1B],[m.team2C,m.team2D]).adjustedDiff));
   let latePriorityTotal=0;
   let fairPriorityTotal=0;
   all.forEach(p=>{
@@ -11014,7 +11025,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.737&from=daily';
+  location.href='team.html?v=1.10.738&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -12454,7 +12465,9 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
     }
     const ld=Math.abs((effLevel(t1[0])+effLevel(t1[1]))-(effLevel(t2[0])+effLevel(t2[1])));
     if(ld>maxLD)continue;
-    let score=_dailyTeamDiffPenalty(ld); // 실력차 최우선
+    const balance=_dailyPairBalance(t1,t2);
+    if(maxLD<=DAILY_TEAM_DIFF_LIMIT&&!balance.allowed)continue;
+    let score=_dailyTeamDiffPenalty(Math.max(ld,balance.adjustedDiff)); // 합산 차이와 불리한 파트너 격차를 함께 평가
     score+=Math.abs(effLevel(t1[0])-effLevel(t1[1]))*25;
     score+=Math.abs(effLevel(t2[0])-effLevel(t2[1]))*25;
     score+=_dailyPartnerLevelGapPenalty(t1)+_dailyPartnerLevelGapPenalty(t2);

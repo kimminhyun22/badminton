@@ -9,6 +9,7 @@ const PARTNER_GAP_CORRECTION_LIMIT = 4.5;
 const PARTNER_GAP_SYMMETRY_LIMIT = 1.5;
 const TEAM_DIFF_TARGET = 1.5;
 const TEAM_DIFF_LIMIT = 2;
+const PARTNER_GAP_WEIGHT = 0.35;
 const RECENT_SOFT_MIN = 6;
 const RECENT_RECOVERY_MIN = 12;
 const LATE_GRACE_MIN = 5;
@@ -88,6 +89,16 @@ function teamDiffPenalty(diff){
   if(value > TEAM_DIFF_TARGET)penalty += (value - TEAM_DIFF_TARGET) * 1600;
   if(value > TEAM_DIFF_LIMIT)penalty += 50000 + (value - TEAM_DIFF_LIMIT) * 12000;
   return penalty;
+}
+// 배정용 보정값이며 승률 모델이 아니다. 브라우저 dailyPairBalance와 회귀로 대조한다.
+function pairBalance(team1, team2){
+  const raw = teamLevel(team1) - teamLevel(team2);
+  const asymmetry = partnerGap(team1) - partnerGap(team2);
+  const adjusted = raw - PARTNER_GAP_WEIGHT * asymmetry;
+  const compoundDisadvantage = Math.abs(asymmetry) > PARTNER_GAP_SYMMETRY_LIMIT + 1e-9 && raw * asymmetry < -1e-9;
+  const limit = compoundDisadvantage ? TEAM_DIFF_TARGET : TEAM_DIFF_LIMIT;
+  return {rawDiff:Math.round(Math.abs(raw)*100)/100, adjustedDiff:Math.round(Math.abs(adjusted)*100)/100,
+    compoundDisadvantage, allowed:Math.abs(raw)<=TEAM_DIFF_LIMIT+1e-9 && Math.abs(adjusted)<=limit+1e-9};
 }
 
 function partnerGap(team){
@@ -339,7 +350,7 @@ function scorePairing(session, pairing, reference, now, strict, reservation){
   const all = [...pairing.team1, ...pairing.team2];
   const minGames = reference.length ? Math.min(...reference.map(player=>number(player.games))) : 0;
   const maxGames = reference.length ? Math.max(...reference.map(player=>number(player.games))) : 0;
-  let score = teamDiffPenalty(pairing.levelDiff);
+  let score = teamDiffPenalty(Math.max(pairing.levelDiff, pairBalance(pairing.team1, pairing.team2).adjustedDiff));
   let lateTotal = 0;
   let fairTotal = 0;
   all.forEach(player=>{
@@ -384,7 +395,7 @@ function pairingFor(session, team1, team2, reference, now, strict, reservation, 
   if(strict && !type)return null;
   const diff = teamDiff(team1, team2);
   if(
-    diff > TEAM_DIFF_LIMIT ||
+    !pairBalance(team1, team2).allowed ||
     !partnerGapAllowed(team1, fairnessCorrection) ||
     !partnerGapAllowed(team2, fairnessCorrection) ||
     !partnerGapSymmetryAllowed(team1, team2, {fairnessCorrection, reservation})
@@ -400,6 +411,7 @@ function pairingFor(session, team1, team2, reference, now, strict, reservation, 
     team2:second,
     type,
     levelDiff:diff,
+    adjustedLevelDiff:pairBalance(first, second).adjustedDiff,
     team1Level:Math.round(teamLevel(first) * 10) / 10,
     team2Level:Math.round(teamLevel(second) * 10) / 10,
     flexible:!strict,
@@ -637,6 +649,8 @@ function queueItem(session, pairing, now, requestId, index, reservation){
     team1Level:pairing.team1Level,
     team2Level:pairing.team2Level,
     levelDiff:pairing.levelDiff,
+    adjustedLevelDiff:pairing.adjustedLevelDiff,
+    balancePolicy:'partner-gap-v1',
     flexible:pairing.flexible,
     strict:!pairing.flexible,
     fairnessCorrection:!!pairing.fairnessCorrection,
@@ -726,6 +740,26 @@ function replenishPrepared(session, options = {}){
         reservationPlayerIds(row).forEach(id=>held.add(id));
       });
       pairing = bestGeneratedPairing(session, available.filter(player=>!held.has(playerId(player))), reference, now);
+      // 출전이 밀린 선수가 현재 풀에서 짝을 못 찾으면 자동 대기 경기 한 개만 풀어 재탐색한다.
+      // 진행 경기·수동 편성·신청 파트너는 유지하며, 대안이 실제 성립할 때만 대기표를 바꾼다.
+      const urgent = available.filter(player=>!held.has(playerId(player)) && fairGap(player)>=FAIR_FORCE_GAP)
+        .sort((a,b)=>fairGap(b)-fairGap(a)||number(a.waitFrom)-number(b.waitFrom))
+        .find(player=>!pairing || ![...pairing.team1,...pairing.team2].some(p=>playerId(p)===playerId(player)));
+      if(urgent){
+        for(let index=session.event.next.length-1;index>=0;index--){
+          const item=session.event.next[index];
+          if(!item.serverGenerated || item.manualComposed || item.reservationId || item.notifiedAt || generated.some(row=>row.id===item.id))continue;
+          const released=new Set(queueIds(item));
+          const expanded=reference.filter(player=>(!used.has(playerId(player))||released.has(playerId(player)))&&!held.has(playerId(player)));
+          const rescued=bestUrgentGeneratedPairing(session,urgent,expanded,reference,now);
+          if(!rescued)continue;
+          session.event.next.splice(index,1);
+          released.forEach(id=>used.delete(id));
+          PENDING_PAIRS=buildPendingPairs(session);
+          pairing=rescued;
+          break;
+        }
+      }
     }
     if(!pairing)break;
     const item = queueItem(session, pairing, now, requestId, generated.length, reservation);
@@ -788,6 +822,8 @@ module.exports = {
   PARTNER_GAP_SYMMETRY_LIMIT,
   TEAM_DIFF_LIMIT,
   effectiveLevel,
+  pairBalance,
+  PARTNER_GAP_WEIGHT,
   partnerGapSymmetry,
   partnerGapSymmetryAllowed,
   fourKeyFromIds,
