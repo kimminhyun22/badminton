@@ -9,7 +9,7 @@ vm.runInContext(cut(team,'function gradeToLevel(','function setInputMode(')+cut(
 const engine=require('../functions/daily-server-matchmaker');
 for(const gender of ['남','여'])for(const grade of ['E','D','C','B','A','S']){
   const base=ctx.gradeToLevel(grade,gender);
-  for(const step of [-2,-1,0,1,2]){
+  for(const step of [-4,-3,-2,-1,0,1,2,3,4]){
     const member={grade,gender,skillStep:step,ageGroup:'40대'};
     const level=ctx.rosterSkillLevel(member);
     assert.equal(level,Math.round((base+step*0.2)*10)/10);
@@ -18,7 +18,7 @@ for(const gender of ['남','여'])for(const grade of ['E','D','C','B','A','S']){
   }
   assert.equal(ctx.rosterSkillLevel({grade,gender}),base,'Legacy default unchanged');
 }
-for(const bad of [8,-3,1.5,'invalid'])assert.equal(ctx.rosterSkillStep(bad),0);
+for(const bad of [8,-5,1.5,'invalid'])assert.equal(ctx.rosterSkillStep(bad),0);
 const player={name:'E2E회원',club:'E2E클럽',level:4,grade:'C',gender:'M'};
 Object.assign(ctx,{_dailyPlayers:[player],_rsvpMemberId:p=>p.name+'|'+p.club,_dailyGender:()=> 'M',dailySave(){},dailyRender(){},_dailyCheckinId:null});
 vm.runInContext(cut(daily,'function _dailyPropagateMemberEdit(','/* ── 회원 편집 ── */'),ctx);
@@ -27,11 +27,11 @@ assert.equal(player.level,4.4,'Roster correction reaches registered players');
 vm.runInContext(cut(daily,'function _dailyArrivalCandidatesHash(','async function _dailySyncArrivalCandidates('),ctx);
 assert.notEqual(ctx._dailyArrivalCandidatesHash([{level:4}]),ctx._dailyArrivalCandidatesHash([{level:4.4}]),'Arrival candidate sync detects correction');
 for(const file of ['index.html','team.html']){
-  const html=read(file);assert(html.includes('id="memberSkill"'));for(const n of [-2,-1,0,1,2])assert(html.includes(`value="${n}"`));
+  const html=read(file);assert(html.includes('id="memberSkill"'));for(const n of [-4,-3,-2,-1,0,1,2,3,4])assert(html.includes(`value="${n}"`));
 }
 for(const src of [daily,team]){
   const save=cut(src,'function saveMember(','function deleteMember(');
   assert(save.includes('rosterSkillLevel('));assert(save.includes('level,skillStep,'));
   assert(src.includes('selectMemberSkill(m.skillStep)'));
 }
-console.log('roster skill adjustment: 60 grade/gender/step cases, server parity, propagation and sync passed');
+console.log('roster skill adjustment: 108 grade/gender/step cases, server parity, propagation and sync passed');

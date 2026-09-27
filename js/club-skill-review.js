@@ -11,7 +11,7 @@
   const clubs=read('badminton_rosters_v1',{}).clubs||[];
   const nonce=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');
   const message=s=>$('status').textContent=s;
-  const label=step=>['낮게','조금 낮게','기본','조금 높게','높게'][step+2];
+  const label=step=>step===0?'기본':`${step>0?'+':''}${(step*.2).toFixed(1)}점`;
   const ownerLink=()=>links.find(l=>l.id===active?.id);
   async function api(data){
     const own=links.find(l=>l.id===data.id&&l.key===data.key);
@@ -140,10 +140,10 @@
     if(session.legacyCount)$('resultHelp').textContent+=` 기존 개별 링크 응답 ${session.legacyCount}개도 포함됩니다. 이미 참여한 분은 중복 참여하지 말고 기존 링크에서 수정해 주세요.`;
     const order={ready:0,pending:1,applied:2,changed:3,same:4};
     $('proposals').innerHTML=rows.filter(r=>r.p.opponents).sort((a,b)=>order[a.state.key]-order[b.state.key]).map(({p,state})=>{
-      const player=session.players.find(v=>v.id===p.id),before=player.base+p.current*.2,after=player.base+p.step*.2,delta=Math.round((p.step-p.current)*2)/10;
+      const player=session.players.find(v=>v.id===p.id),before=5+player.base+p.current*.2,after=5+player.base+p.step*.2,delta=Math.round((p.step-p.current)*2)/10;
       const change=delta>0?'+'+delta.toFixed(1):delta.toFixed(1);
       const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'더 유리':'덜 유리'} · ${c.votes}명 응답</li>`).join('');
-      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(1)} <span>→</span> ${after.toFixed(1)} <b>${change}</b></p><p>${label(p.current)} → ${label(p.step)}</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">급수·성별·연령 기준은 그대로입니다. 표시 점수는 개인 보정을 포함한 대진 실력점수이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
+      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(1)} <span>→</span> ${after.toFixed(1)} <b>${change}</b></p><p>${label(p.current)} → ${label(p.step)}</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">비교 점수는 기존 실력점수에 모두 5점을 더한 표시입니다. 실력차와 배정 기준은 그대로이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
     }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
     $('answerSelf').textContent='나도 참여하기';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;

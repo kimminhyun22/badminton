@@ -11,7 +11,7 @@
       if(!sameIdentity(original,m))return [];
       const p=profile(m),grade={S:7,A:6,B:5,C:4,D:3,E:2}[p.grade];
       const expected=Math.round((grade-(p.gender==='여'?1:0)+p.skillStep*.2)*10)/10;
-      if(!grade||!['남','여'].includes(p.gender)||!Number.isInteger(p.skillStep)||Math.abs(p.skillStep)>2||!Number.isFinite(Number(p.level))||Math.abs(Number(p.level)-expected)>.001)return [];
+      if(!grade||!['남','여'].includes(p.gender)||!Number.isInteger(p.skillStep)||Math.abs(p.skillStep)>4||!Number.isFinite(Number(p.level))||Math.abs(Number(p.level)-expected)>.001)return [];
       return [{id:'p'+i,...p}];
     });
   }
@@ -28,7 +28,7 @@
       const matches=club.members.filter(m=>m.name===item.original?.name);
       if(seen.has(item.id)||matches.length!==1||!same(matches[0],item.original))throw Error('명부가 변경됐습니다. 결과를 다시 확인해 주세요.');
       seen.add(item.id);
-      if(!Number.isInteger(item.step)||Math.abs(item.step)>2)throw Error('보정값을 확인해 주세요.');
+      if(!Number.isInteger(item.step)||Math.abs(item.step)>4)throw Error('보정값을 확인해 주세요.');
       const member=matches[0],before=profile(member);
       if(item.step===before.skillStep)continue;
       const grade={S:7,A:6,B:5,C:4,D:3,E:2}[member.grade];

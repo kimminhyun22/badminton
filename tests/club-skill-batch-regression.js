@@ -13,7 +13,7 @@ assert.deepEqual(applied.state.clubs[1],state.clubs[1]);
 assert.throws(()=>B.prepare(applied.state,'test',items,'review','repeat'),'replay cannot overwrite');
 assert.throws(()=>B.prepare(state,'test',[items[0],{...items[1],original:{...items[1].original,grade:'B'}}],'review','stale'));
 assert.equal(JSON.stringify(state),original,'all or nothing for stale member');
-assert.throws(()=>B.prepare(state,'test',[{...items[0],step:3}],'review','bad'));
+assert.throws(()=>B.prepare(state,'test',[{...items[0],step:5}],'review','bad'));
 const club=applied.state.clubs[0];
 assert(B.baseline(club,'review','p0',club.members[0]));
 club.members[1].skillStep=2;club.members[1].level=4.4;

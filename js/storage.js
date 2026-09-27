@@ -60,7 +60,7 @@ const LIVE_ROSTER_BRIDGE_VERSION = 1;
 // Store the adjusted numeric level once; all engines already consume level.
 function rosterSkillStep(value){
   const n=Number(value);
-  return Number.isInteger(n)&&n>=-2&&n<=2?n:0;
+  return Number.isInteger(n)&&n>=-4&&n<=4?n:0;
 }
 function rosterSkillLevel(member){
   const base=gradeToLevel(member.grade||'C',member.gender||'남');

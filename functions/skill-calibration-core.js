@@ -9,7 +9,7 @@
       const missing=[!Object.hasOwn(grade,m.grade)&&'급수',!gender&&'성별',!Object.hasOwn(age,m.ageGroup)&&'연령'].filter(Boolean);
       if(missing.length)throw Error(missing.join('·')+' 확인 필요');
       const step=Number(m.skillStep||0);
-      if(!Number.isInteger(step)||Math.abs(step)>2)throw Error('개인 보정값을 확인해 주세요.');
+      if(!Number.isInteger(step)||Math.abs(step)>4)throw Error('개인 보정값을 확인해 주세요.');
       const level=round(grade[m.grade]-(gender==='여'?1:0)+step*.2);
       if(m.level!=null&&(!Number.isFinite(Number(m.level))||Math.abs(Number(m.level)-level)>.01))throw Error('명부의 급수와 보정값을 먼저 확인해 주세요.');
       return {id:'p'+i,name:m.name.trim(),grade:m.grade,gender,ageGroup:m.ageGroup,skillStep:step,level,base:round(grade[m.grade]-(gender==='여'?1.5:0)+age[m.ageGroup])};
@@ -46,12 +46,12 @@
         const residual=e.winner==='tie'?diff:e.winner==='a'?Math.min(0,diff-.3):Math.max(0,diff+.3);
         gradients[e.a]+=residual;gradients[e.b]-=residual;weights[e.a]++;weights[e.b]++;
       }
-      for(const p of list)delta[p.id]=Math.max(-.4,Math.min(.4,delta[p.id]-.5*gradients[p.id]/weights[p.id]));
+      for(const p of list)delta[p.id]=Math.max(-.8,Math.min(.8,delta[p.id]-.5*gradients[p.id]/weights[p.id]));
     }
     return list.map(p=>{
       const all=edges.filter(e=>e.values.length&&(e.a===p.id||e.b===p.id));
       const good=all.filter(e=>e.consistent);
-      const step=Math.max(-2,Math.min(2,Math.round(delta[p.id]/.2)));
+      const step=Math.max(-4,Math.min(4,Math.round(delta[p.id]/.2)));
       const direction=Math.sign(step-p.skillStep);
       const support=good.filter(e=>{
         const other=byId[e.a===p.id?e.b:e.a];

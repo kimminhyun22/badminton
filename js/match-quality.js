@@ -24,7 +24,7 @@
     const p=player||{},base=skillPolicy.grade[String(p.grade||'').toUpperCase()];
     const female=p.gender==='F'||p.gender==='여';
     const stored=Number.isFinite(+p.level)?+p.level:null;
-    const step=Number.isInteger(+p.skillStep)&&Math.abs(+p.skillStep)<=2?+p.skillStep:0;
+    const step=Number.isInteger(+p.skillStep)&&Math.abs(+p.skillStep)<=4?+p.skillStep:0;
     const level=stored??(base==null?0:base+(female?skillPolicy.femaleRoster:0)+step*skillPolicy.step);
     const age=ageBonus[p.ageGroup]||0;
     return {policyId:skillPolicy.id,base:base??null,gender:female?skillPolicy.femaleRoster+skillPolicy.femaleEffective:0,age,

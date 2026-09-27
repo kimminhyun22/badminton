@@ -76,7 +76,7 @@
       }catch(e){alert('일괄 처리 확인: '+e.message);}
       return;
     }
-    if(!Number.isInteger(proposal.step)||Math.abs(proposal.step)>2)return;
+    if(!Number.isInteger(proposal.step)||Math.abs(proposal.step)>4)return;
     const club=rosters.clubs.find(c=>c.id===proposal.clubId);
     const idx=club?.members.findIndex(m=>m.name===proposal.original?.name)??-1;
     const persisted=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===proposal.clubId)?.members?.find(m=>m.name===proposal.original?.name);
