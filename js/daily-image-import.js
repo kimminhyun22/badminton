@@ -40,7 +40,7 @@ function rosterIndex(roster){
   return map;
 }
 function attendeeKeys(raw){
-  return new Set(uniqueRows([...(raw?.voteAttendees||[]),...(raw?.commentAttendees||[])]).map(row=>normalizeName(row.name)).filter(Boolean));
+  return new Set(uniqueRows([...(raw?.voteAttendees||[]),...(raw?.commentAttendees||[]),...(raw?.guests||[])]).map(row=>normalizeName(row.name)).filter(Boolean));
 }
 function rankRosters(raw,clubs){
   const names=attendeeKeys(raw);
@@ -78,14 +78,24 @@ function resolve(raw,roster){
   const late=lateMap(raw||{});
   const votes=uniqueRows(raw?.voteAttendees);
   const voteKeys=new Set(votes.map(row=>normalizeName(row.name)));
-  const comments=uniqueRows(raw?.commentAttendees).filter(row=>!voteKeys.has(normalizeName(row.name)));
+  const guestRows=uniqueRows(raw?.guests);
+  const gender=value=>({M:'남',F:'여'}[value]||textValue(value));
+  const guestMatch=row=>{
+    const matches=index.get(normalizeName(row.name))||[];
+    if(matches.length!==1)return null;
+    const member=matches[0];
+    if(row.gender&&member.gender&&gender(row.gender)!==gender(member.gender))return null;
+    return member;
+  };
+  const promoted=guestRows.filter(row=>guestMatch(row));
+  const comments=uniqueRows([...(raw?.commentAttendees||[]),...promoted]).filter(row=>!voteKeys.has(normalizeName(row.name)));
   const members=[...votes.map(row=>({...row,source:'vote'})),...comments.map(row=>({...row,source:'comment'}))]
     .map((row,id)=>{
       const key=normalizeName(row.name);
       const matches=index.get(key)||[];
       return {id,rawName:textValue(row.name),key,source:row.source,arrivalText:late.get(key)||'',match:matches.length===1?matches[0]:null,ambiguous:matches.length>1};
     });
-  const guests=uniqueRows(raw?.guests).map((row,id)=>{
+  const guests=guestRows.filter(row=>!guestMatch(row)).map((row,id)=>{
     const key=normalizeName(row.name);
     const match=(index.get(key)||[]).length===1?(index.get(key)||[])[0]:null;
     return {
@@ -98,6 +108,8 @@ function resolve(raw,roster){
   });
   const declaredVoteCount=Math.max(0,Number(raw?.declaredVoteCount)||0);
   const warnings=[...(Array.isArray(raw?.warnings)?raw.warnings:[])].map(textValue).filter(Boolean);
+  guestRows.filter(row=>!guestMatch(row)&&(index.get(normalizeName(row.name))||[]).length)
+    .forEach(row=>warnings.push(`${textValue(row.name)}: 명부에 같은 이름이 있지만 동명이인 또는 성별 확인이 필요합니다. 게스트 등록 전 확인하세요.`));
   if(declaredVoteCount&&declaredVoteCount!==votes.length){
     warnings.unshift(`투표 화면은 ${declaredVoteCount}명인데 ${votes.length}명만 읽었습니다. 캡처가 모두 선택됐는지 확인하세요.`);
   }

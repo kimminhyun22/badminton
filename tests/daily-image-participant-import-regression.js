@@ -48,6 +48,25 @@ assert(result.members.every(row=>row.match),'정확히 일치한 회원은 명�
 assert.strictEqual(result.guests[0].ageGroup,'40대','게스트 연령 미기재 시 화면에서 확인 가능한 기본값을 제공해야 합니다.');
 
 const wrongRoster=Array.from({length:20},(_,index)=>({name:`다른회원${index+1}`,grade:'C',gender:'남'}));
+const misclassified=api.resolve({voteAttendees:vote,guests:[
+  {name:'회원16(경기이사)',arrivalText:'11시 참석'},
+  {name:'회원08/78/C'},
+  {name:'외부게스트',gender:'남',grade:'B'}
+]},roster);
+assert.strictEqual(misclassified.members.length,16,'댓글을 게스트로 판독해도 명부와 일치하면 회원입니다.');
+assert.strictEqual(misclassified.commentCount,1);
+assert.strictEqual(misclassified.guests.length,1);
+assert.strictEqual(misclassified.total,17,'투표와 게스트 목록에 중복된 회원은 한 번만 등록합니다.');
+assert.strictEqual(misclassified.members.find(r=>r.key==='회원16').match.memberId,'m16');
+assert.strictEqual(misclassified.members.find(r=>r.key==='회원16').arrivalText,'11시 참석');
+const duplicate=api.resolve({guests:[{name:'동명이인'}]},[{name:'동명이인',memberId:'a'},{name:'동명이인',memberId:'b'}]);
+assert.strictEqual(duplicate.members.length,0,'동명이인은 임의 회원 연결을 금지합니다.');
+assert(duplicate.warnings.some(s=>s.includes('동명이인')));
+const conflict=api.resolve({guests:[{name:'회원01',gender:'여'}]},roster);
+assert.strictEqual(conflict.members.length,0,'명시 성별이 다르면 동명이인 여부를 먼저 확인합니다.');
+assert(conflict.warnings.length);
+const profile=api.resolve({guests:[{name:'회원01',gender:'M',grade:'D'}]},roster);
+assert.strictEqual(profile.members[0].match.grade,roster[0].grade,'회원 급수는 OCR 값이 아닌 명부를 따릅니다.');
 const rankings=api.rankRosters(raw,[
   {id:'wrong',name:'잘못 고른 클럽',members:wrongRoster},
   {id:'right',name:'실제 참가 클럽',members:roster}
