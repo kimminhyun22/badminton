@@ -1,0 +1,17 @@
+.roster-transfer-dialog{box-sizing:border-box;width:min(560px,calc(100% - 24px));max-height:88dvh;overflow:auto;margin:auto;padding:20px;border:1px solid #ccdcd5;border-radius:8px;background:#fff;color:#20352c;font-size:14px;letter-spacing:0}
+.roster-transfer-dialog::backdrop{background:#14231b66}
+.roster-transfer-dialog h2{font-size:20px;margin:0 0 16px}
+.roster-transfer-dialog h3{font-size:16px;margin:16px 0 8px;overflow-wrap:anywhere}
+.roster-transfer-dialog p{line-height:1.6;overflow-wrap:anywhere}
+.roster-transfer-dialog select{display:block;box-sizing:border-box;width:100%;min-height:44px;margin:8px 0;padding:8px;font-size:16px;border:1px solid #bfd6ca;border-radius:6px;background:white;color:inherit}
+.roster-transfer-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.roster-transfer-actions button{flex:1;min-height:44px;padding:10px;border:1px solid #bfd6ca;border-radius:6px;background:#f1f8f4;color:#23543c;font:inherit;cursor:pointer}
+.roster-transfer-actions .primary{background:#245e50;color:white}
+.roster-transfer-actions button:disabled{opacity:.5}
+.roster-transfer-list{max-height:45dvh;overflow:auto}
+.roster-transfer-list label{display:flex;gap:12px;align-items:center;min-height:56px;border-bottom:1px solid #e5ece8;padding:8px 0;cursor:pointer}
+.roster-transfer-list input{width:22px;height:22px;flex-shrink:0;accent-color:#245e50}
+.roster-transfer-list span{min-width:0;overflow-wrap:anywhere}
+.roster-transfer-list small{display:block;font-size:12px;color:#64736d;margin-top:4px}
+.roster-transfer-entry{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.roster-transfer-entry .btn{min-height:44px;flex:1;justify-content:center;white-space:normal}

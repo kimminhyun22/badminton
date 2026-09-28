@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.751';
+const APP_VERSION = '1.10.752';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -9736,40 +9736,7 @@ function exportRosters(){
   URL.revokeObjectURL(url);
 }
 function importRosters(evt){
-  const file=evt.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const data=JSON.parse(e.target.result);
-      if(!data.clubs||!Array.isArray(data.clubs))throw new Error('명부 형식이 올바르지 않습니다.');
-      // 기존 데이터 병합 여부 묻기
-      const hasExisting=rosters.clubs.length>0;
-      let mode='replace';
-      if(hasExisting){
-        const ans=confirm('기존 명부에 병합하시겠습니까?\n(확인=병합, 취소=덮어쓰기)');
-        mode=ans?'merge':'replace';
-      }
-      if(mode==='replace'){
-        rosters=data;
-      } else {
-        // 병합: 클럽명이 같으면 회원 추가, 없으면 새 클럽
-        data.clubs.forEach(nc=>{
-          const exist=rosters.clubs.find(c=>c.name===nc.name);
-          if(exist){
-            nc.members.forEach(m=>{
-              if(!exist.members.some(em=>em.name===m.name))exist.members.push(m);
-            });
-          } else {
-            if(rosters.clubs.length<10)rosters.clubs.push(nc);
-          }
-        });
-      }
-      saveRosters();renderClubList();
-      alert('명부를 불러왔습니다. ('+rosters.clubs.length+'개 클럽)');
-    }catch(err){alert('파일 읽기 오류: '+err.message);}
-    evt.target.value=''; // reset file input
-  };
-  reader.readAsText(file,'utf-8');
+  return window.importRosterTransfer(evt);
 }
 
 /* ── 구글 시트 CSV 내보내기 (외부 라이브러리 불필요) ── */

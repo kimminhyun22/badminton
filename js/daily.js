@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.751';
+const APP_VERSION = '1.10.752';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -11025,7 +11025,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.751&from=daily';
+  location.href='team.html?v=1.10.752&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -16615,40 +16615,7 @@ function exportRosters(){
   URL.revokeObjectURL(url);
 }
 function importRosters(evt){
-  const file=evt.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const data=JSON.parse(e.target.result);
-      if(!data.clubs||!Array.isArray(data.clubs))throw new Error('명부 형식이 올바르지 않습니다.');
-      // 기존 데이터 병합 여부 묻기
-      const hasExisting=rosters.clubs.length>0;
-      let mode='replace';
-      if(hasExisting){
-        const ans=confirm('기존 명부에 병합하시겠습니까?\n(확인=병합, 취소=덮어쓰기)');
-        mode=ans?'merge':'replace';
-      }
-      if(mode==='replace'){
-        rosters=data;
-      } else {
-        // 병합: 클럽명이 같으면 회원 추가, 없으면 새 클럽
-        data.clubs.forEach(nc=>{
-          const exist=rosters.clubs.find(c=>c.name===nc.name);
-          if(exist){
-            nc.members.forEach(m=>{
-              if(!exist.members.some(em=>em.name===m.name))exist.members.push(m);
-            });
-          } else {
-            if(rosters.clubs.length<10)rosters.clubs.push(nc);
-          }
-        });
-      }
-      saveRosters();renderClubList();
-      alert('명부를 불러왔습니다. ('+rosters.clubs.length+'개 클럽)');
-    }catch(err){alert('파일 읽기 오류: '+err.message);}
-    evt.target.value=''; // reset file input
-  };
-  reader.readAsText(file,'utf-8');
+  return window.importRosterTransfer(evt);
 }
 
 /* ── 구글 시트 CSV 내보내기 (외부 라이브러리 불필요) ── */
