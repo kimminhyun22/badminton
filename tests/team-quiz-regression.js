@@ -174,18 +174,17 @@ this.api={quizSeededOrder,quizOwnMatches};
   console.log('  응답 페이지: 결정적 셔플 · 자기 경기 제외 · 숫자 미노출');
 }
 
-// 4) Survey tools belong in a collapsed quality section, not general sharing.
+// Legacy response data stays readable; the retired survey has no live-team entry.
 {
   const menuCount = (teamHtml.match(/teamQuizShare\(\)/g) || []).length;
-  assert.strictEqual(menuCount, 1, 'Keep a single optional survey entry');
-  const tools=teamHtml.slice(teamHtml.indexOf('<details id="teamQuizTools"'),teamHtml.indexOf('</details>',teamHtml.indexOf('<details id="teamQuizTools"')));
-  assert(tools.includes('teamQuizShare()')&&tools.includes('id="quizPanel"'));
-  assert(!tools.slice(0,tools.indexOf('>')).includes(' open'),'Collapsed by default');
+  assert.strictEqual(menuCount, 0, 'The club balance game replaces this optional survey');
+  assert(!teamHtml.includes('id="teamQuizTools"'));
   assert(!teamHtml.slice(teamHtml.indexOf('id="printMenu"'),teamHtml.indexOf('id="tabBracket"')).includes('teamQuizShare()'));
   assert(!teamHtml.slice(teamHtml.indexOf('id="printSheet"')).includes('teamQuizShare()'));
-  assert(teamHtml.includes('id="quizPanel"'), '응답 집계 패널 자리가 있어야 합니다.');
-  assert(teamSrc.includes('_teamQuizAutoWatch();'),
-    '대진을 다시 그릴 때 저장된 설문을 자동으로 감시해야 합니다(새로고침 생존).');
+  assert(!teamHtml.includes('id="quizPanel"'), 'Retired panel must not take up space');
+  assert(!teamSrc.includes('_teamQuizAutoWatch();'),
+    'Retired surveys must not start background listeners during match rendering');
+  assert(teamHtml.includes('skill-review.html'), 'Keep the current club balance game entry');
   assert(teamSrc.includes('대진이 바뀌어 마감됐습니다'),
     '대진 재생성으로 설문이 낡으면 조용히 숨기지 말고 안내해야 합니다(2026-08-14 운영자).');
   // 낡은 설문의 응답은 버리지 않는다 — 설문의 산출물은 대진이 아니라 선수 보정이다
@@ -196,7 +195,7 @@ this.api={quizSeededOrder,quizOwnMatches};
     && teamSrc.includes('_teamQuizRemember(qid,sig)'),
     '설문 ID 이력을 보존해야 서버의 응답을 나중에 δ 재료로 되찾을 수 있습니다.');
   assert(quizHtml.includes('og:title'), '카톡 미리보기 제목이 있어야 합니다 — 대진 내용은 싣지 않습니다.');
-  console.log('  진입점: 공유 메뉴 2곳 · 집계 패널 · 자동 감시 · 카톡 미리보기');
+  console.log('  이전 설문 진입/자동 구독 제거 · 기존 응답 보존 · 밸런스게임 유지');
 }
 
 console.log('\nteam quiz regression ok');
