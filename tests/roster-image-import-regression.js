@@ -26,6 +26,21 @@ assert.throws(()=>build({clubs:[]},'','E2E클럽',conflict,()=>3,()=>1),/확인/
 const ctx={module:{exports:{}}};vm.runInNewContext(fs.readFileSync('js/roster-image-import.js','utf8').replace("if(explicitGender(row.sources[0])!==row.gender)row.gender='';",''),ctx);
 assert.notEqual(ctx.module.exports.merge([],{members:[{name:'E2E가',gender:'남',sourceText:'E2E가/C'}]},2026)[0].gender,'','gender-evidence mutation caught');
 assert(rosterImagePrompt().includes('사진으로 성별/연령/실력을 추측하지'));
+const source=fs.readFileSync('js/roster-image-import.js','utf8');
+const deletion=source.match(/const remove=button\('삭제',\(\)=>\{([\s\S]*?)\n        \},head\)/)[1];
+function checkDeletion(code){
+  const row={name:'E2E가'},other={name:'E2E나'};
+  const context={busy:false,confirm:()=>false,rows:[row,other],row,i:0,notice:{},render:()=>{}};
+  vm.runInNewContext('(function(){'+code+'})()',context);
+  assert.equal(context.rows.length,2,'cancel preserves draft');
+  context.confirm=()=>true;context.busy=true;
+  vm.runInNewContext('(function(){'+code+'})()',context);
+  assert.equal(context.rows.length,2,'busy preserves draft');
+  context.busy=false;vm.runInNewContext('(function(){'+code+'})()',context);
+  assert.deepStrictEqual(context.rows,[other],'only selected draft row removed');
+}
+checkDeletion(deletion);
+assert.throws(()=>checkDeletion(deletion.replace('rows.splice(i,1);','')),'deletion mutation must fail');
 (async()=>{
   let body;
   const result=await analyzeParticipantImages({mode:'roster',images:[{mimeType:'image/png',data:'YWJj'}],projectId:'test',accessToken:'test',fetchImpl:async(url,opts)=>{

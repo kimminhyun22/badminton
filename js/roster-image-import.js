@@ -122,19 +122,24 @@
       summary.textContent='읽은 회원 '+rows.length+'명'+(declared?' / 화면 총원 '+declared+'명':'')+' · 기존 회원 '+duplicates+'명 제외'+(declared>rows.length?' · 나머지 캡처를 추가할 수 있습니다.':'');
       warnings.forEach(w=>el('p',w,list));
       rows.forEach((row,i)=>{
-        const box=el('fieldset','',list);el('legend',(i+1)+'번 회원',box);
-        const choice=el('label','등록',box),check=el('input','',choice);check.type='checkbox';check.checked=row.selected&&!existing.has(nameKey(row.name));check.disabled=existing.has(nameKey(row.name));check.onchange=()=>{row.selected=check.checked;};
-        const nameLabel=el('label','이름',box),name=el('input','',nameLabel);name.value=row.name;name.maxLength=80;name.setAttribute('aria-label',(i+1)+'번 이름');name.onchange=()=>{row.name=name.value.trim();render();};
-        el('small',row.sources.join(' / '),box);
+        const box=el('fieldset','',list);box.setAttribute('aria-label',(i+1)+'번 회원');
+        const head=el('div','',box);head.className='roster-image-member-head';
+        const name=el('input','',head);name.value=row.name;name.maxLength=80;name.setAttribute('aria-label',(i+1)+'번 이름');name.oninput=()=>{row.name=name.value.trim();};
+        name.readOnly=existing.has(nameKey(row.name));
+        const remove=button('삭제',()=>{
+          if(busy||!confirm((row.name||'이 회원')+' 님을 등록 목록에서 삭제할까요? 저장된 명부는 변경되지 않습니다.'))return;
+          rows.splice(i,1);notice.textContent='등록 목록에서 삭제했습니다.';render();
+        },head);remove.className='roster-image-remove';remove.setAttribute('aria-label',(i+1)+'번 회원 삭제');
         if(existing.has(nameKey(row.name))){el('p','이미 등록됨 · 기존 정보 유지',box);return;}
         if(row.conflicts.length)el('p','겹친 캡처의 정보가 다릅니다. 같은 이름의 다른 회원이면 이름을 구분해 다시 추가하세요.',box);
         const fields=el('div','',box);fields.className='roster-image-fields';
         for(const [key,label,choices] of [['gender','성별',['남','여']],['grade','급수',grades],['ageGroup','연령',ages]]){
-          const l=el('label',label,fields),s=el('select','',l);s.setAttribute('aria-label',(i+1)+'번 '+label);
-          for(const v of ['',...choices]){const opt=el('option',v||'확인 필요',s);opt.value=v;}s.value=row[key];
+          const s=el('select','',fields);s.setAttribute('aria-label',(i+1)+'번 '+label);
+          for(const v of ['',...choices]){const opt=el('option',v?(key==='grade'?v+'급':v):label+' 선택',s);opt.value=v;}s.value=row[key];
           s.onchange=()=>{row[key]=s.value;row.conflicts=row.conflicts.filter(f=>f!==key&&(key!=='ageGroup'||f!=='birthYear'));notice.textContent='';};
         }
-        if(row.birthYear)el('small','출생년도 '+row.birthYear+' · 올해 연나이 기준 연령대',box);
+        const source=el('details','',box);el('summary','원본 확인',source);el('small',row.sources.join(' / '),source);
+        if(row.birthYear)el('small','출생년도 '+row.birthYear+' · 올해 연나이 기준 연령대',source);
       });controls();
     }
     d.oncancel=e=>{e.preventDefault();close.click();};d.onclose=()=>d.remove();d.showModal();controls();
