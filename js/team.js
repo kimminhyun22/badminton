@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.757';
+const APP_VERSION = '1.10.758';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -5929,7 +5929,7 @@ function _cpRenderNewList(){
   el.innerHTML=_cpNewPlayers.map((p,i)=>
     `<div class="cp-new-row">
       <span style="flex:1;">${esc(p.name)}</span>
-      <span style="color:var(--dim);font-size:.71rem;">${p.grade}급 · ${p.gender} · ${p.ageGroup||'40대'}${p.team?' · '+p.team:''}</span>
+      <span style="color:var(--dim);font-size:.71rem;">${p.grade} · ${p.gender} · ${p.ageGroup||'40대'}${p.team?' · '+p.team:''}</span>
       <button class="cp-rm-btn" onclick="cpRemoveNew(${i})">✕</button>
     </div>`
   ).join('');
@@ -8217,7 +8217,7 @@ function _rsvpAdminPartnerOptions(memberId,selectedId){
     .concat(members
       .filter(m=>m.id!==memberId)
       .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
-      .map(m=>`<option value="${esc(m.id)}" ${m.id===selectedId?'selected':''}>${esc(m.name)} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}급</option>`))
+      .map(m=>`<option value="${esc(m.id)}" ${m.id===selectedId?'selected':''}>${esc(m.name)} · ${esc(m.gender||'')} · ${esc(m.grade||'C')}</option>`))
     .join('');
 }
 function _rsvpAdminRosterRowsHtml(members,responses){
@@ -8269,7 +8269,7 @@ function _rsvpAdminRosterRowsHtml(members,responses){
       return `<div class="rsvp-admin-row guest ${esc(status)}">
         <div>
           <div class="rsvp-name">${esc(g.name)} <span class="guest-badge">G</span> <span class="rsvp-badge ${esc(status)}">${esc(_rsvpStatusLabel(status))}</span></div>
-          <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')} · ${esc(g.grade||'C')}급 · ${esc(g.gender||'남')} · ${esc(g.ageGroup||'40대')}</div>
+          <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')} · ${esc(g.grade||'C')} · ${esc(g.gender||'남')} · ${esc(g.ageGroup||'40대')}</div>
         </div>
         <div class="rsvp-admin-actions">
           <button class="rsvp-action-btn ready ${status==='none'?'primary':''}" onclick="rsvpSetGuestStatus('${esc(ownerId)}',${Number(item.index)||0},'none')">정상</button>
@@ -8285,7 +8285,7 @@ function _rsvpAdminRosterRowsHtml(members,responses){
     return `<div class="rsvp-admin-row ${esc(status)}">
       <div>
         <div class="rsvp-name">${esc(m.name)} <span class="rsvp-badge ${esc(status)}">${esc(_rsvpStatusLabel(status))}</span></div>
-        <div class="rsvp-meta">${esc(m.club||_rsvpSelectedLabel())} · ${esc(m.grade||'C')}급 · ${esc(m.gender||'남')} · ${esc(m.ageGroup||'40대')}${esc(partnerName)}</div>
+        <div class="rsvp-meta">${esc(m.club||_rsvpSelectedLabel())} · ${esc(m.grade||'C')} · ${esc(m.gender||'남')} · ${esc(m.ageGroup||'40대')}${esc(partnerName)}</div>
       </div>
       <div class="rsvp-admin-actions">
         <button class="rsvp-action-btn ready ${status==='none'?'primary':''}" onclick="rsvpSetResponseStatus('${esc(m.id)}','none')">정상</button>
@@ -8972,7 +8972,7 @@ function _rsvpGuestRowHtml(item){
   const updated=r.updatedAt?new Date(r.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="rsvp-row guest">
     <div>
-      <div class="rsvp-name">${esc(g.name||'게스트 이름 없음')} <span class="rsvp-meta">(${esc(g.gender||'성별?')} · ${esc(g.grade||'급수?')}급)</span></div>
+      <div class="rsvp-name">${esc(g.name||'게스트 이름 없음')} <span class="rsvp-meta">(${esc(g.gender||'성별?')} · ${esc(g.grade||'급수?')})</span></div>
       <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')}${r.club?` · ${esc(r.club)}`:''}${updated?` · ${esc(updated)}`:''}</div>
     </div>
     <span class="rsvp-badge ${esc(status)}">G ${esc(_rsvpStatusLabel(status))}</span>

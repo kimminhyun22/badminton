@@ -25,7 +25,7 @@
   const draft=()=>({ageScale:Number($('ageScale').value)/100,genderScale:Number($('genderScale').value)/100});
   const members=()=>clubs[Number($('club').value)]?.members||[];
   const options=(values,value)=>values.map(v=>`<option value="${esc(v)}"${v===value?' selected':''}>${esc(v)}</option>`).join('');
-  const label=p=>`${p.ageGroup||'연령 미입력'} ${p.gender||'성별 미입력'} ${p.grade||'?'}급`;
+  const label=p=>`${p.ageGroup||'연령 미입력'} ${p.gender||'성별 미입력'} ${p.grade||'?'}`;
   function renderProfiles(){
     const count=Number($('mode').value),list=$('club').value===''?[]:members();
     $('profiles').innerHTML=profiles.slice(0,count).map((p,i)=>`<article class="profile"><h3>${count===2?['선수 A','선수 B'][i]:['A팀 · 선수 1','B팀 · 선수 1','A팀 · 선수 2','B팀 · 선수 2'][i]}</h3>

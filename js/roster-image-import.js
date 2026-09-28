@@ -135,7 +135,7 @@
         const fields=el('div','',box);fields.className='roster-image-fields';
         for(const [key,label,choices] of [['gender','성별',['남','여']],['grade','급수',grades],['ageGroup','연령',ages]]){
           const s=el('select','',fields);s.setAttribute('aria-label',(i+1)+'번 '+label);
-          for(const v of ['',...choices]){const opt=el('option',v?(key==='grade'?v+'급':v):label+' 선택',s);opt.value=v;}s.value=row[key];
+          for(const v of ['',...choices]){const opt=el('option',v||label+' 선택',s);opt.value=v;}s.value=row[key];
           s.onchange=()=>{row[key]=s.value;row.conflicts=row.conflicts.filter(f=>f!==key&&(key!=='ageGroup'||f!=='birthYear'));notice.textContent='';};
         }
         const source=el('details','',box);el('summary','원본 확인',source);el('small',row.sources.join(' / '),source);

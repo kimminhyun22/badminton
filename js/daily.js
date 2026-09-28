@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.757';
+const APP_VERSION = '1.10.758';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -3498,7 +3498,7 @@ function _dailySortPlayersForManage(players){
 function _dailyPlayerMetaText(p){
   const partnerName=_dailyPartnerNameOf(p.id);
   const partner=partnerName?` · 파트너 ${esc(partnerName)}`:'';
-  return `${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')}급 · ${esc(p.ageGroup||'40대')} · ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분${partner}`;
+  return `${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')} · ${esc(p.ageGroup||'40대')} · ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분${partner}`;
 }
 function _dailyRenamePlayerEverywhere(oldName,newName){
   const renameMapKey=map=>{
@@ -6690,7 +6690,7 @@ function dailyRenderUnscheduled(){
     return `<div class="daily-unscheduled-row">
     <div>
       <div class="daily-unscheduled-name">${_dailyNameHtml(p)} ${_dailyStatusBadge(p.status)}${defer?` <span class="daily-status-badge warn">${esc(defer)}</span>`:''}</div>
-      <div class="daily-unscheduled-meta">${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')}급 · 오늘 ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분${defer?` · ${esc(defer)}`:''}</div>
+      <div class="daily-unscheduled-meta">${_dailyGenderLabel(p.gender)} · ${esc(p.grade||'C')} · 오늘 ${p.games||0}게임 · 대기 ${_dailyMinutes(p.waitFrom)}분${defer?` · ${esc(defer)}`:''}</div>
     </div>
     <div class="daily-player-actions"></div>
   </div>`;
@@ -10384,7 +10384,7 @@ function _rsvpGuestRowHtml(item){
   const updated=r.updatedAt?new Date(r.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'';
   return `<div class="rsvp-row guest">
     <div>
-      <div class="rsvp-name">${esc(g.name||'게스트 이름 없음')} <span class="rsvp-meta">(${esc(g.gender||'성별?')} · ${esc(g.grade||'급수?')}급)</span></div>
+      <div class="rsvp-name">${esc(g.name||'게스트 이름 없음')} <span class="rsvp-meta">(${esc(g.gender||'성별?')} · ${esc(g.grade||'급수?')})</span></div>
       <div class="rsvp-meta">신청자 ${esc(r.memberName||r.name||'확인 필요')}${r.club?` · ${esc(r.club)}`:''}${updated?` · ${esc(updated)}`:''}</div>
     </div>
     <span class="rsvp-badge attend">게스트</span>
@@ -11025,7 +11025,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.757&from=daily';
+  location.href='team.html?v=1.10.758&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -15201,7 +15201,7 @@ function _cpRenderNewList(){
   el.innerHTML=_cpNewPlayers.map((p,i)=>
     `<div class="cp-new-row">
       <span style="flex:1;">${esc(p.name)}</span>
-      <span style="color:var(--dim);font-size:.71rem;">${p.grade}급 · ${p.gender} · ${p.ageGroup||'40대'}${p.team?' · '+p.team:''}</span>
+      <span style="color:var(--dim);font-size:.71rem;">${p.grade} · ${p.gender} · ${p.ageGroup||'40대'}${p.team?' · '+p.team:''}</span>
       <button class="cp-rm-btn" onclick="cpRemoveNew(${i})">✕</button>
     </div>`
   ).join('');

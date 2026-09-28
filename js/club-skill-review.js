@@ -271,7 +271,7 @@
     const a=session.players.find(p=>p.id===(flipped?q.b:q.a)),b=session.players.find(p=>p.id===(flipped?q.a:q.b));
     $('progress').textContent=`${session.clubName} · ${at+1} / ${batch.length}`;
     renderQuizProgress();
-    $('sides').innerHTML=[a,b].map((p,i)=>`${i?'<span class="versus" aria-hidden="true">VS</span>':''}<button class="side" id="${i?'rightChoice':'leftChoice'}" data-vote="${i?'b':'a'}"><strong>${esc(p.name)}</strong><span>${esc(p.grade)}급 · ${esc(p.gender)}</span><span>${esc(p.ageGroup)}</span></button>`).join('');
+    $('sides').innerHTML=[a,b].map((p,i)=>`${i?'<span class="versus" aria-hidden="true">VS</span>':''}<button class="side" id="${i?'rightChoice':'leftChoice'}" data-vote="${i?'b':'a'}"><strong>${esc(p.name)}</strong><span>${esc(p.grade)} · ${esc(p.gender)}</span><span>${esc(p.ageGroup)}</span></button>`).join('');
     $('choices').hidden=false;
     if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)$('sides').animate?.([{opacity:.65,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease-out'});
     const chosen=Object.hasOwn(answers,q.id)?answers[q.id]:session.answers[q.id];
