@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.745';
+const APP_VERSION = '1.10.746';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2402,10 +2402,54 @@ function _teamRefineRoundPairs(candidate,settings){
     }
     if(!improved)break;
   }
+  _teamImproveRoundDiversity(candidate,settings);
   const history=_buildHistoryFromMatches(matches);
   players.forEach(p=>{if(history[p.name]){
     p.partnerCount=history[p.name].partnerCount;p.opponentCount=history[p.name].opponentCount;
   }});
+}
+
+function _teamImproveRoundDiversity(candidate,settings){
+  const {matches,participants}=candidate;
+  const fields=['team1A','team1B','team2C','team2D'];
+  const update=m=>{
+    m.team1Level=effLevel(m.team1A)+effLevel(m.team1B);
+    m.team2Level=effLevel(m.team2C)+effLevel(m.team2D);
+    m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;
+  };
+  const preserved=['structureErr','genderErr','avoidableUnderSlots','avoidableOverSlots',
+    'balanceHardCount','balanceSevereCount','balanceCautionCount','asymSevereCount',
+    'maxLD','avgLD','balanceRoundBiasMax','avoidableExact','avoidableSameFour','partner4'];
+  // A clipped zero diversity score can hide useful intermediate improvements.
+  // Compare the unrounded penalty while preserving balance and every player's round.
+  let quality=_qualityAssessment(matches,participants,settings);
+  for(let pass=0;pass<4;pass++){
+    let best=null,attempts=0;
+    scan:for(let i=0;i<matches.length;i++)for(let j=i+1;j<matches.length;j++){
+      const a=matches[i],b=matches[j];
+      if(a.round!==b.round||a.win||b.win||fields.some(f=>a[f].partnerName||b[f].partnerName))continue;
+      for(const fa of fields)for(const fb of fields){
+        const pa=a[fa],pb=b[fb];
+        if(pa.gender!==pb.gender||(settings.teamMode&&pa.team!==pb.team))continue;
+        if(++attempts>1024)break scan;
+        const oldA={...a},oldB={...b};
+        a[fa]=pb;b[fb]=pa;update(a);update(b);
+        const next=_qualityAssessment(matches,participants,settings);
+        if(next.diversityPenalty<quality.diversityPenalty-1e-9
+          &&next.sBalance>=quality.sBalance-1e-9&&next.total>=quality.total
+          &&next.asymMatches.length<=quality.asymMatches.length
+          &&preserved.every(k=>next[k]<=quality[k]+1e-9)
+          &&(!best||next.diversityPenalty<best.quality.diversityPenalty)){
+          best={i,j,fa,fb,quality:next};
+        }
+        Object.assign(a,oldA);Object.assign(b,oldB);
+      }
+    }
+    if(!best)break;
+    const {i,j,fa,fb}=best;
+    [matches[i][fa],matches[j][fb]]=[matches[j][fb],matches[i][fa]];
+    update(matches[i]);update(matches[j]);quality=best.quality;
+  }
 }
 
 function shuffleArray(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}}
@@ -3711,11 +3755,10 @@ function _qualityAssessment(matches,participants,settings){
     -balanceRoundBiasPenalty
     -asymDeduction,0,30);
   const sFair=clamp(10-avoidableUnderSlots*5-avoidableOverSlots*1.2-Math.min(2,variance*10),0,10);
-  const sDiversity=clamp(20
-    -partnerOnlyExcess*1.25
-    -(avoidablePartnerExcess>0?partner3*3+partner4*8:0)
-    -avoidableSameFour*3
-    -avoidableExact*6,0,20);
+  const diversityPenalty=partnerOnlyExcess*1.25
+    +(avoidablePartnerExcess>0?partner3*3+partner4*8:0)
+    +avoidableSameFour*3+avoidableExact*6;
+  const sDiversity=clamp(20-diversityPenalty,0,20);
   const sInterval=clamp(15*(1-excessRatio/.2),0,15);
   const extraRate=avoidableOverSlots/Math.max(1,totalGoalSlots);
   const extraMatchRate=extraMatchCount/Math.max(1,minimumMatches);
@@ -3734,7 +3777,7 @@ function _qualityAssessment(matches,participants,settings){
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,fillerRate,adjustments,genderErr,structureErr,
     asymMatches,asymSevereCount,mirroredExtremes,evenCount,favCount,splitAudit,sTeamSplit,
-    sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel};
+    diversityPenalty,sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel};
 }
 
 /* ═══ 대진 품질 대시보드 ═══ */
