@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.747';
+const APP_VERSION = '1.10.748';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -3438,26 +3438,13 @@ function startNewTeamWorkout(){
 }
 
 /* 중계 버튼 UI 갱신 */
-/**
- * 임원 화면 열기 — **운영은 한 콘솔에서** (운영자 2026-08-12).
- *
- * 관리자 화면과 임원 화면이 같은 일을 서로 다른 모양으로 보여 주면, 쓰는 사람이
- * 두 벌을 익혀야 하고 숫자가 어긋날 때 어느 쪽이 맞는지 알 수 없습니다. 대진을
- * 만드는 일(참가자·설정·생성·품질)은 관리자 화면에만 있고, **경기가 시작된 뒤의
- * 운영은 임원 화면 한 곳**으로 모읍니다. 관리자도 거기서 봅니다.
- */
-function openOfficialConsole(){
-  const url=_liveUrl();
-  if(!url)return alert('중계를 먼저 시작해 주세요.');
-  window.open(url,'_blank','noopener');
-}
 function _teamSyncLiveStopShortcuts(){
   // 참가자 카드 안에 있던 사본(mobLiveStopBtn)은 뺐습니다 — 맨 위와 접힌
   // 관리 그룹 두 곳이면 충분합니다(2026-08-12).
   // 보드 본문이 같은 「팀전 이어가기」 CTA 를 그리는 단계에서는 머리쪽 사본을 감춘다(2026-09-03 감사)
   const resumeTop=document.getElementById('liveResumeTopBtn');
   if(resumeTop&&document.querySelector('#autoFlowBody .auto-flow-action.live-start'))resumeTop.classList.add('hidden');
-  ['liveStopTopBtn','liveConsoleTopBtn'].forEach(id=>{
+  ['liveStopTopBtn'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.classList.toggle('hidden',!_liveOn);
   });

@@ -29,8 +29,8 @@ assert(/class="sync-btn s-reset team-reset-top"[^>]*onclick="resetAll\(\)"/.test
 assert((html.match(/resetAll\(\)/g) || []).length === 1 &&
   css.includes('.team-monitoring .team-reset-top{display:none;}'),
   '준비 중 상단 초기화와 중계 중 선택창은 동시에 노출하지 않습니다.');
-assert(/id="liveConsoleTopBtn"/.test(html),
-  '상단에는 운영을 여는 입구(임원 화면)가 있어야 합니다.');
+assert(!/id="liveConsoleTopBtn"/.test(html),
+  '중복 임원 화면 열기 입구를 제거합니다.');
 
 assert(css.includes('.bracket-save-quick'), '상황판 빠른 저장 영역 스타일이 있어야 합니다.');
 assert(css.includes('.bracket-save-primary'), '진행 설정의 상시 저장 버튼 스타일이 있어야 합니다.');

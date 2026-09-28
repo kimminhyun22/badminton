@@ -128,13 +128,12 @@ api.setLate({
   assert(/class="live-player"/.test(plain), '평범한 이름은 그대로여야 합니다.');
   assert(!/role="button"/.test(plain), '평범한 이름은 눌리면 안 됩니다.');
 
-  // 2026-08-12: 상태(제외)와 할 일(교체)을 한 배지에 함께 적습니다.
-  assert(/제외 · 교체/.test(tappable), '무엇을 할 수 있는지 이름 옆에 적어야 합니다.');
+  assert(/>제외<\/span>/.test(tappable), '제외 상태만 표시합니다.');
   assert(!/불참/.test(tappable), '불참 표기는 더 이상 쓰지 않습니다.');
-  // 제외 표시가 없는 이름의 배지는 「교체」 하나 — 앞에 「 · 」 가 남으면 안 됩니다.
+  // 교체 진입은 이름 자체에 유지하고 반복 딱지는 표시하지 않습니다.
   const discretionary = api._playerLine('청하나', d, d.matches[0]);
-  assert(/<span class="ready-badge">교체<\/span>/.test(discretionary),
-    `재량 교체 배지는 「교체」 하나여야 합니다: ${discretionary}`);
+  assert(!discretionary.includes('ready-badge'),
+    `정상 선수는 교체 딱지가 없어야 합니다: ${discretionary}`);
   console.log('  이름 마크업: div+role · 같은 클래스 · 지각 표시');
 }
 

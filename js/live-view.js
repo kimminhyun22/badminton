@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.747';
+const APP_VERSION='1.10.748';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -2501,7 +2501,7 @@ function _playerLine(name,d,m){
       +'onclick="'+open+'" '
       +'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+open+';}" '
       +'aria-label="'+esc(n)+' '+esc(label)+' · 눌러서 대체 선수 넣기">'
-      +esc(n)+'<span class="ready-badge">'+(label?label+' · 교체':'교체')+'</span></div>';
+      +esc(n)+(label?'<span class="ready-badge">'+label+'</span>':'')+'</div>';
   }
   return '<div class="'+cls+'">'+esc(n)
     +(label?'<span class="ready-badge">'+label+'</span>':'')

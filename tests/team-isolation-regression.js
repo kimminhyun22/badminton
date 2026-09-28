@@ -116,9 +116,8 @@ assert(importBody.includes('관리자가 참가자 명단을 직접 세팅'), '�
 assert(!teamJs.includes("_autoFlowAction('참가자 불러오기'"), '운영 흐름이 회원 응답자 불러오기를 요구하면 안 됩니다.');
 assert(teamJs.includes('function _rsvpOwnsCurrentEvent()'), 'RSVP 링크와 현재 대진의 소유권 확인 함수가 필요합니다.');
 assert(teamJs.includes('홈 상단의 "운동 종료"'), '불러오기 차단 안내에서 종료 버튼 위치를 알려야 합니다.');
-// 2026-08-12: 「임원 화면 열기」도 중계 중에만 뜨므로 같은 목록에서 함께 켭니다.
-assert(teamJs.includes("['liveStopTopBtn','liveConsoleTopBtn']"),
-  'LIVE 중에만 뜨는 버튼들을 한 목록에서 동기화해야 합니다.');
+assert(teamJs.includes("['liveStopTopBtn']"), '운동 종료 버튼은 LIVE 상태와 동기화해야 합니다.');
+assert(!teamJs.includes('openOfficialConsole'), '중복 중계 화면 열기를 제거해야 합니다.');
 assert(teamJs.includes('function _teamHasResumeLiveHint()'), '앱 재시작 후 이어 켤 LIVE가 있음을 감지해야 합니다.');
 assert(teamJs.includes('function _teamStoredLiveMatchesCurrentBracket(savedId)'), '이어 켜기 버튼은 저장 LIVE와 현재 대진이 로컬상 맞을 때만 노출되어야 합니다.');
 assert(teamJs.includes('_teamStoredLiveMatchesCurrentBracket(savedId)'), 'LIVE 복구 힌트는 대진 정합성 필터를 거쳐야 합니다.');

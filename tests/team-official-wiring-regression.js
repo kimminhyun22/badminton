@@ -57,6 +57,17 @@ assert(liveView.includes('function _pendingSubstitutions'), '메워야 할 자�
 assert(liveView.includes('function openTeamSubstitutePanel'), '대체 시트가 있어야 합니다.');
 const playerLine = liveView.slice(liveView.indexOf('function _playerLine'),
   liveView.indexOf('function buildLiveMatchCard'));
+const playerSandbox={esc:s=>String(s),_lateOn:()=>false,_replaceableInMatch:()=>true};
+require('vm').createContext(playerSandbox);
+require('vm').runInContext(playerLine,playerSandbox);
+const normalPlayer=playerSandbox._playerLine('E2E선수',{}, {num:1});
+assert(!normalPlayer.includes('ready-badge'), '교체 가능한 이름에 반복 딱지를 붙이지 않습니다.');
+assert(normalPlayer.includes('openTeamSubstitutePanel(1,'), '딱지를 없애도 이름 교체 동작은 유지합니다.');
+playerSandbox._lateOn=()=>true;
+assert(playerSandbox._playerLine('E2E선수',{}, {num:1}).includes('>제외</span>'), '제외 상태는 유지합니다.');
+for(const file of ['index.html','team.html']){
+  assert(!fs.readFileSync(path.join(root,file),'utf8').includes('임원 화면 열기'), '중복 화면 열기 버튼이 없어야 합니다.');
+}
 assert(/onclick="openTeamSubstitutePanel\('\+Number\(m\.num\|\|0\)\+','\+arg\+'\)"/.test(playerLine)
   || /openTeamSubstitutePanel\('\+Number\(m\.num/.test(playerLine),
   '대진표의 이름을 누르면 그 경기·그 선수로 시트가 열려야 합니다.');
