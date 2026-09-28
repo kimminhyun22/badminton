@@ -72,6 +72,7 @@ body.km-admin-page *,body.km-member-page *{letter-spacing:0!important;}
 .km-admin-page button.share-primary img{width:18px;height:18px;flex:none;}
 .km-admin-page button.share-primary::before{display:none!important;}
 .km-admin-page .auto-flow-quick-actions{grid-template-columns:minmax(0,1fr);}
+.km-admin-page .team-monitor-tools>.auto-flow-quick-actions{flex:1 1 100%;width:100%;}
 .km-admin-page .auto-flow-share-btns{grid-template-columns:minmax(0,1fr);}
 .km-admin-page .rsvp-current-actions:has(.share-primary){grid-template-columns:repeat(2,minmax(0,1fr));}
 .km-admin-page .rsvp-current-actions:has(.share-primary)>.rsvp-action-btn:last-child{grid-column:auto;}

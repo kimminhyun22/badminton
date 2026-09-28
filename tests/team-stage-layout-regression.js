@@ -43,6 +43,8 @@ function run(state){
     if (!els[key]) {
       const e = { classes: new Set(), open: null, parentElement: null, textContent: '', tagName: key.startsWith('#sec-') ? 'DETAILS' : 'DIV' };
       e.dataset = {};
+      e.insertBefore = child => { child.parentElement = e; };
+      e.querySelector = () => null;
       e.classList = {
         toggle: (c, on) => { if (on) e.classes.add(c); else e.classes.delete(c); },
         contains: c => e.classes.has(c),
@@ -83,6 +85,7 @@ function run(state){
     hidden: key => els[key]?.classes.has('hidden') === true,
     open: key => els['#' + key]?.open,
     page: els['#pageMain'].classes,
+    shareInMonitor: els['.auto-flow-quick-actions']?.parentElement === els['#teamMonitorTools'],
   };
 }
 
@@ -194,9 +197,13 @@ assert(r.hidden('.auto-flow-quick-actions'), '참가자가 없으면 공유 버�
 r = run({ players: [{}], matches: [{}] });
 assert(r.hidden('#teamLiveActionRow'), 'LIVE 중 「팀전 진행 중」처럼 보이는 중계 종료 사본은 없어야 합니다.');
 assert(r.hidden('#undoBtnMain'), '대진이 생기면 되돌리기는 대진 옆 하나만 남아야 합니다.');
-assert(src.includes("hide('.auto-flow-quick-actions',(empty&&!_rsvpId)||shareCta);"),
+assert(src.includes("hide('.auto-flow-quick-actions',!_liveOn&&((empty&&!_rsvpId)||shareCta));"),
   '안내 CTA 가 공유일 때는 머리쪽 공유 사본을 감춰야 합니다 — 같은 버튼이 한 화면에 넷이 되면 안 됩니다.');
 assert(src.includes('function _autoFlowShareAction('), '공유 CTA 헬퍼가 있어야 합니다.');
+r = run({ players: [{}], matches: [{}], live: true });
+assert(!r.hidden('.auto-flow-quick-actions'), 'Published matches must show sharing without opening management');
+assert(r.shareInMonitor, 'Published sharing must live outside the hidden settings card');
+assert(!run({ players:[{}], matches:[{}] }).shareInMonitor, 'Draft sharing belongs in the preparation header');
 assert(src.includes("link:_autoFlowShareAction(),"),
   '링크 단계 CTA 도 채널 버튼이어야 합니다 — 채널 없는 사본을 남기면 안 됩니다.');
 assert((src.match(/icons\/lucide\/share-2.svg/g)||[]).length===2,'공유 CTA·링크 카드도 같은 공유 버튼을 사용합니다.');

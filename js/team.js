@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.746';
+const APP_VERSION = '1.10.747';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -8641,7 +8641,17 @@ function teamApplyStageLayout(){
   // 참가자가 없으면 공유는 눌러도 안내창뿐이다 — 민턴LIVE 와 같은 기준.
   // 「다음 할 일」이 공유일 때도 머리쪽 사본을 감춘다 — 같은 버튼 넷이 한 화면에 서지 않게.
   const shareCta=!!document.querySelector('#autoFlowBody .auto-flow-share-btns');
-  hide('.auto-flow-quick-actions',(empty&&!_rsvpId)||shareCta);
+  const shareActions=document.querySelector('.auto-flow-quick-actions');
+  const shareHome=document.querySelector('#autoFlowCard .auto-flow-actions');
+  const shareMonitor=document.getElementById('teamMonitorTools');
+  const shareTarget=_liveOn?shareMonitor:shareHome;
+  // Keep one share control outside the collapsed management card after publishing.
+  if(shareActions&&shareTarget&&shareActions.parentElement!==shareTarget){
+    shareTarget.insertBefore(shareActions,_liveOn
+      ?document.getElementById('teamMonitorTiming')?.nextSibling
+      :shareHome.querySelector('.team-reset-top'));
+  }
+  hide('.auto-flow-quick-actions',!_liveOn&&((empty&&!_rsvpId)||shareCta));
   // 시작·이어가기·종료는 모두 운영 보드에 있다. 결과 영역의 사본은 LIVE 중 「팀전 진행 중」
   // 이라는 상태 알약처럼 보이는데 누르면 중계가 끊긴다 — 오조작 위험이라 감춘다.
   hide('#teamLiveActionRow',true);
