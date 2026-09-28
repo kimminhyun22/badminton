@@ -42,7 +42,7 @@ const MEMBER_FUNCTION_OPTIONS = {
 const IMAGE_ANALYSIS_OPTIONS = {
   region:REGION,
   maxInstances:5,
-  timeoutSeconds:90,
+  timeoutSeconds:150,
   memory:'512MiB',
   enforceAppCheck:true
 };
@@ -75,6 +75,8 @@ exports.analyzeDailyParticipantScreenshots = onCall(IMAGE_ANALYSIS_OPTIONS, asyn
       throw new HttpsError('invalid-argument','캡처 이미지를 다시 선택해 주세요.');
     }
     if(error?.status===429)throw new HttpsError('resource-exhausted','잠시 후 다시 시도해 주세요.');
+    if(['TimeoutError','AbortError'].includes(error?.name))throw new HttpsError('deadline-exceeded','AI 응답이 지연됩니다. 선택한 캡처를 유지한 채 다시 시도해 주세요.');
+    if(error?.message==='unreadable-ai-response')throw new HttpsError('data-loss','AI가 명부를 끝까지 읽지 못했습니다. 캡처를 적게 나누어 다시 시도해 주세요.');
     throw new HttpsError('internal','캡처를 분석하지 못했습니다. 잠시 후 다시 시도해 주세요.');
   }
 });

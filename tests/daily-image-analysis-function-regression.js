@@ -38,6 +38,8 @@ const index=fs.readFileSync(path.join(__dirname,'../functions/index.js'),'utf8')
   assert.strictEqual(request.body.contents[0].parts.length,2,'서버 지침과 이미지가 함께 전달되어야 합니다.');
   assert.strictEqual(request.body.generationConfig.responseMimeType,'application/json');
   assert.strictEqual(request.body.generationConfig.maxOutputTokens,8192,'긴 참석 명단이 출력 한도에서 잘리면 안 됩니다.');
+  assert.strictEqual(request.body.generationConfig.thinkingConfig.thinkingLevel,'MINIMAL');
+  assert(request.options.signal instanceof AbortSignal,'AI 요청에 종료 기한이 있어야 합니다.');
 
   let attempts=0;
   const retried=await analyzeParticipantImages({
@@ -45,13 +47,20 @@ const index=fs.readFileSync(path.join(__dirname,'../functions/index.js'),'utf8')
     fetchImpl:async()=>{
       attempts++;
       return {ok:true,json:async()=>attempts===1
-        ?{candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:'{"voteAttendees":['}]} }],usageMetadata:{candidatesTokenCount:2400}}
-        :{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(expected)}]}}]}};
+        ?{candidates:[{finishReason:'MAX_TOKENS',content:{parts:[{text:JSON.stringify({voteAttendees:[]})}]} }],usageMetadata:{candidatesTokenCount:2400}}
+        :{candidates:[{finishReason:'STOP',content:{parts:[{thought:true,text:'internal reasoning'},{text:JSON.stringify(expected)}]}}]}};
     }
   });
   assert.deepStrictEqual(retried,expected);
   assert.strictEqual(attempts,2,'불완전한 AI 응답은 서버가 한 번 자동 재시도해야 합니다.');
-  assert(index.includes('timeoutSeconds:90'),'실캡처 자동 재시도 시간을 함수에 보장해야 합니다.');
+  assert(index.includes('timeoutSeconds:150'),'최대 두 번의65초 요청보다 서버 제한이 길어야 합니다.');
+  let failures=0;
+  await assert.rejects(()=>analyzeParticipantImages({images:[image],projectId:'test',accessToken:'test',fetchImpl:async()=>{failures++;throw new DOMException('timeout','TimeoutError');}}),/timeout/);
+  assert.equal(failures,1,'시간 초과는 자동 중복 과금 재시도를 하지 않습니다.');
+  const vm=require('vm'),source=fs.readFileSync(path.join(__dirname,'../functions/daily-image-import.js'),'utf8');
+  const ctx={module:{exports:{}},AbortSignal};
+  vm.runInNewContext(source.replace("thinkingLevel:'MINIMAL'","thinkingLevel:'HIGH'"),ctx);
+  await assert.rejects(()=>ctx.module.exports.analyzeParticipantImages({images:[image],projectId:'test',accessToken:'test',fetchImpl:async(url,opts)=>{assert.equal(JSON.parse(opts.body).generationConfig.thinkingConfig.thinkingLevel,'MINIMAL');}}),/HIGH/);
   assert(index.includes('exports.analyzeDailyParticipantScreenshots = onCall(IMAGE_ANALYSIS_OPTIONS'),
     '전용 callable 함수가 배포 목록에 있어야 합니다.');
   assert(index.includes('enforceAppCheck:true'),'캡처 분석 함수는 App Check 없는 호출을 거절해야 합니다.');

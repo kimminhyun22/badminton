@@ -6,6 +6,7 @@ const MAX_IMAGE_BYTES=3*1024*1024;
 const MAX_TOTAL_BYTES=12*1024*1024;
 const MAX_OUTPUT_TOKENS=8192;
 const MAX_ATTEMPTS=2;
+const ATTEMPT_TIMEOUT_MS=65000;
 
 const RESPONSE_SCHEMA={
   type:'OBJECT',
@@ -69,7 +70,7 @@ function validateImages(value){
 }
 
 function responseText(payload){
-  return (payload?.candidates?.[0]?.content?.parts||[]).map(part=>String(part?.text||'')).join('').trim();
+  return (payload?.candidates?.[0]?.content?.parts||[]).filter(part=>!part.thought).map(part=>String(part?.text||'')).join('').trim();
 }
 
 function parseResponseJson(text){
@@ -92,7 +93,8 @@ function responseDiagnostic(payload,text){
   return {
     finishReason:String(candidate.finishReason||''),
     textLength:String(text||'').length,
-    outputTokens:Number(payload?.usageMetadata?.candidatesTokenCount)||0
+    outputTokens:Number(payload?.usageMetadata?.candidatesTokenCount)||0,
+    thoughtTokens:Number(payload?.usageMetadata?.thoughtsTokenCount)||0
   };
 }
 
@@ -110,10 +112,11 @@ async function analyzeParticipantImages(options){
     const retryInstruction=attempt===1?'':'\n앞선 응답이 완전한 JSON이 아니었습니다. 설명이나 코드 블록 없이 더 간결한 JSON 객체만 반환하세요.';
     const response=await fetchImpl(url,{
       method:'POST',
+      signal:AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
       headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
       body:JSON.stringify({
         contents:[{role:'user',parts:[{text:(mode==='roster'?rosterImagePrompt():participantImagePrompt())+retryInstruction},...images]}],
-        generationConfig:{temperature:0.1,maxOutputTokens:MAX_OUTPUT_TOKENS,responseMimeType:'application/json',responseSchema:mode==='roster'?ROSTER_SCHEMA:RESPONSE_SCHEMA}
+        generationConfig:{temperature:0.1,maxOutputTokens:MAX_OUTPUT_TOKENS,thinkingConfig:{thinkingLevel:'MINIMAL'},responseMimeType:'application/json',responseSchema:mode==='roster'?ROSTER_SCHEMA:RESPONSE_SCHEMA}
       })
     });
     if(!response.ok){
@@ -126,7 +129,7 @@ async function analyzeParticipantImages(options){
     const payload=await response.json();
     const text=responseText(payload);
     const parsed=parseResponseJson(text);
-    if(parsed)return parsed;
+    if(parsed&&payload?.candidates?.[0]?.finishReason!=='MAX_TOKENS')return parsed;
     lastDiagnostic=responseDiagnostic(payload,text);
   }
   const error=new Error('unreadable-ai-response');

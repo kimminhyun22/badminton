@@ -4,7 +4,7 @@
 const SDK_VERSION='12.17.0';
 const MAX_IMAGES=8;
 const MAX_EDGE=1800;
-const TIMEOUT_MS=105000;
+const TIMEOUT_MS=170000;
 const ROLE_WORDS='회장|부회장|총무|재무|경기이사|이사|임원|고문|감사';
 let analyzerPromise=null;
 let state={files:[],clubId:'',clubName:'',roster:[],clubs:[],selectedClubIndex:0,raw:null,ranking:[],result:null,notice:''};
@@ -137,7 +137,7 @@ async function analyzer(){
     const app=getApps().find(item=>item.name===appName)||initializeApp(config(),appName);
     initializeAppCheck(app,{provider:new ReCaptchaEnterpriseProvider(appCheckKey()),isTokenAutoRefreshEnabled:true});
     const functions=functionsModule.getFunctions(app,'us-central1');
-    return functionsModule.httpsCallable(functions,'analyzeDailyParticipantScreenshots',{timeout:100000});
+    return functionsModule.httpsCallable(functions,'analyzeDailyParticipantScreenshots',{timeout:165000});
   })().catch(error=>{analyzerPromise=null;throw error;});
   return analyzerPromise;
 }
@@ -161,8 +161,10 @@ function canvasData(file){
     img.src=url;
   });
 }
-function timeout(promise){
-  return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error('분석 시간이 초과되었습니다. 다시 시도해 주세요.')),TIMEOUT_MS))]);
+async function timeout(promise){
+  let timer;
+  try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('분석 시간이 초과되었습니다. 다시 시도해 주세요.')),TIMEOUT_MS);})]);}
+  finally{clearTimeout(timer);}
 }
 async function analyze(files,mode='participants'){
   const selected=[...(files||[])].filter(file=>String(file.type||'').startsWith('image/')).slice(0,MAX_IMAGES);
