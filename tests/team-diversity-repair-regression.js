@@ -29,10 +29,44 @@ function run(c){const x=fixture(c),before=c._qualityAssessment(x.matches,x.parti
  return {before:before.total,after:after.total,diversity:after.sDiversity};}
 console.log('Equal-balance diversity repair',run(build()));
 assert.throws(()=>run(build(true)),/Repair equal-balance diversity/,'Old strict-balance gate mutation must fail');
-for(const lock of ['partner','completed']){
+for(const lock of ['partner','completed','voided']){
  const c=build(),x=fixture(c);
- if(lock==='partner')x.participants.forEach(p=>p.partnerName='E2E-fixed');else x.matches.forEach(m=>m.win='t1');
+ if(lock==='partner')x.participants.forEach(p=>p.partnerName='E2E-fixed');else x.matches.forEach(m=>{if(lock==='voided')m.voided=true;else m.win='t1';});
  const before=JSON.stringify(x);c._teamImproveRoundDiversity(x,settings);assert.equal(JSON.stringify(x),before,lock+' unchanged');
 }
 assert(src.includes('_teamImproveRoundDiversity(candidate,settings);'),'Wire into candidate refinement');
 console.log('PASS round membership, appearance counts, fixed partners, completed games and mutation');
+
+function refined(old=false){
+ const c=build();
+ let code=src.slice(src.indexOf('function _isBetterQualityKey('),src.indexOf('function shuffleArray('));
+ if(old)code=code.replace('next.sBalance>=quality.sBalance&&next.maxLD<quality.maxLD-0.001&&next.avgLD<=quality.avgLD','false').replace('attempts>320','attempts>160');
+ vm.runInContext(code,c);c._buildHistoryFromMatches=()=>({});
+ const x=fixture(c),before=c._qualityAssessment(x.matches,x.participants,settings);
+ const rounds=()=>JSON.stringify(x.matches.map(m=>fields.map(f=>m[f].name)).reduce((a,n,i)=>{const r=Math.floor(i/4);a[r]=(a[r]||[]).concat(n).sort();return a;},[]));
+ const original=rounds();c._teamRefineRoundPairs(x,settings);
+ const after=c._qualityAssessment(x.matches,x.participants,settings);
+ assert.equal(rounds(),original);assert.deepStrictEqual(after.counts,before.counts);
+ assert(after.maxLD<=before.maxLD);assert(after.balanceHardCount<=before.balanceHardCount);
+ assert(after.total>=before.total-3);assert.equal(after.genderErr,0);
+ for(const m of x.matches)m.win='t1';const locked=JSON.stringify(x);
+ c._teamRefineRoundPairs(x,settings);assert.equal(JSON.stringify(x),locked,'Completed matches must not change in either refinement pass');
+ return {total:after.total,max:after.maxLD,avg:after.avgLD};
+}
+const prior=refined(true),current=refined();
+assert(current.max<=prior.max);console.log('Full refinement',JSON.stringify({prior,current}));
+
+function plateau(mutate=false){
+ const ps=Array.from({length:8},(_,i)=>({name:'E2E'+i,gender:'M',level:3}));
+ const x={participants:ps,matches:[0,4].map(start=>Object.fromEntries([['round',1],...fields.map((f,i)=>[f,ps[start+i]])]))};
+ const c={effLevel:p=>p.level,_buildHistoryFromMatches:()=>({}),_teamImproveRoundDiversity:()=>{}};
+ c._qualityAssessment=ms=>({sBalance:30,total:90,maxLD:ms[0].team1A.name==='E2E4'?1.5:2,avgLD:1,avoidableExact:0});
+ c._teamFinalQualityKey=ms=>[c._qualityAssessment(ms).maxLD];c._isBetterQualityKey=(a,b)=>a[0]<b[0];
+ vm.createContext(c);
+ let code=src.slice(src.indexOf('function _teamRefineRoundPairs('),src.indexOf('function _teamImproveRoundDiversity('));
+ if(mutate)code=code.replace('next.sBalance>=quality.sBalance&&next.maxLD<quality.maxLD-0.001&&next.avgLD<=quality.avgLD','false');
+ vm.runInContext(code,c);c._teamRefineRoundPairs(x,{});
+ return c._qualityAssessment(x.matches).maxLD;
+}
+assert.equal(plateau(),1.5,'Equal rounded score must allow a smaller worst gap');
+assert.equal(plateau(true),2,'Old strict score gate misses the improvement');

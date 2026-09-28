@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.748';
+const APP_VERSION = '1.10.749';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -845,7 +845,13 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
     // 약체 부담도 1인당으로 — 인원이 다르면 합끼리 비교가 인원 많은 쪽으로 기운다
     const weakD=(nB&&nW)?Math.abs(weakLoad(fullB)/nB-weakLoad(fullW)/nW)*(nB+nW)/2
                         :Math.abs(weakLoad(fullB)-weakLoad(fullW));
-    return cntD*W_CNT + femD*W_FEM + lvD*W_LV + weakD*W_WEAK + spreadD(fullB,fullW)*W_SPREAD;
+    // Opposite male/female advantages must not cancel in the whole-team total.
+    const genderD=[true,false].reduce((total,female)=>{
+      const b=fullB.filter(p=>isF(p)===female),w=fullW.filter(p=>isF(p)===female);
+      if(!b.length||!w.length)return total;
+      return total+Math.abs(sum(b)/b.length-sum(w)/w.length)*Math.min(b.length,w.length);
+    },0);
+    return cntD*W_CNT + femD*W_FEM + lvD*W_LV + weakD*W_WEAK + spreadD(fullB,fullW)*W_SPREAD + genderD*0.5;
   };
 
   // 한 번의 그리디 배분 (시드 상태를 반영해 부족한 쪽에 채움)
@@ -2387,15 +2393,17 @@ function _teamRefineRoundPairs(candidate,settings){
     scan:for(const i of order)for(let j=0;j<matches.length;j++){
       if(i===j)continue;
       const a=matches[i],b=matches[j];
-      if(a.round!==b.round||fields.some(f=>a[f].partnerName||b[f].partnerName))continue;
+      if(a.round!==b.round||a.win||b.win||a.voided||b.voided||fields.some(f=>a[f].partnerName||b[f].partnerName))continue;
       for(const ga of groups)for(const gb of groups){
         if(ga.length!==gb.length||ga.some((fa,k)=>a[fa].gender!==b[gb[k]].gender||(settings.teamMode&&a[fa].team!==b[gb[k]].team)))continue;
-        if(++attempts>160)break scan;
+        if(++attempts>320)break scan;
         const beforeA={...a},beforeB={...b};
         ga.forEach((fa,k)=>{a[fa]=beforeB[gb[k]];b[gb[k]]=beforeA[fa];});update(a);update(b);
         const next=_qualityAssessment(matches,players,settings);
         const nextKey=_teamFinalQualityKey(matches,players,settings);
-        if(next.sBalance>quality.sBalance+0.001&&next.total>=baseline.total-3&&_isBetterQualityKey(nextKey,key)){
+        const balanceImproved=next.sBalance>quality.sBalance+0.001
+          ||(next.sBalance>=quality.sBalance&&next.maxLD<quality.maxLD-0.001&&next.avgLD<=quality.avgLD);
+        if(balanceImproved&&next.avoidableExact<=quality.avoidableExact&&next.total>=baseline.total-3&&_isBetterQualityKey(nextKey,key)){
           quality=next;key=nextKey;improved=true;
         }else{Object.assign(a,beforeA);Object.assign(b,beforeB);}
       }
@@ -2427,7 +2435,7 @@ function _teamImproveRoundDiversity(candidate,settings){
     let best=null,attempts=0;
     scan:for(let i=0;i<matches.length;i++)for(let j=i+1;j<matches.length;j++){
       const a=matches[i],b=matches[j];
-      if(a.round!==b.round||a.win||b.win||fields.some(f=>a[f].partnerName||b[f].partnerName))continue;
+      if(a.round!==b.round||a.win||b.win||a.voided||b.voided||fields.some(f=>a[f].partnerName||b[f].partnerName))continue;
       for(const fa of fields)for(const fb of fields){
         const pa=a[fa],pb=b[fb];
         if(pa.gender!==pb.gender||(settings.teamMode&&pa.team!==pb.team))continue;
@@ -3829,9 +3837,9 @@ function renderQualityDashboard(matches,participants,settings){
       if(partnerOnlyExcess>0||partner3||partner4)parts.push(`파트너 재배정 ${avoidablePartnerExcess}회`);
       if(avoidableSameFour>0)parts.push(`같은 4명 ${avoidableSameFour}건`);
       if(avoidableExact>0)parts.push(`완전 동일 ${avoidableExact}건`);
-      let detail=parts.length?parts.join(' · '):'반복 대진 없음';
+      let detail=parts.length?parts.join(' · '):'피할 수 있는 반복 없음';
       if(avoidablePartnerExcess>0)detail+=` · 반복 조합 ${repeatedPartnerPairs}쌍 · 최다 ${maxPartnerRepeat}회 · 상대 제외`;
-      if(unavoidablePartnerExcess>0&&avoidablePartnerExcess===0)detail+=' · 인원상 반복 감점 제외';
+      if(unavoidablePartnerExcess>0)detail+=` · 인원상 불가피한 파트너 반복 ${unavoidablePartnerExcess}회 감점 제외`;
       if((unavoidableSameFour>0||unavoidableExact>0)&&avoidableSameFour===0&&avoidableExact===0)
         detail+=' · 인원상 재대결 감점 제외';
       return {label:'대진 다양성',detail,score:sDiversity,max:20,pct};
@@ -3927,7 +3935,7 @@ function renderQualityDashboard(matches,participants,settings){
   }
   const chip=(label,cls)=>`<span class="op-chip ${cls}">${label}</span>`;
   const opChips=[
-    chip(balanceHardCount===0?'실력균형 정상':`실력차 ${balanceHardCount}경기`,balanceHardCount===0?'ok':'bad'),
+    chip(balanceHardCount>0?`실력차 ${balanceHardCount}경기`:balanceCautionCount>0?`실력균형 주의 ${balanceCautionCount}경기`:'실력균형 허용범위',balanceHardCount>0?'bad':balanceCautionCount>0?'warn':'ok'),
     chip(structureErr===0?`${structureLabel} 정상`:`${structureLabel} 오류 ${structureErr}건`,structureErr===0?'ok':'bad'),
     chip(genderErr===0?'종목 정상':'종목 오류 '+genderErr+'건',genderErr===0?'ok':'bad'),
     adjustments.length?chip(`성비보정 ${adjustments.length}경기`,'warn'):'',
