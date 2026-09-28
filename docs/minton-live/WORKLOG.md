@@ -3,7 +3,8 @@
 ## 2026-09-28 · v757 · 캡처 읽기 실패 원인 수정
 - Cloud Logging 최신 조회에서 아이폰 Safari 요청 App Check VALID, 09:45~09:50 UTC에 MAX_TOKENS로 잘린 응답 및 두 건90초504 확인. 인증/파일 선택 실패가 아니라 AI 처리 실패. 로그 원문 개인정보는 저장소에 넣지 않음.
 - Gemini3.5 Flash의 기본 추론 대신 MINIMAL 지정. 출력 한도8192/최대2회는 유지하며 추론 파트 제외, MAX_TOKENS 결과는 JSON이어도 미채택. 요청65초 AbortSignal, 서버150초·클라이언트165초로 기한 정렬. timeout은 추가 자동 재시도 없이 명시 오류. 완료된 클라이언트 타이머 해제.
-- 잘린 JSON·추론 파트·추론 설정·중복 재시도 차단 회귀 및 MINIMAL→HIGH 훼손 검사 추가. 전체 게이트/배포 진행 중. 실제 AI 인식 테스트 최대2회는 사용자 승인 대기. 기존 캡처 선택과 초안 유지 동작 보존.
+- 잘린 JSON·추론 파트·추론 설정·중복 재시도 차단 회귀 및 MINIMAL→HIGH 훼손 검사 추가. 전체145/145·Functions 문법13개, 현황판1개 통과. Functions10개 배포 완료, 실배포 OCR revision00019-nec ACTIVE/150초 확인, App Check 미포함 요청401 확인. 509d083 정적 푸시. 실제 AI 인식 테스트 최대2회는 사용자 승인 대기. 기존 캡처 선택과 초안 유지 동작 보존.
+- Pages index/team/공통 OCR 클라이언트가 로컬 v1.10.757과 일치함을 확인. 참고: Google 공식 Gemini3.5 Flash 가이드의 MINIMAL 지원을 확인해 적용(https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-5-flash).
 
 ## 2026-09-28 · v756 · 캡처 명부 모바일 편집 간소화
 - 회원 편집을 이름/삭제 한 줄, 성별/급수/연령 한 줄로 축소. 중복 번호·등록 체크·반복 라벨 제거, 원본/출생년도는 접기. 입력 글자 16px와 터치 높이44px 유지.
