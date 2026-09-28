@@ -2,6 +2,15 @@
 
 운영자용 주소: https://kimminhyun22.github.io/badminton/
 
+앱 안의 **설명서 → 설치·사용 안내 공유**에서 카톡을 선택하거나 **안내 복사**를 누릅니다. 운영자에게 보낼 [카톡용 짧은 안내](KAKAO_START.txt)와 [설명서 바로가기](https://kimminhyun22.github.io/badminton/?manual=1)를 준비했습니다. 자동 발송하지 않으며 대상 대화방은 직접 선택합니다.
+
+## 설치 (선택)
+- iPhone/iPad: Safari에서 운영자용 주소 → 공유 → 홈 화면에 추가. 웹 앱으로 열기 옵션이 보이면 켭니다.
+- Android: Chrome에서 운영자용 주소 → 메뉴 → 홈 화면에 추가 또는 앱 설치.
+- 카톡 안에서 설치 메뉴가 없으면 주소를 복사해 Safari/Chrome에서 엽니다.
+- 실제로 사용할 홈 화면 앱을 먼저 설치하고, 그 앱 안에서 명부를 등록합니다. 회원은 설치 없이 운동 링크만 열어도 됩니다.
+- 설치 메뉴는 OS·브라우저 버전에 따라 다릅니다. [Apple 안내](https://support.apple.com/guide/iphone/turn-a-website-into-an-app-iph42ab2f3a7/ios), [Chrome 안내](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DAndroid&hl=ko).
+
 ## 처음 시작
 1. 명부 → **명부 만들기**에서 클럽명과 회원을 등록합니다. 가입이나 대표 지정은 필요 없습니다.
 2. 명부에서 참가자를 선택하고 민턴LIVE 또는 팀전으로 진행합니다.
