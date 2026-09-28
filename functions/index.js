@@ -13,6 +13,7 @@ const {
   verifyOfficialGrant
 } = require('./daily-official-engine');
 const {applyCommandTransaction} = require('./daily-official-command');
+const {flushPendingArchives} = require('./daily-archive');
 const {applyMemberCommandTransaction} = require('./daily-member-command');
 const {applyOfficialClaimTransaction} = require('./daily-official-claim');
 const {analyzeParticipantImages} = require('./daily-image-import');
@@ -256,7 +257,6 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
   let failureCode = '';
   let failureMessage = '';
   let terminal = null;
-  let archiveEntry = null;
 
   const transaction = await runExistingSessionTransaction(ref,current=>{
     const outcome = applyCommandTransaction(current, {
@@ -265,19 +265,20 @@ exports.submitDailyOfficialRequest = onCall(FUNCTION_OPTIONS, async request=>{
     failureCode = outcome.failureCode || '';
     failureMessage = outcome.failureMessage || '';
     terminal = outcome.terminal || null;
-    archiveEntry = outcome.archiveEntry || null;
     return outcome.action === 'commit' ? outcome.current : undefined;
   });
 
   if(transaction.missing)throw new HttpsError('not-found', '종료되었거나 아직 게시되지 않은 민턴LIVE입니다.');
-  if(!transaction.result.committed){
-    if(terminal)return {ok:terminal.status==='applied',requestId:operationId,...terminal};
+  if(!transaction.result.committed && !terminal){
     throw new HttpsError(failureCode || 'aborted', failureMessage || '운영 요청을 처리하지 못했습니다.');
   }
   // 「새 운동일 시작」의 지난 운동 전문은 세션 밖에 적는다 — 세션은 명령마다 통째 트랜잭션이고
   // 회원 전원이 구독하므로 거기 쌓으면 운동 후반에 전송이 먼저 무너진다(2026-09-14 검토 E3).
-  if(archiveEntry && terminal?.status === 'applied'){
-    admin.database().ref(`liveArchive/checkin_${checkinId}/${Number(archiveEntry.at) || now}`).set(archiveEntry).catch(()=>{});
+  try{
+    await flushPendingArchives(admin.database(), `checkin_${checkinId}`,
+      transaction.result.snapshot.val()?.pendingArchives);
+  }catch(error){
+    console.error('daily archive pending retry', {checkinId, operationId, code:error.code || 'archive-write-failed'});
   }
   return {ok:terminal?.status==='applied',requestId:operationId,...terminal};
 });
@@ -478,6 +479,12 @@ exports.cleanupExpiredLive = onSchedule({
   const dead = [];
   for(const id of Object.keys(all)){
     const node = all[id] || {};
+    try{
+      await flushPendingArchives(admin.database(), id, node.pendingArchives);
+    }catch(error){
+      console.error('daily archive scheduled retry failed', {id, code:error.code || 'archive-write-failed'});
+      continue; // Never expire a session while its previous day still awaits archiving.
+    }
     const session = node.session && typeof node.session === 'object' ? node.session : node;
     const expiresAt = Number(session.expiresAt || node.expiresAt || 0);
     const touchedAt = Number(session.updatedAt || node.updatedAt || session.createdAt || node.createdAt || 0);

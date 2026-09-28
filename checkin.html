@@ -3020,15 +3020,15 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.750">
-<link rel="stylesheet" href="css/minton-ui.css?v=1.10.750">
-<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.750">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.750">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.751">
+<link rel="stylesheet" href="css/minton-ui.css?v=1.10.751">
+<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.751">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.751">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
   <div class="km-member-appbar-inner">
-    <span class="km-member-brand"><img class="km-brand-icon" src="icon-192.png?v=1.10.750" alt="" width="30" height="30"><span>민턴<span class="brand-live">LIVE</span></span></span>
+    <span class="km-member-brand"><img class="km-brand-icon" src="icon-192.png?v=1.10.751" alt="" width="30" height="30"><span>민턴<span class="brand-live">LIVE</span></span></span>
     <span class="km-member-state" id="memberPageState">확인 중</span>
   </div>
 </header>
@@ -3038,7 +3038,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.750</span>
+    <span class="version-chip" id="appVersion">v1.10.751</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3090,7 +3090,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/court-recommendation.js?v=1.10.750"></script>
+<script src="js/court-recommendation.js?v=1.10.751"></script>
 <script>
 const FB_CONFIG={
   apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
@@ -3102,7 +3102,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.750';
+const APP_VERSION='1.10.751';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3434,13 +3434,18 @@ function memberStatusServerReady(){
     typeof firebase.functions==='function'
   );
 }
-// 정체된 세션: 게시 뒤 4시간 지났고 진행 중 코트가 없다 — 「새 운동일 시작」을 받을 수 있는 상태.
-function sessionRolloverEligible(){
+function sessionRolloverBlockReason(){
   const ev=session?.event||{};
-  if(session?.capabilities?.officialSessionRolloverV1!==true||ev.operationStarted!==true)return false;
-  if((ev.active||[]).length)return false;
+  if(session?.capabilities?.officialSessionRolloverV1!==true||ev.operationStarted!==true)return '아직 대진이 게시되기 전이에요.';
+  const now=Date.now(),limit=4*60*60*1000;
   const startedAt=Number(ev.operationStartedAt||session?.matchStartedAt||0);
-  return !startedAt||Date.now()-startedAt>=4*60*60*1000;
+  if(startedAt&&now-startedAt<limit)return '대진 게시 후 4시간이 지나야 새로 시작할 수 있어요.';
+  if((ev.active||[]).some(match=>now-Number(match.startedAt||0)<limit))return '진행 중 코트를 먼저 종료해 주세요.';
+  if((ev.next||[]).length)return '대기 대진을 정리한 뒤 새로 시작해 주세요.';
+  return '';
+}
+function sessionRolloverEligible(){
+  return !sessionRolloverBlockReason();
 }
 function sessionSetupEligible(){
   return session?.event?.operationStarted===false;
@@ -6113,14 +6118,15 @@ function officialRolloverCardHtml(player){
   const startedAt=Number(ev.operationStartedAt||session?.matchStartedAt||0);
   const ageMs=startedAt?Date.now()-startedAt:0;
   if(startedAt&&ageMs<4*60*60*1000)return '';
-  const active=(ev.active||[]).length;   // 진행 중이면 카드는 보이되 버튼만 막는다(안내용)
+  const active=(ev.active||[]).length;
+  const reason=sessionRolloverBlockReason();
   const days=Math.floor(ageMs/86400000);
   const when=startedAt?new Date(startedAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'}):'지난';
   const blocked=eventFlowPaused()||!!sendingKey||claimingOfficial;
   return `<section class="official-prep official-rollover" aria-label="새 운동일 시작">
     <div class="official-prep-head"><b>새 운동일 시작</b><span>${esc(when)} 운동 · 완료 ${Number(ev.completed||0)}경기${days?` · ${days}일 전`:''}</span></div>
-    <p class="official-rollover-note">지난 운동은 기록으로 접어 두고, 명단은 그대로 둔 채 전원을 <b>도착 전</b>으로 돌립니다. 링크는 바뀌지 않습니다.${active?`<br><b>진행 중 코트 ${active}개</b>를 먼저 모두 종료해야 합니다.`:''}</p>
-    <button type="button" class="event-official-new-match official-prep-start" data-official-action ${blocked||active?'disabled':''} onclick="sendOfficialSessionRollover('${esc(player.id)}')">${obIcon('plus')}오늘 운영 새로 시작<small>${active?'진행 중 코트를 먼저 종료하세요':'지난 운동을 접고 참가자 등록부터 다시 시작합니다'}</small></button>
+    <p class="official-rollover-note">지난 운동은 기록으로 접어 두고, 명단은 그대로 둔 채 전원을 <b>도착 전</b>으로 돌립니다. 링크는 바뀌지 않습니다.${active&&!reason?`<br>4시간 이상 지난 미종료 ${active}경기도 함께 보관합니다.`:''}</p>
+    <button type="button" class="event-official-new-match official-prep-start" data-official-action ${blocked||reason?'disabled':''} onclick="sendOfficialSessionRollover('${esc(player.id)}')">${obIcon('plus')}오늘 운영 새로 시작<small>${reason||'지난 운동을 접고 참가자 등록부터 다시 시작합니다'}</small></button>
   </section>`;
 }
 async function sendOfficialSessionRollover(actorId){
@@ -6128,7 +6134,8 @@ async function sendOfficialSessionRollover(actorId){
   const actor=(session?.players||[]).find(p=>String(p.id)===String(actorId));
   if(!actor||!actor.isClubOfficial)return toast('새 운동일 시작은 클럽 임원만 할 수 있어요.');
   if(session?.event?.operationStarted!==true)return toast('아직 대진이 게시되기 전이에요 — 지금 세션을 그대로 쓰세요.');
-  if((session?.event?.active||[]).length)return toast('진행 중 코트를 먼저 모두 종료해 주세요.');
+  const reason=sessionRolloverBlockReason();
+  if(reason)return toast(reason);
   const completed=Number(session?.event?.completed||0);
   const ask=`오늘 운영을 새로 시작할까요?\n\n지난 운동(완료 ${completed}경기)은 기록으로 접어 두고, 명단 ${(session?.players||[]).length}명은 그대로 둔 채 전원 도착 전으로 돌립니다.\n${actor.name} 님은 현장 참가로 남습니다.\n\n되돌릴 수 없습니다.`;
   if(!confirm(ask))return;

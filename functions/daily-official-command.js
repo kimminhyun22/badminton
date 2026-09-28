@@ -122,6 +122,11 @@ function applyCommandTransaction(current, input){
       ...(serverResult?{serverResult}:{})
     };
     current.updatedAt = now;
+    if(applied.archiveEntry){
+      // Persist with the rollover itself so a terminated callable cannot lose the old day.
+      current.pendingArchives = current.pendingArchives || {};
+      current.pendingArchives[operationId] = applied.archiveEntry;
+    }
   }
   pruneCommandLedger(current, now);
   // 새 운동일 보관 전문은 세션 밖에 적는다(콜러블이 받아 liveArchive/ 로) — 요청 행에는 싣지 않는다.

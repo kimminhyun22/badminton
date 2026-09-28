@@ -417,6 +417,7 @@ assert(checkin.includes('function sessionRolloverEligible()') && /isLiveOperator
   assert.strictEqual(roll.action, 'commit', `래퍼 경로에서 종료 상태 임원의 롤오버가 통과해야 합니다: ${roll.failureMessage || roll.terminal?.reason || ''}`);
   assert.strictEqual(roll.terminal?.status, 'applied');
   assert.strictEqual(roll.current.session.event.operationStarted, false);
+  assert.deepStrictEqual(Object.values(roll.current.pendingArchives), [roll.archiveEntry], '지난 운동 전문은 롤오버 커밋에 함께 남아야 합니다.');
   // 대조군: 같은 종료 상태 임원의 다른 명령은 여전히 막힌다 — 권한이 넓어지지 않았다는 증거
   const other = wrapSend(playedSession(), {type:'official-player-status', playerId:'p1', status:'wait', expectedStatus:'done'}, 'p9');
   assert.notStrictEqual(other.action, 'commit', '종료 상태 임원의 다른 명령은 래퍼가 계속 막아야 합니다.');
@@ -484,7 +485,7 @@ assert(daily.includes("const rolled=Number(remote.rolloverAt||0)>_dailyRolloverA
 assert(daily.includes("if(_dailyRolloverAdoptPromise)return _dailyRolloverAdoptPromise;"), '채택은 동시에 두 번 돌면 안 됩니다(AF-7).');
 // 콜러블: 보관 전문은 세션 밖 liveArchive/ 에, 청소는 함께
 const indexSrc = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
-assert(indexSrc.includes("ref(`liveArchive/checkin_${checkinId}/${Number(archiveEntry.at) || now}`).set(archiveEntry)"), '보관 전문은 liveArchive/ 에 따로 적어야 합니다(E3).');
+assert(indexSrc.includes('await flushPendingArchives(') && cmdSrc.includes('current.pendingArchives[operationId] = applied.archiveEntry'), '보관 전문은 롤오버와 원자적으로 대기 저장 후 확인해야 합니다.');
 assert(indexSrc.includes("ref('liveArchive/' + id).remove()"), '세션 청소 때 liveArchive/ 도 함께 지워야 합니다.');
 assert(cmdSrc.includes("archiveEntry:applied?.archiveEntry || null"), '래퍼가 archiveEntry 를 콜러블로 넘겨야 합니다.');
 
