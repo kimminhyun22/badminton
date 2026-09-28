@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.749';
+const APP_VERSION = '1.10.750';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2447,7 +2447,8 @@ function _teamImproveRoundDiversity(candidate,settings){
           &&next.sBalance>=quality.sBalance-1e-9&&next.total>=quality.total
           &&next.asymMatches.length<=quality.asymMatches.length
           &&preserved.every(k=>next[k]<=quality[k]+1e-9)
-          &&(!best||next.diversityPenalty<best.quality.diversityPenalty)){
+          &&(!best||next.avoidableExact<best.quality.avoidableExact
+            ||(next.avoidableExact===best.quality.avoidableExact&&next.diversityPenalty<best.quality.diversityPenalty))){
           best={i,j,fa,fb,quality:next};
         }
         Object.assign(a,oldA);Object.assign(b,oldB);
@@ -3621,9 +3622,9 @@ function _qualityAssessment(matches,participants,settings){
   const {underSlots,overSlots,totalGoalSlots,minimumMatches,minimumOver,
     parityAdjustment,avoidableUnderSlots,avoidableOverSlots}= _slotStats;
   const extraMatchCount=Math.max(0,matches.length-minimumMatches);
-  const rates=participants.map(p=>counts[p.name]/pGoal(p));
-  const avgRate=rates.reduce((a,b)=>a+b,0)/rates.length;
-  const variance=rates.reduce((s,v)=>s+(v-avgRate)**2,0)/rates.length;
+  const rates=participants.filter(p=>pGoal(p)>0).map(p=>counts[p.name]/pGoal(p));
+  const avgRate=rates.reduce((a,b)=>a+b,0)/Math.max(1,rates.length);
+  const variance=rates.reduce((s,v)=>s+(v-avgRate)**2,0)/Math.max(1,rates.length);
 
   const nPlayers=participants.length;
   let excessConsec=0,totalSlots=0;
@@ -3636,7 +3637,7 @@ function _qualityAssessment(matches,participants,settings){
     const unavoidable=Math.max(0,cur.length-(nPlayers-cur.length));
     const rExcess=Math.max(0,repeated.length-unavoidable);
     excessConsec+=rExcess;totalSlots+=cur.length;
-    repeated.slice(-rExcess).forEach(n=>excessNames[n]=(excessNames[n]||0)+1);
+    if(rExcess>0)repeated.slice(-rExcess).forEach(n=>excessNames[n]=(excessNames[n]||0)+1);
   }
   const excessRatio=totalSlots?excessConsec/totalSlots:0;
 
@@ -3660,15 +3661,39 @@ function _qualityAssessment(matches,participants,settings){
   const partner4=pcVals.filter(c=>c>=4).length;
   const repeatedPartnerPairs=pcVals.filter(c=>c>=2).length;
   const maxPartnerRepeat=pcVals.length?Math.max(...pcVals):0;
-  const possiblePairs=nPlayers*(nPlayers-1)/2;
-  const partnerEncounters=matches.length*2;
+  const pairPools=settings.teamMode?['청팀','홍팀'].map(t=>participants.filter(p=>p.team===t)):[participants];
+  const hasMixed=matches.some(m=>m.type==='혼복'||m.type==='보정');
+  const hasSameGender=matches.some(m=>m.type!=='혼복');
+  const choose2=n=>n*(n-1)/2;
+  const possiblePairs=pairPools.reduce((sum,pool)=>{
+    const f=pool.filter(p=>p.gender==='F'||p.gender==='여').length,m=pool.length-f;
+    return sum+(hasSameGender?choose2(m)+choose2(f):0)+(hasMixed?m*f:0);
+  },0);
+  const partnerEncounters=pcVals.reduce((sum,n)=>sum+n,0);
   const partnerExcess=pcVals.reduce((s,c)=>s+Math.max(0,c-1),0);
   const unavoidablePartnerExcess=Math.max(0,partnerEncounters-possiblePairs);
   const avoidablePartnerExcess=Math.max(0,partnerExcess-unavoidablePartnerExcess);
   const sameFourRepeats=Object.values(sameFourCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
   const exactMatchRepeats=Object.values(exactMatchCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
-  const possibleFourGroups=nPlayers>=4?nPlayers*(nPlayers-1)*(nPlayers-2)*(nPlayers-3)/24:0;
-  const possibleExactMatches=possibleFourGroups*3;
+  const choose4=n=>n>=4?n*(n-1)*(n-2)*(n-3)/24:0;
+  const kinds=new Set(matches.map(m=>m.type));
+  const flexible=[...kinds].some(t=>!['남복','여복','혼복'].includes(t));
+  const poolCounts=pairPools.map(pool=>{const f=pool.filter(p=>p.gender==='F'||p.gender==='여').length;return {f,m:pool.length-f,n:pool.length};});
+  let possibleFourGroups,possibleExactMatches;
+  if(settings.teamMode){
+    const [b,w]=poolCounts;
+    possibleFourGroups=flexible?choose2(b.n)*choose2(w.n)
+      :(kinds.has('남복')?choose2(b.m)*choose2(w.m):0)
+       +(kinds.has('여복')?choose2(b.f)*choose2(w.f):0)
+       +(kinds.has('혼복')?b.m*b.f*w.m*w.f:0);
+    possibleExactMatches=possibleFourGroups;
+  }else{
+    const p=poolCounts[0];
+    const same=(kinds.has('남복')?choose4(p.m):0)+(kinds.has('여복')?choose4(p.f):0);
+    const mixed=kinds.has('혼복')?choose2(p.m)*choose2(p.f):0;
+    possibleFourGroups=flexible?choose4(nPlayers):same+mixed;
+    possibleExactMatches=flexible?possibleFourGroups*3:same*3+mixed*2;
+  }
   const unavoidableSameFour=Math.max(0,matches.length-possibleFourGroups);
   const unavoidableExact=Math.max(0,matches.length-possibleExactMatches);
   const avoidableSameFour=Math.max(0,sameFourRepeats-unavoidableSameFour);
@@ -3721,7 +3746,11 @@ function _qualityAssessment(matches,participants,settings){
     const lowStacked=lows.length>=2&&(lowBlue===0||lowBlue===lows.length);
     const isF=p=>p.gender==='F'||p.gender==='여';
     const femGap=Math.abs(blue.filter(isF).length-white.filter(isF).length);
-    return {nB:blue.length,nW:white.length,
+    const genderGap=Math.max(...[true,false].map(f=>{
+      const b=blue.filter(p=>isF(p)===f),w=white.filter(p=>isF(p)===f);
+      return b.length&&w.length?Math.abs(sum(b)/b.length-sum(w)/w.length-rosterBalance.targetDelta):0;
+    }));
+    return {nB:blue.length,nW:white.length,genderGap,
       sumB:Math.round(sum(blue)*10)/10,sumW:Math.round(sum(white)*10)/10,
       avgGap:Math.round(avgGap*100)/100,rawAvgGap:Math.round(Math.abs(rosterBalance.rawDelta)*100)/100,
       countCompensation:Math.round(Math.abs(rosterBalance.targetDelta)*100)/100,lowCount:lows.length,lowStacked,femGap};
@@ -3733,35 +3762,33 @@ function _qualityAssessment(matches,participants,settings){
       -(splitAudit.femGap>2?3:splitAudit.femGap===2?1:0),0,10)
     :10; // 자유 대진은 나누기가 없다
 
-  const excellentAvgLD=0.25;
-  const excellentMaxLD=1.0;
-  const balanceAvgPenalty=Math.max(0,avgLD-excellentAvgLD)/(BALANCE_TEAM_DIFF_TARGET-excellentAvgLD)*18;
-  const balanceMaxPenalty=Math.max(0,maxLD-excellentMaxLD)*2.25;
-  const balanceRoundBiasPenalty=Math.max(0,balance.roundBiasMax-2)*1.5;
-  // 비대칭 감점은 상한을 둔다 — 특이점 급수(예: 유일한 6.0)가 있는 로스터는
-  // 비대칭 한두 경기가 구조적으로 불가피해서, 무제한 감점은 로스터를 처벌하게 된다.
-  const asymDeduction=Math.min(8,asymMatches.length*1.5+asymSevereCount*2.5);
-  const sBalance=clamp(30-balanceAvgPenalty
-    -balanceMaxPenalty
-    -balance.cautionCount*1.5
-    -balance.hardCount*6
-    -balance.severeCount*6
-    -Math.max(0,maxLD-BALANCE_TEAM_DIFF_LIMIT)*4
-    -balanceRoundBiasPenalty
-    -asymDeduction,0,30);
-  const sFair=clamp(10-avoidableUnderSlots*5-avoidableOverSlots*1.2-Math.min(2,variance*10),0,10);
-  const diversityPenalty=partnerOnlyExcess*1.25
-    +(avoidablePartnerExcess>0?partner3*3+partner4*8:0)
-    +avoidableSameFour*3+avoidableExact*6;
-  const sDiversity=clamp(20-diversityPenalty,0,20);
-  const sInterval=clamp(15*(1-excessRatio/.2),0,15);
+  // One loss per match; partner asymmetry is already inside _teamBalanceDiff.
+  const losses=matches.map(m=>clamp((_teamBalanceDiff(m)-0.25)/(BALANCE_TEAM_DIFF_LIMIT-0.25),0,1)).sort((a,b)=>b-a);
+  const meanLoss=losses.reduce((s,n)=>s+n,0)/losses.length;
+  // Fractional tail weighting is invariant when an equivalent schedule is repeated.
+  const tailSize=losses.length*0.2;
+  const tailLoss=losses.reduce((s,n,i)=>s+n*clamp(tailSize-i,0,1),0)/tailSize;
+  const gameQuality=1-(meanLoss*0.75+tailLoss*0.25);
+  const splitLoss=splitAudit?Math.max((10-sTeamSplit)/10,clamp((splitAudit.genderGap-0.1)/0.9,0,1)):0;
+  const sBalance=Math.round(clamp(splitAudit?40*gameQuality+10*(1-splitLoss):50*gameQuality,0,50));
+  const fairLoss=Math.max(avoidableUnderSlots/Math.max(1,totalGoalSlots)*4,avoidableOverSlots/Math.max(1,totalGoalSlots)*2,
+    avoidableUnderSlots||avoidableOverSlots?Math.sqrt(variance):0);
+  const sFair=Math.round(20*(1-clamp(fairLoss,0,1)));
+  // Overlapping repetitions share one penalty rather than stacking three fines.
+  const diversityPenalty=partnerOnlyExcess*0.5+Math.max(0,avoidableSameFour-avoidableExact)+avoidableExact*1.5;
+  const sDiversity=Math.round(20*(1-clamp(diversityPenalty/matches.length*2,0,1)));
+  const sInterval=Math.round(clamp(10*(1-excessRatio/.2),0,10));
   const extraRate=avoidableOverSlots/Math.max(1,totalGoalSlots);
   const extraMatchRate=extraMatchCount/Math.max(1,minimumMatches);
   const sEfficiency=clamp(5*(1-Math.max(extraMatchRate/.2,extraRate/.1)),0,5);
   const sValid=(genderErr===0&&structureErr===0)?10:Math.max(0,10-(genderErr+structureErr)*4);
-  const total=Math.round(sBalance+sTeamSplit+sFair+sDiversity+sInterval+sEfficiency+sValid);
+  const total=sBalance+sFair+sDiversity+sInterval;
   const grade=total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D';
-  const gradeLabel={S:'완벽',A:'우수',B:'양호',C:'보통',D:'재생성 권장'}[grade];
+  const safetyIssues=[];
+  if(structureErr||genderErr)safetyIssues.push('경기 구성 오류');
+  if(balance.hardCount)safetyIssues.push('심각한 실력 불균형');
+  if(avoidableUnderSlots)safetyIssues.push('출전 목표 미달');
+  const gradeLabel=safetyIssues.length?'필수 확인':{S:'매우 우수',A:'우수',B:'양호',C:'보통',D:'개선 권장'}[grade];
   return {gpp,avgLD,spikes,maxLD,balanceCautionCount:balance.cautionCount,
     balanceHardCount:balance.hardCount,balanceSevereCount:balance.severeCount,
     balanceRoundBiasMax:balance.roundBiasMax,counts,pGoal,under,over,underSlots,overSlots,
@@ -3772,7 +3799,7 @@ function _qualityAssessment(matches,participants,settings){
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,fillerRate,adjustments,genderErr,structureErr,
     asymMatches,asymSevereCount,mirroredExtremes,evenCount,favCount,splitAudit,sTeamSplit,
-    diversityPenalty,sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel};
+    scoreVersion:2,safetyIssues,diversityPenalty,sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel};
 }
 
 /* ═══ 대진 품질 대시보드 ═══ */
@@ -3811,7 +3838,7 @@ function renderQualityDashboard(matches,participants,settings){
   // ── 항목 정의 ──
   const rows=[
     (()=>{
-      const pct=sBalance/30;
+      const pct=sBalance/50;
       // 백중이 많을수록 좋은 대진 — 우세가 뻔한 경기가 승패를 미리 정한다 (9ZJ2VH 18:7).
       let detail=`백중 ${evenCount} · 우세 ${favCount} · 보정 실력차 평균 ${avgLD.toFixed(2)} · 최대 ${maxLD.toFixed(1)}`;
       if(balanceHardCount) detail+=` · 재배정 우선 ${balanceHardCount}경기`;
@@ -3820,7 +3847,7 @@ function renderQualityDashboard(matches,participants,settings){
       if(mirroredExtremes.length) detail+=` · 초심전(대칭 격차) ${mirroredExtremes.length}경기`;
       if(!balanceHardCount&&!balanceCautionCount&&!asymMatches.length) detail+=' · 튀는 경기 없음';
       if(balanceRoundBiasMax>2) detail+=` · 라운드 편차 ${balanceRoundBiasMax.toFixed(1)}`;
-      return {label:'경기 실력 균형',detail,score:sBalance,max:30,pct};
+      return {label:'실력 균형',detail,score:sBalance,max:50,pct};
     })(),
     ...(splitAudit?[(()=>{
       const pct=sTeamSplit/10;
@@ -3829,7 +3856,8 @@ function renderQualityDashboard(matches,participants,settings){
       if(splitAudit.lowStacked)parts.push(`⚠ 초심 ${splitAudit.lowCount}명이 한 팀에 몰림`);
       else if(splitAudit.lowCount>=2)parts.push(`초심 ${splitAudit.lowCount}명 분산됨`);
       if(splitAudit.femGap>1)parts.push(`여성 수 차 ${splitAudit.femGap}`);
-      return {label:'팀 나누기',detail:parts.join(' · '),score:sTeamSplit,max:10,pct};
+      parts.push(`남녀별 평균 차 최대 ${splitAudit.genderGap.toFixed(2)} · 실력 균형에 포함`);
+      return {label:'팀 나누기',detail:parts.join(' · '),score:null,max:0,pct};
     })()]:[]),
     (()=>{
       const pct=sDiversity/20;
@@ -3845,14 +3873,14 @@ function renderQualityDashboard(matches,participants,settings){
       return {label:'대진 다양성',detail,score:sDiversity,max:20,pct};
     })(),
     (()=>{
-      const pct=sInterval/15;
+      const pct=sInterval/10;
       const ns=Object.keys(excessNames).slice(0,3);
       const detail=excessConsec===0?'회피 가능한 연속 출전 없음'
         :`회피 가능한 연속 ${excessConsec}건 · ${ns.join(', ')}${Object.keys(excessNames).length>3?' 외':''}`;
-      return {label:'휴식·연속 출전',detail,score:sInterval,max:15,pct};
+      return {label:'휴식·연속 출전',detail,score:sInterval,max:10,pct};
     })(),
     (()=>{
-      const pct=sFair/10;
+      const pct=sFair/20;
       let detail=under.length===0
         ?`전원 목표달성 · ${participants.length}명`
         :avoidableUnderSlots===0&&parityAdjustment>0
@@ -3863,21 +3891,21 @@ function renderQualityDashboard(matches,participants,settings){
           ?` · 인원수상 최소 초과 ${over.length}명`
           :` · 추가 초과 ${over.length}명(${avoidableOverSlots}게임분)`;
       }
-      return {label:'출전 횟수 공정성',detail,score:sFair,max:10,pct};
+      return {label:'출전 횟수 공정성',detail,score:sFair,max:20,pct};
     })(),
     (()=>{
       const pct=sValid/10;
       const detail=(genderErr===0&&structureErr===0)
         ?(adjustments.length?`${structureDetail}·종목 정상 · 성비 보정 ${adjustments.length}경기`:`${structureDetail}·종목 조건 정상`)
         :`구조 오류 ${structureErr}건 · 종목 성별 오류 ${genderErr}건`;
-      return {label:'설정 준수',detail,score:sValid,max:10,pct};
+      return {label:'필수 검사',detail,score:null,max:0,pct};
     })(),
     (()=>{
       const pct=sEfficiency/5;
       const detail=extraMatchCount===0&&avoidableOverSlots===0
         ?(minimumOver>0?`최소 ${minimumMatches}게임 · 불가피한 추가 출전 ${minimumOver}회`:'추가 경기·초과 출전 없음')
         :`추가 경기 ${extraMatchCount}개 · 추가 초과 ${avoidableOverSlots}게임분`;
-      return {label:'일정 효율성',detail,score:sEfficiency,max:5,pct};
+      return {label:'일정 참고',detail,score:null,max:0,pct};
     })(),
   ];
 
@@ -3919,8 +3947,9 @@ function renderQualityDashboard(matches,participants,settings){
   if(fillers.length>2)blocking.push('보완게임 과다');
   const caution=[];
   if(avoidableSameFour>0)caution.push('같은 4명 재경기');
-  if(avoidablePartnerExcess>=7||partner4>0)blocking.push('파트너 재배정 과다');
-  else if(avoidablePartnerExcess>=4||partner3>0)caution.push('파트너 재배정 많음');
+  const repeatedPartnerRate=avoidablePartnerExcess/Math.max(1,matches.length*2);
+  if(repeatedPartnerRate>=0.25)blocking.push('파트너 재배정 과다');
+  else if(repeatedPartnerRate>=0.125)caution.push('파트너 재배정 많음');
   if(excessConsec>0)caution.push(`연속 출전 ${excessConsec}건`);
   if(balanceCautionCount>0)caution.push('실력 균형 주의');
   if(total<85)caution.push('품질점수 낮음');
@@ -3972,7 +4001,7 @@ function renderQualityDashboard(matches,participants,settings){
      참가자 이력과 급수차로 계산되는 값이라 회원 화면에서는 다시 못 만듭니다 —
      관리자가 계산한 그대로 보냅니다. 태그는 떼고 글자만 보냅니다. */
   _teamQualitySummary={
-    score:total, grade, gradeLabel, sub:subText,
+    score:total, scoreVersion:2, grade, gradeLabel, sub:subText,
     opClass, opTitle:String(opTitle).replace(/^[^가-힣A-Za-z]+/,'').trim(), opSub,
     issues:issueItems.map(x=>String(x).replace(/<[^>]*>/g,'').trim()).filter(Boolean).slice(0,12)
   };
@@ -4013,7 +4042,7 @@ function renderQualityDashboard(matches,participants,settings){
           </div>
           <div class="qd-row-score">
             ${scoreTag(row.score,row.max)}
-            ${barHtml(row.pct)}
+            ${row.score===null?'':barHtml(row.pct)}
           </div>
         </div>`).join('')}
     </div>

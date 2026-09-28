@@ -181,8 +181,8 @@ vm.runInContext(cut(teamSrc,'function _isBetterQualityKey(','function _autoSearc
   assert(/BALANCE_PARTNER_GAP_SYMMETRY/.test(teamBQ), 'team 후보 채점에 비대칭 항이 있어야 합니다.');
   assert(/DAILY_PARTNER_GAP_SYMMETRY_LIMIT/.test(dailyBQ), 'daily 후보 채점에 비대칭 항이 있어야 합니다.');
   // 감사 쪽 비대칭 감점은 상한이 있어야 한다 — 특이점 급수 로스터를 처벌하지 않게.
-  assert(teamSrc.includes('Math.min(8,asymMatches.length*1.5+asymSevereCount*2.5)'),
-    'team 감사의 비대칭 감점에 상한(8)이 있어야 합니다.');
+  assert(!teamSrc.includes('asymDeduction'), '보정 실력차에 반영한 비대칭을 다시 감점하지 않습니다.');
+  assert(teamSrc.includes('meanLoss*0.75+tailLoss*0.25'), '평균과 최악20%를 중복 없이 혼합합니다.');
   // 자유 대진 짝 고르기(formTeams)도 두 파일 모두 비대칭을 피한다.
   const teamFormBody = cut(teamSrc, 'function formTeams(four', '\nfunction updatePlayerRecords', 'team.js');
   const dailyFormBody = cut(dailySrc, 'function formTeams(four', '\nfunction updatePlayerRecords', 'daily.js');
