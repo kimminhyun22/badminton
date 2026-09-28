@@ -23,7 +23,7 @@ ${appUrl}
     const section=document.createElement('section');
     section.className='manual-section manual-quickstart';
     section.innerHTML=`<h2>처음 시작</h2>
-      <ol><li><strong>명부 준비</strong><p>명부 만들기 또는 명부 받기. 회원의 성별·연령·급수를 확인합니다.</p></li>
+      <ol><li><strong>명부 준비</strong><p>밴드 멤버 목록은 캡처로 명부 만들기에서 여러 장을 읽어 등록합니다. 성별·연령·급수를 확인하거나 기존 명부를 받습니다.</p></li>
       <li><strong>참가자 등록</strong><p>명부에서 선택하거나 캡처를 읽어 등록합니다. 캡처 결과와 게스트 정보는 확인 후 확정합니다.</p></li>
       <li><strong>방식 선택·대진 게시</strong><p>민턴LIVE 또는 팀전을 선택하고 코트 수·점수제를 설정합니다. 팀전은 팀 배정 확인 → 대진표 생성 → 대진 게시 순서입니다.</p></li>
       <li><strong>운동 링크 공유</strong><p>게시 후 공유하기로 회원에게 보냅니다. 회원은 이름을 선택하고 현재·다음 경기를 확인합니다. 임원·운영진이 현장을 진행합니다.</p></li></ol>

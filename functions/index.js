@@ -64,6 +64,7 @@ exports.analyzeDailyParticipantScreenshots = onCall(IMAGE_ANALYSIS_OPTIONS, asyn
     const token=await credential.getAccessToken();
     return await analyzeParticipantImages({
       images:request.data?.images,
+      mode:request.data?.mode,
       projectId:process.env.GCLOUD_PROJECT||process.env.GOOGLE_CLOUD_PROJECT||'kokmatch-23b31',
       accessToken:token?.access_token,
       fetchImpl:fetch

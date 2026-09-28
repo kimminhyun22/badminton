@@ -164,16 +164,18 @@ function canvasData(file){
 function timeout(promise){
   return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error('분석 시간이 초과되었습니다. 다시 시도해 주세요.')),TIMEOUT_MS))]);
 }
-async function analyze(files){
+async function analyze(files,mode='participants'){
   const selected=[...(files||[])].filter(file=>String(file.type||'').startsWith('image/')).slice(0,MAX_IMAGES);
   if(!selected.length)throw new Error('캡처 이미지를 선택해 주세요.');
   const parts=await Promise.all(selected.map(canvasData));
   const analyzeScreenshots=await analyzer();
-  const response=await timeout(analyzeScreenshots({images:parts.map(part=>part.inlineData)}));
+  const response=await timeout(analyzeScreenshots({images:parts.map(part=>part.inlineData),mode}));
   const raw=response?.data;
   if(!raw||typeof raw!=='object')throw new Error('분석 결과를 읽지 못했습니다. 다시 시도해 주세요.');
   return raw;
 }
+
+window.analyzeRosterScreenshots=files=>analyze(files,'roster');
 
 function renderFileNames(){
   const el=byId('dailyCaptureFiles');

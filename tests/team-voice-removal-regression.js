@@ -11,7 +11,8 @@ const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 
 assert(!fs.existsSync(path.join(root, 'js', 'team-ai.js')), '사용하지 않는 팀전 AI 런타임이 다시 포함되면 안 됩니다.');
 assert(!teamHtml.includes('teamVoiceModal'), '팀전 음성 운영 모달이 다시 노출되면 안 됩니다.');
-assert(!teamHtml.includes('firebase-app-check-site-key'), '음성 AI 전용 App Check 설정이 남으면 안 됩니다.');
+// App Check is now used by roster screenshot OCR, not the removed voice feature.
+assert(teamHtml.includes('firebase-app-check-site-key') && teamHtml.includes('js/daily-image-import.js'), '명부 캡처 OCR에는 App Check와 공통 이미지 분석 모듈이 필요합니다.');
 assert(!teamHtml.includes('team-ai.js'), '삭제된 AI 모듈을 페이지가 불러오면 안 됩니다.');
 assert(!teamSrc.includes('_teamVoice'), '음성 명령 처리 로직이 운영 번들에 남으면 안 됩니다.');
 assert(!teamSrc.includes('SpeechRecognition'), '브라우저 음성 인식 런타임이 남으면 안 됩니다.');
