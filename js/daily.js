@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.762';
+const APP_VERSION = '1.10.763';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -4056,6 +4056,9 @@ function dailyMaybeAutoRecommend(){
 }
 function dailyMaybeAutoAssign(force){
   if(_dailyPaused)return 0;
+  // 서버 운영을 시작한 링크의 자동 투입은 서버만 담당합니다.
+  // 관리자 타이머가 별도 dm_ 경기를 만들면 같은 코트의 서버 autoEntries와 경합합니다.
+  if(!force&&_dailyCheckinId&&_dailyServerRevision>0)return 0;
   if(force)_dailyMarkOperationStarted();
   const flow=_dailyNaturalAutoInfo();
   const allow=force||flow.auto;
@@ -4992,7 +4995,7 @@ function closeDailyManualActiveModal(){
   const modal=document.getElementById('dailyManualActiveModal');
   if(modal)modal.classList.add('hidden');
 }
-function dailyFinishLiveTransition(skipEmptyConfirm){
+async function dailyFinishLiveTransition(skipEmptyConfirm){
   if(_dailyBlockServerSync({action:'대진 게시 시작'}))return;
   if(!_dailyStartedPoolCount()&&!_dailyActiveMatches().length){
     alert('먼저 현장에서 확인한 선수를 참가 등록하세요.');
@@ -5017,6 +5020,14 @@ function dailyFinishLiveTransition(skipEmptyConfirm){
   if(!active&&pool<4){
     const ok=confirm(`참가 선수가 ${pool}명입니다.\n4명 미만이면 아직 대진이 만들어지지 않습니다. 그래도 대진 게시를 시작할까요?`);
     if(!ok)return;
+  }
+  if(_dailyCheckinId&&_dailyServerRevision>0){
+    const sent=await _dailySendAdminCommand({
+      type:'official-operation-start',
+      source:'system-admin-operation-start'
+    },{action:'대진 생성·게시',tag:'operation-start'});
+    if(sent.ok)closeDailyManualActiveModal();
+    return;
   }
   _dailyMarkOperationStarted();
   closeDailyManualActiveModal();
@@ -11042,7 +11053,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.762&from=daily';
+  location.href='team.html?v=1.10.763&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

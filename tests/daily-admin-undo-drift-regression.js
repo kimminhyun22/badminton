@@ -52,3 +52,14 @@ Object.assign(r,{_dailyCheckinId:null,_dailyCaptureCompleteUndo:()=>{},_dailyCon
 vm.runInContext(fn('dailyCompleteMatch'),r);assert(r.dailyCompleteMatch('a',null,{syncReplay:true,awaitOfficialEntry:true,operationAt:2000}));
 assert(pp.slice(0,4).every(p=>p.status==='wait'&&p.games===1));
 console.log('PASS actual start/complete replay consumes two server entries without local regeneration or intermediate publication');
+// A live follower must not independently occupy a court while a server command fills it.
+const follower={_dailyPaused:false,_dailyCheckinId:'DTEST',_dailyServerRevision:15,_dailyAutoBusy:false,_dailyNaturalAutoInfo:()=>{throw Error('live admin generated an independent auto match');}};
+vm.createContext(follower);vm.runInContext(fn('dailyMaybeAutoAssign'),follower);assert.equal(follower.dailyMaybeAutoAssign(),0);
+let localChecked=false;follower._dailyCheckinId=null;follower._dailyNaturalAutoInfo=()=>{localChecked=true;return {auto:false}};follower.dailyEnsureQueue=()=>{};assert.equal(follower.dailyMaybeAutoAssign(),0);assert(localChecked,'offline automatic path remains available');
+console.log('PASS live follower cannot race server auto entry; offline flow preserved');
+// Starting from an already-linked admin must use the same server operation path.
+(async()=>{
+ const start={_dailyCheckinId:'DTEST',_dailyServerRevision:1,_dailyBlockServerSync:()=>false,_dailyStartedPoolCount:()=>20,_dailyActiveMatches:()=>[],_dailyStartedPoolPlayers:()=>Array(20),document:{getElementById:()=>null},_dailyManualActiveDraft:{ids:[]},_dailyManualActiveRegisteredMatches:()=>[],closeDailyManualActiveModal:()=>{},_dailySendAdminCommand:async command=>{assert.equal(command.type,'official-operation-start');start.sent=true;return {ok:true}}};
+ vm.createContext(start);vm.runInContext('async '+fn('dailyFinishLiveTransition'),start);await start.dailyFinishLiveTransition(true);assert(start.sent);
+ console.log('PASS linked admin starts through the server command');
+})().catch(e=>{console.error(e);process.exitCode=1});
