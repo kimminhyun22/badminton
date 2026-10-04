@@ -25,3 +25,14 @@ currentKeys(matches[0]);assert(!matches[0].fourKey.includes('p0'));
 c._dailyApplyActiveReplaceLocal(matches[0],'p1','p4',102);matches.forEach(currentKeys);
 assert(matches[1].fourKey.includes('p1'));assert(!matches[1].fourKey.includes('p4'));
 console.log('PASS actual client/server queue capacity parity (296 cases), substitution and both swapped match history keys');
+// Exercise the actual replay dispatcher: guard must include the final queueSync.
+const replay={_dailyCheckinApplying:false,_dailyCheckinNeedsPublish:false,_dailyAutoAssign:true,_dailyPaused:false,_dailyServerRevision:0,_dailyServerLastRequestId:'',_dailyServerReconcileError:'',_dailyOfficialInviteHash:'hash',_dailyLastCompleteUndo:null,
+ _dailyNow:()=>200,_dailyServerOperationAlreadyApplied:()=>false,_dailyPrepareServerQueueRequest:()=>true,_dailyOfficialRequestError:()=>'',_dailyApplyServerAutoEntries:()=>true,_dailyStartServerAutoEnter:()=>true,_dailyCheckinRequestRef:()=>null,
+ dailyEnsureQueue:()=>{},_dailyPromoteReadyReservations:()=>{},dailySave:()=>{},dailyRender:()=>{},dailyMaybeAutoAssign:()=>{}};
+replay.queue='before';replay._dailyCompleteUndoGuard=()=>replay.queue;
+replay.dailyCompleteMatch=()=>{replay.queue='intermediate';replay._dailyLastCompleteUndo={token:'undo',guard:''};return true;};
+replay._dailyApplyServerQueueSync=()=>{replay.queue='server-final';return true;};
+replay._dailyCheckinRequests=[{type:'official-court-complete',token:'undo',serverAppliedAt:100,serverRevision:1,operationId:'complete',serverResult:{queueSync:{next:[]}}}];
+vm.createContext(replay);vm.runInContext(fn('dailyProcessCheckinRequests'),replay);replay.dailyProcessCheckinRequests();
+assert.equal(replay._dailyServerRevision,1);assert.equal(replay._dailyLastCompleteUndo.guard,'server-final','undo guard must follow server queue adoption');
+console.log('PASS actual admin dispatcher captures undo guard after final server queue sync');

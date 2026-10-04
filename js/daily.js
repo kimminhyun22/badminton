@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.760';
+const APP_VERSION = '1.10.761';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -9458,6 +9458,11 @@ function dailyProcessCheckinRequests(){
           serverReconcileBlocked=true;
           return;
         }
+        // 자동 투입 뒤 서버 대기표까지 채택한 최종 상태로 되돌리기 기준을 잡습니다.
+        // 중간 대기표의 guard는 정상적인 queueSync만으로도 달라집니다.
+        if(req.token&&_dailyLastCompleteUndo?.token===req.token){
+          _dailyLastCompleteUndo.guard=_dailyCompleteUndoGuard();
+        }
         _dailyServerRevision=Number(req.serverRevision||_dailyServerRevision);
         _dailyServerLastRequestId=String(req.operationId||req.key||_dailyServerLastRequestId);
         if(hasQueueSync&&!preserveLocalQueue)serverQueueSynced=true;
@@ -11034,7 +11039,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.760&from=daily';
+  location.href='team.html?v=1.10.761&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
