@@ -251,6 +251,9 @@ function officialQueueCardActionsHtml(){return '';}
 function partnerMatchBadge(){return '';}
 function fairnessCorrectionBadge(){return '';}
 function manualComposedBadge(){return '';}
+${functionSource(checkin,'officialOperatingCourtIds','officialDrainingCourt')}
+${functionSource(checkin,'eventCourtRows','renderEvent')}
+${functionSource(checkin,'courtBadge','activeMatchById')}
 ${memberEventBoard}
 this.rendered=()=>{renderEvent();return eventPanel.innerHTML;};
 `,memberEventRenderSandbox);

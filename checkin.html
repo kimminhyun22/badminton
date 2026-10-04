@@ -3020,15 +3020,15 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.758">
-<link rel="stylesheet" href="css/minton-ui.css?v=1.10.758">
-<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.758">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.758">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.759">
+<link rel="stylesheet" href="css/minton-ui.css?v=1.10.759">
+<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.759">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.759">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
   <div class="km-member-appbar-inner">
-    <span class="km-member-brand"><img class="km-brand-icon" src="icon-192.png?v=1.10.758" alt="" width="30" height="30"><span>민턴<span class="brand-live">LIVE</span></span></span>
+    <span class="km-member-brand"><img class="km-brand-icon" src="icon-192.png?v=1.10.759" alt="" width="30" height="30"><span>민턴<span class="brand-live">LIVE</span></span></span>
     <span class="km-member-state" id="memberPageState">확인 중</span>
   </div>
 </header>
@@ -3038,7 +3038,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
     <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.758</span>
+    <span class="version-chip" id="appVersion">v1.10.759</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3090,7 +3090,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/court-recommendation.js?v=1.10.758"></script>
+<script src="js/court-recommendation.js?v=1.10.759"></script>
 <script>
 const FB_CONFIG={
   apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
@@ -3102,7 +3102,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.758';
+const APP_VERSION='1.10.759';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -4003,7 +4003,7 @@ function teamLines(row,replaceCtx){
     const one=(n,i)=>{
       const id=(ids||[])[i];
       return replaceCtx&&id
-        ? `<button type="button" class="event-active-player replaceable" ${replaceCtx.disabled?'disabled':''} onclick="openOfficialActiveReplace('${esc(replaceCtx.actorId)}','${esc(replaceCtx.matchId)}','${esc(id)}')" title="${esc(n)} 선수 교체">${esc(n)}</button>`
+        ? `<button type="button" class="event-active-player replaceable" data-official-action data-official-pending="${replaceCtx.pending?'true':'false'}" ${replaceCtx.disabled?'disabled':''} onclick="openOfficialActiveReplace('${esc(replaceCtx.actorId)}','${esc(replaceCtx.matchId)}','${esc(id)}')" title="${esc(n)} 선수 교체">${esc(n)}</button>`
         : `<span class="event-active-player">${esc(n)}</span>`;
     };
     return `<span class="event-active-pair ${cls}">
@@ -4046,7 +4046,7 @@ function courtBadge(label,editCtx){
   if(m){
     // 임원이면 번호를 눌러 실제 코트로 정정할 수 있습니다(운영자 2026-08-13).
     if(editCtx&&editCtx.actorId&&editCtx.matchId){
-      return `<button type="button" class="event-court-badge editable" title="코트 번호 정정" aria-label="${esc(m[1])}코트 번호 정정" onclick="sendOfficialCourtRenumber('${esc(editCtx.actorId)}','${esc(editCtx.matchId)}')"><b>${esc(m[1])}</b><span>코트</span></button>`;
+      return `<button type="button" class="event-court-badge editable" data-official-action data-official-pending="${editCtx.pending?'true':'false'}" ${editCtx.disabled?'disabled':''} title="코트 번호 정정" aria-label="${esc(m[1])}코트 번호 정정" onclick="sendOfficialCourtRenumber('${esc(editCtx.actorId)}','${esc(editCtx.matchId)}')"><b>${esc(m[1])}</b><span>코트</span></button>`;
     }
     return `<div class="event-court-badge"><b>${esc(m[1])}</b><span>코트</span></div>`;
   }
@@ -4491,6 +4491,11 @@ function placeEventPanelForViewer(isOfficial){
   if(already&&order[order.length-1].nextElementSibling===nextTarget)return;
   order.forEach(node=>main.insertBefore(node,nextTarget));
 }
+function eventCourtRows(event){
+  const matches=event?.active||[];
+  const courts=[...new Set([...officialOperatingCourtIds(),...matches.map(m=>Number(m.court)).filter(n=>Number.isInteger(n)&&n>0)])].sort((a,b)=>a-b);
+  return courts.map(court=>({court,match:matches.find(m=>Number(m.court)===court)||null}));
+}
 function renderEvent(){
   const el=document.getElementById('eventPanel');
   if(!el)return;
@@ -4508,7 +4513,7 @@ function renderEvent(){
   const ev=session?.event;
   const nextList=eventNextList();
   const finishComplete=!!(ev?.finishMode&&(ev.queuePolicy?.finishComplete||!nextList.length));
-  const has=ev&&(ev.paused||ev.activeCount||ev.completed||nextList.length||finishComplete);
+  const has=ev&&(ev.operationStarted||ev.paused||ev.activeCount||ev.completed||nextList.length||finishComplete);
   if(!has){
     el.className='panel event-panel hidden';
     el.innerHTML='';
@@ -4524,7 +4529,9 @@ function renderEvent(){
   const flowPaused=!!ev.paused;
   const summary=`<span class="event-chip">${ev.activeCount||0}경기 진행중</span><span class="event-chip">${ev.completed||0}경기 완료</span><span class="event-chip gold">뒷풀이 ${afterPartyNames().length}명</span>`;
   placeEventPanelForViewer(canOfficialOperate);
-  const active=(ev.active||[]).slice(0,4).map(m=>{
+  // 경기 종료 뒤 잠깐 비어도 운영 코트 자체가 사라지지는 않습니다.
+  const active=eventCourtRows(ev).map(({court,match:m})=>{
+    if(!m)return `<div class="event-row event-active event-court-empty" data-court-id="${court}"><div class="event-row-main">${courtBadge(`${court}코트`)}<div><b>빈 코트</b><small>${flowPaused?'진행 일시 정지':ev.finishMode?'자율게임 가능':'다음 대진 준비 중'}</small></div></div></div>`;
     const remain=remainMinutes(m);
     const state=remain==='진행중'?'':remain<=0?'due':remain<=5?'soon':'';
     const drainingCourt=officialDrainingCourt(m);
@@ -4540,12 +4547,13 @@ function renderEvent(){
     const pendingCancel=officialRequests.some(r=>r.type==='official-court-cancel'&&officialRequestPending(r)&&String(r.matchId||'')===String(m.id||''));
     const cancelButton=canOfficialOperate&&selectedPlayer.isClubOfficial?`<button type="button" class="event-official-cancel" data-official-action ${completeDisabled||(pendingCancel?'disabled':'')} onclick="sendOfficialCourtCancel('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingCancel?'취소 확인 중':obIcon('x')+'경기 취소'}</button>`:'';
     const replaceCtx=canOfficialOperate?{actorId:selectedPlayer.id,matchId:m.id,
+      pending:!!(pendingReplace||pendingComplete||pendingActiveYield),
       disabled:!!(flowPaused||sendingKey||claimingOfficial||pendingReplace||pendingComplete||pendingActiveYield)}:null;
     const activeYieldSeconds=officialActiveYieldSeconds(m);
     const activeYieldButton=canOfficialOperate&&officialActiveYieldAvailable(m)?`<button type="button" class="event-official-active-yield${drainingCourt?' is-court-close':''}" data-official-action data-official-pending="${pendingActiveYield?'true':'false'}" ${completeDisabled} onclick="sendOfficialActiveYield('${esc(selectedPlayer.id)}','${esc(m.id)}')">${pendingActiveYield?'처리 중':drainingCourt?'지금 닫기':'이번만 뒤로'}<small>${drainingCourt?'대진 1순위 복귀 · ':''}${activeYieldSeconds}초</small></button>`:`<em>${esc(remainText(m))}</em>`;
     return `<div class="event-row event-active ${state}">
     <div class="event-row-main">
-      ${courtBadge(`${m.court}코트`,canOfficialOperate&&selectedPlayer?.isClubOfficial?{actorId:selectedPlayer.id,matchId:m.id}:null)}
+      ${courtBadge(`${m.court}코트`,replaceCtx)}
       <div>
         ${(()=>{
           // 「진행중」 글자는 뺍니다(운영자 2026-08-13). 남은 시간 배지와 코트
@@ -4628,7 +4636,7 @@ function renderEvent(){
     <div>${summary}</div>
     ${pauseNotice}
     ${finishNotice}
-    ${active?`<div class="event-section-title">진행 중 코트</div><div class="event-list">${active}</div>`:''}
+    ${active?`<div class="event-section-title">코트 현황</div><div class="event-list">${active}</div>`:''}
     ${next||undo?`<div class="event-section-title">다음 대진</div><div class="event-list">${undo}${next}</div>`:''}
     ${canOfficialOperate?officialPendingPairsHtml(selectedPlayer?.id,flowPaused?'disabled':''):''}
     ${newMatchButton}`;
@@ -6713,7 +6721,7 @@ async function sendOfficialSettingsPoints(actorId,points){
 // 코트가 어긋났을 때. 대상 번호에 다른 경기가 있으면 물어보고 맞바꿉니다.
 function sendOfficialCourtRenumber(actorId,matchId){
   const actor=officialActor(actorId);
-  if(!actor||!actor.isClubOfficial)return toast('코트 번호 변경은 클럽 임원만 할 수 있어요.');
+  if(!actor)return toast('운영 권한을 다시 확인해 주세요.');
   const match=(session?.event?.active||[]).find(m=>String(m?.id||'')===String(matchId));
   if(!match)return toast('진행 중인 경기를 다시 확인해 주세요.');
   const current=Math.max(1,parseInt(match.court,10)||1);

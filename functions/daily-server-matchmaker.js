@@ -745,10 +745,11 @@ function replenishPrepared(session, options = {}){
       const urgent = available.filter(player=>!held.has(playerId(player)) && fairGap(player)>=FAIR_FORCE_GAP)
         .sort((a,b)=>fairGap(b)-fairGap(a)||number(a.waitFrom)-number(b.waitFrom))
         .find(player=>!pairing || ![...pairing.team1,...pairing.team2].some(p=>playerId(p)===playerId(player)));
+      // 입장 순서인 1순위 대진은 고정하고, 공정 보정은 뒤쪽 대진에서만 합니다.
       if(urgent){
         for(let index=session.event.next.length-1;index>=0;index--){
           const item=session.event.next[index];
-          if(!item.serverGenerated || item.manualComposed || item.reservationId || item.notifiedAt || generated.some(row=>row.id===item.id))continue;
+          if((options.preserveFirst && index===0) || !item.serverGenerated || item.manualComposed || item.reservationId || item.notifiedAt || generated.some(row=>row.id===item.id))continue;
           const released=new Set(queueIds(item));
           const expanded=reference.filter(player=>(!used.has(playerId(player))||released.has(playerId(player)))&&!held.has(playerId(player)));
           const rescued=bestUrgentGeneratedPairing(session,urgent,expanded,reference,now);

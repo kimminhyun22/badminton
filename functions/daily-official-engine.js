@@ -1744,7 +1744,7 @@ function autoEnterFreeCourts(session, now, requestId, actorPlayerId){
   let guard = 0;
   while(guard++ < 12){
     promotePrepared(session);
-    replenishPrepared(session, {now, requestId});
+    replenishPrepared(session, {preserveFirst:true, now, requestId});
     refreshEvent(session, now);
     const busy = new Set((session.event.active || []).map(match=>number(match.court)));
     const index = (session.event.next || []).findIndex(item=>
@@ -1829,7 +1829,7 @@ function applyComplete(session, request, now, requestId, operation){
     };
   }
   promotePrepared(session);
-  replenishPrepared(session, {now, requestId});
+  replenishPrepared(session, {preserveFirst:true, now, requestId});
   refreshEvent(session, now);
   let autoEntered = null;
   if(autoHandoffEnabled && court && !event.active.some(row=>number(row.court) === court)){
@@ -1963,7 +1963,7 @@ function applyActiveYield(session, request, now, requestId, operation){
   deferred.restPass=false;
   deferred.restPassText='';
   promotePrepared(session);
-  replenishPrepared(session, {now, requestId, excludeIds:ids});
+  replenishPrepared(session, {preserveFirst:true, now, requestId, excludeIds:ids});
   refreshEvent(session,now);
   // 코트 축소 직후 방금 자동 투입된 경기라면 같은 코트의 대체 경기를
   // 다시 넣지 않습니다. 선수 책임으로 미루는 상황이 아니므로 원대진은
@@ -2685,7 +2685,7 @@ function applyQueueRegenerate(session, request, now, operation){
   // 자리를 비우고 서버 편성기가 같은 자리를 다시 채우게 합니다.
   list.splice(index, 1);
   const before = list.length;
-  replenishPrepared(session, {now, requestId:text(request.operationId || request.key)});
+  replenishPrepared(session, {preserveFirst:true, now, requestId:text(request.operationId || request.key)});
   if(session.event.next.length <= before){
     return '현재 대기 인원으로 새 대기 경기를 만들 수 없습니다.';
   }
@@ -2712,7 +2712,7 @@ function applyReservationPromote(session, request, now, operation){
     if(text(item.reservationId))return true;
     return !queuePlayerIds(item).some(id=>ids.includes(id));
   });
-  replenishPrepared(session, {now, requestId:text(request.operationId || request.key)});
+  replenishPrepared(session, {preserveFirst:true, now, requestId:text(request.operationId || request.key)});
   refreshEvent(session, now);
   const placed = (session.event.next || []).some(item=>text(item.reservationId) === reservationId);
   if(!placed)return '아직 게임신청을 반영할 수 없습니다. 상대 후보가 준비되면 자동으로 반영됩니다.';
@@ -2779,7 +2779,7 @@ function applyOperationStart(session, request, now, requestId, operation){
   // 「대진 게시」는 곧 자동 운영 시작입니다. 관리자 브라우저의 예전 수동 설정
   // (auto:false, official:0)이 세션에 남아 있어도 임원만으로 모든 빈 코트를 채웁니다.
   const rotationPolicy = ensureAutomaticRotation(session);
-  const generated = replenishPrepared(session, {now, requestId:text(request.operationId || requestId)});
+  const generated = replenishPrepared(session, {preserveFirst:true, now, requestId:text(request.operationId || requestId)});
   refreshEvent(session, now);
   if(operation)operation.result = {
     operationStart:{at:now, generated:(generated?.generated || []).length, expiresAt:session.expiresAt},
@@ -2874,7 +2874,7 @@ function applyFinishMode(session, request, now, operation){
     // 마무리에 들어가면 더 만들지 않습니다. 남은 대기표는 그대로 소진합니다.
   }else{
     event.finishStartedAt = 0;
-    replenishPrepared(session, {now, requestId:text(request.operationId || request.key)});
+    replenishPrepared(session, {preserveFirst:true, now, requestId:text(request.operationId || request.key)});
   }
   if(operation)operation.result = {finishMode:{finishMode:next, at:now}};
   return '';
@@ -3145,7 +3145,7 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
     const rotationPolicy = ensureAutomaticRotation(session);
     let autoEntries = [];
     if(rotationPolicy){
-      replenishPrepared(session, {now, requestId});
+      replenishPrepared(session, {preserveFirst:true, now, requestId});
       autoEntries = autoEnterFreeCourts(session, now, requestId, request.actorPlayerId);
     }
     refreshEvent(session, now);
@@ -3182,7 +3182,7 @@ function applyOfficialRequest(rawSession, rawRequest, options = {}){
     operation.result = {...(operation.result || {}), rotationPolicy:repairedRotationPolicy};
   }
   if(!['official-temporary-grant','official-temporary-revoke'].includes(request.type)){
-    replenishPrepared(session, {now, requestId});
+    replenishPrepared(session, {preserveFirst:true, now, requestId});
     if(request.type === 'official-settings-update'){
       const releasedAutoQueue = trimAutomaticPreparedToTarget(session);
       if(releasedAutoQueue && operation.result?.courtAdjustment){
@@ -3282,7 +3282,7 @@ function applyMemberStatusRequest(rawSession, rawRequest, options = {}){
   const operation = {result:null};
   const reason = applyPlayerStatus(session, request, now, operation);
   if(reason)return {status:'rejected', reason, session:rawSession};
-  replenishPrepared(session, {now, requestId});
+  replenishPrepared(session, {preserveFirst:true, now, requestId});
   session.serverRevision = beforeRevision + 1;
   session.serverUpdatedAt = now;
   session.serverLastRequestId = requestId;
