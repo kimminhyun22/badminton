@@ -36,3 +36,19 @@ replay._dailyCheckinRequests=[{type:'official-court-complete',token:'undo',serve
 vm.createContext(replay);vm.runInContext(fn('dailyProcessCheckinRequests'),replay);replay.dailyProcessCheckinRequests();
 assert.equal(replay._dailyServerRevision,1);assert.equal(replay._dailyLastCompleteUndo.guard,'server-final','undo guard must follow server queue adoption');
 console.log('PASS actual admin dispatcher captures undo guard after final server queue sync');
+// Server replay must consume its two confirmed entries before any local queue rebuild.
+const pp=Array.from({length:8},(_,i)=>({id:'s'+i,name:'E2E'+i,status:'wait',partnerCount:{},opponentCount:{}}));
+const q1={id:'q1',team1:['s0','s1'],team2:['s2','s3']},q2={id:'q2',team1:['s4','s5'],team2:['s6','s7']};
+const r={_dailyQueue:[q1,q2],_dailyMatches:[],_dailyReservations:[],_dailySeq:1,_dailyPointSystem:25,_dailyFinishMode:false,_dailyWaveStarts:2,_dailyTeamMode:false,_dailyTeamLocked:false,
+ _dailyBlockServerSync:()=>false,_dailyBlockPaused:()=>false,_dailyNow:()=>1000,_dailyCourtAvailable:()=>true,_dailyQueueItemValid:()=>true,_dailyQueueItemStartable:()=>true,_dailyQueueRestPassActive:()=>false,_dailyReleaseCourtEntryHold:()=>{},_dailyMarkOperationStarted:()=>{},_dailyGameMinutes:()=>15,_dailyApplyFairOpportunity:()=>{},_dailyMarkFourCacheDirty:()=>{},_dailyCourtCount:()=>3,
+ _dailyPlayer:id=>pp.find(p=>p.id===id),_dailyFourKey:ps=>ps.map(p=>p.id).sort().join('|'),
+ _dailyQueueMatch:q=>({team1A:pp.find(p=>p.id===q.team1[0]),team1B:pp.find(p=>p.id===q.team1[1]),team2C:pp.find(p=>p.id===q.team2[0]),team2D:pp.find(p=>p.id===q.team2[1]),type:'남복'}),
+ dailyEnsureQueue:()=>{throw Error('local queue rebuild during confirmed server replay');},dailyRebuildQueue:()=>{throw Error('wave regeneration during server replay');},dailySave:()=>{throw Error('intermediate replay publish');},dailyRender:()=>{throw Error('intermediate replay render');}};
+vm.createContext(r);vm.runInContext(fn('dailyStartQueueItem'),r);
+assert(r.dailyStartQueueItem('q1',{syncReplay:true,silent:true,strictCourt:true,court:1,matchId:'a'}));
+assert(r.dailyStartQueueItem('q2',{syncReplay:true,silent:true,strictCourt:true,court:2,matchId:'b'}));
+assert.deepEqual(Array.from(r._dailyMatches,m=>m.court),[1,2]);assert.equal(r._dailyQueue.length,0);
+Object.assign(r,{_dailyCheckinId:null,_dailyCaptureCompleteUndo:()=>{},_dailyConsumeDeferredStatusRequest:()=>'',_dailyNormalizeStatus:s=>s,_dailyInc:()=>{},_dailyClearQueueRestPasses:()=>{}});
+vm.runInContext(fn('dailyCompleteMatch'),r);assert(r.dailyCompleteMatch('a',null,{syncReplay:true,awaitOfficialEntry:true,operationAt:2000}));
+assert(pp.slice(0,4).every(p=>p.status==='wait'&&p.games===1));
+console.log('PASS actual start/complete replay consumes two server entries without local regeneration or intermediate publication');

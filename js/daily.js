@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.761';
+const APP_VERSION = '1.10.762';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -5329,7 +5329,7 @@ function dailyStartQueueItem(queueId,options){
   if(_dailyBlockServerSync({action:'다음 대진 투입',silent:!!options.silent,syncReplay:!!options.syncReplay}))return false;
   if(_dailyBlockPaused({...options,action:'대진을 투입'}))return false;
   const operationAt=Number(options.startedAt)||_dailyNow();
-  dailyEnsureQueue();
+  if(!options.syncReplay)dailyEnsureQueue();
   const idx=_dailyQueue.findIndex(q=>q.id===queueId);
   if(idx<0){if(!options.silent)alert('시작할 대기 경기가 없습니다.');return false;}
   const requestedCourt=parseInt(options.court);
@@ -5428,7 +5428,10 @@ function dailyStartQueueItem(queueId,options){
   if(q.reservationId){
     _dailyReservations=_dailyReservations.filter(r=>r.id!==q.reservationId);
   }
-  if(_dailyFinishMode){
+  if(options.syncReplay){
+    // 서버가 확정한 연속 투입을 모두 재생한 뒤 queueSync를 받습니다.
+    // 중간에 웨이브 재편성을 하면 다음 autoEntries 대진이 사라집니다.
+  }else if(_dailyFinishMode){
     dailyEnsureQueue();
   }else if(!options.skipWaveTrack){
     if(_dailyTeamMode&&_dailyTeamLocked){
@@ -5918,7 +5921,7 @@ function dailyCompleteMatch(id,winnerSide,options){
     m.officialEntryPendingSource=options.source||'club-official-complete';
   }
   _dailyClearQueueRestPasses('match-complete');
-  dailyEnsureQueue();
+  if(!options.syncReplay)dailyEnsureQueue();
   const autoStartOk=!options.awaitOfficialEntry&&_dailyAutoFlowEnabled();
   const requestedQueueId=options.queueId||'';
   const nextQueue=autoStartOk
@@ -5927,12 +5930,12 @@ function dailyCompleteMatch(id,winnerSide,options){
   if(nextQueue&&_dailyQueueItemValid(nextQueue,null)&&_dailyQueueItemStartable(nextQueue)){
     dailyStartQueueItem(nextQueue.id,{silent:true,court:freedCourt,auto:true,courtLimit:_dailyAutoCourtLimit()});
   }else{
-    dailyEnsureQueue();
+    if(!options.syncReplay)dailyEnsureQueue();
   }
   if(options.undoToken&&_dailyLastCompleteUndo?.token===options.undoToken){
     _dailyLastCompleteUndo.guard=_dailyCompleteUndoGuard();
   }
-  dailySave();dailyRender();
+  if(!options.syncReplay){dailySave();dailyRender();}
   return true;
 }
 async function dailyCancelMatch(id){
@@ -11039,7 +11042,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.761&from=daily';
+  location.href='team.html?v=1.10.762&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
