@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.759';
+const APP_VERSION = '1.10.760';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -1729,7 +1729,10 @@ function _dailyQueueTarget(){
 function _dailyQueueCapacity(){
   const maxGames=Math.floor(_dailyEligible().length/4);
   const goal=_dailyQueueTarget();
-  const target=Math.min(goal,maxGames);
+  // 서버 desiredNextTarget과 같은 포화 기준: 한 경기분은 선택 풀에 남깁니다.
+  // 관리자 렌더가 서버 대기표 뒤에 대진을 추가하면 종료 되돌리기 지문이 달라집니다.
+  const saturated=maxGames<=goal&&maxGames>=2&&!_dailyReservations.length;
+  const target=Math.min(goal,saturated?maxGames-1:maxGames);
   return {target,maxGames,goal,baseGoal:goal,boostGoal:0,extraGoal:0,boosted:false,short:maxGames<goal};
 }
 function _dailyExpectedQueueTarget(){
@@ -4766,9 +4769,15 @@ function _dailyApplyActiveReplaceLocal(m,outId,inId,operationAt){
   const swap=list=>(list||[]).map(id=>String(id)===String(outId)?inId:(String(id)===String(inId)?outId:id));
   const other=_dailyActiveMatches().find(x=>x.id!==m.id&&[...x.team1,...x.team2].some(id=>String(id)===String(inId)));
   const outPlayer=_dailyPlayer(outId), inPlayer=_dailyPlayer(inId);
-  m.team1=swap(m.team1); m.team2=swap(m.team2);
+  const applyRoster=match=>{
+    match.team1=swap(match.team1); match.team2=swap(match.team2);
+    // 완료 이력·서버 재게시도 교체 후 명단을 사용해야 합니다.
+    match.fourKey=_dailyFourKey([...match.team1,...match.team2].map(_dailyPlayer).filter(Boolean));
+    match.exactKey=_dailyExactKey(match.team1,match.team2);
+  };
+  applyRoster(m);
   if(other){
-    other.team1=swap(other.team1); other.team2=swap(other.team2);
+    applyRoster(other);
     if(outPlayer){outPlayer.currentMatchId=other.id;outPlayer.lastStatusAt=at;}
     if(inPlayer){inPlayer.currentMatchId=m.id;inPlayer.lastStatusAt=at;}
     _dailyMarkFourCacheDirty();
@@ -11025,7 +11034,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.759&from=daily';
+  location.href='team.html?v=1.10.760&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

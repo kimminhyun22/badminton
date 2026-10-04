@@ -212,7 +212,7 @@ function extractFunction(src, name){
     _dailyPlayer:id=>players.find(p=>p.id===id),_dailyQueue:[],
     _dailyCancelReservationsForPlayer:()=>{},_dailyMarkFourCacheDirty:()=>{}};
   vm.createContext(box);
-  vm.runInContext(extractFunction(daily,'_dailyApplyActiveReplaceLocal'),box);
+  vm.runInContext(['_dailyFourKey','_dailyExactKey','_dailyApplyActiveReplaceLocal'].map(name=>extractFunction(daily,name)).join('\n'),box);
   box._dailyApplyActiveReplaceLocal(match,'out','in',NOW+1000);
   assert.strictEqual(players[0].status,'wait');
   assert.strictEqual(players[0].waitFrom,NOW+1000);
