@@ -7,7 +7,7 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'team.js'), 'utf8')
 const effBlock = src.slice(0, src.indexOf('const BALANCE_PARTNER_GAP_OK'));
 const helperBlock = src.slice(
   src.indexOf('function _teamGenderCode'),
-  src.indexOf('function saveState()')
+  src.indexOf('function saveState(')
 );
 
 const sandbox = {

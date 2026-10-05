@@ -17110,7 +17110,7 @@ window.addEventListener('resize', () => {
 });
 
 // 페이지 로드
-window.addEventListener('DOMContentLoaded', () => {
+(window.MintonAdminReady || (fn=>window.addEventListener('DOMContentLoaded',fn)))(() => {
   checkSavedState();
   loadRosters();
   renderClubList();
@@ -17162,7 +17162,7 @@ if('serviceWorker' in navigator){
     _refreshing=true;
     location.reload();
   });
-  window.addEventListener('load', ()=>{
+  (window.MintonAdminReady || (fn=>window.addEventListener('load',fn)))(()=>{
     navigator.serviceWorker.register('sw.js').then(reg=>{
       // 즉시 업데이트 확인
       reg.update();

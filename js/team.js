@@ -5173,9 +5173,9 @@ function _teamSyncGeneratedProfilesFromDirectPlayers(){
   return changed;
 }
 
-function saveState(){
-  _teamSaveRosterBridge();
-  if(!currentMatches.length)return;
+function saveState(options={}){
+  if(!options.preparation)_teamSaveRosterBridge();
+  if(!currentMatches.length&&!options.preparation)return;
   const scores=currentMatches.map((m,i)=>{
     const s1=document.getElementById('s1_'+i);
     const s2=document.getElementById('s2_'+i);
@@ -5232,6 +5232,10 @@ function saveState(){
     lockedBeforeRound:_lockedBeforeRound,
     pointSystem:_pointSystem
   };
+  if(options.preparation){
+    try{const old=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(old&&JSON.stringify({...old,savedAt:0})===JSON.stringify({...state,savedAt:0}))return;}catch(e){}
+    _teamSaveRosterBridge();
+  }
   // 실시간 중계 ID 저장 (앱 종료 후 재시작 시 자동 재연결용)
   if(_liveId) {
     _teamSaveLiveId(_liveId);
@@ -5447,6 +5451,9 @@ function restoreState(opts={}){
     if(state.liveOn&&state.liveId)_teamSaveLiveId(state.liveId);
     if(state.pointSystem){ _pointSystem=state.pointSystem; document.querySelectorAll('.pseg-btn').forEach(b=>b.classList.toggle('active',+b.dataset.pt===_pointSystem)); }
 
+    if(!currentMatches.length){
+      updateSettingsMiniSummary();renderAutoFlowDashboard();_teamSaveRosterBridge();setSaveStatus('saved');return;
+    }
     if(profileChanged&&teamAssignment)renderTeamList();
     renderResults(currentMatches,currentParticipants,currentSettings);
     _teamSaveRosterBridge();
@@ -10194,7 +10201,7 @@ function applyTeamSampleData(){
 }
 
 // 페이지 로드
-window.addEventListener('DOMContentLoaded', () => {
+(window.MintonAdminReady || (fn=>window.addEventListener('DOMContentLoaded',fn)))(() => {
   if(!isTeamSampleMode())checkSavedState();
   loadRosters();
   renderClubList();
@@ -10205,7 +10212,8 @@ window.addEventListener('DOMContentLoaded', () => {
     rsvpRender();
     updateTeamModeBadge(); // 팀전 기본 상태 반영
     updateSettingsMiniSummary();
-    teamApplyParticipantHandoff();
+    if(window.MintonAdminWorkspace?.connected&&localStorage.getItem(SAVE_KEY))restoreState({resumeLive:true});
+    else teamApplyParticipantHandoff();
   }
   // 버전 표시 반영
   const vEl=document.getElementById('appVersion');
@@ -10228,7 +10236,7 @@ if('serviceWorker' in navigator){
     _refreshing=true;
     location.reload();
   });
-  window.addEventListener('load', ()=>{
+  (window.MintonAdminReady || (fn=>window.addEventListener('load',fn)))(()=>{
     navigator.serviceWorker.register('sw.js').then(reg=>{
       // 즉시 업데이트 확인
       reg.update();
@@ -10252,3 +10260,6 @@ if('serviceWorker' in navigator){
     });
   });
 }
+
+// Capture setup before account save or handoff, including an ungenerated bracket.
+window.MintonCaptureWorkspace=()=>{clearTimeout(saveTimer);saveState({preparation:true});};
