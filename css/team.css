@@ -3527,3 +3527,33 @@ body{background:var(--bg)!important;}
     min-height:44px;
   }
 }
+
+/* Team setup follows available space, including iPad landscape and split view.
+   Flatten only the layout wrapper; stage visibility and DOM reading order remain intact. */
+@media(min-width:700px){
+  #pageMain>.wrap{max-width:1360px;padding:24px 24px 48px;}
+  #pageMain:not(.team-monitoring) .two-col{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 28px;}
+  #pageMain:not(.team-monitoring) .two-col>div:first-child{display:contents;}
+  #pageMain:not(.team-monitoring) :is(#autoFlowCard,#sec-quality,#sec-rsvp,#resultArea,#teamMonitorTools){grid-column:1/-1;}
+  #pageMain:not(.team-monitoring) #sec-players{grid-column:1;order:4;}
+  #pageMain:not(.team-monitoring) #sec-settings{grid-column:2;order:4;}
+  #pageMain:not(.team-monitoring) .two-col:has(#sec-players.hidden) #sec-settings{grid-column:1/-1;}
+  #pageMain .two-col>*{min-width:0;}
+  #pageMain .setting-grid{gap:16px 12px;}
+  #pageMain .si>label{font-size:15px;}
+  #pageMain :is(.stepper-btn,.pseg-btn){min-height:48px;}
+  #pageMain .stepper input{font-size:20px;}
+  #pageMain :is(.dpi-name,.tlb-name){font-size:16px;white-space:normal;overflow-wrap:anywhere;}
+  #pageMain :is(.dpi-meta,.tlb-meta,.hint,.dir-count-bar){font-size:13px;}
+  #pageMain .dir-player-list{max-height:min(62vh,720px);gap:8px;}
+  #pageMain .dir-player-item{min-height:56px;padding:10px;gap:6px;}
+  #pageMain :is(.dpi-edit,.dpi-del,.dpi-partner-btn){min-width:44px;min-height:44px;}
+  #importModal .modal-box{max-width:900px;width:calc(100vw - 64px);max-height:90vh;max-height:90dvh;}
+  #importModal #importMemberList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:none!important;overflow:visible!important;}
+  #importModal .import-member-row{min-height:56px;min-width:0;border-bottom:1px solid var(--bdr);}
+  #importModal .import-member-row>span:first-of-type{font-size:16px!important;overflow-wrap:anywhere;min-width:0;}
+  #importModal .import-member-row>span:last-of-type{font-size:13px!important;flex-shrink:0;}
+  #importModal .import-chk{width:24px;height:24px;}
+  #importModal .modal-head{position:sticky;top:0;z-index:1;background:var(--ui-paper,#fff);}
+  #importModal .modal-head button{min-width:44px;min-height:44px;}
+}
