@@ -86,7 +86,7 @@
     switchNav('roster');editMember(club.id,idx);selectMemberSkill(proposal.step);
     // Existing member edit save is the sole production write path; cancel changes nothing.
   }
-  (window.MintonAdminReady || (fn=>document.addEventListener('DOMContentLoaded',fn)))(()=>setTimeout(()=>{apply();paint();refresh();},0));
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{apply();paint();refresh();},0));
   window.addEventListener('storage',event=>{if(event.key===KEY)paint();});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
   setInterval(refresh,60000);
