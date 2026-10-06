@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.767';
+const APP_VERSION = '1.10.768';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -226,6 +226,7 @@ function _updateUndoBtn(){
 }
 
 function undoAction(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected&&window.MintonAdminWorkspace.games.team){const head=MintonAccountGames.heads.team;const command=head?.state?.accountLastOperation?.type==='team-admin-edit'?{type:'team-admin-undo',expectedRevision:head.revision}:{type:'team-official-undo',expectedLabel:head?.state?.officialLog?.at(-1)?.label||''};return MintonAccountGames.command('team',command).then(sent=>{if(!sent.ok)alert(sent.reason||'되돌릴 수 없는 상태입니다.');});}
   if(!_undoStack.length){ alert('되돌릴 내역이 없습니다.'); return; }
   _undoInProgress=true;
   try{
@@ -2469,6 +2470,9 @@ function fisherYates(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Mat
 const winOverride={};
 const liveWinAt={};
 function clickWin(idx,side){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected&&window.MintonAdminWorkspace.games.team){
+    const previous=winOverride[idx]||'';return MintonAccountGames.command('team',{type:'team-official-result',matchNum:currentMatches[idx].matchNumber||(idx+1),expectedWin:previous,win:previous===side?'':side}).then(sent=>{if(!sent.ok)alert(sent.reason||'결과를 확인해 주세요.');});
+  }
   const prev=winOverride[idx];
   // 같은 버튼 다시 누르면 취소
   winOverride[idx]=(prev===side)?null:side;
@@ -3160,6 +3164,7 @@ function _unbindLiveAdminListener(){
   _liveAdminRef=null;_liveAdminHandler=null;_liveAdminId=null;
 }
 function _bindLiveAdminListener(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected)return;
   if(!_fbDb||!_liveId) return;
   if(_liveAdminRef&&_liveAdminId===_liveId) return;
   _unbindLiveAdminListener();
@@ -3190,6 +3195,7 @@ function _bindLiveAdminListener(){
 
 /* 실시간 중계 시작 */
 async function startLiveBroadcast(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected){try{return await MintonAccountGames.publish('team');}catch(e){alert(e.message);return false;}}
   if(!currentMatches.length){ alert('대진표를 먼저 생성하세요.'); return; }
   const dups=_duplicateNames(currentParticipants);
   if(dups.length&&!confirm('동명이인이 있습니다.\n\n'+dups.join(', ')+'\n\n늦음/뒷풀이 표시가 같은 이름으로 합쳐질 수 있어요.\n가능하면 이름 뒤에 A/B 같은 구분자를 붙이는 것을 권장합니다.\n\n그래도 중계를 시작할까요?')) return;
@@ -3252,6 +3258,7 @@ function _teamLiveResumeLabel(){
 
 /* 앱 재시작 시 중계 자동 재연결 */
 async function _tryResumeLive(opts={}){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected)return MintonAccountGames.refresh();
   const manual=!!opts.manual;
   if(_liveOn) return true; // 이미 중계 중
   const savedId=_teamStoredLiveId();
@@ -3365,6 +3372,7 @@ async function resumeTeamLiveBroadcast(){
 
 /* 실시간 상태 갱신 (점수 입력 시 자동 호출) */
 async function pushLiveState(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected){if(!_liveApplyingServer&&window.MintonAdminWorkspace.games.team)return MintonAccountGames.editTeam();return;}
   // 서버에서 받은 걸 화면에 반영하는 중에는 **되쏘지 않는다.** 그대로 두면
   // 임원이 방금 바꾼 것을 관리자가 옛 값으로 한 번 덮었다가 되돌리는 왕복이
   // 생기고, 그 찰나에 다른 조작이 끼면 진짜로 지워진다.
@@ -3416,6 +3424,7 @@ async function _teamClearLiveBroadcastData(explicitLiveId){
 
 /* 실시간 중계 종료 */
 async function stopLiveBroadcast(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected&&window.MintonAdminWorkspace.games.team){if(!confirm('운동을 마무리하고 결과를 보관할까요?'))return;const sent=await MintonAccountGames.close('team');if(!sent.ok)alert(sent.reason||'종료 요청을 확인해 주세요.');return;}
   if(!confirm('운동을 종료할까요?\n회원 중계를 마치고 최종 결과를 이 기기에 보관합니다.'))return;
   _teamFinishedAt=Date.now();
   if(!_liveId || !_fbDb){
@@ -5173,9 +5182,9 @@ function _teamSyncGeneratedProfilesFromDirectPlayers(){
   return changed;
 }
 
-function saveState(){
-  _teamSaveRosterBridge();
-  if(!currentMatches.length)return;
+function saveState(options={}){
+  if(!options.preparation)_teamSaveRosterBridge();
+  if(!currentMatches.length&&!options.preparation)return;
   const scores=currentMatches.map((m,i)=>{
     const s1=document.getElementById('s1_'+i);
     const s2=document.getElementById('s2_'+i);
@@ -5232,6 +5241,10 @@ function saveState(){
     lockedBeforeRound:_lockedBeforeRound,
     pointSystem:_pointSystem
   };
+  if(options.preparation){
+    try{const old=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(old&&JSON.stringify({...old,savedAt:0})===JSON.stringify({...state,savedAt:0}))return;}catch(e){}
+    _teamSaveRosterBridge();
+  }
   // 실시간 중계 ID 저장 (앱 종료 후 재시작 시 자동 재연결용)
   if(_liveId) {
     _teamSaveLiveId(_liveId);
@@ -5364,7 +5377,7 @@ function restoreState(opts={}){
     document.getElementById('gamesPerPlayer').value=state.gamesPerPlayer||4;
     document.getElementById('mixedDbl').value=state.mixedDbl??1;
     // 직접입력 목록 복원 (구버전 pasteText 호환 포함)
-    if(state.directPlayers&&state.directPlayers.length){
+    if(Array.isArray(state.directPlayers)){
       _directPlayers=state.directPlayers.slice();
     } else if(state.pasteText){
       // 구버전 호환: pasteText 파싱 후 directPlayers로 변환
@@ -5447,6 +5460,9 @@ function restoreState(opts={}){
     if(state.liveOn&&state.liveId)_teamSaveLiveId(state.liveId);
     if(state.pointSystem){ _pointSystem=state.pointSystem; document.querySelectorAll('.pseg-btn').forEach(b=>b.classList.toggle('active',+b.dataset.pt===_pointSystem)); }
 
+    if(!currentMatches.length){
+      updateSettingsMiniSummary();renderAutoFlowDashboard();_teamSaveRosterBridge();setSaveStatus('saved');return;
+    }
     if(profileChanged&&teamAssignment)renderTeamList();
     renderResults(currentMatches,currentParticipants,currentSettings);
     _teamSaveRosterBridge();
@@ -5455,7 +5471,7 @@ function restoreState(opts={}){
       :'명부의 급수 수정이 현재 자유 대진표에 반영됐습니다. 기존 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 "대진표 생성"을 눌러 새 균형으로 다시 만들어 주세요.');
     show('resultArea');
 
-    setTimeout(()=>{
+    const finishRestore=()=>{
       if(state.scores){
         state.scores.forEach((sc,i)=>{
           const s1=document.getElementById('s1_'+i);
@@ -5469,10 +5485,11 @@ function restoreState(opts={}){
       const mb=document.getElementById('mobRestoreBtn');
       if(mb) mb.classList.add('hidden');
       setSaveStatus('saved');
-      (document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});
+      if(!opts.workspace)(document.getElementById('qualDash')||document.getElementById('resultArea')).scrollIntoView({behavior:'smooth',block:'start'});
       // 중계 자동 재연결: 저장된 liveId가 있으면 Firebase 확인 후 재개
-      _tryResumeLive(opts.resumeLive?{manual:true}:{});
-    },100);
+      if(!opts.workspace)_tryResumeLive(opts.resumeLive?{manual:true}:{});
+    };
+    if(opts.workspace)finishRestore();else setTimeout(finishRestore,100);
   }catch(e){alert('복원 중 오류: '+e.message);console.error(e);}
 }
 
@@ -6664,6 +6681,7 @@ async function setTeamTemporaryOperator(memberId,enabled){
     if(!_liveOn){saveState();return true;}
     if(!_fbDb&&!_fbInit())throw new Error('실시간 서버에 연결하지 못했습니다.');
     const state=_buildLiveState();
+    if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected){const result=await MintonAccountGames.editTeam();if(!result?.ok)throw Error(result?.reason||'운영진 저장 대기');return true;}
     await _fbDb.ref('live/'+_liveId).update({
       officials:state.officials,
       members:state.members,
@@ -7132,7 +7150,11 @@ function _rsvpSyncImportedPlayersFromRoster(){
         :'명부의 급수 수정이 현재 자유 대진표에 반영됐습니다. 기존 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.');
       if(synced)scheduleSave();
     }else if(teamAssignment){
-      teamAssignment=null;
+      if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected){
+        // Profile synchronization is not a request to reshuffle teams on every device.
+        teamAssignment=_teamEnrichAssignmentProfiles(teamAssignment,[],_directPlayers,_directPlayers);
+        if(competitiveChanged&&!window.MintonAdminWorkspace.hydrating)showWarn('명부의 실력 정보가 반영됐습니다. 청·홍 구성은 유지하며, 새 균형을 원하면 다시 배정해 주세요.');
+      }else teamAssignment=null;
     }
     syncDirectToPaste();
     updateTeamModeBadge();
@@ -10194,7 +10216,7 @@ function applyTeamSampleData(){
 }
 
 // 페이지 로드
-window.addEventListener('DOMContentLoaded', () => {
+(window.MintonAdminReady || (fn=>window.addEventListener('DOMContentLoaded',fn)))(() => {
   if(!isTeamSampleMode())checkSavedState();
   loadRosters();
   renderClubList();
@@ -10205,7 +10227,8 @@ window.addEventListener('DOMContentLoaded', () => {
     rsvpRender();
     updateTeamModeBadge(); // 팀전 기본 상태 반영
     updateSettingsMiniSummary();
-    teamApplyParticipantHandoff();
+    if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected&&localStorage.getItem(SAVE_KEY))restoreState({resumeLive:true});
+    else teamApplyParticipantHandoff();
   }
   // 버전 표시 반영
   const vEl=document.getElementById('appVersion');
@@ -10228,7 +10251,7 @@ if('serviceWorker' in navigator){
     _refreshing=true;
     location.reload();
   });
-  window.addEventListener('load', ()=>{
+  (window.MintonAdminReady || (fn=>window.addEventListener('load',fn)))(()=>{
     navigator.serviceWorker.register('sw.js').then(reg=>{
       // 즉시 업데이트 확인
       reg.update();
@@ -10252,3 +10275,8 @@ if('serviceWorker' in navigator){
     });
   });
 }
+
+// Capture setup before account save or handoff, including an ungenerated bracket.
+window.MintonCaptureWorkspace=()=>{clearTimeout(saveTimer);saveState({preparation:true});};
+
+window.MintonApplyWorkspace=games=>{loadRosters();renderClubList();if(!games.team&&localStorage.getItem(SAVE_KEY)){_liveApplyingServer=true;try{restoreState({workspace:true});}finally{_liveApplyingServer=false;}}};

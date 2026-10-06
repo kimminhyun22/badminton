@@ -16,6 +16,11 @@
     return same(local,binding.base)?'clean':'save';
   }
   if(typeof module==='object'&&module.exports){module.exports={plan,same};return;}
+  if(window.MintonAdminWorkspace){
+    window.openRosterCloud=()=>window.MintonAdminWorkspace.open();
+    document.querySelectorAll('[data-roster-cloud-open]').forEach(b=>{b.disabled=false;b.textContent='계정 · 기기 연결';});
+    return;
+  }
   let auth,authApi,call,user,busy=false,ready=false,dialog,remote=[],message='서버 연결 준비 중',lastAttempt=0;
   const read=()=>JSON.parse(localStorage.getItem(KEY)||'{"clubs":[]}');
   const state=()=>JSON.parse(localStorage.getItem(PREFIX+user.uid)||'{}');
