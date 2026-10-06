@@ -54,8 +54,13 @@ exports.clubSkillCalibration = onCall({...MEMBER_FUNCTION_OPTIONS,maxInstances:2
 
 // Optional administrator account workspace; member links remain unauthenticated.
 exports.adminWorkspace = onCall({...MEMBER_FUNCTION_OPTIONS,maxInstances:2},async request=>{
-  try{return await require('./admin-workspace').handle(admin.database(),request.auth,request.data);}
-  catch(error){throw new HttpsError(['unauthenticated','permission-denied','aborted','failed-precondition'].includes(error.code)?error.code:'internal',error.message||'계정 저장을 확인해 주세요.');}
+  try{await require('./workspace-pilot-access').authorize(admin.database(),request.auth,request.data,'workspace');return await require('./admin-workspace').handle(admin.database(),request.auth,request.data);}
+  catch(error){throw new HttpsError(['unauthenticated','permission-denied','aborted','failed-precondition','resource-exhausted','invalid-argument'].includes(error.code)?error.code:'internal',error.message||'계정 저장을 확인해 주세요.');}
+});
+
+exports.adminWorkspaceGameCommand = onCall({...FUNCTION_OPTIONS,maxInstances:2},async request=>{
+  try{await require('./workspace-pilot-access').authorize(admin.database(),request.auth,request.data,'game');return await require('./admin-workspace-game').handle(admin.database(),request.auth,request.data,OFFICIAL_GRANT_SECRET.value());}
+  catch(error){throw new HttpsError(['unauthenticated','permission-denied','aborted','failed-precondition','resource-exhausted','invalid-argument','not-found','already-exists'].includes(error.code)?error.code:'internal',error.message||'경기 동기화를 확인해 주세요.');}
 });
 
 exports.clubRosterCloud = onCall({...MEMBER_FUNCTION_OPTIONS,maxInstances:2},async request=>{

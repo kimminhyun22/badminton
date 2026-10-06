@@ -3940,6 +3940,7 @@ async function _dailySyncPauseState(paused,pausedAt,changedAt,reason){
   return result;
 }
 async function dailyTogglePause(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected&&window.MintonAdminWorkspace.games.daily){const result=await MintonAccountGames.command('daily',{type:'account-pause',paused:!_dailyPaused,expectedPaused:_dailyPaused,expectedPauseRevision:_dailyPauseRevision});if(!result.ok)alert(result.reason||'일시 정지 상태를 확인해 주세요.');return;}
   if(_dailyPauseSyncBusy)return;
   if(!_dailyOperationStarted){
     alert('대진 게시 후 진행을 일시 정지할 수 있습니다.');
@@ -5870,6 +5871,7 @@ function _dailyCaptureCompleteUndo(token,source){
   };
 }
 function dailyUndoMemberComplete(token,skipConfirm){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected&&window.MintonAdminWorkspace.games.daily){if(!skipConfirm&&!confirm('방금 처리한 운영 작업을 되돌릴까요?'))return false;return MintonAccountGames.command('daily',{type:'official-operation-undo',token}).then(sent=>{if(!sent.ok)alert(sent.reason||'되돌릴 수 없는 상태입니다.');return sent.ok;});}
   if(!_dailyLastCompleteUndo||_dailyLastCompleteUndo.token!==token||_dailyNow()>_dailyLastCompleteUndo.expiresAt)return false;
   if(_dailyLastCompleteUndo.guard&&_dailyLastCompleteUndo.guard!==_dailyCompleteUndoGuard()){
     _dailyLastCompleteUndo=null;
@@ -6433,6 +6435,11 @@ function _dailyTemporaryOfficialOperationId(enabled){
 // 게시된 뒤 실패하면 로컬을 건드리지 않습니다. 현장에서 그 동작이 막히더라도
 // 관리자 원본과 서버가 갈라지는 것보다는 낫다는 판단입니다(2026-08-03 확정).
 async function _dailySendAdminCommand(command,options){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected&&window.MintonAdminWorkspace.games.daily){
+    const sent=await MintonAccountGames.command('daily',command);
+    if(!sent.ok&&!options?.silent)alert(sent.reason||'현재 경기 상태를 확인해 주세요.');return sent;
+  }
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected)return {live:true,ok:false,reason:'계정에서 회원 링크를 먼저 게시해 주세요.'};
   if(!_dailyCheckinId)return {live:false,ok:false};
   const label=options?.action||'요청';
   const operationId=command.operationId||_dailyAdminOperationId(options?.tag||command.type);
@@ -6987,6 +6994,7 @@ async function _dailyEnsureAdminGrant(forceRefresh){
   }
 }
 function _dailyPullServerReconcile(retriedGrant){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected)return MintonAccountGames.refresh();
   if(_dailyServerSyncPromise){
     _dailyServerSyncQueued=true;
     return _dailyServerSyncPromise;
@@ -7594,6 +7602,7 @@ function _dailyArrivalCandidatesHash(candidates){
   return _dailyCheckinId+'|'+JSON.stringify(candidates.map(c=>[c.candidateKey,c.name,c.club||'',c.grade||'',c.level,c.gender,c.ageGroup,c.kind]));
 }
 async function _dailySyncArrivalCandidates(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected)return MintonAccountGames.syncCandidates();
   if(!_dailyCheckinId||!_fbDb||!_dailyCheckinOwnershipVerified)return false;
   // 서버 명령을 관리자 원본에 합치는 동안에는 곧 전체 세션을 다시 게시합니다.
   // 이때 후보 자식 노드부터 쓰면 Firebase 로컬 캐시에 부분 세션이 생겨, 동시에
@@ -7941,6 +7950,7 @@ async function _dailyPushCheckinSessionOnce(){
   }
 }
 function dailyPushCheckinSession(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected){_dailyCheckinNeedsPublish=false;return Promise.resolve(true);}
   if(!_dailyCheckinId)return Promise.resolve(false);
   if(!_fbDb||_dailyCheckinIdentityPending){
     _dailyCheckinNeedsPublish=true;
@@ -7970,6 +7980,7 @@ function dailyPushCheckinSession(){
   return publishing;
 }
 async function dailyPublishCheckinSession(silent){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected){try{return await MintonAccountGames.publish('daily');}catch(e){if(!silent)alert(e.message);return null;}}
   _dailyPublishKeptUrl='';
   if(!_dailyPlayers.length){
     if(!silent)alert('먼저 민턴LIVE 명단을 추가하거나 명부를 가져오세요.');
@@ -8252,6 +8263,7 @@ async function dailyShareOfficialLink(){
     : '임원 운영 링크입니다. 아래 주소를 길게 눌러 복사한 뒤 운영을 도울 임원에게만 보내 주세요.\n\n'+url));
 }
 async function dailyResumeCheckin(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected)return MintonAccountGames.refresh();
   let adoptedStoredIdentity=false;
   const storedCheckinId=localStorage.getItem(DAILY_CHECKIN_KEY)||null;
   if(!storedCheckinId&&_dailyCheckinId&&!_dailyStoredIdentity(_dailyCheckinId)){
@@ -9894,6 +9906,7 @@ function dailyIgnoreCheckinRequest(key){
   dailyRenderCheckinRequests();
 }
 async function dailyStopCheckinLink(){
+  if(typeof window!=='undefined'&&window.MintonAdminWorkspace?.connected&&window.MintonAdminWorkspace.games.daily){if(!confirm('회원 링크를 종료하고 현재 기록을 계정에 보관할까요?'))return;const sent=await MintonAccountGames.close('daily');if(!sent.ok)alert(sent.reason||'종료 요청을 확인해 주세요.');return;}
   if(!_dailyCheckinId)return;
   if(!confirm('민턴LIVE 회원 링크를 종료할까요?\n이미 보낸 링크에서는 더 이상 명단을 볼 수 없습니다.'))return;
   const path=_dailyCheckinPath();
@@ -17186,3 +17199,6 @@ if('serviceWorker' in navigator){
     });
   });
 }
+
+window.MintonCaptureWorkspace=()=>{if(!window.MintonAdminWorkspace?.games.daily)dailySave({preserveServerQueue:true});};
+window.MintonApplyWorkspace=games=>{loadRosters();renderClubList();if(!games.daily){dailyLoad();dailyRender();}};
