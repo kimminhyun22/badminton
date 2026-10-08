@@ -11,7 +11,8 @@ const wide=C.proposals(players,questions,Object.fromEntries(Array.from({length:1
 assert(wide[0].skillRating-wide[2].skillRating>3,'evidence may exceed old correction cap');
 const mixed=C.players(raw.map(p=>({...p,gender:'남',ageGroup:'20대',level:undefined})));
 const alt=C.proposals(mixed,C.pairs(mixed),votes);
-assert(Math.abs((alt[0].skillRating-alt[1].skillRating)-(p[0].skillRating-p[1].skillRating))<.002,'demographic profile cannot reverse learned differences');
+assert.notEqual(alt[0].skillRating,p[0].skillRating,'initial personal baseline informs sparse comparisons');
+for(let i=0;i<p.length;i++){assert.equal(p[i].baseRating,players[i].base);assert(Math.abs(p[i].baseRating+p[i].adjustment-p[i].skillRating)<1e-9,'baseline plus correction equals final score');}
 const original=JSON.stringify(votes);
 const state={clubs:[{id:'c',name:'E2E클럽',members:raw}]};
 const applied=B.prepare(state,'c',p.map((p,i)=>({id:p.id,original:raw[i],step:p.step,skillRating:p.skillRating})),'r','b');
@@ -29,7 +30,7 @@ const sparse=C.proposals(players,questions,{e0:{p0_p1:'a'}});
 assert(sparse[0].ready&&!sparse[0].connected);assert(!sparse[2].ready);
 assert.equal(sparse[2].skillRating,players[2].base,'uncompared member keeps initial estimate');
 const disagreement=C.proposals(players,questions,{e0:{p0_p1:'a'},e1:{p0_p1:'b'}});
-assert.equal(disagreement[0].skillRating,disagreement[1].skillRating,'split evidence participates instead of being dropped');
+assert(Math.abs(disagreement[0].skillRating-disagreement[1].skillRating)<Math.abs(players[0].base-players[1].base),'split evidence narrows initial difference without replacing both baselines');
 const session={id:'s',clubName:'E2E',players,questions:[questions[0]],votes,expiresAt:Date.now()+1e5};
 assert.equal(S.project(session,'owner').questions.length,3,'old session gains cross-profile pairs');
 assert.equal(S.project(session,'owner').count,3);assert.deepEqual(S.project(session,'shared').proposals,[]);
@@ -53,3 +54,8 @@ const viewSource=fs.readFileSync('js/live-view.js','utf8');
 const start=viewSource.indexOf('function _memberEffLevel('),end=viewSource.indexOf('\n}',start)+2;
 const view={};vm.runInNewContext(viewSource.slice(start,end),view);
 assert.equal(view._memberEffLevel({...carried,ageGroup:'20대'}),members[0].skillRating,'published member rating is final');
+
+const neutral=C.proposals(C.players(raw.slice(0,2)),C.pairs(C.players(raw.slice(0,2))),{e0:{p0_p1:'tie'}});
+assert(neutral[0].skillRating!==neutral[1].skillRating,'one tie must not erase different personal baselines');
+const zeroPrior={module:{exports:{}}};vm.runInNewContext(fs.readFileSync('functions/skill-calibration-core.js','utf8').replace('Math.exp(prior[e.j]+x[e.j]-prior[e.i]-x[e.i])','Math.exp(x[e.j]-x[e.i])'),zeroPrior);
+assert.notEqual(zeroPrior.module.exports.proposals(players,questions,votes)[0].skillRating,p[0].skillRating,'mutation detects baseline omitted from comparison fit');

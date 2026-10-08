@@ -68,7 +68,7 @@
     catch(e){message(e.message);setup();}finally{busy=false;}
   }
   function resultState(p,original,current){
-    if(p.model==='comparison-v2'){
+    if(p.model?.startsWith('comparison-v')){
       const same=window.KokSkillBatch.same;
       if(!same(original,current))return {key:'changed',title:'명부 변경됨',reason:'명부가 변경됐습니다. 새로고침해 주세요.'};
       if(!p.opponents)return {key:'unreviewed',title:'초기 추정',reason:'비교 응답이 없어 초기 추정을 유지합니다.'};
@@ -109,7 +109,7 @@
       if(!matchesBasis||!sameIdentity)return {p:proposal,current,original,state:{key:'changed',title:'명부 확인 필요',reason:'회원 정보가 변경됐습니다. 결과를 새로고침해 주세요. 회원 이름과 현재 값을 확인합니다.'}};
       const p={...proposal,current:Number(current.skillStep||0)};
       let state=resultState(p,current,current);
-      if(p.model!=='comparison-v2'&&baseline&&p.step===p.current)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
+      if(!p.model?.startsWith('comparison-v')&&baseline&&p.step===p.current)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
       return {p,state,original:current,current};
     }
     const p=baseline?{...proposal,current:baseline.skillStep,ready:!!proposal.reviewed&&proposal.step!==baseline.skillStep}:{...proposal};
@@ -144,7 +144,7 @@
       const player=session.players.find(v=>v.id===p.id),before=5+(p.currentRating??(player.base+p.current*.2)),after=5+(p.skillRating??(player.base+p.step*.2)),delta=after-before;
       const change=delta>0?'+'+delta.toFixed(1):delta.toFixed(1);
       const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'더 유리':'덜 유리'} · ${c.votes}명 응답</li>`).join('');
-      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(2)} <span>→</span> ${after.toFixed(2)} <b>${change}</b></p><p>누적 비교로 추정한 최종 실력 · 성별·연령 추가 보정 없음</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">비교 점수는 기존 실력점수에 모두 5점을 더한 표시입니다. 실력차와 배정 기준은 그대로이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
+      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(2)} <span>→</span> ${after.toFixed(2)} <b>${change}</b></p><p>${Number.isFinite(p.baseRating)?`기본 ${(p.baseRating+5).toFixed(2)} ${p.adjustment>=0?'+':'−'} 미세조정 ${Math.abs(p.adjustment).toFixed(2)} = 최종 ${(p.skillRating+5).toFixed(2)}`:'누적 비교로 추정한 최종 실력'} · 성별·연령 추가 보정 없음</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">비교 점수는 기존 실력점수에 모두 5점을 더한 표시입니다. 실력차와 배정 기준은 그대로이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
     }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
     $('answerSelf').textContent='나도 참여하기';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
