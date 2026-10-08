@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.776';
+const APP_VERSION = '1.10.777';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2462,6 +2462,7 @@ function _teamOptimizeFinalists(finalists,settings){
   }
   if(best){
     _teamImproveIndividualBalance(best,settings);
+    _teamImproveRepeatBalance(best,settings);
     best.participants.forEach(p=>p.lastRoundPlayed=0);
     best.matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
       p.lastRoundPlayed=Math.max(p.lastRoundPlayed||0,m.round);
@@ -2515,6 +2516,73 @@ function _teamImproveIndividualBalance(candidate,settings){
     const {i,j,fa,fb}=best;
     [matches[i][fa],matches[j][fb]]=[matches[j][fb],matches[i][fa]];
     update(matches[i]);update(matches[j]);quality=best.quality;changed=true;
+  }
+  if(!changed)return;
+  const history=_buildHistoryFromMatches(matches);
+  participants.forEach(p=>{if(history[p.name]){
+    p.partnerCount=history[p.name].partnerCount;p.opponentCount=history[p.name].opponentCount;
+  }});
+}
+
+// Repetition relief may trade a small amount of aggregate precision for varied
+// games. All limits are relative to the original candidate, never cumulative.
+function _teamRepeatBalanceStats(matches){
+  const partners=new Map(),opponents=new Map();
+  const add=(map,a,b)=>{const k=JSON.stringify([a.name,b.name].sort());map.set(k,(map.get(k)||0)+1);};
+  for(const m of matches){
+    const a=[m.team1A,m.team1B],b=[m.team2C,m.team2D];
+    add(partners,...a);add(partners,...b);
+    a.forEach(p=>b.forEach(q=>add(opponents,p,q)));
+  }
+  const risks=matches.map(_teamIndividualRisk);
+  return {partnerExcess:[...partners.values()].reduce((s,n)=>s+Math.max(0,n-2),0),
+    opponentExcess:[...opponents.values()].reduce((s,n)=>s+Math.max(0,n-3),0),
+    risk:risks.reduce((s,n)=>s+n,0),maxRisk:Math.max(0,...risks)};
+}
+function _teamImproveRepeatBalance(candidate,settings){
+  const {matches,participants}=candidate,fields=['team1A','team1B','team2C','team2D'];
+  const base=_qualityAssessment(matches,participants,settings),baseStats=_teamRepeatBalanceStats(matches);
+  if(!baseStats.partnerExcess&&!baseStats.opponentExcess)return;
+  const preserved=['structureErr','genderErr','avoidableUnderSlots','avoidableOverSlots',
+    'balanceHardCount','balanceSevereCount','balanceCautionCount','asymSevereCount',
+    'avoidableExact','avoidableSameFour','partner4'];
+  const maxLimit=Math.max(base.maxLD,Math.min(1.5,base.maxLD+0.2));
+  const update=m=>{
+    m.team1Level=effLevel(m.team1A)+effLevel(m.team1B);
+    m.team2Level=effLevel(m.team2C)+effLevel(m.team2D);
+    m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;
+  };
+  const key=(q,r)=>[r.partnerExcess,r.opponentExcess,-q.total,r.risk,q.diversityPenalty];
+  let quality=base,stats=baseStats,changed=false;
+  for(let pass=0;pass<8;pass++){
+    let best=null,attempts=0;
+    scan:for(let i=0;i<matches.length;i++)for(let j=i+1;j<matches.length;j++){
+      const a=matches[i],b=matches[j];
+      if(a.round!==b.round||a.win||b.win||a.voided||b.voided||fields.some(f=>a[f].partnerName||b[f].partnerName))continue;
+      for(const fa of fields)for(const fb of fields){
+        if(a[fa].gender!==b[fb].gender||(settings.teamMode&&a[fa].team!==b[fb].team))continue;
+        if(++attempts>2048)break scan;
+        const oldA={...a},oldB={...b};
+        [a[fa],b[fb]]=[b[fb],a[fa]];update(a);update(b);
+        const nextStats=_teamRepeatBalanceStats(matches);
+        if(nextStats.partnerExcess<=stats.partnerExcess&&nextStats.opponentExcess<=stats.opponentExcess
+          &&nextStats.risk<=baseStats.risk+1e-9&&nextStats.maxRisk<=baseStats.maxRisk+1e-9){
+          const next=_qualityAssessment(matches,participants,settings);
+          if(next.total>=base.total&&next.sBalance>=base.sBalance&&next.sFair>=base.sFair&&next.sInterval>=base.sInterval
+            &&next.maxLD<=maxLimit+1e-9&&next.avgLD<=base.avgLD+0.05+1e-9
+            &&preserved.every(k=>(next[k]||0)<=(base[k]||0))
+            &&_isBetterQualityKey(key(next,nextStats),key(quality,stats))
+            &&(!best||_isBetterQualityKey(key(next,nextStats),key(best.quality,best.stats)))){
+            best={i,j,fa,fb,quality:next,stats:nextStats};
+          }
+        }
+        Object.assign(a,oldA);Object.assign(b,oldB);
+      }
+    }
+    if(!best)break;
+    const {i,j,fa,fb}=best;
+    [matches[i][fa],matches[j][fb]]=[matches[j][fb],matches[i][fa]];
+    update(matches[i]);update(matches[j]);quality=best.quality;stats=best.stats;changed=true;
   }
   if(!changed)return;
   const history=_buildHistoryFromMatches(matches);

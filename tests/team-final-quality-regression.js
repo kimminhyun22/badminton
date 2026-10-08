@@ -5,6 +5,9 @@ const ctx={_qualityAssessment:matches=>({structureErr:0,genderErr:0,avoidableUnd
 vm.createContext(ctx);
 vm.runInContext(src.slice(src.indexOf('function _isBetterQualityKey('),src.indexOf('function _autoSearchTries('))+src.slice(src.indexOf('function _teamFinalQualityKey('),src.indexOf('function shuffleArray(')),ctx);
 ctx._teamRefineRoundPairs=()=>{};
+// This test isolates candidate ordering with synthetic quality values.
+// Real-player repetition refinement is covered by team-repeat-balance-regression.
+ctx._teamImproveRepeatBalance=()=>{};
 const players=[0,1,2,3].map(i=>({name:'E2E'+i,lastRoundPlayed:1}));
 const make=(quality={})=>({matches:[{round:1,court:1,team1A:players[0],team1B:players[1],team2C:players[2],team2D:players[3],quality}],participants:players});
 let finalists=[];ctx._teamKeepFinalist(finalists,make(),{});
