@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.773';
+const APP_VERSION = '1.10.774';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -2813,6 +2813,16 @@ function renderParticipantPreparation(){
   const countEl=document.getElementById('participantPrepCount');
   const meta=document.getElementById('participantPrepRegisterMeta');
   const hint=document.getElementById('participantPrepHint');
+  const roster=document.getElementById('participantPrepRoster');
+  const rosterList=document.getElementById('participantPrepRosterList');
+  const rosterCount=document.getElementById('participantPrepRosterCount');
+  if(roster)roster.hidden=!count;
+  if(rosterCount)rosterCount.textContent=`${count}명`;
+  if(rosterList)rosterList.innerHTML=_dailyPlayers.filter(p=>p&&!p.registrationCancelled)
+    .slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')).map(p=>{
+      const playing=_dailyNormalizeStatus(p.status)==='playing'||!!p.currentMatchId;
+      return `<div class="participant-prep-person"><span>${esc(p.name)}</span><button type="button" data-player-id="${esc(p.id)}" onclick="dailyRemovePlayer(this.dataset.playerId)" ${_dailyPaused||playing?'disabled':''} aria-label="${esc(p.name)} 참가 취소">참가 취소</button></div>`;
+    }).join('');
   if(countEl)countEl.textContent=`${count}명`;
   if(meta)meta.textContent=count?`${count}명 등록됨`:'명부·캡처·게스트';
   ['participantChooseDaily','participantChooseTeam'].forEach(id=>{
@@ -11053,7 +11063,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.773&from=daily';
+  location.href='team.html?v=1.10.774&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

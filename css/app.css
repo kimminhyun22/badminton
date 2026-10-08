@@ -3438,3 +3438,13 @@ html,body{overscroll-behavior-y:none;}
 #dailyCaptureModal .modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;}
 #dailyCaptureModal .daily-capture-result{max-height:none;overflow:visible;}
 #dailyCaptureModal .daily-capture-footer{flex-shrink:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--bdr);background:#fff;}
+
+/* Shared participant preparation: review imported players before choosing a mode. */
+.participant-prep-roster{margin-top:10px;border:1px solid var(--border,#dce5e1);border-radius:8px;padding:0 12px;}
+.participant-prep-roster summary{min-height:44px;align-content:center;cursor:pointer;font-size:14px;font-weight:700;}
+.participant-prep-roster summary span{margin-left:6px;color:var(--dim);}
+.participant-prep-roster p{font-size:12px;line-height:1.5;color:var(--dim);margin:0 0 8px;}
+.participant-prep-person{display:flex;align-items:center;gap:12px;justify-content:space-between;border-top:1px solid var(--border,#dce5e1);padding:6px 0;}
+.participant-prep-person>span{min-width:0;overflow-wrap:anywhere;font-size:15px;}
+.participant-prep-person button{flex:none;min-height:44px;padding:8px 12px;border:1px solid #dec9c9;border-radius:8px;background:#fff;color:#854444;font:inherit;font-size:13px;cursor:pointer;}
+.participant-prep-person button:disabled{opacity:.4;cursor:default;}
