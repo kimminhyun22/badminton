@@ -1,16 +1,17 @@
 (function(root){
   'use strict';
-  const fields=['name','grade','gender','ageGroup','level','skillStep'];
-  const value=(m,k)=>k==='skillStep'?Number(m[k]||0):k==='ageGroup'?(m[k]||'40대'):k==='gender'?(['F','여'].includes(m[k])?'여':['M','남'].includes(m[k])?'남':m[k]):m[k];
+  const fields=['name','grade','gender','ageGroup','level','skillStep','skillRating'];
+  const value=(m,k)=>k==='skillRating'?(Number.isFinite(m[k])?m[k]:null):k==='skillStep'?Number(m[k]||0):k==='ageGroup'?(m[k]||'40대'):k==='gender'?(['F','여'].includes(m[k])?'여':['M','남'].includes(m[k])?'남':m[k]):m[k];
   const same=(a,b)=>!!a&&!!b&&fields.every(k=>String(value(a,k))===String(value(b,k)));
   const profile=m=>Object.fromEntries(fields.map(k=>[k,value(m,k)]));
-  const sameIdentity=(a,b)=>!!a&&!!b&&fields.slice(0,4).every(k=>String(value(a,k))===String(value(b,k)));
+  const sameIdentity=(a,b)=>!!a&&!!b&&String(a.name)===String(b.name);
   function reviewBaselines(own,club){
     return (own?.snapshots||[]).flatMap((original,i)=>{
       const matches=club?.members?.filter(m=>m.name===original.name)||[],m=matches.length===1?matches[0]:null;
       if(!sameIdentity(original,m))return [];
       const p=profile(m),grade={S:7,A:6,B:5,C:4,D:3,E:2}[p.grade];
       const expected=Math.round((grade-(p.gender==='여'?1:0)+p.skillStep*.2)*10)/10;
+      if(p.skillRating!=null){return [{id:'p'+i,...p}];}
       if(!grade||!['남','여'].includes(p.gender)||!Number.isInteger(p.skillStep)||Math.abs(p.skillStep)>4||!Number.isFinite(Number(p.level))||Math.abs(Number(p.level)-expected)>.001)return [];
       return [{id:'p'+i,...p}];
     });
@@ -28,14 +29,14 @@
       const matches=club.members.filter(m=>m.name===item.original?.name);
       if(seen.has(item.id)||matches.length!==1||!same(matches[0],item.original))throw Error('명부가 변경됐습니다. 결과를 다시 확인해 주세요.');
       seen.add(item.id);
-      if(!Number.isInteger(item.step)||Math.abs(item.step)>4)throw Error('보정값을 확인해 주세요.');
+      if(item.skillRating!=null?!Number.isFinite(item.skillRating):(!Number.isInteger(item.step)||Math.abs(item.step)>4))throw Error('보정값을 확인해 주세요.');
       const member=matches[0],before=profile(member);
-      if(item.step===before.skillStep)continue;
+      if(item.skillRating!=null?item.skillRating===before.skillRating:item.step===before.skillStep)continue;
       const grade={S:7,A:6,B:5,C:4,D:3,E:2}[member.grade];
       if(!grade||!['남','여'].includes(value(member,'gender')))throw Error('회원 정보를 확인해 주세요.');
-      const level=Math.round((grade-(value(member,'gender')==='여'?1:0)+item.step*.2)*10)/10;
-      entries.push({id:item.id,before,after:{...before,skillStep:item.step,level},previous:club.skillReview?.baselines?.[reviewId]?.[item.id]||null});
-      member.skillStep=item.step;member.level=level;
+      const level=item.skillRating!=null?item.skillRating+(value(member,'gender')==='여'?.5:0)-({'20대':0,'30대':-.2,'40대':-.5,'50대':-1.2,'60대+':-2}[member.ageGroup||'40대']||0):Math.round((grade-(value(member,'gender')==='여'?1:0)+item.step*.2)*10)/10;
+      entries.push({id:item.id,before,after:{...before,skillStep:item.step,level,skillRating:item.skillRating??null},previous:club.skillReview?.baselines?.[reviewId]?.[item.id]||null});
+      member.skillStep=item.step;member.level=level;if(item.skillRating!=null)member.skillRating=item.skillRating;else delete member.skillRating;
     }
     if(!entries.length)throw Error('이미 적용된 보정안입니다.');
     club.skillReview=club.skillReview||{};
@@ -52,6 +53,7 @@
     for(const e of batch.entries){
       const matches=club.members.filter(m=>m.name===e.after.name);
       if(matches.length!==1||!same(matches[0],e.after)){skipped++;continue;}
+      if(e.before.skillRating!=null)matches[0].skillRating=e.before.skillRating;else delete matches[0].skillRating;
       matches[0].skillStep=e.before.skillStep;matches[0].level=e.before.level;count++;
       const map=club.skillReview.baselines[batch.reviewId];
       if(e.previous)map[e.id]=e.previous;else delete map[e.id];

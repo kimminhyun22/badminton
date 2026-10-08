@@ -63,8 +63,19 @@ function rosterSkillStep(value){
   return Number.isInteger(n)&&n>=-4&&n<=4?n:0;
 }
 function rosterSkillLevel(member){
+  if(Number.isFinite(member.skillRating))return member.skillRating+(["여","F"].includes(member.gender)?.5:0)-({"20대":0,"30대":-.2,"40대":-.5,"50대":-1.2,"60대+":-2}[member.ageGroup||"40대"]||0);
   const base=gradeToLevel(member.grade||'C',member.gender||'남');
   return Math.round(((base??(Number(member.level)||1))+rosterSkillStep(member.skillStep)*0.2)*10)/10;
+}
+function setMemberRatingDisplay(member){
+  const input=document.getElementById('memberSkill');
+  if(!input)return;
+  const learned=Number.isFinite(member?.skillRating);
+  input.disabled=learned;
+  let note=document.getElementById('memberRatingNote');
+  if(!note){note=document.createElement('p');note.id='memberRatingNote';input.after(note);}
+  note.hidden=!learned;
+  note.textContent=learned?'밸런스게임 실력 '+(member.skillRating+5).toFixed(2)+'점 · 추가 비교로 갱신합니다. 성별·연령 변경은 점수에 영향을 주지 않습니다.':'';
 }
 function selectMemberSkill(value){
   const el=document.getElementById('memberSkill');
@@ -96,7 +107,7 @@ function _liveRosterBridgeProfile(raw){
     memberId:String(raw.memberId || '').trim(),
     name,
     grade,
-    level:Number.isFinite(level) ? level : 0,
+    ...(Number.isFinite(raw.skillRating)?{skillRating:raw.skillRating}:{}),level:Number.isFinite(level) ? level : 0,
     gender,
     ageGroup:String(raw.ageGroup || '40대'),
     club:String(raw.club || ''),

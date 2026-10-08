@@ -4,7 +4,7 @@ const source=fs.readFileSync('js/club-skill-review.js','utf8'),html=fs.readFileS
 async function creation(code,quick,reuse){
   const nodes={},$=id=>nodes[id]||(nodes[id]={value:'0'}),members=[{name:'E2E'}];
   const entry={id:'test',key:'owner',clubId:'club',snapshots:members,createdAt:Date.now()};
-  const ctx={$,quick,busy:false,clubs:[{id:'club',name:'E2E'}],links:reuse?[entry]:[],checkRoster:()=>({members,issues:[]}),C:{players:m=>m,pairs:()=>[{}]},nonce:()=> 'token',persist(){},message(){},api:async()=>({}),renderOwner(){ctx.result='owner';},open:async link=>{ctx.result=link.key;},openShared:async()=>{ctx.result='participant';},Date};
+  const ctx={window:{KokSkillBatch:require('../js/club-skill-batch')},$,quick,busy:false,clubs:[{id:'club',name:'E2E'}],links:reuse?[entry]:[],checkRoster:()=>({members,issues:[]}),C:{players:m=>m,pairs:()=>[{}]},nonce:()=> 'token',persist(){},message(){},api:async()=>({}),renderOwner(){ctx.result='owner';},open:async link=>{ctx.result=link.key;},openShared:async()=>{ctx.result='participant';},Date};
   ctx.reviewProfile=m=>m;
   vm.createContext(ctx);vm.runInContext(code.slice(code.indexOf("  $('create').onclick="),code.indexOf("  $('club').onchange=")),ctx);
   await $('create').onclick();assert.equal(ctx.result,'owner',`quick=${quick} reuse=${reuse}`);

@@ -11,8 +11,9 @@
       const step=Number(m.skillStep||0);
       if(!Number.isInteger(step)||Math.abs(step)>4)throw Error('개인 보정값을 확인해 주세요.');
       const level=round(grade[m.grade]-(gender==='여'?1:0)+step*.2);
-      if(m.level!=null&&(!Number.isFinite(Number(m.level))||Math.abs(Number(m.level)-level)>.01))throw Error('명부의 급수와 보정값을 먼저 확인해 주세요.');
-      return {id:'p'+i,name:m.name.trim(),grade:m.grade,gender,ageGroup:m.ageGroup,skillStep:step,level,base:round(grade[m.grade]-(gender==='여'?1.5:0)+age[m.ageGroup])};
+      if(m.skillRating==null&&m.level!=null&&(!Number.isFinite(Number(m.level))||Math.abs(Number(m.level)-level)>.01))throw Error('명부의 급수와 보정값을 먼저 확인해 주세요.');
+      if(m.skillRating!=null&&(typeof m.skillRating!=='number'||!Number.isFinite(m.skillRating)))throw Error('실력 점수를 확인해 주세요.');
+      return {...(m.skillRating!=null?{skillRating:m.skillRating}:{}),id:'p'+i,name:m.name.trim(),grade:m.grade,gender,ageGroup:m.ageGroup,skillStep:step,level:m.skillRating!=null?m.skillRating+(gender==='여'?.5:0)-age[m.ageGroup]:level,base:round(grade[m.grade]-(gender==='여'?1.5:0)+age[m.ageGroup])};
   }
   function players(raw){
     if(!Array.isArray(raw)||raw.length<2||raw.length>150)throw Error('회원은 2~150명이어야 합니다.');
@@ -25,57 +26,64 @@
   }
   function pairs(list){
     const out=[];
-    for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++)if(list[i].grade===list[j].grade&&Math.abs(list[i].base-list[j].base)<=.70001)out.push({id:`${list[i].id}_${list[j].id}`,a:list[i].id,b:list[j].id});
+    for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++)out.push({id:`${list[i].id}_${list[j].id}`,a:list[i].id,b:list[j].id});
     return out;
   }
-  function proposals(list,questions,votes={}){
-    const byId=Object.fromEntries(list.map(p=>[p.id,p]));
-    const edges=questions.map(q=>{
-      const values=Object.entries(votes).flatMap(([who,answers])=>['a','b','tie'].includes(answers[q.id])?[{who,value:answers[q.id]}]:[]);
+  function rating(p){return Number.isFinite(p.skillRating)?p.skillRating:p.base+(p.skillStep||0)*.2;}
+  function proposals(list,questions,votes={},anchors=list){
+    const index=new Map(list.map((p,i)=>[p.id,i]));
+    const edges=questions.flatMap(q=>{
+      if(!index.has(q.a)||!index.has(q.b))return [];
+      const values=Object.entries(votes||{}).flatMap(([who,a])=>['a','b','tie'].includes(a[q.id])?[{who,value:a[q.id]}]:[]);
+      if(!values.length)return [];
       const counts={a:0,b:0,tie:0};values.forEach(v=>counts[v.value]++);
       const winner=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
-      return {...q,values,winner,consistent:values.length>0&&counts[winner]/values.length>.5};
+      return [{...q,i:index.get(q.a),j:index.get(q.b),values,counts,winner,consistent:counts[winner]>values.length/2,
+        wins:counts.a+counts.tie/2,n:values.length}];
     });
-    const delta=Object.fromEntries(list.map(p=>[p.id,p.skillStep*.2]));
-    // Bounded least-change fit of ordinal constraints; never changes demographic coefficients.
-    for(let iter=0;iter<120;iter++){
-      const gradients=Object.fromEntries(list.map(p=>[p.id,.15*(delta[p.id]-p.skillStep*.2)]));
-      const weights=Object.fromEntries(list.map(p=>[p.id,1]));
-      for(const e of edges.filter(e=>e.consistent)){
-        const diff=byId[e.a].base+delta[e.a]-byId[e.b].base-delta[e.b];
-        const residual=e.winner==='tie'?diff:e.winner==='a'?Math.min(0,diff-.3):Math.max(0,diff+.3);
-        gradients[e.a]+=residual;gradients[e.b]-=residual;weights[e.a]++;weights[e.b]++;
+    const neighbors=list.map(()=>[]);
+    edges.forEach(e=>{neighbors[e.i].push(e.j);neighbors[e.j].push(e.i);});
+    const groups=[],component=list.map(()=>-1);
+    list.forEach((p,i)=>{
+      if(component[i]>=0)return;
+      const group=[],queue=[i],id=groups.length;component[i]=id;
+      for(let at=0;at<queue.length;at++){const j=queue[at];group.push(j);for(const k of neighbors[j])if(component[k]<0){component[k]=id;queue.push(k);}}
+      groups.push(group);
+    });
+    // Bradley–Terry logistic fit uses every vote, with ties as half observations.
+    // A weak symmetric quadratic prior makes unanimous/sparse data finite. It is
+    // independent of demographic profiles and imposes no score/difference cap.
+    const x=list.map(()=>0),lambda=.25;
+    for(let iter=0;iter<2000;iter++){
+      const g=x.map(v=>lambda*v),curvature=x.map(()=>lambda);
+      for(const e of edges){const probability=1/(1+Math.exp(x[e.j]-x[e.i]));
+        const residual=e.n*probability-e.wins;
+        g[e.i]+=residual;g[e.j]-=residual;
+        // Uniform Hessian bound gives a stable simultaneous descent step.
+        curvature[e.i]+=e.n*.5;curvature[e.j]+=e.n*.5;
       }
-      for(const p of list)delta[p.id]=Math.max(-.8,Math.min(.8,delta[p.id]-.5*gradients[p.id]/weights[p.id]));
+      let max=0;
+      for(let i=0;i<x.length;i++){const step=g[i]/curvature[i];x[i]-=step;max=Math.max(max,Math.abs(step));}
+      if(max<1e-8)break;
     }
-    return list.map(p=>{
-      const all=edges.filter(e=>e.values.length&&(e.a===p.id||e.b===p.id));
-      const good=all.filter(e=>e.consistent);
-      const step=Math.max(-4,Math.min(4,Math.round(delta[p.id]/.2)));
-      const direction=Math.sign(step-p.skillStep);
-      const support=good.filter(e=>{
-        const other=byId[e.a===p.id?e.b:e.a];
-        const d=p.base+p.skillStep*.2-other.base-other.skillStep*.2;
-        const outcome=e.winner==='tie'?0:(e.winner==='a')===(e.a===p.id)?1:-1;
-        const shift=outcome===0?-d:outcome>0?Math.max(0,.3-d):Math.min(0,-.3-d);
-        return Math.sign(shift)===direction&&Math.abs(shift)>.05;
-      });
-      const experts=new Set(good.flatMap(e=>e.values.map(v=>v.who))).size;
-      // Rank evidence is relational: a middle-ranked member may both win and lose.
-      // Check fit to the resolved comparisons, not the fraction of wins or losses.
-      const fitError=good.length?good.reduce((sum,e)=>{
-        const diff=byId[e.a].base+delta[e.a]-byId[e.b].base-delta[e.b];
-        return sum+(e.winner==='tie'?Math.abs(diff):e.winner==='a'?Math.max(0,.3-diff):Math.max(0,.3+diff));
-      },0)/good.length:1;
-      const reviewed=good.length>=3&&good.length/all.length>=2/3&&fitError<=.15;
-      const ready=step!==p.skillStep&&reviewed;
-      const comparisons=all.map(e=>({name:byId[e.a===p.id?e.b:e.a].name,agree:e.consistent,
-        outcome:e.winner==='tie'?'tie':((e.winner==='a')===(e.a===p.id)?'higher':'lower'),votes:e.values.length}));
-      return {id:p.id,name:p.name,current:p.skillStep,step,ready,reviewed,fitError,resolved:good.length,opponents:all.length,experts,conflicts:all.length-good.length,support:support.length,comparisons,
-        state:ready?'적용 검토':reviewed?'기준 유지':all.some(e=>!e.consistent)?'의견 나뉨':step!==p.skillStep?'임시 보정':'추가 비교'};
+    // Votes identify relative skill, not an absolute origin. Freeze the initial
+    // component mean; never re-anchor on an already applied proposal on reread.
+    const origin=groups.map(group=>group.reduce((n,i)=>n+rating(anchors.find(a=>a.id===list[i].id)||list[i]),0)/group.length);
+    const scores=list.map((p,i)=>neighbors[i].length?Math.round((origin[component[i]]+x[i])*1000)/1000:rating(p));
+    return list.map((p,i)=>{
+      const all=edges.filter(e=>e.i===i||e.j===i),good=all.filter(e=>e.consistent);
+      const currentRating=rating(p),skillRating=scores[i],reviewed=all.length>0;
+      const ready=reviewed&&(!Number.isFinite(p.skillRating)||Math.abs(skillRating-currentRating)>.0005);
+      const comparisons=all.map(e=>({name:list[e.i===i?e.j:e.i].name,agree:e.consistent,
+        outcome:e.winner==='tie'?'tie':((e.winner==='a')===(e.i===i)?'higher':'lower'),votes:e.n}));
+      return {id:p.id,name:p.name,current:p.skillStep,step:p.skillStep,currentRating,skillRating,model:'comparison-v2',ready,reviewed,
+        componentSize:groups[component[i]].length,connected:groups[component[i]].length===list.length,
+        resolved:good.length,opponents:all.length,experts:new Set(all.flatMap(e=>e.values.map(v=>v.who))).size,
+        conflicts:all.length-good.length,support:good.length,comparisons,
+        state:ready?'실력 점수 저장':reviewed?'현재 값 유지':'초기 추정 · 비교 전'};
     });
   }
-  const api={player,players,pairs,proposals,version:'club-skill-v1'};
+  const api={player,players,pairs,proposals,version:'comparison-v2'};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.KokClubSkill=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

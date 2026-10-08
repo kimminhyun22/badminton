@@ -21,6 +21,7 @@
     return base==null?null:base+((gender==='여'||gender==='F')?skillPolicy.femaleRoster:0);
   }
   function skillBreakdown(player){
+    if(Number.isFinite(player?.skillRating))return {policyId:'comparison-v2',base:null,gender:0,age:0,personal:null,level:player.level,total:player.skillRating,missing:false};
     const p=player||{},base=skillPolicy.grade[String(p.grade||'').toUpperCase()];
     const female=p.gender==='F'||p.gender==='여';
     const stored=Number.isFinite(+p.level)?+p.level:null;
@@ -33,6 +34,7 @@
   }
 
   function effectiveLevel(player){
+    if(Number.isFinite(player?.skillRating))return player.skillRating;
     const p=player||{};
     const level=Number.isFinite(+p.level)?+p.level:0;
     const female=p.gender==='F'||p.gender==='여';

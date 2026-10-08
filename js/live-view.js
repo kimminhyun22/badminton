@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.777';
+const APP_VERSION='1.10.778';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1797,6 +1797,7 @@ function _memberLevel(p){
 var _LIVE_AGE_BONUS={'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2.0};
 function _round1(v){ return Math.round((Number(v)||0)*10)/10; }
 function _memberEffLevel(p){
+  if(Number.isFinite(p?.skillRating))return p.skillRating;
   const level=_memberLevel(p);
   const g=String((p&&(p.gender||p.g))||'');
   const female=g==='F'||g==='여';

@@ -68,6 +68,13 @@
     catch(e){message(e.message);setup();}finally{busy=false;}
   }
   function resultState(p,original,current){
+    if(p.model==='comparison-v2'){
+      const same=window.KokSkillBatch.same;
+      if(!same(original,current))return {key:'changed',title:'명부 변경됨',reason:'명부가 변경됐습니다. 새로고침해 주세요.'};
+      if(!p.opponents)return {key:'unreviewed',title:'초기 추정',reason:'비교 응답이 없어 초기 추정을 유지합니다.'};
+      const note=p.connected?'누적 비교 전체로 추정했습니다.':'비교 집단 간 연결이 부족합니다. 다른 집단과 비교하면 전체 점수가 더 정확해집니다.';
+      return p.ready?{key:'ready',title:'저장 가능',reason:note}:{key:'applied',title:'반영 완료',reason:note};
+    }
     const fields=['name','grade','gender','ageGroup'];
     const profileValue=(m,k)=>k==='ageGroup'?(m[k]||'40대'):k==='gender'?(['F','여'].includes(m[k])?'여':['M','남'].includes(m[k])?'남':m[k]):m[k];
     const sameProfile=original&&current&&fields.every(k=>String(profileValue(current,k)??'')===String(profileValue(original,k)??''));
@@ -84,19 +91,14 @@
       p.conflicts?`${p.conflicts}개 비교에서 판단이 나뉘었습니다. 해당 비교를 추가 확인해 주세요.`:'전체 비교 관계가 충분히 맞지 않아 추가 확인이 필요합니다.'};
   }
   function reviewProgress(players,questions,proposals){
-    const required=3;
     const rows=players.map(player=>{
-      const candidates=new Set(questions.filter(q=>q.a===player.id||q.b===player.id).map(q=>q.a===player.id?q.b:q.a)).size;
-      const p=proposals.find(p=>p.id===player.id),opponents=p?.opponents||0;
-      if(candidates<required)return {name:player.name,excluded:true,reason:`비교 가능한 상대 ${candidates}명 · 자동보정 대상 부족`};
-      const complete=opponents>=required;
-      const reason=complete?'기초 비교 수집 완료':`서로 다른 상대 ${required-opponents}명 추가 비교`;
-      return {name:player.name,complete,reason,missing:Math.max(0,required-opponents)};
+      const p=proposals.find(p=>p.id===player.id),complete=(p?.opponents||0)>0;
+      return {name:player.name,complete,missing:complete?0:1,reason:complete?'비교 반영 가능':'아직 비교 응답 없음'};
     });
-    const eligible=rows.filter(r=>!r.excluded),done=eligible.filter(r=>r.complete).length;
-    const percent=eligible.length?Math.floor(done/eligible.length*100):null;
-    return {total:eligible.length,done,percent,remaining:percent===null?null:100-percent,minimumQuestions:Math.ceil(eligible.reduce((n,r)=>n+r.missing,0)/2),pending:eligible.filter(r=>!r.complete),excluded:rows.filter(r=>r.excluded)};
+    const done=rows.filter(r=>r.complete).length,percent=players.length?Math.floor(done/players.length*100):null;
+    return {total:players.length,done,percent,remaining:percent===null?null:100-percent,minimumQuestions:Math.ceil((players.length-done)/2),pending:rows.filter(r=>!r.complete),excluded:[]};
   }
+
   function proposalRow(proposal,own,club){
     const original=own.snapshots[Number(proposal.id.slice(1))],matches=club?.members?.filter(m=>m.name===original?.name)||[];
     const current=matches.length===1?matches[0]:null;
@@ -104,10 +106,10 @@
     if(proposal.basis){
       const matchesBasis=window.KokSkillBatch?.same(current,proposal.basis);
       const sameIdentity=window.KokSkillBatch?.sameIdentity(original,current);
-      if(!matchesBasis||!sameIdentity)return {p:proposal,current,original,state:{key:'changed',title:'명부 확인 필요',reason:'회원 정보가 변경됐습니다. 결과를 새로고침해 주세요. 급수·성별·연령 변경은 새 점검이 필요합니다.'}};
+      if(!matchesBasis||!sameIdentity)return {p:proposal,current,original,state:{key:'changed',title:'명부 확인 필요',reason:'회원 정보가 변경됐습니다. 결과를 새로고침해 주세요. 회원 이름과 현재 값을 확인합니다.'}};
       const p={...proposal,current:Number(current.skillStep||0)};
       let state=resultState(p,current,current);
-      if(baseline&&p.step===p.current)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
+      if(p.model!=='comparison-v2'&&baseline&&p.step===p.current)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
       return {p,state,original:current,current};
     }
     const p=baseline?{...proposal,current:baseline.skillStep,ready:!!proposal.reviewed&&proposal.step!==baseline.skillStep}:{...proposal};
@@ -120,9 +122,8 @@
     $('ownerResults').hidden=!session.count;
     $('clubTitle').textContent=session.clubName;
     const progress=reviewProgress(session.players,session.questions,session.proposals);
-    $('collectionProgress').innerHTML=progress.total?`<h2>기초 비교 수집 ${progress.percent}% <span class="muted">· 남은 ${progress.remaining}%</span></h2><progress class="collection-bar" value="${progress.done}" max="${progress.total}" aria-label="기초 비교 수집"></progress><p class="muted">${progress.total}명 중 ${progress.done}명 · 회원별 서로 다른 상대 3명 기준</p><p class="muted">수집 완료와 보정 확정은 다릅니다. 추가 판단은 아래 점검 결과에서 확인하세요.</p>`:'<h2>비교 대상이 부족합니다.</h2><p class="muted">회원별 비교 가능한 상대가 3명 이상 필요합니다.</p>';
-    if(progress.pending.length||progress.excluded.length)$('collectionProgress').innerHTML+=`<details><summary>남은 확인 ${progress.pending.length}명${progress.excluded.length?` · 대상 부족 ${progress.excluded.length}명`:''}</summary>${[...progress.pending,...progress.excluded].map(r=>`<p class="muted"><strong>${esc(r.name)}</strong> · ${esc(r.reason)}</p>`).join('')}</details>`;
-    if(progress.minimumQuestions)$('collectionProgress').innerHTML+=`<p class="muted">새로운 상대 비교 최소 ${progress.minimumQuestions}문항 필요 · 의견에 따라 추가될 수 있어요.</p>`;
+    $('collectionProgress').innerHTML=`<h2>${progress.total}명 중 ${progress.done}명 비교 반영</h2><p class="muted">기존 응답을 모두 재계산합니다. 비교 횟수나 조정 폭으로 저장을 막지 않습니다. 비교가 없는 회원만 초기 추정을 유지합니다.</p>`;
+    if(progress.pending.length)$('collectionProgress').innerHTML+=`<details><summary>비교 전 ${progress.pending.length}명</summary>${progress.pending.map(r=>`<p>${esc(r.name)}</p>`).join('')}</details>`;
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
     const rows=session.proposals.map(p=>proposalRow(p,own,currentClub));
     const count=key=>rows.filter(r=>r.state.key===key).length;
@@ -140,10 +141,10 @@
     if(session.legacyCount)$('resultHelp').textContent+=` 기존 개별 링크 응답 ${session.legacyCount}개도 포함됩니다. 이미 참여한 분은 중복 참여하지 말고 기존 링크에서 수정해 주세요.`;
     const order={ready:0,pending:1,applied:2,changed:3,same:4};
     $('proposals').innerHTML=rows.filter(r=>r.p.opponents).sort((a,b)=>order[a.state.key]-order[b.state.key]).map(({p,state})=>{
-      const player=session.players.find(v=>v.id===p.id),before=5+player.base+p.current*.2,after=5+player.base+p.step*.2,delta=Math.round((p.step-p.current)*2)/10;
+      const player=session.players.find(v=>v.id===p.id),before=5+(p.currentRating??(player.base+p.current*.2)),after=5+(p.skillRating??(player.base+p.step*.2)),delta=after-before;
       const change=delta>0?'+'+delta.toFixed(1):delta.toFixed(1);
       const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'더 유리':'덜 유리'} · ${c.votes}명 응답</li>`).join('');
-      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(1)} <span>→</span> ${after.toFixed(1)} <b>${change}</b></p><p>${label(p.current)} → ${label(p.step)}</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">비교 점수는 기존 실력점수에 모두 5점을 더한 표시입니다. 실력차와 배정 기준은 그대로이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
+      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(2)} <span>→</span> ${after.toFixed(2)} <b>${change}</b></p><p>누적 비교로 추정한 최종 실력 · 성별·연령 추가 보정 없음</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">비교 점수는 기존 실력점수에 모두 5점을 더한 표시입니다. 실력차와 배정 기준은 그대로이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
     }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
     $('answerSelf').textContent='나도 참여하기';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
@@ -159,10 +160,10 @@
       const {members,issues}=checkRoster();
       if(issues.length&&!confirm(`${issues.length}명은 정보를 확인해야 합니다. 명부는 그대로 두고 확인된 ${members.length}명으로 비교할까요?`))return;
       const players=C.players(members.map(reviewProfile));
-      if(!C.pairs(players).length)throw Error('같은 급수에서 비교할 회원이 부족합니다.');
-      const reusable=links.slice().reverse().find(l=>l.clubId===club.id&&!l.pending&&!l.closed&&Date.now()-l.createdAt<30*86400000&&JSON.stringify(l.snapshots)===JSON.stringify(members));
+      if(!C.pairs(players).length)throw Error('비교할 회원이 부족합니다.');
+      const reusable=links.slice().reverse().find(l=>l.clubId===club.id&&!l.pending&&!l.closed&&Date.now()-l.createdAt<30*86400000&&l.snapshots?.length===members.length&&l.snapshots.every((m,i)=>window.KokSkillBatch.sameIdentity(m,members[i])));
       if(reusable){await open({id:reusable.id,key:reusable.key});return;}
-      let entry=links.find(l=>l.clubId===club.id&&l.pending&&JSON.stringify(l.snapshots)===JSON.stringify(members));
+      let entry=links.find(l=>l.clubId===club.id&&l.pending&&l.snapshots?.length===members.length&&l.snapshots.every((m,i)=>window.KokSkillBatch.sameIdentity(m,members[i])));
       if(!entry){entry={id:nonce(),key:nonce(),invites:[nonce(),nonce(),nonce()],clubId:club.id,clubName:club.name,createdAt:Date.now(),snapshots:JSON.parse(JSON.stringify(members)),players,pending:true};persist(entry);}
       busy=true;$('create').disabled=true;message('퀴즈를 만드는 중');
       session=await api({action:'create',id:entry.id,key:entry.key,invites:entry.invites,clubName:entry.clubName,players:entry.players});
@@ -225,17 +226,20 @@
     }catch(e){message(e.message);}finally{busy=false;$('join').disabled=false;}
   };
   function reviewQuestions(questions,previous,limit=20,evidence={}){
-    const counts={};
+    const counts={},parent={};
+    const find=x=>parent[x]===undefined?(parent[x]=x):parent[x]===x?x:(parent[x]=find(parent[x]));
+    const join=q=>{parent[find(q.a)]=find(q.b);};
+    for(const q of questions)if(evidence[q.id]?.count||(previous[q.id]&&previous[q.id]!=='skip'))join(q);
     for(const q of questions)if(evidence[q.id]?.count||(previous[q.id]&&previous[q.id]!=='skip')){
       counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;
     }
     const remaining=questions.filter(q=>!Object.hasOwn(previous,q.id)),chosen=[];
     while(remaining.length&&chosen.length<limit){
-      const need=q=>evidence[q.id]?.count?0:Math.max(0,3-(counts[q.a]||0))+Math.max(0,3-(counts[q.b]||0));
-      remaining.sort((a,b)=>need(b)-need(a)||Number(!!evidence[b.id]?.needsReview)-Number(!!evidence[a.id]?.needsReview)||
+      const need=q=>evidence[q.id]?.count?0:Number(!(counts[q.a]||0))+Number(!(counts[q.b]||0));
+      remaining.sort((a,b)=>Number(find(b.a)!==find(b.b))-Number(find(a.a)!==find(a.b))||need(b)-need(a)||Number(!!evidence[b.id]?.needsReview)-Number(!!evidence[a.id]?.needsReview)||
         (evidence[a.id]?.count||0)-(evidence[b.id]?.count||0)||Math.max(counts[a.a]||0,counts[a.b]||0)-Math.max(counts[b.a]||0,counts[b.b]||0)||
         ((counts[a.a]||0)+(counts[a.b]||0))-((counts[b.a]||0)+(counts[b.b]||0))||a.id.localeCompare(b.id));
-      const q=remaining.shift();chosen.push(q);if(!evidence[q.id]?.count){counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;}
+      const q=remaining.shift();chosen.push(q);join(q);if(!evidence[q.id]?.count){counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;}
     }
     return chosen;
   }
@@ -334,7 +338,7 @@
     const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId),row=proposalRow(proposal,own,club);
     if(row.state.key!=='ready')return;
     const p=row.p,original=row.original;
-    try{write('kokmatch_skill_apply_v1',{clubId:own.clubId,original,step:p.step,createdAt:Date.now()});location.href=from+'?skillReviewApply=1';}catch(e){message('보정안을 저장하지 못했습니다. 저장 공간을 확인해 주세요.');}
+    try{write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:[{id:p.id,original,step:p.step,skillRating:p.skillRating}],createdAt:Date.now()});location.href=from+'?skillReviewApply=1';}catch(e){message('보정안을 저장하지 못했습니다. 저장 공간을 확인해 주세요.');}
   };
   $('applyAll').onclick=async()=>{
     if(busy)return;busy=true;
@@ -344,7 +348,7 @@
       const rows=session.proposals.map(p=>proposalRow(p,own,club)).filter(r=>r.state.key==='ready');
       if(!rows.length){message('현재 적용 가능한 보정안이 없습니다.');return;}
       if(!confirm(`${rows.length}명의 보정안을 명부에 일괄 저장할까요?\n현재 명부 값을 기준으로 계산했습니다. 이미 생성한 대진은 재배정하지 않습니다.`))return;
-      write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:rows.map(r=>({id:r.p.id,original:r.current,step:r.p.step})),createdAt:Date.now()});
+      write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:rows.map(r=>({id:r.p.id,original:r.current,step:r.p.step,skillRating:r.p.skillRating})),createdAt:Date.now()});
       location.href=from+'?skillReviewApply=1';
     }catch(e){message(e.message);}finally{busy=false;}
   };

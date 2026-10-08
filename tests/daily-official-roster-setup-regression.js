@@ -46,7 +46,7 @@ function session(){
     ],
     arrivalCandidates:[
       {candidateKey:'player:p1',kind:'existing',playerId:'p1',name:'도착전선수',status:'planned',lastStatusAt:NOW-1000},
-      {candidateKey:'roster:m1',kind:'roster',memberId:'m1',name:'명부선수',grade:'B',level:5,gender:'F',ageGroup:'30대',club:'테스트클럽',isClubOfficial:false},
+      {candidateKey:'roster:m1',kind:'roster',memberId:'m1',name:'명부선수',grade:'B',skillRating:4.321,level:5,gender:'F',ageGroup:'30대',club:'테스트클럽',isClubOfficial:false},
       {candidateKey:'roster:m2',kind:'roster',memberId:'m2',name:'명부임원',grade:'A',level:6,gender:'M',ageGroup:'40대',club:'테스트클럽',isClubOfficial:true},
       {candidateKey:'roster:foreign',kind:'roster',memberId:'foreign',name:'다른클럽선수',grade:'C',level:4,gender:'M',ageGroup:'40대',club:'다른클럽',isClubOfficial:false}
     ],
@@ -88,6 +88,7 @@ function submit(currentSession, extra, actorId = 'p9'){
   const players=result.current.session.players;
   assert.strictEqual(players.find(p=>p.id==='p1').status,'wait','기존 도착 전 선수는 현장 참가로 바뀌어야 합니다.');
   const ordinary=players.find(p=>p.memberId==='m1');
+  assert.equal(ordinary.skillRating,4.321,'server roster setup preserves learned rating');
   const official=players.find(p=>p.memberId==='m2');
   assert(ordinary&&official,'선택한 명부 선수 두 명이 모두 추가되어야 합니다.');
   assert.strictEqual(ordinary.grade,'B');

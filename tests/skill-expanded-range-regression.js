@@ -27,9 +27,5 @@ for(let step=-2;step<=2;step++)assert.equal(core.player({...members[2],skillStep
 const source=fs.readFileSync('functions/skill-calibration-core.js','utf8');
 const broken={module:{exports:{}}};vm.runInNewContext(source.replace('Math.abs(step)>4','Math.abs(step)>2'),broken);
 assert.throws(()=>broken.module.exports.player(members[0]),'mutation detects old server range');
-const clipped={module:{exports:{}}};vm.runInNewContext(source.replace('Math.max(-.8,Math.min(.8','Math.max(-.4,Math.min(.4'),clipped);
-assert.notEqual(clipped.module.exports.proposals([core.player(members[1])],[],{})[0].step,4,'mutation detects silent manual baseline clipping');
-const view=fs.readFileSync('js/club-skill-review.js','utf8');
-assert(view.includes('before=5+player.base+p.current*.2'));
-assert(view.includes('after=5+player.base+p.step*.2'));
-console.log('expanded skill: 45 beginner profiles, client/server parity, manual baseline, batch/undo, old values, bounds and mutations passed');
+assert(fs.readFileSync('js/club-skill-review.js','utf8').includes('p.skillRating??'));
+console.log('legacy manual range preserved; learned rating uses independent final score');

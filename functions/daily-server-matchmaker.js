@@ -70,6 +70,7 @@ function team2Ids(item){
 }
 
 function effectiveLevel(player){
+    if(Number.isFinite(player?.skillRating))return player.skillRating;
   const level = number(player?.level, 4);
   const female = player?.gender === 'F' || player?.gender === '여';
   return Math.round((level - (female ? 0.5 : 0) + (AGE_BONUS[player?.ageGroup] || 0)) * 10) / 10;

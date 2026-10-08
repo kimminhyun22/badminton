@@ -91,6 +91,7 @@ function memberLevel(row){
  */
 const AGE_BONUS = {'20대':0, '30대':-0.2, '40대':-0.5, '50대':-1.2, '60대+':-2.0};
 function memberEffLevel(row){
+  if(Number.isFinite(row?.skillRating))return row.skillRating;
   const level = memberLevel(row);
   const gender = text(row?.gender || row?.g);
   const female = gender === 'F' || gender === '여';

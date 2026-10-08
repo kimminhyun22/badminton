@@ -8,12 +8,13 @@
     return data.clubs.map(c=>{
       if(typeof c?.name!=='string'||!c.name.trim()||c.name.length>80||!Array.isArray(c.members)||c.members.length>500)throw Error('클럽 정보를 확인해 주세요.');
       return {name:c.name.trim(),members:c.members.map(m=>{
-        if(typeof m?.name!=='string'||!m.name.trim()||m.name.length>80||!['S','A','B','C','D','E'].includes(m.grade)||!['남','여','M','F'].includes(m.gender)||!Number.isFinite(m.level)||m.level<0||m.level>10)throw Error('회원 이름·성별·급수를 확인해 주세요.');
+        if(typeof m?.name!=='string'||!m.name.trim()||m.name.length>80||!['S','A','B','C','D','E'].includes(m.grade)||!['남','여','M','F'].includes(m.gender)||!Number.isFinite(m.level)||(!Number.isFinite(m.skillRating)&&(m.level<0||m.level>10)))throw Error('회원 이름·성별·급수를 확인해 주세요.');
         const step=m.skillStep===undefined?0:m.skillStep;
         if(!Number.isInteger(step)||Math.abs(step)>4)throw Error('개인 실력 보정값을 확인해 주세요.');
         const age=m.ageGroup==='60대'?'60대+':m.ageGroup;
         if(!['20대','30대','40대','50대','60대+'].includes(age))throw Error(m.name+' 님의 연령을 명부에서 확인한 뒤 다시 전달해 주세요.');
-        return {name:m.name.trim(),grade:m.grade,gender:['여','F'].includes(m.gender)?'여':'남',ageGroup:age,level:m.level,skillStep:step,isClubOfficial:m.isClubOfficial===true};
+        if(m.skillRating!=null&&!Number.isFinite(m.skillRating))throw Error('실력 점수를 확인해 주세요.');
+        return {...(Number.isFinite(m.skillRating)?{skillRating:m.skillRating}:{}),name:m.name.trim(),grade:m.grade,gender:['여','F'].includes(m.gender)?'여':'남',ageGroup:age,level:m.level,skillStep:step,isClubOfficial:m.isClubOfficial===true};
       })};
     });
   }

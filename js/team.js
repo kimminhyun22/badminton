@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.777';
+const APP_VERSION = '1.10.778';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -487,7 +487,7 @@ function doTeamAssign(opts={}){
   _teamWanted=true; // 팀전 의도 확정
   _teamModeOverride=null;
   const all=_directPlayers.map(p=>({
-    memberId:p.memberId||_teamEnsureMemberId(p),name:p.name, level:p.level,
+    memberId:p.memberId||_teamEnsureMemberId(p),name:p.name, ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,
     gender:p.gender==='남'?'M':'F',
     grade:p.grade, team:'', club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial, ageGroup:p.ageGroup||'40대',
     partnerId: (getPartnerInfo(p.name)||{}).id||null,
@@ -1021,7 +1021,7 @@ function generate(opts={}){
     if(_teamAssignmentHasSplitPartners())return;
   }
   let participants=_directPlayers.map(p=>({
-    name:p.name,level:p.level,gender:p.gender==='남'?'M':'F',
+    name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,gender:p.gender==='남'?'M':'F',
     team:p.team||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,_valid:true,
     memberId:p.memberId||'',club:p.club||'',
     grade:p.grade,  // 입력한 실제 급수 (남: B→level5, 여: B→level4 이므로 grade로 표시해야 정확)
@@ -2962,7 +2962,7 @@ function _buildLiveState(){
          **나이를 못 보고** 있었습니다 — 관리자 대진 생성은 `effLevel` 로 나이를
          반영하는데 교체는 급수 숫자만 봐서, 30대 C를 40대 C로 바꿔도 "그대로"로
          나왔습니다(운영자 2026-08-12 실전 제보). */
-      id:memberId,n:p.name||'',l:p.level||0,g:p.gender||'',gr:p.grade||'',a:p.ageGroup||'',
+      ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}),id:memberId,n:p.name||'',l:p.level||0,g:p.gender||'',gr:p.grade||'',a:p.ageGroup||'',
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial,
       partnerName:p.partnerName||getPartnerOf(p.name)||'',
@@ -5213,7 +5213,7 @@ const LV_VERSION=2; // 레벨 체계 버전: 1=구버전(E여자=0), 2=신버전
 // 선수 객체 레벨 +1 (이름+레벨 구조일 때만)
 function migratePlayerLevel(p){
   if(!p||typeof p.level!=='number') return p;
-  return {...p, level: p.level+1};
+  return {...p, ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level: p.level+1};
 }
 
 // 저장 state 전체를 구버전→신버전으로 마이그레이션
@@ -5322,6 +5322,7 @@ function _teamEnrichAssignmentProfiles(assignment,...sources){
     const level=Number.isFinite(+p.level)?+p.level:(Number.isFinite(+src.level)?+src.level:4);
     return {
       ...p,
+      ...(Number.isFinite(src.skillRating)?{skillRating:src.skillRating}:{}),
       memberId:p.memberId||src.memberId||'',
       name:p.name,
       level,
@@ -5349,6 +5350,7 @@ function _teamApplyDirectProfileToPlayer(p,byName){
   const grade=src.grade||p.grade||levelToGrade(p.level||src.level||4,gender)||'C';
   const level=src.level||gradeToLevel(grade,gender)||p.level||4;
   const next={
+    skillRating:Number.isFinite(src.skillRating)?src.skillRating:null,
     memberId:src.memberId||p.memberId||'',
     grade,
     gender,
@@ -5414,8 +5416,8 @@ function saveState(){
     partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
-      blue:teamAssignment.blue.map(p=>({memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null})),
-      white:teamAssignment.white.map(p=>({memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null}))
+      blue:teamAssignment.blue.map(p=>({memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null})),
+      white:teamAssignment.white.map(p=>({memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null}))
     }:null,
     matches:currentMatches.map(m=>({
       matchNumber:m.matchNumber,round:m.round,court:m.court,
@@ -5427,7 +5429,7 @@ function saveState(){
       team2C:slim(m.team2C),team2D:slim(m.team2D)
     })),
     participants:currentParticipants.map(p=>({
-      memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',
+      memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',
       partnerName:p.partnerName||getPartnerOf(p.name)||null,
       partnerId:p.partnerId||(getPartnerInfo(p.name)||{}).id||null,
       isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',
@@ -5458,7 +5460,7 @@ function saveState(){
   catch(e){setSaveStatus('','⚠ 저장 실패');}
 }
 
-function slim(p){return{memberId:p.memberId||'',name:p.name,level:p.level,grade:p.grade||'',gender:p.gender,team:p.team||'',club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대'};}
+function slim(p){return{memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team||'',club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대'};}
 
 function _teamIsDailyBracketState(state){
   if(!state)return false;
@@ -5588,7 +5590,7 @@ function restoreState(opts={}){
       // 구버전 호환: pasteText 파싱 후 directPlayers로 변환
       const parsed=parseParticipants(state.pasteText).filter(p=>p._valid);
       _directPlayers=parsed.map(p=>({
-        name:p.name,level:p.level,
+        name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,
         grade:p._grade||levelToGrade(p.level,p.gender),
         gender:p.gender==='M'?'남':'여',team:p.team||''
       }));
@@ -6503,7 +6505,7 @@ function executeChangeModal(options={}){
   });
   _cpNewPlayers.forEach(np=>{
     activeParticipants.push({
-      name:np.name,level:np.level,grade:np.grade,
+      name:np.name,...(Number.isFinite(np.skillRating)?{skillRating:np.skillRating}:{}), level:np.level,grade:np.grade,
       gender:np.gender==='남'?'M':'F',
       team:np.team||'',
       // 신규 선수: gamesPlayed=0, 개인 목표(_goal)만 잔여율 기반으로 낮춤
@@ -6566,7 +6568,7 @@ function executeChangeModal(options={}){
       });
       _cpNewPlayers.forEach(np=>{
         if(!_directPlayers.some(p=>p.name===np.name)){
-          const added={name:np.name,grade:np.grade,level:np.level,gender:np.gender,team:np.team||''};
+          const added={name:np.name,grade:np.grade,...(Number.isFinite(np.skillRating)?{skillRating:np.skillRating}:{}), level:np.level,gender:np.gender,team:np.team||''};
           _teamEnsureMemberId(added);
           _directPlayers.push(added);
         }
@@ -7076,6 +7078,7 @@ function _teamApplyParticipantProfiles(source){
       memberId:raw.memberId||'',
       name:raw.name,
       grade,
+      ...(Number.isFinite(raw.skillRating)?{skillRating:raw.skillRating}:{}),
       level:Number(raw.level)||gradeToLevel(grade,gender)||4,
       gender,
       ageGroup:raw.ageGroup||'40대',
@@ -7205,7 +7208,7 @@ function saveEditDirectPlayer(){
   const name = document.getElementById('editDirectName').value.trim();
   const errEl = document.getElementById('editDirErrMsg');
   if(!name){ errEl.textContent='이름을 입력해주세요.'; return; }
-  const newLevel = gradeToLevel(_editDirGrade, _editDirGender) ?? 1;
+  const newLevel = Number.isFinite(previous.skillRating)?rosterSkillLevel({...previous,grade:_editDirGrade,gender:_editDirGender,ageGroup:_editDirAge}):(gradeToLevel(_editDirGrade, _editDirGender) ?? 1);
   _directPlayers[_editDirIdx] = {
     ...previous,
     name, grade:_editDirGrade, level:newLevel,
@@ -7313,6 +7316,7 @@ function _rsvpSyncImportedPlayersFromRoster(){
       const level=roster.level||gradeToLevel(grade,gender)||p.level||4;
       const next={
         ...p,
+        skillRating:Number.isFinite(roster.skillRating)?roster.skillRating:null,
         memberId:roster.id,
         name:hasBracket?p.name:(roster.name||p.name),
         grade,
@@ -7322,10 +7326,10 @@ function _rsvpSyncImportedPlayersFromRoster(){
         club:roster.club||p.club||'',
         isClubOfficial:!!roster.isClubOfficial
       };
-      ['memberId','name','grade','gender','level','ageGroup','club','isClubOfficial'].forEach(key=>{
+      ['memberId','name','grade','gender','level','skillRating','ageGroup','club','isClubOfficial'].forEach(key=>{
         if(String(next[key]||'')!==String(p[key]||'')){
           changed=true;
-          if(['name','grade','gender','level','ageGroup'].includes(key))competitiveChanged=true;
+          if(['name','grade','gender','level','skillRating','ageGroup'].includes(key))competitiveChanged=true;
         }
       });
       if(!hasBracket&&next.name!==p.name)renamed.set(p.name,next.name);
@@ -7401,7 +7405,7 @@ function renderDirectPlayerList(){
   if(_dirSort==='name'){
     indexed.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   } else if(_dirSort==='level'){
-    indexed.sort((a,b)=>b.level-a.level || a.name.localeCompare(b.name,'ko'));
+    indexed.sort((a,b)=>effLevel(b)-effLevel(a) || a.name.localeCompare(b.name,'ko'));
   }
   const LV_COLOR={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
   list.innerHTML = indexed.map((p)=>{
@@ -7795,7 +7799,7 @@ function _rsvpRosterMembers(){
   selectedClubs.forEach(club=>{
     (club.members||[]).forEach(m=>{
       if(!m||!m.name)return;
-      const base={name:m.name,grade:m.grade||'C',level:m.level,gender:m.gender||'남',ageGroup:m.ageGroup||'40대',club:club.name||'',isClubOfficial:!!m.isClubOfficial};
+      const base={name:m.name,grade:m.grade||'C',...(Number.isFinite(m.skillRating)?{skillRating:m.skillRating}:{}), level:m.level,gender:m.gender||'남',ageGroup:m.ageGroup||'40대',club:club.name||'',isClubOfficial:!!m.isClubOfficial};
       base.id=_rsvpMemberId(base);
       if(!map.has(base.id))map.set(base.id,base);
     });
@@ -7814,7 +7818,7 @@ function _rsvpManagedMembers(){
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial,
       id:p.memberId||_rsvpMemberId({name:p.name,club:p.club||''}),
-      level:p.level
+      ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level
     };
     if(!map.has(base.id))map.set(base.id,base);
   });
@@ -7835,7 +7839,7 @@ function _rsvpEventMembers(){
     const club=p.club||src.club||'';
     const base={
       id:p.memberId||src.memberId||_rsvpMemberId({name:p.name,club}),
-      level:p.level||src.level,
+      ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level||src.level,
       name:p.name,
       grade,
       gender,
@@ -7869,7 +7873,7 @@ function _rsvpMergedMemberProfile(memberId,fallback={},rosterMap=null){
   return {
     memberId,
     memberName:base.name||fallback.memberName||fallback.name||'',
-    level:base.level||fallback.level,
+    ...(Number.isFinite(base.skillRating)?{skillRating:base.skillRating}:{}), level:base.level||fallback.level,
     name:base.name||fallback.name||fallback.memberName||'',
     club:base.club||fallback.club||'',
     grade,
@@ -9433,7 +9437,7 @@ function _legacyRsvpImportAttendees(){
       name,
       grade,
       gender,
-      level:p.level||gradeToLevel(grade,gender)||4,
+      ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level||gradeToLevel(grade,gender)||4,
       ageGroup:p.ageGroup||'40대',
       club:p.club||'',
       isGuest:!!p.isGuest,
@@ -9629,7 +9633,7 @@ function renderClubList(){
     if(_rosterSort==='name'){
       indexed.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     } else if(_rosterSort==='level'){
-      indexed.sort((a,b)=>b.level-a.level || a.name.localeCompare(b.name,'ko'));
+      indexed.sort((a,b)=>effLevel(b)-effLevel(a) || a.name.localeCompare(b.name,'ko'));
     } else if(_rosterSort==='gender'){
       indexed.sort((a,b)=>genderRank(a.gender)-genderRank(b.gender) || a.name.localeCompare(b.name,'ko'));
     }
@@ -9637,7 +9641,7 @@ function renderClubList(){
 
     const mrows=indexed.map((m)=>`<div class="club-member-row">
         <span class="cmr-name">${esc(m.name)}${m.isClubOfficial?'<span class="club-official-badge">임원</span>':''}</span>
-        <span class="cmr-meta"><span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender} · ${m.ageGroup||'40대'}</span>
+        <span class="cmr-meta"><span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender} · ${m.ageGroup||'40대'}${Number.isFinite(m.skillRating)?' · 실력 '+(m.skillRating+5).toFixed(2):''}</span>
         <button class="cmr-edit" onclick="editMember('${club.id}',${m._origIdx})" title="수정">✏</button>
         <button class="cmr-del" onclick="deleteMember('${club.id}',${m._origIdx})" title="삭제">✕</button>
       </div>`).join('');
@@ -9675,6 +9679,7 @@ function openAddMemberModal(clubId){
   const errEl=document.getElementById('memberErrMsg');if(errEl)errEl.textContent='';
   _memberGrade='D';_memberGender='남';_memberAge='40대';
   selectMemberSkill(0);
+  setMemberRatingDisplay(null);
   const official=document.getElementById('memberOfficial');if(official)official.checked=false;
   document.querySelectorAll('#memberGradeBtns .grade-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade==='D'));
   document.querySelectorAll('#memberGenderBtns .gender-sel-btn').forEach(b=>{
@@ -9710,7 +9715,7 @@ function saveMember(){
   const club=rosters.clubs.find(c=>c.id===_editingClubId);
   if(!club)return;
   const skillStep=rosterSkillStep(document.getElementById('memberSkill')?.value);
-  const level=rosterSkillLevel({grade:_memberGrade,gender:_memberGender,skillStep});
+  const level=rosterSkillLevel({...(_editingMemberIdx===null?{}:club.members[_editingMemberIdx]),grade:_memberGrade,gender:_memberGender,ageGroup:_memberAge,skillStep});
   const isClubOfficial=!!document.getElementById('memberOfficial')?.checked;
   if(_editingMemberIdx===null){
     // ── 신규 추가 (중복 방지) ──
@@ -9888,7 +9893,7 @@ function importSelected(){
         memberId,
         name:m.name,
         grade:m.grade,
-        level:m.level,
+        ...(Number.isFinite(m.skillRating)?{skillRating:m.skillRating}:{}), level:m.level,
         gender:m.gender,
         ageGroup:m.ageGroup||'40대',
         club:clubName,
@@ -9920,6 +9925,7 @@ function editMember(clubId,idx){
   const errEl=document.getElementById('memberErrMsg');if(errEl)errEl.textContent='';
   _memberGrade=m.grade||'D';_memberGender=m.gender||'남';_memberAge=m.ageGroup||'40대';
   selectMemberSkill(m.skillStep);
+  setMemberRatingDisplay(m);
   const official=document.getElementById('memberOfficial');if(official)official.checked=!!m.isClubOfficial;
   document.querySelectorAll('#memberGradeBtns .grade-sel-btn').forEach(b=>b.classList.toggle('sel',b.dataset.grade===_memberGrade));
   document.querySelectorAll('#memberGenderBtns .gender-sel-btn').forEach(b=>{

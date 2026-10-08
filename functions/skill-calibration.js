@@ -15,6 +15,8 @@ function authorize(s,key){
   return 'e'+i;
 }
 function project(s,role,baselines){
+  // Stable IDs preserve all old answers while opening cross-age/grade comparisons.
+  const questions=core.pairs(s.players);
   let effective=s.players;
   if(baselines!==undefined){
     if(role!=='owner'||!Array.isArray(baselines)||baselines.length>s.players.length)throw Error('보정 기준을 확인해 주세요.');
@@ -23,25 +25,25 @@ function project(s,role,baselines){
       const original=s.players.find(p=>p.id===raw?.id);
       if(!original||byId.has(raw.id))throw Error('보정 대상이 올바르지 않습니다.');
       const p=core.player(raw);
-      if(['name','grade','gender','ageGroup'].some(k=>p[k]!==original[k]))throw Error('급수·성별·연령이 변경됐습니다. 새 점검이 필요합니다.');
+      if(p.name!==original.name)throw Error('회원 이름이 변경됐습니다. 대상을 확인해 주세요.');
       byId.set(raw.id,{...p,id:original.id});
     }
     effective=s.players.map(p=>byId.get(p.id)||p);
   }
   const players=role==='owner'?effective:s.players.map(({id,name,grade,gender,ageGroup})=>({id,name,grade,gender,ageGroup}));
-  const evidence=Object.fromEntries(s.questions.map(q=>{
+  const evidence=Object.fromEntries(questions.map(q=>{
     const counts={a:0,b:0,tie:0};
     Object.values(s.votes||{}).forEach(a=>{if(Object.hasOwn(counts,a[q.id]))counts[a[q.id]]++;});
     const count=Object.values(counts).reduce((a,b)=>a+b,0);
     return [q.id,{count,needsReview:count>0&&Math.max(...Object.values(counts))<=count/2}];
   }));
-  return {id:s.id,clubName:s.clubName,players,questions:s.questions,expiresAt:s.expiresAt,closed:!!s.closed,
+  return {id:s.id,clubName:s.clubName,players,questions,expiresAt:s.expiresAt,closed:!!s.closed,
     evidence,
     reviewedAt:s.reviewedAt||0,
     legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
     needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
     answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},
-    proposals:role==='owner'?core.proposals(effective,s.questions,s.votes).map((p,i)=>({...p,basis:effective[i]})):[],
+    proposals:role==='owner'?core.proposals(effective,questions,s.votes,s.players).map((p,i)=>({...p,basis:effective[i]})):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
 }
 async function handle(db,data,ip,now=Date.now()){
@@ -52,7 +54,7 @@ async function handle(db,data,ip,now=Date.now()){
     if(existing){if(authorize(existing,data.key)!=='owner')throw Error('링크를 확인해 주세요.');return project(existing,'owner');}
     if(typeof data.clubName!=='string'||!data.clubName.trim()||data.clubName.length>80||!Array.isArray(data.invites)||data.invites.length!==3||data.invites.some(k=>!token(k))||new Set([data.key,...data.invites]).size!==4)throw Error('클럽 정보를 확인해 주세요.');
     const list=core.players(data.players),questions=core.pairs(list);
-    if(!questions.length)throw Error('같은 급수에서 비교할 회원이 부족합니다.');
+    if(!questions.length)throw Error('비교할 회원이 부족합니다.');
     const rate=db.ref('skillCalibrationLimits/'+hash(String(ip)));
     const limit=await rate.transaction(old=>{
       const current=old&&now-old.at<86400000?old:{at:now,n:0};
@@ -101,7 +103,7 @@ async function handle(db,data,ip,now=Date.now()){
   }
   if(data.action!=='answer'||role==='owner'||role==='shared')throw Error('응답 링크를 확인해 주세요.');
   if(!data.answers||typeof data.answers!=='object'||Array.isArray(data.answers)||Object.keys(data.answers).length<1||Object.keys(data.answers).length>5)throw Error('한 번에 1~5문제만 응답할 수 있습니다.');
-  for(const [id,value] of Object.entries(data.answers))if(!s.questions.some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
+  for(const [id,value] of Object.entries(data.answers))if(!core.pairs(s.players).some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
   const result=await ref.transaction(old=>{
     // RTDB may first invoke with an empty local cache despite the preceding read.
     // Null lets the server compare-and-retry; undefined would abort immediately.

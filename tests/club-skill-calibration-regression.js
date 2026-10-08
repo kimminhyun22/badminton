@@ -9,14 +9,14 @@ const answers=Object.fromEntries(questions.filter(q=>q.a==='p0').map(q=>[q.id,'a
 const result=core.proposals(players,questions,{e0:answers});
 assert.equal(result[0].support,4);assert.equal(result[0].comparisons.length,4);
 assert(result[0].comparisons.every(c=>c.outcome==='higher'&&c.agree));
-assert.equal(result[0].step,1);assert.equal(result[0].ready,true);
-assert(result.every(p=>Math.abs(p.step)<=2));
+assert(result[0].skillRating>players[0].base);assert.equal(result[0].ready,true);
+assert(result.every(p=>Number.isFinite(p.skillRating)));
 assert(core.proposals(players,questions,{}).every(p=>p.step===0&&!p.ready));
 const two=Object.fromEntries(Object.entries(answers).slice(0,2));
-assert(core.proposals(players,questions,{e0:two}).every(p=>!p.ready),'insufficient opponents');
+assert(core.proposals(players,questions,{e0:two})[0].ready,'old minimum removed');
 const disagree={e0:answers,e1:Object.fromEntries(Object.keys(answers).map(k=>[k,'b']))};
-assert.equal(core.proposals(players,questions,disagree)[0].ready,false);
-assert.equal(core.proposals(players,questions,disagree)[0].state,'의견 나뉨');
+assert.equal(core.proposals(players,questions,disagree)[0].conflicts,4);
+assert.equal(core.proposals(players,questions,disagree)[0].skillRating,players[0].base);
 const skip={e0:Object.fromEntries(Object.keys(answers).map(k=>[k,'skip']))};
 assert(core.proposals(players,questions,skip).every(p=>p.opponents===0));
 assert.throws(()=>core.players([...fixtures(),fixtures()[0]]));
@@ -24,10 +24,8 @@ assert.throws(()=>core.players(fixtures().map(p=>({...p,level:'bad'}))));
 const agePlayers=core.players(fixtures().map((p,i)=>({...p,ageGroup:i?'40대':'30대'})));
 assert.equal(core.proposals(agePlayers,core.pairs(agePlayers),{e0:answers})[0].step,0,'existing age advantage is not counted twice');
 const mixed=core.players(fixtures().map((p,i)=>i===1?{...p,grade:'B',level:5}:p));
-assert(core.pairs(mixed).every(q=>q.a!=='p1'&&q.b!=='p1'));
+assert(core.pairs(mixed).some(q=>q.a==='p1'||q.b==='p1'),'cross-grade comparisons enabled');
 const source=fs.readFileSync('functions/skill-calibration-core.js','utf8');
-const mutated={module:{exports:{}}};vm.runInNewContext(source.replace('good.length>=3','good.length>=1'),mutated);
-assert.throws(()=>assert(mutated.module.exports.proposals(players,questions,{e0:two}).every(p=>!p.ready)));
 // Approval hands off to the existing member editor, never writes the roster automatically.
 for(const stale of [false,true]){
   const original=fixtures()[0],club={id:'test',members:[{...original,level:stale?4.2:4}]};
@@ -65,7 +63,7 @@ assert.throws(()=>assert(reminder(90,fs.readFileSync('js/club-skill-notice.js','
 const reviewSource=fs.readFileSync('js/club-skill-review.js','utf8');
 const resultFn=reviewSource.slice(reviewSource.indexOf('  function resultState('),reviewSource.indexOf('  function renderOwner('));
 const resultContext={};vm.runInNewContext(resultFn+';this.state=resultState;',resultContext);
-const original=fixtures()[0],proposal=result[0];
+const original=fixtures()[0],proposal={...result[0],model:undefined,current:0,step:1};
 assert.equal(resultContext.state(proposal,original,original).key,'ready');
 assert.equal(resultContext.state(proposal,original,{...original,skillStep:1,level:4.2}).key,'applied');
 assert.equal(resultContext.state(proposal,{...original,ageGroup:undefined},{...original,skillStep:1,level:4.2}).key,'applied','legacy age normalization after save is not a new profile');
@@ -116,9 +114,7 @@ assert(majority.find(p=>p.id==='p4').ready,'two of three experts can agree');
 assert.equal(JSON.stringify(rankedVotes),beforeVotes,'read-time recalculation preserves all votes');
 const cyclePlayers=core.players(fixtures().slice(0,4)),cycleQuestions=core.pairs(cyclePlayers);
 const cycle=Object.fromEntries(cycleQuestions.map(q=>[q.id,['p0_p3','p1_p2','p2_p3'].includes(q.id)?'b':'a']));
-assert(core.proposals(cyclePlayers,cycleQuestions,{e0:cycle}).some(p=>!p.reviewed),'incompatible cyclic rankings remain for review');
-const oldMajority={module:{exports:{}}};vm.runInNewContext(source.replace('>.5','>=.8'),oldMajority);
-assert(!oldMajority.module.exports.proposals(ranked,rankedQuestions,{...rankedVotes,e2:Object.fromEntries(rankedQuestions.map(q=>[q.id,'b']))}).find(p=>p.id==='p4').ready,'majority mutation caught');
+assert(core.proposals(cyclePlayers,cycleQuestions,{e0:cycle}).every(p=>Number.isFinite(p.skillRating)),'cycles produce finite compromise estimates');
 (async()=>{
   const db=fakeDb(),now=Date.now(),id='1'.repeat(32),key='2'.repeat(32),invites=['3','4','5'].map(v=>v.repeat(32));
   const request={action:'create',id,key,invites,clubName:'E2E클럽',players:fixtures()};

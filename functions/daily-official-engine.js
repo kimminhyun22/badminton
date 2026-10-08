@@ -217,6 +217,7 @@ function isLiveOperator(player){
 }
 
 function effectiveLevel(player){
+    if(Number.isFinite(player?.skillRating))return player.skillRating;
   const level = number(player?.level, 4);
   const female = player?.gender === 'F' || player?.gender === '여';
   const age = AGE_BONUS[player?.ageGroup] || 0;
@@ -1285,6 +1286,7 @@ function rosterSetupResultPlayer(player, candidateKey){
     memberId:text(player.memberId),
     name:text(player.name),
     grade:text(player.grade || 'C'),
+    ...(Number.isFinite(player.skillRating)?{skillRating:player.skillRating}:{}),
     level:number(player.level, 4),
     gender:player.gender === 'F' || player.gender === '여' ? 'F' : 'M',
     ageGroup:text(player.ageGroup || '40대'),
@@ -1398,6 +1400,7 @@ function applyRosterSetup(session, request, now, requestId, operation){
         memberId:text(candidate.memberId),
         name:text(candidate.name).trim(),
         grade:text(candidate.grade||'C'),
+        ...(Number.isFinite(candidate.skillRating)?{skillRating:candidate.skillRating}:{}),
         level:number(candidate.level,4),
         gender:candidate.gender==='F'||candidate.gender==='여'?'F':'M',
         ageGroup:text(candidate.ageGroup||'40대'),
@@ -1438,6 +1441,7 @@ function applyPlayerAdd(session, request, now, requestId, operation){
     memberId: candidate.memberId || request.memberId || '',
     name: candidate.name || request.playerName || '',
     grade: candidate.grade || 'C',
+    ...(Number.isFinite(candidate.skillRating)?{skillRating:candidate.skillRating}:{}),
     level: number(candidate.level, 4),
     gender: candidate.gender === 'F' || candidate.gender === '여' ? 'F' : 'M',
     ageGroup: candidate.ageGroup || '40대',
@@ -2614,6 +2618,7 @@ function applyPlayerCreate(session, request, now, operation, adminClaim){
     memberId: text(request.memberId),
     name,
     grade,
+    ...(Number.isFinite(request.skillRating)?{skillRating:request.skillRating}:{}),
     level: number(request.level, 4),
     gender: request.gender === 'F' || request.gender === '여' ? 'F' : 'M',
     ageGroup: text(request.ageGroup) || '40대',
