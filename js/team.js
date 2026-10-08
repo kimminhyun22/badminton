@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.775';
+const APP_VERSION = '1.10.776';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -557,30 +557,32 @@ function doTeamAssign(opts={}){
   return true;
 }
 
+// Same +5 display translation as the club balance review. Never feed these
+// translated sums into matchmaking: unequal teams gain different offsets.
+function _teamDisplaySummary(blue,white){
+  const sum=players=>players.reduce((s,p)=>s+effLevel(p)+5,0);
+  const blueSum=sum(blue),whiteSum=sum(white),unequal=blue.length!==white.length;
+  const blueCompare=unequal?(blue.length?blueSum/blue.length:0):blueSum;
+  const whiteCompare=unequal?(white.length?whiteSum/white.length:0):whiteSum;
+  return {blueSum,whiteSum,blueCompare,whiteCompare,unequal,
+    difference:blueCompare-whiteCompare,label:unequal?'1인 평균 차':'점수합 차'};
+}
+
 function renderTeamList(){
   if(!teamAssignment)return;
   const {blue,white}=teamAssignment;
-  const bSum=blue.reduce((s,p)=>s+effLevel(p),0);
-  const wSum=white.reduce((s,p)=>s+effLevel(p),0);
+  const summary=_teamDisplaySummary(blue,white);
   const bF=blue.filter(p=>p.gender==='F').length;
   const wF=white.filter(p=>p.gender==='F').length;
   const bM=blue.filter(p=>p.gender==='M').length;
   const wM=white.filter(p=>p.gender==='M').length;
-  document.getElementById('blueInfo').textContent=`${blue.length}명 · 남${bM} 여${bF} · 실력합 ${Math.round(bSum*10)/10}`;
-  document.getElementById('whiteInfo').textContent=`${white.length}명 · 남${wM} 여${wF} · 실력합 ${Math.round(wSum*10)/10}`;
-  const bSumR=Math.round(bSum*10)/10;
-  const wSumR=Math.round(wSum*10)/10;
-  const unequalSize=blue.length!==white.length;
-  const bCompare=unequalSize&&blue.length?bSum/blue.length:bSum;
-  const wCompare=unequalSize&&white.length?wSum/white.length:wSum;
-  const bCompareR=Math.round(bCompare*10)/10;
-  const wCompareR=Math.round(wCompare*10)/10;
-  const diff=Math.round((bCompare-wCompare)*10)/10;
-  const diffStr=diff>0?`+${diff}`:diff<0?`${diff}`:'균형';
+  document.getElementById('blueInfo').textContent=`${blue.length}명 · 남${bM} 여${bF} · 점수합 ${summary.blueSum.toFixed(1)}`;
+  document.getElementById('whiteInfo').textContent=`${white.length}명 · 남${wM} 여${wF} · 점수합 ${summary.whiteSum.toFixed(1)}`;
+  const precision=summary.unequal?2:1;
+  const diff=Number(summary.difference.toFixed(precision));
+  const diffStr=diff>0?`+${diff.toFixed(precision)}`:diff<0?diff.toFixed(precision):'균형';
   const diffColor=diff===0?'color:var(--green)':'color:var(--acc)';
-  document.getElementById('blueDiff').innerHTML=unequalSize
-    ?`1인 평균 실력 차: <b style="${diffColor}">${diffStr}</b> (청 ${bCompareR} : 홍 ${wCompareR}) · 총합 ${bSumR} : ${wSumR}`
-    :`실력 차: <b style="${diffColor}">${diffStr}</b> (청 ${bSumR} : 홍 ${wSumR})`;
+  document.getElementById('blueDiff').innerHTML=`${summary.label}: <b style="${diffColor}">${diffStr}</b> (청 ${summary.blueCompare.toFixed(precision)} : 홍 ${summary.whiteCompare.toFixed(precision)})`;
   document.getElementById('whiteDiff').textContent='';
   const bn=teamNames.blue, wn=teamNames.white;
 
@@ -8910,12 +8912,12 @@ function renderAutoFlowDashboard(){
     ].filter(Boolean);
     const rsvpNote=rsvpBits.join(' · ')||(_rsvpId?'본인 확인·실중계 링크':'공유 전');
     const activePairCount=_partners.filter(pair=>pair.members.every(n=>_directPlayers.some(p=>p.name===n))).length;
-    const teamLevelDiff=teamReady?Math.round(Math.abs(blue.reduce((s,p)=>s+effLevel(p),0)-white.reduce((s,p)=>s+effLevel(p),0))*10)/10:0;
+    const teamSummary=teamReady?_teamDisplaySummary(blue,white):null;
     const teamValue=!fixedTeamMode?'자유':teamReady?`${blue.length}:${white.length}`:(players?'청·홍':'대기');
     const teamNote=!fixedTeamMode
       ? '매 경기 실력·출전 균형'
       :teamReady
-        ? `실력차 ${teamLevelDiff} · P ${activePairCount}쌍`
+        ? `${teamSummary.label} ${Math.abs(teamSummary.difference).toFixed(teamSummary.unequal?2:1)} · P ${activePairCount}쌍`
         :(players?'배정 전':'참가자 필요');
     const matchValue=matches?`${done}/${matches}`:'생성 전';
     const remaining=Math.max(0,matches-done);
