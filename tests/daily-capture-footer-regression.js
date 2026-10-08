@@ -1,0 +1,11 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const html=fs.readFileSync('index.html','utf8');
+const css=fs.readFileSync('css/app.css','utf8');
+const section=html.slice(html.indexOf('id="dailyCaptureModal"'),html.indexOf('<!-- ── 민턴LIVE 자율게임 등록 모달'));
+assert.match(section, /id="dailyCaptureResult"[^>]*><\/div>\s*<\/div>\s*<div class="daily-capture-footer">\s*<button[^>]*id="dailyCaptureApply"/,'Confirmation must be outside scrolling body');
+assert.match(css, /#dailyCaptureModal \.modal-body\{[^}]*min-height:0;[^}]*overflow-y:auto;/);
+assert.match(css, /#dailyCaptureModal \.daily-capture-footer\{[^}]*flex-shrink:0;/);
+assert.match(css, /#dailyCaptureModal \.daily-capture-result\{max-height:none;overflow:visible;/);
+console.log('capture footer regression passed');
