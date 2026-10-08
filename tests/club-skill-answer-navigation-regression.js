@@ -11,7 +11,7 @@ function fixture(code=source){
     ownerLink:()=>null,persist(){},message:s=>ctx.messageText=s,panels:s=>ctx.panel=s,reviewQuestions:()=>q,
     api:async data=>{ctx.calls++;ctx.session={...ctx.session,answers:{...ctx.session.answers,...data.answers}};return ctx.session;},calls:0};
   vm.createContext(ctx);
-  vm.runInContext(code.slice(code.indexOf('  const draftKey='),code.indexOf("  $('ownerReturn').onclick=")),ctx);
+  vm.runInContext(code.slice(code.indexOf('  function reviewPlan('),code.indexOf("  $('ownerReturn').onclick=")),ctx);
   ctx.startBatch();
   return {ctx,$,values,buttons,vote:async value=>$('choices').onclick({target:{closest:()=>({dataset:{vote:value}})}})};
 }

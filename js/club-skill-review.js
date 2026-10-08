@@ -90,6 +90,18 @@
     return {key:'pending',title:'추가 확인 · 미반영',reason:p.opponents<3?`서로 다른 상대 ${3-p.opponents}명 이상과 추가 비교가 필요합니다.`:
       p.conflicts?`${p.conflicts}개 비교에서 판단이 나뉘었습니다. 해당 비교를 추가 확인해 주세요.`:'전체 비교 관계가 충분히 맞지 않아 추가 확인이 필요합니다.'};
   }
+  function comparisonCoverage(players,questions,evidence={}){
+    const byId=new Map(players.map(p=>[p.id,p])),crossMembers=new Set();
+    let same=0,cross=0;
+    for(const q of questions){
+      const n=evidence[q.id]?.count||0,a=byId.get(q.a),b=byId.get(q.b);
+      if(!n||!a?.grade||!b?.grade)continue;
+      if(a.grade===b.grade)same+=n;
+      else{cross+=n;crossMembers.add(a.id);crossMembers.add(b.id);}
+    }
+    const multiGrade=new Set(players.map(p=>p.grade).filter(Boolean)).size>1;
+    return {same,cross,multiGrade,missing:multiGrade?players.filter(p=>!crossMembers.has(p.id)).length:0};
+  }
   function reviewProgress(players,questions,proposals){
     const rows=players.map(player=>{
       const p=proposals.find(p=>p.id===player.id),complete=(p?.opponents||0)>0;
@@ -123,6 +135,10 @@
     $('clubTitle').textContent=session.clubName;
     const progress=reviewProgress(session.players,session.questions,session.proposals);
     $('collectionProgress').innerHTML=`<h2>${progress.total}명 중 ${progress.done}명 비교 반영</h2><p class="muted">기존 응답을 모두 재계산합니다. 비교 횟수나 조정 폭으로 저장을 막지 않습니다. 비교가 없는 회원만 초기 추정을 유지합니다.</p>`;
+    const coverage=comparisonCoverage(session.players,session.questions,session.evidence);
+    $('collectionProgress').innerHTML+=`<p>같은 급수 비교 ${coverage.same}건 · 다른 급수 비교 ${coverage.cross}건</p>`;
+    if(coverage.missing)$('collectionProgress').innerHTML+=`<p class="muted">${coverage.missing}명은 다른 급수와 직접 비교한 자료가 없습니다. 같은 급수 안의 우세만으로 급수 간 실력 차이를 확정할 수 없습니다. 추가 참여에서는 가까운 다른 급수와의 비교를 우선합니다.</p>`;
+    if(!coverage.multiGrade)$('collectionProgress').innerHTML+='<p class="muted">이 명부에는 다른 급수 회원이 없어 급수 간 실력 차이를 확인할 수 없습니다.</p>';
     if(progress.pending.length)$('collectionProgress').innerHTML+=`<details><summary>비교 전 ${progress.pending.length}명</summary>${progress.pending.map(r=>`<p>${esc(r.name)}</p>`).join('')}</details>`;
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
     const rows=session.proposals.map(p=>proposalRow(p,own,currentClub));
@@ -225,23 +241,41 @@
       active={id:active.id,key:credential};message('');startBatch();
     }catch(e){message(e.message);}finally{busy=false;$('join').disabled=false;}
   };
-  function reviewQuestions(questions,previous,limit=20,evidence={}){
-    const counts={},parent={};
+  function reviewQuestions(questions,previous,limit=20,evidence={},players=[]){
+    const counts={},parent={},crossCounts={};
+    const grades=new Map(players.map(p=>[p.id,({S:7,A:6,B:5,C:4,D:3,E:2})[p.grade]]));
+    const gap=q=>Math.abs(grades.get(q.a)-grades.get(q.b));
+    const cross=q=>Number.isFinite(gap(q))&&gap(q)>0;
+    const nearest={};
+    for(const q of questions)if(cross(q))for(const id of [q.a,q.b])nearest[id]=Math.min(nearest[id]??Infinity,gap(q));
+    const recordCross=q=>{if(cross(q)){crossCounts[q.a]=(crossCounts[q.a]||0)+1;crossCounts[q.b]=(crossCounts[q.b]||0)+1;}};
     const find=x=>parent[x]===undefined?(parent[x]=x):parent[x]===x?x:(parent[x]=find(parent[x]));
     const join=q=>{parent[find(q.a)]=find(q.b);};
     for(const q of questions)if(evidence[q.id]?.count||(previous[q.id]&&previous[q.id]!=='skip'))join(q);
     for(const q of questions)if(evidence[q.id]?.count||(previous[q.id]&&previous[q.id]!=='skip')){
       counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;
+      recordCross(q);
     }
     const remaining=questions.filter(q=>!Object.hasOwn(previous,q.id)),chosen=[];
     while(remaining.length&&chosen.length<limit){
       const need=q=>evidence[q.id]?.count?0:Number(!(counts[q.a]||0))+Number(!(counts[q.b]||0));
-      remaining.sort((a,b)=>Number(find(b.a)!==find(b.b))-Number(find(a.a)!==find(a.b))||need(b)-need(a)||Number(!!evidence[b.id]?.needsReview)-Number(!!evidence[a.id]?.needsReview)||
+      const crossNeed=q=>!evidence[q.id]?.count&&cross(q)?Number(!crossCounts[q.a])+Number(!crossCounts[q.b]):0;
+      const near=q=>crossNeed(q)?Number(gap(q)===nearest[q.a])+Number(gap(q)===nearest[q.b]):0;
+      remaining.sort((a,b)=>Number(find(b.a)!==find(b.b))-Number(find(a.a)!==find(a.b))||crossNeed(b)-crossNeed(a)||near(b)-near(a)||need(b)-need(a)||Number(!!evidence[b.id]?.needsReview)-Number(!!evidence[a.id]?.needsReview)||
         (evidence[a.id]?.count||0)-(evidence[b.id]?.count||0)||Math.max(counts[a.a]||0,counts[a.b]||0)-Math.max(counts[b.a]||0,counts[b.b]||0)||
         ((counts[a.a]||0)+(counts[a.b]||0))-((counts[b.a]||0)+(counts[b.b]||0))||a.id.localeCompare(b.id));
-      const q=remaining.shift();chosen.push(q);join(q);if(!evidence[q.id]?.count){counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;}
+      const q=remaining.shift();chosen.push(q);join(q);if(!evidence[q.id]?.count){counts[q.a]=(counts[q.a]||0)+1;counts[q.b]=(counts[q.b]||0)+1;recordCross(q);}
     }
     return chosen;
+  }
+  function reviewPlan(questions,previous,pending,saved,version,evidence,players){
+    if(saved.length&&version==='cross-grade-v1')return saved.map(id=>questions.find(q=>q.id===id)).filter(Boolean);
+    // Migrate only unanswered old questions; keep every local answer and saved
+    // answer in the current batch, including partially submitted retry chunks.
+    const answered=q=>Object.hasOwn(pending,q.id)||Object.hasOwn(previous,q.id);
+    const fixed=saved.map(id=>questions.find(q=>q.id===id)).filter(q=>q&&answered(q));
+    for(const q of questions)if(Object.hasOwn(pending,q.id)&&!fixed.some(p=>p.id===q.id))fixed.push(q);
+    return fixed.concat(reviewQuestions(questions,{...previous,...pending},Math.max(0,20-fixed.length),evidence,players));
   }
   const draftKey=()=> 'kokmatch_skill_draft_'+active.id+'_'+active.key;
   function renderQuizProgress(){
@@ -259,12 +293,12 @@
     const pending=read(draftKey(),{});
     answers=Object.fromEntries(Object.entries(pending).filter(([id,v])=>session.questions.some(q=>q.id===id)&&['a','b','tie','skip'].includes(v)));
     const saved=read(draftKey()+'_plan',[]);
-    batch=saved.length?saved.map(id=>session.questions.find(q=>q.id===id)).filter(Boolean):reviewQuestions(session.questions,session.answers,20,session.evidence);
-    if(!saved.length&&Object.keys(answers).length)batch=session.questions.filter(q=>Object.hasOwn(answers,q.id));
+    batch=reviewPlan(session.questions,session.answers,answers,saved,read(draftKey()+'_planVersion',null),session.evidence,session.players);
     at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers,q.id));
     if(at<0&&batch.length){at=batch.length;panels('quiz');finishReview();return;}
     if(!batch.length){panels('done');$('doneText').textContent='모든 비교를 마쳤습니다.';$('more').hidden=true;showOwnerReturn();return;}
     write(draftKey()+'_plan',batch.map(q=>q.id));
+    write(draftKey()+'_planVersion','cross-grade-v1');
     panels('quiz');$('retry').hidden=true;renderQuestion();
   }
   function renderQuestion(){
@@ -310,6 +344,7 @@
       write(draftKey()+'_last',batch.map(q=>q.id));
       localStorage.removeItem('kokmatch_skill_draft_'+active.id+'_'+active.key);
       localStorage.removeItem(draftKey()+'_plan');
+      localStorage.removeItem(draftKey()+'_planVersion');
       answers={};panels('done');$('doneText').textContent=contributionText()+' 안목을 나눠주셔서 감사합니다. 명부에는 아직 자동 적용되지 않으며, 운영자가 결과에서 조정 폭과 비교 근거를 확인할 수 있습니다.';
       $('more').hidden=session.questions.every(q=>Object.hasOwn(session.answers,q.id));message('');showOwnerReturn();
     }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;$('saveAnswers').disabled=false;$('previousQuestion').disabled=at<=0;}
@@ -322,7 +357,7 @@
     if(busy||session.closed||session.expiresAt<=Date.now())return;
     batch=read(draftKey()+'_last',[]).map(id=>session.questions.find(q=>q.id===id)).filter(Boolean);
     if(!batch.length)return;
-    answers={};at=0;write(draftKey()+'_plan',batch.map(q=>q.id));panels('quiz');renderQuestion();
+    answers={};at=0;write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','cross-grade-v1');panels('quiz');renderQuestion();
   };
   $('saveAnswers').onclick=submit;
   $('retry').onclick=submit;$('more').onclick=startBatch;
