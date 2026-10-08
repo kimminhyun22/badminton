@@ -11,7 +11,14 @@ function build(file,seed,old=false){
  // daily.js has a different bootstrap; reuse the common team rating helpers.
  const team=fs.readFileSync(path.join(root,'js/team.js'),'utf8').split('let _currentRound=1;')[0];
  let allocation=cut('function balanceTeams(all','/* ═══ GENERATE ═══ */');
- if(old)allocation=allocation.replace('genderD*0.5','genderD*0');
+ // Reconstruct the old allocator, including absence of the new final refinement.
+ // Removing only the old 0.5 weight no longer disables gender balancing.
+ if(old){
+   allocation=allocation.replace('genderD*0.5','genderD*0');
+   const a=allocation.indexOf('  // Refine the complete roster:');
+   const b=allocation.indexOf('  return best || {blue:[],white:[]};',a);
+   if(a>=0&&b>a)allocation=allocation.slice(0,a)+allocation.slice(b);
+ }
  vm.runInContext((file==='team.js'?setup:team)+cut('function fisherYates(arr)','\n')+allocation,c);
  return c;
 }

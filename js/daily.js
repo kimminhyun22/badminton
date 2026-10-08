@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.770';
+const APP_VERSION = '1.10.771';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -11053,7 +11053,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.770&from=daily';
+  location.href='team.html?v=1.10.771&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -11447,6 +11447,50 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
     const c=cost(B,Wt);
     if(c<bestCost){ bestCost=c; best={blue:B,white:Wt}; }
     if(bestCost===0) break; // 완벽 균형이면 조기 종료
+  }
+  // Refine the complete roster: opposite male/female advantages cannot cancel.
+  // Seeds (captains and fixed partners) are never moved. Keep headcount, sex
+  // balance, beginner distribution and the existing overall-average tolerance.
+  if(best){
+    const full=(b,w)=>[[...seedBlue,...b],[...seedWhite,...w]];
+    const metrics=(b,w)=>{
+      const [B,W]=full(b,w),target=(B.length-W.length)*0.1;
+      const average=t=>t.length?sum(t)/t.length:0;
+      const overall=Math.abs(average(B)-average(W)-target);
+      const gender=Math.max(...[true,false].map(f=>{
+        const bs=B.filter(p=>isF(p)===f),ws=W.filter(p=>isF(p)===f);
+        return bs.length&&ws.length?Math.abs(average(bs)-average(ws)-target):0;
+      }));
+      return {overall,raw:Math.abs(average(B)-average(W)),gender,spread:spreadD(B,W)};
+    };
+    let B=best.blue,W=best.white,base=metrics(B,W);
+    const maxOverall=Math.max(0.15,base.overall),maxSpread=base.spread,maxRaw=Math.max(0.15,base.raw);
+    const better=(next,previous)=>next.gender<previous.gender-1e-8
+      ||(Math.abs(next.gender-previous.gender)<1e-8&&next.overall<previous.overall-1e-8);
+    for(let pass=0;pass<4&&base.gender>0.1;pass++){
+      let chosen=null,chosenMetrics=base,examined=0;
+      const consider=(pairs)=>{
+        if(++examined>12000)return;
+        const b=B.slice(),w=W.slice();
+        for(const [bi,wi] of pairs)[b[bi],w[wi]]=[w[wi],b[bi]];
+        const m=metrics(b,w);
+        if(m.overall>maxOverall+1e-8||m.raw>maxRaw+1e-8||m.spread>maxSpread)return;
+        if(better(m,chosenMetrics)){chosen={blue:b,white:w};chosenMetrics=m;}
+      };
+      const femalePairs=[],malePairs=[];
+      for(let bi=0;bi<B.length;bi++)for(let wi=0;wi<W.length;wi++){
+        if(isF(B[bi])!==isF(W[wi]))continue;
+        const pair=[bi,wi];(isF(B[bi])?femalePairs:malePairs).push(pair);consider([pair]);
+      }
+      // A female swap may require a male swap to preserve the overall balance.
+      for(const f of femalePairs){
+        for(const m of malePairs){if(examined>=12000)break;consider([f,m]);}
+        if(examined>=12000)break;
+      }
+      if(!chosen)break;
+      B=chosen.blue;W=chosen.white;base=chosenMetrics;
+    }
+    best={blue:B,white:W};
   }
   return best || {blue:[],white:[]};
 }

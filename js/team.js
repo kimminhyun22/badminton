@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.770';
+const APP_VERSION = '1.10.771';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -23,6 +23,23 @@ function effLevel(p){
   const _AGE_BONUS={'20대':0,'30대':-0.2,'40대':-0.5,'50대':-1.2,'60대+':-2.0};
   const ageMod = _AGE_BONUS[p.ageGroup] || 0;
   return Math.round((p.level - (isF ? 0.5 : 0) + ageMod) * 10) / 10;
+}
+// Count forced partner repeats within each fixed team, not across both teams.
+function _teamUnavoidablePartnerRepeats(matches,participants,settings){
+  const pools=settings.teamMode?['청팀','홍팀'].map(t=>participants.filter(p=>p.team===t)):[participants];
+  const mixed=matches.some(m=>m.type==='혼복'||m.type==='보정');
+  const same=matches.some(m=>m.type!=='혼복');
+  const choose2=n=>n*(n-1)/2;
+  return pools.reduce((sum,pool)=>{
+    const names=new Set(pool.map(p=>p.name));
+    const f=pool.filter(p=>p.gender==='F'||p.gender==='여').length,m=pool.length-f;
+    const capacity=(same?choose2(m)+choose2(f):0)+(mixed?m*f:0);
+    let encounters=0;
+    matches.forEach(match=>[[match.team1A,match.team1B],[match.team2C,match.team2D]].forEach(([a,b])=>{
+      if(names.has(a.name)&&names.has(b.name)&&a.partnerName!==b.name&&b.partnerName!==a.name)encounters++;
+    }));
+    return sum+Math.max(0,encounters-capacity);
+  },0);
 }
 function _teamRosterAverageBalance(blue,white){
   const average=t=>t.length?t.reduce((sum,p)=>sum+effLevel(p),0)/t.length:0;
@@ -915,6 +932,50 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
     const c=cost(B,Wt);
     if(c<bestCost){ bestCost=c; best={blue:B,white:Wt}; }
     if(bestCost===0) break; // 완벽 균형이면 조기 종료
+  }
+  // Refine the complete roster: opposite male/female advantages cannot cancel.
+  // Seeds (captains and fixed partners) are never moved. Keep headcount, sex
+  // balance, beginner distribution and the existing overall-average tolerance.
+  if(best){
+    const full=(b,w)=>[[...seedBlue,...b],[...seedWhite,...w]];
+    const metrics=(b,w)=>{
+      const [B,W]=full(b,w),target=(B.length-W.length)*0.1;
+      const average=t=>t.length?sum(t)/t.length:0;
+      const overall=Math.abs(average(B)-average(W)-target);
+      const gender=Math.max(...[true,false].map(f=>{
+        const bs=B.filter(p=>isF(p)===f),ws=W.filter(p=>isF(p)===f);
+        return bs.length&&ws.length?Math.abs(average(bs)-average(ws)-target):0;
+      }));
+      return {overall,raw:Math.abs(average(B)-average(W)),gender,spread:spreadD(B,W)};
+    };
+    let B=best.blue,W=best.white,base=metrics(B,W);
+    const maxOverall=Math.max(0.15,base.overall),maxSpread=base.spread,maxRaw=Math.max(0.15,base.raw);
+    const better=(next,previous)=>next.gender<previous.gender-1e-8
+      ||(Math.abs(next.gender-previous.gender)<1e-8&&next.overall<previous.overall-1e-8);
+    for(let pass=0;pass<4&&base.gender>0.1;pass++){
+      let chosen=null,chosenMetrics=base,examined=0;
+      const consider=(pairs)=>{
+        if(++examined>12000)return;
+        const b=B.slice(),w=W.slice();
+        for(const [bi,wi] of pairs)[b[bi],w[wi]]=[w[wi],b[bi]];
+        const m=metrics(b,w);
+        if(m.overall>maxOverall+1e-8||m.raw>maxRaw+1e-8||m.spread>maxSpread)return;
+        if(better(m,chosenMetrics)){chosen={blue:b,white:w};chosenMetrics=m;}
+      };
+      const femalePairs=[],malePairs=[];
+      for(let bi=0;bi<B.length;bi++)for(let wi=0;wi<W.length;wi++){
+        if(isF(B[bi])!==isF(W[wi]))continue;
+        const pair=[bi,wi];(isF(B[bi])?femalePairs:malePairs).push(pair);consider([pair]);
+      }
+      // A female swap may require a male swap to preserve the overall balance.
+      for(const f of femalePairs){
+        for(const m of malePairs){if(examined>=12000)break;consider([f,m]);}
+        if(examined>=12000)break;
+      }
+      if(!chosen)break;
+      B=chosen.blue;W=chosen.white;base=chosenMetrics;
+    }
+    best={blue:B,white:W};
   }
   return best || {blue:[],white:[]};
 }
@@ -2203,7 +2264,7 @@ function _bracketQualityScore(matches, participants, settings){
     const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
     const cur=matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]);
     let rc=0; cur.forEach(nm=>{if(prev.has(nm))rc++;});
-    const rPlay=cur.length, rRest=N-rPlay, rMin=Math.max(0,rPlay-rRest);
+    const rPlay=cur.length, rRest=N-prev.size, rMin=Math.max(0,rPlay-rRest);
     excess += Math.max(0, rc-rMin);
   }
   penalty += excess*8;
@@ -2257,7 +2318,7 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
     const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
     const cur=matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]);
     const repeated=cur.filter(n=>prev.has(n));
-    const unavoidable=Math.max(0,cur.length-(participants.length-cur.length));
+    const unavoidable=Math.max(0,cur.length-(participants.length-prev.size));
     excessConsec+=Math.max(0,repeated.length-unavoidable);
   }
   matches.forEach(m=>{
@@ -2277,10 +2338,8 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
   const pv=Object.values(partnerCounts);
   const partner3=pv.filter(c=>c===3).length;
   const partner4=pv.filter(c=>c>=4).length;
-  const possiblePairs=participants.length*(participants.length-1)/2;
-  const partnerEncounters=matches.length*2;
   const partnerExcess=pv.reduce((s,c)=>s+Math.max(0,c-1),0);
-  const unavoidablePartnerExcess=Math.max(0,partnerEncounters-possiblePairs);
+  const unavoidablePartnerExcess=_teamUnavoidablePartnerRepeats(matches,participants,settings);
   const avoidablePartnerExcess=Math.max(0,partnerExcess-unavoidablePartnerExcess);
   const sameFourRepeats=Object.values(sameFourCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
   const exactMatchRepeats=Object.values(exactMatchCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
@@ -3634,7 +3693,7 @@ function _qualityAssessment(matches,participants,settings){
     const prev=new Set(matches.filter(m=>m.round===r-1).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]));
     const cur=matches.filter(m=>m.round===r).flatMap(m=>[m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name]);
     const repeated=cur.filter(n=>prev.has(n));
-    const unavoidable=Math.max(0,cur.length-(nPlayers-cur.length));
+    const unavoidable=Math.max(0,cur.length-(nPlayers-prev.size));
     const rExcess=Math.max(0,repeated.length-unavoidable);
     excessConsec+=rExcess;totalSlots+=cur.length;
     if(rExcess>0)repeated.slice(-rExcess).forEach(n=>excessNames[n]=(excessNames[n]||0)+1);
@@ -3665,13 +3724,8 @@ function _qualityAssessment(matches,participants,settings){
   const hasMixed=matches.some(m=>m.type==='혼복'||m.type==='보정');
   const hasSameGender=matches.some(m=>m.type!=='혼복');
   const choose2=n=>n*(n-1)/2;
-  const possiblePairs=pairPools.reduce((sum,pool)=>{
-    const f=pool.filter(p=>p.gender==='F'||p.gender==='여').length,m=pool.length-f;
-    return sum+(hasSameGender?choose2(m)+choose2(f):0)+(hasMixed?m*f:0);
-  },0);
-  const partnerEncounters=pcVals.reduce((sum,n)=>sum+n,0);
   const partnerExcess=pcVals.reduce((s,c)=>s+Math.max(0,c-1),0);
-  const unavoidablePartnerExcess=Math.max(0,partnerEncounters-possiblePairs);
+  const unavoidablePartnerExcess=_teamUnavoidablePartnerRepeats(matches,participants,settings);
   const avoidablePartnerExcess=Math.max(0,partnerExcess-unavoidablePartnerExcess);
   const sameFourRepeats=Object.values(sameFourCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
   const exactMatchRepeats=Object.values(exactMatchCounts).reduce((s,c)=>s+Math.max(0,c-1),0);
@@ -3850,7 +3904,7 @@ function renderQualityDashboard(matches,participants,settings){
       return {label:'실력 균형',detail,score:sBalance,max:50,pct};
     })(),
     ...(splitAudit?[(()=>{
-      const pct=sTeamSplit/10;
+      const pct=Math.min(sTeamSplit/10,1-Math.max(0,Math.min(1,(splitAudit.genderGap-0.1)/0.9)));
       const parts=[`${splitAudit.nB}명 ${splitAudit.sumB} vs ${splitAudit.nW}명 ${splitAudit.sumW}`,
         splitAudit.countCompensation?`인원 보정 후 차 ${splitAudit.avgGap} · 인원 보정 ${splitAudit.countCompensation}`:`1인당 평균 차 ${splitAudit.avgGap}`];
       if(splitAudit.lowStacked)parts.push(`⚠ 초심 ${splitAudit.lowCount}명이 한 팀에 몰림`);
@@ -3975,6 +4029,7 @@ function renderQualityDashboard(matches,participants,settings){
     fixedPairs.length?chip(`P 파트너 ${fixedPairs.length}쌍`,splitFixed.length?'warn':'ok'):''
   ].filter(Boolean).join('');
   const issueItems=[];
+  if(splitAudit&&splitAudit.genderGap>0.3)issueItems.push('남녀별 청·홍팀 실력 차이가 큽니다. 코트를 줄이기 전에 팀 구성을 다시 나누는 것이 좋습니다.');
   if(balanceHardCount>0)issueItems.push(`파트너 격차를 반영한 균형 기준 초과 경기 ${balanceHardCount}개는 재배정을 권장합니다.`);
   else if(balanceCautionCount>0)issueItems.push(`실력 균형 주의 경기 ${balanceCautionCount}개가 있습니다.`);
   if(avoidableExact>0)issueItems.push(`완전히 같은 경기 반복 ${avoidableExact}건은 클레임 가능성이 높습니다.`);
@@ -4053,7 +4108,7 @@ function renderQualityDashboard(matches,participants,settings){
         <button id="undoBtn" class="btn btn-undo" style="padding:10px 14px;font-size:.88rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩ 복원</button>
       </div>
     </div>
-	    ${total<=82?`<div class="qd-hint">💡 ${total<=70?'재생성을 권장합니다. 재배정 버튼을 눌러보세요.':'점수가 낮은 항목을 확인하고 필요 시 재배정하세요.'}</div>`:''}`;
+	    ${total<=82?`<div class="qd-hint">💡 ${splitAudit&&splitAudit.genderGap>0.3?'팀 나누기부터 확인하세요. 같은 팀에서 재배정만 반복하면 개선이 작을 수 있습니다.':total<=70?'재생성을 권장합니다. 재배정 버튼을 눌러보세요.':'점수가 낮은 항목을 확인하고 필요 시 재배정하세요.'}</div>`:''}`;
 }
 
 function openQualityPanelAfterRender(scroll=false){
