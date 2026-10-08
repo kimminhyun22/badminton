@@ -5,10 +5,12 @@ const qctx={};vm.runInNewContext(fs.readFileSync('js/match-quality.js','utf8'),q
 const raw=[{name:'E2E선배',grade:'A',gender:'여',ageGroup:'60대+',level:5},{name:'E2E후배',grade:'A',gender:'남',ageGroup:'20대',level:6},{name:'E2E초심',grade:'E',gender:'남',ageGroup:'40대',level:2}];
 const players=C.players(raw),questions=C.pairs(players),votes={e0:{p0_p1:'a',p0_p2:'a',p1_p2:'a'}};
 const p=C.proposals(players,questions,votes);
-assert(p[0].skillRating>p[1].skillRating&&p[1].skillRating>p[2].skillRating,'comparison order replaces demographic order');
+assert(p[0].skillRating>players[0].base&&p[1].skillRating<players[1].base,'opposing evidence corrects the personal initial scores');
+assert(p[0].skillRating<p[1].skillRating,'one ranking must not erase a 3.5-point initial gap');
 assert(p.every(p=>p.ready),'two opponents suffice, no min-three gate');
 const wide=C.proposals(players,questions,Object.fromEntries(Array.from({length:100},(_,i)=>['u'+i,votes.e0])));
-assert(wide[0].skillRating-wide[2].skillRating>3,'evidence may exceed old correction cap');
+assert.deepEqual(wide.map(p=>p.skillRating),p.map(p=>p.skillRating),'repeating the same opinions changes evidence counts, not rating distances');
+assert(p[0].adjustment>1,'no hard one-grade cap when initial scores and evidence strongly conflict');
 const mixed=C.players(raw.map(p=>({...p,gender:'남',ageGroup:'20대',level:undefined})));
 const alt=C.proposals(mixed,C.pairs(mixed),votes);
 assert.notEqual(alt[0].skillRating,p[0].skillRating,'initial personal baseline informs sparse comparisons');

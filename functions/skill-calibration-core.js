@@ -53,17 +53,20 @@
     const initial=list.map(p=>anchors.find(a=>a.id===p.id)||p);
     const base=initial.map(p=>p.base);
     const prior=initial.map(p=>rating(p));
-    // Bradley–Terry logistic fit uses every vote, with ties as half observations.
-    // Estimate an additive correction around each frozen personal initial score.
-    // A weak prior keeps sparse/unanimous data finite; no hard correction cap.
+    // Fit each pair's opinion proportion, not the accumulated number of votes.
+    // Give every distinct opponent one unit of evidence. Scale the personal
+    // baseline penalty by that same degree, so more comparisons do not silently
+    // weaken it. Counts remain evidence metadata, not a rating-distance multiplier.
+    // Keep the existing coefficient and frozen initial score; no clipping/cap.
     const x=list.map(()=>0),lambda=.25;
+    const priorWeight=neighbors.map(a=>lambda*Math.max(1,a.length));
     for(let iter=0;iter<2000;iter++){
-      const g=x.map(v=>lambda*v),curvature=x.map(()=>lambda);
+      const g=x.map((v,i)=>priorWeight[i]*v),curvature=priorWeight.slice();
       for(const e of edges){const probability=1/(1+Math.exp(prior[e.j]+x[e.j]-prior[e.i]-x[e.i]));
-        const residual=e.n*probability-e.wins;
+        const residual=probability-e.wins/e.n;
         g[e.i]+=residual;g[e.j]-=residual;
         // Uniform Hessian bound gives a stable simultaneous descent step.
-        curvature[e.i]+=e.n*.5;curvature[e.j]+=e.n*.5;
+        curvature[e.i]+=.5;curvature[e.j]+=.5;
       }
       let max=0;
       for(let i=0;i<x.length;i++){const step=g[i]/curvature[i];x[i]-=step;max=Math.max(max,Math.abs(step));}
@@ -78,14 +81,14 @@
       const ready=reviewed&&(!Number.isFinite(p.skillRating)||Math.abs(skillRating-currentRating)>.0005);
       const comparisons=all.map(e=>({name:list[e.i===i?e.j:e.i].name,agree:e.consistent,
         outcome:e.winner==='tie'?'tie':((e.winner==='a')===(e.i===i)?'higher':'lower'),votes:e.n}));
-      return {id:p.id,name:p.name,current:p.skillStep,step:p.skillStep,currentRating,skillRating,baseRating:base[i],adjustment:Math.round((skillRating-base[i])*1000)/1000,model:'comparison-v3',ready,reviewed,
+      return {id:p.id,name:p.name,current:p.skillStep,step:p.skillStep,currentRating,skillRating,baseRating:base[i],adjustment:Math.round((skillRating-base[i])*1000)/1000,model:'comparison-v4',ready,reviewed,
         componentSize:groups[component[i]].length,connected:groups[component[i]].length===list.length,
         resolved:good.length,opponents:all.length,experts:new Set(all.flatMap(e=>e.values.map(v=>v.who))).size,
         conflicts:all.length-good.length,support:good.length,comparisons,
         state:ready?'실력 점수 저장':reviewed?'현재 값 유지':'초기 추정 · 비교 전'};
     });
   }
-  const api={player,players,pairs,proposals,version:'comparison-v3'};
+  const api={player,players,pairs,proposals,version:'comparison-v4'};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.KokClubSkill=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
