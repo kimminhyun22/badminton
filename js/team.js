@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.772';
+const APP_VERSION = '1.10.773';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -40,6 +40,26 @@ function _teamUnavoidablePartnerRepeats(matches,participants,settings){
     }));
     return sum+Math.max(0,encounters-capacity);
   },0);
+}
+// Individual rest burden, excluding streaks forced by one's appearances/available rounds.
+function _restRunStats(roundSets){
+  const names=new Set(roundSets.flatMap(r=>[...r]));
+  let maxRun=0,worstExcess=0,totalExcess=0;const longRuns=[];
+  for(const name of names){
+    let run=0,maximum=0,games=0;
+    for(const r of roundSets){if(r.has(name)){games++;run++;maximum=Math.max(maximum,run);}else run=0;}
+    const unavoidable=Math.ceil(games/(roundSets.length-games+1));
+    const excess=Math.max(0,maximum-Math.max(2,unavoidable));
+    maxRun=Math.max(maxRun,maximum);worstExcess=Math.max(worstExcess,excess);totalExcess+=excess;
+    if(excess)longRuns.push({name,maxRun:maximum,excess});
+  }
+  return {maxRun,worstExcess,totalExcess,longRuns,penalty:worstExcess*worstExcess+totalExcess*0.25};
+}
+function _matchRestStats(matches){
+  const maxRound=Math.max(0,...matches.map(m=>m.round));
+  const rounds=Array.from({length:maxRound},()=>new Set());
+  matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>rounds[m.round-1].add(p.name)));
+  return _restRunStats(rounds);
 }
 function _teamRosterAverageBalance(blue,white){
   const average=t=>t.length?t.reduce((sum,p)=>sum+effLevel(p),0)/t.length:0;
@@ -2411,6 +2431,7 @@ function _teamFinalQualityKey(matches,participants,settings){
   return [q.structureErr,q.genderErr,q.avoidableUnderSlots,q.balanceHardCount,
     q.balanceSevereCount,q.balanceCautionCount,q.avoidableOverSlots,q.asymSevereCount||0,
     Math.round(Math.max(0,(q.maxLD||0)-1)*10)/10,
+    Math.max(0,(q.restWorstExcess||0)-1),
     -(q.total+2*q.sBalance),-q.sBalance,-q.total,
     q.avoidablePartnerExcess,q.excessConsec];
 }
@@ -3845,7 +3866,8 @@ function _qualityAssessment(matches,participants,settings){
   // Overlapping repetitions share one penalty rather than stacking three fines.
   const diversityPenalty=partnerOnlyExcess*0.5+Math.max(0,avoidableSameFour-avoidableExact)+avoidableExact*1.5;
   const sDiversity=Math.round(20*(1-clamp(diversityPenalty/matches.length*2,0,1)));
-  const sInterval=Math.round(clamp(10*(1-excessRatio/.2),0,10));
+  const rest=_matchRestStats(matches);
+  const sInterval=Math.round(clamp(10*(1-excessRatio/.2)-rest.penalty,0,10));
   const extraRate=avoidableOverSlots/Math.max(1,totalGoalSlots);
   const extraMatchRate=extraMatchCount/Math.max(1,minimumMatches);
   const sEfficiency=clamp(5*(1-Math.max(extraMatchRate/.2,extraRate/.1)),0,5);
@@ -3867,7 +3889,8 @@ function _qualityAssessment(matches,participants,settings){
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,fillerRate,adjustments,genderErr,structureErr,
     asymMatches,asymSevereCount,mirroredExtremes,evenCount,favCount,splitAudit,sTeamSplit,
-    scoreVersion:2,safetyIssues,diversityPenalty,sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel};
+    restMaxRun:rest.maxRun,restWorstExcess:rest.worstExcess,restTotalExcess:rest.totalExcess,restLongRuns:rest.longRuns,
+    scoreVersion:3,safetyIssues,diversityPenalty,sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel};
 }
 
 /* ═══ 대진 품질 대시보드 ═══ */
@@ -3943,8 +3966,8 @@ function renderQualityDashboard(matches,participants,settings){
     (()=>{
       const pct=sInterval/10;
       const ns=Object.keys(excessNames).slice(0,3);
-      const detail=excessConsec===0?'회피 가능한 연속 출전 없음'
-        :`회피 가능한 연속 ${excessConsec}건 · ${ns.join(', ')}${Object.keys(excessNames).length>3?' 외':''}`;
+      const detail=(q.restLongRuns?.length?`최장 ${q.restMaxRun}연속 · 부담 집중 ${q.restLongRuns.length}명 · `:'')+(excessConsec===0?'회피 가능한 연속 출전 없음'
+        :`회피 가능한 연속 ${excessConsec}건 · ${ns.join(', ')}${Object.keys(excessNames).length>3?' 외':''}`);
       return {label:'휴식·연속 출전',detail,score:sInterval,max:10,pct};
     })(),
     (()=>{
@@ -4018,6 +4041,7 @@ function renderQualityDashboard(matches,participants,settings){
   const repeatedPartnerRate=avoidablePartnerExcess/Math.max(1,matches.length*2);
   if(repeatedPartnerRate>=0.25)blocking.push('파트너 재배정 과다');
   else if(repeatedPartnerRate>=0.125)caution.push('파트너 재배정 많음');
+  if(q.restLongRuns?.length)caution.push(`최장 ${q.restMaxRun}연속 출전`);
   if(excessConsec>0)caution.push(`연속 출전 ${excessConsec}건`);
   if(balanceCautionCount>0)caution.push('실력 균형 주의');
   if(total<85)caution.push('품질점수 낮음');
@@ -4052,6 +4076,7 @@ function renderQualityDashboard(matches,participants,settings){
   if(over.length&&avoidableOverSlots===0)issueItems.push(`인원 구조상 ${over.length}명 초과 출전은 감점하지 않았습니다.`);
   if(parityAdjustment>0)issueItems.push('성비상 1게임 차이는 불가피한 최소 조정으로 처리했습니다.');
   if(adjustments.length)issueItems.push(`${settings.teamMode?'팀':'참가자'} 성비 때문에 보정경기 ${adjustments.length}개를 사용했습니다. 전원 출전과 팽팽한 실력 균형을 위한 조합입니다.`);
+  if(q.restLongRuns?.length)issueItems.push(`개인별 연속 출전 부담: ${q.restLongRuns.map(p=>`${p.name} ${p.maxRun}연속`).join(', ')}. 휴식 점수와 편성 순위에 반영했습니다.`);
   if(excessConsec>0){
     const ns=Object.keys(excessNames).slice(0,4).map(escText).join(', ');
     issueItems.push(`연속 출전 대상: ${ns}${Object.keys(excessNames).length>4?' 외':''}`);
@@ -4070,7 +4095,7 @@ function renderQualityDashboard(matches,participants,settings){
      참가자 이력과 급수차로 계산되는 값이라 회원 화면에서는 다시 못 만듭니다 —
      관리자가 계산한 그대로 보냅니다. 태그는 떼고 글자만 보냅니다. */
   _teamQualitySummary={
-    score:total, scoreVersion:2, grade, gradeLabel, sub:subText,
+    score:total, scoreVersion:q.scoreVersion, grade, gradeLabel, sub:subText,
     opClass, opTitle:String(opTitle).replace(/^[^가-힣A-Za-z]+/,'').trim(), opSub,
     issues:issueItems.map(x=>String(x).replace(/<[^>]*>/g,'').trim()).filter(Boolean).slice(0,12)
   };
@@ -10009,11 +10034,27 @@ function _optimizeFutureRounds(matches,settings,previousRoundNames=new Set()){
       rms.forEach(m=>lateSpike+=Math.max(0,Math.abs(m.levelDiff||0)-2)*lateWeight);
       prev=new Set(names);
     });
-    return {consecutive,lateSpike,energy:consecutive*1000+lateSpike};
+    const sets=rounds.map(r=>new Set(matches.filter(m=>m.round===r).flatMap(players)));
+    if(previousRoundNames.size)sets.unshift(new Set(previousRoundNames));
+    const rest=_restRunStats(sets);
+    const slots=Math.max(1,matches.length*4-(previousRoundNames.size?0:matches.filter(m=>m.round===rounds[0]).length*4));
+    return {consecutive,lateSpike,rest,energy:Math.max(0,rest.worstExcess-1)*1000000+(rest.penalty+consecutive*50/slots)*1000+lateSpike};
   };
   const original=matches.map(m=>({round:m.round,court:m.court}));
   let globalBest=measure();
   let globalSlots=matches.map(m=>({round:m.round,court:m.court}));
+  const better=(a,b)=>a.energy<b.energy;
+  // Reorder whole rounds too: swapping single games cannot escape some full-court schedules.
+  if(rounds.length<=8){
+    const movable=rounds.slice(0,-1),last=rounds[rounds.length-1];
+    const visit=(order,left)=>{
+      if(left.length){for(const r of left)visit([...order,r],left.filter(x=>x!==r));return;}
+      const source=[...order,last];
+      matches.forEach((m,i)=>{m.round=rounds[source.indexOf(original[i].round)];m.court=original[i].court;});
+      const next=measure();if(better(next,globalBest)){globalBest=next;globalSlots=matches.map(m=>({round:m.round,court:m.court}));}
+    };
+    visit([],movable);
+  }
   const restarts=5,steps=8000;
 
   for(let restart=0;restart<restarts;restart++){
@@ -10036,8 +10077,7 @@ function _optimizeFutureRounds(matches,settings,previousRoundNames=new Set()){
         ||Math.random()<Math.exp((current.energy-next.energy)/temperature);
       if(accept){
         current=next;
-        if(next.consecutive<globalBest.consecutive
-          ||(next.consecutive===globalBest.consecutive&&next.lateSpike<globalBest.lateSpike)){
+        if(better(next,globalBest)){
           globalBest=next;
           globalSlots=matches.map(m=>({round:m.round,court:m.court}));
         }
