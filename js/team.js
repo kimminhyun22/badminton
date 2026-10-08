@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.771';
+const APP_VERSION = '1.10.772';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1097,7 +1097,7 @@ function generate(opts={}){
         let _sc=_bracketQualityScore(_m,_try,settings);
         // 혼복 0은 금지가 아니라 동성복식 우선이다.
         // 기본 품질이 비슷한 후보끼리는 혼복이 적은 대진을 선택한다.
-        if(xDbl===0) _sc+=_m.filter(mx=>mx.type==='혼복').length*6;
+        if(xDbl===0&&!settings.teamMode) _sc+=_m.filter(mx=>mx.type==='혼복').length*6;
         // 팀전: 파트너 중복 추가 패널티
         if(settings.teamMode){
           const _pc={};
@@ -1144,12 +1144,12 @@ function generate(opts={}){
       if(participants.length<=20){
         _warnParts.push('ℹ 20명 이하 소규모 대진은 선택지가 좁아 같은 파트너·상대 반복이 조금 늘 수 있습니다. 품질점검의 "실전 특이사항"을 먼저 확인하세요.');
       }
-      if(xDbl===0&&(((numF*gpp)%4)!==0||((numM*gpp)%4)!==0)){
+      if(!settings.teamMode&&xDbl===0&&(((numF*gpp)%4)!==0||((numM*gpp)%4)!==0)){
         _warnParts.push('ℹ 혼복 0은 남복·여복 우선이라는 뜻입니다. 성별별 출전 슬롯이 4명 단위로 딱 맞지 않으면 일부 혼복, 반복, 1게임 초과가 생길 수 있습니다.');
       }
       const _adjCnt=matches.filter(m=>m.type==='보정').length;
       if(_adjCnt){
-        _warnParts.push(`ℹ 팀 성비 때문에 보정경기 ${_adjCnt}개를 배정했습니다.\n   이는 한 팀 여1/남1 vs 상대 팀 여0/남2 또는 여2/남0처럼 목표 게임 수 공정성을 맞추기 위한 예외 조합입니다.`);
+        _warnParts.push(`ℹ 팀 성비 때문에 보정경기 ${_adjCnt}개를 배정했습니다.\n   혼성·동성 페어를 함께 비교해 전원 출전과 팽팽한 실력 균형을 우선한 조합입니다.`);
       }
       if(_cw.length){
         const _mc=Math.floor(participants.length/4);
@@ -1317,10 +1317,15 @@ function generateMatches(participants,settings,totalMatches){
         if(!match){
           let fb=null;
           for(const maxLD of[1,2,4]){
-            for(const t of to){
+            // Team events compare inclusive formats before relaxing skill limits.
+            const formats=settings.teamMode?['any','adjust']:to;
+            for(const t of formats){
               const cand=tryCreateMatch(avail,settings,t,maxLD);
               if(!cand) continue;
-              if(!hasRepeat4(cand)){ match=cand; break; }
+              if(!hasRepeat4(cand)){
+                if(!match||_isBetterQualityKey(_inclusiveMatchKey(cand),_inclusiveMatchKey(match)))match=cand;
+                if(!settings.teamMode)break;
+              }
               if(!fb) fb=cand;
             }
             if(match)break;
@@ -1730,13 +1735,21 @@ function tryCreateMatch(avail,settings,type,maxLD){
   return formTeams(four,settings.teamMode,type,maxLD);
 }
 
+function _inclusiveMatchKey(match){
+  const a=[match.team1A,match.team1B],b=[match.team2C,match.team2D],four=[...a,...b];
+  const balance=_teamPairBalance(a,b);
+  return [balance.allowed?0:1,four.reduce((sum,p)=>sum+(p.gamesPlayed||0),0),
+    Math.round(_teamBalanceDiff(match)*1000),pairGapAsymmetryPenalty(a,b),
+    diversityScore(four,_teamBalanceDiff(match))];
+}
+
 function selectBestFour(pool,settings,type,maxLD){
   pool.sort((a,b)=>a.gamesPlayed-b.gamesPlayed);
-  if(settings.teamMode){const gf=type==='women'?'F':type==='men'?'M':null;return selectFourTeamMode(pool,gf,maxLD);}
+  if(settings.teamMode){const gf=type==='women'?'F':type==='men'?'M':null;return selectFourTeamMode(pool,gf,maxLD,type);}
   return selectFourFreeMode(pool,type,maxLD);
 }
 
-function selectFourTeamMode(pool,gf,maxLD){
+function selectFourTeamMode(pool,gf,maxLD,type='any'){
   let bp=pool.filter(p=>p.team==='청팀'),wp=pool.filter(p=>p.team==='홍팀');
   if(gf){bp=bp.filter(p=>p.gender===gf);wp=wp.filter(p=>p.gender===gf);}
   if(bp.length<2||wp.length<2)return null;
@@ -1751,6 +1764,9 @@ function selectFourTeamMode(pool,gf,maxLD){
   for(let i=0;i<bc.length-1;i++)for(let j=i+1;j<bc.length;j++)
     for(let k=0;k<wc.length-1;k++)for(let l=k+1;l<wc.length;l++){
       const four=[bc[i],bc[j],wc[k],wc[l]];
+      const f1=four.slice(0,2).filter(p=>p.gender==='F').length,f2=four.slice(2).filter(p=>p.gender==='F').length;
+      // Exclude invalid formats before choosing a quartet, not after selection.
+      if(f1!==f2||(type==='mixed'&&f1!==1))continue;
       if(!four.every(p=>!p.partnerName||four.some(x=>x.name===p.partnerName)))continue;
       const ld=Math.abs((effLevel(four[0])+effLevel(four[1]))-(effLevel(four[2])+effLevel(four[3])));
       if(ld>maxLD)continue;
@@ -1791,7 +1807,7 @@ function _shouldTryGenderAdjustment(participants,settings){
 
 function _isAdjustmentFour(four){
   const f=four.filter(p=>p.gender==='F').length;
-  return f===1||f===3;
+  return f>0&&f<4;
 }
 
 function selectFourTeamAdjustment(pool,settings,maxLD){
@@ -1974,7 +1990,7 @@ function _matchGenderErrorCount(m){
     const t1F=[m.team1A,m.team1B].filter(p=>p.gender==='F').length;
     const t2F=[m.team2C,m.team2D].filter(p=>p.gender==='F').length;
     const totalF=t1F+t2F;
-    return ((totalF===1||totalF===3)&&t1F!==t2F)?0:1;
+    return (totalF>0&&totalF<4&&t1F!==t2F)?0:1;
   }
   return 1;
 }
@@ -2023,7 +2039,7 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
   let best=null,bestScore=Infinity;
 
   // 파트너 종목 검증: allowPartnerSplit이 아니면 종목 강제
-  if(!allowPartnerSplit){
+  if(!allowPartnerSplit&&type!=='adjust'){
     const males=four.filter(p=>p.gender==='M').length;
     const females=four.filter(p=>p.gender==='F').length;
     const fourType=(males===4)?'men':(females===4)?'women':'mixed';
@@ -2099,9 +2115,9 @@ function formTeams(four,teamMode,type,maxLD,allowPartnerSplit){
   else if(type==='adjust'){
     if(!teamMode)return null;
     const totalF=t1f+t2f;
-    // 팀전 성비가 반대로 남았을 때 쓰는 예외 경기:
-    // 한 팀은 여1/남1, 다른 팀은 여0/남2 또는 여2/남0 형태가 될 수 있다.
-    if(!((totalF===1||totalF===3)&&t1f!==t2f))return null;
+    // Inclusive team format: mixed vs same-sex or women vs men.
+    // The same skill limits and fixed-partner rules still apply.
+    if(!(totalF>0&&totalF<4&&t1f!==t2f))return null;
     best.type='보정';
     best.isAdjustment=true;
   }
@@ -2295,8 +2311,7 @@ function _bracketQualityScore(matches, participants, settings){
   penalty += exactMatchRepeats*1200 + sameFourRepeats*600 + Math.max(0,partnerExcess-sameFourRepeats*2)*260 + partner3Plus*700;
   // ⑤ 보완 게임 수
   penalty += matches.filter(m=>m.isFiller).length*15;
-  // ⑥ 성비 보정경기는 허용하되, 같은 품질이면 적은 쪽을 선호
-  penalty += matches.filter(m=>m.type==='보정').length*2;
+  // Balanced adjustment matches are normal participation, not a quality penalty.
   return penalty;
 }
 
@@ -2310,7 +2325,6 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
   const partnerCounts={},sameFourCounts={},exactMatchCounts={};
   const genderErr=matches.reduce((s,m)=>s+_matchGenderErrorCount(m),0);
   const structureErr=matches.reduce((s,m)=>s+_matchStructureErrorCount(m,settings),0);
-  const adjustmentCount=matches.filter(m=>m.type==='보정').length;
   const balance=_balanceQualityStats(matches,settings);
   let excessConsec=0;
   const maxRound=matches.length?Math.max(...matches.map(m=>m.round)):0;
@@ -2361,7 +2375,7 @@ function _candidateQualityKey(matches,participants,settings,baseScore){
     avoidableOverSlots,
     underSlots,
     overSlots,
-    adjustmentCount,
+    0, // Format itself is not a quality defect.
     matches.filter(m=>m.isFiller).length,
     baseScore
   ];
@@ -4021,7 +4035,7 @@ function renderQualityDashboard(matches,participants,settings){
     chip(balanceHardCount>0?`실력차 ${balanceHardCount}경기`:balanceCautionCount>0?`실력균형 주의 ${balanceCautionCount}경기`:'실력균형 허용범위',balanceHardCount>0?'bad':balanceCautionCount>0?'warn':'ok'),
     chip(structureErr===0?`${structureLabel} 정상`:`${structureLabel} 오류 ${structureErr}건`,structureErr===0?'ok':'bad'),
     chip(genderErr===0?'종목 정상':'종목 오류 '+genderErr+'건',genderErr===0?'ok':'bad'),
-    adjustments.length?chip(`성비보정 ${adjustments.length}경기`,'warn'):'',
+    adjustments.length?chip(`성비보정 ${adjustments.length}경기`,'ok'):'',
     chip(under.length===0?'목표 달성':'미달 '+under.length+'명',avoidableUnderSlots===0?'ok':'bad'),
     chip(avoidableOverSlots===0?(over.length?`최소 초과 ${over.length}명`:'초과 없음'):`추가 초과 ${avoidableOverSlots}`,avoidableOverSlots===0?'ok':'warn'),
     chip(avoidableExact===0&&avoidableSameFour===0&&avoidablePartnerExcess===0?'반복 없음':`파트너 ${avoidablePartnerExcess}회`,avoidableExact===0&&avoidableSameFour===0&&avoidablePartnerExcess<4?'ok':'warn'),
@@ -4037,7 +4051,7 @@ function renderQualityDashboard(matches,participants,settings){
   if(partnerOnlyExcess>0||partner3>0||partner4>0)issueItems.push(`파트너 재배정 ${avoidablePartnerExcess}회가 있습니다. 반복 조합 ${repeatedPartnerPairs}쌍, 최다 ${maxPartnerRepeat}회이며 상대 만남은 제외했습니다.`);
   if(over.length&&avoidableOverSlots===0)issueItems.push(`인원 구조상 ${over.length}명 초과 출전은 감점하지 않았습니다.`);
   if(parityAdjustment>0)issueItems.push('성비상 1게임 차이는 불가피한 최소 조정으로 처리했습니다.');
-  if(adjustments.length)issueItems.push(`${settings.teamMode?'팀':'참가자'} 성비 때문에 보정경기 ${adjustments.length}개를 사용했습니다. 목표 게임 수 공정성을 맞추기 위한 예외 조합입니다.`);
+  if(adjustments.length)issueItems.push(`${settings.teamMode?'팀':'참가자'} 성비 때문에 보정경기 ${adjustments.length}개를 사용했습니다. 전원 출전과 팽팽한 실력 균형을 위한 조합입니다.`);
   if(excessConsec>0){
     const ns=Object.keys(excessNames).slice(0,4).map(escText).join(', ');
     issueItems.push(`연속 출전 대상: ${ns}${Object.keys(excessNames).length>4?' 외':''}`);

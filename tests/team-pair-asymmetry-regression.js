@@ -51,7 +51,7 @@ ${isTeam
     : cut('function _dailyPartnerLevelGap(team)', 'function _dailyMatchMaxPartnerGap')}
 ${isTeam ? '' : 'function _fixedPartnersComplete(){return true;}'}
 ${cut('function diversityScore(four,ld)', '\nfunction ')}
-${cut('function selectFourTeamMode(pool,gf,maxLD)', '\nfunction ')}
+${cut('function selectFourTeamMode(', '\nfunction ')}
 this.api={selectFourTeamMode, pairGapAsymmetryPenalty, effLevel};
 `, sandbox);
   return sandbox.api;
