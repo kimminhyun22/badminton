@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.789';
+const APP_VERSION = '1.10.790';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2468,9 +2468,28 @@ function _teamOptimizeFinalists(finalists,settings){
       p.lastRoundPlayed=Math.max(p.lastRoundPlayed||0,m.round);
     }));
   }
-  return best;
+  return _teamChooseCompetitionCandidate(best,finalists,settings);
 }
 
+function _teamCompetitionEvaluation(candidate,settings){
+  const policy=globalThis.KokTeamCompetition;
+  if(!policy||!settings.teamMode)return null;
+  const legacy=_qualityAssessment(candidate.matches,candidate.participants,settings);
+  return {legacy,score:policy.assess(legacy,candidate.matches,candidate.participants,settings,effLevel,_teamBalanceDiff)};
+}
+function _teamChooseCompetitionCandidate(base,candidates,settings){
+  if(!base)return base;
+  const initial=_teamCompetitionEvaluation(base,settings);if(!initial)return base;
+  const policy=globalThis.KokTeamCompetition;let best=base,bestScore=initial.score;
+  for(const candidate of candidates){
+    const next=_teamCompetitionEvaluation(candidate,settings);
+    if(!next.score.eligible||!policy.protects(initial.legacy,next.legacy,initial.score,next.score,base.matches,candidate.matches))continue;
+    if(_isBetterQualityKey(policy.rankKey(next.score),policy.rankKey(bestScore))){best=candidate;bestScore=next.score;}
+  }
+  best.participants.forEach(p=>p.lastRoundPlayed=0);
+  best.matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>p.lastRoundPlayed=Math.max(p.lastRoundPlayed,m.round)));
+  return best;
+}
 // Secondary heuristic, not a calibrated win probability. Preserve the existing
 // safety, participation, balance, diversity and rest measures before accepting it.
 function _teamIndividualRisk(m){
@@ -4033,7 +4052,11 @@ function renderQualityDashboard(matches,participants,settings){
     unavoidableSameFour,unavoidableExact,avoidablePartnerExcess,
     unavoidablePartnerExcess,partnerOnlyExcess,fillers,adjustments,genderErr,structureErr,
     asymMatches,asymSevereCount,mirroredExtremes,evenCount,favCount,splitAudit,sTeamSplit,
-    sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total,grade,gradeLabel}=q;
+    sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total:legacyTotal,grade:legacyGrade,gradeLabel:legacyGradeLabel}=q;
+  const competition=_teamCompetitionEvaluation({matches,participants},settings)?.score;
+  const total=competition?Math.round(competition.total):legacyTotal;
+  const grade=competition?(total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D'):legacyGrade;
+  const gradeLabel=competition?(competition.eligible?({S:'매우 우수',A:'우수',B:'양호',C:'보통',D:'개선 권장'}[grade]):'필수 확인'):legacyGradeLabel;
   const structureLabel=settings.teamMode?'팀배치':'경기구성';
   const structureDetail=settings.teamMode?'팀 배치':'경기 구성';
 
@@ -4123,6 +4146,14 @@ function renderQualityDashboard(matches,participants,settings){
       return {label:'일정 참고',detail,score:null,max:0,pct};
     })(),
   ];
+
+  if(competition){
+    const d=competition.diagnostics,parts=competition.components,count=d.closeSensitivity[1];
+    rows.splice(0,splitAudit?2:1,
+      {label:'경기 접전·실력 격차',detail:`접전 ${count.close}/${matches.length}경기 · 파트너 보정 격차 평균 ${d.meanAdjustedGap.toFixed(2)} · 최대 ${d.maxAdjustedGap.toFixed(2)}`,score:parts.games,max:30,pct:parts.games/30},
+      {label:'팀 실력 분포',detail:`평균 차 ${d.meanGap.toFixed(2)} · 상·중·하위 분포 차 ${d.quantileGap.toFixed(2)} · 남녀별 차 ${d.genderGap.toFixed(2)}`,score:parts.roster,max:10,pct:parts.roster/10},
+      {label:'전체 대진 우세 균형',detail:`접전 제외 예상 우세 청 ${count.blue} : 홍 ${count.white} · 경기당 순격차 ${Math.abs(d.netPerGame).toFixed(2)} · 승수 예측 아님`,score:parts.overall,max:10,pct:parts.overall/10});
+  }
 
   // ── 헤더 요약 ──
   const issues=rows.filter(r=>r.score!==null&&r.pct<0.65);
@@ -4219,7 +4250,7 @@ function renderQualityDashboard(matches,participants,settings){
      참가자 이력과 급수차로 계산되는 값이라 회원 화면에서는 다시 못 만듭니다 —
      관리자가 계산한 그대로 보냅니다. 태그는 떼고 글자만 보냅니다. */
   _teamQualitySummary={
-    score:total, scoreVersion:q.scoreVersion, grade, gradeLabel, sub:subText,
+    score:total, scoreVersion:competition?4:q.scoreVersion, grade, gradeLabel, sub:subText,
     opClass, opTitle:String(opTitle).replace(/^[^가-힣A-Za-z]+/,'').trim(), opSub,
     issues:issueItems.map(x=>String(x).replace(/<[^>]*>/g,'').trim()).filter(Boolean).slice(0,12)
   };
@@ -4247,7 +4278,7 @@ function renderQualityDashboard(matches,participants,settings){
       <div class="op-issues-title">실전 특이사항</div>
       <div class="op-issue-list">${issueHtml}</div>
     </div>
-    <div class="qd-balance-note">실효 실력 기준: 급수 · 여성 -0.5 · 나이 보정(30대 -0.2, 40대 -0.5, 50대 -1.2, 60대+ -2.0)</div>
+    <div class="qd-balance-note">${competition?'팀전 품질 v4 · 개인 실력점수와 파트너 격차 반영 · 경기 결과를 보장하는 점수가 아닙니다':'실효 실력 기준: 개인 점수 우선 · 점수가 없는 선수는 급수·성별·나이 기준'}</div>
     <div class="qd-rows">
       ${rows.map(row=>`
         <div class="qd-row ${rowCls(row.pct)}">

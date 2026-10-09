@@ -1,0 +1,10 @@
+'use strict';const assert=require('assert'),fs=require('fs'),vm=require('vm'),Q=require('../js/team-competition');
+const legacy={sFair:20,sDiversity:20,sInterval:10,safetyIssues:[],total:100};
+const p=(name,score,team)=>({name,skillRating:score,team,gender:'M'});
+function fixture(ds){const players=[],matches=ds.map((d,i)=>{const a=p('E2EB'+i+'a',3+d/2,'청팀'),b=p('E2EB'+i+'b',3+d/2,'청팀'),c=p('E2EW'+i+'a',3,'홍팀'),e=p('E2EW'+i+'b',3,'홍팀');players.push(a,b,c,e);return {team1A:a,team1B:b,team2C:c,team2D:e};});return {players,matches};}
+const level=p=>p.skillRating,diff=m=>Math.abs(level(m.team1A)+level(m.team1B)-level(m.team2C)-level(m.team2D)),s={teamMode:true};const score=(ds,q=legacy)=>{const f=fixture(ds);return Q.assess(q,f.matches,f.players,s,level,diff);};
+const even=score([.4,-.4]),biased=score([.4,.4]);assert(even.components.overall>biased.components.overall);assert.equal(even.components.games,biased.components.games);assert(score([0,0]).components.games>even.components.games);assert(even.total>score([4,-4]).total);assert(Math.abs(score([.199,-.199]).total-score([.201,-.201]).total)<=.2);assert.equal(even.total,score([.4,-.4,.4,-.4]).total);
+const f=fixture([.4,-.4]),before=JSON.stringify(f);Q.assess(legacy,f.matches,f.players,s,level,diff);assert.equal(JSON.stringify(f),before);f.players.forEach(p=>p.skillRating+=5);assert.equal(Q.assess(legacy,f.matches,f.players,s,level,diff).total,even.total);
+const bad=score([0,0],{...legacy,safetyIssues:['출전 목표 미달']});assert(!bad.eligible);assert(Q.rankKey(bad)[0]>Q.rankKey(biased)[0]);assert.throws(()=>score([NaN]),/Invalid rating/);
+const src=fs.readFileSync('js/team-competition.js','utf8').replace('overall:10*(1-overallLoss)','overall:10'),ctx={module:{exports:{}}};vm.runInNewContext(src,ctx);const a=fixture([.4,-.4]),b=fixture([.4,.4]);assert.equal(ctx.module.exports.assess(legacy,a.matches,a.players,s,level,diff).components.overall,ctx.module.exports.assess(legacy,b.matches,b.players,s,level,diff).components.overall,'Mutation loses direction signal');
+console.log('PASS competition quality: continuous closeness, directional bias, blowouts, invariance, safety, immutability and mutation');
