@@ -25,7 +25,7 @@ check(context());
 const restriction="    if(session.reviewQuestionIds?.length){const ids=new Set(session.reviewQuestionIds);return session.questions.filter(q=>ids.has(q.id));}\n";
 assert.throws(()=>check(context(source.replace('    // A recommended set is a starting batch, never a participant\'s lifetime limit.',restriction))),'restored lifetime restriction must fail');
 const owner=context();owner.evaluatingAsOwner=true;owner.session.proposals=C.measurementProposals(players,questions,{reviewer:owner.session.answers});assert.equal(owner.more(),true,'owners can request the next adaptive set');
-assert(source.includes("$('more').onclick=continueReview"));assert(source.includes('await beginRecommended(false)'));
+assert(source.includes("$('more').onclick=continueReview"));assert(source.includes("session=await api({action:'read',...active});"));assert(source.includes('busy=false;startBatch();'));
 assert(!source.includes('Math.min(100,known.size)'));assert(!source.includes('내 평가 목표'));
 assert(source.includes('초기 준비 → 명부 반영 → 필요한 비교로 추가 보정'));
 const initialVotes={first:Object.fromEntries(questions.map(q=>[q.id,'tie']))};

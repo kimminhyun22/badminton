@@ -2,6 +2,7 @@
 const crypto=require('crypto');
 const core=require('./skill-calibration-core');
 const reference=require('./skill-assessment-reference');
+const adaptive=require('./skill-adaptive-batch');
 const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
 const token=s=>typeof s==='string'&&/^[a-f0-9]{32}$/.test(s);
 function authorize(s,key){
@@ -43,7 +44,7 @@ function project(s,role,baselines,anchors=s.players){
     ...(role==='owner'&&s.assessmentVersion===2?{ownerAnswers:s.votes?.['owner-review']||{}}:{}),
     reviewedAt:s.reviewedAt||0,
     legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
-    needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
+    adaptiveSupported:s.assessmentVersion===2,needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
     answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},
     proposals:role==='owner'?core.measurementProposals(effective,questions,s.votes,anchors).map((p,i)=>({...p,basis:effective[i]})):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
@@ -73,6 +74,24 @@ async function handle(db,data,ip,now=Date.now()){
   }
   let s=(await ref.once('value')).val(),role=authorize(s,data.key);
   if(role!=='owner'&&s.expiresAt<=now)throw Error('만료된 링크입니다.');
+  if(data.action==='batch'){
+    if(role==='shared'||s.assessmentVersion!==2)throw Error('본인 이름을 선택한 새 평가에서 진행해 주세요.');
+    let source,approval,roster;
+    if(s.assessmentReference){
+      approval=(await db.ref('skillCalibrationReferenceApprovals/'+s.id).once('value')).val();
+      source=(await db.ref('skillCalibration/'+s.assessmentReference.sourceId).once('value')).val();
+      roster=approval&&(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();
+    }
+    const r=await ref.transaction(old=>{
+      if(!old)return null;
+      const actualRole=authorize(old,data.key),merged=old.assessmentReference?reference.materialize(old,source,approval,roster):null;
+      return adaptive.allocate(old,actualRole,data.requestId,now,merged).state;
+    });
+    if(!r.committed)throw Error('평가 묶음을 준비하지 못했습니다. 다시 시도해 주세요.');
+    const fresh=r.snapshot.val(),entry=fresh.adaptiveBatches[role],batch=entry.history[data.requestId]||entry.current;
+    const result=await handle(db,{action:'read',id:data.id,key:data.key},ip,now);
+    return {...result,adaptiveBatch:batch};
+  }
   if(data.action==='read'){
     if(s.clubId&&data.clubId!==undefined&&data.clubId!==s.clubId)throw Error('다른 클럽 평가를 이 명부에 적용할 수 없습니다.');
     const approval=(await db.ref('skillCalibrationReferenceApprovals/'+s.id).once('value')).val();

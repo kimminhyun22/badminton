@@ -36,7 +36,7 @@ assert.equal(ctx.row(updated,own,changed).state.key,'changed');
 const applied=B.prepare({clubs:[club]},'test',[{id:'p0',original:club.members[0],step:updated.step,skillRating:updated.skillRating}],s.id,'new');
 assert.equal(applied.state.clubs[0].members[0].skillStep,updated.step);
 assert.equal(B.undo(applied.state,'test','new').state.clubs[0].members[0].skillStep,2,'undo returns to manual baseline');
-const serverSource=fs.readFileSync('functions/skill-calibration.js','utf8'),mutated={module:{exports:{}},require:n=>n==='./skill-calibration-core'?C:n==='./skill-assessment-reference'?require('../functions/skill-assessment-reference'):require(n)};
+const serverSource=fs.readFileSync('functions/skill-calibration.js','utf8'),mutated={module:{exports:{}},require:n=>n==='./skill-calibration-core'?C:n==='./skill-assessment-reference'?require('../functions/skill-assessment-reference'):n==='./skill-adaptive-batch'?require('../functions/skill-adaptive-batch'):require(n)};
 vm.runInNewContext(serverSource.replace('effective=s.players.map(p=>byId.get(p.id)||p)','effective=s.players'),mutated);
 assert.throws(()=>assert.equal(mutated.module.exports.project(s,'owner',baselines).proposals[0].current,2),'ignoring baseline mutation caught');
 (async()=>{

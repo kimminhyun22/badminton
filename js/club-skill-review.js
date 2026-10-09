@@ -5,6 +5,7 @@
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const write=(key,data)=>localStorage.setItem(key,JSON.stringify(data));
   let links=read(KEY,[]),active=null,session=null,batch=[],answers={},at=0,busy=false,flipped=false,evaluatingAsOwner=false;
+  let adaptiveMode=false,autoCheckpointPending=false,visitCount=0;
   const from=new URLSearchParams(location.search).get('from')==='team'?'team.html':'index.html';
   const quick=new URLSearchParams(location.search).get('quick')==='1';
   $('back').href=from;
@@ -73,8 +74,8 @@
     if(!$('recommendationSetup'))return;
     const own=ownerLink(),plan=assessmentPlan();$('recommendationSetup').hidden=!plan;if(!plan)return;
     if(window.KokSkillPlan?.nextQuestions){
-      const next=window.KokSkillPlan.nextQuestions(session,12);own.recommendation=plan;persist(own);
-      $('recommendedSummary').textContent=`기존 ${session.count}응답 재사용 · 다음 비교 최대 12문항 중 ${next.length}문항. 동급·인접 급수에서 근거 부족과 상충을 먼저 확인합니다. 본인이 이미 답한 쌍은 제외하며, 추가 데이터만으로 정확성이 보장되지는 않습니다.`;
+      const limit=session.adaptiveSupported?10:12,next=window.KokSkillPlan.nextQuestions(session,limit);own.recommendation=plan;persist(own);
+      $('recommendedSummary').textContent=`기존 ${session.count}응답 재사용 · 다음 비교 최대 ${limit}문항 중 ${next.length}문항. 동급·인접 급수에서 근거 부족과 상충을 먼저 확인합니다. 본인이 이미 답한 쌍은 제외하며, 추가 데이터만으로 정확성이 보장되지는 않습니다.`;
       $('recommendedCandidates').innerHTML=next.map(q=>`<p>${esc(session.players.find(p=>p.id===q.a)?.name)} ↔ ${esc(session.players.find(p=>p.id===q.b)?.name)} · ${esc(q.reason)}</p>`).join('')||'<p class="muted">우선 확인할 미응답 비교가 없습니다. 다른 판단자의 독립 확인이 필요할 수 있습니다.</p>';
       $('recommendedQuestions').innerHTML=next.map(q=>`<p>${esc(q.boundary)} · ${q.kind==='same-grade'?'동급':'인접 급수'} · ${esc(q.reason)}</p>`).join('');
       $('startRecommended').textContent=`추가 비교 ${next.length}문항 시작`;$('startRecommended').disabled=!next.length||session.closed||session.expiresAt<=Date.now();$('startSupplement').hidden=true;$('answerSelf').hidden=false;return;
@@ -93,7 +94,7 @@
     if(window.KokSkillPlan?.nextQuestions){
       if(busy)return;const own=ownerLink();if(!own)return;busy=true;
       try{
-        session=await api({action:'read',...active});const pending=read('kokmatch_skill_draft_'+own.id+'_'+own.key,{});const selected=Object.keys(pending).length&&own.adaptiveQuestions?.length?own.adaptiveQuestions:window.KokSkillPlan.nextQuestions(session,12);if(!selected.length){busy=false;renderOwner();return;}
+        session=await api({action:'read',...active});const pending=read('kokmatch_skill_draft_'+own.id+'_'+own.key,{});const selected=Object.keys(pending).length&&own.adaptiveQuestions?.length?own.adaptiveQuestions:window.KokSkillPlan.nextQuestions(session,session.adaptiveSupported?10:12);if(!selected.length){busy=false;renderOwner();return;}
         const cross=selected.filter(q=>q.kind==='cross-grade'),missing=cross.filter(q=>!session.questions.some(v=>v.id===q.id));
         if(session.assessmentVersion!==2||missing.length){session=await api({action:'measurement',...active,boundaryIds:[...new Set(cross.flatMap(q=>[q.a,q.b]))],...(cross.length?{questionIds:cross.map(q=>q.id)}:{})});}
         own.adaptiveQuestions=selected;own.reviewPhase='adaptive';persist(own);evaluatingAsOwner=true;session={...session,answers:session.ownerAnswers||{},respondentName:'관리자 개인 평가'};busy=false;startBatch();
@@ -148,7 +149,14 @@
   }
   async function open(link){
     if(busy)return;busy=true;active=link;message('불러오는 중');
-    try{session=await api({action:'read',...link});message('');if(ownerLink()?.key===link.key)renderOwner();else if(session.needsIdentity)renderIdentity();else startBatch();}
+    try{
+      const saved=read('kokmatch_skill_identity_'+link.id,null);
+      if(saved?.key&&saved.playerId&&ownerLink()?.key!==link.key){
+        try{session=await api({action:'read',id:link.id,key:saved.key});active={id:link.id,key:saved.key};}
+        catch(_){session=await api({action:'read',...link});}
+      }else session=await api({action:'read',...link});
+      message('');if(ownerLink()?.key===active.key)renderOwner();else if(session.needsIdentity)renderIdentity();else startBatch();
+    }
     catch(e){message(e.message);setup();}finally{busy=false;}
   }
   function resultState(p,original,current){
@@ -397,7 +405,7 @@
     return {count};
   }
   function renderCumulative(){
-    const p=cumulativeProgress(),html=`<div class="readiness"><p><strong>내 비교 의견 ${p.count}건</strong></p><p class="muted">정해진 총 문항 수는 없습니다. 이번 묶음을 저장하고 쉬어도 됩니다. 이후 같은 링크에서 추가 평가와 보정을 이어갈 수 있습니다. ‘잘 모르겠어요’는 비교 건수에서 제외합니다.</p></div>`;
+    const p=cumulativeProgress(),html=`<div class="readiness"><p><strong>내 비교 의견 ${p.count}건</strong></p><p class="muted">${adaptiveMode?'10문항마다 자동 저장하고 다음 질문을 조정합니다.':'이번 묶음을 저장하고 쉬어도 됩니다.'} 정해진 총 문항 수는 없습니다. 이후 같은 링크에서 이어갈 수 있습니다. ‘잘 모르겠어요’는 비교 건수에서 제외합니다.</p></div>`;
     $('cumulativeQuiz').innerHTML=html;$('cumulativeDone').innerHTML=html;
   }
   function hasMoreComparisons(){
@@ -416,6 +424,44 @@
     return `${members}명의 실력을 ${compared.length}번 비교했어요.`;
   }
   function startBatch(){
+    const saved=read(draftKey()+'_plan',[]),pending=read(draftKey(),{});
+    // Finish old partially answered drafts without dropping or relabelling them.
+    if(session.adaptiveSupported&&(!saved.length||read(draftKey()+'_planVersion',null)==='adaptive-v1'||!Object.keys(pending).length)){
+      adaptiveMode=true;visitCount=0;
+      if(!read(draftKey()+'_adaptiveRequest',null)&&read(draftKey()+'_adaptiveRun',{count:0}).count>=20)write(draftKey()+'_adaptiveRun',{count:0,ids:[]});
+      Promise.resolve().then(()=>startAdaptiveBatch()).catch(e=>message(e.message));return;
+    }
+    adaptiveMode=false;
+    startLegacyBatch();
+  }
+  async function startAdaptiveBatch(){
+    if(busy)return;busy=true;message('비교 근거를 분석해 질문을 고르는 중');
+    try{
+      const requestKey=draftKey()+'_adaptiveRequest',requestId=read(requestKey,null)||nonce();write(requestKey,requestId);
+      session=await api({action:'batch',...active,requestId});
+      if(evaluatingAsOwner)session={...session,answers:session.ownerAnswers||{},respondentName:'관리자 개인 평가'};
+      if(!session.adaptiveBatch)throw Error('새 평가 서버가 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+      write(requestKey,session.adaptiveBatch.requestId);
+      const allowed=new Map(session.questions.map(q=>[q.id,q]));batch=session.adaptiveBatch.questions.map(q=>allowed.get(q.id)).filter(Boolean);
+      answers=read(draftKey(),{});
+      const run=read(draftKey()+'_adaptiveRun',{count:0,ids:[]});visitCount=run.count||0;
+      at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers||{},q.id));
+      if(at<0&&batch.length){
+        if(batch.some(q=>Object.hasOwn(answers,q.id))){at=batch.length;busy=false;finishReview();return;}
+        const run=read(draftKey()+'_adaptiveRun',{count:0,ids:[]}),id=session.adaptiveBatch.requestId;
+        if(!run.ids.includes(id)){run.ids.push(id);run.count+=batch.length;write(draftKey()+'_adaptiveRun',run);}
+        localStorage.removeItem(requestKey);busy=false;
+        if(run.count>=20){panels('done');$('doneText').textContent='이번 비교 의견은 저장됐습니다. 필요하면 추가 비교를 이어갈 수 있습니다.';renderCumulative();$('more').hidden=!hasMoreComparisons();showOwnerReturn();message('');return;}
+        return startAdaptiveBatch();
+      }
+      if(!batch.length){panels('done');$('doneText').textContent='현재 우선 확인할 추가 비교가 없습니다. 새 의견이 모이면 같은 링크에서 다시 확인할 수 있습니다.';renderCumulative();$('more').hidden=true;showOwnerReturn();message('');return;}
+      write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','adaptive-v1');
+      $('respondentLabel').textContent=(session.respondentName?session.respondentName+' 님 · ':'')+(visitCount?'앞선 답안을 반영한 추가 비교':'초기·보정 비교');
+      panels('quiz');$('retry').hidden=true;renderQuestion();message('');
+    }catch(e){message(e.message);panels('quiz');$('choices').hidden=true;$('retry').hidden=false;}
+    finally{busy=false;}
+  }
+  function startLegacyBatch(){
     $('respondentLabel').textContent=session.respondentName?session.respondentName+' 님의 안목':'';
     if(session.closed||session.expiresAt<=Date.now()){panels('done');$('doneText').textContent='마감되었거나 만료된 퀴즈입니다.';$('more').hidden=true;showOwnerReturn();return;}
     const pending=read(draftKey(),{});
@@ -447,6 +493,7 @@
     $('nextQuestion').hidden=!chosen;message('');
   }
   function finishReview(){
+    if(adaptiveMode){autoCheckpointPending=true;submit(true);return;}
     $('choices').hidden=true;$('questionTitle').hidden=true;$('retry').hidden=true;
     $('progress').textContent=`${session.clubName} · ${batch.length} / ${batch.length}`;
     renderQuizProgress();$('contribution').textContent=contributionText();
@@ -461,7 +508,8 @@
     try{write('kokmatch_skill_draft_'+active.id+'_'+active.key,answers);}catch(_){message('기기 저장이 제한됩니다. 창을 닫지 말고 완료해 주세요.');}
     at++;if(at===batch.length)finishReview();else renderQuestion();
   };
-  async function submit(){
+  async function submit(autoContinue=false){
+    autoContinue=autoContinue===true;
     if(busy)return;busy=true;$('saveAnswers').disabled=true;$('previousQuestion').disabled=true;$('choices').hidden=true;$('retry').hidden=true;message('의견을 저장하는 중');
     try{
       // The interface is uninterrupted; bounded server writes remain retry-safe.
@@ -476,6 +524,13 @@
       localStorage.removeItem(draftKey()+'_plan');
       localStorage.removeItem(draftKey()+'_planVersion');
       answers={};panels('done');$('doneText').textContent=contributionText()+' 안목을 나눠주셔서 감사합니다. 명부에는 아직 자동 적용되지 않으며, 운영자가 결과에서 조정 폭과 비교 근거를 확인할 수 있습니다.';
+      if(adaptiveMode){
+        const key=draftKey()+'_adaptiveRun',run=read(key,{count:0,ids:[]}),id=read(draftKey()+'_adaptiveRequest',null);
+        // Answer responses omit lease metadata; the persisted request is stable for retries.
+        if(!run.ids.includes(id)){run.ids.push(id);run.count+=batch.length;write(key,run);}visitCount=run.count;
+        localStorage.removeItem(draftKey()+'_adaptiveRequest');autoCheckpointPending=false;
+        if(autoContinue&&visitCount<20){busy=false;await startAdaptiveBatch();return;}
+      }
       renderCumulative();$('more').hidden=!hasMoreComparisons();message('');showOwnerReturn();
     }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;$('saveAnswers').disabled=false;$('previousQuestion').disabled=at<=0;}
   }
@@ -487,7 +542,7 @@
     if(busy||session.closed||session.expiresAt<=Date.now())return;
     batch=read(draftKey()+'_last',[]).map(id=>session.questions.find(q=>q.id===id)).filter(Boolean);
     if(!batch.length)return;
-    answers={};at=0;write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','cross-grade-v1');panels('quiz');renderQuestion();
+    adaptiveMode=false;autoCheckpointPending=false;answers={};at=0;write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','cross-grade-v1');panels('quiz');renderQuestion();
   };
   $('saveAnswers').onclick=submit;
   async function continueReview(){
@@ -495,11 +550,12 @@
     const ownerEvaluation=evaluatingAsOwner;busy=true;
     try{
       session=await api({action:'read',...active});
-      if(ownerEvaluation){session={...session,answers:session.ownerAnswers||{}};busy=false;renderOwner();await beginRecommended(false);}
-      else{busy=false;startBatch();}
+      write(draftKey()+'_adaptiveRun',{count:0,ids:[]});
+      if(ownerEvaluation){session={...session,answers:session.ownerAnswers||{}};evaluatingAsOwner=true;}
+      busy=false;startBatch();
     }catch(e){message(e.message);}finally{busy=false;}
   }
-  $('retry').onclick=submit;$('more').onclick=continueReview;
+  $('retry').onclick=()=>adaptiveMode&&!autoCheckpointPending?startAdaptiveBatch():submit(autoCheckpointPending);$('more').onclick=continueReview;
   $('ownerReturn').onclick=()=>{const l=ownerLink();open({id:l.id,key:l.key});};
   $('refresh').onclick=()=>open(active);
   $('close').onclick=async()=>{
