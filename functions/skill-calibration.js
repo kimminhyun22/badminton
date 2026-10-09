@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('crypto');
 const core=require('./skill-calibration-core');
+const reference=require('./skill-assessment-reference');
 const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
 const token=s=>typeof s==='string'&&/^[a-f0-9]{32}$/.test(s);
 function authorize(s,key){
@@ -14,9 +15,9 @@ function authorize(s,key){
   if(i<0)throw Error('링크를 확인해 주세요.');
   return 'e'+i;
 }
-function project(s,role,baselines){
+function project(s,role,baselines,anchors=s.players){
   // Stable IDs preserve all old answers while opening cross-age/grade comparisons.
-  const questions=s.assessmentVersion===2?s.questions:core.pairs(s.players);
+  const questions=reference.questions(s);
   let effective=s.players;
   if(baselines!==undefined){
     if(role!=='owner'||!Array.isArray(baselines)||baselines.length>s.players.length)throw Error('보정 기준을 확인해 주세요.');
@@ -44,7 +45,7 @@ function project(s,role,baselines){
     legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
     needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
     answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},
-    proposals:role==='owner'?core.measurementProposals(effective,questions,s.votes,s.players).map((p,i)=>({...p,basis:effective[i]})):[],
+    proposals:role==='owner'?core.measurementProposals(effective,questions,s.votes,anchors).map((p,i)=>({...p,basis:effective[i]})):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
 }
 async function handle(db,data,ip,now=Date.now()){
@@ -74,7 +75,31 @@ async function handle(db,data,ip,now=Date.now()){
   if(role!=='owner'&&s.expiresAt<=now)throw Error('만료된 링크입니다.');
   if(data.action==='read'){
     if(s.clubId&&data.clubId!==undefined&&data.clubId!==s.clubId)throw Error('다른 클럽 평가를 이 명부에 적용할 수 없습니다.');
-    return project(s,role,data.baselines);
+    const approval=(await db.ref('skillCalibrationReferenceApprovals/'+s.id).once('value')).val();
+    if(s.assessmentReference){
+      const source=(await db.ref('skillCalibration/'+s.assessmentReference.sourceId).once('value')).val();
+      const roster=approval&&(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();
+      const merged=reference.materialize(s,source,approval,roster),result=project(merged.session,role,data.baselines,merged.anchors);
+      return {...result,answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},...(role==='owner'?{ownerAnswers:merged.ownerAnswers,referenceInfo:merged.info,reusedQuestionIds:merged.reusedQuestionIds}:{}),referenceRevision:reference.revision(s)};
+    }
+    const result=project(s,role,data.baselines);
+    if(role==='owner'&&approval){
+      try{const source=(await db.ref('skillCalibration/'+approval.sourceId).once('value')).val(),roster=(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();reference.verify(s,source,approval,roster,true);result.referenceAvailable={sourceCount:project(source,'owner').count};}catch(_){result.referenceAvailable=null;}
+    }
+    return {...result,referenceRevision:reference.revision(s)};
+  }
+  if(data.action==='reference'){
+    if(role!=='owner'||s.closed||s.expiresAt<=now)throw Error('운영자 화면에서 열린 평가만 연결할 수 있습니다.');
+    const approval=(await db.ref('skillCalibrationReferenceApprovals/'+s.id).once('value')).val();
+    if(!approval?.approved)throw Error('기존 자료 연결 승인 정보가 없습니다.');
+    const source=(await db.ref('skillCalibration/'+approval.sourceId).once('value')).val(),roster=(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();
+    const r=await ref.transaction(old=>{
+      if(!old)return null;
+      if(old.closed||old.expiresAt<=now||authorize(old,data.key)!=='owner')return;
+      return reference.connect(old,source,approval,roster,data.expectedRevision,now);
+    });
+    if(!r.committed)throw Error('평가가 변경됐습니다. 새로고침해 주세요.');
+    return handle(db,{action:'read',id:data.id,key:data.key,...(s.clubId?{clubId:s.clubId}:{}),baselines:data.baselines},ip,now);
   }
   if(data.action==='measurement'){
     if(role!=='owner'||s.closed||s.expiresAt<=now)throw Error('만든 기기에서 열린 평가만 확장할 수 있습니다.');
@@ -89,7 +114,8 @@ async function handle(db,data,ip,now=Date.now()){
       const planned=data.questionIds?new Set(data.questionIds):null;
       const additions=core.measurementPairs(old.players,planned?old.players.map(p=>p.id):data.boundaryIds||[]).filter(q=>q.kind==='cross-grade'&&(!planned||planned.has(q.id))),seen=new Set(old.questions.map(q=>q.id));
       // Append only. Existing question IDs, ordering, responses and credentials survive.
-      const questions=[...old.questions,...additions.filter(q=>!seen.has(q.id))];
+      const retained=reference.questions(old),retainedIds=new Set(retained.map(q=>q.id));
+      const questions=[...retained,...additions.filter(q=>!retainedIds.has(q.id))];
       return {...old,questions,...(planned?{reviewQuestionIds:[...new Set([...(old.reviewQuestionIds||[]),...data.questionIds])]}:{}),assessmentVersion:2,boundaryIds:[...(data.boundaryIds||[])],assessmentConfiguredAt:now};
     });
     if(!r.committed||!r.snapshot.val())throw Error('평가가 변경되거나 마감됐습니다.');
@@ -130,7 +156,7 @@ async function handle(db,data,ip,now=Date.now()){
   if(!ownerAssessment&&(data.action!=='answer'||role==='owner'||role==='shared'))throw Error('응답 링크를 확인해 주세요.');
   const voteRole=ownerAssessment?'owner-review':role;
   if(!data.answers||typeof data.answers!=='object'||Array.isArray(data.answers)||Object.keys(data.answers).length<1||Object.keys(data.answers).length>5)throw Error('한 번에 1~5문제만 응답할 수 있습니다.');
-  for(const [id,value] of Object.entries(data.answers))if(!(s.assessmentVersion===2?s.questions:core.pairs(s.players)).some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
+  for(const [id,value] of Object.entries(data.answers))if(!reference.questions(s).some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
   const result=await ref.transaction(old=>{
     // RTDB may first invoke with an empty local cache despite the preceding read.
     // Null lets the server compare-and-retry; undefined would abort immediately.

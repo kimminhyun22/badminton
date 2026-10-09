@@ -21,13 +21,13 @@ async function run(){
   assert(project(before,'owner').proposals.every(p=>!p.ready),'legacy owner results also require grade connectivity');
   const params={action:'measurement',id:f.id,key:f.key,boundaryIds:['p0','p19']};
   let owner=await handle(f.db,params,'local',f.now);
-  assert.equal(owner.count,620);assert.equal(owner.assessmentVersion,2);assert.equal(owner.questions.length,before.questions.length+1);
+  assert.equal(owner.count,620);assert.equal(owner.assessmentVersion,2);assert.equal(owner.questions.length,core.pairs(before.players).length,'v1 projected pairs retained for saved answers and pending drafts');
   for(const field of ['votes','players','participants','owner','invites','shared'])assert.deepEqual(f.db.values[path][field],before[field],field+' must survive extension exactly');
   assert.deepEqual(owner.questions.slice(0,before.questions.length),before.questions,'existing IDs, orientation and order survive');
   assert(owner.proposals.every(p=>!p.ready&&p.state==='평가 부족'),'disconnected grades cannot be applied');
   assert.deepEqual(owner.proposals.map(p=>p.skillRating),legacy.map(p=>p.skillRating),'inferred existing evidence is retained');
-  owner=await handle(f.db,params,'local',f.now);assert.equal(owner.questions.length,91,'idempotent configuration');
-  const cross=owner.questions.find(q=>q.kind==='cross-grade');assert(cross);assert.equal(cross.id,'p0_p19');
+  owner=await handle(f.db,params,'local',f.now);assert.equal(owner.questions.length,core.pairs(before.players).length,'idempotent configuration preserves every legacy pair');
+  const cross=owner.questions.find(q=>q.id==='p0_p19');assert(cross);assert.equal(cross.id,'p0_p19');
   for(const key of [f.invites[0],'6'.repeat(32),'7'.repeat(32)]){
     await assert.rejects(handle(f.db,{...params,key},'local',f.now));
     await assert.rejects(handle(f.db,{action:'assess',id:f.id,key,answers:{[cross.id]:'a'}},'local',f.now));

@@ -3,7 +3,7 @@ const assert=require('assert'),fs=require('fs'),vm=require('vm');
 const core=require('../functions/skill-calibration-core');
 const source=fs.readFileSync('functions/skill-calibration.js','utf8');
 function service(code=source){
-  const ctx={require:n=>n==='./skill-calibration-core'?core:require(n),module:{exports:{}}};
+  const ctx={require:n=>n==='./skill-calibration-core'?core:n==='./skill-assessment-reference'?require('../functions/skill-assessment-reference'):require(n),module:{exports:{}}};
   vm.runInNewContext(code,ctx);return ctx.module.exports.handle;
 }
 function database(){

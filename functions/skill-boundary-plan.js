@@ -37,6 +37,7 @@
   function nextQuestions(session,limit=12){
     if(!session?.players?.length||!Array.isArray(session.proposals))return [];
     limit=Math.max(0,Math.min(20,Math.floor(limit)));const ps=session.players,by=new Map(ps.map(p=>[p.id,p])),metrics=new Map(session.proposals.map(p=>[p.id,p]));
+    const reused=new Set(session.reusedQuestionIds||[]);
     const answered=session.ownerAnswers||session.answers||{},grades=[...new Set(ps.map(p=>p.grade))].sort((a,b)=>ranks[a]-ranks[b]);
     const score=id=>metrics.get(id)?.skillRating??by.get(id).skillRating??by.get(id).base;
     const parent=new Map(ps.map(p=>[p.id,p.id])),find=id=>{let r=id;while(parent.get(r)!==r)r=parent.get(r);return r;},join=(a,b)=>parent.set(find(a),find(b));
@@ -45,7 +46,7 @@
     const pool=[];
     for(let i=0;i<ps.length;i++)for(let j=i+1;j<ps.length;j++){
       const a=ps[i],b=ps[j],gap=Math.abs(grades.indexOf(a.grade)-grades.indexOf(b.grade));if(gap>1)continue;
-      const q=canonical(a.id,b.id);if(Object.hasOwn(answered,q.id))continue;
+      const q=canonical(a.id,b.id);if(Object.hasOwn(answered,q.id)||reused.has(q.id))continue;
       const e=session.evidence?.[q.id]||{},c=metrics.get(a.id)?.comparisons?.find(c=>c.name===b.name),diff=score(a.id)-score(b.id);
       const contradiction=!!c?.agree&&(c.outcome==='higher'?diff<0:c.outcome==='lower'?diff>0:Math.abs(diff)>.2);
       // Well-covered, consistent pairs add little to this reviewer's next batch.

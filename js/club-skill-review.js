@@ -113,6 +113,11 @@
   }
   if($('startRecommended'))$('startRecommended').onclick=()=>beginRecommended(false);
   if($('startSupplement'))$('startSupplement').onclick=()=>beginRecommended(true);
+  if($('referenceExisting'))$('referenceExisting').onclick=async()=>{
+    if(busy||!session.referenceAvailable)return;busy=true;
+    try{session=await api({action:'reference',...active,expectedRevision:session.referenceRevision});renderOwner();message('기존 답안과 최초 기준을 보존하고 연결했습니다. 명부 점수는 아직 저장하지 않았습니다.');}
+    catch(e){message(e.message);}finally{busy=false;}
+  };
   function renderMeasurementSetup(){
     if(!$('boundaryPlayers'))return;
     const selected=new Set(session.boundaryIds||[]);
@@ -221,6 +226,8 @@
     if(coverage.missing)$('collectionProgress').innerHTML+=`<p class="muted">${coverage.missing}명은 다른 급수와 직접 비교한 자료가 없습니다. 같은 급수 안의 우세만으로 급수 간 실력 차이를 확정할 수 없습니다. 추가 참여에서는 가까운 다른 급수와의 비교를 우선합니다.</p>`;
     if(!coverage.multiGrade)$('collectionProgress').innerHTML+='<p class="muted">이 명부에는 다른 급수 회원이 없어 급수 간 실력 차이를 확인할 수 없습니다.</p>';
     if(progress.pending.length)$('collectionProgress').innerHTML+=`<details><summary>비교 전 ${progress.pending.length}명</summary>${progress.pending.map(r=>`<p>${esc(r.name)}</p>`).join('')}</details>`;
+    if($('referenceExisting')){$('referenceExisting').hidden=!session.referenceAvailable;$('referenceExisting').textContent=`기존 ${session.referenceAvailable?.sourceCount||0}답안 연결`;}
+    if($('referenceInfo')){$('referenceInfo').hidden=!session.referenceInfo;$('referenceInfo').textContent=session.referenceInfo?`기존 ${session.referenceInfo.sourceCount}개 + 새 ${session.referenceInfo.targetCount}개 · 원래 기준으로 재계산 · 명부 점수는 별도 저장합니다. 판단자 수는 응답 묶음 수이며 독립 인원이 확인된 수는 아닙니다.`:'';}
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
     if(session.clubId&&session.clubId!==own.clubId)throw Error('평가와 명부의 클럽이 다릅니다.');
     const rows=session.proposals.map(p=>proposalRow(p,own,currentClub));
