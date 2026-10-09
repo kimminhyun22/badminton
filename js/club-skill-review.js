@@ -386,12 +386,28 @@
       const selected=phase.map(q=>session.questions.find(v=>v.id===q.id)).filter(Boolean);
       return selected.concat(session.questions.filter(q=>ids.has(q.id)&&!selected.some(v=>v.id===q.id)));
     }
-    if(session.reviewQuestionIds?.length){const ids=new Set(session.reviewQuestionIds);return session.questions.filter(q=>ids.has(q.id));}
+    // A recommended set is a starting batch, never a participant's lifetime limit.
     if(!evaluatingAsOwner||session.assessmentVersion!==2)return session.questions;
     return session.questions.filter(q=>!session.evidence[q.id]?.count||session.evidence[q.id]?.needsReview);
   }
   const draftKey=()=> 'kokmatch_skill_draft_'+active.id+'_'+active.key;
+  function cumulativeProgress(){
+    const known=new Set(session.questions.map(q=>q.id)),merged={...(session.answers||{}),...answers};
+    const count=Object.entries(merged).filter(([id,v])=>known.has(id)&&['a','b','tie'].includes(v)).length;
+    const goal=Math.min(100,known.size),percent=goal?Math.min(100,Math.floor(count/goal*100)):0;
+    return {count,goal,percent};
+  }
+  function renderCumulative(){
+    const p=cumulativeProgress(),html=`<div class="readiness"><div class="readiness-heading"><span>내 평가 목표</span><strong>${p.percent}%</strong></div><progress value="${p.percent}" max="100" aria-label="내 누적 평가 목표"></progress><p>누적 비교 응답 ${p.count} / ${p.goal}문항 · 권장 목표</p><p class="muted">잘 모르겠어요는 제외합니다. 목표 이후에도 남은 비교를 계속할 수 있으며, 정확도와 점수 저장 조건은 별도입니다.</p></div>`;
+    $('cumulativeQuiz').innerHTML=html;$('cumulativeDone').innerHTML=html;
+  }
+  function hasMoreComparisons(){
+    if(session.closed||session.expiresAt<=Date.now())return false;
+    if(evaluatingAsOwner&&window.KokSkillPlan?.nextQuestions)return window.KokSkillPlan.nextQuestions({...session,ownerAnswers:session.answers||{}},12).length>0;
+    return session.questions.some(q=>!Object.hasOwn(session.answers||{},q.id));
+  }
   function renderQuizProgress(){
+    renderCumulative();
     const count=batch.filter(q=>Object.hasOwn(answers,q.id)||Object.hasOwn(session.answers,q.id)).length;
     $('quizProgress').max=batch.length||1;$('quizProgress').value=count;
   }
@@ -461,8 +477,7 @@
       localStorage.removeItem(draftKey()+'_plan');
       localStorage.removeItem(draftKey()+'_planVersion');
       answers={};panels('done');$('doneText').textContent=contributionText()+' 안목을 나눠주셔서 감사합니다. 명부에는 아직 자동 적용되지 않으며, 운영자가 결과에서 조정 폭과 비교 근거를 확인할 수 있습니다.';
-      const plan=ownerLink()?.recommendation,phase=ownerLink()?.reviewPhase==='coverage'?plan?.supplement:plan?.initial;
-      $('more').hidden=ownerLink()?.reviewPhase==='adaptive'||(phase?phase.every(q=>Object.hasOwn(session.answers,q.id)):session.questions.every(q=>Object.hasOwn(session.answers,q.id)));message('');showOwnerReturn();
+      renderCumulative();$('more').hidden=!hasMoreComparisons();message('');showOwnerReturn();
     }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;$('saveAnswers').disabled=false;$('previousQuestion').disabled=at<=0;}
   }
   function showOwnerReturn(){
@@ -476,7 +491,16 @@
     answers={};at=0;write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','cross-grade-v1');panels('quiz');renderQuestion();
   };
   $('saveAnswers').onclick=submit;
-  $('retry').onclick=submit;$('more').onclick=startBatch;
+  async function continueReview(){
+    if(busy)return;
+    const ownerEvaluation=evaluatingAsOwner;busy=true;
+    try{
+      session=await api({action:'read',...active});
+      if(ownerEvaluation){session={...session,answers:session.ownerAnswers||{}};busy=false;renderOwner();await beginRecommended(false);}
+      else{busy=false;startBatch();}
+    }catch(e){message(e.message);}finally{busy=false;}
+  }
+  $('retry').onclick=submit;$('more').onclick=continueReview;
   $('ownerReturn').onclick=()=>{const l=ownerLink();open({id:l.id,key:l.key});};
   $('refresh').onclick=()=>open(active);
   $('close').onclick=async()=>{
