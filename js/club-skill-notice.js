@@ -7,7 +7,7 @@
   const same=(a,b)=>a&&b&&['name','grade','gender','ageGroup','level','skillStep'].every(k=>String(a[k]??(k==='skillStep'?0:''))===String(b[k]??(k==='skillStep'?0:'')));
   function paint(){
     const all=read(KEY,[]),now=Date.now();
-    const entries=all.filter(l=>l.readyCount>0&&now-l.createdAt<37*86400000);
+    const entries=all.filter(l=>!l.supersededBy&&l.readyCount>0&&now-l.createdAt<37*86400000);
     const clubs=read('badminton_rosters_v1',{}).clubs||[];
     const due=clubs.filter(c=>{
       const records=all.filter(l=>l.clubId===c.id&&!l.pending);
@@ -41,6 +41,7 @@
         const data=await response.json();if(!response.ok||!data.result)continue;
         const all=read(KEY,[]),current=all.find(v=>v.id===l.id);if(!current)continue;
         current.reviewedAt=data.result.reviewedAt||current.reviewedAt||0;
+        if(data.result.supersededBy){current.supersededBy=data.result.supersededBy;current.readyCount=0;localStorage.setItem(KEY,JSON.stringify(all));continue;}
         current.readyCount=data.result.proposals.filter(p=>{
           const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===l.clubId);
           const original=l.snapshots?.[Number(p.id.slice(1))];
@@ -54,7 +55,7 @@
     }
     paint();refreshing=false;
   }
-  function apply(){
+  async function apply(){
     if(!new URLSearchParams(location.search).has('skillReviewApply'))return;
     const proposal=read('kokmatch_skill_apply_v1',null);
     localStorage.removeItem('kokmatch_skill_apply_v1');
@@ -62,6 +63,11 @@
     if(!proposal||Date.now()-proposal.createdAt>86400000)return;
     if(proposal.batch){
       try{
+        const own=read(KEY,[]).find(l=>l.id===proposal.reviewId&&l.clubId===proposal.clubId);
+        if(!own?.key)throw Error('평가 링크를 찾을 수 없습니다. 결과 화면에서 다시 저장해 주세요.');
+        const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{action:'read',id:own.id,key:own.key}}),signal:AbortSignal.timeout(15000)});
+        const data=await response.json();if(!response.ok||!data.result)throw Error(data.error?.message||'평가 상태를 확인하지 못했습니다. 결과 화면에서 다시 저장해 주세요.');
+        if(data.result.supersededBy)throw Error('통합된 이전 평가입니다. 통합 평가에서 저장해 주세요.');
         const raw=localStorage.getItem('badminton_rosters_v1'),fresh=JSON.parse(raw);
         const result=proposal.undo?window.KokSkillBatch.undo(fresh,proposal.clubId,proposal.batchId):window.KokSkillBatch.prepare(fresh,proposal.clubId,proposal.items,proposal.reviewId,proposal.batchId);
         if(localStorage.getItem('badminton_rosters_v1')!==raw)throw Error('명부가 변경됐습니다. 다시 확인해 주세요.');

@@ -5,7 +5,7 @@ function allocate(s,role,requestId,now,merged){
   if(role==='shared'||s.assessmentVersion!==2||s.closed||s.expiresAt<=now)throw Error('열린 평가에서 본인 이름을 선택해 주세요.');
   if(!/^[a-f0-9]{32}$/.test(requestId||''))throw Error('평가 묶음 요청을 확인해 주세요.');
   const effective=merged?.session||s,questions=reference.questions(effective),own=role==='owner'?s.votes?.['owner-review']||{}:
-    {...(role.startsWith('u_')?effective.votes?.['member_'+role.slice(2)]:{}),...s.votes?.[role]};
+    {...(role.startsWith('u_')?effective.votes?.['member:'+role.slice(2)]:{}),...s.votes?.[role]};
   const prior=s.adaptiveBatches?.[role];
   if(prior?.history?.[requestId])return {state:s,batch:prior.history[requestId]};
   if(prior?.current?.expiresAt>now&&prior.current.questions.some(q=>!Object.hasOwn(own,q.id)))return {state:s,batch:prior.current};

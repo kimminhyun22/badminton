@@ -14,11 +14,12 @@ function questions(s){
  return out;
 }
 function mapping(target,source,roster){
- if(target.id===source.id||source.assessmentReference||target.players.length!==source.players.length)throw Error('원본 평가 범위를 확인해 주세요.');
+ if(target.id===source.id||source.assessmentReference||target.players.length<source.players.length)throw Error('원본 평가 범위를 확인해 주세요.');
  if(target.clubName!==roster.club.name||source.clubName!==roster.club.name)throw Error('평가와 클럽 명부가 다릅니다.');
  for(const s of [target,source])if(s.clubId&&s.clubId!==roster.club.id)throw Error('다른 클럽의 평가입니다.');
  const map={};for(const p of source.players){const matches=target.players.filter(t=>hash(identity(t))===hash(identity(p))),members=roster.club.members.filter(m=>hash(identity(m))===hash(identity(p)));if(matches.length!==1||members.length!==1)throw Error('선수의 클럽·프로필 대응을 확인해 주세요.');map[p.id]=matches[0].id;}
- if(new Set(Object.values(map)).size!==target.players.length)throw Error('선수 대응이 중복됐습니다.');return map;
+ if(new Set(Object.values(map)).size!==source.players.length)throw Error('선수 대응이 중복됐습니다.');
+ for(const p of target.players)if(roster.club.members.filter(m=>hash(identity(m))===hash(identity(p))).length!==1)throw Error('추가 선수의 클럽·프로필 대응을 확인해 주세요.');return map;
 }
 function draft(target,source,roster){return {approved:false,targetId:target.id,sourceId:source.id,clubId:roster.club.id,clubOwner:roster.owner,targetOwner:target.owner,sourceOwner:source.owner,sourceHash:sourceHash(source),targetPlayersHash:hash(target.players),rosterRevision:roster.revision,map:mapping(target,source,roster)};}
 function verify(target,source,approval,roster,link=false){
@@ -42,7 +43,7 @@ function materialize(target,source,approval,roster){
  verify(target,source,approval,roster);
  const expected={approvalId:approval.approvalId,sourceId:source.id,sourceHash:approval.sourceHash,clubId:approval.clubId};
  if(hash(target.assessmentReference)!==hash(expected))throw Error('자료 연결 기록을 확인해 주세요.');
- const out={...clone(target),questions:questions(target),votes:{}},seen=new Set(out.questions.map(q=>q.id)),anchors=source.players.map(p=>({...clone(p),id:approval.map[p.id]})),provenance={};
+ const out={...clone(target),questions:questions(target),votes:{}},seen=new Set(out.questions.map(q=>q.id)),anchors=target.players.map(p=>{const old=source.players.find(s=>approval.map[s.id]===p.id);return {...clone(old||p),id:p.id};}),provenance={};
  function mapped(q,origin){const a=origin===source?approval.map[q.a]:q.a,b=origin===source?approval.map[q.b]:q.b,ids=[a,b].sort((x,y)=>Number(x.slice(1))-Number(y.slice(1)));return {id:ids.join('_'),a:ids[0],b:ids[1],flip:ids[0]!==a};}
  for(const origin of [source,target]){
   const all=new Map(core.pairs(origin.players).map(q=>[q.id,q]));
@@ -51,9 +52,9 @@ function materialize(target,source,approval,roster){
    // Registered members share one identity within the explicitly verified club mapping.
    // Anonymous invite/owner slots remain distinct; independent humans are not assumed.
    const member=who.startsWith('u_')?(origin===source?approval.map[who.slice(2)]:who.slice(2)):null;
-   const actor=member?'member:'+member:'origin:'+origin.id+':'+who;
+   const actor=member?'member:'+member:approval.sameOwnerReviewer===true&&who==='owner-review'?'verified-owner-review':'origin:'+origin.id+':'+who;
    out.votes[actor]=out.votes[actor]||{};provenance[actor]=provenance[actor]||{};
-   for(const [id,value] of Object.entries(answers)){const q=all.get(id);if(!q)throw Error('원본 답안의 선수를 확인해 주세요.');const m=mapped(q,origin);out.votes[actor][m.id]=m.flip&&(value==='a'||value==='b')?(value==='a'?'b':'a'):value;provenance[actor][m.id]={sourceId:origin.id,respondent:who,questionId:id};}
+   for(const [id,value] of Object.entries(answers)){const q=all.get(id);if(!q)throw Error('원본 답안의 선수를 확인해 주세요.');const m=mapped(q,origin);if(value==='skip'&&['a','b','tie'].includes(out.votes[actor][m.id]))continue;out.votes[actor][m.id]=m.flip&&(value==='a'||value==='b')?(value==='a'?'b':'a'):value;provenance[actor][m.id]={sourceId:origin.id,respondent:who,questionId:id};}
   }
  }
  const count=s=>Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0),total=count(out),sourceCount=count(source),targetCount=count(target);

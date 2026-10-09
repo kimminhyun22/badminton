@@ -39,14 +39,14 @@ function project(s,role,baselines,anchors=s.players){
     const count=Object.values(counts).reduce((a,b)=>a+b,0);
     return [q.id,{count,needsReview:count>0&&Math.max(...Object.values(counts))<=count/2}];
   }));
-  return {id:s.id,clubId:s.clubId||null,clubName:s.clubName,players,questions,expiresAt:s.expiresAt,closed:!!s.closed,
+  return {id:s.id,clubId:s.clubId||null,clubName:s.clubName,players,questions,expiresAt:s.expiresAt,closed:!!s.closed||!!s.supersededBy,...(s.supersededBy?{supersededBy:s.supersededBy}:{}),
     evidence,storedQuestionIds:s.questions.map(q=>q.id),reviewQuestionIds:s.reviewQuestionIds||null,assessmentVersion:s.assessmentVersion||1,boundaryIds:s.boundaryIds||[],
     ...(role==='owner'&&s.assessmentVersion===2?{ownerAnswers:s.votes?.['owner-review']||{}}:{}),
     reviewedAt:s.reviewedAt||0,
     legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
     adaptiveSupported:s.assessmentVersion===2,needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
     answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},
-    proposals:role==='owner'?core.measurementProposals(effective,questions,s.votes,anchors).map((p,i)=>({...p,basis:effective[i]})):[],
+    proposals:role==='owner'?core.measurementProposals(effective,questions,s.votes,anchors).map((p,i)=>({...p,basis:effective[i],...(s.supersededBy?{ready:false,supersededBy:s.supersededBy}: {})})):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
 }
 async function handle(db,data,ip,now=Date.now()){
@@ -73,6 +73,7 @@ async function handle(db,data,ip,now=Date.now()){
     return project(s,'owner');
   }
   let s=(await ref.once('value')).val(),role=authorize(s,data.key);
+  if(s.supersededBy&&data.action!=='read')throw Error('통합된 이전 평가입니다. 최신 평가에서 진행해 주세요.');
   if(role!=='owner'&&s.expiresAt<=now)throw Error('만료된 링크입니다.');
   if(data.action==='batch'){
     if(role==='shared'||s.assessmentVersion!==2)throw Error('본인 이름을 선택한 새 평가에서 진행해 주세요.');
@@ -99,7 +100,7 @@ async function handle(db,data,ip,now=Date.now()){
       const source=(await db.ref('skillCalibration/'+s.assessmentReference.sourceId).once('value')).val();
       const roster=approval&&(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();
       const merged=reference.materialize(s,source,approval,roster),result=project(merged.session,role,data.baselines,merged.anchors);
-      return {...result,answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},...(role==='owner'?{ownerAnswers:merged.ownerAnswers,referenceInfo:merged.info,reusedQuestionIds:merged.reusedQuestionIds}:{}),referenceRevision:reference.revision(s)};
+      return {...result,answers:role==='owner'||role==='shared'?{}:role.startsWith('u_')?merged.session.votes['member:'+role.slice(2)]||{}:s.votes?.[role]||{},...(role==='owner'?{ownerAnswers:merged.ownerAnswers,referenceInfo:merged.info,reusedQuestionIds:merged.reusedQuestionIds}:{}),referenceRevision:reference.revision(s)};
     }
     const result=project(s,role,data.baselines);
     if(role==='owner'&&approval){

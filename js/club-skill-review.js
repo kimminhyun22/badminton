@@ -160,6 +160,7 @@
     catch(e){message(e.message);setup();}finally{busy=false;}
   }
   function resultState(p,original,current){
+    if(p.supersededBy)return {key:'archived',title:'통합된 이전 평가',reason:'이 답안은 최신 평가에 포함됐습니다. 이 점수는 다시 적용하지 않습니다.'};
     if(p.assessment&&!p.reviewed)return {key:'pending',title:'평가 부족 · 미반영',reason:p.assessment.reason};
     if(p.model?.startsWith('comparison-v')){
       const same=window.KokSkillBatch.same;
@@ -239,7 +240,7 @@
     if(!coverage.multiGrade)$('collectionProgress').innerHTML+='<p class="muted">이 명부에는 다른 급수 회원이 없어 급수 간 실력 차이를 확인할 수 없습니다.</p>';
     if(progress.pending.length)$('collectionProgress').innerHTML+=`<details><summary>비교 전 ${progress.pending.length}명</summary>${progress.pending.map(r=>`<p>${esc(r.name)}</p>`).join('')}</details>`;
     if($('referenceExisting')){$('referenceExisting').hidden=!session.referenceAvailable;$('referenceExisting').textContent=`기존 ${session.referenceAvailable?.sourceCount||0}답안 연결`;}
-    if($('referenceInfo')){$('referenceInfo').hidden=!session.referenceInfo;$('referenceInfo').textContent=session.referenceInfo?`기존 ${session.referenceInfo.sourceCount}개 + 새 ${session.referenceInfo.targetCount}개 · 원래 기준으로 재계산 · 명부 점수는 별도 저장합니다. 판단자 수는 응답 묶음 수이며 독립 인원이 확인된 수는 아닙니다.`:'';}
+    if($('referenceInfo')){$('referenceInfo').hidden=!session.referenceInfo;$('referenceInfo').textContent=session.referenceInfo?`기존 ${session.referenceInfo.sourceCount}개 + 새 ${session.referenceInfo.targetCount}개 · 중복 ${session.referenceInfo.deduplicated}개 정리 · 통합 ${session.referenceInfo.total}개 · 최초 기준으로 재계산 · 명부 점수는 별도 저장합니다. 판단자 수는 응답 묶음 수이며 독립 인원이 확인된 수는 아닙니다.`:'';}
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
     if(session.clubId&&session.clubId!==own.clubId)throw Error('평가와 명부의 클럽이 다릅니다.');
     const rows=session.proposals.map(p=>proposalRow(p,own,currentClub));
@@ -255,6 +256,12 @@
     if(ready.length)$('resultHelp').textContent+=` 추가 저장 가능 ${ready.length}명.`;
     if(count('pending'))$('resultHelp').textContent+=` 추가 확인 ${count('pending')}명은 현재 값을 유지하며, 추가 비교 후 조정할 수 있습니다.`;
     if(count('unreviewed'))$('resultHelp').textContent+=` 아직 비교하지 않은 회원 ${count('unreviewed')}명.`;
+    if(session.supersededBy){
+      $('undoBatch').hidden=true;$('referenceExisting').hidden=true;$('measurementSetup').hidden=true;$('recommendationSetup').hidden=true;
+      $('resultSummary').innerHTML='<p style="grid-column:1/-1">통합된 이전 평가 · 원본 보존</p>';$('resultHelp').textContent='기존 답안은 최신 평가에 포함됐습니다. 이전 점수는 다시 적용하지 않습니다.';
+      const latest=links.find(l=>l.id===session.supersededBy&&l.clubId===own.clubId);
+      if(latest){const a=document.createElement('a');a.href='skill-review.html?from='+(from==='team.html'?'team':'daily')+'&review='+encodeURIComponent(latest.id);a.textContent='통합 평가 열기';$('resultHelp').append(' ',a);}
+    }
     if(session.legacyCount)$('resultHelp').textContent+=` 기존 개별 링크 응답 ${session.legacyCount}개도 포함됩니다. 이미 참여한 분은 중복 참여하지 말고 기존 링크에서 수정해 주세요.`;
     const order={ready:0,pending:1,applied:2,changed:3,same:4};
     $('proposals').innerHTML=rows.filter(r=>r.p.opponents||r.p.assessment).sort((a,b)=>order[a.state.key]-order[b.state.key]).map(({p,state})=>{
@@ -563,8 +570,9 @@
     if(busy||!confirm('이 링크의 새 응답을 마감할까요? 보정안은 남습니다.'))return;
     busy=true;try{session=await api({action:'close',...active});renderOwner();}catch(e){message(e.message);}finally{busy=false;}
   };
-  $('proposals').onclick=event=>{
+  $('proposals').onclick=async event=>{
     const id=event.target.dataset.apply;if(!id)return;
+    try{session=await api({action:'read',...active});renderOwner();if(session.supersededBy)return;}catch(e){message(e.message);return;}
     const proposal=session.proposals.find(p=>p.id===id),own=ownerLink();if(!proposal||!own)return;
     const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId),row=proposalRow(proposal,own,club);
     if(row.state.key!=='ready')return;
