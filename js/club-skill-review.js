@@ -530,6 +530,7 @@
         if(!run.ids.includes(id)){run.ids.push(id);run.count+=batch.length;write(key,run);}visitCount=run.count;
         localStorage.removeItem(draftKey()+'_adaptiveRequest');autoCheckpointPending=false;
         if(autoContinue&&visitCount<20){busy=false;await startAdaptiveBatch();return;}
+        $('doneText').textContent=`이번 참여에서 ${visitCount}문항의 응답을 자동 저장했습니다. 추가 비교는 선택입니다. 점수는 운영자가 확인한 뒤 명부에 반영합니다.`;
       }
       renderCumulative();$('more').hidden=!hasMoreComparisons();message('');showOwnerReturn();
     }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;$('saveAnswers').disabled=false;$('previousQuestion').disabled=at<=0;}

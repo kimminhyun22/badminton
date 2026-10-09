@@ -21,7 +21,7 @@ async function check(code=source){
   for(let i=0;i<10;i++)await f.vote('tie');await idle(f.ctx);assert.equal(Object.keys(e.state().votes.e0).length,10);assert(!f.$('retry').hidden,'automatic checkpoint exposes retry after lost reply');
   await f.$('retry').onclick();await idle(f.ctx);assert.equal(f.ctx.visitCount,10);assert.equal(f.ctx.at,0);assert.equal(f.ctx.batch.length,10);assert.equal(Object.keys(e.state().votes.e0).length,10);
   for(let i=0;i<3;i++)await f.vote('tie');f=e.mount();f.ctx.startBatch();await idle(f.ctx);assert.equal(f.ctx.at,3,'partial second checkpoint resumes');
-  for(let i=0;i<7;i++)await f.vote('tie');await idle(f.ctx);assert.equal(f.ctx.panel,'done');assert.equal(f.ctx.visitCount,20);assert.equal(Object.keys(e.state().votes.e0).length,20);assert(!f.$('more').hidden);
+  for(let i=0;i<7;i++)await f.vote('tie');await idle(f.ctx);assert.equal(f.ctx.panel,'done');assert.equal(f.ctx.visitCount,20);assert.equal(Object.keys(e.state().votes.e0).length,20);assert(!f.$('more').hidden);assert(f.$('doneText').textContent.includes('20문항의 응답을 자동 저장'));
   await f.$('more').onclick();await idle(f.ctx);assert.equal(f.ctx.at,0);assert.equal(f.ctx.visitCount,0);assert(f.ctx.batch.every(q=>!Object.hasOwn(e.state().votes.e0,q.id)));
   assert.deepEqual(e.state().players,players,'automatic checkpoints cannot change roster scores');
 }
