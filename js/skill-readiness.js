@@ -14,7 +14,7 @@
     if(!a.scaleConnected)remaining.push(missingGrades.length?`${missingGrades.join('·')}급수를 잇는 유효 비교가 필요합니다.`:'급수 간 연결을 추가 확인해 주세요.');
     if(!complete&&!remaining.length)remaining.push('판단이 나뉜 비교를 추가 확인해 주세요.');
     return {percent,complete,resolved,missingOpponents,linkedGrades:required.length-missingGrades.length,requiredGrades:required.length,
-      reason:complete?'평가 조건 충족 · 명부 저장 여부는 별도입니다.':remaining.join(' ')};
+      reason:complete?'초기 점수 조건 충족 · 명부에 반영한 뒤에도 추가 평가로 보정할 수 있습니다.':remaining.join(' ')};
   }
   function overall(players,proposals){
     const byId=new Map((proposals||[]).map(p=>[p.id,p]));

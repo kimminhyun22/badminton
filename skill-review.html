@@ -1,21 +1,21 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.786">
+<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.787">
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="app-version" content="1.10.786"><meta name="referrer" content="no-referrer">
+  <meta name="app-version" content="1.10.787"><meta name="referrer" content="no-referrer">
   <title>우리 클럽 밸런스게임 · 민턴라이브</title>
   <meta property="og:site_name" content="민턴라이브">
   <meta property="og:title" content="우리 클럽 밸런스게임 · 민턴라이브">
   <meta property="og:description" content="현재 개인 실력은 누가 더 강한가요?">
-  <link rel="stylesheet" href="css/skill-review.css?v=1.10.786">
-  <script defer src="functions/skill-calibration-core.js?v=1.10.786"></script>
-  <script defer src="js/club-skill-batch.js?v=1.10.786"></script>
-  <script defer src="js/skill-readiness.js?v=1.10.786"></script>
-  <script defer src="functions/skill-boundary-plan.js?v=1.10.786"></script>
-  <script defer src="js/club-skill-review.js?v=1.10.786"></script>
-  <script defer src="js/storage.js?v=1.10.786"></script>
-  <script defer src="js/roster-cloud.js?v=1.10.786"></script>
+  <link rel="stylesheet" href="css/skill-review.css?v=1.10.787">
+  <script defer src="functions/skill-calibration-core.js?v=1.10.787"></script>
+  <script defer src="js/club-skill-batch.js?v=1.10.787"></script>
+  <script defer src="js/skill-readiness.js?v=1.10.787"></script>
+  <script defer src="functions/skill-boundary-plan.js?v=1.10.787"></script>
+  <script defer src="js/club-skill-review.js?v=1.10.787"></script>
+  <script defer src="js/storage.js?v=1.10.787"></script>
+  <script defer src="js/roster-cloud.js?v=1.10.787"></script>
 </head>
 <body>
   <header><a id="back" href="index.html">돌아가기</a><h1>우리 클럽 밸런스게임</h1></header>
@@ -53,7 +53,7 @@
         <p>기본 내부점수 = 급수점수 + 성별·연령 계수. 급수 S7·A6·B5·C4·D3·E2, 여성 −1.5, 연령 20대 0·30대 −0.2·40대 −0.5·50대 −1.2·60대 이상 −2입니다.</p>
         <p>최초 실력점수가 있으면 그 값을, 없으면 기본점수와 수동 보정을 출발점으로 사용합니다. 선수쌍별 우세·동률 의견 비율에 맞춰 개인 보정을 구하고, 출발점에서 멀어지는 데 상대 수 × 0.25의 벌점을 줍니다. 동률은 반표, 모름은 제외하며, 같은 질문 수정은 최신 선택 하나만 사용합니다.</p>
         <p>기본 표시 = 기본 내부점수 + 5. 추정 표시 = 추정 내부점수 + 5. 음수 표시 방지용 +5를 보정값이나 저장·대진 계산에 다시 더하지 않습니다. 표시점수의 배수·퍼센트는 실제 실력비율이 아닙니다.</p>
-        <p>유효 비교로 모든 급수가 연결되고, 서로 다른 상대 3명 이상에서 과반 판단이 있어야 저장 후보가 됩니다. 상대 3명은 독립 판단자 3명을 뜻하지 않으며, 조건 충족도 정확성을 보장하지 않습니다. 개인 확인 후 명부에 저장하며 이미 만든 대진은 자동 변경하지 않습니다.</p>
+        <p>유효 비교로 모든 급수가 연결되고, 서로 다른 상대 3명 이상에서 과반 판단이 있어야 초기 점수 저장 후보가 됩니다. 상대 3명은 독립 판단자 3명을 뜻하지 않으며, 조건 충족도 정확성을 보장하지 않습니다. 고정 문항 수를 채우는 방식이 아니라 부족한 근거와 의견 충돌을 보완합니다. 초기 점수를 명부에 반영한 뒤에도 같은 평가에 답안을 추가해 보정안을 갱신할 수 있으며, 보정안은 다시 확인하고 저장합니다. 이미 만든 대진은 자동 변경하지 않습니다.</p>
       </details>
       <button id="applyAll" class="primary" hidden>보정안 일괄 저장</button>
       <button id="undoBatch" hidden>최근 일괄 저장 되돌리기</button>

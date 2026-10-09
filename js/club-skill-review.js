@@ -223,7 +223,7 @@
     $('collectionProgress').innerHTML=`<h2>${progress.total}명 중 ${progress.done}명 비교 자료 있음</h2><p class="muted">기존 동급 응답을 보존합니다. 급수 간 연결과 서로 다른 상대 3명 이상의 유효 근거가 부족하면 현재 값을 유지합니다.</p>`;
     if(session.assessmentVersion===2){
       const total=window.KokSkillReadiness.overall(session.players,session.proposals);
-      $('collectionProgress').innerHTML=`<div class="readiness overall-readiness"><div class="readiness-heading"><h2>전체 평가 진행률</h2><strong>${total.percent}%</strong></div><progress value="${total.percent}" max="100" aria-label="전체 회원 평가 조건 충족률"></progress><p>${total.total}명 중 ${total.ready}명 조건 충족 · ${total.remaining}명 추가 평가 필요</p><p class="muted">각 회원의 유효 상대 3명 이상과 전체 급수 연결을 확인합니다. 100%는 평가 조건 충족이며, 점수 정확도나 명부 반영률이 아닙니다.</p></div>`+$('collectionProgress').innerHTML;
+      $('collectionProgress').innerHTML=`<div class="readiness overall-readiness"><div class="readiness-heading"><h2>전체 초기 점수 준비율</h2><strong>${total.percent}%</strong></div><progress value="${total.percent}" max="100" aria-label="전체 회원 초기 점수 조건 충족률"></progress><p>${total.total}명 중 ${total.ready}명 조건 충족 · ${total.remaining}명 초기 근거 보완 필요</p><p class="muted">초기 준비 → 명부 반영 → 필요한 비교로 추가 보정</p><p class="muted">유효 상대 3명과 전체 급수 연결은 초기 점수의 최소 조건입니다. 100%여도 평가가 끝나는 것은 아닙니다. 부족한 근거·의견 충돌·추정과 판단의 상충을 추가 확인하며, 조건 충족은 정확도를 보장하지 않습니다.</p></div>`+$('collectionProgress').innerHTML;
     }
     const coverage=comparisonCoverage(session.players,session.questions,session.evidence);
     $('collectionProgress').innerHTML+=`<p>같은 급수 비교 ${coverage.same}건 · 다른 급수 비교 ${coverage.cross}건</p>`;
@@ -254,7 +254,7 @@
       const change=delta>0?'+'+delta.toFixed(3):delta.toFixed(3);
       const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)}${c.grade?` (${esc(c.grade)} · ${c.kind==='cross-grade'?'교차':'동급'})`:''} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'개인 실력 우세':'개인 실력 열세'} · ${c.votes}명 응답</li>`).join('');
       const readiness=window.KokSkillReadiness.player(p);
-      const readinessHtml=readiness?`<div class="readiness"><div class="readiness-heading"><span>평가 진행률</span><strong>${readiness.percent}%</strong></div><progress value="${readiness.percent}" max="100" aria-label="${esc(p.name)} 평가 조건 진행률"></progress><p>유효 상대 ${readiness.resolved}/3명 · 급수 연결 ${readiness.linkedGrades}/${readiness.requiredGrades}개</p><p class="muted">${esc(readiness.reason)}</p></div>`:'';
+      const readinessHtml=readiness?`<div class="readiness"><div class="readiness-heading"><span>초기 점수 준비율</span><strong>${readiness.percent}%</strong></div><progress value="${readiness.percent}" max="100" aria-label="${esc(p.name)} 초기 점수 조건 진행률"></progress><p>유효 상대 ${readiness.resolved}명 / 최소 3명 · 급수 연결 ${readiness.linkedGrades}/${readiness.requiredGrades}개</p><p class="muted">${esc(readiness.reason)}</p></div>`:'';
       return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div>${readinessHtml}<p class="score-change">${before.toFixed(3)} <span>→</span> ${after.toFixed(3)} <b>${change}</b></p><p>${Number.isFinite(p.baseRating)?`기본 표시 ${(p.baseRating+5).toFixed(3)} ${p.adjustment>=0?'+':'−'} 개인 보정 ${Math.abs(p.adjustment).toFixed(3)} = 추정 표시 ${(p.skillRating+5).toFixed(3)}`:'해당 클럽 비교로 추정한 최종 실력'} · 성별·연령 추가 보정 없음</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p>${p.assessment?`<p>동급 상대 ${p.assessment.sameGradeOpponents}명 · 교차 상대 ${p.assessment.crossGradeOpponents}명 · 연결 급수 ${p.assessment.linkedGrades.map(esc).join('·')}</p>`:''}<ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">음수 표시를 피하려고 기본·추정 점수에 각각 5점을 한 번 더합니다. 보정값에는 더하지 않습니다. 저장·대진 계산은 내부 점수를 사용하며, 표시점수는 승률·실력 배수·10점 만점이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
     }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
     $('answerSelf').textContent=session.assessmentVersion===2?'관리자 개인 평가 시작':'나도 참여하기';
@@ -394,11 +394,10 @@
   function cumulativeProgress(){
     const known=new Set(session.questions.map(q=>q.id)),merged={...(session.answers||{}),...answers};
     const count=Object.entries(merged).filter(([id,v])=>known.has(id)&&['a','b','tie'].includes(v)).length;
-    const goal=Math.min(100,known.size),percent=goal?Math.min(100,Math.floor(count/goal*100)):0;
-    return {count,goal,percent};
+    return {count};
   }
   function renderCumulative(){
-    const p=cumulativeProgress(),html=`<div class="readiness"><div class="readiness-heading"><span>내 평가 목표</span><strong>${p.percent}%</strong></div><progress value="${p.percent}" max="100" aria-label="내 누적 평가 목표"></progress><p>누적 비교 응답 ${p.count} / ${p.goal}문항 · 권장 목표</p><p class="muted">잘 모르겠어요는 제외합니다. 목표 이후에도 남은 비교를 계속할 수 있으며, 정확도와 점수 저장 조건은 별도입니다.</p></div>`;
+    const p=cumulativeProgress(),html=`<div class="readiness"><p><strong>내 비교 의견 ${p.count}건</strong></p><p class="muted">정해진 총 문항 수는 없습니다. 이번 묶음을 저장하고 쉬어도 됩니다. 이후 같은 링크에서 추가 평가와 보정을 이어갈 수 있습니다. ‘잘 모르겠어요’는 비교 건수에서 제외합니다.</p></div>`;
     $('cumulativeQuiz').innerHTML=html;$('cumulativeDone').innerHTML=html;
   }
   function hasMoreComparisons(){
