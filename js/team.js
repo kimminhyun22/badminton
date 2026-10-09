@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.781';
+const APP_VERSION = '1.10.782';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -489,7 +489,7 @@ function doTeamAssign(opts={}){
   const all=_directPlayers.map(p=>({
     memberId:p.memberId||_teamEnsureMemberId(p),name:p.name, ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,
     gender:p.gender==='남'?'M':'F',
-    grade:p.grade, team:'', club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial, ageGroup:p.ageGroup||'40대',
+    grade:p.grade, team:'', ...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial, ageGroup:p.ageGroup||'40대',
     partnerId: (getPartnerInfo(p.name)||{}).id||null,
     partnerName: getPartnerOf(p.name)||null
   }));
@@ -1023,7 +1023,7 @@ function generate(opts={}){
   let participants=_directPlayers.map(p=>({
     name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,gender:p.gender==='남'?'M':'F',
     team:p.team||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,_valid:true,
-    memberId:p.memberId||'',club:p.club||'',
+    memberId:p.memberId||'',...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',
     grade:p.grade,  // 입력한 실제 급수 (남: B→level5, 여: B→level4 이므로 grade로 표시해야 정확)
     _grade:p.grade, // 하위 호환 유지
     ageGroup:p.ageGroup||'40대',
@@ -5346,6 +5346,7 @@ function _teamApplyDirectProfileToPlayer(p,byName){
   if(!p||!p.name)return false;
   const src=byName.get(p.name);
   if(!src)return false;
+  if(p.clubId&&src.clubId?p.clubId!==src.clubId:!!(p.club&&src.club&&p.club!==src.club))return false;
   const gender=_teamGenderCode(src.gender||p.gender);
   const grade=src.grade||p.grade||levelToGrade(p.level||src.level||4,gender)||'C';
   const level=src.level||gradeToLevel(grade,gender)||p.level||4;
@@ -5356,7 +5357,7 @@ function _teamApplyDirectProfileToPlayer(p,byName){
     gender,
     level,
     ageGroup:src.ageGroup||p.ageGroup||'40대',
-    club:src.club||p.club||'',
+    ...(src.clubId?{clubId:src.clubId}:{}),club:src.club||p.club||'',
     isGuest:!!(p.isGuest||src.isGuest),
     isClubOfficial:Object.prototype.hasOwnProperty.call(src,'isClubOfficial')?!!src.isClubOfficial:!!p.isClubOfficial
   };
@@ -5416,8 +5417,8 @@ function saveState(){
     partners: JSON.parse(JSON.stringify(_partners)),
     _lvVersion: LV_VERSION,
     teamAssignment:teamAssignment?{
-      blue:teamAssignment.blue.map(p=>({memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null})),
-      white:teamAssignment.white.map(p=>({memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null}))
+      blue:teamAssignment.blue.map(p=>({memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null})),
+      white:teamAssignment.white.map(p=>({memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',partnerName:p.partnerName||null}))
     }:null,
     matches:currentMatches.map(m=>({
       matchNumber:m.matchNumber,round:m.round,court:m.court,
@@ -5429,7 +5430,7 @@ function saveState(){
       team2C:slim(m.team2C),team2D:slim(m.team2D)
     })),
     participants:currentParticipants.map(p=>({
-      memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,club:p.club||'',
+      memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team,...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',
       partnerName:p.partnerName||getPartnerOf(p.name)||null,
       partnerId:p.partnerId||(getPartnerInfo(p.name)||{}).id||null,
       isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대',
@@ -5460,7 +5461,7 @@ function saveState(){
   catch(e){setSaveStatus('','⚠ 저장 실패');}
 }
 
-function slim(p){return{memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team||'',club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대'};}
+function slim(p){return{memberId:p.memberId||'',name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,grade:p.grade||'',gender:p.gender,team:p.team||'',...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,ageGroup:p.ageGroup||'40대'};}
 
 function _teamIsDailyBracketState(state){
   if(!state)return false;
@@ -7082,7 +7083,7 @@ function _teamApplyParticipantProfiles(source){
       level:Number(raw.level)||gradeToLevel(grade,gender)||4,
       gender,
       ageGroup:raw.ageGroup||'40대',
-      club:raw.club||'',
+      ...(raw.clubId?{clubId:raw.clubId}:{}),club:raw.club||'',
       isGuest:!!raw.isGuest,
       isClubOfficial:!!raw.isClubOfficial
     };
@@ -7208,10 +7209,13 @@ function saveEditDirectPlayer(){
   const name = document.getElementById('editDirectName').value.trim();
   const errEl = document.getElementById('editDirErrMsg');
   if(!name){ errEl.textContent='이름을 입력해주세요.'; return; }
-  const newLevel = Number.isFinite(previous.skillRating)?rosterSkillLevel({...previous,grade:_editDirGrade,gender:_editDirGender,ageGroup:_editDirAge}):(gradeToLevel(_editDirGrade, _editDirGender) ?? 1);
+  const sameSkillProfile=previous.grade===_editDirGrade&&previous.gender===_editDirGender;
+  const newLevel = Number.isFinite(previous.skillRating)?rosterSkillLevel({...previous,grade:_editDirGrade,gender:_editDirGender,ageGroup:_editDirAge}):
+    sameSkillProfile&&previous.level!=null&&Number.isFinite(Number(previous.level))?Number(previous.level):(gradeToLevel(_editDirGrade, _editDirGender) ?? 1);
   _directPlayers[_editDirIdx] = {
     ...previous,
     name, grade:_editDirGrade, level:newLevel,
+    ...(sameSkillProfile?{}:{skillStep:0}),
     gender:_editDirGender, ageGroup:_editDirAge
   };
   _teamEnsureMemberId(_directPlayers[_editDirIdx]);
@@ -7276,40 +7280,15 @@ function _rsvpSyncImportedPlayersFromRoster(){
   const clubs=_rsvpClubs();
   const selected=_rsvpSelectedSource();
   const selectedClub=selected&&selected!==RSVP_DIRECT_VALUE?clubs.find(c=>c.id===selected):null;
-  const orderedClubs=selectedClub
-    ? [selectedClub,...clubs.filter(c=>c.id!==selectedClub.id)]
-    : clubs;
-  if(!orderedClubs.length)return false;
+  if(!clubs.length)return false;
   _rsvpSyncingImportedPlayers=true;
-  const byId=new Map();
-  const byNameClub=new Map();
-  const byName=new Map();
   try{
-    orderedClubs.forEach(club=>{
-      (club.members||[]).forEach(member=>{
-        if(!member||!member.name)return;
-        const roster={
-          ...member,
-          club:club.name||member.club||''
-        };
-        roster.id=_rsvpMemberId(roster);
-        if(!byId.has(roster.id))byId.set(roster.id,roster);
-        const nameKey=_rsvpNameKey(roster.name);
-        const clubKey=`${nameKey}|${roster.club||''}`;
-        byNameClub.set(clubKey,byNameClub.has(clubKey)?null:roster);
-        byName.set(nameKey,byName.has(nameKey)?null:roster);
-      });
-    });
     let changed=false;
     let competitiveChanged=false;
     const renamed=new Map();
     _directPlayers=_directPlayers.map(p=>{
       if(!p||p.isGuest)return p;
-      let roster=p.memberId?byId.get(p.memberId):null;
-      if(!roster){
-        const nameKey=_rsvpNameKey(p.name);
-        roster=byNameClub.get(`${nameKey}|${p.club||''}`)||byName.get(nameKey)||null;
-      }
+      const roster=_teamRosterBridge()?.resolveMember(clubs,p,selectedClub?.id||'',_rsvpMemberId);
       if(!roster)return p;
       const gender=roster.gender||p.gender||'남';
       const grade=roster.grade||p.grade||levelToGrade(p.level||4,gender)||'C';
@@ -7317,7 +7296,7 @@ function _rsvpSyncImportedPlayersFromRoster(){
       const next={
         ...p,
         skillRating:Number.isFinite(roster.skillRating)?roster.skillRating:null,
-        memberId:roster.id,
+        ...(roster.clubId?{clubId:roster.clubId}:{}),memberId:roster.memberId,
         name:hasBracket?p.name:(roster.name||p.name),
         grade,
         gender,
@@ -7326,8 +7305,8 @@ function _rsvpSyncImportedPlayersFromRoster(){
         club:roster.club||p.club||'',
         isClubOfficial:!!roster.isClubOfficial
       };
-      ['memberId','name','grade','gender','level','skillRating','ageGroup','club','isClubOfficial'].forEach(key=>{
-        if(String(next[key]||'')!==String(p[key]||'')){
+      ['memberId','clubId','name','grade','gender','level','skillRating','ageGroup','club','isClubOfficial'].forEach(key=>{
+        if(String(next[key]??'')!==String(p[key]??'')){
           changed=true;
           if(['name','grade','gender','level','skillRating','ageGroup'].includes(key))competitiveChanged=true;
         }
@@ -7814,7 +7793,7 @@ function _rsvpManagedMembers(){
     const gender=p.gender||'남';
     const grade=p.grade||levelToGrade(p.level||4,gender)||'C';
     const base={
-      name:p.name,grade,gender,ageGroup:p.ageGroup||'40대',club:p.club||'',
+      name:p.name,grade,gender,ageGroup:p.ageGroup||'40대',...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial,
       id:p.memberId||_rsvpMemberId({name:p.name,club:p.club||''}),
@@ -9439,7 +9418,7 @@ function _legacyRsvpImportAttendees(){
       gender,
       ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level||gradeToLevel(grade,gender)||4,
       ageGroup:p.ageGroup||'40대',
-      club:p.club||'',
+      ...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',
       isGuest:!!p.isGuest,
       isClubOfficial:!!p.isClubOfficial
     });
@@ -9890,7 +9869,7 @@ function importSelected(){
       const clubName=sourceClub?.name||m.club||'';
       const memberId=_rsvpMemberId({name:m.name,club:clubName});
       _directPlayers.push({
-        memberId,
+        clubId:sourceClub.id,memberId,
         name:m.name,
         grade:m.grade,
         ...(Number.isFinite(m.skillRating)?{skillRating:m.skillRating}:{}), level:m.level,

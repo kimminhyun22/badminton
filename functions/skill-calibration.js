@@ -16,7 +16,7 @@ function authorize(s,key){
 }
 function project(s,role,baselines){
   // Stable IDs preserve all old answers while opening cross-age/grade comparisons.
-  const questions=core.pairs(s.players);
+  const questions=s.assessmentVersion===2?s.questions:core.pairs(s.players);
   let effective=s.players;
   if(baselines!==undefined){
     if(role!=='owner'||!Array.isArray(baselines)||baselines.length>s.players.length)throw Error('보정 기준을 확인해 주세요.');
@@ -37,13 +37,14 @@ function project(s,role,baselines){
     const count=Object.values(counts).reduce((a,b)=>a+b,0);
     return [q.id,{count,needsReview:count>0&&Math.max(...Object.values(counts))<=count/2}];
   }));
-  return {id:s.id,clubName:s.clubName,players,questions,expiresAt:s.expiresAt,closed:!!s.closed,
-    evidence,
+  return {id:s.id,clubId:s.clubId||null,clubName:s.clubName,players,questions,expiresAt:s.expiresAt,closed:!!s.closed,
+    evidence,storedQuestionIds:s.questions.map(q=>q.id),reviewQuestionIds:s.reviewQuestionIds||null,assessmentVersion:s.assessmentVersion||1,boundaryIds:s.boundaryIds||[],
+    ...(role==='owner'&&s.assessmentVersion===2?{ownerAnswers:s.votes?.['owner-review']||{}}:{}),
     reviewedAt:s.reviewedAt||0,
     legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
     needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
     answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},
-    proposals:role==='owner'?core.proposals(effective,questions,s.votes,s.players).map((p,i)=>({...p,basis:effective[i]})):[],
+    proposals:role==='owner'?core.measurementProposals(effective,questions,s.votes,s.players).map((p,i)=>({...p,basis:effective[i]})):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
 }
 async function handle(db,data,ip,now=Date.now()){
@@ -53,8 +54,10 @@ async function handle(db,data,ip,now=Date.now()){
     const existing=(await ref.once('value')).val();
     if(existing){if(authorize(existing,data.key)!=='owner')throw Error('링크를 확인해 주세요.');return project(existing,'owner');}
     if(typeof data.clubName!=='string'||!data.clubName.trim()||data.clubName.length>80||!Array.isArray(data.invites)||data.invites.length!==3||data.invites.some(k=>!token(k))||new Set([data.key,...data.invites]).size!==4)throw Error('클럽 정보를 확인해 주세요.');
-    const list=core.players(data.players),questions=core.pairs(list);
-    if(!questions.length)throw Error('비교할 회원이 부족합니다.');
+    if(data.clubId!==undefined&&(typeof data.clubId!=='string'||!data.clubId||data.clubId.length>160))throw Error('클럽 식별자를 확인해 주세요.');
+    const list=core.players(data.players),measurement=data.assessmentVersion===2;
+    const questions=measurement?core.measurementPairs(list,data.boundaryIds||[]):core.pairs(list);
+    if(!questions.length&&!measurement)throw Error('비교할 회원이 부족합니다.');
     const rate=db.ref('skillCalibrationLimits/'+hash(String(ip)));
     const limit=await rate.transaction(old=>{
       const current=old&&now-old.at<86400000?old:{at:now,n:0};
@@ -62,14 +65,36 @@ async function handle(db,data,ip,now=Date.now()){
       return {...current,n:current.n+1};
     });
     if(!limit.committed)throw Error('오늘 만든 링크가 많습니다. 기존 링크를 사용해 주세요.');
-    const s={id:data.id,clubName:data.clubName.trim(),players:list,questions,owner:hash(data.key),invites:data.invites.map(hash),createdAt:now,expiresAt:now+30*86400000,votes:{}};
+    const s={id:data.id,...(data.clubId?{clubId:data.clubId}:{}),clubName:data.clubName.trim(),players:list,questions,...(measurement?{assessmentVersion:2,boundaryIds:data.boundaryIds||[]}:{}),owner:hash(data.key),invites:data.invites.map(hash),createdAt:now,expiresAt:now+30*86400000,votes:{}};
     const result=await ref.transaction(old=>old?undefined:s);
     if(!result.committed){const raced=result.snapshot.val();if(authorize(raced,data.key)!=='owner')throw Error('다시 시도해 주세요.');return project(raced,'owner');}
     return project(s,'owner');
   }
   let s=(await ref.once('value')).val(),role=authorize(s,data.key);
   if(role!=='owner'&&s.expiresAt<=now)throw Error('만료된 링크입니다.');
-  if(data.action==='read')return project(s,role,data.baselines);
+  if(data.action==='read'){
+    if(s.clubId&&data.clubId!==undefined&&data.clubId!==s.clubId)throw Error('다른 클럽 평가를 이 명부에 적용할 수 없습니다.');
+    return project(s,role,data.baselines);
+  }
+  if(data.action==='measurement'){
+    if(role!=='owner'||s.closed||s.expiresAt<=now)throw Error('만든 기기에서 열린 평가만 확장할 수 있습니다.');
+    core.measurementPairs(s.players,data.boundaryIds||[]);
+    if(data.questionIds!==undefined){
+      const allowed=new Set(core.measurementPairs(s.players,s.players.map(p=>p.id)).filter(q=>q.kind==='cross-grade').map(q=>q.id));
+      if(!Array.isArray(data.questionIds)||!data.questionIds.length||data.questionIds.length>150||new Set(data.questionIds).size!==data.questionIds.length||data.questionIds.some(id=>!allowed.has(id)))throw Error('추가 교차 질문을 확인해 주세요.');
+    }
+    const r=await ref.transaction(old=>{
+      if(!old)return null;
+      if(authorize(old,data.key)!=='owner'||old.closed||old.expiresAt<=now)return;
+      const planned=data.questionIds?new Set(data.questionIds):null;
+      const additions=core.measurementPairs(old.players,planned?old.players.map(p=>p.id):data.boundaryIds||[]).filter(q=>q.kind==='cross-grade'&&(!planned||planned.has(q.id))),seen=new Set(old.questions.map(q=>q.id));
+      // Append only. Existing question IDs, ordering, responses and credentials survive.
+      const questions=[...old.questions,...additions.filter(q=>!seen.has(q.id))];
+      return {...old,questions,...(planned?{reviewQuestionIds:[...new Set([...(old.reviewQuestionIds||[]),...data.questionIds])]}:{}),assessmentVersion:2,boundaryIds:[...(data.boundaryIds||[])],assessmentConfiguredAt:now};
+    });
+    if(!r.committed||!r.snapshot.val())throw Error('평가가 변경되거나 마감됐습니다.');
+    return project(r.snapshot.val(),role);
+  }
   if(data.action==='share'){
     if(role!=='owner'||!token(data.sharedKey)||data.sharedKey===data.key)throw Error('공유 정보를 확인해 주세요.');
     const shared=hash(data.sharedKey);
@@ -101,16 +126,18 @@ async function handle(db,data,ip,now=Date.now()){
     if(!r.snapshot.val())throw Error('링크를 확인해 주세요.');
     return project(r.snapshot.val(),role);
   }
-  if(data.action!=='answer'||role==='owner'||role==='shared')throw Error('응답 링크를 확인해 주세요.');
+  const ownerAssessment=data.action==='assess'&&role==='owner'&&s.assessmentVersion===2;
+  if(!ownerAssessment&&(data.action!=='answer'||role==='owner'||role==='shared'))throw Error('응답 링크를 확인해 주세요.');
+  const voteRole=ownerAssessment?'owner-review':role;
   if(!data.answers||typeof data.answers!=='object'||Array.isArray(data.answers)||Object.keys(data.answers).length<1||Object.keys(data.answers).length>5)throw Error('한 번에 1~5문제만 응답할 수 있습니다.');
-  for(const [id,value] of Object.entries(data.answers))if(!core.pairs(s.players).some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
+  for(const [id,value] of Object.entries(data.answers))if(!(s.assessmentVersion===2?s.questions:core.pairs(s.players)).some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
   const result=await ref.transaction(old=>{
     // RTDB may first invoke with an empty local cache despite the preceding read.
     // Null lets the server compare-and-retry; undefined would abort immediately.
     if(!old)return null;
-    if(old.closed||old.expiresAt<=now)return;
-    const votes={...old.votes,[role]:{...old.votes?.[role],...data.answers}};
-    const meaningful=Object.values(votes[role]).filter(v=>v!=='skip').length;
+    if(old.closed||old.expiresAt<=now||ownerAssessment&&(old.assessmentVersion!==2||authorize(old,data.key)!=='owner'))return;
+    const votes={...old.votes,[voteRole]:{...old.votes?.[voteRole],...data.answers}};
+    const meaningful=Object.values(votes[voteRole]).filter(v=>v!=='skip').length;
     // First completed batch only: retries and reopening must not postpone review.
     const reviewedAt=old.reviewedAt||(meaningful>=Math.min(5,old.questions.length)?now:0);
     return {...old,votes,reviewedAt};

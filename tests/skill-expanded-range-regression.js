@@ -19,7 +19,7 @@ members.forEach(m=>m.level=Math.round(m.level*10)/10);
 const original={clubs:[{id:'test',members}]},before=JSON.stringify(original);
 const prepared=batch.prepare(original,'test',[{id:'p0',original:members[0],step:4}],'review','batch');
 assert.equal(prepared.state.clubs[0].members[0].level,1.8);
-assert.equal(batch.reviewBaselines({snapshots:members},prepared.state.clubs[0]).length,3);
+assert.equal(batch.reviewBaselines({clubId:'test',snapshots:members},prepared.state.clubs[0]).length,3);
 assert.equal(batch.undo(prepared.state,'test','batch').state.clubs[0].members[0].level,.2);
 assert.equal(JSON.stringify(original),before,'no writes before explicit commit');
 // All old values retain their exact meaning; a wider allowed interval is not a rescale.

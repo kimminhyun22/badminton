@@ -110,7 +110,7 @@ function _liveRosterBridgeProfile(raw){
     ...(Number.isFinite(raw.skillRating)?{skillRating:raw.skillRating}:{}),level:Number.isFinite(level) ? level : 0,
     gender,
     ageGroup:String(raw.ageGroup || '40대'),
-    club:String(raw.club || ''),
+    ...(raw.clubId?{clubId:String(raw.clubId)}:{}),club:String(raw.club || ''),
     isGuest:!!raw.isGuest,
     isClubOfficial:!!raw.isClubOfficial
   };
@@ -157,7 +157,28 @@ function _liveRosterBridgeLegacy(mode){
   };
 }
 
+function _liveRosterClubMember(clubs,player,selectedClubId='',memberIdOf){
+  if(!player||player.isGuest)return null;
+  let scope=Array.isArray(clubs)?clubs:[];
+  if(player.clubId)scope=scope.filter(c=>c.id===player.clubId);
+  else if(player.club){scope=scope.filter(c=>c.name===player.club);if(scope.length!==1)return null;}
+  else if(selectedClubId)scope=scope.filter(c=>c.id===selectedClubId);
+  const rows=scope.flatMap(club=>(club.members||[]).filter(m=>m?.name).map(m=>{
+    const profile={...m,club:club.name||m.club||'',...(club.id?{clubId:club.id}:{})};
+    profile.memberId=m.memberId||(memberIdOf?memberIdOf(profile):'');return profile;
+  }));
+  const ids=player.memberId?rows.filter(m=>m.memberId===player.memberId):[];
+  if(ids.length===1)return ids[0];
+  if(ids.length>1)return null;
+  // A missing source member never falls back into another club by name.
+  if(player.memberId&&!player.club&&!player.clubId&&!selectedClubId)return null;
+  const key=n=>String(n||'').replace(/\s+/g,'').toLowerCase();
+  const named=rows.filter(m=>key(m.name)===key(player.name));
+  return named.length===1?named[0]:null;
+}
+
 window.KokMatchRosterBridge = Object.freeze({
+  resolveMember:_liveRosterClubMember,
   preferredClubIndex(clubs,players,{clubName='',clubId=''}={}){
     const list=Array.isArray(clubs)?clubs:[];
     const byName=name=>name?list.findIndex(c=>String(c.name||'').trim()===String(name).trim()):-1;

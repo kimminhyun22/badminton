@@ -88,7 +88,44 @@
         state:ready?'실력 점수 저장':reviewed?'현재 값 유지':'초기 추정 · 비교 전'};
     });
   }
-  const api={player,players,pairs,proposals,version:'comparison-v4'};
+  function measurementPairs(list,boundaryIds=[]){
+    if(!Array.isArray(boundaryIds)||boundaryIds.length>list.length||new Set(boundaryIds).size!==boundaryIds.length||boundaryIds.some(id=>!list.some(p=>p.id===id)))throw Error('경계 선수를 확인해 주세요.');
+    const selected=new Set(boundaryIds),out=pairs(list).filter(q=>list.find(p=>p.id===q.a).grade===list.find(p=>p.id===q.b).grade).map(q=>({...q,kind:'same-grade'}));
+    const grades=[...new Set(list.map(p=>p.grade))].sort((a,b)=>grade[a]-grade[b]);
+    for(let k=0;k<grades.length-1;k++){
+      const left=list.filter(p=>p.grade===grades[k]&&selected.has(p.id)),right=list.filter(p=>p.grade===grades[k+1]&&selected.has(p.id));
+      for(const a of left)for(const b of right){const ids=[a.id,b.id].sort((x,y)=>Number(x.slice(1))-Number(y.slice(1)));out.push({id:ids.join('_'),a:ids[0],b:ids[1],kind:'cross-grade'});}
+    }
+    return out;
+  }
+  function measurementProposals(list,questions,votes={},anchors=list){
+    const byId=new Map(list.map(p=>[p.id,p])),graph=new Map(list.map(p=>[p.id,new Set()]));
+    const evidence=new Map();
+    for(const q of questions){
+      if(!byId.has(q.a)||!byId.has(q.b))continue;
+      const values=Object.values(votes).map(v=>v[q.id]).filter(v=>['a','b','tie'].includes(v));
+      const counts={a:0,b:0,tie:0};for(const v of values)counts[v]++;
+      const consistent=values.length>0&&Math.max(...Object.values(counts))/values.length>.5;
+      evidence.set(q.id,{count:values.length,consistent});
+      if(consistent){graph.get(q.a).add(q.b);graph.get(q.b).add(q.a);}
+    }
+    const requiredGrades=[...new Set(list.map(p=>p.grade))];
+    return proposals(list,questions,votes,anchors).map(p=>{
+      const seen=new Set([p.id]),queue=[p.id];while(queue.length){for(const next of graph.get(queue.shift())||[])if(!seen.has(next)){seen.add(next);queue.push(next);}}
+      const linkedGrades=[...new Set([...seen].map(id=>byId.get(id).grade))];
+      const scaleConnected=requiredGrades.every(g=>linkedGrades.includes(g));
+      const direct=questions.filter(q=>(q.a===p.id||q.b===p.id)&&evidence.get(q.id)?.consistent);
+      const sameGradeOpponents=new Set(direct.filter(q=>byId.get(q.a).grade===byId.get(q.b).grade).map(q=>q.a===p.id?q.b:q.a)).size;
+      const crossGradeOpponents=new Set(direct.filter(q=>byId.get(q.a).grade!==byId.get(q.b).grade).map(q=>q.a===p.id?q.b:q.a)).size;
+      const enoughOpponents=p.resolved>=3;
+      const reason=!scaleConnected?'급수 간 비교 연결이 부족합니다.':p.resolved<3?'서로 다른 상대 3명 이상의 유효 비교가 필요합니다.':!p.reviewed?'판단이 나뉘거나 비교 관계가 맞지 않습니다.':'비교 근거를 관리자와 확인해 주세요.';
+      return {...p,measurementVersion:2,ready:p.ready&&scaleConnected&&enoughOpponents,reviewed:p.reviewed&&scaleConnected&&enoughOpponents,
+        state:!scaleConnected||!enoughOpponents||!p.reviewed?'평가 부족':p.state,
+        assessment:{sameGradeOpponents,crossGradeOpponents,linkedGrades,requiredGrades,scaleConnected,enoughOpponents,reason},
+        comparisons:p.comparisons.map(c=>{const other=list.find(v=>v.name===c.name);return {...c,grade:other?.grade||'',kind:other?.grade===byId.get(p.id).grade?'same-grade':'cross-grade'};})};
+    });
+  }
+  const api={player,players,pairs,proposals,measurementPairs,measurementProposals,version:'comparison-v4'};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.KokClubSkill=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

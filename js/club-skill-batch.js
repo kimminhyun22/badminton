@@ -6,6 +6,7 @@
   const profile=m=>Object.fromEntries(fields.map(k=>[k,value(m,k)]));
   const sameIdentity=(a,b)=>!!a&&!!b&&String(a.name)===String(b.name);
   function reviewBaselines(own,club){
+    if(!club||own?.clubId!==club.id)return [];
     return (own?.snapshots||[]).flatMap((original,i)=>{
       const matches=club?.members?.filter(m=>m.name===original.name)||[],m=matches.length===1?matches[0]:null;
       if(!sameIdentity(original,m))return [];
@@ -26,6 +27,7 @@
     if(!club)throw Error('클럽 명부를 찾을 수 없습니다.');
     const seen=new Set(),entries=[];
     for(const item of items){
+      if(item.clubId&&item.clubId!==clubId)throw Error('다른 클럽의 보정안은 적용할 수 없습니다.');
       const matches=club.members.filter(m=>m.name===item.original?.name);
       if(seen.has(item.id)||matches.length!==1||!same(matches[0],item.original))throw Error('명부가 변경됐습니다. 결과를 다시 확인해 주세요.');
       seen.add(item.id);

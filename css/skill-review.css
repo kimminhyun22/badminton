@@ -10,3 +10,5 @@ button,select,input{font:inherit;max-width:100%}button,select,.file-button{min-h
 @media(prefers-reduced-motion:reduce){.question-sides .side,.choices .tie-choice,#quizProgress::-webkit-progress-value{transition:none}.side:active,.tie-choice:active{transform:none}}
 #questionTitle{word-break:keep-all;overflow-wrap:anywhere;text-wrap:balance}
 #collectionProgress{margin:24px 0;padding:16px 0;border-block:1px solid #dce3e8}#collectionProgress h2{line-height:1.6}#collectionProgress p{margin:8px 0;overflow-wrap:anywhere}#collectionProgress details{border:0;padding-bottom:0}.collection-bar{width:100%;height:10px;accent-color:#4c9475}
+
+.boundary-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #e2e8e5;min-height:44px;} .boundary-row input{width:22px;height:22px;flex-shrink:0;} .boundary-row span{min-width:0;overflow-wrap:anywhere;} #boundaryPreview{font-size:14px;line-height:1.6;overflow-wrap:anywhere;}

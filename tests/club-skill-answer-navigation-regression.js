@@ -5,7 +5,7 @@ function fixture(code=source){
   const nodes={},values={},buttons=['a','b','tie','skip'].map(v=>({dataset:{vote:v},setAttribute(k,value){this[k]=value;}}));
   const $=id=>nodes[id]||(nodes[id]={hidden:false,disabled:false,textContent:'',querySelectorAll:()=>buttons});
   const q=[{id:'q0',a:'p0',b:'p1'},{id:'q1',a:'p0',b:'p2'}];
-  const ctx={$,Object,Date,Math,parseInt,window:{matchMedia:()=>({matches:true})},esc:String,at:0,batch:q,answers:{},busy:false,flipped:false,active:{id:'test',key:'00'},
+  const ctx={$,Object,Date,Math,parseInt,window:{matchMedia:()=>({matches:true})},esc:String,at:0,batch:q,answers:{},busy:false,flipped:false,evaluatingAsOwner:false,active:{id:'test',key:'00'},
     session:{questions:q,answers:{},expiresAt:Date.now()+86400000,players:[0,1,2].map(i=>({id:'p'+i,name:'E2E'+i,grade:'C',gender:'남',ageGroup:'40대'})),clubName:'E2E'},
     write:(k,v)=>values[k]=JSON.parse(JSON.stringify(v)),read:(k,f)=>values[k]??f,localStorage:{removeItem:k=>delete values[k]},
     ownerLink:()=>null,persist(){},message:s=>ctx.messageText=s,panels:s=>ctx.panel=s,reviewQuestions:()=>q,

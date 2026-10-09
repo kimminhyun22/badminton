@@ -6,7 +6,7 @@ const members=Array.from({length:5},(_,i)=>({name:'E2E'+i,grade:'C',gender:'남'
 const players=C.players(members),questions=C.pairs(players),answers=Object.fromEntries(questions.map(q=>[q.id,q.a==='p0'?'a':'tie']));
 const key='1'.repeat(32),invite='2'.repeat(32),hash=s=>crypto.createHash('sha256').update(s).digest('hex');
 const s={id:'3'.repeat(32),clubName:'E2E',players,questions,votes:{e0:answers},owner:hash(key),invites:[hash(invite)],expiresAt:Date.now()+86400000};
-const before=JSON.stringify(s),club={id:'test',members:structuredClone(members)},own={id:s.id,snapshots:members};
+const before=JSON.stringify(s),club={id:'test',members:structuredClone(members)},own={id:s.id,clubId:'test',snapshots:members};
 club.members[0].skillStep=2;club.members[0].level=4.4;
 const baselines=B.reviewBaselines(own,club);
 const old=project(s,'owner'),next=project(s,'owner',baselines);

@@ -4,7 +4,7 @@
   const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback;}catch(_){return fallback;}};
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const write=(key,data)=>localStorage.setItem(key,JSON.stringify(data));
-  let links=read(KEY,[]),active=null,session=null,batch=[],answers={},at=0,busy=false,flipped=false;
+  let links=read(KEY,[]),active=null,session=null,batch=[],answers={},at=0,busy=false,flipped=false,evaluatingAsOwner=false;
   const from=new URLSearchParams(location.search).get('from')==='team'?'team.html':'index.html';
   const quick=new URLSearchParams(location.search).get('quick')==='1';
   $('back').href=from;
@@ -17,7 +17,7 @@
     const own=links.find(l=>l.id===data.id&&l.key===data.key);
     if(data.action==='read'&&own&&window.KokSkillBatch){
       const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
-      data={...data,baselines:window.KokSkillBatch.reviewBaselines(own,club)};
+      data={...data,clubId:own.clubId,baselines:window.KokSkillBatch.reviewBaselines(own,club)};
     }
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
     try{
@@ -51,6 +51,85 @@
     $('create').disabled=members.length<2;
     return {members,issues};
   }
+  function boundarySelection(){return [...document.querySelectorAll('.boundary-pick:checked')].map(e=>e.value);}
+  function previewBoundaries(){
+    if(!session||!C.measurementPairs)return;
+    const selected=boundarySelection(),questions=C.measurementPairs(session.players,selected),old=new Set(session.storedQuestionIds||session.questions.map(q=>q.id));
+    const cross=questions.filter(q=>q.kind==='cross-grade'),added=cross.filter(q=>!old.has(q.id));
+    const name=id=>session.players.find(p=>p.id===id)?.name||id;
+    $('boundaryPreview').innerHTML=`<p>기존 응답 ${session.count}건 보존 · 추가 교차 질문 ${added.length}개</p>`+cross.map(q=>`<p>${esc(name(q.a))} ↔ ${esc(name(q.b))}${old.has(q.id)?' · 기존 질문':''}</p>`).join('');
+    const grades=[...new Set(session.players.map(p=>p.grade))],chosenGrades=new Set(session.players.filter(p=>selected.includes(p.id)).map(p=>p.grade));
+    const missing=grades.filter(g=>!chosenGrades.has(g));
+    if(grades.length>1&&missing.length)$('boundaryPreview').innerHTML+=`<p class="muted">${missing.map(esc).join('·')} 경계 선수를 선택해 주세요. 선수의 평가값은 자동 입력하지 않습니다.</p>`;
+    $('configureMeasurement').disabled=session.closed||session.expiresAt<=Date.now()||(grades.length>1&&missing.length>0);
+  }
+  function assessmentPlan(){
+    const own=ownerLink();if(!own)return null;
+    if(own.recommendation?.sourceId===session.id)return own.recommendation;
+    if(window.MintonRecommendedPlan?.sourceId===session.id)return window.MintonRecommendedPlan;
+    return window.KokSkillPlan?.recommend(session)||null;
+  }
+  function renderRecommendations(){
+    if(!$('recommendationSetup'))return;
+    const own=ownerLink(),plan=assessmentPlan();$('recommendationSetup').hidden=!plan;if(!plan)return;
+    if(window.KokSkillPlan?.nextQuestions){
+      const next=window.KokSkillPlan.nextQuestions(session,12);own.recommendation=plan;persist(own);
+      $('recommendedSummary').textContent=`기존 ${session.count}응답 재사용 · 다음 비교 최대 12문항 중 ${next.length}문항. 동급·인접 급수에서 근거 부족과 상충을 먼저 확인합니다. 본인이 이미 답한 쌍은 제외하며, 추가 데이터만으로 정확성이 보장되지는 않습니다.`;
+      $('recommendedCandidates').innerHTML=next.map(q=>`<p>${esc(session.players.find(p=>p.id===q.a)?.name)} ↔ ${esc(session.players.find(p=>p.id===q.b)?.name)} · ${esc(q.reason)}</p>`).join('')||'<p class="muted">우선 확인할 미응답 비교가 없습니다. 다른 판단자의 독립 확인이 필요할 수 있습니다.</p>';
+      $('recommendedQuestions').innerHTML=next.map(q=>`<p>${esc(q.boundary)} · ${q.kind==='same-grade'?'동급':'인접 급수'} · ${esc(q.reason)}</p>`).join('');
+      $('startRecommended').textContent=`추가 비교 ${next.length}문항 시작`;$('startRecommended').disabled=!next.length||session.closed||session.expiresAt<=Date.now();$('startSupplement').hidden=true;$('answerSelf').hidden=false;return;
+    }
+    own.recommendation=plan;persist(own);$('answerSelf').hidden=true;
+    const name=id=>session.players.find(p=>p.id===id)?.name||id;
+    $('recommendedSummary').textContent=`기존 ${plan.sourceCount}응답 보존 · 예비 ${plan.pilot.length}문항 → 첫 묶음 ${plan.initial.length}문항 · 문항마다 서로 다른 임원 3명 권장, 총 ${plan.initialResponses}응답. 상대 수 부족 보충 ${plan.supplement.length}문항까지 총 ${plan.fullResponses}응답 목표입니다. 정확도를 보장하는 수치는 아닙니다.`;
+    $('recommendedCandidates').innerHTML=plan.candidates.map(p=>`<p><strong>${esc(name(p.id))} · ${esc(p.grade)}</strong> — ${esc(p.reason)}${p.exploratory?' · 탐색 후보':''}<br><small>유효 상대 ${p.resolved}명 · 판단자 묶음 ${p.experts}개 · 기존 연결 집단 ${p.componentSize}명</small></p>`).join('');
+    $('recommendedQuestions').innerHTML=[['먼저 볼 예비 질문',plan.pilot],['첫 묶음의 나머지 질문',plan.confirm],['상대 수가 부족한 회원의 보충 질문',plan.supplement]].map(([title,list])=>`<h3>${title} ${list.length}개</h3>`+list.map(q=>`<p>${esc(q.boundary)} · ${esc(name(q.a))} ↔ ${esc(name(q.b))}</p>`).join('')).join('');
+    const done=list=>list.every(q=>Object.hasOwn(session.ownerAnswers||{},q.id));
+    $('startRecommended').textContent=done(plan.pilot)?done(plan.confirm)?'첫 묶음 답안 확인':`나머지 ${plan.confirm.length}문항 시작`:`예비 ${plan.pilot.length}문항 시작`;
+    $('startRecommended').disabled=session.closed||session.expiresAt<=Date.now();
+    $('startSupplement').textContent=`보충 ${plan.supplement.length}문항 준비`;$('startSupplement').disabled=!done(plan.initial)||session.closed||session.expiresAt<=Date.now();
+  }
+  async function beginRecommended(supplement=false){
+    if(window.KokSkillPlan?.nextQuestions){
+      if(busy)return;const own=ownerLink();if(!own)return;busy=true;
+      try{
+        session=await api({action:'read',...active});const pending=read('kokmatch_skill_draft_'+own.id+'_'+own.key,{});const selected=Object.keys(pending).length&&own.adaptiveQuestions?.length?own.adaptiveQuestions:window.KokSkillPlan.nextQuestions(session,12);if(!selected.length){busy=false;renderOwner();return;}
+        const cross=selected.filter(q=>q.kind==='cross-grade'),missing=cross.filter(q=>!session.questions.some(v=>v.id===q.id));
+        if(session.assessmentVersion!==2||missing.length){session=await api({action:'measurement',...active,boundaryIds:[...new Set(cross.flatMap(q=>[q.a,q.b]))],...(cross.length?{questionIds:cross.map(q=>q.id)}:{})});}
+        own.adaptiveQuestions=selected;own.reviewPhase='adaptive';persist(own);evaluatingAsOwner=true;session={...session,answers:session.ownerAnswers||{},respondentName:'관리자 개인 평가'};busy=false;startBatch();
+      }catch(e){busy=false;message(e.message);}return;
+    }
+    if(busy)return;const own=ownerLink(),plan=assessmentPlan();if(!own||!plan)return;busy=true;
+    try{
+      const questions=supplement?plan.initial.concat(plan.supplement):plan.initial;
+      if(questions.some(q=>!session.questions.some(v=>v.id===q.id))||session.assessmentVersion!==2){
+        const boundaryIds=[...new Set(questions.flatMap(q=>[q.a,q.b]))];
+        session=await api({action:'measurement',...active,boundaryIds,questionIds:questions.map(q=>q.id)});
+      }
+      session=await api({action:'read',...active});
+      own.recommendation=plan;own.reviewPhase=supplement?'coverage':plan.pilot.every(q=>Object.hasOwn(session.ownerAnswers||{},q.id))?'confirm':'pilot';persist(own);
+      evaluatingAsOwner=true;session={...session,answers:session.ownerAnswers||{},respondentName:'관리자 예비 평가'};busy=false;startBatch();
+    }catch(e){message(e.message);}finally{busy=false;}
+  }
+  if($('startRecommended'))$('startRecommended').onclick=()=>beginRecommended(false);
+  if($('startSupplement'))$('startSupplement').onclick=()=>beginRecommended(true);
+  function renderMeasurementSetup(){
+    if(!$('boundaryPlayers'))return;
+    const selected=new Set(session.boundaryIds||[]);
+    $('boundaryPlayers').innerHTML=session.players.map(p=>`<label class="boundary-row"><input type="checkbox" class="boundary-pick" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span><strong>${esc(p.name)}</strong> · ${esc(p.grade)}<br><small>점수 ${(5+p.base).toFixed(1)} · 실력 점수 ${(5+(p.skillRating??(p.base+p.skillStep*.2))).toFixed(2)}</small></span></label>`).join('');
+    $('measurementSetup').open=!window.KokSkillPlan&&session.assessmentVersion!==2;
+    $('measurementInfo').textContent=session.assessmentVersion===2?'기존 평가를 보존한 개인 실력 측정입니다. 나이·성별은 기존 점수에 포함되며 다시 보정하지 않습니다.':'기존 동급 평가를 살리고 경계 선수 교차 비교로 연결합니다. 이전 질문·응답은 삭제하지 않습니다.';
+    $('answerSelf').textContent=session.assessmentVersion===2?'관리자 개인 평가 시작':'나도 참여하기';
+    previewBoundaries();
+  }
+  $('boundaryPlayers').onchange=previewBoundaries;
+  $('configureMeasurement').onclick=async()=>{
+    if(busy)return;busy=true;$('configureMeasurement').disabled=true;
+    try{session=await api({action:'measurement',...active,boundaryIds:boundarySelection()});
+      if(session.assessmentVersion!==2)throw Error('새 측정 서버가 아직 반영되지 않았습니다. 기존 자료는 유지합니다.');
+      session=await api({action:'read',...active});message('기존 응답을 보존하고 교차 비교를 준비했습니다.');renderOwner();
+    }catch(e){message(e.message);}finally{busy=false;previewBoundaries();}
+  };
   function setup(){
     panels('setup');
     $('club').innerHTML=clubs.map((c,i)=>`<option value="${i}">${esc(c.name)}</option>`).join('');
@@ -68,11 +147,12 @@
     catch(e){message(e.message);setup();}finally{busy=false;}
   }
   function resultState(p,original,current){
+    if(p.assessment&&!p.reviewed)return {key:'pending',title:'평가 부족 · 미반영',reason:p.assessment.reason};
     if(p.model?.startsWith('comparison-v')){
       const same=window.KokSkillBatch.same;
       if(!same(original,current))return {key:'changed',title:'명부 변경됨',reason:'명부가 변경됐습니다. 새로고침해 주세요.'};
       if(!p.opponents)return {key:'unreviewed',title:'초기 추정',reason:'비교 응답이 없어 초기 추정을 유지합니다.'};
-      const note=p.connected?'누적 비교 전체로 추정했습니다.':'비교 집단 간 연결이 부족합니다. 다른 집단과 비교하면 전체 점수가 더 정확해집니다.';
+      const note=p.assessment?'급수 간 연결과 상대 3명 이상의 유효 비교를 확인했습니다.':p.connected?'누적 비교 전체로 추정했습니다.':'비교 집단 간 연결이 부족합니다. 다른 집단과 비교하면 전체 점수가 더 정확해집니다.';
       return p.ready?{key:'ready',title:'저장 가능',reason:note}:{key:'applied',title:'반영 완료',reason:note};
     }
     const fields=['name','grade','gender','ageGroup'];
@@ -130,17 +210,19 @@
     return {p,state,original:baseline||original,current};
   }
   function renderOwner(){
+    evaluatingAsOwner=false;renderMeasurementSetup();renderRecommendations();
     panels('owner');const own=ownerLink();
     $('ownerResults').hidden=!session.count;
-    $('clubTitle').textContent=session.clubName;
+    $('clubTitle').textContent=session.clubName+' · 클럽 내 실력 평가';
     const progress=reviewProgress(session.players,session.questions,session.proposals);
-    $('collectionProgress').innerHTML=`<h2>${progress.total}명 중 ${progress.done}명 비교 반영</h2><p class="muted">기존 응답을 모두 재계산합니다. 비교 횟수나 조정 폭으로 저장을 막지 않습니다. 비교가 없는 회원만 초기 추정을 유지합니다.</p>`;
+    $('collectionProgress').innerHTML=`<h2>${progress.total}명 중 ${progress.done}명 비교 자료 있음</h2><p class="muted">기존 동급 응답을 보존합니다. 급수 간 연결과 서로 다른 상대 3명 이상의 유효 근거가 부족하면 현재 값을 유지합니다.</p>`;
     const coverage=comparisonCoverage(session.players,session.questions,session.evidence);
     $('collectionProgress').innerHTML+=`<p>같은 급수 비교 ${coverage.same}건 · 다른 급수 비교 ${coverage.cross}건</p>`;
     if(coverage.missing)$('collectionProgress').innerHTML+=`<p class="muted">${coverage.missing}명은 다른 급수와 직접 비교한 자료가 없습니다. 같은 급수 안의 우세만으로 급수 간 실력 차이를 확정할 수 없습니다. 추가 참여에서는 가까운 다른 급수와의 비교를 우선합니다.</p>`;
     if(!coverage.multiGrade)$('collectionProgress').innerHTML+='<p class="muted">이 명부에는 다른 급수 회원이 없어 급수 간 실력 차이를 확인할 수 없습니다.</p>';
     if(progress.pending.length)$('collectionProgress').innerHTML+=`<details><summary>비교 전 ${progress.pending.length}명</summary>${progress.pending.map(r=>`<p>${esc(r.name)}</p>`).join('')}</details>`;
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
+    if(session.clubId&&session.clubId!==own.clubId)throw Error('평가와 명부의 클럽이 다릅니다.');
     const rows=session.proposals.map(p=>proposalRow(p,own,currentClub));
     const count=key=>rows.filter(r=>r.state.key===key).length;
     const ready=rows.filter(r=>r.state.key==='ready');
@@ -149,7 +231,7 @@
     $('undoBatch').hidden=!currentClub?.skillReview?.latest;
     $('notice').textContent=`${session.count}개 응답 저장됨 · ${rows.filter(r=>r.p.opponents).length}/${rows.length}명 비교`;
     $('notice').className=ready.length?'ready-notice':'muted';
-    $('resultSummary').innerHTML=[['applied','반영 완료'],['ready','적용 가능'],['pending','추가 확인'],['same','변경 없음']].map(([key,title])=>`<div><strong>${count(key)}명</strong><span>${title}</span></div>`).join('');
+    $('resultSummary').innerHTML=[['applied','반영 완료'],['ready','적용 가능'],['pending','평가 부족'],['same','변경 없음']].map(([key,title])=>`<div><strong>${count(key)}명</strong><span>${title}</span></div>`).join('');
     $('resultHelp').textContent=count('applied')?`${count('applied')}명 보정값 명부 반영 완료. 이 기기의 명부로 새 대진을 생성하면 적용됩니다. 이미 생성한 대진은 그대로 유지됩니다.`:ready.length?'보정안을 명부에 저장하면 새 대진에 적용됩니다.':'현재 명부 값을 유지합니다.';
     if(ready.length)$('resultHelp').textContent+=` 추가 저장 가능 ${ready.length}명.`;
     if(count('pending'))$('resultHelp').textContent+=` 추가 확인 ${count('pending')}명은 현재 값을 유지하며, 추가 비교 후 조정할 수 있습니다.`;
@@ -158,11 +240,11 @@
     const order={ready:0,pending:1,applied:2,changed:3,same:4};
     $('proposals').innerHTML=rows.filter(r=>r.p.opponents).sort((a,b)=>order[a.state.key]-order[b.state.key]).map(({p,state})=>{
       const player=session.players.find(v=>v.id===p.id),before=5+(p.currentRating??(player.base+p.current*.2)),after=5+(p.skillRating??(player.base+p.step*.2)),delta=after-before;
-      const change=delta>0?'+'+delta.toFixed(1):delta.toFixed(1);
-      const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'더 유리':'덜 유리'} · ${c.votes}명 응답</li>`).join('');
-      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(2)} <span>→</span> ${after.toFixed(2)} <b>${change}</b></p><p>${Number.isFinite(p.baseRating)?`기본 ${(p.baseRating+5).toFixed(2)} ${p.adjustment>=0?'+':'−'} 미세조정 ${Math.abs(p.adjustment).toFixed(2)} = 최종 ${(p.skillRating+5).toFixed(2)}`:'누적 비교로 추정한 최종 실력'} · 성별·연령 추가 보정 없음</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p><ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">비교 점수는 기존 실력점수에 모두 5점을 더한 표시입니다. 실력차와 배정 기준은 그대로이며 승률이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
+      const change=delta>0?'+'+delta.toFixed(3):delta.toFixed(3);
+      const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)}${c.grade?` (${esc(c.grade)} · ${c.kind==='cross-grade'?'교차':'동급'})`:''} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'개인 실력 우세':'개인 실력 열세'} · ${c.votes}명 응답</li>`).join('');
+      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div><p class="score-change">${before.toFixed(3)} <span>→</span> ${after.toFixed(3)} <b>${change}</b></p><p>${Number.isFinite(p.baseRating)?`기본 표시 ${(p.baseRating+5).toFixed(3)} ${p.adjustment>=0?'+':'−'} 개인 보정 ${Math.abs(p.adjustment).toFixed(3)} = 추정 표시 ${(p.skillRating+5).toFixed(3)}`:'해당 클럽 비교로 추정한 최종 실력'} · 성별·연령 추가 보정 없음</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p>${p.assessment?`<p>동급 상대 ${p.assessment.sameGradeOpponents}명 · 교차 상대 ${p.assessment.crossGradeOpponents}명 · 연결 급수 ${p.assessment.linkedGrades.map(esc).join('·')}</p>`:''}<ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">음수 표시를 피하려고 기본·추정 점수에 각각 5점을 한 번 더합니다. 보정값에는 더하지 않습니다. 저장·대진 계산은 내부 점수를 사용하며, 표시점수는 승률·실력 배수·10점 만점이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
     }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
-    $('answerSelf').textContent='나도 참여하기';
+    $('answerSelf').textContent=session.assessmentVersion===2?'관리자 개인 평가 시작':'나도 참여하기';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
     $('close').disabled=session.closed;$('answerSelf').disabled=session.closed||session.expiresAt<=Date.now();
     $('share').disabled=true;$('retryShare').hidden=true;
@@ -182,7 +264,7 @@
       let entry=links.find(l=>l.clubId===club.id&&l.pending&&l.snapshots?.length===members.length&&l.snapshots.every((m,i)=>window.KokSkillBatch.sameIdentity(m,members[i])));
       if(!entry){entry={id:nonce(),key:nonce(),invites:[nonce(),nonce(),nonce()],clubId:club.id,clubName:club.name,createdAt:Date.now(),snapshots:JSON.parse(JSON.stringify(members)),players,pending:true};persist(entry);}
       busy=true;$('create').disabled=true;message('퀴즈를 만드는 중');
-      session=await api({action:'create',id:entry.id,key:entry.key,invites:entry.invites,clubName:entry.clubName,players:entry.players});
+      session=await api({action:'create',id:entry.id,key:entry.key,invites:entry.invites,assessmentVersion:2,clubId:entry.clubId,clubName:entry.clubName,players:entry.players});
       entry.pending=false;persist(entry);active={id:entry.id,key:entry.key};message('');
       renderOwner();
     }catch(e){message(e.message);}finally{busy=false;$('create').disabled=false;}
@@ -216,11 +298,14 @@
     try{
       const link=own.sharedReady?{id:own.id,key:own.sharedKey}:await sharedLink(own),url=new URL('skill-review.html',location.href);
       url.search='';url.searchParams.set('v',document.querySelector('meta[name="app-version"]').content);url.hash=link.id+'.'+link.key;
-      try{if(navigator.share)await navigator.share({title:'민턴라이브 · 우리 클럽 밸런스게임',text:'반드시 이겨야 하는 게임, 누구와 파트너를 하시겠어요?',url:url.href});else{await navigator.clipboard.writeText(url.href);message('단톡방에 보낼 링크를 복사했습니다.');}}
+      try{if(navigator.share)await navigator.share({title:'민턴라이브 · 우리 클럽 밸런스게임',text:'현재 개인 실력을 비교해 주세요.',url:url.href});else{await navigator.clipboard.writeText(url.href);message('단톡방에 보낼 링크를 복사했습니다.');}}
       catch(e){if(e.name!=='AbortError')prompt('단톡방 공유 링크',url.href);}
     }catch(e){message(e.message);}finally{busy=false;}
   };
-  $('answerSelf').onclick=()=>openShared(ownerLink());
+  $('answerSelf').onclick=()=>{
+    if(session.assessmentVersion===2){evaluatingAsOwner=true;session={...session,answers:session.ownerAnswers||{},respondentName:'관리자 직접 평가'};startBatch();}
+    else openShared(ownerLink());
+  };
   function renderIdentity(){
     panels('identity');
     $('respondent').innerHTML='<option value="">이름 선택</option>'+session.players.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
@@ -277,6 +362,21 @@
     for(const q of questions)if(Object.hasOwn(pending,q.id)&&!fixed.some(p=>p.id===q.id))fixed.push(q);
     return fixed.concat(reviewQuestions(questions,{...previous,...pending},Math.max(0,20-fixed.length),evidence,players));
   }
+  function ownerMeasurementQuestions(){
+    const own=ownerLink(),plan=own?.recommendation;
+    if(evaluatingAsOwner&&own?.reviewPhase==='adaptive'&&own.adaptiveQuestions?.length){const ids=new Set(own.adaptiveQuestions.map(q=>q.id));return session.questions.filter(q=>ids.has(q.id));}
+    if(evaluatingAsOwner&&plan?.sourceId===session.id){
+      if(own.reviewPhase!=='coverage'&&own.reviewPhase!=='confirm'&&plan.pilot.every(q=>Object.hasOwn(session.answers||{},q.id))){own.reviewPhase='confirm';persist(own);}
+      const phase=own.reviewPhase==='coverage'?plan.supplement:own.reviewPhase==='confirm'?plan.confirm:plan.pilot;
+      const ids=new Set(phase.map(q=>q.id)),pending=read(draftKey(),{});
+      for(const id of Object.keys(pending))ids.add(id);
+      const selected=phase.map(q=>session.questions.find(v=>v.id===q.id)).filter(Boolean);
+      return selected.concat(session.questions.filter(q=>ids.has(q.id)&&!selected.some(v=>v.id===q.id)));
+    }
+    if(session.reviewQuestionIds?.length){const ids=new Set(session.reviewQuestionIds);return session.questions.filter(q=>ids.has(q.id));}
+    if(!evaluatingAsOwner||session.assessmentVersion!==2)return session.questions;
+    return session.questions.filter(q=>!session.evidence[q.id]?.count||session.evidence[q.id]?.needsReview);
+  }
   const draftKey=()=> 'kokmatch_skill_draft_'+active.id+'_'+active.key;
   function renderQuizProgress(){
     const count=batch.filter(q=>Object.hasOwn(answers,q.id)||Object.hasOwn(session.answers,q.id)).length;
@@ -293,7 +393,7 @@
     const pending=read(draftKey(),{});
     answers=Object.fromEntries(Object.entries(pending).filter(([id,v])=>session.questions.some(q=>q.id===id)&&['a','b','tie','skip'].includes(v)));
     const saved=read(draftKey()+'_plan',[]);
-    batch=reviewPlan(session.questions,session.answers,answers,saved,read(draftKey()+'_planVersion',null),session.evidence,session.players);
+    batch=reviewPlan(ownerMeasurementQuestions(),session.answers,answers,saved,read(draftKey()+'_planVersion',null),session.evidence,session.players);
     at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers,q.id));
     if(at<0&&batch.length){at=batch.length;panels('quiz');finishReview();return;}
     if(!batch.length){panels('done');$('doneText').textContent='모든 비교를 마쳤습니다.';$('more').hidden=true;showOwnerReturn();return;}
@@ -304,6 +404,7 @@
   function renderQuestion(){
     const q=batch[at];if(!q)return;
     $('finishReview').hidden=true;$('retry').hidden=true;$('questionTitle').hidden=false;
+    $('questionTitle').textContent='현재 개인 실력은 누가 더 강한가요?';
     $('previousQuestion').disabled=at===0;
     flipped=(parseInt(active.key.slice(-2),16)+at)%2===1;
     const a=session.players.find(p=>p.id===(flipped?q.b:q.a)),b=session.players.find(p=>p.id===(flipped?q.a:q.b));
@@ -337,7 +438,8 @@
     try{
       // The interface is uninterrupted; bounded server writes remain retry-safe.
       for(const chunk of Array.from({length:Math.ceil(Object.keys(answers).length/5)},(_,i)=>Object.entries(answers).slice(i*5,i*5+5))){
-        session=await api({action:'answer',...active,answers:Object.fromEntries(chunk)});
+        session=await api({action:evaluatingAsOwner?'assess':'answer',...active,answers:Object.fromEntries(chunk)});
+        if(evaluatingAsOwner)session={...session,answers:session.ownerAnswers||{},respondentName:'관리자 직접 평가'};
         chunk.forEach(([id])=>delete answers[id]);write(draftKey(),answers);
       }
       const own=ownerLink();if(own&&session.reviewedAt){own.reviewedAt=session.reviewedAt;persist(own);}
@@ -346,7 +448,8 @@
       localStorage.removeItem(draftKey()+'_plan');
       localStorage.removeItem(draftKey()+'_planVersion');
       answers={};panels('done');$('doneText').textContent=contributionText()+' 안목을 나눠주셔서 감사합니다. 명부에는 아직 자동 적용되지 않으며, 운영자가 결과에서 조정 폭과 비교 근거를 확인할 수 있습니다.';
-      $('more').hidden=session.questions.every(q=>Object.hasOwn(session.answers,q.id));message('');showOwnerReturn();
+      const plan=ownerLink()?.recommendation,phase=ownerLink()?.reviewPhase==='coverage'?plan?.supplement:plan?.initial;
+      $('more').hidden=ownerLink()?.reviewPhase==='adaptive'||(phase?phase.every(q=>Object.hasOwn(session.answers,q.id)):session.questions.every(q=>Object.hasOwn(session.answers,q.id)));message('');showOwnerReturn();
     }catch(e){message(e.message);$('retry').hidden=false;}finally{busy=false;$('saveAnswers').disabled=false;$('previousQuestion').disabled=at<=0;}
   }
   function showOwnerReturn(){
@@ -373,7 +476,7 @@
     const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId),row=proposalRow(proposal,own,club);
     if(row.state.key!=='ready')return;
     const p=row.p,original=row.original;
-    try{write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:[{id:p.id,original,step:p.step,skillRating:p.skillRating}],createdAt:Date.now()});location.href=from+'?skillReviewApply=1';}catch(e){message('보정안을 저장하지 못했습니다. 저장 공간을 확인해 주세요.');}
+    try{write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:[{clubId:own.clubId,id:p.id,original,step:p.step,skillRating:p.skillRating}],createdAt:Date.now()});location.href=from+'?skillReviewApply=1';}catch(e){message('보정안을 저장하지 못했습니다. 저장 공간을 확인해 주세요.');}
   };
   $('applyAll').onclick=async()=>{
     if(busy)return;busy=true;
@@ -383,7 +486,7 @@
       const rows=session.proposals.map(p=>proposalRow(p,own,club)).filter(r=>r.state.key==='ready');
       if(!rows.length){message('현재 적용 가능한 보정안이 없습니다.');return;}
       if(!confirm(`${rows.length}명의 보정안을 명부에 일괄 저장할까요?\n현재 명부 값을 기준으로 계산했습니다. 이미 생성한 대진은 재배정하지 않습니다.`))return;
-      write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:rows.map(r=>({id:r.p.id,original:r.current,step:r.p.step,skillRating:r.p.skillRating})),createdAt:Date.now()});
+      write('kokmatch_skill_apply_v1',{batch:true,reviewId:own.id,clubId:own.clubId,batchId:nonce(),items:rows.map(r=>({clubId:own.clubId,id:r.p.id,original:r.current,step:r.p.step,skillRating:r.p.skillRating})),createdAt:Date.now()});
       location.href=from+'?skillReviewApply=1';
     }catch(e){message(e.message);}finally{busy=false;}
   };
