@@ -11,6 +11,12 @@ assert(!more(100,50,100,100),'Stop on a plateau');
 assert(more(100,50,100,1),'Continue while quality improves');
 assert(!more(150,50,100,0),'Attempt cap');
 assert(!more(55,50,3000,0),'Extra time cap');
-assert(src.includes('for(let _t=0;_teamContinueInitialSearch('),'Initial generation must use adaptive search');
+// Reuse of an already evaluated whole bracket skips random generation; fresh
+// generation must still receive the complete adaptive budget.
+const condition=src.split('for(let _t=0;')[1].split(';')[0];
+Object.assign(ctx,{opts:{},_t:0,_TRIES:50,_extraStarted:0,_lastImprovement:0});
+assert(vm.runInContext(condition,ctx),'Initial generation must use adaptive search');
+ctx._t=150;assert(!vm.runInContext(condition,ctx),'Fresh generation still obeys the attempt cap');
+ctx._t=0;ctx.opts={preferredCandidate:{}};assert(!vm.runInContext(condition,ctx),'Keep the selected bracket instead of generating another');
 assert(src.includes('bestPlayers=_try;_lastImprovement=_t;'),'Keep the best candidate and its improvement age');
 console.log('team adaptive search regression passed');

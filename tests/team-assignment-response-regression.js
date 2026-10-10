@@ -16,7 +16,7 @@ function harness({existing=false,locked=false,accept=true,fail='',sourceText=ui}
     _directPlayers:[],_partners:[],captains:{},winOverride:{},_lockedBeforeRound:null,temporaryOperators:[],
     teamAssignment:{blue:[{name:'E2E0'}],white:[{name:'E2E1'}]},currentMatches:existing?[{round:1}]:[],
     currentParticipants:[{name:'E2E0'}],currentSettings:{courts:1},_undoStack:[],_teamWanted:true,_teamModeOverride:null,
-    _teamFullReassignmentLocked:()=>locked,_teamBlockFullReassignment:()=>locked,_teamConfirmOverwriteGeneratedBracket:()=>{state.confirms++;return accept;},
+    _teamFullReassignmentLocked:()=>locked,_teamBlockFullReassignment:()=>locked,_teamConfirmDetachLiveBeforeChange:()=>accept,_teamConfirmOverwriteGeneratedBracket:()=>{state.confirms++;return accept;},
     _captureUndoSnapshot:()=>ctx._undoStack.push({}),hideErr:()=>{elements.errBar.textContent='';},hideWarn:()=>{},
     _updateUndoBtn:()=>{},updateScores:()=>{},updateTeamModeBadge:()=>{},renderTeamList:()=>{},renderResults:()=>{},scheduleSave:()=>state.saves++,
     doTeamAssign:()=>{
@@ -66,7 +66,7 @@ async function cases(sourceText=ui){
   const c=harness({existing:true,sourceText}),p=c.ctx.doTeamAssignFromUI();
   await new Promise(resolve=>setTimeout(resolve,10));c.finish(true);
   assert.equal(await p,true);assert.equal(c.state.generated,1);assert.equal(c.ctx._undoStack.length,1);
-  assert(c.elements.teamAssignStatus.textContent.includes('새 대진표를 생성'));
+  assert(c.elements.teamAssignStatus.textContent.includes('대진표에 반영했습니다'));
   // Full undo history must survive a failure even when capture shifts its head.
   const full=harness({existing:true,fail:'preflight',sourceText});
   full.ctx._undoStack=Array.from({length:20},(_,i)=>({label:'E2E'+i}));

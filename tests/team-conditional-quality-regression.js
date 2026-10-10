@@ -12,7 +12,16 @@ for(const [n,f,spread] of [[16,4,.4],[24,6,3],[35,7,4]]){
  ctx._teamAllocationBracket=(b,w,s)=>{const out=originalPreview(b,w,s);if(out)logs.push({key:b.map(p=>p.name).sort().join('|'),out,assessment:ctx._teamCompetitionEvaluation(out,s)});return out;};
  const selected=ctx._teamJointAllocation(split.blue,split.white,settings,locked);assert.equal(ctx.Math.random,previousRandom);assert.equal(JSON.stringify(split),snap);assert.equal(selected.blue.length,split.blue.length);assert.equal(selected.white.length,split.white.length);assert.equal(new Set([...selected.blue,...selected.white].map(p=>p.name)).size,n);assert(selected.blue.some(p=>p.name===locked[0]));assert(selected.white.some(p=>p.name===locked[1]));
  const initialKey=split.blue.map(p=>p.name).sort().join('|'),selectedKey=selected.blue.map(p=>p.name).sort().join('|');
- if(selectedKey!==initialKey){const refs=logs.filter(x=>x.key===selectedKey);assert.equal(refs.length,3);for(let i=0;i<3;i++){assert(refs[i].assessment.score.eligible);assert(ctx.KokTeamCompetition.protects(logs[i].assessment.legacy,refs[i].assessment.legacy,logs[i].assessment.score,refs[i].assessment.score,logs[i].out.matches,refs[i].out.matches));assert(ctx._teamWomenTargetsPreserved(logs[i].out,refs[i].out,settings));}}
+ // The exact feasible winner is now carried into generation. Unused failed
+ // seeds must not veto it; protect it against the best usable baseline instead.
+ if(selected.bracket){
+   const chosen=ctx._teamCompetitionEvaluation(selected.bracket,settings);
+   assert(chosen.score.eligible);
+   assert(logs.some(x=>x.key===selectedKey&&Q.scheduleKey(x.out.matches)===Q.scheduleKey(selected.bracket.matches)),'handoff is an actually evaluated bracket');
+   const originals=logs.filter(x=>x.key===initialKey&&x.assessment.score.eligible);
+   const initial=originals.reduce((a,x)=>!a||ctx._isBetterQualityKey(Q.rankKey(x.assessment.score),Q.rankKey(a.assessment.score))?x:a,null);
+   if(initial){assert(chosen.score.total>=initial.assessment.score.total);assert(ctx._teamAllocationCandidateSafe(initial.out,selected.bracket,settings,initial.assessment,chosen));}
+ }
  comparisons+=logs.length;
 }
 console.log(`PASS explicit team reassignment: 3 cohorts, ${comparisons} whole previews, fixed members/headcount, immutable inputs, seeded comparisons and selected safeguards`);

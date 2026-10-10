@@ -91,7 +91,7 @@ function refine(blue,white,locked,level,offset=0){
  return {blue:b,white:w};
 }
 function opponentStats(matches){const counts={};matches.forEach(m=>[m.team1A,m.team1B].forEach(a=>[m.team2C,m.team2D].forEach(b=>{const k=[a.name,b.name].sort().join('|');counts[k]=(counts[k]||0)+1;})));return {max:Math.max(0,...Object.values(counts)),excess:Object.values(counts).reduce((s,n)=>s+Math.max(0,n-3),0),repeats:Object.values(counts).reduce((s,n)=>s+Math.max(0,n-1),0)};}
-function allocationCandidates(blue,white,locked,level){
+function allocationCandidates(blue,white,locked,level,{allSingles=false}={}){
  const fixed=new Set(locked),female=p=>['F','여'].includes(p.gender),avg=ps=>ps.length?average(ps.map(level)):0;
  const initial=distribution(blue,white,level),limit=Math.max(.2,initial.meanGap+.05),out=[];
  // Roster means are an insufficient surrogate for the actual doubles pairs.
@@ -116,15 +116,18 @@ function allocationCandidates(blue,white,locked,level){
   if(Math.abs(avg(b)-avg(w))>limit+1e-9)return;
   const gradeSpread=['E','ED'].map(gs=>Math.abs(b.filter(p=>gs.includes(p.grade||'?')).length-w.filter(p=>gs.includes(p.grade||'?')).length));
   if(gradeSpread.some((v,i)=>v>initial.gradeSpread[i]))return;
-  out.push({blue:b,white:w,key:[...potential(b,w),Math.abs(avg(b)-avg(w))]});
+  out.push({blue:b,white:w,key:[...potential(b,w),Math.abs(avg(b)-avg(w))],kind:pairs.length>1?'mixed':female(blue[pairs[0][0]])?'women':'men'});
  };
  const men=[],women=[];
  for(let i=0;i<blue.length;i++)for(let j=0;j<white.length;j++)if(eligible(blue[i],white[j]))(female(blue[i])?women:men).push([i,j]);
- women.forEach(pair=>{consider([pair]);men.forEach(m=>consider([pair,m]));});
- if(!women.length)men.forEach(pair=>consider([pair]));
+ men.forEach(pair=>consider([pair]));
+ women.forEach(pair=>{consider([pair]);if(!allSingles)men.forEach(m=>consider([pair,m]));});
  const compare=(a,b)=>{for(let i=0;i<a.key.length;i++)if(a.key[i]!==b.key[i])return a.key[i]-b.key[i];return 0;};
  out.sort(compare);const seen=new Set(),result=[];
- for(const candidate of out){const key=candidate.blue.map(p=>p.name).sort().join('|');if(seen.has(key))continue;seen.add(key);result.push(candidate);if(result.length===4)break;}
+ // Every legal single swap can be scored cheaply against the current bracket.
+ // Expensive fresh previews retain a small but gender-diverse shortlist.
+ const ordered=allSingles?out:[...['men','women','mixed'].map(kind=>out.find(c=>c.kind===kind)).filter(Boolean),...out];
+ for(const candidate of ordered){const key=candidate.blue.map(p=>p.name).sort().join('|');if(seen.has(key))continue;seen.add(key);result.push(candidate);if(!allSingles&&result.length===4)break;}
  return result;
 }
 function protects(base,next,bq,nq,baseMatches,nextMatches){
