@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.797';
+const APP_VERSION='1.10.798';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1189,7 +1189,8 @@ function _officialQualityHtml(d){
     ['예상 시간', t?_fmtMinutes(rounds*(t.perRound||0)):'—']
   ].concat(Object.keys(types).map(k=>[k, types[k]]));
   const grid=cells.map(([l,v])=>'<span><b>'+esc(String(v))+'</b><small>'+esc(l)+'</small></span>').join('');
-  const badge=q&&q.grade
+  const comparisonMode=q&&(q.conditional||q.scoreVersion>=7);
+  const badge=q&&q.grade&&!comparisonMode
     ? '<div class="team-official-quality-badge q-'+esc(q.grade)+'">'
         +'<b>'+esc(String(q.score))+'</b><small>경기 조건 참고 · '+esc(q.grade)+' · '+esc(q.gradeLabel||'')+'</small></div>'
     : '';
@@ -1201,11 +1202,12 @@ function _officialQualityHtml(d){
     ? '<div class="team-official-quality-issues"><div class="t">실전 특이사항</div>'
         +q.issues.map(x=>'<div>'+esc(x)+'</div>').join('')+'</div>'
     : '';
-  const comparison=q&&q.conditional&&q.conditional.verified?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 '+esc(q.conditional.score)+'점 · '+esc(q.conditional.rank)+'/'+esc(q.conditional.count)+'위</b><br>검토 후보 내 순위입니다. 전체 최적·실제 수동 편성 대비 우수성은 미검증입니다.</div>':'';
+  const comparison=q&&q.conditional&&q.conditional.verified&&q.conditional.version===2?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 '+esc(q.conditional.score)+'점 · '+esc(q.conditional.rank)+'/'+esc(q.conditional.count)+'위</b><br>검토 후보 내 순위입니다. 전체 최적·실제 수동 편성 대비 우수성은 미검증입니다.</div>':comparisonMode?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 · 미검증</b><br>'+esc(q.conditional&&q.conditional.reason||'현재 조건의 비교 기록이 없습니다.')+'</div>':'';
   const head=q&&q.sub?esc(q.sub):'대진 구성 요약';
   return '<details class="team-official-quality"'+(_officialQualityOpen?' open':'')
     +' ontoggle="_officialQualityOpen=this.open"><summary>대진 품질 점검</summary>'
     +'<div class="team-official-quality-body">'+comparison
+      +(comparisonMode?'<details><summary>경기 조건 참고 '+esc(q.score)+'점 · '+esc(q.gradeLabel||'')+'</summary><div class="team-official-quality-sub">절대적인 경기 격차·팀 분포·운영 부담 지표이며, 이 구성원의 최선 달성 점수가 아닙니다.</div></details>':'')
       +(badge||status?'<div class="team-official-quality-head">'+badge+status+'</div>':'')
       +'<div class="team-official-quality-sub">'+head+'</div>'
       +'<div class="team-official-quality-grid">'+grid+'</div>'

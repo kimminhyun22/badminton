@@ -80,7 +80,7 @@ const statusEnd = src.indexOf('function saveState', statusStart);
 assert(src.slice(statusStart, statusEnd).includes('renderBracketSaveQuick()'), '자동저장 상태가 빠른 저장 영역에도 즉시 반영되어야 합니다.');
 assert(src.includes("quick.classList.toggle('hidden',sample)"), '준비와 LIVE 중 모두 상단 저장 목록에 접근할 수 있어야 합니다.');
 assert(src.includes("if(!confirm(_teamFinishedAt?"), '새 운동 시작 전 확인을 유지해야 합니다.');
-assert(src.includes('<details class="team-quality-details"><summary>상세 점검</summary>'), '세부 품질 점검은 접어서 표시해야 합니다.');
+assert(src.includes('<details class="team-quality-details"><summary>${competition?')&&src.includes('상세 점검 · 경기 조건 참고 ${total}점')&&!src.includes('<details class="team-quality-details" open'), '세부 품질과 절대 참고점수는 기본적으로 접어서 표시해야 합니다.');
 
 const archiveSource=src.slice(src.indexOf('function startNewTeamWorkout(){'),src.indexOf('/* 중계 버튼 UI 갱신 */'));
 function archiveCase(full=false,stored=true){

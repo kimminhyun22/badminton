@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.797';
+const APP_VERSION = '1.10.798';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2550,17 +2550,18 @@ function _teamBuildConditionalReview(selected,candidates,settings,examined){
   // silently treating the current half-share as an immutable hard constraint.
   const flex=globalThis.KokWomenDoubles.relax({_qualityAssessment,_teamCompetitionEvaluation,_teamPairBalance,
     effLevel,_isBetterQualityKey,KokTeamCompetition:policy,KokWomenDoubles:globalThis.KokWomenDoubles},selected,settings);
+  const repair=_teamRepairBalanceFirst(selected,settings);
   const flexibleKey=flex.accepted?policy.scheduleKey(flex.candidate.matches):null;
-  for(const candidate of [selected,...candidates,...(flex.accepted?[flex.candidate]:[])]){
+  for(const candidate of [selected,...candidates,...(flex.accepted?[flex.candidate]:[]),...(repair.accepted?[repair.candidate]:[])]){
     if(policy.reviewContext(candidate.participants,settings)!==context)continue;
-    const signature=policy.scheduleKey(candidate.matches);if(seen.has(signature))continue;seen.add(signature);
+    const signature=policy.scheduleKey(candidate.matches),independentKey=policy.comparisonKey(candidate.matches);if(seen.has(independentKey))continue;
     const q=_teamCompetitionEvaluation(candidate,settings),base=_teamCompetitionEvaluation(selected,settings);
     if(!q.score.eligible||q.legacy.overSlots>base.legacy.overSlots||q.legacy.structureErr||q.legacy.genderErr
       ||Math.max(...candidate.matches.map(m=>m.round))>Math.max(...selected.matches.map(m=>m.round))
       ||(! _teamWomenTargetsPreserved(selected,candidate,settings)&&signature!==flexibleKey))continue;
-    references.push({signature,score:q.score});
+    seen.add(independentKey);references.push({signature,score:q.score});
   }
-  return {version:1,context,selectedSignature:policy.scheduleKey(selected.matches),references,examined:examined+(flex.accepted?1:0),conditionalRelaxationCompared:!!flex.accepted,baseline:'1회 자동편성 및 다회 탐색 전체 후보',actualManualCompared:false};
+  return {version:2,context,selectedSignature:policy.scheduleKey(selected.matches),references,examined:examined+(flex.accepted?1:0)+(repair.accepted?1:0),repairAvailable:repair.accepted?{maxBefore:_teamCompetitionEvaluation(selected,settings).score.diagnostics.maxAdjustedGap,maxAfter:_teamCompetitionEvaluation(repair.candidate,settings).score.diagnostics.maxAdjustedGap}:null,conditionalRelaxationCompared:!!flex.accepted,baseline:'1회 자동편성 및 다회 탐색 전체 후보',actualManualCompared:false};
 }
 function teamReviewCurrentBracket(){
   if(!currentMatches.length||!currentSettings.teamMode)return;
@@ -2599,11 +2600,11 @@ function _teamWomenConstraintExplanation(players){
 }
 function _teamConditionalAssessment(matches,participants,settings){
   const evidence=settings.conditionalReview,policy=globalThis.KokTeamCompetition;
-  if(!evidence||!policy||evidence.version!==1||evidence.context!==policy.reviewContext(participants,settings))return {verified:false,reason:'현재 구성원·설정의 비교 기록이 없습니다. 새 대진 생성 시 비교합니다'};
+  if(!evidence||!policy||evidence.version!==2||evidence.context!==policy.reviewContext(participants,settings))return {verified:false,reason:'현재 구성원·설정의 비교 기록이 없습니다. 새 대진 생성 시 비교합니다'};
   if(evidence.selectedSignature!==policy.scheduleKey(matches))return {verified:false,reason:'대진 변경 후 비교 기록이 달라졌습니다. 새 대진 생성 시 다시 비교합니다'};
   const current=_teamCompetitionEvaluation({matches,participants},settings).score;
   const result=policy.compareCandidates(current,evidence.references.map(r=>r.score));
-  return {...result,examined:evidence.examined,actualManualCompared:false,conditionalRelaxationCompared:!!evidence.conditionalRelaxationCompared,constraintExplanation:_teamWomenConstraintExplanation(participants)};
+  return {...result,examined:evidence.examined,actualManualCompared:false,repairAvailable:evidence.repairAvailable||null,conditionalRelaxationCompared:!!evidence.conditionalRelaxationCompared,constraintExplanation:_teamWomenConstraintExplanation(participants)};
 }
 function _teamWomenTargetsPreserved(base,next,settings){
   const women=globalThis.KokWomenDoubles;
@@ -2653,6 +2654,8 @@ function _teamSelectFinalBracket(finalists,players,settings,totalMatches,{joint=
     best.participants.forEach(p=>{p.gamesPlayed=0;p.lastRoundPlayed=0;p.womenDoublesPlayed=0;p.menDoublesPlayed=0;p.mixedDoublesPlayed=0;p.adjustmentPlayed=0;p._womenReserved=0;p.partnerCount=history[p.name]?.partnerCount||{};p.opponentCount=history[p.name]?.opponentCount||{};});
     best.matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{p.gamesPlayed++;p.lastRoundPlayed=Math.max(p.lastRoundPlayed,m.round);p[m.type==='여복'?'womenDoublesPlayed':m.type==='남복'?'menDoublesPlayed':m.type==='혼복'?'mixedDoublesPlayed':'adjustmentPlayed']++;}));
   }
+  const repaired=_teamRepairBalanceFirst(best,settings);
+  if(repaired.accepted){if(review)review.push(best);best=repaired.candidate;}
   return best;
 }
 function _teamRefineCloseOpponents(candidate,settings){
@@ -2707,6 +2710,36 @@ function _teamAllocationBracket(blue,white,settings){
     if(!best||_isBetterQualityKey(_teamFinalQualityKey(candidate.matches,candidate.participants,configured),_teamFinalQualityKey(best.matches,best.participants,configured)))best=candidate;
   }
   return best;
+}
+// Repair hard balance violations before preserving a marginal advantage count.
+// Complete candidate guards still protect attendance, women, rest and repeats.
+function _teamRepairBalanceFirst(candidate,settings,{budget=96}={}){
+  const initial=_teamCompetitionEvaluation(candidate,settings);
+  if(!initial||!initial.legacy.balanceHardCount||initial.legacy.structureErr||initial.legacy.genderErr
+    ||initial.legacy.underSlots||candidate.matches.length>64||candidate.participants.length>64)return {candidate,accepted:0,evaluations:0};
+  const fields=['team1A','team1B','team2C','team2D'],ms=candidate.matches,ps=candidate.participants,rounds=new Map();
+  ms.forEach(m=>{if(!rounds.has(m.round))rounds.set(m.round,new Set());fields.forEach(k=>rounds.get(m.round).add(m[k].name));});
+  const bad=ms.map((m,i)=>_teamPairBalance([m.team1A,m.team1B],[m.team2C,m.team2D]).allowed?-1:i).filter(i=>i>=0);
+  let best=null,bestScore=null,evaluations=0;
+  search:for(const i of bad)for(let j=0;j<ms.length;j++)if(i!==j)for(const a of fields)for(const b of fields){
+    const x=ms[i],y=ms[j],p=x[a],q=y[b];
+    if(p.name===q.name||p.team!==q.team||p.gender!==q.gender||x.win||y.win||x.voided||y.voided||fields.some(k=>x[k].partnerName||y[k].partnerName))continue;
+    if(x.round!==y.round&&(rounds.get(x.round).has(q.name)||rounds.get(y.round).has(p.name)))continue;
+    const matches=ms.map((m,k)=>k===i?{...m,[a]:q}:k===j?{...m,[b]:p}:m);
+    if(![i,j].every(k=>_teamPairBalance([matches[k].team1A,matches[k].team1B],[matches[k].team2C,matches[k].team2D]).allowed))continue;
+    [i,j].forEach(k=>{const m=matches[k];m.team1Level=effLevel(m.team1A)+effLevel(m.team1B);m.team2Level=effLevel(m.team2C)+effLevel(m.team2D);m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;});
+    if(evaluations>=Math.max(0,Math.min(96,budget)))break search;
+    const proposal={participants:ps,matches},next=_teamCompetitionEvaluation(proposal,settings);evaluations++;
+    if(!next.score.eligible||!_teamWomenTargetsPreserved(candidate,proposal,settings)
+      ||!KokTeamCompetition.protects(initial.legacy,next.legacy,initial.score,next.score,ms,matches))continue;
+    if(!best||_isBetterQualityKey(KokTeamCompetition.rankKey(next.score),KokTeamCompetition.rankKey(bestScore))){best=proposal;bestScore=next.score;}
+  }
+  if(!best)return {candidate,accepted:0,evaluations};
+  const participants=ps.map(p=>({...p,partnerCount:{},opponentCount:{}})),by=new Map(participants.map(p=>[p.name,p]));
+  const matches=best.matches.map(m=>({...m,team1A:by.get(m.team1A.name),team1B:by.get(m.team1B.name),team2C:by.get(m.team2C.name),team2D:by.get(m.team2D.name)}));
+  const history=_buildHistoryFromMatches(matches);
+  participants.forEach(p=>{const games=matches.filter(m=>fields.some(k=>m[k].name===p.name));p.gamesPlayed=games.length;p.lastRoundPlayed=Math.max(0,...games.map(m=>m.round));p.womenDoublesPlayed=games.filter(m=>m.type==='여복').length;p.menDoublesPlayed=games.filter(m=>m.type==='남복').length;p.mixedDoublesPlayed=games.filter(m=>m.type==='혼복').length;p.adjustmentPlayed=games.filter(m=>m.type==='보정').length;p.partnerCount=history[p.name]?.partnerCount||{};p.opponentCount=history[p.name]?.opponentCount||{};});
+  return {candidate:{participants,matches},accepted:1,evaluations};
 }
 // Retain the actual current teams as the comparison baseline when they still
 // satisfy the updated roster, anchors, partner groups and greedy fairness floor.
@@ -4460,6 +4493,8 @@ function renderQualityDashboard(matches,participants,settings){
 
   if(settings.teamMode&&globalThis.KokWomenDoubles){const women=globalThis.KokWomenDoubles.status(matches,participants,settings);if(women.covered<women.total)subText+=' · 여복 목표 미달 확인';}
 
+  if(competition)subText=!competition.eligible?'필수 균형 조건 확인 필요':conditional.verified?conditional.label+' · 현재 팀·설정 기준':'현재 팀·설정의 후보 비교는 미검증입니다';
+
   const fixedPairs=[];
   const seenPairs=new Set();
   participants.forEach(p=>{
@@ -4499,14 +4534,14 @@ function renderQualityDashboard(matches,participants,settings){
   if(q.restLongRuns?.length)caution.push(`최장 ${q.restMaxRun}연속 출전`);
   if(excessConsec>0)caution.push(`연속 출전 ${excessConsec}건`);
   if(balanceCautionCount>0)caution.push('실력 균형 주의');
-  if(total<85)caution.push('품질점수 낮음');
+  if(!competition&&total<85)caution.push('품질점수 낮음');
   const splitFixed=fixedStats.filter(x=>x.separate>0);
   if(splitFixed.length)caution.push('P 파트너 분리 배정');
 
   let opClass='ok',opTitle='✅ 바로 진행 가능',opSub='큰 운영 리스크가 없습니다.';
   if(blocking.length){
     opClass='bad';opTitle='❌ 재생성 권장';opSub=blocking.join(', ')+' 확인이 필요합니다.';
-  }else if(caution.length||total<90){
+  }else if(caution.length||(!competition&&total<90)){
     opClass='warn';opTitle='⚠ 확인 후 진행';opSub=(caution.length?caution.join(' · '):'일부 항목')+' — 이것만 확인하면 됩니다.';
   }
   const chip=(label,cls)=>`<span class="op-chip ${cls}">${label}</span>`;
@@ -4560,19 +4595,10 @@ function renderQualityDashboard(matches,participants,settings){
     ${conditional?`<div class="qd-balance-note" style="padding:14px;font-size:13px!important;line-height:1.65!important;">
       <strong>${conditional.verified?`현재 팀·설정 기준 후보 비교 ${conditional.score}점 · ${conditional.rank}/${conditional.count}위`:'현재 팀·설정 기준 후보 비교 · 미검증'}</strong><br>
       ${settings.teamComparisonNotice?escText(settings.teamComparisonNotice)+'<br>':''}
-      ${!conditional.verified?'<button class="btn btn-secondary" onclick="teamReviewCurrentBracket()" style="margin:8px 0;">현재 대진 비교하기</button><br>':''}
-      ${conditional.verified?`${escText(conditional.label)} · 전체 대진 ${conditional.examined}회 탐색 중 조건을 통과한 ${conditional.count}개 서로 다른 후보와 비교했습니다. 전원 출전·확정팀·여복 기본 목표/검증된 조건부 조정·일정 범위를 지켰습니다.<br>최대 격차 ${conditional.current.maxAdjustedGap.toFixed(2)} / 비교 최선 ${conditional.best.maxAdjustedGap.toFixed(2)} · 접전 ${conditional.current.closeSensitivity[1].close} / 비교 최선 ${conditional.best.closeSensitivity[1].close}<br>${escText(conditional.constraintExplanation||'')}<br>검토 범위 내 순위이며 전체 최적은 미증명입니다. 실제 수동 대진은 비교하지 않았습니다.`:escText(conditional.reason)}
+      ${!conditional.verified&&!(_liveMatchStartedAt||_teamFinishedAt||currentMatches.some((_,i)=>_isMatchDone(i)))?'<button class="btn btn-secondary" onclick="teamReviewCurrentBracket()" style="margin:8px 0;">현재 대진 비교하기</button><br>':''}
+      ${conditional.verified?`${escText(conditional.label)} · 전체 대진 ${conditional.examined}회 탐색 중 조건을 통과한 ${conditional.count}개 서로 다른 후보와 비교했습니다. 전원 출전·확정팀·여복 기본 목표/검증된 조건부 조정·일정 범위를 지켰습니다.<br>최대 격차 ${conditional.current.maxAdjustedGap.toFixed(2)} / 비교 최선 ${conditional.best.maxAdjustedGap.toFixed(2)} · 접전 ${conditional.current.closeSensitivity[1].close} / 비교 최선 ${conditional.best.closeSensitivity[1].close}<br>검토 범위 내 순위이며 전체 최적은 미증명입니다. 실제 수동 대진은 비교하지 않았습니다.`:escText(conditional.reason)}${conditional.repairAvailable?`<br>같은 구성원의 균형 개선 후보 확인: 최대 격차 ${conditional.repairAvailable.maxBefore.toFixed(2)} → ${conditional.repairAvailable.maxAfter.toFixed(2)}. 기존 대진은 유지합니다.`:''}<br>${escText(conditional.constraintExplanation||'')}
     </div>`:''}
-    <div class="qd-header">
-      <div class="qd-badge qd-${grade}">
-        <span class="qd-badge-pts">${total}</span>
-        <span class="qd-badge-grade">${grade} · ${gradeLabel}</span>
-      </div>
-      <div class="qd-meta">
-        <div class="qd-meta-title">🎯 경기 조건·운영 부담 참고</div>
-        <div class="qd-meta-sub">${subText}</div>
-      </div>
-    </div>
+    ${competition?'':`<div class="qd-header"><div class="qd-badge qd-${grade}"><span class="qd-badge-pts">${total}</span><span class="qd-badge-grade">${grade} · ${gradeLabel}</span></div><div class="qd-meta"><div class="qd-meta-title">🎯 경기 조건·운영 부담 참고</div><div class="qd-meta-sub">${subText}</div></div></div>`}
     <div class="op-check">
       <div class="op-status ${opClass}">
         <div class="op-status-main">${opTitle}</div>
@@ -4580,7 +4606,7 @@ function renderQualityDashboard(matches,participants,settings){
       </div>
       <div class="op-chip-row">${opChips}</div>
     </div>
-    <details class="team-quality-details"><summary>상세 점검</summary>
+    <details class="team-quality-details"><summary>${competition?`상세 점검 · 경기 조건 참고 ${total}점`:'상세 점검'}</summary>
     <div class="op-issues">
       <div class="op-issues-title">실전 특이사항</div>
       <div class="op-issue-list">${issueHtml}</div>
@@ -4609,7 +4635,7 @@ function renderQualityDashboard(matches,participants,settings){
         <button id="undoBtn" class="btn btn-undo" style="padding:10px 14px;font-size:.88rem;flex-shrink:0;" onclick="undoAction()" title="되돌릴 내역 없음" disabled>↩ 복원</button>
       </div>
     </div>
-	    ${total<=82?`<div class="qd-hint">💡 ${splitAudit&&splitAudit.genderGap>0.3?'팀 나누기부터 확인하세요. 같은 팀에서 재배정만 반복하면 개선이 작을 수 있습니다.':total<=70?'재생성을 권장합니다. 재배정 버튼을 눌러보세요.':'점수가 낮은 항목을 확인하고 필요 시 재배정하세요.'}</div>`:''}`;
+	    ${!competition&&total<=82?`<div class="qd-hint">💡 ${splitAudit&&splitAudit.genderGap>0.3?'팀 나누기부터 확인하세요. 같은 팀에서 재배정만 반복하면 개선이 작을 수 있습니다.':total<=70?'재생성을 권장합니다. 재배정 버튼을 눌러보세요.':'점수가 낮은 항목을 확인하고 필요 시 재배정하세요.'}</div>`:''}`;
 }
 
 function openQualityPanelAfterRender(scroll=false){

@@ -126,12 +126,14 @@ function protects(base,next,bq,nq,baseMatches,nextMatches){
  // attendance/rest/repeat counts. Keep it only for the preserved old result.
  if(nq.legacySelection&&(next.sDiversity<base.sDiversity||next.total<base.total))return false;
  if(next.avgLD>base.avgLD+.05+1e-9||next.maxLD>Math.max(base.maxLD,Math.min(1.5,base.maxLD+.2))+1e-9)return false;
+ const repairing=!nq.legacySelection&&base.balanceHardCount>0&&next.balanceHardCount===0&&nq.eligible;
  const b=bq.diagnostics,n=nq.diagnostics;if(n.meanAdjustedGap>b.meanAdjustedGap+.05+1e-9||Math.abs(n.netPerGame)>Math.abs(b.netPerGame)+1e-9)return false;
  if(!nq.legacySelection&&n.meanAdjustedGap>b.meanAdjustedGap+1e-9)return false;
  if(!nq.legacySelection&&Number.isFinite(b.maxAdjustedGap)&&n.maxAdjustedGap>b.maxAdjustedGap+1e-9)return false;
  const bc=b.closeSensitivity,nc=n.closeSensitivity;
- if(Math.abs(nc[1].blue-nc[1].white)>Math.abs(bc[1].blue-bc[1].white))return false;
- if(nc.reduce((s,x)=>s+Math.abs(x.blue-x.white),0)>bc.reduce((s,x)=>s+Math.abs(x.blue-x.white),0))return false;
+ if(repairing&&n.tailAdjustedGap>b.tailAdjustedGap+1e-9)return false;
+ if(Math.abs(nc[1].blue-nc[1].white)>Math.abs(bc[1].blue-bc[1].white)+(repairing?1:0))return false;
+ if(nc.reduce((s,x)=>s+Math.abs(x.blue-x.white),0)>bc.reduce((s,x)=>s+Math.abs(x.blue-x.white),0)+(repairing?4:0))return false;
  // Keep close games within one appearance quartet, rather than hiding a drop behind a high total.
  if(nc[1].close<bc[1].close-2)return false;
  const bo=opponentStats(baseMatches),no=opponentStats(nextMatches);if(no.max>bo.max||no.excess>bo.excess||(!nq.legacySelection&&no.repeats>bo.repeats))return false;
@@ -149,7 +151,7 @@ function compareCandidates(current,references){
  const better=usable.filter(r=>compare(r,current)<0).length,worse=usable.filter(r=>compare(r,current)>0).length;
  const score=Math.round(100*(1-better/usable.length));
  const best=usable.reduce((a,b)=>compare(a,b)<=0?a:b,current);
- return {verified:true,version:1,score,rank:better+1,count:usable.length,better,worse,
+ return {verified:true,version:2,score,rank:better+1,count:usable.length,better,worse,
   best:best.diagnostics,current:current.diagnostics,
   label:better?'더 나은 비교 후보 있음':'검토 후보 중 최선',
   caveat:'검토 후보 내 순위 점수입니다. 전체 최적·최선 달성률·실제 수동 편성 대비 우수성을 증명하지 않습니다'};
@@ -158,7 +160,8 @@ function reviewContext(players,settings){
  return JSON.stringify({courts:settings.courts,gamesPerPlayer:settings.gamesPerPlayer,teamMode:settings.teamMode,
   players:players.map(p=>[p.name,p.team,p.gender,p.skillRating??null,p.level,p.grade||'',p.ageGroup||'',p.partnerName||'',p._goal??settings.gamesPerPlayer]).sort((a,b)=>a[0].localeCompare(b[0]))});
 }
+function comparisonKey(matches){return matches.map(m=>[m.round,m.type,...[[m.team1A.name,m.team1B.name].sort().join('|'),[m.team2C.name,m.team2D.name].sort().join('|')].sort()].join(';')).sort().join('~');}
 function scheduleKey(matches){return matches.map(m=>[m.round,m.court,m.type,m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name].join('|')).sort().join(';');}
 
-const api={assess,rankKey,distribution,refine,allocationCandidates,protects,opponentStats,compareCandidates,reviewContext,scheduleKey};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
+const api={assess,rankKey,distribution,refine,allocationCandidates,protects,opponentStats,compareCandidates,reviewContext,scheduleKey,comparisonKey};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
