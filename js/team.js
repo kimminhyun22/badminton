@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.800';
+const APP_VERSION = '1.10.801';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -481,6 +481,123 @@ function _teamConfirmOverwriteGeneratedBracket(actionText, actionLabel){
 }
 
 let _teamReassignmentNotice='';
+let _teamAssignmentBusy=false;
+function _teamAssignmentStatus(message,state='done'){
+  const status=document.getElementById('teamAssignStatus');
+  if(status){status.textContent=message;status.dataset.state=state;status.hidden=!message;}
+}
+function _teamAssignmentPaint(message){
+  const label=document.getElementById('loadingText');
+  if(label)label.textContent=message;
+  // Leave a rendering opportunity before each bounded unit of computation.
+  return new Promise(resolve=>setTimeout(resolve,32));
+}
+async function _teamRunAssignmentComparison(blue,white,settings,locked,checkCurrent=()=>{}){
+  const steps=_teamJointAllocationSteps(blue,white,settings,locked);
+  for(let step=steps.next();;step=steps.next()){
+    if(step.done)return step.value;
+    await _teamAssignmentPaint(step.value);
+    checkCurrent();
+  }
+}
+// Only user-facing buttons take the asynchronous path. Automatic setup and
+// restore callers retain doTeamAssign's synchronous return value.
+async function doTeamAssignFromUI(){
+  if(_teamAssignmentBusy)return false;
+  if(_teamBlockFullReassignment()){
+    _teamAssignmentStatus('운동 시작 후에는 전체 팀을 다시 배정할 수 없습니다. 선수 변동은 참가자 수정에서 처리해 주세요.','error');
+    return false;
+  }
+  const regenerate=!!currentMatches.length;
+  if(regenerate&&!_teamConfirmOverwriteGeneratedBracket('청/홍팀을 다시 배정하고 새 대진표를 생성','청/홍팀 재배정과 새 대진표 생성')){
+    _teamAssignmentStatus('재배정을 취소했습니다. 기존 편성을 유지합니다.');return false;
+  }
+  const before={assignment:teamAssignment,matches:currentMatches,participants:currentParticipants,settings:currentSettings,
+    wanted:_teamWanted,override:_teamModeOverride,notice:_teamReassignmentNotice,undo:_undoStack.slice(),
+    wins:{...winOverride},locked:_lockedBeforeRound,operators:temporaryOperators.slice(),
+    live:{late:_liveLate,party:_liveParty,inputs:_liveResultInputs,conflicts:_liveResultConflicts,
+      substitutions:_liveSubstitutions,winAt:{...liveWinAt},startedAt:_liveMatchStartedAt},
+    scores:currentMatches.map((m,i)=>['s1_','s2_'].map(prefix=>document.getElementById(prefix+i)?.value||''))};
+  const inputSignature=()=>JSON.stringify([_directPlayers.map(({memberId,...p})=>p),_partners,captains,
+    document.getElementById('courts')?.value,document.getElementById('gamesPerPlayer')?.value]);
+  const originalInput=inputSignature();
+  let stale=false,expectedAssignment=before.assignment,capturedUndo=null,capturedHistory=null;
+  const checkCurrent=()=>{
+    if(_teamFullReassignmentLocked()||currentMatches!==before.matches||currentParticipants!==before.participants
+      ||currentSettings!==before.settings||teamAssignment!==expectedAssignment||inputSignature()!==originalInput){
+      stale=true;throw new Error('계산 중 참가자·설정 또는 경기 상태가 변경되었습니다. 현재 화면을 확인하고 다시 시도해 주세요.');
+    }
+  };
+  const buttons=['teamAssignBtn','teamReassignBtn'].map(id=>document.getElementById(id)).filter(Boolean);
+  const disabled=buttons.map(button=>button.disabled);
+  const overlay=document.getElementById('loadingOverlay'),label=document.getElementById('loadingText');
+  const previousLabel=label?.textContent||'최적 대진 탐색 중...';
+  _teamAssignmentBusy=true;
+  buttons.forEach(button=>{button.disabled=true;button.setAttribute('aria-busy','true');});
+  overlay.classList.add('on');
+  _teamAssignmentStatus('청·홍 팀 배정을 검토하고 있습니다…','busy');
+  let completed=false;
+  try{
+    hideErr();hideWarn();
+    await _teamAssignmentPaint('청·홍 팀 배정을 검토하고 있습니다…');
+    // The live state may have changed while yielding to the browser.
+    checkCurrent();
+    if(regenerate){
+      _captureUndoSnapshot('팀 재배정 전');
+      capturedUndo=_undoStack[_undoStack.length-1];capturedHistory=_undoStack.slice();
+      if(before.undo.includes(capturedUndo))capturedUndo=null;
+    }
+    const assigned=await doTeamAssign({forGenerate:true,compareTeams:!!before.assignment,cooperative:true,checkCurrent});
+    expectedAssignment=teamAssignment;
+    if(!assigned)throw new Error(document.getElementById('errBar')?.textContent||'팀 배정 조건을 확인해 주세요.');
+    if(regenerate){
+      const generated=await generate({skipExistingConfirm:true,skipUndoSnapshot:true,cooperative:true,checkCurrent});
+      if(!generated)throw new Error(document.getElementById('errBar')?.textContent||'새 대진표를 생성하지 못했습니다.');
+    }
+    completed=true;
+    _teamAssignmentStatus((_teamReassignmentNotice||'청·홍 팀 배정이 완료되었습니다.')+(regenerate?' 새 대진표를 생성했습니다.':''));
+    scheduleSave();
+    return true;
+  }catch(error){
+    console.error(error);
+    _teamAssignmentStatus((stale?'재배정을 중단했습니다. ':'재배정을 완료하지 못했습니다. 기존 편성을 유지합니다. ')+error.message,'error');
+    return false;
+  }finally{
+    if(!completed){
+      if(!stale){
+        teamAssignment=before.assignment;
+        currentMatches=before.matches;currentParticipants=before.participants;currentSettings=before.settings;
+        Object.keys(winOverride).forEach(k=>delete winOverride[k]);Object.assign(winOverride,before.wins);
+        _lockedBeforeRound=before.locked;temporaryOperators=before.operators;
+        _liveLate=before.live.late;_liveParty=before.live.party;_liveResultInputs=before.live.inputs;
+        _liveResultConflicts=before.live.conflicts;_liveSubstitutions=before.live.substitutions;_liveMatchStartedAt=before.live.startedAt;
+        Object.keys(liveWinAt).forEach(k=>delete liveWinAt[k]);Object.assign(liveWinAt,before.live.winAt);
+        _teamWanted=before.wanted;_teamModeOverride=before.override;_teamReassignmentNotice=before.notice;
+      }else if(teamAssignment===expectedAssignment&&currentMatches===before.matches){
+        // Undo only the staged assignment that this operation still owns.
+        // An external replacement of the teams/bracket must remain untouched.
+        teamAssignment=before.assignment;
+      }
+      const ownHistory=capturedHistory&&_undoStack.length===capturedHistory.length&&_undoStack.every((item,i)=>item===capturedHistory[i]);
+      if(!stale||ownHistory)_undoStack=before.undo;
+      else if(capturedUndo)_undoStack=_undoStack.filter(item=>item!==capturedUndo);
+      try{
+        _updateUndoBtn();updateTeamModeBadge();renderTeamList();
+        if(!stale&&before.matches.length){
+          renderResults(before.matches,before.participants,before.settings);
+          before.scores.forEach((scores,i)=>scores.forEach((value,k)=>{
+            const field=document.getElementById((k?'s2_':'s1_')+i);if(field)field.value=value;
+          }));
+          updateScores();
+        }
+      }catch(error){console.error(error);}
+    }
+    overlay.classList.remove('on');
+    if(label)label.textContent=previousLabel;
+    buttons.forEach((button,i)=>{button.disabled=disabled[i];button.removeAttribute('aria-busy');});
+    _teamAssignmentBusy=false;
+  }
+}
 function doTeamAssign(opts={}){
   if(_teamBlockFullReassignment())return false;
   if(currentMatches.length&&!opts.forGenerate){
@@ -554,33 +671,43 @@ function doTeamAssign(opts={}){
   let comparedTeams=false;_teamReassignmentNotice='';
   let blue = [...seedBlue, ...newBlue];
   let white = [...seedWhite, ...newWhite];
+  const finish=()=>{
+    if(opts.checkCurrent)opts.checkCurrent();
+    teamAssignment={blue,white};
+    if(previousAssignment&&previousAssignment===blue.map(p=>p.name).sort().join('|')){
+      _teamReassignmentNotice=comparedTeams?'이번 재검토에서 같은 팀안을 유지했습니다. 선수 이동은 적용하지 않았습니다.':'같은 명부·고정 조건에서 같은 팀안이 선택되었습니다. 이 설정은 팀별 전체 대진 비교 범위에 포함되지 않습니다.';
+      showWarn(_teamReassignmentNotice);
+    }
+    blue.forEach(p=>p.team='청팀');
+    white.forEach(p=>p.team='홍팀');
+    updateTeamModeBadge();
+    renderTeamList();
+    const btn=document.getElementById('teamAssignBtn');
+    btn.classList.add('done','hidden');
+    const rbtn=document.getElementById('teamReassignBtn');
+    if(rbtn) rbtn.classList.remove('hidden');
+    btn.innerHTML='🔀 청/홍팀 균형 재검토';
+    updateSettingsMiniSummary();
+    return true;
+  };
   if((opts.compareTeams||(!opts.forGenerate&&previousAssignment))&&all.length<=40){
     const gpp=parseInt(document.getElementById('gamesPerPlayer').value)||4;
     if(gpp===4){
       comparedTeams=true;
       const baseline=_teamPreviousAssignmentForComparison(all,previousTeams,{blue,white},blueFixedNames,whiteFixedNames);
       blue=baseline.blue;white=baseline.white;
-      const compared=_teamJointAllocation(blue,white,{teamMode:true,gamesPerPlayer:gpp,courts:parseInt(document.getElementById('courts').value)||3},[...fixedNames]);
+      const compareSettings={teamMode:true,gamesPerPlayer:gpp,courts:parseInt(document.getElementById('courts').value)||3};
+      if(opts.cooperative){
+        return _teamRunAssignmentComparison(blue,white,compareSettings,[...fixedNames],opts.checkCurrent).then(compared=>{
+          blue=compared.blue;white=compared.white;return finish();
+        });
+      }
+      const compared=_teamJointAllocation(blue,white,compareSettings,[...fixedNames]);
       blue=compared.blue;white=compared.white;
     }
   }
 
-  teamAssignment={blue,white};
-  if(previousAssignment&&previousAssignment===blue.map(p=>p.name).sort().join('|')){
-    _teamReassignmentNotice=comparedTeams?'검토한 팀안에서 출전·휴식·여복 조건을 지키며 더 좋은 전체 대진을 찾지 못해 같은 팀안을 유지했습니다.':'같은 명부·고정 조건에서 같은 팀안이 선택되었습니다. 이 설정은 팀별 전체 대진 비교 범위에 포함되지 않습니다.';
-    showWarn(_teamReassignmentNotice);
-  }
-  blue.forEach(p=>p.team='청팀');
-  white.forEach(p=>p.team='홍팀');
-  updateTeamModeBadge();
-  renderTeamList();
-  const btn=document.getElementById('teamAssignBtn');
-  btn.classList.add('done','hidden');
-  const rbtn=document.getElementById('teamReassignBtn');
-  if(rbtn) rbtn.classList.remove('hidden');
-  btn.innerHTML='🔀 청/홍팀 균형 재검토';
-  updateSettingsMiniSummary();
-  return true;
+  return finish();
 }
 
 // Same +5 display translation as the club balance review. Never feed these
@@ -1029,20 +1156,21 @@ function balanceTeams(all, seedBlue=[], seedWhite=[]){
 /* ═══ GENERATE ═══ */
 function generate(opts={}){
   if(_teamBlockFullReassignment())return false;
+  if(_teamAssignmentBusy&&!opts.cooperative)return false;
   hideErr();hideWarn();
-  if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
+  if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return false;}
   const useFixedTeams=_teamUsesFixedTeams();
   // 이미 대진표가 있으면 덮어쓰기 경고 (특히 점수 입력된 경우)
   if(currentMatches.length&&!opts.skipExistingConfirm){
-    if(!_teamConfirmOverwriteGeneratedBracket('새 대진표를 생성','새 대진표 생성')) return;
+    if(!_teamConfirmOverwriteGeneratedBracket('새 대진표를 생성','새 대진표 생성')) return false;
   }
   if(useFixedTeams&&!teamAssignment){
     doTeamAssign({forGenerate:true});
-    if(!teamAssignment)return;
+    if(!teamAssignment)return false;
   }
   if(useFixedTeams&&teamAssignment&&_teamAssignmentHasSplitPartners()){
     doTeamAssign({forGenerate:true});
-    if(_teamAssignmentHasSplitPartners())return;
+    if(_teamAssignmentHasSplitPartners())return false;
   }
   let participants=_directPlayers.map(p=>({
     name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,gender:p.gender==='남'?'M':'F',
@@ -1054,7 +1182,7 @@ function generate(opts={}){
     _levelRaw:String(p.level),_genderRaw:p.gender,
     partnerName: getPartnerOf(p.name)||null
   }));
-  if(!participants.length){showErr('유효한 참가자가 없습니다.');return;}
+  if(!participants.length){showErr('유효한 참가자가 없습니다.');return false;}
 
   if(useFixedTeams&&teamAssignment){
     const bn=new Set(teamAssignment.blue.map(p=>p.name));
@@ -1076,9 +1204,9 @@ function generate(opts={}){
   const courts=parseInt(document.getElementById('courts').value)||4;
   const gpp=parseInt(document.getElementById('gamesPerPlayer').value)||4;
 
-  if(participants.length<4){showErr('최소 4명 필요합니다.');return;}
-  if(courts<1){showErr('코트 수는 1 이상이어야 합니다.');return;}
-  if(gpp<1){showErr('인당 게임 수는 1 이상이어야 합니다.');return;}
+  if(participants.length<4){showErr('최소 4명 필요합니다.');return false;}
+  if(courts<1){showErr('코트 수는 1 이상이어야 합니다.');return false;}
+  if(gpp<1){showErr('인당 게임 수는 1 이상이어야 합니다.');return false;}
   const total=participants.length*gpp;
   // 4의 배수 강제 없음 — 나머지는 fillMissingGames에서 최선 처리
   const _nonDiv4=(total%4!==0);
@@ -1093,13 +1221,14 @@ function generate(opts={}){
   };
   if(settings.teamMode){
     const b=participants.filter(x=>x.team==='청팀'),w=participants.filter(x=>x.team==='홍팀');
-    if(b.length<2){showErr('청팀 최소 2명이 필요합니다.');return;}
-    if(w.length<2){showErr('홍팀 최소 2명이 필요합니다.');return;}
+    if(b.length<2){showErr('청팀 최소 2명이 필요합니다.');return false;}
+    if(w.length<2){showErr('홍팀 최소 2명이 필요합니다.');return false;}
   }
 
   if(!opts.skipUndoSnapshot)_captureUndoSnapshot('대진표 생성 전');
   document.getElementById('loadingOverlay').classList.add('on');
-  setTimeout(()=>{
+  return new Promise(resolve=>setTimeout(async()=>{
+    let generated=false;
     try{
       // Fixed teams need two slots from each side per match, including unequal rosters.
       const totalMatches=_participationSlotStats(participants,settings,{}).minimumMatches;
@@ -1115,6 +1244,12 @@ function generate(opts={}){
       const finalists=[];let simpleBaseline=null,examinedCandidates=0;
       let _extraStarted=0,_lastImprovement=0;
       for(let _t=0;_teamContinueInitialSearch(_t,_TRIES,_extraStarted?Date.now()-_extraStarted:0,_t-_lastImprovement);_t++){
+        if(opts.cooperative&&_t%5===0){
+          const pauseStarted=Date.now();
+          await _teamAssignmentPaint(`새 대진을 검토하고 있습니다… (${_t}개 검토)`);
+          if(opts.checkCurrent)opts.checkCurrent();
+          if(_extraStarted)_extraStarted+=Date.now()-pauseStarted;
+        }
         if(_t===_TRIES)_extraStarted=Date.now();
         const _try=_basePlayers.map(p=>({...p, gamesPlayed:0, lastRoundPlayed:0,
           _goal:gpp,
@@ -1144,6 +1279,7 @@ function generate(opts={}){
         if(_isBetterQualityKey(_key,bestKey)){bestKey=_key;matches=_m;bestPlayers=_try;_lastImprovement=_t;}
       }
       // 최고 후보 채택
+      if(opts.cooperative)await _teamAssignmentPaint('선택한 대진을 최종 확인하고 있습니다…');
       const comparisonCandidates=[];
       const womenChoice=_teamSelectFinalBracket(finalists,_basePlayers,settings,totalMatches,{review:comparisonCandidates});
       matches=womenChoice.matches;bestPlayers=womenChoice.participants;
@@ -1154,6 +1290,7 @@ function generate(opts={}){
       participants=bestPlayers;
       matches.sort((a,b)=>a.round-b.round||a.court-b.court);
       matches.forEach((m,i)=>m.matchNumber=i+1);
+      if(opts.checkCurrent)opts.checkCurrent();
       currentMatches=matches;currentParticipants=participants;currentSettings=settings;
       _teamResetLocalLiveState(_liveId||_teamStoredLiveId());
       _lockedBeforeRound=null; // 새 대진 생성 시 잠금 해제
@@ -1164,8 +1301,6 @@ function generate(opts={}){
       openQualityPanelAfterRender();
       updateSettingsMiniSummary();
       show('resultArea');
-      rsvpPushSession();
-      rsvpPushEventState();
       // 생성 후 결과 영역으로 부드럽게 이동 (특히 모바일)
       setTimeout(()=>{
         const ra=document.getElementById('qualDash')||document.getElementById('resultArea');
@@ -1201,6 +1336,11 @@ function generate(opts={}){
       if(_warnParts.length){showWarn(_warnParts.join('\n\n'));}
       else{hideWarn();}
       scheduleSave();
+      generated=true;
+      // A later publication error must not roll back an already committed local
+      // bracket after one of the existing publication calls has begun.
+      try{rsvpPushSession();rsvpPushEventState();}
+      catch(error){showWarn('대진표는 생성됐지만 공유 내용 갱신에 실패했습니다. 공유 상태를 확인해 주세요.');console.error(error);}
       // 모바일/데스크탑 모두 결과 영역으로 스크롤
       setTimeout(()=>{
         const el=document.getElementById('qualDash')||document.getElementById('resultArea');
@@ -1210,8 +1350,8 @@ function generate(opts={}){
         }
       },100);
     }catch(e){showErr('생성 오류: '+e.message);console.error(e);}
-    finally{document.getElementById('loadingOverlay').classList.remove('on');}
-  },50);
+    finally{document.getElementById('loadingOverlay').classList.remove('on');resolve(generated);}
+  },50));
 }
 
 /* ═══ ALGORITHM ═══ */
@@ -2759,6 +2899,12 @@ function _teamPreviousAssignmentForComparison(all,previous,greedy,blueFixed,whit
 // Bounded whole-bracket comparison for an explicit reassignment only.
 // Initial automatic assignment does not call this function.
 function _teamJointAllocation(blue,white,settings,locked=[]){
+  const steps=_teamJointAllocationSteps(blue,white,settings,locked);
+  let step;do{step=steps.next();}while(!step.done);
+  return step.value;
+}
+// One preview per step; synchronous and UI callers evaluate the same candidates.
+function* _teamJointAllocationSteps(blue,white,settings,locked=[]){
   const policy=globalThis.KokTeamCompetition,women=globalThis.KokWomenDoubles;
   if(!policy||!women||!settings.teamMode||blue.length<2||white.length<2)return {blue,white};
   const candidates=policy.allocationCandidates(blue,white,locked,effLevel);
@@ -2770,7 +2916,11 @@ function _teamJointAllocation(blue,white,settings,locked=[]){
     Math.random=()=>((state=(Math.imul(state,1664525)+1013904223)>>>0)/4294967296);
     try{return _teamAllocationBracket(b,w,{...settings,_closePriority:closePriority});}finally{Math.random=previous;}
   };
-  const seeds=[71,227,991],base=seeds.map(seed=>preview(blue,white,seed));
+  const seeds=[71,227,991],base=[];
+  for(const seed of seeds){
+    yield '현재 팀 편성을 확인하고 있습니다…';
+    base.push(preview(blue,white,seed));
+  }
   if(base.some(candidate=>!candidate))return {blue,white};
   const original=base.map(candidate=>_teamCompetitionEvaluation(candidate,settings));
   if(original.some(q=>!q.score.eligible))return {blue,white};
@@ -2781,6 +2931,7 @@ function _teamJointAllocation(blue,white,settings,locked=[]){
   for(const split of candidates){
     const scores=[];let safe=true;
     for(let i=0;i<seeds.length;i++){
+      yield '청·홍 팀 배정을 검토하고 있습니다…';
       const candidate=preview(split.blue,split.white,seeds[i],true);
       if(!candidate){safe=false;break;}
       const next=_teamCompetitionEvaluation(candidate,settings),initial=original[i];
@@ -5770,6 +5921,9 @@ function _teamSyncGeneratedProfilesFromDirectPlayers(){
 }
 
 function saveState(){
+  // A cooperative reassignment may yield between a new team split and its new
+  // bracket. Persist only the completed pair, never this intermediate state.
+  if(_teamAssignmentBusy)return;
   _teamSaveRosterBridge();
   if(!currentMatches.length)return;
   const scores=currentMatches.map((m,i)=>{
@@ -9454,7 +9608,7 @@ function renderAutoFlowDashboard(){
     const actionHtml={
       playerSetup:_autoFlowAction('참가자 등록','teamLiveSetupParticipants'),
       link:_autoFlowShareAction(),
-      playerReview:_autoFlowAction('청·홍 배정','doTeamAssign'),
+      playerReview:_autoFlowAction('청·홍 배정','doTeamAssignFromUI'),
       generate:_autoFlowAction('대진 생성','generate'),
       broadcast:_autoFlowAction('대진 게시','onLiveBtnClick','live-start'),
       restoreLive:_autoFlowAction('팀전 이어가기','restoreTeamLiveAndResume','live-start'),

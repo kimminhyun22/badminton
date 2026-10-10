@@ -1476,6 +1476,9 @@ details.card:not([open]) .card-head{border-bottom:none;}
 .team-lineup-review{margin:16px 0;border-top:1px solid var(--border,#dde5ef);padding-top:12px;}
 .team-lineup-review>summary{cursor:pointer;font-size:14px;font-weight:600;padding:10px 0;}
 .team-lineup-review .team-list-wrap{margin-top:12px;}
+.team-assign-status{margin:8px 0 0;color:var(--dim);font-size:13px;line-height:1.6;overflow-wrap:anywhere;}
+.team-assign-status[data-state="error"]{color:var(--red,#b33a3a);}
+.btn-ta[aria-busy="true"]{cursor:wait;opacity:.75;}
 #teamReviewToggle{margin-top:10px;min-height:44px;}
 #teamOperatorOpenBtn{margin-top:10px;min-height:44px;}
 .team-management-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;}
