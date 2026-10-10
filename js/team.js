@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.799';
+const APP_VERSION = '1.10.800';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4383,8 +4383,8 @@ function renderQualityDashboard(matches,participants,settings){
   function barColor(pct){return pct>=0.85?'#3a8c5c':pct>=0.65?'#d48a10':'#c94040';}
   function rowCls(pct){return pct>=0.85?'qd-row-good':pct>=0.65?'qd-row-warn':'qd-row-bad';}
   function icon(pct){return pct>=0.85?'✅':pct>=0.65?'⚠️':'❌';}
-  function scoreTag(score,max){
-    if(score===null) return `<span class="qd-pts-small" style="color:var(--dim);">참고</span>`;
+  function scoreTag(score,max,status){
+    if(score===null) return `<span class="qd-pts-small" style="color:var(--dim);">${status||'참고'}</span>`;
     return `<span class="qd-pts-small">${competition?Number(score.toFixed(1)):Math.round(score)}/${max}</span>`;
   }
   function barHtml(pct){
@@ -4440,7 +4440,7 @@ function renderQualityDashboard(matches,participants,settings){
       const pct=sFair/20;
       let detail=under.length===0
         ?`전원 목표달성 · ${participants.length}명`
-        :avoidableUnderSlots===0&&parityAdjustment>0
+        :(!competition||competition.version<9)&&avoidableUnderSlots===0&&parityAdjustment>0
           ?`성비상 최소 조정 — ${under.map(p=>`${p.name}(${counts[p.name]}/${_pGoal(p)})`).join(', ')}`
           :`미달 ${under.length}명 — ${under.map(p=>`${p.name}(${counts[p.name]}/${_pGoal(p)})`).join(', ')}`;
       if(over.length){
@@ -4470,10 +4470,14 @@ function renderQualityDashboard(matches,participants,settings){
     const d=competition.diagnostics,parts=competition.components,max=competition.maxima,count=d.closeSensitivity[1];
     rows.splice(0,splitAudit?2:1,
       {label:'경기 접전·실력 격차',detail:`접전 ${count.close}/${matches.length}경기 · 파트너 보정 격차 평균 ${d.meanAdjustedGap.toFixed(2)} · 최악 20% 평균 ${d.tailAdjustedGap.toFixed(2)} · 최대 ${d.maxAdjustedGap.toFixed(2)} · 경기별 접전 우선 선택`,score:parts.games,max:max.games,pct:parts.games/max.games},
-      {label:'팀 실력 분포',detail:`평균 차 ${d.meanGap.toFixed(2)} · 상·중·하위 분포 차 ${d.quantileGap.toFixed(2)} · 남녀별 차 ${d.genderGap.toFixed(2)}`,score:parts.roster,max:max.roster,pct:parts.roster/max.roster},
+      {label:'팀 실력 분포',detail:`평균 차 ${d.meanGap.toFixed(2)} · 상·중·하위 분포 차 ${d.quantileGap.toFixed(2)} · 남녀별 차 ${d.genderGap.toFixed(2)}${competition.version>=9?' · 확정팀 진단 · 합계 제외':''}`,score:competition.version>=9?null:parts.roster,max:max.roster||0,pct:d.rosterQuality,kind:'진단',status:'진단'},
       {label:'전체 대진 우세 균형',detail:`접전 제외 예상 우세 청 ${count.blue} : 홍 ${count.white} · ${d.formatBalance.map(g=>`${escText(g.type)} 청${g.blue}:홍${g.white}`).join(' · ')} · 경기당 순격차 ${Math.abs(d.netPerGame).toFixed(2)} · 승수 예측 아님`,score:parts.overall,max:max.overall,pct:parts.overall/max.overall});
     for(const [label,key] of [['대진 다양성','diversity'],['휴식·연속 출전','rest'],['출전 횟수 공정성','participation']]){
-      const row=rows.find(r=>r.label===label);row.score=parts[key];row.max=max[key];row.pct=parts[key]/max[key];
+      const row=rows.find(r=>r.label===label);
+      if(key==='participation'&&competition.version>=9){
+        const passed=underSlots===0&&avoidableOverSlots===0;
+        row.score=null;row.max=0;row.pct=passed?1:0;row.kind='필수';row.status=passed?'통과':'보완 필요';
+      }else{row.score=parts[key];row.max=max[key];row.pct=parts[key]/max[key];}
     }
   }
 
@@ -4496,7 +4500,7 @@ function renderQualityDashboard(matches,participants,settings){
 
   if(settings.teamMode&&globalThis.KokWomenDoubles){const women=globalThis.KokWomenDoubles.status(matches,participants,settings);if(women.covered<women.total)subText+=' · 여복 목표 미달 확인';}
 
-  if(competition)subText=!competition.eligible?'필수 균형 조건 확인 필요':conditional.verified?conditional.label+' · 현재 팀·설정 기준':'현재 팀·설정의 후보 비교는 미검증입니다';
+  if(competition)subText=!competition.eligible?competition.issues.join(' · ')+' 확인 필요':conditional.verified?conditional.label+' · 현재 팀·설정 기준':'현재 팀·설정의 후보 비교는 미검증입니다';
 
   const fixedPairs=[];
   const seenPairs=new Set();
@@ -4521,12 +4525,14 @@ function renderQualityDashboard(matches,participants,settings){
   if(structureErr>0)blocking.push(`${structureDetail}/선수 중복 오류`);
   if(genderErr>0)blocking.push('종목 성별 오류');
   if(balanceHardCount>0)blocking.push('보정 실력균형 기준 초과');
-  if(splitAudit&&splitAudit.lowStacked)blocking.push('초심 한 팀 몰림');
-  if(splitAudit&&splitAudit.avgGap>0.3)blocking.push('팀 1인당 평균 차 과다');
-  if(avoidableUnderSlots>0)blocking.push('목표 미달');
+  if(!competition&&splitAudit&&splitAudit.lowStacked)blocking.push('초심 한 팀 몰림');
+  if(!competition&&splitAudit&&splitAudit.avgGap>0.3)blocking.push('팀 1인당 평균 차 과다');
+  if((competition?.version>=9?underSlots:avoidableUnderSlots)>0)blocking.push('목표 미달');
+  if(competition?.version>=9&&avoidableOverSlots>0)blocking.push('회피 가능한 추가 출전');
   if(avoidableExact>0)blocking.push('똑같은 경기 반복');
   if(fillers.length>2)blocking.push('보완게임 과다');
   const caution=[];
+  if(competition&&splitAudit&&(splitAudit.lowStacked||splitAudit.avgGap>0.3))caution.push('확정팀 실력 분포 · 팀 재편성 검토');
   const formatWarnings=competition?competition.diagnostics.formatBalance.filter(g=>g.games>=2&&Math.abs(g.blue-g.white)>=Math.ceil(g.games/2)):[];
   formatWarnings.forEach(g=>caution.push(`${g.type} 우세 한쪽 편중`));
   if(settings.teamMode&&globalThis.KokWomenDoubles){const women=globalThis.KokWomenDoubles.status(matches,participants,settings);if(women.covered<women.total)caution.push('여복 목표 미달');}
@@ -4553,13 +4559,14 @@ function renderQualityDashboard(matches,participants,settings){
     chip(structureErr===0?`${structureLabel} 정상`:`${structureLabel} 오류 ${structureErr}건`,structureErr===0?'ok':'bad'),
     chip(genderErr===0?'종목 정상':'종목 오류 '+genderErr+'건',genderErr===0?'ok':'bad'),
     adjustments.length?chip(`성비보정 ${adjustments.length}경기`,'ok'):'',
-    chip(under.length===0?'목표 달성':'미달 '+under.length+'명',avoidableUnderSlots===0?'ok':'bad'),
-    chip(avoidableOverSlots===0?(over.length?`최소 초과 ${over.length}명`:'초과 없음'):`추가 초과 ${avoidableOverSlots}`,avoidableOverSlots===0?'ok':'warn'),
+    chip(under.length===0?'목표 달성':'미달 '+under.length+'명',(competition?.version>=9?underSlots:avoidableUnderSlots)===0?'ok':'bad'),
+    chip(avoidableOverSlots===0?(over.length?`최소 초과 ${over.length}명`:'초과 없음'):`추가 초과 ${avoidableOverSlots}`,avoidableOverSlots===0?'ok':competition?.version>=9?'bad':'warn'),
     chip(avoidableExact===0&&avoidableSameFour===0&&avoidablePartnerExcess===0?'반복 없음':`파트너 ${avoidablePartnerExcess}회`,avoidableExact===0&&avoidableSameFour===0&&avoidablePartnerExcess<4?'ok':'warn'),
     chip(excessConsec===0?'연속 없음':`연속 ${excessConsec}건`,excessConsec===0?'ok':'warn'),
     fixedPairs.length?chip(`P 파트너 ${fixedPairs.length}쌍`,splitFixed.length?'warn':'ok'):''
   ].filter(Boolean).join('');
   const issueItems=[];
+  if(competition?.version>=9&&avoidableOverSlots>0)issueItems.push(`인원수상 불가피한 초과를 제외한 추가 출전 ${avoidableOverSlots}회가 있습니다. 출전 필수 조건을 맞추도록 편성을 보완하세요.`);
   formatWarnings.forEach(g=>issueItems.push(`${escText(g.type)} 점수상 우세 청 ${g.blue} : 홍 ${g.white}, 접전 ${g.close}/${g.games}경기입니다. 팀 구성과 경기별 균형을 함께 확인하세요. 실제 승수 예측은 아닙니다.`));
   if(splitAudit&&splitAudit.genderGap>0.3)issueItems.push('남녀별 청·홍팀 실력 차이가 큽니다. 코트를 줄이기 전에 팀 구성을 다시 나누는 것이 좋습니다.');
   if(balanceHardCount>0)issueItems.push(`파트너 격차를 반영한 균형 기준 초과 경기 ${balanceHardCount}개는 재배정을 권장합니다.`);
@@ -4568,7 +4575,7 @@ function renderQualityDashboard(matches,participants,settings){
   else if(avoidableSameFour>0)issueItems.push(`같은 4명 재경기 ${avoidableSameFour}건은 필요 시 재배정하세요.`);
   if(partnerOnlyExcess>0||partner3>0||partner4>0)issueItems.push(`파트너 재배정 ${avoidablePartnerExcess}회가 있습니다. 반복 조합 ${repeatedPartnerPairs}쌍, 최다 ${maxPartnerRepeat}회이며 상대 만남은 제외했습니다.`);
   if(over.length&&avoidableOverSlots===0)issueItems.push(`인원 구조상 ${over.length}명 초과 출전은 감점하지 않았습니다.`);
-  if(parityAdjustment>0)issueItems.push('성비상 1게임 차이는 불가피한 최소 조정으로 처리했습니다.');
+  if((!competition||competition.version<9)&&parityAdjustment>0)issueItems.push('성비상 1게임 차이는 불가피한 최소 조정으로 처리했습니다.');
   if(adjustments.length)issueItems.push(`${settings.teamMode?'팀':'참가자'} 성비 때문에 보정경기 ${adjustments.length}개를 사용했습니다. 전원 출전과 팽팽한 실력 균형을 위한 조합입니다.`);
   if(q.restLongRuns?.length)issueItems.push(`개인별 연속 출전 부담: ${q.restLongRuns.map(p=>`${p.name} ${p.maxRun}연속`).join(', ')}. 휴식 점수와 편성 순위에 반영했습니다.`);
   if(excessConsec>0){
@@ -4595,7 +4602,7 @@ function renderQualityDashboard(matches,participants,settings){
   };
 
   el.innerHTML=`
-    ${competition?`<div class="qd-header"><div class="qd-badge qd-${grade}"><span class="qd-badge-pts">${total}</span><span class="qd-badge-grade">/ 100점</span></div><div class="qd-meta"><div class="qd-meta-title">합산 품질점수 · 기준 v${competition.version}</div><div class="qd-meta-sub">아래 6개 항목의 합계입니다. 같은 구성원에서 더 나은 편성이 있는지는 후보 비교로 확인합니다.</div></div></div>`:''}
+    ${competition?`<div class="qd-header"><div class="qd-badge qd-${grade}"><span class="qd-badge-pts">${total}</span><span class="qd-badge-grade">/ 100점</span></div><div class="qd-meta"><div class="qd-meta-title">합산 품질점수 · 기준 v${competition.version}</div><div class="qd-meta-sub">${competition.eligible?'아래 4개 배점 항목의 합계입니다. 출전은 필수 조건, 확정팀 분포는 별도 진단입니다.':'필수 조건 확인이 필요합니다. 합산점수와 관계없이 표시된 문제를 먼저 보완하세요.'}</div></div></div>`:''}
     ${conditional?`<div class="qd-balance-note" style="padding:14px;font-size:13px!important;line-height:1.65!important;">
       <strong>${conditional.verified?`현재 팀·설정 기준 후보 비교 ${conditional.score}점 · ${conditional.rank}/${conditional.count}위`:'현재 팀·설정 기준 후보 비교 · 미검증'}</strong><br>
       ${settings.teamComparisonNotice?escText(settings.teamComparisonNotice)+'<br>':''}
@@ -4623,11 +4630,11 @@ function renderQualityDashboard(matches,participants,settings){
           <div class="qd-row-body">
             <div class="qd-row-label">${row.label}${row.max
               ?` <span style="font-size:.6rem;color:var(--dim);font-weight:400;">(${row.max}점)</span>`
-              :' <span style="font-size:.6rem;color:var(--dim);font-weight:400;">(참고)</span>'}</div>
+              :` <span style="font-size:.6rem;color:var(--dim);font-weight:400;">(${row.kind||'참고'})</span>`}</div>
             <div class="qd-row-detail">${row.detail}</div>
           </div>
           <div class="qd-row-score">
-            ${scoreTag(row.score,row.max)}
+            ${scoreTag(row.score,row.max,row.status)}
             ${row.score===null?'':barHtml(row.pct)}
           </div>
         </div>`).join('')}
