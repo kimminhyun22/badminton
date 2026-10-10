@@ -18,7 +18,8 @@ function assess(legacy,matches,players,settings,level,diff){
  // Preserve original per-match loss including raw sums and partner correction.
  const losses=matches.map(m=>clamp((c._teamBalanceDiff(m)-.25)/1.75));
  const originalGameLoss=.75*average(losses)+.25*tail(losses);
- const closenessLoss=average(margins.map(x=>clamp(Math.abs(x)/1.5)));
+ const adjustedLosses=margins.map(x=>clamp(Math.abs(x)/1.5));
+ const closenessLoss=settings._legacyCompetition?average(adjustedLosses):.4*average(adjustedLosses)+.4*tail(adjustedLosses)+.2*Math.max(...adjustedLosses);
  const gameLoss=.75*originalGameLoss+.25*closenessLoss;
  const rosterLoss=.45*clamp(meanGap/.5)+.4*clamp(quantileGap/1)+.15*clamp(genderGap/.5);
  // Continuous signed advantage; no discontinuous bonus at the close threshold.
@@ -32,7 +33,7 @@ function assess(legacy,matches,players,settings,level,diff){
  const issues=[...q.safetyIssues];
  const diagnostics={meanGap,quantileGap,genderGap,meanAdjustedGap:average(margins.map(Math.abs)),maxAdjustedGap:Math.max(...margins.map(Math.abs)),tailAdjustedGap:tail(margins.map(Math.abs)),netPerGame:net,softBias,formatBias,formatBalance,
   closeSensitivity:[.15,.2,.25,.3].map(t=>({threshold:t,blue:margins.filter(x=>x>t).length,white:margins.filter(x=>x< -t).length,close:margins.filter(x=>Math.abs(x)<=t).length}))};
- return {version:settings._legacyCompetition?4:5,total,components,maxima:{games:30,roster:10,overall:10,participation:20,diversity:20,rest:10},eligible:issues.length===0,issues,diagnostics,legacyTotal:q.total,legacySelection:!!settings._legacyCompetition};
+ return {version:settings._legacyCompetition?4:6,total,components,maxima:{games:30,roster:10,overall:10,participation:20,diversity:20,rest:10},eligible:issues.length===0,issues,diagnostics,legacyTotal:q.total,legacySelection:!!settings._legacyCompetition};
 }
 // Mandatory validity/participation comes first. A high rest/diversity score
 // cannot buy a worse blowout. Directional fairness breaks closeness ties.

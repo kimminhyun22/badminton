@@ -31,3 +31,11 @@ const allFixed=build(71),fixedAll=[...b,...w].map(p=>p.name),unchanged=allFixed.
 console.log('PASS rising individual quota and fully locked allocation');
 
 assert(!fs.readFileSync('js/team.js','utf8').includes('const joint=_teamJointAllocation('),'unproven joint allocation must stay disconnected');
+
+const concentrated=fixture([1.2,0,0,0]),even=fixture([.3,-.3,.3,-.3]);
+const scoreOnly=f=>Q.assess(common,f.matches,f.players,{teamMode:true},level,()=>0);
+assert(scoreOnly(concentrated).components.games<scoreOnly(even).components.games,'same mean must penalize concentrated worst games');
+const scalarMutant={module:{exports:{}}};vm.runInNewContext(fs.readFileSync('js/team-competition.js','utf8').replace('.4*average(adjustedLosses)+.4*tail(adjustedLosses)+.2*Math.max(...adjustedLosses)','average(adjustedLosses)'),scalarMutant);
+assert(Math.abs(scalarMutant.module.exports.assess(common,concentrated.matches,concentrated.players,{teamMode:true},level,()=>0).components.games-scalarMutant.module.exports.assess(common,even.matches,even.players,{teamMode:true},level,()=>0).components.games)<1e-10);
+assert.equal(scoreOnly(concentrated).version,6);
+console.log('PASS v6 adjusted worst-tail score, same-mean concentration and mutation');

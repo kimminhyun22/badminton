@@ -20,11 +20,13 @@ async function run(code,name,scenario){
     currentMatches:[{}],_rsvpEnsureCurrentEventLink:()=>{},_rsvpSessionMembers:()=>[{}],teamLiveOpenPlayers:()=>{},_fbInit:()=>true,
     rsvpEnsureId:()=>{},_rsvpUrl:()=> 'https://example.invalid/rsvp?id=TEST',_rsvpApplyAutoTitle:()=>{},_rsvpTitle:()=> '민턴LIVE',
     rsvpPublishSession:async()=>{calls.published++;return scenario==='failed'?null:'test';},_teamFlashNote:()=>{},
+    _teamShareReadyKey:scenario==='failed'?'':'ready',_teamShareSnapshot:()=>({key:'ready'}),
+    _teamPrepareShareLink:async()=>{calls.published++;return scenario!=='failed';},
     _teamOpenSharePopup:()=>{calls.popup++;},alert:s=>calls.alerts.push(s),prompt:()=>{throw Error('unexpected prompt');},
     navigator:{clipboard:{writeText:async s=>calls.copy.push(s)}}};
   if(scenario!=='no-share')sandbox.navigator.share=async p=>{calls.share.push(p);if(scenario==='cancel')throw Object.assign(Error('cancel'),{name:'AbortError'});if(scenario==='denied')throw Object.assign(Error('denied'),{name:'NotAllowedError'});};
   vm.createContext(sandbox);vm.runInContext(code,sandbox);await sandbox[name]();
-  assert.equal(calls.popup,0);assert.equal(calls.published,1);
+  assert.equal(calls.popup,0);assert.equal(calls.published,name==='rsvpCopyShareText'&&scenario!=='failed'?0:1);
   if(scenario==='failed'){assert.equal(calls.share.length,0);assert.equal(calls.copy.length,0);}
   else if(scenario==='no-share'||scenario==='denied'){assert.equal(calls.copy.length,1);assert.equal((calls.copy[0].match(/https:\/\//g)||[]).length,1);}
   else {assert.equal(calls.share.length,1);assert(calls.share[0].url.startsWith('https://'));assert(!calls.share[0].text.includes('https://'));assert.equal(calls.copy.length,0);}

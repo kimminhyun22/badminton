@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.793';
+const APP_VERSION = '1.10.794';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4228,7 +4228,8 @@ function renderQualityDashboard(matches,participants,settings){
   const competition=_teamCompetitionEvaluation({matches,participants},settings)?.score;
   const total=competition?Math.round(competition.total):legacyTotal;
   const grade=competition?(total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D'):legacyGrade;
-  const gradeLabel=competition?(competition.eligible?({S:'매우 우수',A:'우수',B:'양호',C:'보통',D:'개선 권장'}[grade]):'필수 확인'):legacyGradeLabel;
+  const balanceReview=competition?.diagnostics.formatBalance.some(g=>g.games>=4&&Math.abs(g.blue-g.white)>=Math.ceil(g.games/2));
+  const gradeLabel=competition?(competition.eligible?(balanceReview?'종목 편중 확인':({S:'매우 우수',A:'우수',B:'양호',C:'보통',D:'개선 권장'}[grade])):'필수 확인'):legacyGradeLabel;
   const structureLabel=settings.teamMode?'팀배치':'경기구성';
   const structureDetail=settings.teamMode?'팀 배치':'경기 구성';
 
@@ -4322,7 +4323,7 @@ function renderQualityDashboard(matches,participants,settings){
   if(competition){
     const d=competition.diagnostics,parts=competition.components,count=d.closeSensitivity[1];
     rows.splice(0,splitAudit?2:1,
-      {label:'경기 접전·실력 격차',detail:`접전 ${count.close}/${matches.length}경기 · 파트너 보정 격차 평균 ${d.meanAdjustedGap.toFixed(2)} · 최대 ${d.maxAdjustedGap.toFixed(2)} · 경기별 접전 우선 선택`,score:parts.games,max:30,pct:parts.games/30},
+      {label:'경기 접전·실력 격차',detail:`접전 ${count.close}/${matches.length}경기 · 파트너 보정 격차 평균 ${d.meanAdjustedGap.toFixed(2)} · 최악 20% 평균 ${d.tailAdjustedGap.toFixed(2)} · 최대 ${d.maxAdjustedGap.toFixed(2)} · 경기별 접전 우선 선택`,score:parts.games,max:30,pct:parts.games/30},
       {label:'팀 실력 분포',detail:`평균 차 ${d.meanGap.toFixed(2)} · 상·중·하위 분포 차 ${d.quantileGap.toFixed(2)} · 남녀별 차 ${d.genderGap.toFixed(2)}`,score:parts.roster,max:10,pct:parts.roster/10},
       {label:'전체 대진 우세 균형',detail:`접전 제외 예상 우세 청 ${count.blue} : 홍 ${count.white} · ${d.formatBalance.map(g=>`${escText(g.type)} 청${g.blue}:홍${g.white}`).join(' · ')} · 경기당 순격차 ${Math.abs(d.netPerGame).toFixed(2)} · 승수 예측 아님`,score:parts.overall,max:10,pct:parts.overall/10});
   }
@@ -8342,8 +8343,12 @@ async function rsvpPublishSession(silent){
   rsvpRender();
   return _rsvpId;
 }
+let _teamShareActive=false;
 async function rsvpShareLink(channel){
-  await rsvpCopyShareText(false,channel);
+  if(_teamShareActive)return false;
+  _teamShareActive=true;
+  try{return await rsvpCopyShareText(false,channel);}
+  finally{_teamShareActive=false;}
 }
 /* 채널별 바로 공유 — 민턴LIVE(daily.js)와 같은 방식(2026-09-03 운영자 "팀전도 동일하게").
    밴드 창은 사용자 제스처 안에서 먼저 열어야 팝업 차단에 걸리지 않는다(await 뒤 window.open 은 막힌다). */
@@ -8401,12 +8406,55 @@ function _teamFlashNote(message){
   clearTimeout(_teamFlashNote._t);
   _teamFlashNote._t=setTimeout(()=>el.classList.remove('on'),2200);
 }
+let _teamShareReadyKey='',_teamSharePreparing=null;
+function _teamShareSnapshot(){
+  if(currentMatches.length)_rsvpEnsureCurrentEventLink({silent:true,createIfMissing:true});
+  if(!_rsvpSessionMembers().length||!_fbInit())return null;
+  rsvpEnsureId();
+  const payload=_rsvpSessionPayload();
+  const stable={...payload};delete stable.updatedAt;delete stable.eventUpdatedAt;
+  return {id:_rsvpId,payload,key:JSON.stringify(stable)};
+}
+function _teamShareButtons(pending){
+  document.querySelectorAll('[onclick="rsvpShareLink()"]').forEach(button=>{
+    button.disabled=pending;
+    button.setAttribute('aria-busy',String(pending));
+    const text=button.lastChild;
+    if(text&&text.nodeType===3)text.nodeValue=pending?'공유 준비 중':'공유하기';
+  });
+}
+async function _teamPrepareShareLink(){
+  const snapshot=_teamShareSnapshot();
+  if(!snapshot)return false;
+  if(snapshot.key===_teamShareReadyKey){_teamShareButtons(false);return true;}
+  if(_teamSharePreparing){const ready=await _teamSharePreparing;return ready?_teamPrepareShareLink():false;}
+  _teamShareButtons(true);
+  _teamSharePreparing=(async()=>{
+    try{
+      const path='live/rsvp_'+snapshot.id;
+      await _fbDb.ref(path).update({kind:'tournamentRsvp',mode:'team',createdAt:snapshot.payload.createdAt,updatedAt:Date.now()});
+      await _fbDb.ref(path+'/session').set(snapshot.payload);
+      _teamShareReadyKey=snapshot.key;
+      _rsvpRememberHistory();
+      if(_rsvpId===snapshot.id)rsvpStartListener();
+      return true;
+    }catch(e){return false;}
+    finally{_teamSharePreparing=null;_teamShareButtons(false);}
+  })();
+  const ready=await _teamSharePreparing;
+  // Changes during an in-flight save must be acknowledged too.
+  if(ready&&_teamShareSnapshot()?.key!==_teamShareReadyKey)return _teamPrepareShareLink();
+  return ready;
+}
+function _teamWarmShareLink(){
+  Promise.resolve().then(()=>_teamPrepareShareLink()).catch(()=>{});
+}
 async function rsvpCopyShareText(auto,channel){
   channel=String(channel||'');
   // 밴드 창을 제스처 안에서 먼저 연다 — 아래 await(게시) 뒤에는 팝업 차단에 걸린다
   const popup=channel==='band'?_teamOpenSharePopup():null;
   const failShare=(msg)=>{if(popup&&!popup.closed)popup.close();alert(msg);return false;};
-  if(currentMatches.length)_rsvpEnsureCurrentEventLink({silent:auto,createIfMissing:true});
+  if(currentMatches.length)_rsvpEnsureCurrentEventLink({silent:true,createIfMissing:true});
   if(!_rsvpSessionMembers().length){
     teamLiveOpenPlayers();
     return failShare('관리자가 오늘 팀전 참가자를 먼저 세팅해 주세요.');
@@ -8419,8 +8467,10 @@ async function rsvpCopyShareText(auto,channel){
   // 카카오톡은 link 필드가 주소를 붙이므로 본문에는 넣지 않는다(넣으면 주소가 두 번 보인다)
   const body=`🏸 ${title}\n내 이름을 눌러 실중계에 들어가세요.`;
   const text=`${body}\n\n${url}`;
-  const published=await rsvpPublishSession(true).catch(()=>null);
-  if(!published)return failShare('팀전 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+  // Acknowledged preparation lets Web Share run in the original click gesture.
+  if(_teamShareSnapshot()?.key!==_teamShareReadyKey){
+    if(!await _teamPrepareShareLink())return failShare('팀전 링크 저장에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.');
+  }
   // 채널 버튼을 눌렀으면 그 앱의 공유가 바로 열린다 — 안내창은 띄우지 않는다
   if(channel==='band'){_teamShareToBand(popup,text,url);return true;}
   if(channel==='kakao'&&await _teamShareToKakao(body,url))return true;
@@ -8742,6 +8792,7 @@ function _autoFlowMetric(label,value){
 }
 /* 준비 단계와 상황판에서 같은 공유 동작을 사용한다. */
 function _autoFlowShareAction(){
+  _teamWarmShareLink();
   return `<div class="auto-flow-action share">
     <div class="auto-flow-share-btns">
       <button class="auto-flow-btn share-primary" type="button" onclick="rsvpShareLink()"><img src="icons/lucide/share-2.svg" alt="">공유하기</button>
@@ -9381,6 +9432,7 @@ if(summary)summary.textContent=_rsvpId?`(${counts.total}명 확정)`:'';
     </div>
     ${_rsvpId?_rsvpAdminRosterHtml(members,responses):''}`;
   renderAutoFlowDashboard();
+  _teamWarmShareLink();
 }
 function _rsvpGuestRowHtml(item){
   const r=item.response||item;
