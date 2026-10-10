@@ -31,12 +31,17 @@ function assess(legacy,matches,players,settings,level,diff){
  const substantial=formatBalance.filter(g=>g.games>=4);
  const formatBias=settings._legacyCompetition?(substantial.length?average(substantial.map(g=>Math.abs(g.softBias))):Math.abs(softBias)):formatBalance.reduce((s,g)=>s+formatWeight(g)*Math.abs(g.softBias),0)/formatBalance.reduce((s,g)=>s+formatWeight(g),0);
  const overallLoss=settings._legacyCompetition ? .5*clamp(Math.abs(net)/.5)+.5*Math.abs(softBias) : .5*clamp(Math.abs(net)/.5)+.25*Math.abs(softBias)+.25*formatBias;
- const components={games:30*(1-gameLoss),roster:10*(1-rosterLoss),overall:10*(1-overallLoss),participation:q.sFair,diversity:q.sDiversity,rest:q.sInterval};
+ // v8 allocates 70 points to competitive balance and 30 to operation.
+ // Keep prior rubrics reproducible; mandatory checks still outrank any sum.
+ const previous=settings._legacyCompetition||settings._qualityScoreVersion===7;
+ const maxima=previous?{games:30,roster:10,overall:10,participation:20,diversity:20,rest:10}:{games:45,roster:10,overall:15,participation:15,diversity:5,rest:10};
+ const fractions={games:1-gameLoss,roster:1-rosterLoss,overall:1-overallLoss,participation:q.sFair/20,diversity:q.sDiversity/20,rest:q.sInterval/10};
+ const components=Object.fromEntries(Object.entries(maxima).map(([key,max])=>[key,previous?max*fractions[key]:Math.round(max*fractions[key]*10)/10]));
  const total=Math.round(Object.values(components).reduce((a,b)=>a+b,0)*10)/10;
  const issues=[...q.safetyIssues];
  const diagnostics={meanGap,quantileGap,genderGap,meanAdjustedGap:average(margins.map(Math.abs)),maxAdjustedGap:Math.max(...margins.map(Math.abs)),tailAdjustedGap:tail(margins.map(Math.abs)),netPerGame:net,softBias,formatBias,formatBalance,
   closeSensitivity:[.15,.2,.25,.3].map(t=>({threshold:t,blue:margins.filter(x=>x>t).length,white:margins.filter(x=>x< -t).length,close:margins.filter(x=>Math.abs(x)<=t).length}))};
- return {version:settings._legacyCompetition?4:7,total,components,maxima:{games:30,roster:10,overall:10,participation:20,diversity:20,rest:10},eligible:issues.length===0,issues,diagnostics,legacyTotal:q.total,legacySelection:!!settings._legacyCompetition};
+ return {version:settings._legacyCompetition?4:previous?7:8,total,components,maxima,eligible:issues.length===0,issues,diagnostics,legacyTotal:q.total,legacySelection:!!settings._legacyCompetition};
 }
 // Mandatory validity/participation comes first. A high rest/diversity score
 // cannot buy a worse blowout. Directional fairness breaks closeness ties.

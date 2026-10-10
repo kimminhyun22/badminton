@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.798';
+const APP_VERSION = '1.10.799';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -4371,7 +4371,7 @@ function renderQualityDashboard(matches,participants,settings){
     asymMatches,asymSevereCount,mirroredExtremes,evenCount,favCount,splitAudit,sTeamSplit,
     sBalance,sFair,sDiversity,sInterval,sEfficiency,sValid,total:legacyTotal,grade:legacyGrade,gradeLabel:legacyGradeLabel}=q;
   const competition=_teamCompetitionEvaluation({matches,participants},settings)?.score;
-  const total=competition?Math.round(competition.total):legacyTotal;
+  const total=competition?competition.total:legacyTotal;
   const conditional=competition?_teamConditionalAssessment(matches,participants,settings):null;
   const grade=competition?(total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D'):legacyGrade;
   const balanceReview=competition?.diagnostics.formatBalance.some(g=>g.games>=2&&Math.abs(g.blue-g.white)>=Math.ceil(g.games/2));
@@ -4385,7 +4385,7 @@ function renderQualityDashboard(matches,participants,settings){
   function icon(pct){return pct>=0.85?'✅':pct>=0.65?'⚠️':'❌';}
   function scoreTag(score,max){
     if(score===null) return `<span class="qd-pts-small" style="color:var(--dim);">참고</span>`;
-    return `<span class="qd-pts-small">${Math.round(score)}/${max}</span>`;
+    return `<span class="qd-pts-small">${competition?Number(score.toFixed(1)):Math.round(score)}/${max}</span>`;
   }
   function barHtml(pct){
     return `<div class="qd-bar-wrap"><div class="qd-bar-fill" style="width:${Math.round(pct*100)}%;background:${barColor(pct)};"></div></div>`;
@@ -4467,11 +4467,14 @@ function renderQualityDashboard(matches,participants,settings){
   ];
 
   if(competition){
-    const d=competition.diagnostics,parts=competition.components,count=d.closeSensitivity[1];
+    const d=competition.diagnostics,parts=competition.components,max=competition.maxima,count=d.closeSensitivity[1];
     rows.splice(0,splitAudit?2:1,
-      {label:'경기 접전·실력 격차',detail:`접전 ${count.close}/${matches.length}경기 · 파트너 보정 격차 평균 ${d.meanAdjustedGap.toFixed(2)} · 최악 20% 평균 ${d.tailAdjustedGap.toFixed(2)} · 최대 ${d.maxAdjustedGap.toFixed(2)} · 경기별 접전 우선 선택`,score:parts.games,max:30,pct:parts.games/30},
-      {label:'팀 실력 분포',detail:`평균 차 ${d.meanGap.toFixed(2)} · 상·중·하위 분포 차 ${d.quantileGap.toFixed(2)} · 남녀별 차 ${d.genderGap.toFixed(2)}`,score:parts.roster,max:10,pct:parts.roster/10},
-      {label:'전체 대진 우세 균형',detail:`접전 제외 예상 우세 청 ${count.blue} : 홍 ${count.white} · ${d.formatBalance.map(g=>`${escText(g.type)} 청${g.blue}:홍${g.white}`).join(' · ')} · 경기당 순격차 ${Math.abs(d.netPerGame).toFixed(2)} · 승수 예측 아님`,score:parts.overall,max:10,pct:parts.overall/10});
+      {label:'경기 접전·실력 격차',detail:`접전 ${count.close}/${matches.length}경기 · 파트너 보정 격차 평균 ${d.meanAdjustedGap.toFixed(2)} · 최악 20% 평균 ${d.tailAdjustedGap.toFixed(2)} · 최대 ${d.maxAdjustedGap.toFixed(2)} · 경기별 접전 우선 선택`,score:parts.games,max:max.games,pct:parts.games/max.games},
+      {label:'팀 실력 분포',detail:`평균 차 ${d.meanGap.toFixed(2)} · 상·중·하위 분포 차 ${d.quantileGap.toFixed(2)} · 남녀별 차 ${d.genderGap.toFixed(2)}`,score:parts.roster,max:max.roster,pct:parts.roster/max.roster},
+      {label:'전체 대진 우세 균형',detail:`접전 제외 예상 우세 청 ${count.blue} : 홍 ${count.white} · ${d.formatBalance.map(g=>`${escText(g.type)} 청${g.blue}:홍${g.white}`).join(' · ')} · 경기당 순격차 ${Math.abs(d.netPerGame).toFixed(2)} · 승수 예측 아님`,score:parts.overall,max:max.overall,pct:parts.overall/max.overall});
+    for(const [label,key] of [['대진 다양성','diversity'],['휴식·연속 출전','rest'],['출전 횟수 공정성','participation']]){
+      const row=rows.find(r=>r.label===label);row.score=parts[key];row.max=max[key];row.pct=parts[key]/max[key];
+    }
   }
 
   if(settings.teamMode&&globalThis.KokWomenDoubles){
@@ -4592,6 +4595,7 @@ function renderQualityDashboard(matches,participants,settings){
   };
 
   el.innerHTML=`
+    ${competition?`<div class="qd-header"><div class="qd-badge qd-${grade}"><span class="qd-badge-pts">${total}</span><span class="qd-badge-grade">/ 100점</span></div><div class="qd-meta"><div class="qd-meta-title">합산 품질점수 · 기준 v${competition.version}</div><div class="qd-meta-sub">아래 6개 항목의 합계입니다. 같은 구성원에서 더 나은 편성이 있는지는 후보 비교로 확인합니다.</div></div></div>`:''}
     ${conditional?`<div class="qd-balance-note" style="padding:14px;font-size:13px!important;line-height:1.65!important;">
       <strong>${conditional.verified?`현재 팀·설정 기준 후보 비교 ${conditional.score}점 · ${conditional.rank}/${conditional.count}위`:'현재 팀·설정 기준 후보 비교 · 미검증'}</strong><br>
       ${settings.teamComparisonNotice?escText(settings.teamComparisonNotice)+'<br>':''}
