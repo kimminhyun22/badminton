@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.792';
+const APP_VERSION = '1.10.793';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -1125,9 +1125,7 @@ function generate(opts={}){
         if(_isBetterQualityKey(_key,bestKey)){bestKey=_key;matches=_m;bestPlayers=_try;_lastImprovement=_t;}
       }
       // 최고 후보 채택
-      const finalChoice=_teamOptimizeFinalists(finalists,settings);
-      if(finalChoice){matches=finalChoice.matches;bestPlayers=finalChoice.participants;}
-      const womenChoice=_teamWomenPriorityChoice({matches,participants:bestPlayers},_basePlayers,settings,totalMatches);
+      const womenChoice=_teamSelectFinalBracket(finalists,_basePlayers,settings,totalMatches);
       matches=womenChoice.matches;bestPlayers=womenChoice.participants;
       settings.womenDoublesPriority=settings.teamMode;
       delete settings._womenPlan;delete settings._womenPriority;
@@ -2492,7 +2490,7 @@ function _teamWomenPriorityChoice(base,players,settings,totalMatches){
   const prioritySettings={...settings,_womenPriority:true,_womenReservationPlan:policy.plan(players.map(p=>({...p,_goal:settings.gamesPerPlayer})),settings,_teamPairBalance,effLevel)};
   if(!prioritySettings._womenReservationPlan.matches.length)return base;
   let best=base,bestCoverage=policy.status(base.matches,base.participants,settings).covered;
-  for(let attempt=0;attempt<4;attempt++){
+  for(let attempt=0;attempt<(settings._closePriority?2:4);attempt++){
     const participants=players.map(p=>({...p,_goal:settings.gamesPerPlayer,gamesPlayed:0,lastRoundPlayed:0,womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,adjustmentPlayed:0,partnerCount:{},opponentCount:{}}));
     const matches=generateMatches(participants,prioritySettings,totalMatches);
     fillMissingGames(participants,prioritySettings,matches,totalMatches);
@@ -2504,7 +2502,7 @@ function _teamWomenPriorityChoice(base,players,settings,totalMatches){
     if(!policy.safe(adapter,base,candidate,settings))continue;
     const reserved=matches.map(m=>({...m}));
     const before=_teamCompetitionEvaluation(candidate,settings),beforeRest=_qualityAssessment(matches,participants,settings).excessConsec;
-    policy.optimize(adapter,candidate,settings,{joint:true});
+    policy.optimize(adapter,candidate,settings,{joint:true,...(settings._closePriority?{passes:2,budget:24}:{})});
     const after=_teamCompetitionEvaluation(candidate,settings);
     if(!policy.safe(adapter,base,candidate,settings)||!policy.preserves(reserved,matches,participants,settings)||after.score.total<before.score.total||after.score.diagnostics.meanAdjustedGap>before.score.diagnostics.meanAdjustedGap+1e-9||_qualityAssessment(matches,participants,settings).excessConsec>beforeRest)matches.splice(0,matches.length,...reserved);
     const coverage=policy.status(matches,participants,settings).covered;
@@ -2523,6 +2521,134 @@ function _teamCompetitionEvaluation(candidate,settings){
   const legacy=_qualityAssessment(candidate.matches,candidate.participants,settings);
   return {legacy,score:policy.assess(legacy,candidate.matches,candidate.participants,settings,effLevel,_teamBalanceDiff)};
 }
+function _teamWomenTargetsPreserved(base,next,settings){
+  const women=globalThis.KokWomenDoubles;
+  if(!women.preserves(base.matches,next.matches,base.participants,settings))return false;
+  const before=women.status(base.matches,base.participants,settings).rows;
+  const after=new Map(women.status(next.matches,next.participants,settings).rows.map(p=>[p.name,p]));
+  // An extra fifth game raises the woman's half-share goal from two to three.
+  return before.every(p=>p.women<p.target||((after.get(p.name)?.women??0)>=(after.get(p.name)?.target??Infinity)));
+}
+function _teamSelectFinalBracket(finalists,players,settings,totalMatches,{joint=false}={}){
+  if(!settings.teamMode||!globalThis.KokTeamCompetition){
+    const base=_teamOptimizeFinalists(finalists,settings);
+    return _teamWomenPriorityChoice(base,players,settings,totalMatches);
+  }
+  // Preserve the complete previous result, including women's reservations.
+  // Copies must keep match/player identity without sharing mutable counters.
+  const copy=()=>finalists.map(candidate=>{
+    const participants=candidate.participants.map(p=>({...p,partnerCount:{...p.partnerCount},opponentCount:{...p.opponentCount}}));
+    const by=new Map(participants.map(p=>[p.name,p]));
+    return {...candidate,participants,matches:candidate.matches.map(m=>({...m,
+      team1A:by.get(m.team1A.name),team1B:by.get(m.team1B.name),team2C:by.get(m.team2C.name),team2D:by.get(m.team2D.name)}))};
+  });
+  const legacySettings={...settings,_legacyCompetition:true};
+  const baseline=_teamWomenPriorityChoice(_teamOptimizeFinalists(copy(),legacySettings),players,legacySettings,totalMatches);
+  const cloneBaseline=()=>{
+    const participants=baseline.participants.map(p=>({...p,partnerCount:{...p.partnerCount},opponentCount:{...p.opponentCount}})),by=new Map(participants.map(p=>[p.name,p]));
+    return {participants,matches:baseline.matches.map(m=>({...m,team1A:by.get(m.team1A.name),team1B:by.get(m.team1B.name),team2C:by.get(m.team2C.name),team2D:by.get(m.team2D.name)}))};
+  };
+  const local=cloneBaseline();_teamRefineCloseOpponents(local,settings);
+  const planned=joint?_teamWomenPriorityChoice(cloneBaseline(),players,{...settings,_closePriority:true},totalMatches):null;
+  if(planned)_teamRefineCloseOpponents(planned,settings);
+  const policy=globalThis.KokTeamCompetition,women=globalThis.KokWomenDoubles;
+  const b=_teamCompetitionEvaluation(baseline,settings);let best=baseline,bestScore=b.score;
+  for(const candidate of [local,...(planned?[planned]:[])]){
+    const n=_teamCompetitionEvaluation(candidate,settings);
+    if(!women.safe({_qualityAssessment},baseline,candidate,settings)||!_teamWomenTargetsPreserved(baseline,candidate,settings)||!policy.protects(b.legacy,n.legacy,b.score,n.score,baseline.matches,candidate.matches))continue;
+    if(_isBetterQualityKey(policy.rankKey(n.score),policy.rankKey(bestScore))){best=candidate;bestScore=n.score;}
+  }
+  return best;
+}
+function _teamRefineCloseOpponents(candidate,settings){
+  const policy=globalThis.KokTeamCompetition;
+  const initial=_teamCompetitionEvaluation(candidate,settings);
+  let current=initial;
+  const female=pair=>pair.filter(p=>p.gender==='F').length;
+  const permutations=items=>items.length?items.flatMap((v,i)=>permutations(items.filter((_,j)=>i!==j)).map(t=>[v,...t])):[[]];
+  const rounds=[...new Set(candidate.matches.map(m=>m.round))];
+  for(const round of rounds){
+    const indices=candidate.matches.map((m,i)=>m.round===round?i:-1).filter(i=>i>=0),original=indices.map(i=>candidate.matches[i]);
+    if(original.length<2||original.length>6||original.some(m=>m.win||m.voided))continue;
+    const pairs=original.map(m=>[m.team2C,m.team2D]),proposals=[];
+    for(const order of permutations(pairs.map((_,i)=>i))){
+      if(order.every((v,i)=>v===i)||order.some((v,i)=>female(pairs[v])!==female(pairs[i])||pairs[v][0].team!==pairs[i][0].team))continue;
+      const matches=candidate.matches.slice();let valid=true;
+      indices.forEach((index,j)=>{const m={...matches[index],team2C:pairs[order[j]][0],team2D:pairs[order[j]][1]};
+        if(!_teamPairBalance([m.team1A,m.team1B],[m.team2C,m.team2D]).allowed)valid=false;
+        m.team1Level=effLevel(m.team1A)+effLevel(m.team1B);m.team2Level=effLevel(m.team2C)+effLevel(m.team2D);m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;matches[index]=m;
+      });
+      if(!valid)continue;
+      const score=policy.assess(current.legacy,matches,candidate.participants,settings,effLevel,_teamBalanceDiff);
+      if(_isBetterQualityKey(policy.rankKey(score),policy.rankKey(current.score)))proposals.push({matches,score});
+    }
+    proposals.sort((a,b)=>_isBetterQualityKey(policy.rankKey(a.score),policy.rankKey(b.score))?-1:1);
+    for(const proposal of proposals.slice(0,12)){
+      const next=_teamCompetitionEvaluation({...candidate,matches:proposal.matches},settings);
+      if(!policy.protects(initial.legacy,next.legacy,initial.score,next.score,candidate.matches,proposal.matches))continue;
+      if(!_isBetterQualityKey(policy.rankKey(next.score),policy.rankKey(current.score)))continue;
+      candidate.matches=proposal.matches;current=next;break;
+    }
+  }
+  // The same pairs and rounds mean counters, quotas and rest are unchanged.
+  const history=_buildHistoryFromMatches(candidate.matches);
+  candidate.participants.forEach(p=>{p.partnerCount=history[p.name]?.partnerCount||{};p.opponentCount=history[p.name]?.opponentCount||{};});
+}
+function _teamAllocationBracket(blue,white,settings){
+  const participants=[...blue.map(p=>({...p,team:'청팀'})),...white.map(p=>({...p,team:'홍팀'}))];
+  const configured={...settings,..._teamAutoFormatSettings(settings,participants)};
+  const count=_participationSlotStats(participants,configured,{}).minimumMatches;
+  const women=globalThis.KokWomenDoubles;
+  configured._womenPriority=true;
+  configured._womenReservationPlan=women.plan(participants.map(p=>({...p,_goal:settings.gamesPerPlayer})),configured,_teamPairBalance,effLevel);
+  let best=null;
+  for(let attempt=0;attempt<1;attempt++){
+    const ps=participants.map(p=>({...p,_goal:settings.gamesPerPlayer,gamesPlayed:0,lastRoundPlayed:0,
+      womenDoublesPlayed:0,menDoublesPlayed:0,mixedDoublesPlayed:0,adjustmentPlayed:0,partnerCount:{},opponentCount:{}}));
+    const matches=generateMatches(ps,configured,count);fillMissingGames(ps,configured,matches,count);
+    _repairParticipation(matches,ps,configured);compactSchedule(matches,configured);
+    if(!matches.length)return null;
+    const candidate={matches,participants:ps};
+    if(!best||_isBetterQualityKey(_teamFinalQualityKey(candidate.matches,candidate.participants,configured),_teamFinalQualityKey(best.matches,best.participants,configured)))best=candidate;
+  }
+  return best;
+}
+// Offline prototype. Automatic team assignment does not call this function.
+function _teamJointAllocation(blue,white,settings,locked=[]){
+  const policy=globalThis.KokTeamCompetition,women=globalThis.KokWomenDoubles;
+  if(!policy||!women||!settings.teamMode||blue.length<2||white.length<2)return {blue,white};
+  const candidates=policy.allocationCandidates(blue,white,locked,effLevel);
+  if(!candidates.length)return {blue,white};
+  // Common deterministic seeds keep the comparison fair and leave the next
+  // real generation's random stream untouched. Always restore on exceptions.
+  const preview=(b,w,seed,closePriority=false)=>{
+    const previous=Math.random;let state=seed;
+    Math.random=()=>((state=(Math.imul(state,1664525)+1013904223)>>>0)/4294967296);
+    try{return _teamAllocationBracket(b,w,{...settings,_closePriority:closePriority});}finally{Math.random=previous;}
+  };
+  const seeds=[71,227,991],base=seeds.map(seed=>preview(blue,white,seed));
+  if(base.some(candidate=>!candidate))return {blue,white};
+  const original=base.map(candidate=>_teamCompetitionEvaluation(candidate,settings));
+  const aggregate=scores=>[Math.max(...scores.map(s=>s.diagnostics.maxAdjustedGap)),
+    scores.reduce((a,s)=>a+s.diagnostics.meanAdjustedGap,0),
+    scores.reduce((a,s)=>a+Math.abs(s.diagnostics.closeSensitivity[1].blue-s.diagnostics.closeSensitivity[1].white),0)];
+  let bestSplit={blue,white},bestKey=aggregate(original.map(s=>s.score));
+  for(const split of candidates){
+    const scores=[];let safe=true;
+    for(let i=0;i<seeds.length;i++){
+      const candidate=preview(split.blue,split.white,seeds[i],true);
+      if(!candidate){safe=false;break;}
+      const next=_teamCompetitionEvaluation(candidate,settings),initial=original[i];
+      if(!women.safe({_qualityAssessment},base[i],candidate,settings)||!_teamWomenTargetsPreserved(base[i],candidate,settings)||!policy.protects(initial.legacy,next.legacy,initial.score,next.score,base[i].matches,candidate.matches)){safe=false;break;}
+      scores.push(next.score);
+    }
+    if(!safe)continue;
+    const key=aggregate(scores);
+    if(_isBetterQualityKey(key,bestKey)){bestKey=key;bestSplit=split;}
+  }
+  return {blue:bestSplit.blue,white:bestSplit.white};
+}
+
 function _teamChooseCompetitionCandidate(base,candidates,settings){
   if(!base)return base;
   const initial=_teamCompetitionEvaluation(base,settings);if(!initial)return base;
@@ -4196,9 +4322,9 @@ function renderQualityDashboard(matches,participants,settings){
   if(competition){
     const d=competition.diagnostics,parts=competition.components,count=d.closeSensitivity[1];
     rows.splice(0,splitAudit?2:1,
-      {label:'경기 접전·실력 격차',detail:`접전 ${count.close}/${matches.length}경기 · 파트너 보정 격차 평균 ${d.meanAdjustedGap.toFixed(2)} · 최대 ${d.maxAdjustedGap.toFixed(2)}`,score:parts.games,max:30,pct:parts.games/30},
+      {label:'경기 접전·실력 격차',detail:`접전 ${count.close}/${matches.length}경기 · 파트너 보정 격차 평균 ${d.meanAdjustedGap.toFixed(2)} · 최대 ${d.maxAdjustedGap.toFixed(2)} · 경기별 접전 우선 선택`,score:parts.games,max:30,pct:parts.games/30},
       {label:'팀 실력 분포',detail:`평균 차 ${d.meanGap.toFixed(2)} · 상·중·하위 분포 차 ${d.quantileGap.toFixed(2)} · 남녀별 차 ${d.genderGap.toFixed(2)}`,score:parts.roster,max:10,pct:parts.roster/10},
-      {label:'전체 대진 우세 균형',detail:`접전 제외 예상 우세 청 ${count.blue} : 홍 ${count.white} · 경기당 순격차 ${Math.abs(d.netPerGame).toFixed(2)} · 승수 예측 아님`,score:parts.overall,max:10,pct:parts.overall/10});
+      {label:'전체 대진 우세 균형',detail:`접전 제외 예상 우세 청 ${count.blue} : 홍 ${count.white} · ${d.formatBalance.map(g=>`${escText(g.type)} 청${g.blue}:홍${g.white}`).join(' · ')} · 경기당 순격차 ${Math.abs(d.netPerGame).toFixed(2)} · 승수 예측 아님`,score:parts.overall,max:10,pct:parts.overall/10});
   }
 
   if(settings.teamMode&&globalThis.KokWomenDoubles){
@@ -4249,6 +4375,8 @@ function renderQualityDashboard(matches,participants,settings){
   if(avoidableExact>0)blocking.push('똑같은 경기 반복');
   if(fillers.length>2)blocking.push('보완게임 과다');
   const caution=[];
+  const formatWarnings=competition?competition.diagnostics.formatBalance.filter(g=>g.games>=4&&Math.abs(g.blue-g.white)>=Math.ceil(g.games/2)):[];
+  formatWarnings.forEach(g=>caution.push(`${g.type} 우세 한쪽 편중`));
   if(settings.teamMode&&globalThis.KokWomenDoubles){const women=globalThis.KokWomenDoubles.status(matches,participants,settings);if(women.covered<women.total)caution.push('여복 목표 미달');}
   if(avoidableSameFour>0)caution.push('같은 4명 재경기');
   const repeatedPartnerRate=avoidablePartnerExcess/Math.max(1,matches.length*2);
@@ -4280,6 +4408,7 @@ function renderQualityDashboard(matches,participants,settings){
     fixedPairs.length?chip(`P 파트너 ${fixedPairs.length}쌍`,splitFixed.length?'warn':'ok'):''
   ].filter(Boolean).join('');
   const issueItems=[];
+  formatWarnings.forEach(g=>issueItems.push(`${escText(g.type)} 점수상 우세 청 ${g.blue} : 홍 ${g.white}, 접전 ${g.close}/${g.games}경기입니다. 팀 구성과 경기별 균형을 함께 확인하세요. 실제 승수 예측은 아닙니다.`));
   if(splitAudit&&splitAudit.genderGap>0.3)issueItems.push('남녀별 청·홍팀 실력 차이가 큽니다. 코트를 줄이기 전에 팀 구성을 다시 나누는 것이 좋습니다.');
   if(balanceHardCount>0)issueItems.push(`파트너 격차를 반영한 균형 기준 초과 경기 ${balanceHardCount}개는 재배정을 권장합니다.`);
   else if(balanceCautionCount>0)issueItems.push(`실력 균형 주의 경기 ${balanceCautionCount}개가 있습니다.`);
@@ -4308,7 +4437,7 @@ function renderQualityDashboard(matches,participants,settings){
      참가자 이력과 급수차로 계산되는 값이라 회원 화면에서는 다시 못 만듭니다 —
      관리자가 계산한 그대로 보냅니다. 태그는 떼고 글자만 보냅니다. */
   _teamQualitySummary={
-    score:total, scoreVersion:competition?4:q.scoreVersion, grade, gradeLabel, sub:subText,
+    score:total, scoreVersion:competition?competition.version:q.scoreVersion, grade, gradeLabel, sub:subText,
     opClass, opTitle:String(opTitle).replace(/^[^가-힣A-Za-z]+/,'').trim(), opSub,
     issues:issueItems.map(x=>String(x).replace(/<[^>]*>/g,'').trim()).filter(Boolean).slice(0,12)
   };
@@ -4336,7 +4465,7 @@ function renderQualityDashboard(matches,participants,settings){
       <div class="op-issues-title">실전 특이사항</div>
       <div class="op-issue-list">${issueHtml}</div>
     </div>
-    <div class="qd-balance-note">${competition?'팀전 품질 v4 · 개인 실력점수와 파트너 격차 반영 · 경기 결과를 보장하는 점수가 아닙니다':'실효 실력 기준: 개인 점수 우선 · 점수가 없는 선수는 급수·성별·나이 기준'}</div>
+    <div class="qd-balance-note">${competition?'팀전 품질 · 경기별 접전 우선 · 개인 실력점수와 파트너 격차 반영 · 경기 결과를 보장하는 점수가 아닙니다':'실효 실력 기준: 개인 점수 우선 · 점수가 없는 선수는 급수·성별·나이 기준'}</div>
     <div class="qd-rows">
       ${rows.map(row=>`
         <div class="qd-row ${rowCls(row.pct)}">

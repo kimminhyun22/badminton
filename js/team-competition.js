@@ -23,15 +23,26 @@ function assess(legacy,matches,players,settings,level,diff){
  const rosterLoss=.45*clamp(meanGap/.5)+.4*clamp(quantileGap/1)+.15*clamp(genderGap/.5);
  // Continuous signed advantage; no discontinuous bonus at the close threshold.
  const net=average(margins),softBias=average(margins.map(x=>x/(Math.abs(x)+.2)));
- const overallLoss=.5*clamp(Math.abs(net)/.5)+.5*Math.abs(softBias);
+ const groups={};matches.forEach((m,i)=>{(groups[m.type||'기타']||=[]).push(margins[i]);});
+ const formatBalance=Object.entries(groups).map(([type,ms])=>({type,games:ms.length,blue:ms.filter(x=>x>.2).length,white:ms.filter(x=>x< -.2).length,close:ms.filter(x=>Math.abs(x)<=.2).length,softBias:average(ms.map(x=>x/(Math.abs(x)+.2)))}));
+ const substantial=formatBalance.filter(g=>g.games>=4),formatBias=substantial.length?average(substantial.map(g=>Math.abs(g.softBias))):Math.abs(softBias);
+ const overallLoss=settings._legacyCompetition ? .5*clamp(Math.abs(net)/.5)+.5*Math.abs(softBias) : .5*clamp(Math.abs(net)/.5)+.25*Math.abs(softBias)+.25*formatBias;
  const components={games:30*(1-gameLoss),roster:10*(1-rosterLoss),overall:10*(1-overallLoss),participation:q.sFair,diversity:q.sDiversity,rest:q.sInterval};
  const total=Math.round(Object.values(components).reduce((a,b)=>a+b,0)*10)/10;
  const issues=[...q.safetyIssues];
- const diagnostics={meanGap,quantileGap,genderGap,meanAdjustedGap:average(margins.map(Math.abs)),maxAdjustedGap:Math.max(...margins.map(Math.abs)),netPerGame:net,softBias,
+ const diagnostics={meanGap,quantileGap,genderGap,meanAdjustedGap:average(margins.map(Math.abs)),maxAdjustedGap:Math.max(...margins.map(Math.abs)),tailAdjustedGap:tail(margins.map(Math.abs)),netPerGame:net,softBias,formatBias,formatBalance,
   closeSensitivity:[.15,.2,.25,.3].map(t=>({threshold:t,blue:margins.filter(x=>x>t).length,white:margins.filter(x=>x< -t).length,close:margins.filter(x=>Math.abs(x)<=t).length}))};
- return {version:4,total,components,maxima:{games:30,roster:10,overall:10,participation:20,diversity:20,rest:10},eligible:issues.length===0,issues,diagnostics,legacyTotal:q.total};
+ return {version:settings._legacyCompetition?4:5,total,components,maxima:{games:30,roster:10,overall:10,participation:20,diversity:20,rest:10},eligible:issues.length===0,issues,diagnostics,legacyTotal:q.total,legacySelection:!!settings._legacyCompetition};
 }
-function rankKey(q){return [q.eligible?0:1,q.issues.length,-q.total,-q.components.games,-q.components.overall];}
+// Mandatory validity/participation comes first. A high rest/diversity score
+// cannot buy a worse blowout. Directional fairness breaks closeness ties.
+function rankKey(q){
+ if(q.legacySelection)return [q.eligible?0:1,q.issues.length,-q.total,-q.components.games,-q.components.overall];
+ const d=q.diagnostics,c=d.closeSensitivity;
+ return [q.eligible?0:1,q.issues.length,d.maxAdjustedGap,d.tailAdjustedGap,d.meanAdjustedGap,
+  -c[1].close,Math.abs(c[1].blue-c[1].white),c.reduce((s,x)=>s+Math.abs(x.blue-x.white),0),
+  d.formatBias,Math.abs(d.netPerGame),-q.total];
+}
 
 function distribution(blue,white,level){
  const average=a=>a.length?a.reduce((s,p)=>s+level(p),0)/a.length:0;
@@ -66,21 +77,62 @@ function refine(blue,white,locked,level,offset=0){
  }
  return {blue:b,white:w};
 }
-function opponentStats(matches){const counts={};matches.forEach(m=>[m.team1A,m.team1B].forEach(a=>[m.team2C,m.team2D].forEach(b=>{const k=[a.name,b.name].sort().join('|');counts[k]=(counts[k]||0)+1;})));return {max:Math.max(0,...Object.values(counts)),excess:Object.values(counts).reduce((s,n)=>s+Math.max(0,n-3),0)};}
+function opponentStats(matches){const counts={};matches.forEach(m=>[m.team1A,m.team1B].forEach(a=>[m.team2C,m.team2D].forEach(b=>{const k=[a.name,b.name].sort().join('|');counts[k]=(counts[k]||0)+1;})));return {max:Math.max(0,...Object.values(counts)),excess:Object.values(counts).reduce((s,n)=>s+Math.max(0,n-3),0),repeats:Object.values(counts).reduce((s,n)=>s+Math.max(0,n-1),0)};}
+function allocationCandidates(blue,white,locked,level){
+ const fixed=new Set(locked),female=p=>['F','여'].includes(p.gender),avg=ps=>ps.length?average(ps.map(level)):0;
+ const initial=distribution(blue,white,level),limit=Math.max(.2,initial.meanGap+.05),out=[];
+ // Roster means are an insufficient surrogate for the actual doubles pairs.
+ // Measure each woman's best feasible opposing pair before evaluating complete
+ // brackets. This is only a shortlist heuristic; the bracket guard is decisive.
+ const potential=(b,w)=>{
+  const sides=[b,w].map(ps=>ps.filter(female)),best=new Map(sides.flat().map(p=>[p.name,Infinity]));
+  if(sides.some(ps=>ps.length<2))return [0,0];
+  for(let i=0;i<sides[0].length;i++)for(let j=i+1;j<sides[0].length;j++)
+   for(let k=0;k<sides[1].length;k++)for(let l=k+1;l<sides[1].length;l++){
+    const a=[sides[0][i],sides[0][j]],c=[sides[1][k],sides[1][l]],sum=t=>t.reduce((s,p)=>s+level(p),0),gap=t=>Math.abs(level(t[0])-level(t[1]));
+    const raw=sum(a)-sum(c),asym=gap(a)-gap(c),d=Math.abs(raw-.35*asym),compound=Math.abs(asym)>1.5&&raw*asym<0;
+    if(Math.abs(raw)>2||d>(compound?1.5:2))continue;
+    [...a,...c].forEach(p=>best.set(p.name,Math.min(best.get(p.name),d)));
+   }
+  const values=[...best.values()],missing=values.filter(v=>!Number.isFinite(v)).length;
+  return [missing,Math.max(0,...values.filter(Number.isFinite)),average(values.map(v=>Number.isFinite(v)?v:4))];
+ };
+ const eligible=(p,q)=>female(p)===female(q)&&!fixed.has(p.name)&&!fixed.has(q.name)&&!p.partnerName&&!q.partnerName;
+ const consider=pairs=>{
+  const b=[...blue],w=[...white];pairs.forEach(([i,j])=>[b[i],w[j]]=[w[j],b[i]]);
+  if(Math.abs(avg(b)-avg(w))>limit+1e-9)return;
+  const gradeSpread=['E','ED'].map(gs=>Math.abs(b.filter(p=>gs.includes(p.grade||'?')).length-w.filter(p=>gs.includes(p.grade||'?')).length));
+  if(gradeSpread.some((v,i)=>v>initial.gradeSpread[i]))return;
+  out.push({blue:b,white:w,key:[...potential(b,w),Math.abs(avg(b)-avg(w))]});
+ };
+ const men=[],women=[];
+ for(let i=0;i<blue.length;i++)for(let j=0;j<white.length;j++)if(eligible(blue[i],white[j]))(female(blue[i])?women:men).push([i,j]);
+ women.forEach(pair=>{consider([pair]);men.forEach(m=>consider([pair,m]));});
+ if(!women.length)men.forEach(pair=>consider([pair]));
+ const compare=(a,b)=>{for(let i=0;i<a.key.length;i++)if(a.key[i]!==b.key[i])return a.key[i]-b.key[i];return 0;};
+ out.sort(compare);const seen=new Set(),result=[];
+ for(const candidate of out){const key=candidate.blue.map(p=>p.name).sort().join('|');if(seen.has(key))continue;seen.add(key);result.push(candidate);if(result.length===4)break;}
+ return result;
+}
 function protects(base,next,bq,nq,baseMatches,nextMatches){
  const keys=['structureErr','genderErr','avoidableUnderSlots','underSlots','avoidableOverSlots','overSlots','balanceHardCount','balanceSevereCount','balanceCautionCount','asymSevereCount','restWorstExcess','avoidablePartnerExcess','excessConsec'];
  if(keys.some(k=>(next[k]||0)>(base[k]||0)))return false;
- if(next.sFair<base.sFair||next.sDiversity<base.sDiversity||next.sInterval<base.sInterval||next.total<base.total)return false;
+ if(next.sFair<base.sFair||next.sInterval<base.sInterval)return false;
+ // The old aggregate may veto better closeness even with unchanged actual
+ // attendance/rest/repeat counts. Keep it only for the preserved old result.
+ if(nq.legacySelection&&(next.sDiversity<base.sDiversity||next.total<base.total))return false;
  if(next.avgLD>base.avgLD+.05+1e-9||next.maxLD>Math.max(base.maxLD,Math.min(1.5,base.maxLD+.2))+1e-9)return false;
  const b=bq.diagnostics,n=nq.diagnostics;if(n.meanAdjustedGap>b.meanAdjustedGap+.05+1e-9||Math.abs(n.netPerGame)>Math.abs(b.netPerGame)+1e-9)return false;
+ if(!nq.legacySelection&&n.meanAdjustedGap>b.meanAdjustedGap+1e-9)return false;
+ if(!nq.legacySelection&&Number.isFinite(b.maxAdjustedGap)&&n.maxAdjustedGap>b.maxAdjustedGap+1e-9)return false;
  const bc=b.closeSensitivity,nc=n.closeSensitivity;
  if(Math.abs(nc[1].blue-nc[1].white)>Math.abs(bc[1].blue-bc[1].white))return false;
  if(nc.reduce((s,x)=>s+Math.abs(x.blue-x.white),0)>bc.reduce((s,x)=>s+Math.abs(x.blue-x.white),0))return false;
  // Keep close games within one appearance quartet, rather than hiding a drop behind a high total.
  if(nc[1].close<bc[1].close-2)return false;
- const bo=opponentStats(baseMatches),no=opponentStats(nextMatches);if(no.max>bo.max||no.excess>bo.excess)return false;
+ const bo=opponentStats(baseMatches),no=opponentStats(nextMatches);if(no.max>bo.max||no.excess>bo.excess||(!nq.legacySelection&&no.repeats>bo.repeats))return false;
  return true;
 }
 
-const api={assess,rankKey,distribution,refine,protects,opponentStats};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
+const api={assess,rankKey,distribution,refine,allocationCandidates,protects,opponentStats};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

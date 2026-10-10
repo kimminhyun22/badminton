@@ -17,9 +17,10 @@ function planWomen(players,settings,pairBalance,eff){
  const cap=Math.min(...pools.map(a=>Math.floor(a.reduce((s,p)=>s+(p._goal??settings.gamesPerPlayer),0)/2)));
  const requested=Math.ceil(Math.max(...pools.map(a=>a.reduce((s,p)=>s+goal(p),0)))/2);
  const limit=Math.min(cap,requested+1);
- const rank=s=>[f.reduce((z,p)=>z+Math.max(0,goal(p)-(s.count[p.name]||0)),0),-f.filter(p=>(s.count[p.name]||0)>=goal(p)).length,s.plan.length,s.cost];
+ const rank=s=>[f.reduce((z,p)=>z+Math.max(0,goal(p)-(s.count[p.name]||0)),0),-f.filter(p=>(s.count[p.name]||0)>=goal(p)).length,
+  ...(settings._closePriority?[s.worst,s.plan.length?s.gapSum/s.plan.length:0,s.cost,s.plan.length]:[s.plan.length,s.cost])];
  const compare=(a,b)=>{const x=rank(a),y=rank(b);for(let i=0;i<x.length;i++)if(x[i]!==y[i])return x[i]-y[i];return 0;};
- let beam=[{count:{},partners:{},opponents:{},plan:[],cost:0}],best=beam[0];
+ let beam=[{count:{},partners:{},opponents:{},plan:[],cost:0,worst:0,gapSum:0}],best=beam[0];
  for(let step=0;step<limit;step++){
   const next=[],seen=new Set();
   for(const s of beam)for(let k=0;k<candidates.length;k++){
@@ -27,10 +28,10 @@ function planWomen(players,settings,pairBalance,eff){
    const op=q.names.slice(0,2).flatMap(a=>q.names.slice(2).map(b=>[a,b].sort().join('|'))),pa=[q.names.slice(0,2).sort().join('|'),q.names.slice(2).sort().join('|')];
    if(op.some(n=>(s.opponents[n]||0)>=3))continue;
    const key=[...s.plan,k].sort((a,b)=>a-b).join(',');if(seen.has(key))continue;seen.add(key);
-   const n={count:{...s.count},partners:{...s.partners},opponents:{...s.opponents},plan:[...s.plan,k],cost:s.cost+q.cost+pa.reduce((z,n)=>z+(s.partners[n]||0)*.4,0)};
+   const n={count:{...s.count},partners:{...s.partners},opponents:{...s.opponents},plan:[...s.plan,k],cost:s.cost+q.cost+pa.reduce((z,n)=>z+(s.partners[n]||0)*.4,0),worst:Math.max(s.worst,q.gap),gapSum:s.gapSum+q.gap};
    q.names.forEach(p=>n.count[p]=(n.count[p]||0)+1);pa.forEach(p=>n.partners[p]=(n.partners[p]||0)+1);op.forEach(p=>n.opponents[p]=(n.opponents[p]||0)+1);next.push(n);
   }
-  if(!next.length)break;next.sort(compare);beam=next.slice(0,72);if(compare(beam[0],best)<0)best=beam[0];if(rank(best)[0]===0)break;
+  if(!next.length)break;next.sort(compare);beam=next.slice(0,72);if(compare(beam[0],best)<0)best=beam[0];if(rank(best)[0]===0&&!settings._closePriority)break;
  }
  return {matches:best.plan.map(k=>candidates[k].names),reason:rank(best)[0]?'limited-safe-coverage':'target-covered',shortfall:rank(best)[0],candidateCount:candidates.length,targets:f.map(goal)};
 };
