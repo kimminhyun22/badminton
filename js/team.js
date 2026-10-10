@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.795';
+const APP_VERSION = '1.10.796';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2558,6 +2558,16 @@ function _teamSelectFinalBracket(finalists,players,settings,totalMatches,{joint=
     if(!women.safe({_qualityAssessment},baseline,candidate,settings)||!_teamWomenTargetsPreserved(baseline,candidate,settings)||!policy.protects(b.legacy,n.legacy,b.score,n.score,baseline.matches,candidate.matches))continue;
     if(_isBetterQualityKey(policy.rankKey(n.score),policy.rankKey(bestScore))){best=candidate;bestScore=n.score;}
   }
+  // First retain the half-share result. Relax only after a complete schedule
+  // comparison passes its stricter closeness, individual rest and repeat guard.
+  const relaxed=women.relax({_qualityAssessment,_teamCompetitionEvaluation,_teamPairBalance,
+    effLevel,_isBetterQualityKey,KokTeamCompetition:policy,KokWomenDoubles:women},best,settings);
+  if(relaxed.accepted){
+    best=relaxed.candidate;
+    const history=_buildHistoryFromMatches(best.matches);
+    best.participants.forEach(p=>{p.gamesPlayed=0;p.lastRoundPlayed=0;p.womenDoublesPlayed=0;p.menDoublesPlayed=0;p.mixedDoublesPlayed=0;p.adjustmentPlayed=0;p._womenReserved=0;p.partnerCount=history[p.name]?.partnerCount||{};p.opponentCount=history[p.name]?.opponentCount||{};});
+    best.matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{p.gamesPlayed++;p.lastRoundPlayed=Math.max(p.lastRoundPlayed,m.round);p[m.type==='여복'?'womenDoublesPlayed':m.type==='남복'?'menDoublesPlayed':m.type==='혼복'?'mixedDoublesPlayed':'adjustmentPlayed']++;}));
+  }
   return best;
 }
 function _teamRefineCloseOpponents(candidate,settings){
@@ -4228,7 +4238,7 @@ function renderQualityDashboard(matches,participants,settings){
   const competition=_teamCompetitionEvaluation({matches,participants},settings)?.score;
   const total=competition?Math.round(competition.total):legacyTotal;
   const grade=competition?(total>=95?'S':total>=85?'A':total>=75?'B':total>=65?'C':'D'):legacyGrade;
-  const balanceReview=competition?.diagnostics.formatBalance.some(g=>g.games>=4&&Math.abs(g.blue-g.white)>=Math.ceil(g.games/2));
+  const balanceReview=competition?.diagnostics.formatBalance.some(g=>g.games>=2&&Math.abs(g.blue-g.white)>=Math.ceil(g.games/2));
   const gradeLabel=competition?(competition.eligible?(balanceReview?'종목 편중 확인':({S:'매우 우수',A:'우수',B:'양호',C:'보통',D:'개선 권장'}[grade])):'필수 확인'):legacyGradeLabel;
   const structureLabel=settings.teamMode?'팀배치':'경기구성';
   const structureDetail=settings.teamMode?'팀 배치':'경기 구성';
@@ -4333,7 +4343,7 @@ function renderQualityDashboard(matches,participants,settings){
     if(women.total){
       const sideShort=['청팀','홍팀'].some(t=>participants.filter(p=>p.gender==='F'&&p.team===t).length<2);
       const short=women.rows.filter(p=>p.women<p.target);
-      const reason=sideShort?'한 팀의 여성이 2명 미만이라 여복 편성 불가':short.length?'현재 팀·고정 파트너 조건에서 출전 횟수와 실력 균형을 지키며 목표를 채울 안전한 후보를 찾지 못했습니다':'';
+      const reason=sideShort?'한 팀의 여성이 2명 미만이라 여복 편성 불가':short.length?'여복 50%는 기본 목표입니다. 경기 격차를 줄이는 조건부 조정이나 현재 팀·고정 파트너 제약으로 목표보다 적을 수 있습니다. 출전 횟수와 개인별 여복 횟수를 함께 확인하세요':'';
       rows.push({label:'여복 50% 우선',detail:`여성 ${women.total}명 중 ${women.covered}명 목표 충족 · `+women.rows.map(p=>`${p.name} ${p.women}/${p.total}게임(목표 ${p.target})`).join(' · ')+(reason?' · '+reason:''),score:null,max:0,pct:women.covered/women.total});
     }
   }
@@ -4376,7 +4386,7 @@ function renderQualityDashboard(matches,participants,settings){
   if(avoidableExact>0)blocking.push('똑같은 경기 반복');
   if(fillers.length>2)blocking.push('보완게임 과다');
   const caution=[];
-  const formatWarnings=competition?competition.diagnostics.formatBalance.filter(g=>g.games>=4&&Math.abs(g.blue-g.white)>=Math.ceil(g.games/2)):[];
+  const formatWarnings=competition?competition.diagnostics.formatBalance.filter(g=>g.games>=2&&Math.abs(g.blue-g.white)>=Math.ceil(g.games/2)):[];
   formatWarnings.forEach(g=>caution.push(`${g.type} 우세 한쪽 편중`));
   if(settings.teamMode&&globalThis.KokWomenDoubles){const women=globalThis.KokWomenDoubles.status(matches,participants,settings);if(women.covered<women.total)caution.push('여복 목표 미달');}
   if(avoidableSameFour>0)caution.push('같은 4명 재경기');

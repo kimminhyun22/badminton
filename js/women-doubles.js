@@ -69,7 +69,7 @@ function optimize(c,candidate,settings,{joint=false,passes=6,budget=48}={}){
    }
   }
   proposals.sort((a,b)=>b.gain-a.gain);let best=null;
-  for(const proposal of proposals.slice(0,budget)){const {i,j,fa,fb}=proposal,a=matches[i],b=matches[j],oa={...a},ob={...b};if(proposal.replacement)a[fa]=proposal.replacement;else [a[fa],b[fb]]=[b[fb],a[fa]];update(a);update(b);const next=metrics();evaluations++;
+  for(const proposal of proposals.slice(0,Math.max(0,Math.min(128,budget)))){const {i,j,fa,fb}=proposal,a=matches[i],b=matches[j],oa={...a},ob={...b};if(proposal.replacement)a[fa]=proposal.replacement;else [a[fa],b[fb]]=[b[fb],a[fa]];update(a);update(b);const next=metrics();evaluations++;
    const safe=protectedKeys.every(k=>(next.q[k]||0)<=(initial.q[k]||0))&&next.q.restWorstExcess<=initial.q.restWorstExcess&&next.q.excessConsec<=current.q.excessConsec&&next.q.avgLD<=(next.q.underSlots<current.q.underSlots?initial.q.avgLD:current.q.avgLD)+1e-9&&next.q.maxLD<=initial.q.maxLD+1e-9&&next.opponents.max<=Math.max(3,initial.opponents.max)&&next.q.avoidablePartnerExcess<=initial.q.avoidablePartnerExcess+1&&next.v.diagnostics.meanAdjustedGap<=(next.q.underSlots<current.q.underSlots?initial.v.diagnostics.meanAdjustedGap:current.v.diagnostics.meanAdjustedGap)+1e-9;
    if(safe&&(next.q.underSlots<current.q.underSlots||next.v.total>current.v.total+.00001)&&(!best||next.q.underSlots<best.next.q.underSlots||(next.q.underSlots===best.next.q.underSlots&&next.v.total>best.next.v.total)))best={...proposal,next};Object.assign(a,oa);Object.assign(b,ob);
   }
@@ -92,5 +92,40 @@ function safe(c,base,next,settings){
  const a=c._qualityAssessment(base.matches,base.participants,settings),b=c._qualityAssessment(next.matches,next.participants,settings);
  return ['structureErr','genderErr','underSlots','overSlots','avoidableUnderSlots','avoidableOverSlots','balanceHardCount','balanceSevereCount','asymSevereCount'].every(k=>(b[k]||0)<=(a[k]||0))&&next.matches.length===base.matches.length&&Math.max(...next.matches.map(m=>m.round))<=Math.max(...base.matches.map(m=>m.round));
 }
-return {plan:planWomen,optimize,status,preserves,safe};
+// Conditional preference relaxation: one bounded swap, four-game schedules only.
+function relax(c,candidate,settings,{budget=128}={}){
+const ms=candidate.matches,ps=candidate.participants,policy=c.KokTeamCompetition;
+if(!settings.teamMode||settings.gamesPerPlayer!==4||ps.length>64||ms.length>64)return {candidate,evaluations:0,accepted:0};
+const evalq=matches=>c._teamCompetitionEvaluation({matches,participants:ps},settings),initial=evalq(ms),base=initial.score.diagnostics;
+const female=ps.filter(p=>p.gender==='F');if(!settings.teamMode||settings.gamesPerPlayer!==4||ps.length>64||ms.length>64||female.some(p=>(p._goal??4)!==4)||!initial.score.eligible||initial.legacy.underSlots)return {candidate,evaluations:0,accepted:0};
+const w=c.KokWomenDoubles.status(ms,ps,settings).rows,minimum=Object.fromEntries(w.map(p=>[p.name,Math.min(p.women,Math.max(1,p.target-1,p.women-1))])),wd=ms.filter(m=>m.type==='여복').length;
+const gap=m=>{const pair=(a,b)=>c.effLevel(a)+c.effLevel(b)-.35*Math.abs(c.effLevel(a)-c.effLevel(b));return Math.abs(pair(m.team1A,m.team1B)-pair(m.team2C,m.team2D));};
+const normalize=m=>{const a=[m.team1A,m.team1B].filter(p=>p.gender==='F').length,b=[m.team2C,m.team2D].filter(p=>p.gender==='F').length;m.type=a===2&&b===2?'여복':a===0&&b===0?'남복':a===1&&b===1?'혼복':'보정';m.isAdjustment=m.type==='보정';m.team1Level=c.effLevel(m.team1A)+c.effLevel(m.team1B);m.team2Level=c.effLevel(m.team2C)+c.effLevel(m.team2D);m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;};
+const rounds=new Map();ms.forEach(m=>{if(!rounds.has(m.round))rounds.set(m.round,new Set());fields.forEach(k=>rounds.get(m.round).add(m[k].name));});
+const schedules=matches=>Object.fromEntries(ps.map(p=>{const rs=matches.filter(m=>fields.some(k=>m[k].name===p.name)).map(m=>m.round).sort((a,b)=>a-b);let run=1,max=rs.length?1:0;rs.slice(1).forEach((r,i)=>{run=r===rs[i]+1?run+1:1;max=Math.max(max,run);});return[p.name,{max,idle:Math.max(0,...rs.slice(1).map((r,i)=>r-rs[i]-1))}];})),bs=schedules(ms);
+const womenCount=matches=>Object.fromEntries(c.KokWomenDoubles.status(matches,ps,settings).rows.map(p=>[p.name,p.women]));
+const proposals=[];
+for(let i=0;i<ms.length;i++)for(let j=i+1;j<ms.length;j++)for(const fa of fields)for(const fb of fields){
+ const a=ms[i],b=ms[j],pa=a[fa],pb=b[fb];if(pa.name===pb.name||pa.team!==pb.team||a.win||b.win||a.voided||b.voided||fields.some(k=>a[k].partnerName||b[k].partnerName))continue;
+ if(a.round!==b.round&&(rounds.get(a.round).has(pb.name)||rounds.get(b.round).has(pa.name)))continue;
+ const na={...a,[fa]:pb},nb={...b,[fb]:pa};normalize(na);normalize(nb);
+ if(!c._teamPairBalance([na.team1A,na.team1B],[na.team2C,na.team2D]).allowed||!c._teamPairBalance([nb.team1A,nb.team1B],[nb.team2C,nb.team2D]).allowed)continue;
+ const matches=ms.map((m,k)=>k===i?na:k===j?nb:m),max=Math.max(...matches.map(gap));if(base.maxAdjustedGap-max<Math.max(.1,base.maxAdjustedGap*.1)-1e-9)continue;
+ const wc=womenCount(matches);if(Object.entries(minimum).some(([n,f])=>wc[n]<f)||matches.filter(m=>m.type==='여복').length<wd-1)continue;
+ const as=schedules(matches);if([pa,pb].some(p=>as[p.name].max>Math.max(2,bs[p.name].max)||as[p.name].idle>bs[p.name].idle))continue;
+ proposals.push({matches,max,mean:matches.reduce((s,m)=>s+gap(m),0)/matches.length});
+}
+proposals.sort((a,b)=>a.max-b.max||a.mean-b.mean);let best=null,n=0;
+for(const x of proposals.slice(0,Math.max(0,Math.min(128,budget)))){
+ const q=evalq(x.matches);n++;const d=q.score.diagnostics,k=['structureErr','genderErr','underSlots','overSlots','avoidableUnderSlots','avoidableOverSlots','balanceHardCount','balanceSevereCount','balanceCautionCount','asymSevereCount','restWorstExcess','restTotalExcess','avoidablePartnerExcess','excessConsec','avoidableSameFour','avoidableExact','sameFourRepeats','exactMatchRepeats','maxPartnerRepeat'];
+ if(k.some(k=>(q.legacy[k]||0)>(initial.legacy[k]||0))||q.legacy.sFair<initial.legacy.sFair||q.legacy.sInterval<initial.legacy.sInterval||q.legacy.avgLD>initial.legacy.avgLD+.05+1e-9||q.legacy.maxLD>initial.legacy.maxLD+1e-9||q.legacy.adjustments.length>initial.legacy.adjustments.length+2)continue;
+ if(d.meanAdjustedGap>base.meanAdjustedGap+1e-9||d.tailAdjustedGap>base.tailAdjustedGap+1e-9||Math.abs(d.netPerGame)>Math.abs(base.netPerGame)+1e-9||d.closeSensitivity[1].close<base.closeSensitivity[1].close)continue;
+ if(Math.abs(d.closeSensitivity[1].blue-d.closeSensitivity[1].white)>Math.max(2,Math.abs(base.closeSensitivity[1].blue-base.closeSensitivity[1].white))||d.closeSensitivity.reduce((s,x)=>s+Math.abs(x.blue-x.white),0)>Math.max(8,base.closeSensitivity.reduce((s,x)=>s+Math.abs(x.blue-x.white),0)))continue;
+ const op=policy.opponentStats(x.matches),bop=policy.opponentStats(ms);if(op.max>bop.max||op.excess>bop.excess||op.repeats>bop.repeats)continue;
+ if(!best||c._isBetterQualityKey(policy.rankKey(q.score),policy.rankKey(best.q.score)))best={...x,q};
+}
+return {candidate:best?{participants:ps,matches:best.matches}:candidate,evaluations:n,accepted:best?1:0};
+};
+
+return {plan:planWomen,optimize,status,preserves,safe,relax};
 });

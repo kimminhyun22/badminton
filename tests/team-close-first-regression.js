@@ -37,5 +37,5 @@ const scoreOnly=f=>Q.assess(common,f.matches,f.players,{teamMode:true},level,()=
 assert(scoreOnly(concentrated).components.games<scoreOnly(even).components.games,'same mean must penalize concentrated worst games');
 const scalarMutant={module:{exports:{}}};vm.runInNewContext(fs.readFileSync('js/team-competition.js','utf8').replace('.4*average(adjustedLosses)+.4*tail(adjustedLosses)+.2*Math.max(...adjustedLosses)','average(adjustedLosses)'),scalarMutant);
 assert(Math.abs(scalarMutant.module.exports.assess(common,concentrated.matches,concentrated.players,{teamMode:true},level,()=>0).components.games-scalarMutant.module.exports.assess(common,even.matches,even.players,{teamMode:true},level,()=>0).components.games)<1e-10);
-assert.equal(scoreOnly(concentrated).version,6);
+assert.equal(scoreOnly(concentrated).version,7);
 console.log('PASS v6 adjusted worst-tail score, same-mean concentration and mutation');

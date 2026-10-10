@@ -1,0 +1,721 @@
+{
+  "date": "2026-10-10",
+  "scope": "고정된 이전 생성 경로와 동일 품질v7로 조건부 교환 비교. 4게임/확정팀. 제한 탐색이며 최적성/실제 승률 증명 아님. 초기 행렬 후 최종코드18조건 회귀 별도.",
+  "cases": 27,
+  "accepted": 5,
+  "preserved": 22,
+  "maxAdditionalMilliseconds": 64,
+  "rows": [
+    {
+      "players": 16,
+      "women": 4,
+      "ratingSpread": 0.3,
+      "seed": 71,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 5,
+      "before": {
+        "maxAdjustedGap": 0.04124999999999979,
+        "meanAdjustedGap": 0.012421874999999916,
+        "tailAdjustedGap": 0.023847656249999873,
+        "close": 16,
+        "blueFavored": 0,
+        "whiteFavored": 0,
+        "formats": {
+          "여복": 2,
+          "남복": 7,
+          "혼복": 1,
+          "보정": 6
+        }
+      }
+    },
+    {
+      "players": 16,
+      "women": 4,
+      "ratingSpread": 0.3,
+      "seed": 227,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 4,
+      "before": {
+        "maxAdjustedGap": 0.04124999999999979,
+        "meanAdjustedGap": 0.012421874999999916,
+        "tailAdjustedGap": 0.023847656249999873,
+        "close": 16,
+        "blueFavored": 0,
+        "whiteFavored": 0,
+        "formats": {
+          "여복": 2,
+          "남복": 7,
+          "혼복": 1,
+          "보정": 6
+        }
+      }
+    },
+    {
+      "players": 16,
+      "women": 4,
+      "ratingSpread": 0.3,
+      "seed": 991,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 5,
+      "before": {
+        "maxAdjustedGap": 0.08718749999999975,
+        "meanAdjustedGap": 0.026132812499999825,
+        "tailAdjustedGap": 0.07154296874999971,
+        "close": 16,
+        "blueFavored": 0,
+        "whiteFavored": 0,
+        "formats": {
+          "여복": 2,
+          "남복": 7,
+          "보정": 6,
+          "혼복": 1
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 6,
+      "ratingSpread": 3,
+      "seed": 71,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 20,
+      "before": {
+        "maxAdjustedGap": 0.6375000000000002,
+        "meanAdjustedGap": 0.26562499999999994,
+        "tailAdjustedGap": 0.5656249999999999,
+        "close": 12,
+        "blueFavored": 5,
+        "whiteFavored": 7,
+        "formats": {
+          "여복": 3,
+          "남복": 14,
+          "혼복": 3,
+          "보정": 4
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 6,
+      "ratingSpread": 3,
+      "seed": 227,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 1,
+      "additionalMilliseconds": 21,
+      "before": {
+        "maxAdjustedGap": 0.6187499999999999,
+        "meanAdjustedGap": 0.22812500000000002,
+        "tailAdjustedGap": 0.46250000000000013,
+        "close": 15,
+        "blueFavored": 5,
+        "whiteFavored": 4,
+        "formats": {
+          "여복": 3,
+          "남복": 14,
+          "혼복": 3,
+          "보정": 4
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 6,
+      "ratingSpread": 3,
+      "seed": 991,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 21,
+      "before": {
+        "maxAdjustedGap": 0.6281249999999998,
+        "meanAdjustedGap": 0.26796875000000003,
+        "tailAdjustedGap": 0.5675781249999999,
+        "close": 11,
+        "blueFavored": 7,
+        "whiteFavored": 6,
+        "formats": {
+          "여복": 3,
+          "혼복": 3,
+          "남복": 14,
+          "보정": 4
+        }
+      }
+    },
+    {
+      "players": 32,
+      "women": 8,
+      "ratingSpread": 3,
+      "seed": 71,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 13,
+      "additionalMilliseconds": 57,
+      "before": {
+        "maxAdjustedGap": 0.8718749999999997,
+        "meanAdjustedGap": 0.20624999999999993,
+        "tailAdjustedGap": 0.5405273437499999,
+        "close": 20,
+        "blueFavored": 10,
+        "whiteFavored": 2,
+        "formats": {
+          "여복": 4,
+          "남복": 15,
+          "보정": 12,
+          "혼복": 1
+        }
+      }
+    },
+    {
+      "players": 32,
+      "women": 8,
+      "ratingSpread": 3,
+      "seed": 227,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 3,
+      "additionalMilliseconds": 49,
+      "before": {
+        "maxAdjustedGap": 0.6468750000000005,
+        "meanAdjustedGap": 0.15117187500000004,
+        "tailAdjustedGap": 0.42919921875,
+        "close": 22,
+        "blueFavored": 9,
+        "whiteFavored": 1,
+        "formats": {
+          "여복": 4,
+          "남복": 15,
+          "보정": 12,
+          "혼복": 1
+        }
+      }
+    },
+    {
+      "players": 32,
+      "women": 8,
+      "ratingSpread": 3,
+      "seed": 991,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 47,
+      "before": {
+        "maxAdjustedGap": 0.3937499999999998,
+        "meanAdjustedGap": 0.12421874999999993,
+        "tailAdjustedGap": 0.23876953124999997,
+        "close": 29,
+        "blueFavored": 2,
+        "whiteFavored": 1,
+        "formats": {
+          "여복": 4,
+          "남복": 13,
+          "보정": 15
+        }
+      }
+    },
+    {
+      "players": 36,
+      "women": 8,
+      "ratingSpread": 5,
+      "seed": 71,
+      "accepted": true,
+      "initialUnderSlots": 0,
+      "evaluations": 5,
+      "additionalMilliseconds": 64,
+      "before": {
+        "maxAdjustedGap": 1.0625,
+        "meanAdjustedGap": 0.1449652777777778,
+        "tailAdjustedGap": 0.4943576388888889,
+        "close": 22,
+        "blueFavored": 6,
+        "whiteFavored": 8,
+        "formats": {
+          "여복": 4,
+          "남복": 19,
+          "혼복": 2,
+          "보정": 11
+        }
+      },
+      "after": {
+        "maxAdjustedGap": 0.65625,
+        "meanAdjustedGap": 0.13194444444444445,
+        "tailAdjustedGap": 0.4292534722222222,
+        "close": 22,
+        "blueFavored": 6,
+        "whiteFavored": 8,
+        "formats": {
+          "여복": 3,
+          "남복": 18,
+          "혼복": 2,
+          "보정": 13
+        }
+      }
+    },
+    {
+      "players": 36,
+      "women": 8,
+      "ratingSpread": 5,
+      "seed": 227,
+      "accepted": true,
+      "initialUnderSlots": 0,
+      "evaluations": 8,
+      "additionalMilliseconds": 60,
+      "before": {
+        "maxAdjustedGap": 1.0625,
+        "meanAdjustedGap": 0.1970486111111111,
+        "tailAdjustedGap": 0.6336805555555556,
+        "close": 18,
+        "blueFavored": 7,
+        "whiteFavored": 11,
+        "formats": {
+          "여복": 4,
+          "남복": 18,
+          "보정": 13,
+          "혼복": 1
+        }
+      },
+      "after": {
+        "maxAdjustedGap": 0.859375,
+        "meanAdjustedGap": 0.1736111111111111,
+        "tailAdjustedGap": 0.5186631944444444,
+        "close": 18,
+        "blueFavored": 7,
+        "whiteFavored": 11,
+        "formats": {
+          "여복": 3,
+          "남복": 17,
+          "보정": 15,
+          "혼복": 1
+        }
+      }
+    },
+    {
+      "players": 36,
+      "women": 8,
+      "ratingSpread": 5,
+      "seed": 991,
+      "accepted": true,
+      "initialUnderSlots": 0,
+      "evaluations": 5,
+      "additionalMilliseconds": 55,
+      "before": {
+        "maxAdjustedGap": 1.0625,
+        "meanAdjustedGap": 0.1918402777777778,
+        "tailAdjustedGap": 0.5846354166666666,
+        "close": 19,
+        "blueFavored": 11,
+        "whiteFavored": 6,
+        "formats": {
+          "여복": 4,
+          "남복": 20,
+          "혼복": 4,
+          "보정": 8
+        }
+      },
+      "after": {
+        "maxAdjustedGap": 0.859375,
+        "meanAdjustedGap": 0.18055555555555555,
+        "tailAdjustedGap": 0.556423611111111,
+        "close": 20,
+        "blueFavored": 10,
+        "whiteFavored": 6,
+        "formats": {
+          "여복": 3,
+          "남복": 19,
+          "혼복": 4,
+          "보정": 10
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 5,
+      "ratingSpread": 5,
+      "seed": 71,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 15,
+      "before": {
+        "maxAdjustedGap": 1.078125,
+        "meanAdjustedGap": 0.3216145833333333,
+        "tailAdjustedGap": 1.0104166666666665,
+        "close": 11,
+        "blueFavored": 9,
+        "whiteFavored": 4,
+        "formats": {
+          "혼복": 5,
+          "남복": 10,
+          "보정": 9
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 5,
+      "ratingSpread": 5,
+      "seed": 227,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 15,
+      "before": {
+        "maxAdjustedGap": 1.078125,
+        "meanAdjustedGap": 0.296875,
+        "tailAdjustedGap": 0.9680989583333333,
+        "close": 12,
+        "blueFavored": 9,
+        "whiteFavored": 3,
+        "formats": {
+          "남복": 10,
+          "혼복": 6,
+          "보정": 8
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 5,
+      "ratingSpread": 5,
+      "seed": 991,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 4,
+      "additionalMilliseconds": 18,
+      "before": {
+        "maxAdjustedGap": 1.296875,
+        "meanAdjustedGap": 0.2903645833333333,
+        "tailAdjustedGap": 0.8776041666666666,
+        "close": 14,
+        "blueFavored": 9,
+        "whiteFavored": 1,
+        "formats": {
+          "남복": 11,
+          "혼복": 3,
+          "보정": 9,
+          "여복": 1
+        }
+      }
+    },
+    {
+      "players": 20,
+      "women": 3,
+      "ratingSpread": 3,
+      "seed": 71,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 1,
+      "additionalMilliseconds": 10,
+      "before": {
+        "maxAdjustedGap": 0.9187500000000002,
+        "meanAdjustedGap": 0.39562500000000006,
+        "tailAdjustedGap": 0.7476562500000001,
+        "close": 6,
+        "blueFavored": 11,
+        "whiteFavored": 3,
+        "formats": {
+          "혼복": 3,
+          "남복": 11,
+          "보정": 6
+        }
+      }
+    },
+    {
+      "players": 20,
+      "women": 3,
+      "ratingSpread": 3,
+      "seed": 227,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 8,
+      "before": {
+        "maxAdjustedGap": 0.6656250000000004,
+        "meanAdjustedGap": 0.388125,
+        "tailAdjustedGap": 0.6539062500000001,
+        "close": 6,
+        "blueFavored": 12,
+        "whiteFavored": 2,
+        "formats": {
+          "혼복": 3,
+          "남복": 11,
+          "보정": 6
+        }
+      }
+    },
+    {
+      "players": 20,
+      "women": 3,
+      "ratingSpread": 3,
+      "seed": 991,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 2,
+      "additionalMilliseconds": 10,
+      "before": {
+        "maxAdjustedGap": 1.3781249999999998,
+        "meanAdjustedGap": 0.42375000000000007,
+        "tailAdjustedGap": 0.9820312499999999,
+        "close": 10,
+        "blueFavored": 1,
+        "whiteFavored": 9,
+        "formats": {
+          "남복": 12,
+          "보정": 6,
+          "혼복": 2
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 6,
+      "ratingSpread": 0.1,
+      "seed": 71,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 27,
+      "before": {
+        "maxAdjustedGap": 0.037499999999999645,
+        "meanAdjustedGap": 0.010000000000000045,
+        "tailAdjustedGap": 0.023854166666666638,
+        "close": 24,
+        "blueFavored": 0,
+        "whiteFavored": 0,
+        "formats": {
+          "여복": 3,
+          "혼복": 5,
+          "남복": 14,
+          "보정": 2
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 6,
+      "ratingSpread": 0.1,
+      "seed": 227,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 22,
+      "before": {
+        "maxAdjustedGap": 0.045624999999999805,
+        "meanAdjustedGap": 0.011640625000000016,
+        "tailAdjustedGap": 0.02730468749999998,
+        "close": 24,
+        "blueFavored": 0,
+        "whiteFavored": 0,
+        "formats": {
+          "여복": 3,
+          "보정": 8,
+          "남복": 11,
+          "혼복": 2
+        }
+      }
+    },
+    {
+      "players": 24,
+      "women": 6,
+      "ratingSpread": 0.1,
+      "seed": 991,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 28,
+      "before": {
+        "maxAdjustedGap": 0.046250000000000124,
+        "meanAdjustedGap": 0.011536458333333314,
+        "tailAdjustedGap": 0.03726562499999989,
+        "close": 24,
+        "blueFavored": 0,
+        "whiteFavored": 0,
+        "formats": {
+          "여복": 3,
+          "혼복": 4,
+          "남복": 13,
+          "보정": 4
+        }
+      }
+    },
+    {
+      "players": 28,
+      "women": 7,
+      "ratingSpread": 4,
+      "seed": 71,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 4,
+      "additionalMilliseconds": 26,
+      "before": {
+        "maxAdjustedGap": 1.0249999999999995,
+        "meanAdjustedGap": 0.3116071428571429,
+        "tailAdjustedGap": 0.8276785714285713,
+        "close": 14,
+        "blueFavored": 5,
+        "whiteFavored": 9,
+        "formats": {
+          "여복": 4,
+          "남복": 14,
+          "혼복": 2,
+          "보정": 8
+        }
+      }
+    },
+    {
+      "players": 28,
+      "women": 7,
+      "ratingSpread": 4,
+      "seed": 227,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 5,
+      "additionalMilliseconds": 28,
+      "before": {
+        "maxAdjustedGap": 1.0374999999999996,
+        "meanAdjustedGap": 0.26160714285714276,
+        "tailAdjustedGap": 0.6901785714285712,
+        "close": 17,
+        "blueFavored": 9,
+        "whiteFavored": 2,
+        "formats": {
+          "여복": 4,
+          "보정": 10,
+          "남복": 13,
+          "혼복": 1
+        }
+      }
+    },
+    {
+      "players": 28,
+      "women": 7,
+      "ratingSpread": 4,
+      "seed": 991,
+      "accepted": true,
+      "initialUnderSlots": 0,
+      "evaluations": 8,
+      "additionalMilliseconds": 31,
+      "before": {
+        "maxAdjustedGap": 1.0249999999999995,
+        "meanAdjustedGap": 0.23928571428571427,
+        "tailAdjustedGap": 0.6513392857142853,
+        "close": 18,
+        "blueFavored": 8,
+        "whiteFavored": 2,
+        "formats": {
+          "여복": 4,
+          "혼복": 2,
+          "남복": 16,
+          "보정": 6
+        }
+      },
+      "after": {
+        "maxAdjustedGap": 0.6875,
+        "meanAdjustedGap": 0.21517857142857144,
+        "tailAdjustedGap": 0.5308035714285713,
+        "close": 18,
+        "blueFavored": 8,
+        "whiteFavored": 2,
+        "formats": {
+          "여복": 3,
+          "혼복": 2,
+          "남복": 15,
+          "보정": 8
+        }
+      }
+    },
+    {
+      "players": 32,
+      "women": 10,
+      "ratingSpread": 5,
+      "seed": 71,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 0,
+      "additionalMilliseconds": 33,
+      "before": {
+        "maxAdjustedGap": 1.296875,
+        "meanAdjustedGap": 0.380859375,
+        "tailAdjustedGap": 0.99951171875,
+        "close": 12,
+        "blueFavored": 9,
+        "whiteFavored": 11,
+        "formats": {
+          "여복": 6,
+          "남복": 13,
+          "보정": 11,
+          "혼복": 2
+        }
+      }
+    },
+    {
+      "players": 32,
+      "women": 10,
+      "ratingSpread": 5,
+      "seed": 227,
+      "accepted": false,
+      "initialUnderSlots": 0,
+      "evaluations": 9,
+      "additionalMilliseconds": 40,
+      "before": {
+        "maxAdjustedGap": 1.296875,
+        "meanAdjustedGap": 0.326171875,
+        "tailAdjustedGap": 0.822265625,
+        "close": 12,
+        "blueFavored": 9,
+        "whiteFavored": 11,
+        "formats": {
+          "남복": 6,
+          "보정": 16,
+          "혼복": 10
+        }
+      }
+    },
+    {
+      "players": 32,
+      "women": 10,
+      "ratingSpread": 5,
+      "seed": 991,
+      "accepted": true,
+      "initialUnderSlots": 0,
+      "evaluations": 10,
+      "additionalMilliseconds": 38,
+      "before": {
+        "maxAdjustedGap": 1.46875,
+        "meanAdjustedGap": 0.2958984375,
+        "tailAdjustedGap": 0.82177734375,
+        "close": 11,
+        "blueFavored": 12,
+        "whiteFavored": 9,
+        "formats": {
+          "여복": 6,
+          "혼복": 2,
+          "남복": 14,
+          "보정": 10
+        }
+      },
+      "after": {
+        "maxAdjustedGap": 1.046875,
+        "meanAdjustedGap": 0.2958984375,
+        "tailAdjustedGap": 0.8056640625,
+        "close": 11,
+        "blueFavored": 12,
+        "whiteFavored": 9,
+        "formats": {
+          "여복": 6,
+          "혼복": 2,
+          "남복": 14,
+          "보정": 10
+        }
+      }
+    }
+  ]
+}
