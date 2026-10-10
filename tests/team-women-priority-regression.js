@@ -18,7 +18,7 @@ const a={matches:[{round:1}],participants:[]},b={matches:[{round:1}],participant
 const women=roster(4,4,4),wm={round:1,type:'여복',team1A:women[0],team1B:women[2],team2C:women[1],team2D:women[3]};assert(!c.KokWomenDoubles.preserves([wm,{...wm,round:2}],[wm],women,s),'optimization cannot remove a secured quota');
 const quotaMutant={};vm.createContext(quotaMutant);vm.runInContext(source.replace('n.women>=Math.min(p.target,p.women)','true'),quotaMutant);assert(quotaMutant.KokWomenDoubles.preserves([wm,{...wm,round:2}],[wm],women,s),'quota mutation must be detected');
 const mutant={};vm.createContext(mutant);vm.runInContext(source.replaceAll("'underSlots',",''),mutant);assert(mutant.KokWomenDoubles.safe(adapter,a,b,s),'mutation must remove under-slot protection and be detected');
-assert(fs.readFileSync('js/team.js','utf8').includes('_teamSelectFinalBracket(finalists,_basePlayers,settings,totalMatches)'));
+assert(fs.readFileSync('js/team.js','utf8').includes('_teamSelectFinalBracket(finalists,_basePlayers,settings,totalMatches,{review:comparisonCandidates})'));
 assert(fs.readFileSync('team.html','utf8').includes('js/women-doubles.js'));
 assert(fs.readFileSync('sw.js','utf8').includes('/badminton/js/women-doubles.js'));
 console.log('PASS women priority, safety fallback, fixed partners, counters, format, court/round integrity and mutation');

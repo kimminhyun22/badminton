@@ -138,5 +138,27 @@ function protects(base,next,bq,nq,baseMatches,nextMatches){
  return true;
 }
 
-const api={assess,rankKey,distribution,refine,allocationCandidates,protects,opponentStats};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
+
+// An ordinal score against independently generated, complete feasible schedules.
+// It is a bounded comparison, not a probability or a global optimality proof.
+function compareCandidates(current,references){
+ const usable=references.filter(r=>r.eligible&&r.version===current.version),compare=(a,b)=>{
+  const x=rankKey(a),y=rankKey(b);for(let i=0;i<x.length;i++)if(Math.abs(x[i]-y[i])>1e-9)return x[i]<y[i]?-1:1;return 0;
+ };
+ if(!current.eligible||usable.length<2)return {verified:false,reason:!current.eligible?'필수 조건 확인 필요':'같은 조건의 서로 다른 비교 후보가 부족합니다'};
+ const better=usable.filter(r=>compare(r,current)<0).length,worse=usable.filter(r=>compare(r,current)>0).length;
+ const score=Math.round(100*(1-better/usable.length));
+ const best=usable.reduce((a,b)=>compare(a,b)<=0?a:b,current);
+ return {verified:true,version:1,score,rank:better+1,count:usable.length,better,worse,
+  best:best.diagnostics,current:current.diagnostics,
+  label:better?'더 나은 비교 후보 있음':'검토 후보 중 최선',
+  caveat:'검토 후보 내 순위 점수입니다. 전체 최적·최선 달성률·실제 수동 편성 대비 우수성을 증명하지 않습니다'};
+}
+function reviewContext(players,settings){
+ return JSON.stringify({courts:settings.courts,gamesPerPlayer:settings.gamesPerPlayer,teamMode:settings.teamMode,
+  players:players.map(p=>[p.name,p.team,p.gender,p.skillRating??null,p.level,p.grade||'',p.ageGroup||'',p.partnerName||'',p._goal??settings.gamesPerPlayer]).sort((a,b)=>a[0].localeCompare(b[0]))});
+}
+function scheduleKey(matches){return matches.map(m=>[m.round,m.court,m.type,m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name].join('|')).sort().join(';');}
+
+const api={assess,rankKey,distribution,refine,allocationCandidates,protects,opponentStats,compareCandidates,reviewContext,scheduleKey};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
