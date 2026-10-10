@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.790';
+const APP_VERSION = '1.10.791';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -15,6 +15,16 @@ function levelToGrade(level,gender){
   const el=isF?level+1:level;
   const M={7:'S',6:'A',5:'A',4:'B',3:'C',2:'D',1:'E'};
   return M[Math.max(1,Math.min(7,Math.round(el)))]||'D';
+}
+
+// Legacy fields remain internal for engine compatibility; no user quota is restored.
+function _teamAutoFormatSettings(settings={},players=[]){
+  const gpp=Number(settings.gamesPerPlayer)||4;
+  const female=players.filter(p=>p.gender==='F'||p.gender==='여').length;
+  const male=players.filter(p=>p.gender==='M'||p.gender==='남').length;
+  return {...settings,mixedDoublesPerPerson:0,targetMixedDoubles:0,
+    targetWomenDoubles:female>=4?Math.floor(female*gpp/4):0,
+    targetMenDoubles:male>=4?Math.floor(male*gpp/4):0};
 }
 
 function effLevel(p){
@@ -242,7 +252,6 @@ function _captureUndoSnapshot(label){
     scores,
     courtsVal: document.getElementById('courts')?.value,
     gppVal: document.getElementById('gamesPerPlayer')?.value,
-    mixedDblVal: document.getElementById('mixedDbl')?.value,
   };
   _undoStack.push(snap);
   if(_undoStack.length>_UNDO_MAX) _undoStack.shift();
@@ -277,7 +286,7 @@ function undoAction(){
     if(snap.captains)captains=JSON.parse(JSON.stringify(snap.captains));
     currentMatches=JSON.parse(JSON.stringify(snap.matches||[]));
     currentParticipants=JSON.parse(JSON.stringify(snap.participants||[]));
-    currentSettings=JSON.parse(JSON.stringify(snap.settings||{}));
+    currentSettings=_teamAutoFormatSettings(JSON.parse(JSON.stringify(snap.settings||{})),currentParticipants);
     _lockedBeforeRound=snap.lockedBeforeRound!=null?snap.lockedBeforeRound:null;
     _pointSystem=snap.pointSystem||25;
     Object.keys(winOverride).forEach(k=>delete winOverride[k]);
@@ -286,7 +295,6 @@ function undoAction(){
     const _setVal=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.value=v;};
     _setVal('courts',snap.courtsVal);
     _setVal('gamesPerPlayer',snap.gppVal);
-    _setVal('mixedDbl',snap.mixedDblVal);
     // ③ UI 렌더링 (각각 try-catch로 보호)
     try{renderDirectPlayerList();}catch(e){console.warn('undo:renderDirectPlayerList',e);}
     try{if(teamAssignment) renderTeamList();}catch(e){console.warn('undo:renderTeamList',e);}
@@ -765,12 +773,10 @@ function updateSettingsMiniSummary(){
   if(!el)return;
   const courts=document.getElementById('courts')?.value||'4';
   const games=document.getElementById('gamesPerPlayer')?.value||'4';
-  const mixed=document.getElementById('mixedDbl')?.value||'1';
   const teamMode=_teamUsesFixedTeams();
   const chips=[
     `코트 ${courts}`,
     `인당 ${games}`,
-    `혼복 ${mixed}`,
     `${_pointSystem}점`,
     teamMode?(teamAssignment?'청·홍 배정':'청·홍 준비'):'자유 대진'
   ];
@@ -1051,19 +1057,17 @@ function generate(opts={}){
 
   const courts=parseInt(document.getElementById('courts').value)||4;
   const gpp=parseInt(document.getElementById('gamesPerPlayer').value)||4;
-  const xDbl=Math.min(parseInt(document.getElementById('mixedDbl').value)||0,gpp);
 
   if(participants.length<4){showErr('최소 4명 필요합니다.');return;}
   if(courts<1){showErr('코트 수는 1 이상이어야 합니다.');return;}
   if(gpp<1){showErr('인당 게임 수는 1 이상이어야 합니다.');return;}
-  if(xDbl>gpp){showErr(`혼복 인당 횟수(${xDbl})는 인당 게임 수(${gpp})를 초과할 수 없습니다.`);return;}
   const total=participants.length*gpp;
   // 4의 배수 강제 없음 — 나머지는 fillMissingGames에서 최선 처리
   const _nonDiv4=(total%4!==0);
 
   const settings={
     courts,gamesPerPlayer:gpp,
-    mixedDoublesPerPerson:xDbl,
+    mixedDoublesPerPerson:0,
     teamMode: useFixedTeams&&!!teamAssignment,
     rsvpId:_teamParticipantSourceRsvpId||null,
     rsvpTitle:_teamParticipantSourceRsvpId?_rsvpTitle():'',
@@ -1083,20 +1087,8 @@ function generate(opts={}){
       const totalMatches=_participationSlotStats(participants,settings,{}).minimumMatches;
       const numF=participants.filter(p=>p.gender==='F').length;
       const numM=participants.filter(p=>p.gender==='M').length;
-      // 혼복 타겟: 입력값 기반
-      if(xDbl>0){
-        // 혼복 횟수 지정 시: 혼복N회 + 나머지 남복/여복 비율로 배정
-        settings.targetMixedDoubles=Math.floor(participants.length*xDbl/4);
-        const gppRem=gpp-xDbl;
-        settings.targetWomenDoubles=numF>=4?Math.floor(numF*gppRem/4):0;
-        settings.targetMenDoubles=numM>=4?Math.floor(numM*gppRem/4):0;
-      } else {
-        // 혼복 횟수=0 → 남복/여복 우선.
-        // 동성복식만으로 출전 균형을 맞추기 어려울 때는 any 폴백으로 혼복을 허용한다.
-        settings.targetMixedDoubles=0;
-        settings.targetWomenDoubles=numF>=4?Math.floor(numF*gpp/4):0;
-        settings.targetMenDoubles=numM>=4?Math.floor(numM*gpp/4):0;
-      }
+      // 종목은 자동 편성한다. 구버전의 혼복 횟수 설정은 사용하지 않는다.
+      Object.assign(settings,_teamAutoFormatSettings(settings,participants));
       // ── 여러 번 생성해 가장 품질 좋은 대진 자동 선택 (best-of-N) ──
       // generateMatches가 participants를 직접 변경하므로 매 시도마다 깨끗한 복사본 사용
       const _basePlayers=participants.map(p=>({...p, partnerCount:{}, opponentCount:{}}));
@@ -1119,7 +1111,7 @@ function generate(opts={}){
         let _sc=_bracketQualityScore(_m,_try,settings);
         // 혼복 0은 금지가 아니라 동성복식 우선이다.
         // 기본 품질이 비슷한 후보끼리는 혼복이 적은 대진을 선택한다.
-        if(xDbl===0&&!settings.teamMode) _sc+=_m.filter(mx=>mx.type==='혼복').length*6;
+        if(!settings.teamMode) _sc+=_m.filter(mx=>mx.type==='혼복').length*6;
         // 팀전: 파트너 중복 추가 패널티
         if(settings.teamMode){
           const _pc={};
@@ -1166,8 +1158,8 @@ function generate(opts={}){
       if(participants.length<=20){
         _warnParts.push('ℹ 20명 이하 소규모 대진은 선택지가 좁아 같은 파트너·상대 반복이 조금 늘 수 있습니다. 품질점검의 "실전 특이사항"을 먼저 확인하세요.');
       }
-      if(!settings.teamMode&&xDbl===0&&(((numF*gpp)%4)!==0||((numM*gpp)%4)!==0)){
-        _warnParts.push('ℹ 혼복 0은 남복·여복 우선이라는 뜻입니다. 성별별 출전 슬롯이 4명 단위로 딱 맞지 않으면 일부 혼복, 반복, 1게임 초과가 생길 수 있습니다.');
+      if(!settings.teamMode&&(((numF*gpp)%4)!==0||((numM*gpp)%4)!==0)){
+        _warnParts.push('ℹ 성별별 출전 슬롯이 4명 단위로 맞지 않으면 일부 혼복, 반복, 1게임 초과가 생길 수 있습니다.');
       }
       const _adjCnt=matches.filter(m=>m.type==='보정').length;
       if(_adjCnt){
@@ -5440,7 +5432,6 @@ function saveState(){
     directPlayers:_directPlayers.slice(),
     courts:document.getElementById('courts').value,
     gamesPerPlayer:document.getElementById('gamesPerPlayer').value,
-    mixedDbl:document.getElementById('mixedDbl').value,
     teamNames:{...teamNames},
     matchMode:_teamUsesFixedTeams()?'team':'free',
     teamModeOverride: _teamModeOverride,
@@ -5473,7 +5464,7 @@ function saveState(){
       isNewJoiner:!!p.isNewJoiner,
       _njGames:p._njGames!=null?p._njGames:null
     })),
-    settings:currentSettings,scores,
+    settings:_teamAutoFormatSettings(currentSettings,currentParticipants),scores,
     winOverride:JSON.parse(JSON.stringify(winOverride)),
     liveWinAt:JSON.parse(JSON.stringify(liveWinAt)),
     liveId:_liveOn?(_liveId||_teamStoredLiveId()||null):null,
@@ -5614,7 +5605,6 @@ function restoreState(opts={}){
 
     document.getElementById('courts').value=state.courts||4;
     document.getElementById('gamesPerPlayer').value=state.gamesPerPlayer||4;
-    document.getElementById('mixedDbl').value=state.mixedDbl??1;
     // 직접입력 목록 복원 (구버전 pasteText 호환 포함)
     if(state.directPlayers&&state.directPlayers.length){
       _directPlayers=state.directPlayers.slice();
@@ -5688,7 +5678,7 @@ function restoreState(opts={}){
       };
     });
     const profileChanged=_teamSyncGeneratedProfilesFromDirectPlayers();
-    currentSettings=state.settings;
+    currentSettings=_teamAutoFormatSettings(state.settings,currentParticipants);
     _teamParticipantSourceRsvpId=currentSettings?.rsvpId||null;
     if(_teamParticipantSourceRsvpId)_rsvpEnsureCurrentEventLink({silent:true});
     _lockedBeforeRound = state.lockedBeforeRound ?? null;
@@ -10422,7 +10412,6 @@ function applyTeamSampleData(){
   _resetScoreboard();
   document.getElementById('courts').value=4;
   document.getElementById('gamesPerPlayer').value=4;
-  document.getElementById('mixedDbl').value=1;
   _rsvpResponses=_teamSampleResponses();
   renderDirectPlayerList();
   renderClubList();
