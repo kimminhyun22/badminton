@@ -14,7 +14,7 @@ async function fixture(source=code){
   navigator:{share:p=>{assert(activation,'share must start inside click activation');calls.share++;assert(p.url);return new Promise(r=>shareRelease=r);},clipboard:{writeText:async()=>calls.copy++}},
   _fbDb:{ref:()=>({update:()=>{calls.writes++;return new Promise((r,j)=>release=()=>fail?j(Error('offline')):r());},set:async()=>{calls.writes++;}})}};
  vm.createContext(c);vm.runInContext(source,c);
- const prepare=c._teamPrepareShareLink();assert.equal(button.disabled,true);release();assert(await prepare);assert.equal(button.disabled,false);
+ const prepare=c._teamPrepareShareLink();assert.equal(button.disabled,true);button.disabled=false;const concurrent=c._teamPrepareShareLink();assert.equal(button.disabled,true,'rerendered button must stay disabled while save is pending');release();assert(await prepare);assert(await concurrent);assert.equal(button.disabled,false);
  const writes=calls.writes;
  const share=c.rsvpShareLink();assert.equal(calls.share,1,'one click must invoke native share synchronously, before a microtask');
  activation=false;await c.rsvpShareLink();assert.equal(calls.share,1,'double clicks cannot dispatch twice');shareRelease();await share;assert.equal(calls.writes,writes,'ready link needs no click-time network wait');assert(calls.silent.every(Boolean),'sharing must not show link-switch confirmation');
@@ -24,6 +24,7 @@ async function fixture(source=code){
  return calls;
 }
 (async()=>{
+ assert(cut('function rsvpSaveLocal(){','function rsvpEnsureId()').includes('_teamWarmShareLink()'),'title changes must warm the new snapshot before sharing');
  await fixture();
  // Restoring the old network wait destroys click activation and must be caught.
  await assert.rejects(fixture(code.replace('  if(navigator.share){','  await Promise.resolve().then(()=>{});\n  if(navigator.share){')));
