@@ -43,6 +43,6 @@ assert(reshuffle.includes('_tries,completedMatches,true)'),'Use final quality ca
 assert(reshuffle.indexOf('if(!_teamAcceptReshuffle(')<reshuffle.indexOf('currentMatches=allMatches;'),'Reject before replacing the current schedule');
 ctx._qualityAssessment=matches=>({structureErr:0,genderErr:0,avoidableUnderSlots:0,balanceHardCount:0,balanceSevereCount:0,balanceCautionCount:0,total:matches[0].round===1?95:85,sBalance:30,avoidableOverSlots:0,avoidablePartnerExcess:0,excessConsec:0});
 finalists=[];ctx._teamKeepFinalist(finalists,make(),{});assert.equal(ctx._teamOptimizeFinalists(finalists,{}).matches[0].round,1,'Retain original schedule if optimization lowers quality');
-assert(src.includes('_teamSelectFinalBracket(finalists,_basePlayers,settings,totalMatches,{review:comparisonCandidates})')&&src.includes('_teamOptimizeFinalists(copy(),legacySettings)'),'Initial generation must finalize and preserve the previous candidate before guarded refinement');
+assert(src.includes('_teamSelectFinalBracket(finalists,_basePlayers,settings,totalMatches,{review:comparisonCandidates})')&&src.includes('_teamOptimizeFinalists(copy(),legacySettings,checkpoint)'),'Initial generation must preserve the previous path while recording alternatives before guarded refinement');
 assert(src.includes('_goal:gpp,'),'Initial candidates must have explicit personal goals, just like reassignment');
 console.log('team final quality regression passed');

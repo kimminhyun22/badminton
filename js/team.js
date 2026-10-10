@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.801';
+const APP_VERSION = '1.10.802';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -2619,13 +2619,16 @@ function _teamKeepFinalist(finalists,candidate,settings){
   finalists.length=Math.min(finalists.length,4);
 }
 
-function _teamOptimizeFinalists(finalists,settings){
+function _teamOptimizeFinalists(finalists,settings,checkpoint=null){
   let best=null;
   for(const candidate of finalists){
+    if(checkpoint)checkpoint(candidate);
     _teamRefineRoundPairs(candidate,settings);
+    if(checkpoint)checkpoint(candidate);
     candidate.key=_teamFinalQualityKey(candidate.matches,candidate.participants,settings);
     const slots=candidate.matches.map(m=>({round:m.round,court:m.court}));
     _optimizeFutureRounds(candidate.matches,settings);
+    if(checkpoint)checkpoint(candidate);
     const key=_teamFinalQualityKey(candidate.matches,candidate.participants,settings);
     if(_isBetterQualityKey(key,candidate.key))candidate.key=key;
     else candidate.matches.forEach((m,i)=>Object.assign(m,slots[i]));
@@ -2633,7 +2636,9 @@ function _teamOptimizeFinalists(finalists,settings){
   }
   if(best){
     _teamImproveIndividualBalance(best,settings);
+    if(checkpoint)checkpoint(best);
     _teamImproveRepeatBalance(best,settings);
+    if(checkpoint)checkpoint(best);
     best.participants.forEach(p=>p.lastRoundPlayed=0);
     best.matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{
       p.lastRoundPlayed=Math.max(p.lastRoundPlayed||0,m.round);
@@ -2643,7 +2648,7 @@ function _teamOptimizeFinalists(finalists,settings){
 }
 
 // New brackets only: existing posted/completed games are never replanned here.
-function _teamWomenPriorityChoice(base,players,settings,totalMatches){
+function _teamWomenPriorityChoice(base,players,settings,totalMatches,checkpoint=null){
   const policy=globalThis.KokWomenDoubles;
   if(!settings.teamMode||!policy)return base;
   const female=players.filter(p=>p.gender==='F');
@@ -2659,12 +2664,14 @@ function _teamWomenPriorityChoice(base,players,settings,totalMatches){
     _repairParticipation(matches,participants,prioritySettings);compactSchedule(matches,prioritySettings);
     const candidate={matches,participants};
     const snapshot=matches.map(m=>({...m}));
-    _teamOptimizeFinalists([candidate],prioritySettings);
+    _teamOptimizeFinalists([candidate],prioritySettings,checkpoint);
     if(!policy.preserves(snapshot,matches,participants,settings)){matches.splice(0,matches.length,...snapshot);}
     if(!policy.safe(adapter,base,candidate,settings))continue;
+    if(checkpoint)checkpoint(candidate);
     const reserved=matches.map(m=>({...m}));
     const before=_teamCompetitionEvaluation(candidate,settings),beforeRest=_qualityAssessment(matches,participants,settings).excessConsec;
     policy.optimize(adapter,candidate,settings,{joint:true,...(settings._closePriority?{passes:2,budget:24}:{})});
+    if(checkpoint)checkpoint(candidate);
     const after=_teamCompetitionEvaluation(candidate,settings);
     if(!policy.safe(adapter,base,candidate,settings)||!policy.preserves(reserved,matches,participants,settings)||after.score.total<before.score.total||after.score.diagnostics.meanAdjustedGap>before.score.diagnostics.meanAdjustedGap+1e-9||_qualityAssessment(matches,participants,settings).excessConsec>beforeRest)matches.splice(0,matches.length,...reserved);
     const coverage=policy.status(matches,participants,settings).covered;
@@ -2675,6 +2682,100 @@ function _teamWomenPriorityChoice(base,players,settings,totalMatches){
   best.participants.forEach(p=>{p.gamesPlayed=0;p.lastRoundPlayed=0;p.womenDoublesPlayed=0;p.menDoublesPlayed=0;p.mixedDoublesPlayed=0;p.adjustmentPlayed=0;p._womenReserved=0;p.partnerCount=history[p.name]?.partnerCount||{};p.opponentCount=history[p.name]?.opponentCount||{};});
   best.matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>{p.gamesPlayed++;p.lastRoundPlayed=Math.max(p.lastRoundPlayed,m.round);const k=m.type==='여복'?'womenDoublesPlayed':m.type==='남복'?'menDoublesPlayed':m.type==='혼복'?'mixedDoublesPlayed':'adjustmentPlayed';p[k]++;}));
   return best;
+}
+
+// Checkpoints own their players, counters and match metadata. Later legacy
+// refinements must not mutate a retained alternative through shared references.
+function _teamCopyFinalCandidate(candidate){
+  const participants=candidate.participants.map(p=>({...p,partnerCount:{},opponentCount:{}}));
+  const by=new Map(participants.map(p=>[p.name,p])),fields=['team1A','team1B','team2C','team2D'];
+  const matches=candidate.matches.map(m=>{
+    const copy={...m};fields.forEach(k=>copy[k]=by.get(m[k].name));
+    copy.team1Level=effLevel(copy.team1A)+effLevel(copy.team1B);
+    copy.team2Level=effLevel(copy.team2C)+effLevel(copy.team2D);
+    copy.levelDiff=Math.round(Math.abs(copy.team1Level-copy.team2Level)*10)/10;
+    return copy;
+  });
+  const history=_buildHistoryFromMatches(matches);
+  participants.forEach(p=>{
+    const games=matches.filter(m=>fields.some(k=>m[k].name===p.name));
+    p.gamesPlayed=games.length;p.lastRoundPlayed=Math.max(0,...games.map(m=>m.round));
+    p.womenDoublesPlayed=games.filter(m=>m.type==='여복').length;
+    p.menDoublesPlayed=games.filter(m=>m.type==='남복').length;
+    p.mixedDoublesPlayed=games.filter(m=>m.type==='혼복').length;
+    p.adjustmentPlayed=games.filter(m=>m.type==='보정').length;p._womenReserved=0;
+    p.partnerCount=history[p.name]?.partnerCount||{};p.opponentCount=history[p.name]?.opponentCount||{};
+  });
+  return {...candidate,participants,matches};
+}
+function _teamFinalAppearanceBurden(candidate){
+  const rounds=new Map(candidate.participants.map(p=>[p.name,[]]));
+  candidate.matches.forEach(m=>[m.team1A,m.team1B,m.team2C,m.team2D].forEach(p=>rounds.get(p.name).push(m.round)));
+  return new Map([...rounds].map(([name,rs])=>{
+    rs.sort((a,b)=>a-b);let run=0,longest=0,idle=0;
+    rs.forEach((r,i)=>{run=i&&r===rs[i-1]+1?run+1:1;longest=Math.max(longest,run);if(i)idle=Math.max(idle,r-rs[i-1]-1);});
+    return [name,{games:rs.length,longest,idle}];
+  }));
+}
+function _teamFinalCandidateSafe(base,next,settings,before,after){
+  const policy=globalThis.KokTeamCompetition,women=globalThis.KokWomenDoubles;
+  if(!after.score.eligible||policy.reviewContext(base.participants,settings)!==policy.reviewContext(next.participants,settings)
+    ||!women.safe({_qualityAssessment},base,next,settings)||!_teamWomenTargetsPreserved(base,next,settings)
+    ||!policy.protects(before.legacy,after.legacy,before.score,after.score,base.matches,next.matches))return false;
+  const a=_teamFinalAppearanceBurden(base),b=_teamFinalAppearanceBurden(next);
+  return [...a].every(([name,p])=>{const q=b.get(name);return q&&q.games===p.games&&q.longest<=p.longest&&q.idle<=p.idle;});
+}
+// Bounded individual moves for a new complete schedule. The original finished
+// fallback stays the safety origin, so several moves cannot accumulate losses.
+function _teamRefineFinalIndividuals(candidate,settings,origin=candidate,{passes=4,budget=128}={}){
+  const policy=globalThis.KokTeamCompetition,initial=_teamCompetitionEvaluation(origin,settings);
+  if(!initial?.score.eligible||candidate.matches.length>64||candidate.participants.length>64
+    ||candidate.matches.some(m=>m.win||m.voided))return candidate;
+  const fields=['team1A','team1B','team2C','team2D'];
+  let best=candidate,current=_teamCompetitionEvaluation(best,settings);
+  for(let pass=0;pass<Math.max(0,Math.min(4,passes));pass++){
+    const proposals=[];
+    for(let i=0;i<best.matches.length;i++)for(let j=i+1;j<best.matches.length;j++){
+      const a=best.matches[i],b=best.matches[j];
+      if(a.round!==b.round||fields.some(k=>a[k].partnerName||b[k].partnerName))continue;
+      for(const fa of fields)for(const fb of fields){
+        const p=a[fa],q=b[fb];if(p.name===q.name||p.team!==q.team||p.gender!==q.gender)continue;
+        const na={...a,[fa]:q},nb={...b,[fb]:p};
+        if(![na,nb].every(m=>_teamPairBalance([m.team1A,m.team1B],[m.team2C,m.team2D]).allowed))continue;
+        [na,nb].forEach(m=>{m.team1Level=effLevel(m.team1A)+effLevel(m.team1B);m.team2Level=effLevel(m.team2C)+effLevel(m.team2D);m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;});
+        const matches=best.matches.map((m,k)=>k===i?na:k===j?nb:m);
+        // Cheap closeness order only; every retained proposal is evaluated with
+        // its actual attendance/rest/repetition metrics before it can win.
+        const score=policy.assess(current.legacy,matches,best.participants,settings,effLevel,_teamBalanceDiff);
+        if(_isBetterQualityKey(policy.rankKey(current.score),policy.rankKey(score)))continue;
+        proposals.push({candidate:{participants:best.participants,matches},score});
+      }
+    }
+    proposals.sort((a,b)=>_isBetterQualityKey(policy.rankKey(a.score),policy.rankKey(b.score))?-1:_isBetterQualityKey(policy.rankKey(b.score),policy.rankKey(a.score))?1:0);
+    let chosen=null,chosenScore=current;
+    for(const proposal of proposals.slice(0,Math.max(0,Math.min(128,budget)))){
+      const next=_teamCompetitionEvaluation(proposal.candidate,settings);
+      if(!_isBetterQualityKey(policy.rankKey(next.score),policy.rankKey(chosenScore.score))
+        ||!_teamFinalCandidateSafe(origin,proposal.candidate,settings,initial,next))continue;
+      chosen=proposal.candidate;chosenScore=next;
+    }
+    if(!chosen)break;
+    best=chosen;current=chosenScore;
+  }
+  return best===candidate?candidate:_teamCopyFinalCandidate(best);
+}
+function _teamPreserveFinalBest(fallback,checkpoints,settings){
+  const policy=globalThis.KokTeamCompetition,initial=_teamCompetitionEvaluation(fallback,settings);
+  if(!initial?.score.eligible||fallback.matches.some(m=>m.win||m.voided))return fallback;
+  let best=fallback,score=initial;
+  const seen=new Set([policy.scheduleKey(fallback.matches)]);
+  for(const candidate of checkpoints){
+    const signature=policy.scheduleKey(candidate.matches);if(seen.has(signature))continue;seen.add(signature);
+    const next=_teamCompetitionEvaluation(candidate,settings);
+    if(_isBetterQualityKey(policy.rankKey(next.score),policy.rankKey(score.score))
+      &&_teamFinalCandidateSafe(fallback,candidate,settings,initial,next)){best=candidate;score=next;}
+  }
+  return _teamRefineFinalIndividuals(best,settings,fallback);
 }
 
 function _teamCompetitionEvaluation(candidate,settings){
@@ -2767,14 +2868,15 @@ function _teamSelectFinalBracket(finalists,players,settings,totalMatches,{joint=
     return {...candidate,participants,matches:candidate.matches.map(m=>({...m,
       team1A:by.get(m.team1A.name),team1B:by.get(m.team1B.name),team2C:by.get(m.team2C.name),team2D:by.get(m.team2D.name)}))};
   });
+  const checkpoints=[],checkpoint=candidate=>{if(candidate?.matches.length)checkpoints.push(_teamCopyFinalCandidate(candidate));};
   const legacySettings={...settings,_legacyCompetition:true};
-  const baseline=_teamWomenPriorityChoice(_teamOptimizeFinalists(copy(),legacySettings),players,legacySettings,totalMatches);
+  const baseline=_teamWomenPriorityChoice(_teamOptimizeFinalists(copy(),legacySettings,checkpoint),players,legacySettings,totalMatches,checkpoint);
   const cloneBaseline=()=>{
     const participants=baseline.participants.map(p=>({...p,partnerCount:{...p.partnerCount},opponentCount:{...p.opponentCount}})),by=new Map(participants.map(p=>[p.name,p]));
     return {participants,matches:baseline.matches.map(m=>({...m,team1A:by.get(m.team1A.name),team1B:by.get(m.team1B.name),team2C:by.get(m.team2C.name),team2D:by.get(m.team2D.name)}))};
   };
   const local=cloneBaseline();_teamRefineCloseOpponents(local,settings);
-  const planned=joint?_teamWomenPriorityChoice(cloneBaseline(),players,{...settings,_closePriority:true},totalMatches):null;
+  const planned=joint?_teamWomenPriorityChoice(cloneBaseline(),players,{...settings,_closePriority:true},totalMatches,checkpoint):null;
   if(planned)_teamRefineCloseOpponents(planned,settings);
   const policy=globalThis.KokTeamCompetition,women=globalThis.KokWomenDoubles;
   const b=_teamCompetitionEvaluation(baseline,settings);let best=baseline,bestScore=b.score;
@@ -2796,7 +2898,10 @@ function _teamSelectFinalBracket(finalists,players,settings,totalMatches,{joint=
   }
   const repaired=_teamRepairBalanceFirst(best,settings);
   if(repaired.accepted){if(review)review.push(best);best=repaired.candidate;}
-  return best;
+  // Keep the exact deployed final result as fallback. Recording helper-boundary
+  // checkpoints does not change the legacy calls, seeds or candidate budget.
+  if(review)review.push(best,...checkpoints);
+  return _teamPreserveFinalBest(best,checkpoints,settings);
 }
 function _teamRefineCloseOpponents(candidate,settings){
   const policy=globalThis.KokTeamCompetition;
