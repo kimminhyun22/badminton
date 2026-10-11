@@ -5,7 +5,7 @@ const matches=[{team1A:players[0],team1B:players[1],team2C:players[2],team2D:pla
 const legacy={sFair:20,sDiversity:20,sInterval:10,safetyIssues:[],total:100},settings={teamMode:true};
 const score=(q=legacy,s=settings,policy=Q)=>policy.assess(q,matches,players,s,p=>p.skillRating,()=>0);
 const perfect=score(),expected={games:65,overall:20,diversity:5,rest:10};
-assert.equal(perfect.version,9);assert.deepEqual(perfect.maxima,expected);assert.equal(perfect.total,100);
+assert.equal(perfect.version,10);assert.deepEqual(perfect.maxima,expected);assert.equal(perfect.total,100);
 assert.equal(perfect.total-score({...legacy,sDiversity:0}).total,5,'repeat avoidance cannot claim 20% of the new total');
 assert.equal(perfect.total-score({...legacy,sFair:0}).total,0);
 assert.equal(perfect.total-score({...legacy,sInterval:0}).total,10,'rest keeps its weight');
@@ -31,7 +31,7 @@ assert(!Object.hasOwn(perfect.components,'participation'));assert(!Object.hasOwn
 assert(!Q.compareCandidates(perfect,[v8,v8]).verified);
 const gateMutant={module:{exports:{}}};vm.runInNewContext(fs.readFileSync('js/team-competition.js','utf8').replace("if(q.avoidableOverSlots>0)issues.push('회피 가능한 추가 출전');",''),gateMutant);
 assert(score({...legacy,avoidableOverSlots:1},settings,gateMutant.module.exports).eligible,'removing excess gate must reintroduce the false pass');
-console.log('PASS v9 weights: four components65/20/5/10, attendance hard gate, unavoidable allowances, roster diagnostic, exact sum, historical rubrics, stale evidence and mutations');
+console.log('PASS v10 no-women weights: four components65/20/5/10, attendance hard gate, unavoidable allowances, roster diagnostic, exact sum, historical rubrics, stale evidence and mutations');
 
 const c=require('./helpers/team-competition-context')(),ps=Array.from({length:8},(_,i)=>({name:'E2E필수'+i,gender:'M',team:i<4?'청팀':'홍팀',skillRating:3,level:3,grade:'C'})),s={teamMode:true,courts:2,gamesPerPlayer:1};
 const match=(ids,round,court)=>({round,court,type:'남복',team1A:ps[ids[0]],team1B:ps[ids[1]],team2C:ps[ids[2]],team2D:ps[ids[3]],levelDiff:0});

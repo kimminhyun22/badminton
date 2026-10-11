@@ -4,6 +4,31 @@
 const clamp=x=>Math.max(0,Math.min(1,x));
 function average(xs){return xs.reduce((a,b)=>a+b,0)/xs.length;}
 function tail(xs,fraction=.2){const sorted=[...xs].sort((a,b)=>b-a),size=xs.length*fraction;return sorted.reduce((s,x,i)=>s+x*clamp(size-i),0)/size;}
+// Quartet feasibility is a necessary condition, not proof of a complete schedule.
+// Cache by ratings/teams/partner constraints; a generated bracket changes counts,
+// not feasibility. Keep the cache bounded when comparing team assignments.
+const womenFeasibilityCache=new Map();
+function womenPreference(matches,players,settings,level){
+ const female=p=>['F','여'].includes(p.gender),women=players.filter(female);
+ const key=JSON.stringify(women.map(p=>[p.name,p.team,level(p),p.partnerName||'']).sort((a,b)=>a[0].localeCompare(b[0])));
+ let possible=womenFeasibilityCache.get(key);
+ if(!possible){
+  possible=new Set();
+  const pairs=t=>{const ps=women.filter(p=>p.team===t);return ps.flatMap((p,i)=>ps.slice(i+1).filter(q=>(!p.partnerName||p.partnerName===q.name)&&(!q.partnerName||q.partnerName===p.name)).map(q=>({ps:[p,q],sum:level(p)+level(q),gap:Math.abs(level(p)-level(q))})));};
+  const a=pairs('청팀'),b=pairs('홍팀');
+  for(const x of a)for(const y of b){
+   const raw=x.sum-y.sum,asym=x.gap-y.gap,adjusted=Math.abs(raw-.35*asym),compound=Math.abs(asym)>1.5+1e-9&&raw*asym< -1e-9;
+   if(Math.abs(raw)<=2+1e-9&&adjusted<=(compound?1.5:2)+1e-9)[...x.ps,...y.ps].forEach(p=>possible.add(p.name));
+  }
+  if(womenFeasibilityCache.size>=16)womenFeasibilityCache.delete(womenFeasibilityCache.keys().next().value);
+  womenFeasibilityCache.set(key,possible);
+ }
+ const counts=new Map(women.map(p=>[p.name,{total:0,women:0}]));
+ for(const m of matches){if(m.voided)continue;const ps=[m.team1A,m.team1B,m.team2C,m.team2D],wd=ps.every(female);for(const p of ps){const c=counts.get(p.name);if(c){c.total++;if(wd)c.women++;}}}
+ const rows=women.map(p=>{const c=counts.get(p.name),target=Math.ceil(Math.max(p._goal??settings.gamesPerPlayer??c.total,c.total)/2),eligible=possible.has(p.name);return {name:p.name,...c,target,eligible,credit:target<=1?Math.min(1,c.women):.7*Math.min(1,c.women)+.3*clamp((c.women-1)/(target-1))};});
+ const scored=rows.filter(p=>p.eligible&&p.target>0);
+ return {rows,total:rows.length,scored:scored.length,excluded:rows.length-scored.length,zero:scored.filter(p=>p.women===0).length,covered:scored.filter(p=>p.women>=p.target).length,fraction:scored.length?average(scored.map(p=>p.credit)):1};
+}
 function assess(legacy,matches,players,settings,level,diff){
  const c={effLevel:level,_teamBalanceDiff:diff,_qualityAssessment:()=>legacy};
  if(!matches.length||!players.length)throw Error('Empty schedule');
@@ -20,7 +45,12 @@ function assess(legacy,matches,players,settings,level,diff){
  const originalGameLoss=.75*average(losses)+.25*tail(losses);
  const adjustedLosses=margins.map(x=>clamp(Math.abs(x)/1.5));
  const closenessLoss=settings._legacyCompetition?average(adjustedLosses):.4*average(adjustedLosses)+.4*tail(adjustedLosses)+.2*Math.max(...adjustedLosses);
- const gameLoss=.75*originalGameLoss+.25*closenessLoss;
+ const version=settings._legacyCompetition?4:[7,8,9].includes(settings._qualityScoreVersion)?settings._qualityScoreVersion:10;
+ const preference=version>=10?womenPreference(matches,players,settings,eff):null;
+ // The close band has no deduction. Larger adjusted gaps are counted once:
+ // mean 75%, worst fifth 25%; the maximum remains a guard and visible warning.
+ const normalizedLosses=margins.map(x=>clamp((Math.abs(x)-.2)/1.8));
+ const gameLoss=version>=10?.75*average(normalizedLosses)+.25*tail(normalizedLosses):.75*originalGameLoss+.25*closenessLoss;
  const rosterLoss=.45*clamp(meanGap/.5)+.4*clamp(quantileGap/1)+.15*clamp(genderGap/.5);
  // Continuous signed advantage; no discontinuous bonus at the close threshold.
  const net=average(margins),softBias=average(margins.map(x=>x/(Math.abs(x)+.2)));
@@ -33,9 +63,8 @@ function assess(legacy,matches,players,settings,level,diff){
  const overallLoss=settings._legacyCompetition ? .5*clamp(Math.abs(net)/.5)+.5*Math.abs(softBias) : .5*clamp(Math.abs(net)/.5)+.25*Math.abs(softBias)+.25*formatBias;
  // v9 scores what the schedule can improve with its teams held fixed.
  // Attendance is mandatory; roster distribution remains a separate diagnostic.
- const version=settings._legacyCompetition?4:[7,8].includes(settings._qualityScoreVersion)?settings._qualityScoreVersion:9;
- const maxima=version<=7?{games:30,roster:10,overall:10,participation:20,diversity:20,rest:10}:version===8?{games:45,roster:10,overall:15,participation:15,diversity:5,rest:10}:{games:65,overall:20,diversity:5,rest:10};
- const fractions={games:1-gameLoss,roster:1-rosterLoss,overall:1-overallLoss,participation:q.sFair/20,diversity:q.sDiversity/20,rest:q.sInterval/10};
+ const maxima=version<=7?{games:30,roster:10,overall:10,participation:20,diversity:20,rest:10}:version===8?{games:45,roster:10,overall:15,participation:15,diversity:5,rest:10}:version===9||!preference.scored?{games:65,overall:20,diversity:5,rest:10}:{games:55,overall:20,women:10,diversity:5,rest:10};
+ const fractions={games:1-gameLoss,roster:1-rosterLoss,overall:1-overallLoss,women:preference?.fraction,participation:q.sFair/20,diversity:q.sDiversity/20,rest:q.sInterval/10};
  const components=Object.fromEntries(Object.entries(maxima).map(([key,max])=>[key,version<=7?max*fractions[key]:Math.round(max*fractions[key]*10)/10]));
  const total=Math.round(Object.values(components).reduce((a,b)=>a+b,0)*10)/10;
  const issues=[...q.safetyIssues];
@@ -43,7 +72,7 @@ function assess(legacy,matches,players,settings,level,diff){
   if(Math.max(q.underSlots||0,q.avoidableUnderSlots||0)>0&&!issues.includes('출전 목표 미달'))issues.push('출전 목표 미달');
   if(q.avoidableOverSlots>0)issues.push('회피 가능한 추가 출전');
  }
- const diagnostics={meanGap,quantileGap,genderGap,rosterQuality:1-rosterLoss,meanAdjustedGap:average(margins.map(Math.abs)),maxAdjustedGap:Math.max(...margins.map(Math.abs)),tailAdjustedGap:tail(margins.map(Math.abs)),netPerGame:net,softBias,formatBias,formatBalance,
+ const diagnostics={meanGap,quantileGap,genderGap,rosterQuality:1-rosterLoss,womenPreference:preference,meanAdjustedGap:average(margins.map(Math.abs)),maxAdjustedGap:Math.max(...margins.map(Math.abs)),tailAdjustedGap:tail(margins.map(Math.abs)),netPerGame:net,softBias,formatBias,formatBalance,
   closeSensitivity:[.15,.2,.25,.3].map(t=>({threshold:t,blue:margins.filter(x=>x>t).length,white:margins.filter(x=>x< -t).length,close:margins.filter(x=>Math.abs(x)<=t).length}))};
  return {version,total,components,maxima,eligible:issues.length===0,issues,diagnostics,legacyTotal:q.total,legacySelection:!!settings._legacyCompetition};
 }
@@ -52,6 +81,9 @@ function assess(legacy,matches,players,settings,level,diff){
 function rankKey(q){
  if(q.legacySelection)return [q.eligible?0:1,q.issues.length,-q.total,-q.components.games,-q.components.overall];
  const d=q.diagnostics,c=d.closeSensitivity;
+ if(q.version>=10)return [q.eligible?0:1,q.issues.length,d.maxAdjustedGap>1.5+1e-9?1:0,
+  -(q.components.games+(q.components.women||0)),d.maxAdjustedGap,d.tailAdjustedGap,d.meanAdjustedGap,
+  -c[1].close,Math.abs(c[1].blue-c[1].white),d.formatBias,Math.abs(d.netPerGame),-q.total];
  return [q.eligible?0:1,q.issues.length,d.maxAdjustedGap,d.tailAdjustedGap,d.meanAdjustedGap,
   -c[1].close,Math.abs(c[1].blue-c[1].white),c.reduce((s,x)=>s+Math.abs(x.blue-x.white),0),
   d.formatBias,Math.abs(d.netPerGame),-q.total];
@@ -163,7 +195,7 @@ function compareCandidates(current,references){
  const better=usable.filter(r=>compare(r,current)<0).length,worse=usable.filter(r=>compare(r,current)>0).length;
  const score=Math.round(100*(1-better/usable.length));
  const best=usable.reduce((a,b)=>compare(a,b)<=0?a:b,current);
- return {verified:true,version:2,score,rank:better+1,count:usable.length,better,worse,
+ return {verified:true,version:current.version>=10?3:2,score,rank:better+1,count:usable.length,better,worse,
   best:best.diagnostics,current:current.diagnostics,
   label:better?'더 나은 비교 후보 있음':'검토 후보 중 최선',
   caveat:'검토 후보 내 순위 점수입니다. 전체 최적·최선 달성률·실제 수동 편성 대비 우수성을 증명하지 않습니다'};

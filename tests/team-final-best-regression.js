@@ -10,7 +10,7 @@ function fixture(c){
 function rounds(candidate){return candidate.participants.map(p=>[p.name,candidate.matches.filter(m=>fields.some(k=>m[k].name===p.name)).map(m=>m.round).sort()]);}
 const c=build(71),base=fixture(c),before=JSON.stringify(base),initial=c._teamCompetitionEvaluation(base,settings);
 const improved=c._teamPreserveFinalBest(base,[],settings),after=c._teamCompetitionEvaluation(improved,settings);
-assert(after.score.eligible);assert.equal(after.score.version,9);
+assert(after.score.eligible);assert.equal(after.score.version,10);
 assert(after.score.diagnostics.meanAdjustedGap<initial.score.diagnostics.meanAdjustedGap);
 assert(after.score.diagnostics.closeSensitivity[1].close>initial.score.diagnostics.closeSensitivity[1].close);
 assert(c._teamFinalCandidateSafe(base,improved,settings,initial,after));
@@ -46,7 +46,7 @@ function pipeline(src){
 const recovered=pipeline(source),recoveredScore=recovered.x._teamCompetitionEvaluation(recovered.result,settings).score;
 assert.equal(recoveredScore.total,after.score.total,'A superior checkpoint survives the worse legacy final result');
 assert(recovered.review.some(x=>recovered.x._teamCompetitionEvaluation(x,settings).score.total===after.score.total),'Review evidence must contain the retained intermediate schedule');
-const mutation=source.replace('return _teamPreserveFinalBest(best,checkpoints,settings);','return _teamPreserveFinalBest(best,[],settings);');assert.notEqual(mutation,source);
+const mutation=source.replace('_teamPreserveFinalBest(best,checkpoints,settings)','_teamPreserveFinalBest(best,[],settings)');assert.notEqual(mutation,source);
 const lost=pipeline(mutation);assert.equal(lost.x._teamCompetitionEvaluation(lost.result,settings).score.total,initial.score.total,'Mutation disconnecting checkpoints reproduces the loss');
 
 // Better gaps cannot purchase repeated partners: disable individual search so

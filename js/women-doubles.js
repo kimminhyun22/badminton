@@ -127,5 +127,64 @@ for(const x of proposals.slice(0,Math.max(0,Math.min(128,budget)))){
 return {candidate:best?{participants:ps,matches:best.matches}:candidate,evaluations:n,accepted:best?1:0};
 };
 
-return {plan:planWomen,optimize,status,preserves,safe,relax};
+// Restore missing women's games only within fixed original safety and rest bounds.
+function recoverWomen(c,input,settings,options={}){
+ const policy=c.KokTeamCompetition,women=c.KokWomenDoubles,F=['team1A','team1B','team2C','team2D'];
+ const limit=Math.min(512,Math.max(0,options.budget??384)),width=Math.min(8,Math.max(1,options.width??6)),depth=Math.min(4,Math.max(1,options.depth??4)),cheapLimit=Math.min(12000,Math.max(0,options.cheapBudget??6000));
+ let evaluations=0,examined=0,accepted=0;
+ const unchanged=reason=>({candidate:input,evaluations,examined,accepted:0,reason});
+ if(!settings.teamMode||settings.gamesPerPlayer!==4||!input?.participants?.length||input.participants.length>64||!input.matches?.length||input.matches.length>64||input.matches.some(m=>m.win||m.voided))return unchanged('unsupported-or-started');
+ if(['청팀','홍팀'].some(t=>input.participants.filter(p=>p.team===t&&p.gender==='F').length<2))return unchanged('insufficient-women-on-a-team');
+ const origin=c._teamCopyFinalCandidate(options.origin||input.womenRecoveryOrigin||input),working=c._teamCopyFinalCandidate(input);
+ if(policy.reviewContext(origin.participants,settings)!==policy.reviewContext(working.participants,settings)||(origin.settings&&['courts','gamesPerPlayer','teamMode'].some(k=>origin.settings[k]!==settings[k]))||origin.matches.some(m=>m.win||m.voided)||origin.matches.length!==working.matches.length)return unchanged('mismatched-origin');
+ const initial=c._teamCompetitionEvaluation(origin,settings),workingEvaluation=c._teamCompetitionEvaluation(working,settings),base=initial.score.diagnostics,qs=initial.legacy;
+ if(!initial.score.eligible||qs.underSlots)return unchanged('invalid-initial-schedule');
+ const status=b=>women.status(b.matches,b.participants,settings).rows;
+ const startWomen=status(origin),caps={max:Math.min(1.5,base.maxAdjustedGap+.35),mean:base.meanAdjustedGap+.10,tail:base.tailAdjustedGap+.25,close:Math.max(0,base.closeSensitivity[1].close-2),favored:Math.abs(base.closeSensitivity[1].blue-base.closeSensitivity[1].white)+2};
+ const burden=b=>{const out={};for(const p of b.participants){const rs=b.matches.filter(m=>F.some(k=>m[k].name===p.name)).map(m=>m.round).sort((a,b)=>a-b);let longest=0,run=0,idle=0;rs.forEach((r,i)=>{run=i&&r===rs[i-1]+1?run+1:1;longest=Math.max(longest,run);if(i)idle=Math.max(idle,r-rs[i-1]-1);});out[p.name]={games:rs.length,longest,idle};}return out;},bs=burden(origin),bos=policy.opponentStats(origin.matches);
+ const wl=b=>{const w=status(b);return [w.filter(p=>p.women===0).length,w.reduce((z,p)=>z+Math.max(0,p.target-p.women),0)];};
+ const rank=(b,e)=>[...wl(b),e.score.diagnostics.maxAdjustedGap,e.score.diagnostics.tailAdjustedGap,e.score.diagnostics.meanAdjustedGap,-e.score.diagnostics.closeSensitivity[1].close,-e.score.total];
+ const compare=(a,b)=>{for(let i=0;i<a.length;i++){const d=a[i]-b[i];if(Math.abs(d)>1e-9)return d;}return 0;};
+ const gap=m=>{const pair=(a,b)=>c.effLevel(a)+c.effLevel(b)-.35*Math.abs(c.effLevel(a)-c.effLevel(b));return Math.abs(pair(m.team1A,m.team1B)-pair(m.team2C,m.team2D));};
+ const update=m=>{const a=[m.team1A,m.team1B].filter(p=>p.gender==='F').length,b=[m.team2C,m.team2D].filter(p=>p.gender==='F').length;m.type=a===2&&b===2?'여복':a===0&&b===0?'남복':a===1&&b===1?'혼복':'보정';m.isAdjustment=m.type==='보정';m.team1Level=c.effLevel(m.team1A)+c.effLevel(m.team1B);m.team2Level=c.effLevel(m.team2C)+c.effLevel(m.team2D);m.levelDiff=Math.round(Math.abs(m.team1Level-m.team2Level)*10)/10;};
+ // Keep warning counts as well as mandatory validity: preference cannot buy a new warning.
+ const protectedKeys=['structureErr','genderErr','underSlots','overSlots','avoidableUnderSlots','avoidableOverSlots','balanceHardCount','balanceCautionCount','balanceSevereCount','asymSevereCount','restWorstExcess','restTotalExcess','avoidablePartnerExcess','excessConsec','avoidableSameFour','avoidableExact','sameFourRepeats','exactMatchRepeats','maxPartnerRepeat'];
+ function safe(b,e){if(!e.score.eligible||e.score.total<workingEvaluation.score.total-1e-9||b.matches.length!==origin.matches.length||Math.max(...b.matches.map(m=>m.round))!==Math.max(...origin.matches.map(m=>m.round)))return false;
+  if([qs,workingEvaluation.legacy].some(reference=>protectedKeys.some(k=>(e.legacy[k]||0)>(reference[k]||0))))return false;
+  const d=e.score.diagnostics,close=d.closeSensitivity[1];if(d.maxAdjustedGap>caps.max+1e-9||d.meanAdjustedGap>caps.mean+1e-9||d.tailAdjustedGap>caps.tail+1e-9||close.close<caps.close||Math.abs(close.blue-close.white)>caps.favored)return false;
+  const op=policy.opponentStats(b.matches),currentOp=policy.opponentStats(working.matches);if([bos,currentOp].some(reference=>op.max>reference.max||op.excess>reference.excess||op.repeats>reference.repeats))return false;
+  const after=burden(b);if(Object.entries(bs).some(([n,p])=>!after[n]||after[n].games!==p.games||after[n].longest>p.longest||after[n].idle>p.idle))return false;
+  const sw=status(b);if(startWomen.some(p=>sw.find(q=>q.name===p.name).women<Math.min(p.women,p.target)))return false;
+  return true;
+ }
+ const pairs=a=>a.flatMap((p,i)=>a.slice(i+1).map(q=>[p,q])),perms=a=>a.length<2?[a]:[a,[a[1],a[0]]];
+ function proposals(b){const out=[],seen=new Set(),currentWomen=Object.fromEntries(status(b).map(p=>[p.name,p])),rounds=[...new Set(b.matches.map(m=>m.round))].sort((a,b)=>a-b);
+  outer:for(const r of rounds){const ms=b.matches.map((m,i)=>({m,i})).filter(x=>x.m.round===r),female=ms.flatMap(x=>F.map(k=>x.m[k])).filter(p=>p.gender==='F'&&!p.partnerName).sort((a,b)=>currentWomen[a.name].women-currentWomen[b.name].women||a.name.localeCompare(b.name));
+   for(const a of pairs(female.filter(p=>p.team==='청팀')))for(const z of pairs(female.filter(p=>p.team==='홍팀'))){if(!c._teamPairBalance(a,z).allowed)continue;for(const target of ms){if(F.some(k=>target.m[k].partnerName))continue;const displacements=[];for(const [desired,side] of [[a,F.slice(0,2)],[z,F.slice(2)]]){const wanted=new Set(desired.map(p=>p.name)),outgoing=side.map(k=>target.m[k]).filter(p=>!wanted.has(p.name)),vacated=ms.filter(x=>x.i!==target.i).flatMap(x=>side.filter(k=>wanted.has(x.m[k].name)).map(k=>({i:x.i,k})));displacements.push({outgoing,vacated});}
+    if(displacements.some(x=>x.outgoing.length!==x.vacated.length||x.outgoing.some(p=>p.partnerName)||x.vacated.some(slot=>F.some(k=>b.matches[slot.i][k].partnerName))))continue;
+    for(const one of perms(displacements[0].outgoing))for(const two of perms(displacements[1].outgoing)){if(examined>=cheapLimit)break outer;examined++;const matches=b.matches.map(m=>({...m}));[matches[target.i].team1A,matches[target.i].team1B,matches[target.i].team2C,matches[target.i].team2D]=[...a,...z];[one,two].forEach((ps,i)=>displacements[i].vacated.forEach((slot,j)=>matches[slot.i][slot.k]=ps[j]));
+     const changed=ms.filter(x=>F.some(k=>matches[x.i][k].name!==x.m[k].name));changed.forEach(x=>update(matches[x.i]));if(!changed.length||changed.some(x=>!c._teamPairBalance([matches[x.i].team1A,matches[x.i].team1B],[matches[x.i].team2C,matches[x.i].team2D]).allowed))continue;
+     const candidate={...b,matches},w=wl(candidate);if(compare(w,wl(b))>=0||!women.preserves(b.matches,matches,b.participants,settings))continue;
+     const ds=matches.map(gap).sort((a,b)=>b-a),max=ds[0],mean=ds.reduce((x,y)=>x+y,0)/ds.length;if(max>caps.max+1e-9||mean>caps.mean+1e-9)continue;
+     const signature=policy.scheduleKey(matches);if(seen.has(signature))continue;seen.add(signature);out.push({candidate,quick:[...w,max,mean],signature});
+    }
+   }}
+  }
+  return out.sort((a,b)=>compare(a.quick,b.quick)||a.signature.localeCompare(b.signature));
+ }
+ if(!safe(working,workingEvaluation))return unchanged('input-outside-origin-protection');
+ let best={candidate:working,evaluation:workingEvaluation,rank:rank(working,workingEvaluation),moves:0},beam=[best];const allSeen=new Set([policy.scheduleKey(working.matches)]);
+ for(let pass=0;pass<depth&&evaluations<limit&&examined<cheapLimit;pass++){
+  const choices=[];for(const node of beam){for(const p of proposals(node.candidate)){if(evaluations>=limit)break;if(allSeen.has(p.signature))continue;allSeen.add(p.signature);const e=c._teamCompetitionEvaluation(p.candidate,settings);evaluations++;if(!safe(p.candidate,e))continue;const n={candidate:p.candidate,evaluation:e,rank:rank(p.candidate,e),moves:node.moves+1};choices.push(n);if(compare(n.rank,best.rank)<0)best=n;}}
+  if(!choices.length)break;choices.sort((a,b)=>compare(a.rank,b.rank));beam=choices.slice(0,width);
+ }
+ if(best.moves===0)return {...unchanged('no-safe-recovery'),caps};accepted=best.moves;
+ const candidate=c._teamCopyFinalCandidate(best.candidate);
+ // Store a detached, nonrecursive anchor. Callers must persist this alongside
+ // the schedule and deep-copy it when copying the schedule.
+ candidate.womenRecoveryOrigin=c._teamCopyFinalCandidate({participants:origin.participants,matches:origin.matches,settings:{courts:settings.courts,gamesPerPlayer:settings.gamesPerPlayer,teamMode:settings.teamMode}});
+ return {candidate,evaluations,examined,accepted,reason:'women-recovered',before:wl(working),after:wl(best.candidate),caps};
+};
+
+return {plan:planWomen,optimize,status,preserves,safe,relax,recover:recoverWomen};
 });
