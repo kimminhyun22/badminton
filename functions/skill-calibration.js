@@ -110,7 +110,7 @@ async function handle(db,data,ip,now=Date.now()){
     const fresh=r.snapshot.val(),entry=fresh.adaptiveBatches[role],batch=entry.history[data.requestId]||entry.current;
     const result=await handle(db,{action:'read',id:data.id,key:data.key},ip,now);
     if(fresh.event&&result.event.revision!==fresh.event.revision)throw Error('팀전 신청자가 변경됐습니다. 새로고침해 주세요.');
-    return {...result,adaptiveBatch:batch};
+    return {...result,adaptiveBatch:{...batch,questions:batch.questions||[]}};
   }
   if(data.action==='read'){
     if(s.event){if(s.clubId&&data.clubId!==undefined&&data.clubId!==s.clubId)throw Error('다른 클럽의 평가입니다.');return project(s,role,data.baselines);}

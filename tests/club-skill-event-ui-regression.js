@@ -6,7 +6,7 @@ const clone=x=>JSON.parse(JSON.stringify(x)),members=Array.from({length:4},(_,i)
 const signature=c=>JSON.stringify({players:c.players.map(p=>[p.memberKey,p.name,p.grade,p.gender,p.ageGroup]).sort(),evaluators:(c.evaluators||[]).map(p=>[p.memberKey,p.name]).sort()});
 async function fixture(code=source,{hash='',event=true,count=4,pendingScopeChanged=false}={}){
  const calls=[],staged=[],values={},nodes={},base={id:'event-e2e',title:'E2E신청자전',clubId:'club-e2e',clubName:'E2E클럽',players:clone(members.slice(0,count)),evaluators:[{memberKey:'officer-e2e',name:'E2E비출전임원'}]};
- let context=base,state=null,projectRead=null,batchCalls=0;
+ let context=base,state=null,projectRead=null,batchCalls=0,emptyBatch=false;
  const $=id=>nodes[id]||(nodes[id]={hidden:true,disabled:false,value:'0',textContent:'',innerHTML:'',dataset:{},href:'',querySelectorAll:()=>[],setAttribute(){},append(){}});
  for(const m of html.matchAll(/\bid="([^"]+)"/g))$(m[1]);
  const keys={id:'a'.repeat(32),key:'b'.repeat(32),shared:'c'.repeat(32)};
@@ -20,7 +20,7 @@ async function fixture(code=source,{hash='',event=true,count=4,pendingScopeChang
   else if(data.action==='share'){keys.shared=data.sharedKey;result=projection();}
   else if(data.action==='eventSync'){assert.equal(data.expectedRevision,state.event.revision);const old=new Map(state.players.map(p=>[p.memberKey,p]));state.players=data.players.map((p,i)=>old.get(p.memberKey)||{...C.player(p,i),id:'p'+(i+10),memberKey:p.memberKey});state.questions=C.pairs(state.players);state.event.revision++;result=projection();}
   else if(data.action==='join'){assert.equal(data.playerId,'r0');result={...projection(),needsIdentity:false,respondentName:'E2E비출전임원'};}
-  else if(data.action==='batch'){assert.equal(data.expectedRevision,state.event.revision);result={...projection(),adaptiveBatch:{requestId:data.requestId,questions:state.questions.slice(0,2)}};}
+  else if(data.action==='batch'){assert.equal(data.expectedRevision,state.event.revision);result={...projection(),adaptiveBatch:{requestId:data.requestId,...(emptyBatch?{}:{questions:state.questions.slice(0,2)})}};}
   else if(data.action==='answer'){assert.equal(data.expectedRevision,state.event.revision);result=projection();}
   else throw Error('Unexpected API '+data.action);
   return{ok:true,json:async()=>({result})};
@@ -29,7 +29,7 @@ async function fixture(code=source,{hash='',event=true,count=4,pendingScopeChang
  if(pendingScopeChanged){const old={id:keys.id,key:keys.key,invites:['d','e','f'].map(v=>v.repeat(32)),eventId:base.id,createdAt:Date.now(),pending:true,scopeSignature:'previous-invalid-scope',snapshots:[]};values.kokmatch_club_skill_links_v1=JSON.stringify([old]);context.assessment={...old};}
  vm.createContext(ctx);vm.runInContext(code,ctx);
  const idle=async()=>{for(let i=0;i<30;i++)await new Promise(r=>setImmediate(r));};await idle();
- return{ctx,$,calls,staged,values,keys,base,idle,state:()=>state,context:()=>context,setRead:f=>projectRead=f,projection,replaceContext:c=>context=c,batchCalls:()=>batchCalls};
+ return{ctx,$,calls,staged,values,keys,base,idle,state:()=>state,context:()=>context,setRead:f=>projectRead=f,projection,replaceContext:c=>context=c,batchCalls:()=>batchCalls,setEmptyBatch:()=>{emptyBatch=true;}};
 }
 async function check(code=source){
  const e=await fixture(code);assert.equal(e.$('reviewTitle').textContent,'팀전 신청자 밸런스게임');assert(!e.$('owner').hidden);assert.equal(e.calls.filter(c=>c.action==='create').length,1);
@@ -46,7 +46,8 @@ async function check(code=source){
  e.setRead(data=>data.key===e.keys.shared?{...e.projection(),needsIdentity:true}:e.projection());await e.$('answerSelf').onclick();await e.idle();assert(!e.$('identity').hidden);assert(e.$('respondent').innerHTML.includes('r0'));assert(e.$('respondent').innerHTML.includes('E2E비출전임원'));assert(!e.$('respondent').innerHTML.includes('E2E신청0'));
  e.$('respondent').value='r0';await e.$('join').onclick();await e.idle();assert(e.calls.some(c=>c.action==='join'&&c.playerId==='r0'));assert(e.calls.some(c=>c.action==='batch'&&c.expectedRevision===2));assert(!e.calls.some(c=>c.action==='assess'));
  const shared=await fixture(code,{event:false,hash:'#'+'a'.repeat(32)+'.'+'c'.repeat(32)});assert(!shared.$('identity').hidden);assert(shared.$('reviewTitle').textContent.includes('신청자'));assert(shared.$('respondent').innerHTML.includes('E2E비출전임원'));
+ shared.setEmptyBatch();shared.$('respondent').value='r0';await shared.$('join').onclick();await shared.idle();assert(!shared.$('done').hidden,'RTDB omission of an empty question array reaches the completed screen');assert(shared.$('retry').hidden,'a finished assessment is not a retry error');
  const tooFew=await fixture(code,{count:3});assert(!tooFew.calls.length,'fewer than four cannot create an event assessment');assert(tooFew.$('status').textContent.includes('4명'));
  const retried=await fixture(code,{pendingScopeChanged:true});assert(!retried.$('owner').hidden);assert(!retried.$('applyAll').disabled,'successful creation retry adopts the server-accepted applicant scope');assert.equal(retried.context().assessment.scopeSignature,signature(retried.context()));
 }
-(async()=>{await check();await assert.rejects(check(source.replace("session.event?(session.evaluators||[]):session.players","session.players")),assert.AssertionError,'mutation: nonparticipant evaluator selector protection');assert(html.indexOf('js/team-event-skill.js')<html.indexOf('js/club-skill-review.js'));console.log('event UI: applicant-only create, no baseline read, frozen scope sync/draft archive, member-key evaluator join, no owner double vote, async result handoff/replay/membership guards, existing club handlers isolated, min4 and mutation passed');})().catch(e=>{console.error(e);process.exitCode=1;});
+(async()=>{await check();await assert.rejects(check(source.replace("session.event?(session.evaluators||[]):session.players","session.players")),assert.AssertionError,'mutation: nonparticipant evaluator selector protection');await assert.rejects(check(source.replace('(session.adaptiveBatch.questions||[]).map','session.adaptiveBatch.questions.map')),assert.AssertionError,'mutation: omitted final question array');assert(html.indexOf('js/team-event-skill.js')<html.indexOf('js/club-skill-review.js'));console.log('event UI: applicant-only create, no baseline read, frozen scope sync/draft archive, member-key evaluator join, no owner double vote, async result handoff/replay/membership guards, RTDB empty completion, existing club handlers isolated, min4 and mutations passed');})().catch(e=>{console.error(e);process.exitCode=1;});

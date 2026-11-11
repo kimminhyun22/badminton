@@ -1,6 +1,8 @@
 'use strict';
 const crypto=require('crypto'),core=require('./skill-calibration-core'),reference=require('./skill-assessment-reference'),planner=require('./skill-boundary-plan');
 const ttl=15*60*1000;
+// RTDB omits empty arrays; completed batches still expose the array contract.
+const batchView=batch=>({...batch,questions:batch.questions||[]});
 function allocate(s,role,requestId,now,merged){
   if(role==='shared'||s.event&&role==='owner'||s.assessmentVersion!==2||s.closed||s.expiresAt<=now)throw Error('열린 평가에서 본인 이름을 선택해 주세요.');
   if(!/^[a-f0-9]{32}$/.test(requestId||''))throw Error('평가 묶음 요청을 확인해 주세요.');
@@ -10,13 +12,13 @@ function allocate(s,role,requestId,now,merged){
     {...(role.startsWith('u_')?effective.votes?.['member:'+role.slice(2)]:{}),...s.votes?.[role]};
   const prior=s.adaptiveBatches?.[role];
   const currentRevision=b=>!event||b?.eventRevision===s.event.revision;
-  if(prior?.history?.[requestId]&&currentRevision(prior.history[requestId]))return {state:s,batch:prior.history[requestId]};
-  if(prior?.current?.expiresAt>now&&currentRevision(prior.current)&&prior.current.questions.some(q=>!Object.hasOwn(own,q.id)))return {state:s,batch:prior.current};
+  if(prior?.history?.[requestId]&&currentRevision(prior.history[requestId]))return {state:s,batch:batchView(prior.history[requestId])};
+  if(prior?.current?.expiresAt>now&&currentRevision(prior.current)&&(prior.current.questions||[]).some(q=>!Object.hasOwn(own,q.id)))return {state:s,batch:batchView(prior.current)};
   const reservationCounts={};
   for(const [who,entry] of Object.entries(s.adaptiveBatches||{})){
     const current=entry.current;if(who===role||!current||current.expiresAt<=now||!currentRevision(current))continue;
     const answers=who==='owner'?s.votes?.['owner-review']:s.votes?.[who];
-    for(const q of current.questions)if(!Object.hasOwn(answers||{},q.id))reservationCounts[q.id]=(reservationCounts[q.id]||0)+1;
+    for(const q of current.questions||[])if(!Object.hasOwn(answers||{},q.id))reservationCounts[q.id]=(reservationCounts[q.id]||0)+1;
   }
   const evidence=Object.fromEntries(questions.map(q=>{
     const counts={a:0,b:0,tie:0};for(const v of Object.values(effective.votes||{}))if(Object.hasOwn(counts,v[q.id]))counts[v[q.id]]++;

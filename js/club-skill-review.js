@@ -575,7 +575,9 @@
       if(evaluatingAsOwner)session={...session,answers:session.ownerAnswers||{},respondentName:'관리자 개인 평가'};
       if(!session.adaptiveBatch)throw Error('새 평가 서버가 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.');
       write(requestKey,session.adaptiveBatch.requestId);
-      const allowed=new Map(session.questions.map(q=>[q.id,q]));batch=session.adaptiveBatch.questions.map(q=>allowed.get(q.id)).filter(Boolean);
+      // RTDB omits empty arrays. An exhausted server batch is a normal finish,
+      // including replies from servers that omit its empty questions field.
+      const allowed=new Map(session.questions.map(q=>[q.id,q]));batch=(session.adaptiveBatch.questions||[]).map(q=>allowed.get(q.id)).filter(Boolean);
       answers=read(draftKey(),{});
       const run=read(draftKey()+'_adaptiveRun',{count:0,ids:[]});visitCount=run.count||0;
       at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers||{},q.id));
