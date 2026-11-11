@@ -46,21 +46,21 @@
     for(const q of session.questions||[])if(session.evidence?.[q.id]?.count&&!session.evidence[q.id].needsReview&&by.has(q.a)&&by.has(q.b))join(q.a,q.b);
     const pool=[];
     for(let i=0;i<ps.length;i++)for(let j=i+1;j<ps.length;j++){
-      const a=ps[i],b=ps[j],gap=Math.abs(grades.indexOf(a.grade)-grades.indexOf(b.grade));if(gap>1)continue;
+      const a=ps[i],b=ps[j],gap=Math.abs(grades.indexOf(a.grade)-grades.indexOf(b.grade));if(gap>1&&!session.eventOnly)continue;
       const q=canonical(a.id,b.id);if(Object.hasOwn(answered,q.id)||reused.has(q.id))continue;
       if(allowed&&!allowed.has(q.id))continue;
       const e=session.evidence?.[q.id]||{},c=metrics.get(a.id)?.comparisons?.find(c=>c.name===b.name),diff=score(a.id)-score(b.id);
       const contradiction=!!c?.agree&&(c.outcome==='higher'?diff<0:c.outcome==='lower'?diff>0:Math.abs(diff)>.2);
       // Well-covered, consistent pairs add little to this reviewer's next batch.
       if((e.count||0)>=3&&!e.needsReview&&!contradiction&&degree.get(a.id)>=3&&degree.get(b.id)>=3&&find(a.id)===find(b.id))continue;
-      pool.push({...q,kind:gap?'cross-grade':'same-grade',boundary:a.grade===b.grade?a.grade:[a.grade,b.grade].sort((a,b)=>ranks[a]-ranks[b]).join('–'),contradiction,mixed:!!e.needsReview,count:e.count||0,gap:Math.abs(diff)});
+      pool.push({...q,kind:gap?'cross-grade':'same-grade',boundary:a.grade===b.grade?a.grade:[a.grade,b.grade].sort((a,b)=>ranks[a]-ranks[b]).join('–'),contradiction,mixed:!!e.needsReview,count:e.count||0,gradeDistance:gap,gap:Math.abs(diff)});
     }
     const exposure=new Map(ps.map(p=>[p.id,0])),gradeExposure=new Map(grades.map(g=>[g,0])),cap=Math.max(3,Math.ceil(2*limit/ps.length)+1),chosen=[];
     while(pool.length&&chosen.length<limit){
       const eligible=pool.filter(q=>exposure.get(q.a)<cap&&exposure.get(q.b)<cap);if(!eligible.length)break;
       const benefit=q=>5*Number(find(q.a)!==find(q.b))+4*Number(q.contradiction)+3*Number(q.mixed)+3*(Number(degree.get(q.a)<3)+Number(degree.get(q.b)<3))+1/(1+q.gap);
       const urgent=q=>Number(q.contradiction||q.mixed||find(q.a)!==find(q.b)||degree.get(q.a)<3||degree.get(q.b)<3);
-      eligible.sort((a,b)=>(session.reservationCounts?urgent(b)-urgent(a):0)||(session.reservationCounts?.[a.id]||0)-(session.reservationCounts?.[b.id]||0)||benefit(b)-benefit(a)||(exposure.get(a.a)+exposure.get(a.b))-(exposure.get(b.a)+exposure.get(b.b))||(gradeExposure.get(by.get(a.a).grade)+gradeExposure.get(by.get(a.b).grade))-(gradeExposure.get(by.get(b.a).grade)+gradeExposure.get(by.get(b.b).grade))||a.count-b.count||a.id.localeCompare(b.id));
+      eligible.sort((a,b)=>(session.reservationCounts?urgent(b)-urgent(a):0)||(session.reservationCounts?.[a.id]||0)-(session.reservationCounts?.[b.id]||0)||(session.eventOnly?Number(a.gradeDistance>1)-Number(b.gradeDistance>1):0)||benefit(b)-benefit(a)||(exposure.get(a.a)+exposure.get(a.b))-(exposure.get(b.a)+exposure.get(b.b))||(gradeExposure.get(by.get(a.a).grade)+gradeExposure.get(by.get(a.b).grade))-(gradeExposure.get(by.get(b.a).grade)+gradeExposure.get(by.get(b.b).grade))||a.count-b.count||a.id.localeCompare(b.id));
       const q=eligible[0];pool.splice(pool.findIndex(v=>v.id===q.id),1);
       const reason=q.contradiction?'판단과 추정 순서의 상충 확인':q.mixed?'의견이 나뉜 비교 확인':find(q.a)!==find(q.b)?'분리된 비교 집단 연결':degree.get(q.a)<3||degree.get(q.b)<3?'상대 수 부족 보충':'근접한 실력 추정 확인';
       chosen.push({id:q.id,a:q.a,b:q.b,kind:q.kind,boundary:q.boundary,phase:'adaptive',reason});join(q.a,q.b);

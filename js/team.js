@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.804';
+const APP_VERSION = '1.10.805';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -648,7 +648,7 @@ function doTeamAssign(opts={}){
   _teamModeOverride=null;
   const previousTeams=teamAssignment;
   const previousAssignment=teamAssignment?teamAssignment.blue.map(p=>p.name).sort().join('|'):null;
-  const all=_directPlayers.map(p=>({
+  const all=_directPlayers.map(p=>typeof window!=='undefined'&&window.teamEventSkillPlayer?window.teamEventSkillPlayer(p):p).map(p=>({
     memberId:p.memberId||_teamEnsureMemberId(p),name:p.name, ...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,
     gender:p.gender==='남'?'M':'F',
     grade:p.grade, team:'', ...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial, ageGroup:p.ageGroup||'40대',
@@ -1208,7 +1208,7 @@ function generate(opts={}){
     doTeamAssign({forGenerate:true});
     if(_teamAssignmentHasSplitPartners())return false;
   }
-  let participants=_directPlayers.map(p=>({
+  let participants=_directPlayers.map(p=>typeof window!=='undefined'&&window.teamEventSkillPlayer?window.teamEventSkillPlayer(p):p).map(p=>({
     name:p.name,...(Number.isFinite(p.skillRating)?{skillRating:p.skillRating}:{}), level:p.level,gender:p.gender==='남'?'M':'F',
     team:p.team||'',isGuest:!!p.isGuest,isClubOfficial:!!p.isClubOfficial,_valid:true,
     memberId:p.memberId||'',...(p.clubId?{clubId:p.clubId}:{}),club:p.club||'',
@@ -1249,6 +1249,7 @@ function generate(opts={}){
 
   const settings={
     courts,gamesPerPlayer:gpp,
+    skillScoresFrozen:true,
     mixedDoublesPerPerson:0,
     teamMode: useFixedTeams&&!!teamAssignment,
     rsvpId:_teamParticipantSourceRsvpId||null,
@@ -6183,6 +6184,10 @@ function _teamRecalcMatchLevels(m){
 }
 function _teamSyncGeneratedProfilesFromDirectPlayers(){
   if(!_directPlayers.length)return false;
+  // New brackets own a rating snapshot. Later assessments update the roster and
+  // the next generation, never the skill values of already generated games.
+  if(typeof currentSettings!=='undefined'&&currentSettings?.skillScoresFrozen&&currentMatches.length)return false;
+  if(currentMatches.length&&typeof window!=='undefined'&&window.teamEventProtectsBracket?.())return false;
   const byName=new Map(_directPlayers.filter(p=>p&&p.name).map(p=>[p.name,p]));
   let changed=false;
   if(teamAssignment){
@@ -6430,7 +6435,7 @@ function restoreState(opts={}){
     renderDirectPlayerList();
 
     if(state.teamAssignment){
-      teamAssignment=_teamEnrichAssignmentProfiles(state.teamAssignment,state.participants||[],state.directPlayers||[],_directPlayers||[]);
+      teamAssignment=state.settings?.skillScoresFrozen||(typeof window!=='undefined'&&window.teamEventProtectsBracket?.())?JSON.parse(JSON.stringify(state.teamAssignment)):_teamEnrichAssignmentProfiles(state.teamAssignment,state.participants||[],state.directPlayers||[],_directPlayers||[]);
       _attachPartnerNames(teamAssignment.blue||[]);
       _attachPartnerNames(teamAssignment.white||[]);
       const btn=document.getElementById('teamAssignBtn');
@@ -6462,8 +6467,8 @@ function restoreState(opts={}){
         team2C:findP(m.team2C.name),team2D:findP(m.team2D.name)
       };
     });
-    const profileChanged=_teamSyncGeneratedProfilesFromDirectPlayers();
     currentSettings=_teamAutoFormatSettings(state.settings,currentParticipants);
+    const profileChanged=_teamSyncGeneratedProfilesFromDirectPlayers();
     _teamParticipantSourceRsvpId=currentSettings?.rsvpId||null;
     if(_teamParticipantSourceRsvpId)_rsvpEnsureCurrentEventLink({silent:true});
     _lockedBeforeRound = state.lockedBeforeRound ?? null;
@@ -8136,7 +8141,8 @@ function _rsvpSyncImportedPlayersFromRoster(){
         renderResults(currentMatches,currentParticipants,currentSettings);
         if(Object.keys(winOverride).some(k=>winOverride[k]))updateScores();
       }
-      if(competitiveChanged)showWarn(currentSettings?.teamMode
+      if(competitiveChanged&&!synced)showWarn('명부의 새 실력점수는 다음 팀·대진 생성에 반영됩니다. 현재 대진은 생성 당시 점수를 유지합니다.');
+      else if(competitiveChanged)showWarn(currentSettings?.teamMode
         ?'명부의 급수 수정이 현재 팀 목록과 대진표에 반영됐습니다. 이미 생성된 대진 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.'
         :'명부의 급수 수정이 현재 자유 대진표에 반영됐습니다. 기존 조합은 이전 실력값으로 만든 것이므로, 운영 전이면 대진표 생성을 눌러 새 대진을 다시 만드는 것을 권장합니다.');
       if(synced)scheduleSave();

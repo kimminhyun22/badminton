@@ -7,10 +7,10 @@
   const same=(a,b)=>a&&b&&['name','grade','gender','ageGroup','level','skillStep'].every(k=>String(a[k]??(k==='skillStep'?0:''))===String(b[k]??(k==='skillStep'?0:'')));
   function paint(){
     const all=read(KEY,[]),now=Date.now();
-    const entries=all.filter(l=>!l.supersededBy&&l.readyCount>0&&now-l.createdAt<37*86400000);
+    const entries=all.filter(l=>!l.eventId&&!l.supersededBy&&l.readyCount>0&&now-l.createdAt<37*86400000);
     const clubs=read('badminton_rosters_v1',{}).clubs||[];
     const due=clubs.filter(c=>{
-      const records=all.filter(l=>l.clubId===c.id&&!l.pending);
+      const records=all.filter(l=>!l.eventId&&l.clubId===c.id&&!l.pending);
       if(!records.length)return false;
       const latest=Math.max(...records.map(l=>l.reviewedAt||l.createdAt));
       return now-latest>=90*86400000;
@@ -36,16 +36,20 @@
     for(const l of entries){
       try{
         const clubBefore=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===l.clubId);
-        const baselines=window.KokSkillBatch?.reviewBaselines(l,clubBefore);
-        const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{action:'read',id:l.id,key:l.key,baselines}}),signal:AbortSignal.timeout(15000)});
+        const baselines=l.eventId?undefined:window.KokSkillBatch?.reviewBaselines(l,clubBefore);
+        const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{action:'read',id:l.id,key:l.key,...(l.eventId?{}:{baselines})}}),signal:AbortSignal.timeout(15000)});
         const data=await response.json();if(!response.ok||!data.result)continue;
         const all=read(KEY,[]),current=all.find(v=>v.id===l.id);if(!current)continue;
         current.reviewedAt=data.result.reviewedAt||current.reviewedAt||0;
         if(data.result.supersededBy){current.supersededBy=data.result.supersededBy;current.readyCount=0;localStorage.setItem(KEY,JSON.stringify(all));continue;}
+        // Event subjects are not the club-wide survey. Its own screen handles
+        // readiness and confirmed official saves without rebasing the prior.
+        if(l.eventId||data.result.event){current.readyCount=0;localStorage.setItem(KEY,JSON.stringify(all));continue;}
         current.readyCount=data.result.proposals.filter(p=>{
           const club=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===l.clubId);
           const original=l.snapshots?.[Number(p.id.slice(1))];
           const member=club?.members?.find(m=>m.name===p.name);
+          if(window.KokSkillBatch?.sourceConflict(club,member,l.id,{createdAt:l.createdAt}))return false;
           if(p.basis)return p.ready&&window.KokSkillBatch?.same(member,p.basis)&&window.KokSkillBatch?.sameIdentity(original,member);
           const baseline=window.KokSkillBatch?.baseline(club,l.id,p.id,member);
           return baseline?!!p.reviewed&&p.step!==baseline.skillStep:p.ready&&same(member,original);
@@ -65,11 +69,12 @@
       try{
         const own=read(KEY,[]).find(l=>l.id===proposal.reviewId&&l.clubId===proposal.clubId);
         if(!own?.key)throw Error('평가 링크를 찾을 수 없습니다. 결과 화면에서 다시 저장해 주세요.');
+        if(own.eventId&&!proposal.undo)throw Error('팀전 평가 결과는 팀전 평가 화면에서 확인하고 저장해 주세요.');
         const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{action:'read',id:own.id,key:own.key}}),signal:AbortSignal.timeout(15000)});
         const data=await response.json();if(!response.ok||!data.result)throw Error(data.error?.message||'평가 상태를 확인하지 못했습니다. 결과 화면에서 다시 저장해 주세요.');
         if(data.result.supersededBy)throw Error('통합된 이전 평가입니다. 통합 평가에서 저장해 주세요.');
         const raw=localStorage.getItem('badminton_rosters_v1'),fresh=JSON.parse(raw);
-        const result=proposal.undo?window.KokSkillBatch.undo(fresh,proposal.clubId,proposal.batchId):window.KokSkillBatch.prepare(fresh,proposal.clubId,proposal.items,proposal.reviewId,proposal.batchId);
+        const result=proposal.undo?window.KokSkillBatch.undo(fresh,proposal.clubId,proposal.batchId):window.KokSkillBatch.prepare(fresh,proposal.clubId,proposal.items,proposal.reviewId,proposal.batchId,Date.now(),{kind:'club',createdAt:own.createdAt});
         if(localStorage.getItem('badminton_rosters_v1')!==raw)throw Error('명부가 변경됐습니다. 다시 확인해 주세요.');
         // One storage write commits both roster changes and the undo record.
         localStorage.setItem('badminton_rosters_v1',JSON.stringify(result.state));
@@ -88,6 +93,10 @@
     const persisted=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===proposal.clubId)?.members?.find(m=>m.name===proposal.original?.name);
     if(idx<0||!same(club.members[idx],proposal.original)||!same(persisted,proposal.original)){
       alert('명부 정보가 바뀌었습니다. 새 명부로 미세조정을 다시 확인해 주세요.');return;
+    }
+    const own=read(KEY,[]).find(l=>l.id===proposal.reviewId&&l.clubId===proposal.clubId);
+    if(window.KokSkillBatch?.sourceConflict(club,club.members[idx],proposal.reviewId,{createdAt:own?.createdAt})){
+      alert('다른 평가로 갱신된 점수입니다. 이전 평가로 덮어쓸 수 없습니다.');return;
     }
     switchNav('roster');editMember(club.id,idx);selectMemberSkill(proposal.step);
     // Existing member edit save is the sole production write path; cancel changes nothing.

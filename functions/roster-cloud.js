@@ -9,7 +9,11 @@ function identity(auth){
 function cleanClub(c){
   if(!c||typeof c.id!=='string'||c.id.length>160||typeof c.name!=='string'||!c.name.trim()||c.name.length>80||!Array.isArray(c.members)||c.members.length>500)fail('클럽 명부 형식을 확인해 주세요.');
   const members=c.members.map(m=>{
-    if(!m||typeof m.name!=='string'||!m.name.trim()||m.name.length>80||!['S','A','B','C','D','E'].includes(m.grade)||!['남','여','M','F'].includes(m.gender)||!Number.isFinite(m.level)||m.level<0||m.level>10)fail('회원 정보를 확인해 주세요.');
+    if(!m||typeof m.name!=='string'||!m.name.trim()||m.name.length>80||!['S','A','B','C','D','E'].includes(m.grade)||!['남','여','M','F'].includes(m.gender)||!Number.isFinite(m.level)||(!Number.isFinite(m.skillRating)&&(m.level<0||m.level>10)))fail('회원 정보를 확인해 주세요.');
+    // A learned rating is an independent score, so its derived display level
+    // may cross the legacy 0–10 range. Preserve it without clipping, matching
+    // roster transfer; missing/null ratings still use the legacy level bounds.
+    if(m.skillRating!=null&&!Number.isFinite(m.skillRating))fail('실력 점수를 확인해 주세요.');
     const out={...m};
     // Preserve manual adjustments and survey provenance without session credentials.
     for(const [k,v] of Object.entries(m)){

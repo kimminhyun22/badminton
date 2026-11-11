@@ -1,35 +1,40 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.804">
+<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.805">
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="app-version" content="1.10.804"><meta name="referrer" content="no-referrer">
+  <meta name="app-version" content="1.10.805"><meta name="referrer" content="no-referrer">
   <title>우리 클럽 밸런스게임 · 민턴라이브</title>
   <meta property="og:site_name" content="민턴라이브">
   <meta property="og:title" content="우리 클럽 밸런스게임 · 민턴라이브">
   <meta property="og:description" content="현재 개인 실력은 누가 더 강한가요?">
-  <link rel="stylesheet" href="css/skill-review.css?v=1.10.804">
-  <script defer src="functions/skill-calibration-core.js?v=1.10.804"></script>
-  <script defer src="js/club-skill-batch.js?v=1.10.804"></script>
-  <script defer src="js/skill-readiness.js?v=1.10.804"></script>
-  <script defer src="functions/skill-boundary-plan.js?v=1.10.804"></script>
-  <script defer src="js/club-skill-review.js?v=1.10.804"></script>
-  <script defer src="js/storage.js?v=1.10.804"></script>
-  <script defer src="js/roster-cloud.js?v=1.10.804"></script>
+  <link rel="stylesheet" href="css/skill-review.css?v=1.10.805">
+  <script defer src="functions/skill-calibration-core.js?v=1.10.805"></script>
+  <script defer src="js/club-skill-batch.js?v=1.10.805"></script>
+  <script defer src="js/skill-readiness.js?v=1.10.805"></script>
+  <script defer src="functions/skill-boundary-plan.js?v=1.10.805"></script>
+  <script defer src="js/team-event-skill.js?v=1.10.805"></script>
+  <script defer src="js/club-skill-review.js?v=1.10.805"></script>
+  <script defer src="js/storage.js?v=1.10.805"></script>
+  <script defer src="js/roster-cloud.js?v=1.10.805"></script>
 </head>
 <body>
-  <header><a id="back" href="index.html">돌아가기</a><h1>우리 클럽 밸런스게임</h1></header>
+  <header><a id="back" href="index.html">돌아가기</a><h1 id="reviewTitle">우리 클럽 밸런스게임</h1></header>
   <main>
     <p id="status" role="status" aria-live="polite"></p>
     <section id="setup" hidden>
-      <label>클럽 명부<select id="club"></select></label>
+      <label id="clubChoice">클럽 명부<select id="club"></select></label>
+      <p id="eventSetupInfo" class="muted" hidden></p>
       <div id="rosterCheck" role="status"></div>
       <button id="create" class="primary">밸런스게임 준비</button>
-      <p class="muted">공유받은 분에게 회원 이름·급수·연령·성별이 보입니다. 클럽을 잘 아는 임원방에 공유해 주세요.</p>
+      <p id="setupPrivacy" class="muted">공유받은 분에게 회원 이름·급수·연령·성별이 보입니다. 클럽을 잘 아는 임원방에 공유해 주세요.</p>
       <label id="historyLabel" hidden>만든 퀴즈<select id="history"></select></label>
     </section>
     <section id="owner" hidden>
       <h2 id="clubTitle"></h2>
+      <p id="eventInfo" class="muted" hidden></p>
+      <p id="eventScopeInfo" role="status" hidden></p>
+      <button id="eventSync" hidden>최신 신청자 반영</button>
       <button id="referenceExisting" class="primary" hidden>기존 답안 연결</button>
       <p id="referenceInfo" class="muted" hidden></p>
       <p id="ownerState" role="status"></p>
@@ -61,7 +66,7 @@
       </div>
       <details><summary>관리</summary>
         <div class="toolbar"><button id="refresh">결과 새로고침</button><button id="close">응답 마감</button></div><p id="expiry" class="muted"></p>
-        <p class="muted">보정안은 명부에 저장해야 적용됩니다. 추가 비교 응답으로 실력 점수를 계속 갱신합니다. 이미 생성한 대진은 자동 재배정하지 않습니다.</p>
+        <p id="applyScopeHelp" class="muted">보정안은 명부에 저장해야 적용됩니다. 추가 비교 응답으로 실력 점수를 계속 갱신합니다. 이미 생성한 대진은 자동 재배정하지 않습니다.</p>
       </details>
     </section>
     <section id="identity" hidden>
