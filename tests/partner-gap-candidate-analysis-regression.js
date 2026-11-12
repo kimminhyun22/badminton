@@ -1,0 +1,31 @@
+'use strict';
+const assert=require('assert');
+const {policies,category,compare}=require('../scripts/compare-partner-gap-policies');
+const before={members:{blue:[{n:'E2E가',skillRating:4},{n:'E2E나',skillRating:1}],red:[{n:'E2E다',skillRating:3},{n:'E2E라',skillRating:1.7}]},matches:[{num:1,round:1,court:1,type:'보정',t1:['E2E가','E2E나'],t2:['E2E다','E2E라']}]};
+const finished=structuredClone(before);finished.matches[0].win='t1';
+const original=JSON.stringify([before,finished]);
+const report=compare(before,finished),legacy=report.analyses.find(p=>p.id==='current'),bounded=report.analyses.find(p=>p.id==='softcap');
+assert.equal(legacy.wrong,1,'fixed linear penalty reverses the winning raw-sum side in this counterexample');
+assert.equal(bounded.abstain,1,'bounded policy may abstain: that is not a recovered correct prediction');
+assert.equal(bounded.correct,0);assert.equal(bounded.accuracy,null);
+assert.deepEqual(bounded.originalDecisionSet,{size:1,correct:0,wrong:0,abstain:1});
+assert.equal(category(.2),'close');assert.equal(category(-.2),'close');
+assert.equal(JSON.stringify([before,finished]),original,'research must not change ratings or results');
+for(let g=0;g<20;g+=.05){
+  const p=policies.softcap(g);assert(p>=0&&p<.7);assert(p<=policies.current(g)+1e-12);
+  assert(policies.softcap(g+.01)>=p,'larger gaps remain disadvantageous');
+  assert(policies.softcap(g+.01)-p<.01,'increasing the stronger player must still improve pair strength');
+}
+const changed=structuredClone(finished);changed.matches[0].court=2;
+assert.throws(()=>compare(before,changed),/Changed match arrangement/);
+const missing=structuredClone(before);delete missing.members.blue[0].skillRating;
+assert.throws(()=>compare(missing,finished),/Missing rating/);
+const swapped=structuredClone(finished);swapped.matches[0].t1.reverse();
+assert.throws(()=>compare(before,swapped),/Changed match arrangement/);
+const incomplete=structuredClone(finished);delete incomplete.matches[0].win;
+assert.throws(()=>compare(before,incomplete),/No completed/);
+const duplicate=structuredClone(before);duplicate.members.blue.push(duplicate.members.blue[0]);
+assert.throws(()=>compare(duplicate,finished),/duplicate player/);
+const estimated=structuredClone(before);estimated.members.blue[0]={n:'E2E가',l:4.17,g:'M',a:'40대'};
+assert.equal(compare(estimated,finished).analyses[0].matches[0].raw,0,'legacy profile must use the production one-decimal rounding');
+console.log('PASS offline candidate evidence: abstention denominators, frozen snapshots, matchup validation, bounded monotonic gap penalty');
