@@ -2437,7 +2437,7 @@ details.card:not([open]) summary.card-head::after{content:'펼치기';color:#256
   font-size:.56rem!important;
 }
 .qd-row-detail{
-  font-size:.61rem!important;
+  font-size:max(12px,.75rem)!important;
   line-height:1.34!important;
 }
 .qd-row-score{

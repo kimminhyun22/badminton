@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.806';
+const APP_VERSION='1.10.807';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1202,7 +1202,7 @@ function _officialQualityHtml(d){
     ? '<div class="team-official-quality-issues"><div class="t">실전 특이사항</div>'
         +q.issues.map(x=>'<div>'+esc(x)+'</div>').join('')+'</div>'
     : '';
-  const comparison=q&&q.scoreVersion>=10&&q.conditional&&q.conditional.verified&&q.conditional.version===3?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 '+esc(q.conditional.score)+'점 · '+esc(q.conditional.rank)+'/'+esc(q.conditional.count)+'위</b><br>검토 후보 내 순위입니다. 전체 최적·실제 수동 편성 대비 우수성은 미검증입니다.</div>':comparisonMode?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 · 미검증</b><br>'+esc(q.conditional&&q.conditional.reason||'현재 조건의 비교 기록이 없습니다.')+'</div>':'';
+  const comparison=q&&q.scoreVersion>=10&&q.conditional&&q.conditional.verified&&q.conditional.version===4?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 '+esc(q.conditional.score)+'점 · '+esc(q.conditional.rank)+'/'+esc(q.conditional.count)+'위</b><br>검토 후보 내 순위입니다. 전체 최적·실제 수동 편성 대비 우수성은 미검증입니다.</div>':comparisonMode?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 · 미검증</b><br>'+esc(q.conditional&&q.conditional.reason||'현재 조건의 비교 기록이 없습니다.')+'</div>':'';
   const head=q&&q.sub?esc(q.sub):'대진 구성 요약';
   return '<details class="team-official-quality"'+(_officialQualityOpen?' open':'')
     +' ontoggle="_officialQualityOpen=this.open"><summary>대진 품질 점검</summary>'

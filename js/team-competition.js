@@ -195,7 +195,7 @@ function compareCandidates(current,references){
  const better=usable.filter(r=>compare(r,current)<0).length,worse=usable.filter(r=>compare(r,current)>0).length;
  const score=Math.round(100*(1-better/usable.length));
  const best=usable.reduce((a,b)=>compare(a,b)<=0?a:b,current);
- return {verified:true,version:current.version>=10?3:2,score,rank:better+1,count:usable.length,better,worse,
+ return {verified:true,version:current.version>=10?4:2,score,rank:better+1,count:usable.length,better,worse,
   best:best.diagnostics,current:current.diagnostics,
   label:better?'더 나은 비교 후보 있음':'검토 후보 중 최선',
   caveat:'검토 후보 내 순위 점수입니다. 전체 최적·최선 달성률·실제 수동 편성 대비 우수성을 증명하지 않습니다'};

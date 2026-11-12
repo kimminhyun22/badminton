@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.806';
+const APP_VERSION = '1.10.807';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -727,7 +727,7 @@ function doTeamAssign(opts={}){
   };
   if((opts.compareTeams||(!opts.forGenerate&&previousAssignment))&&all.length<=40){
     const gpp=parseInt(document.getElementById('gamesPerPlayer').value)||4;
-    if(gpp===4){
+    if([3,4].includes(gpp)){
       comparedTeams=true;
       const baseline=_teamPreviousAssignmentForComparison(all,previousTeams,{blue,white},blueFixedNames,whiteFixedNames);
       blue=baseline.blue;white=baseline.white;
@@ -2914,12 +2914,12 @@ function _teamBuildConditionalReview(selected,candidates,settings,examined){
       ||(! _teamWomenTargetsPreserved(selected,candidate,settings)&&signature!==flexibleKey))continue;
     seen.add(independentKey);references.push({signature,score:q.score});
   }
-  return {version:3,context,selectedSignature:policy.scheduleKey(selected.matches),references,examined:examined+(flex.accepted?1:0)+(repair.accepted?1:0),repairAvailable:repair.accepted?{maxBefore:_teamCompetitionEvaluation(selected,settings).score.diagnostics.maxAdjustedGap,maxAfter:_teamCompetitionEvaluation(repair.candidate,settings).score.diagnostics.maxAdjustedGap}:null,conditionalRelaxationCompared:!!flex.accepted,baseline:'1회 자동편성 및 다회 탐색 전체 후보',actualManualCompared:false};
+  return {version:4,context,selectedSignature:policy.scheduleKey(selected.matches),references,examined:examined+(flex.accepted?1:0)+(repair.accepted?1:0),repairAvailable:repair.accepted?{maxBefore:_teamCompetitionEvaluation(selected,settings).score.diagnostics.maxAdjustedGap,maxAfter:_teamCompetitionEvaluation(repair.candidate,settings).score.diagnostics.maxAdjustedGap}:null,conditionalRelaxationCompared:!!flex.accepted,baseline:'1회 자동편성 및 다회 탐색 전체 후보',actualManualCompared:false};
 }
 function teamReviewCurrentBracket(){
   if(!currentMatches.length||!currentSettings.teamMode)return;
   if(_liveMatchStartedAt||_teamFinishedAt||currentMatches.some((_,i)=>_isMatchDone(i))){showWarn('진행·종료된 경기를 고정한 비교는 아직 지원하지 않습니다. 기존 경기와 기록은 유지합니다.');return;}
-  if(currentSettings.gamesPerPlayer!==4||currentParticipants.length>40){showWarn('현재 편성 비교는 4게임·40명 이하 팀전을 지원합니다.');return;}
+  if(![3,4].includes(currentSettings.gamesPerPlayer)||currentParticipants.length>40){showWarn('현재 편성 비교는 인당 3~4게임·40명 이하 팀전을 지원합니다.');return;}
   document.getElementById('loadingOverlay').classList.add('on');
   setTimeout(()=>{
     const previous=Math.random;
@@ -2953,7 +2953,7 @@ function _teamWomenConstraintExplanation(players){
 }
 function _teamConditionalAssessment(matches,participants,settings){
   const evidence=settings.conditionalReview,policy=globalThis.KokTeamCompetition;
-  if(!evidence||!policy||evidence.version!==3||evidence.context!==policy.reviewContext(participants,settings))return {verified:false,reason:'현재 구성원·설정·점수 기준의 비교 기록이 없습니다. 새 대진 생성 시 비교합니다'};
+  if(!evidence||!policy||evidence.version!==4||evidence.context!==policy.reviewContext(participants,settings))return {verified:false,reason:'현재 구성원·설정·점수 기준의 비교 기록이 없습니다. 현재 대진 비교 또는 새 대진 생성으로 다시 확인해 주세요'};
   if(evidence.selectedSignature!==policy.scheduleKey(matches))return {verified:false,reason:'대진 변경 후 비교 기록이 달라졌습니다. 새 대진 생성 시 다시 비교합니다'};
   const current=_teamCompetitionEvaluation({matches,participants},settings).score;
   const result=policy.compareCandidates(current,evidence.references.map(r=>r.score));
@@ -3014,9 +3014,14 @@ function _teamSelectFinalBracket(finalists,players,settings,totalMatches,{joint=
   // checkpoints does not change the legacy calls, seeds or candidate budget.
   if(review)review.push(best,...checkpoints);
   const preserved=_teamPreserveFinalBest(best,checkpoints,settings);
+  // Start a new three-game recovery from the complete result that would
+  // actually be shown. A discarded checkpoint must not consume its close-game
+  // allowance. Persisted recovery anchors still take precedence on reuse.
+  const recoveryOrigin=settings.gamesPerPlayer===3
+    ?(preserved.womenRecoveryOrigin||best.womenRecoveryOrigin||preserved):best;
   let recovered=preserved;
   for(const input of preserved===best?[best]:[best,preserved]){
-    const next=_teamRecoverMissingWomen(input,settings,{origin:best});
+    const next=_teamRecoverMissingWomen(input,settings,{origin:recoveryOrigin});
     if(_teamCompetitionEvaluation(next,settings).score.total>=_teamCompetitionEvaluation(recovered,settings).score.total
       &&_isBetterQualityKey(policy.rankKey(_teamCompetitionEvaluation(next,settings).score),policy.rankKey(_teamCompetitionEvaluation(recovered,settings).score)))recovered=next;
   }
@@ -4914,10 +4919,11 @@ function renderQualityDashboard(matches,participants,settings){
       const sideShort=['청팀','홍팀'].some(t=>participants.filter(p=>p.gender==='F'&&p.team===t).length<2);
       const short=women.rows.filter(p=>p.women<p.target);
       const reason=sideShort?'한 팀의 여성이 2명 미만이라 여복 편성 불가':short.length?'여복 50%는 기본 목표입니다. 경기 격차를 줄이는 조건부 조정이나 현재 팀·고정 파트너 제약으로 목표보다 적을 수 있습니다. 출전 횟수와 개인별 여복 횟수를 함께 확인하세요':'';
+      const recoveryNote=settings.gamesPerPlayer===3?' · 3경기의 여복 보완은 기존 경기 격차와 개인별 출전·휴식·반복 부담을 지키는 범위에서 적용합니다':'';
       const preference=competition?.diagnostics.womenPreference;
       const scored=!!competition?.maxima.women;
       const scoringNote=preference?(scored?` · 조합 가능한 ${preference.scored}명 중 여복 0회 ${preference.zero}명 · 첫 1회 70%·나머지 목표 30% 반영${preference.excluded?` · 조합 불가 ${preference.excluded}명 감점 제외`:''} · 조합 가능 여부와 전체 일정에서 가능한 횟수는 다릅니다`:' · 현재 팀·고정 파트너·실력 허용 기준에서 가능한 여복 조합이 없어 배점은 경기 접전 항목에 포함합니다'):'';
-      rows.push({label:'여복 50% 우선',detail:`여성 ${women.total}명 중 ${women.covered}명 목표 충족 · `+women.rows.map(p=>`${p.name} ${p.women}/${p.total}게임(목표 ${p.target})`).join(' · ')+(reason?' · '+reason:'')+scoringNote,score:scored?competition.components.women:null,max:competition?.maxima.women||0,pct:preference?preference.fraction:women.covered/women.total,status:preference&&!scored?'배점 제외':undefined});
+      rows.push({label:'여복 50% 우선',detail:`여성 ${women.total}명 중 ${women.covered}명 목표 충족 · `+women.rows.map(p=>`${p.name} ${p.women}/${p.total}게임(목표 ${p.target})`).join(' · ')+(reason?' · '+reason:'')+scoringNote+recoveryNote,score:scored?competition.components.women:null,max:competition?.maxima.women||0,pct:preference?preference.fraction:women.covered/women.total,status:preference&&!scored?'배점 제외':undefined});
     }
   }
   // ── 헤더 요약 ──
