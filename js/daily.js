@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.807';
+const APP_VERSION = '1.10.808';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -870,7 +870,14 @@ function _dailyTeamGenderShape(team){
 function _dailySameOpponentShape(team1,team2){
   return _dailyTeamGenderShape(team1)===_dailyTeamGenderShape(team2);
 }
+function _dailyQueueTeamSidesValid(t1,t2){
+  if(!_dailyTeamMode)return true;
+  const first=_dailyTeamSide(t1[0]),second=_dailyTeamSide(t2[0]);
+  return !!first&&!!second&&first!==second&&_dailyTeamSide(t1[1])===first&&_dailyTeamSide(t2[1])===second;
+}
 function _dailyReservationMatchFromTeams(r,t1,t2){
+  if(!_dailyQueueTeamSidesValid(t1,t2))return null;
+  if(_dailyTeamMode&&t1[0].team==='홍팀')[t1,t2]=[t2,t1];
   const team1Level=_dailyTeamLevel(t1);
   const team2Level=_dailyTeamLevel(t2);
   const levelDiff=Math.round(Math.abs(team1Level-team2Level)*10)/10;
@@ -887,7 +894,7 @@ function _dailyReservationMatchFromTeams(r,t1,t2){
 function _dailyReservationToQueueItem(r,excludeIds){
   if(!r||_dailyQueue.some(q=>q.reservationId===r.id))return null;
   const team1=(r.team1||[]).map(_dailyPlayer).filter(Boolean);
-  if(team1.length!==2)return null;
+  if(team1.length!==2||team1[0].id===team1[1].id)return null;
   if(team1.some(p=>excludeIds.has(p.id)||!DAILY_STATUS[p.status]?.eligible||p.currentMatchId))return null;
   if(r.mode==='match'){
     const team2=(r.team2||[]).map(_dailyPlayer).filter(Boolean);
@@ -896,7 +903,7 @@ function _dailyReservationToQueueItem(r,excludeIds){
     if(new Set(all.map(p=>p.id)).size!==4)return null;
     if(all.some(p=>excludeIds.has(p.id)||!DAILY_STATUS[p.status]?.eligible||p.currentMatchId))return null;
     const m=_dailyReservationMatchFromTeams(r,team1,team2);
-    if(!_dailyMatchTeamBalanceOk(m))return null;
+    if(!m||!_dailyMatchTeamBalanceOk(m))return null;
     const strict=m.type!=='예외'&&_dailyMatchPartnerGapOfficialOk(m);
     if(!strict)return null;
     return _dailyQueueFromMatch(m,_dailyScoreMatch(m,strict)-1200,strict);
@@ -907,17 +914,22 @@ function _dailyReservationToQueueItem(r,excludeIds){
     .sort((a,b)=>{
       if((a.games||0)!==(b.games||0))return (a.games||0)-(b.games||0);
       return (a.waitFrom||0)-(b.waitFrom||0);
-    }).slice(0,20);
+    });
   let best=null,bestScore=Infinity,bestStrict=false;
-  for(let i=0;i<candidates.length-1;i++)for(let j=i+1;j<candidates.length;j++){
-    const team2=[candidates[i],candidates[j]];
-    if(!_dailySameOpponentShape(team1,team2))continue;
-    const m=_dailyReservationMatchFromTeams(r,team1,team2);
-    if(!_dailyMatchTeamBalanceOk(m))continue;
-    const strict=m.type!=='예외'&&_dailyMatchPartnerGapOfficialOk(m);
-    if(!strict)continue;
-    const score=_dailyScoreMatch(m,strict)-1200;
-    if(score<bestScore){best=m;bestScore=score;bestStrict=strict;}
+  // Start with the priority window, then consider the remaining opponents only if needed.
+  for(let start=0;start<candidates.length;start+=20){
+    const end=Math.min(start+20,candidates.length);
+    for(let i=0;i<end-1;i++)for(let j=Math.max(i+1,start);j<end;j++){
+      const team2=[candidates[i],candidates[j]];
+      if(!_dailySameOpponentShape(team1,team2))continue;
+      const m=_dailyReservationMatchFromTeams(r,team1,team2);
+      if(!m||!_dailyMatchTeamBalanceOk(m))continue;
+      const strict=m.type!=='예외'&&_dailyMatchPartnerGapOfficialOk(m);
+      if(!strict)continue;
+      const score=_dailyScoreMatch(m,strict)-1200;
+      if(score<bestScore){best=m;bestScore=score;bestStrict=strict;}
+    }
+    if(best)break;
   }
   return best?_dailyQueueFromMatch(best,bestScore,bestStrict):null;
 }
@@ -1898,10 +1910,7 @@ function _dailyQueueItemValid(q,used){
   if(q.fairnessCorrection&&!players.some(p=>_dailyFairGap(p)>=DAILY_FAIR_CORRECTION_GAP))return false;
   const t1=(q.team1||[]).map(_dailyPlayer),t2=(q.team2||[]).map(_dailyPlayer);
   if(t1.some(p=>!p)||t2.some(p=>!p))return false;
-  if(_dailyTeamMode){
-    if(![...t1,...t2].every(_dailyTeamSide))return false;
-    if(t1[0].team!==t1[1].team||t2[0].team!==t2[1].team||t1[0].team===t2[0].team)return false;
-  }
+  if(!_dailyQueueTeamSidesValid(t1,t2))return false;
   const team1Level=_dailyTeamLevel(t1);
   const team2Level=_dailyTeamLevel(t2);
   const m={team1A:t1[0],team1B:t1[1],team2C:t2[0],team2D:t2[1],levelDiff:Math.round(Math.abs(team1Level-team2Level)*10)/10,team1Level,team2Level,fairnessCorrection:!!q.fairnessCorrection,reservationId:q.reservationId||null};
@@ -1931,6 +1940,19 @@ function _dailyQueueFromMatch(m,score,strict){
   q.score=Math.round(score||q.score||0);
   q.strict=!!strict;
   return q;
+}
+function _dailyRepresentativePool(ordered,limit){
+  // A one- or two-player overflow can be checked completely without a large quartet search.
+  if(ordered.length<=limit+2)return ordered;
+  const seen=new Map();
+  const rows=ordered.map((player,index)=>{
+    const group=(_dailyTeamMode?_dailyTeamSide(player):'')+player.gender;
+    const depth=seen.get(group)||0;
+    seen.set(group,depth+1);
+    return {player,index,depth};
+  });
+  return rows.sort((a,b)=>a.depth-b.depth||a.index-b.index).slice(0,limit)
+    .sort((a,b)=>a.index-b.index).map(row=>row.player);
 }
 function _dailyBuildQueueItem(excludeIds,options){
   options=options||{};
@@ -1964,13 +1986,14 @@ function _dailyBuildQueueItem(excludeIds,options){
         .find(p=>_dailyMinutes(p.waitFrom||p.joinedAt)>=threshold&&_dailyFairGap(p)>=DAILY_FAIR_PRIORITY_GAP)||null;
     })()
     ||null;
-  const ranked=[...eligible].sort((a,b)=>{
+  const ordered=[...eligible].sort((a,b)=>{
     if(!!a.projectedActive!==!!b.projectedActive)return a.projectedActive?1:-1;
     if((a.projectedRank??999)!==(b.projectedRank??999))return (a.projectedRank??999)-(b.projectedRank??999);
     const priority=_dailyQueuePriorityScore(a)-_dailyQueuePriorityScore(b);
     if(priority)return priority;
     return (a.waitFrom||0)-(b.waitFrom||0);
-  }).slice(0,22);
+  });
+  const ranked=ordered.slice(0,22);
   let best=null,bestScore=Infinity,strictBest=false;
   const pick=(avoidExactRepeat,requiredPlayerId,candidates=ranked)=>{
     best=null;bestScore=Infinity;strictBest=false;
@@ -2025,6 +2048,10 @@ function _dailyBuildQueueItem(excludeIds,options){
     }
   }
   if(!best&&!pick(ranked.length>=8))pick(false);
+  if(!best&&ordered.length>ranked.length){
+    const rescue=_dailyRepresentativePool(ordered,ranked.length);
+    if(rescue.some(p=>!ranked.includes(p))&&!pick(true,null,rescue))pick(false,null,rescue);
+  }
   if(!best)return null;
   const q=_dailyQueueFromMatch(best,bestScore,strictBest);
   if(options.expectedOnly){
@@ -11065,7 +11092,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.807&from=daily';
+  location.href='team.html?v=1.10.808&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}

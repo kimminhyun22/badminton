@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.807';
+const APP_VERSION='1.10.808';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -1176,9 +1176,14 @@ function _officialPaceHtml(d){
 var _officialQualityOpen=false;
 function _officialQualityHtml(d){
   if(!_canFixResult(d))return '';
-  const matches=(d&&Array.isArray(d.matches))?d.matches:[];
-  if(!matches.length)return '';
-  const q=(d&&d.quality)||null;
+  const published=Array.isArray(d?.matches)?d.matches:[];
+  if(!published.length)return '';
+  const voidedNumbers=published.flatMap((m,i)=>m?.voided?[m.num||i+1]:[]).sort((a,b)=>a-b);
+  const matches=published.filter(m=>!m?.voided);
+  // Officials can void/restore games while the administrator is offline.
+  const summary=d.quality;
+  const stale=summary&&(summary.voidedGames||'')!==voidedNumbers.join(',');
+  const q=stale?null:summary;
   const rounds=[...new Set(matches.map(m=>Number(m&&m.round)||0))].filter(Boolean).length;
   const types={};
   matches.forEach(m=>{ const t=String((m&&m.type)||'경기'); types[t]=(types[t]||0)+1; });
@@ -1202,11 +1207,14 @@ function _officialQualityHtml(d){
     ? '<div class="team-official-quality-issues"><div class="t">실전 특이사항</div>'
         +q.issues.map(x=>'<div>'+esc(x)+'</div>').join('')+'</div>'
     : '';
-  const comparison=q&&q.scoreVersion>=10&&q.conditional&&q.conditional.verified&&q.conditional.version===4?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 '+esc(q.conditional.score)+'점 · '+esc(q.conditional.rank)+'/'+esc(q.conditional.count)+'위</b><br>검토 후보 내 순위입니다. 전체 최적·실제 수동 편성 대비 우수성은 미검증입니다.</div>':comparisonMode?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 · 미검증</b><br>'+esc(q.conditional&&q.conditional.reason||'현재 조건의 비교 기록이 없습니다.')+'</div>':'';
-  const head=q&&q.sub?esc(q.sub):'대진 구성 요약';
+  const oldComparison=q?.conditional?.verified&&q.conditional.version!==5;
+  const comparison=q&&q.scoreVersion>=10&&q.conditional&&q.conditional.verified&&!oldComparison?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 '+esc(q.conditional.score)+'점 · '+esc(q.conditional.rank)+'/'+esc(q.conditional.count)+'위</b><br>검토 후보 내 순위입니다. 전체 최적·실제 수동 편성 대비 우수성은 미검증입니다.</div>':comparisonMode?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 · 미검증</b><br>'+esc(q.conditional&&q.conditional.reason||'현재 조건의 비교 기록이 없습니다.')+'</div>':'';
+  let head=q?.sub?esc(q.sub):'대진 구성 요약';
+  if(oldComparison)head='이전 접전 기준으로 비교한 대진입니다.';
+  if(stale)head='미실시 상태가 바뀌어 품질점수를 다시 계산해야 합니다.';
   return '<details class="team-official-quality"'+(_officialQualityOpen?' open':'')
     +' ontoggle="_officialQualityOpen=this.open"><summary>대진 품질 점검</summary>'
-    +'<div class="team-official-quality-body">'+comparison
+    +'<div class="team-official-quality-body">'+(voidedNumbers.length?'<div class="team-official-quality-sub">미실시 '+voidedNumbers.length+'경기를 제외한 '+matches.length+'경기 기준입니다.</div>':'')+comparison
       +(comparisonMode?'<div class="team-official-quality-sub">항목 배점의 합계이며, 이 구성원의 최선 달성률은 아닙니다. '+(q.scoreVersion<10?'이전 기준의 저장 점수입니다. 관리자 화면에서 새 기준으로 재계산됩니다.':'')+'</div>':'')
       +(badge||status?'<div class="team-official-quality-head">'+badge+status+'</div>':'')
       +'<div class="team-official-quality-sub">'+head+'</div>'

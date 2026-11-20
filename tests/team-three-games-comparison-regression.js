@@ -22,7 +22,7 @@ function readOnlyReview(gpp,started=false){
  c.teamReviewCurrentBracket();
  assert.equal(previews,[3,4].includes(gpp)&&!started?6:0);assert.equal(saved,previews?1:0);assert.equal(warnings,previews?0:1);
  assert.equal(JSON.stringify(b),snapshot,'read-only comparison must not modify the bracket');assert.equal(c.KokTeamCompetition.scheduleKey(c.currentMatches),sig);
- if(previews){assert.equal(s.conditionalReview.version,4);const restored=JSON.parse(JSON.stringify(s));assert.equal(c._teamConditionalAssessment(b.matches,b.participants,restored).verified,c._teamConditionalAssessment(b.matches,b.participants,s).verified);}
+ if(previews){assert.equal(s.conditionalReview.version,5);const restored=JSON.parse(JSON.stringify(s));assert.equal(c._teamConditionalAssessment(b.matches,b.participants,restored).verified,c._teamConditionalAssessment(b.matches,b.participants,s).verified);}
 }
 readOnlyReview(3);readOnlyReview(4);readOnlyReview(2);readOnlyReview(3,true);
-console.log('PASS three/four-game assignment and read-only review, fixed captains, unsupported/live guards, original bracket preservation, comparison v4 restore and gate mutation');
+console.log('PASS three/four-game assignment and read-only review, fixed captains, unsupported/live guards, original bracket preservation, comparison v5 restore and gate mutation');

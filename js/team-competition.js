@@ -29,8 +29,18 @@ function womenPreference(matches,players,settings,level){
  const scored=rows.filter(p=>p.eligible&&p.target>0);
  return {rows,total:rows.length,scored:scored.length,excluded:rows.length-scored.length,zero:scored.filter(p=>p.women===0).length,covered:scored.filter(p=>p.women>=p.target).length,fraction:scored.length?average(scored.map(p=>p.credit)):1};
 }
+function marginSide(margin,threshold=.2){
+ const limit=threshold+1e-9;
+ return margin>limit?'blue':margin< -limit?'white':'close';
+}
+function countMargins(margins,threshold){
+ const counts={blue:0,white:0,close:0};
+ for(const margin of margins)counts[marginSide(margin,threshold)]++;
+ return counts;
+}
 function assess(legacy,matches,players,settings,level,diff){
  const c={effLevel:level,_teamBalanceDiff:diff,_qualityAssessment:()=>legacy};
+ if(matches.some(m=>m.voided))matches=matches.filter(m=>!m.voided);
  if(!matches.length||!players.length)throw Error('Empty schedule');
  if(!settings.teamMode)throw Error('This experimental rubric is for team competition');
  const q=c._qualityAssessment(matches,players,settings),eff=p=>{const v=c.effLevel(p);if(!Number.isFinite(v))throw Error('Invalid rating');return v;};
@@ -55,7 +65,7 @@ function assess(legacy,matches,players,settings,level,diff){
  // Continuous signed advantage; no discontinuous bonus at the close threshold.
  const net=average(margins),softBias=average(margins.map(x=>x/(Math.abs(x)+.2)));
  const groups={};matches.forEach((m,i)=>{(groups[m.type||'기타']||=[]).push(margins[i]);});
- const formatBalance=Object.entries(groups).map(([type,ms])=>({type,games:ms.length,blue:ms.filter(x=>x>.2).length,white:ms.filter(x=>x< -.2).length,close:ms.filter(x=>Math.abs(x)<=.2).length,softBias:average(ms.map(x=>x/(Math.abs(x)+.2)))}));
+ const formatBalance=Object.entries(groups).map(([type,ms])=>({type,games:ms.length,...countMargins(ms,.2),softBias:average(ms.map(x=>x/(Math.abs(x)+.2)))}));
  // Every format contributes; the fourth game must not switch bias on/off.
  const formatWeight=g=>Math.min(1,g.games/4);
  const substantial=formatBalance.filter(g=>g.games>=4);
@@ -73,7 +83,7 @@ function assess(legacy,matches,players,settings,level,diff){
   if(q.avoidableOverSlots>0)issues.push('회피 가능한 추가 출전');
  }
  const diagnostics={meanGap,quantileGap,genderGap,rosterQuality:1-rosterLoss,womenPreference:preference,meanAdjustedGap:average(margins.map(Math.abs)),maxAdjustedGap:Math.max(...margins.map(Math.abs)),tailAdjustedGap:tail(margins.map(Math.abs)),netPerGame:net,softBias,formatBias,formatBalance,
-  closeSensitivity:[.15,.2,.25,.3].map(t=>({threshold:t,blue:margins.filter(x=>x>t).length,white:margins.filter(x=>x< -t).length,close:margins.filter(x=>Math.abs(x)<=t).length}))};
+  closeSensitivity:[.15,.2,.25,.3].map(t=>({threshold:t,...countMargins(margins,t)}))};
  return {version,total,components,maxima,eligible:issues.length===0,issues,diagnostics,legacyTotal:q.total,legacySelection:!!settings._legacyCompetition};
 }
 // Mandatory validity/participation comes first. A high rest/diversity score
@@ -195,7 +205,7 @@ function compareCandidates(current,references){
  const better=usable.filter(r=>compare(r,current)<0).length,worse=usable.filter(r=>compare(r,current)>0).length;
  const score=Math.round(100*(1-better/usable.length));
  const best=usable.reduce((a,b)=>compare(a,b)<=0?a:b,current);
- return {verified:true,version:current.version>=10?4:2,score,rank:better+1,count:usable.length,better,worse,
+ return {verified:true,version:current.version>=10?5:2,score,rank:better+1,count:usable.length,better,worse,
   best:best.diagnostics,current:current.diagnostics,
   label:better?'더 나은 비교 후보 있음':'검토 후보 중 최선',
   caveat:'검토 후보 내 순위 점수입니다. 전체 최적·최선 달성률·실제 수동 편성 대비 우수성을 증명하지 않습니다'};
@@ -205,7 +215,7 @@ function reviewContext(players,settings){
   players:players.map(p=>[p.name,p.team,p.gender,p.skillRating??null,p.level,p.grade||'',p.ageGroup||'',p.partnerName||'',p._goal??settings.gamesPerPlayer]).sort((a,b)=>a[0].localeCompare(b[0]))});
 }
 function comparisonKey(matches){return matches.map(m=>[m.round,m.type,...[[m.team1A.name,m.team1B.name].sort().join('|'),[m.team2C.name,m.team2D.name].sort().join('|')].sort()].join(';')).sort().join('~');}
-function scheduleKey(matches){return matches.map(m=>[m.round,m.court,m.type,m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name].join('|')).sort().join(';');}
+function scheduleKey(matches){return matches.map(m=>[m.round,m.court,m.type,m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name,...(m.voided?['void']:[])].join('|')).sort().join(';');}
 
-const api={assess,rankKey,distribution,refine,allocationCandidates,protects,opponentStats,compareCandidates,reviewContext,scheduleKey,comparisonKey};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
+const api={assess,marginSide,rankKey,distribution,refine,allocationCandidates,protects,opponentStats,compareCandidates,reviewContext,scheduleKey,comparisonKey};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

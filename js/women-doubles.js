@@ -39,6 +39,7 @@ function planWomen(players,settings,pairBalance,eff){
 const fields=['team1A','team1B','team2C','team2D'];
 function optimize(c,candidate,settings,{joint=false,passes=6,budget=48}={}){
  const {matches,participants:p}=candidate;const goal=n=>Math.ceil((p.find(p=>p.name===n)._goal??settings.gamesPerPlayer)/2);
+ if(!matches.some(m=>!m.voided))return {candidate,evaluations:0,accepted:0,initialScore:null,finalScore:null};
  const counts=()=>{const w={};matches.forEach(m=>{if(m.type==='여복')fields.forEach(k=>w[m[k].name]=(w[m[k].name]||0)+1);});return w;};
  const initialWomen=counts(),minimum=Object.fromEntries(p.filter(p=>p.gender==='F').map(p=>[p.name,Math.min(goal(p.name),initialWomen[p.name]||0)]));
  const metrics=()=>{const q=c._qualityAssessment(matches,p,settings),v=c._teamCompetitionEvaluation(candidate,settings).score;return {q,v,opponents:c.KokTeamCompetition.opponentStats(matches)};};let current=metrics(),initial=current,evaluations=0,accepted=0;
@@ -90,12 +91,13 @@ function preserves(before,after,players,settings){
 }
 function safe(c,base,next,settings){
  const a=c._qualityAssessment(base.matches,base.participants,settings),b=c._qualityAssessment(next.matches,next.participants,settings);
+ if(!a||!b)return false;
  return ['structureErr','genderErr','underSlots','overSlots','avoidableUnderSlots','avoidableOverSlots','balanceHardCount','balanceSevereCount','asymSevereCount'].every(k=>(b[k]||0)<=(a[k]||0))&&next.matches.length===base.matches.length&&Math.max(...next.matches.map(m=>m.round))<=Math.max(...base.matches.map(m=>m.round));
 }
 // Conditional preference relaxation: one bounded swap in three/four-game schedules.
 function relax(c,candidate,settings,{budget=128}={}){
 const ms=candidate.matches,ps=candidate.participants,policy=c.KokTeamCompetition;
-if(!settings.teamMode||![3,4].includes(settings.gamesPerPlayer)||ps.length>64||ms.length>64)return {candidate,evaluations:0,accepted:0};
+if(!settings.teamMode||![3,4].includes(settings.gamesPerPlayer)||ps.length>64||ms.length>64||!ms.some(m=>!m.voided))return {candidate,evaluations:0,accepted:0};
 const evalq=matches=>c._teamCompetitionEvaluation({matches,participants:ps},settings),initial=evalq(ms),base=initial.score.diagnostics;
 const female=ps.filter(p=>p.gender==='F');if(female.some(p=>(p._goal??settings.gamesPerPlayer)!==settings.gamesPerPlayer)||!initial.score.eligible||initial.legacy.underSlots)return {candidate,evaluations:0,accepted:0};
 const w=c.KokWomenDoubles.status(ms,ps,settings).rows,minimum=Object.fromEntries(w.map(p=>[p.name,Math.min(p.women,Math.max(1,p.target-1,p.women-1))])),wd=ms.filter(m=>m.type==='여복').length;

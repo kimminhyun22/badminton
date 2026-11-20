@@ -495,7 +495,7 @@ function reservationPlayerIds(reservation){
 
 function bestReservationPairing(session, reservation, available, reference, now){
   const requested = (reservation.team1 || []).map(id=>playerById(session, id)).filter(Boolean);
-  if(requested.length !== 2 || requested.some(player=>!available.some(row=>playerId(row) === playerId(player))))return null;
+  if(requested.length !== 2 || playerId(requested[0]) === playerId(requested[1]) || requested.some(player=>!available.some(row=>playerId(row) === playerId(player))))return null;
   if(partnerGap(requested) >= PARTNER_GAP_HARD)return null;
   if(reservation.mode === 'match'){
     const opponents = (reservation.team2 || []).map(id=>playerById(session, id)).filter(Boolean);
@@ -510,15 +510,19 @@ function bestReservationPairing(session, reservation, available, reference, now)
   });
   const candidates = available
     .filter(player=>!requested.some(row=>playerId(row) === playerId(player)) && !reservedElsewhere.has(playerId(player)))
-    .sort((a,b)=>number(a.games)-number(b.games) || number(a.waitFrom)-number(b.waitFrom) || playerId(a).localeCompare(playerId(b), 'ko'))
-    .slice(0, 20);
+    .sort((a,b)=>number(a.games)-number(b.games) || number(a.waitFrom)-number(b.waitFrom) || playerId(a).localeCompare(playerId(b), 'ko'));
   let best = null;
-  for(let first=0;first<candidates.length-1;first++){
-    for(let second=first+1;second<candidates.length;second++){
-      const pairing = pairingFor(session, requested, [candidates[first], candidates[second]], reference, now, true, reservation);
-      if(!pairing)continue;
-      if(!best || pairing.score < best.score || (pairing.score === best.score && pairingKey(pairing) < pairingKey(best)))best = pairing;
+  // Keep the priority window. If it yields nothing, try pairs that include a later opponent.
+  for(let start=0;start<candidates.length;start+=20){
+    const end = Math.min(start+20,candidates.length);
+    for(let first=0;first<end-1;first++){
+      for(let second=Math.max(first+1,start);second<end;second++){
+        const pairing = pairingFor(session, requested, [candidates[first], candidates[second]], reference, now, true, reservation);
+        if(!pairing)continue;
+        if(!best || pairing.score < best.score || (pairing.score === best.score && pairingKey(pairing) < pairingKey(best)))best = pairing;
+      }
     }
+    if(best)break;
   }
   return best;
 }
@@ -592,14 +596,34 @@ function bestGeneratedPairing(session, available, reference, now){
     || null;
   const urgentBest = bestUrgentGeneratedPairing(session, urgent, available, reference, now);
   if(urgentBest)return urgentBest;
-  const ranked = available
+  const ordered = available
     .slice()
     .sort((a,b)=>priorityScore(session, a, now)-priorityScore(session, b, now) ||
       number(a.waitFrom)-number(b.waitFrom) ||
-      playerId(a).localeCompare(playerId(b), 'ko'))
-    .slice(0, MAX_CANDIDATES);
+      playerId(a).localeCompare(playerId(b), 'ko'));
+  const ranked = ordered.slice(0, MAX_CANDIDATES);
+  const first = bestInPool(session, ranked, reference, now);
+  if(first || ordered.length === ranked.length)return first;
+  // A minority side or format may fall entirely below the global priority window.
+  const rescue = representativePool(ordered, !!session.event?.teamMode);
+  return rescue.some(player=>!ranked.includes(player)) ? bestInPool(session, rescue, reference, now) : null;
+}
+
+function representativePool(ordered, teamMode){
+  if(ordered.length <= MAX_CANDIDATES+2)return ordered;
+  const seen = new Map();
+  const rows = ordered.map((player,index)=>{
+    const group = (teamMode ? teamSide(player) : '') + gender(player);
+    const depth = seen.get(group) || 0;
+    seen.set(group, depth + 1);
+    return {player,index,depth};
+  });
+  return rows.sort((a,b)=>a.depth-b.depth || a.index-b.index).slice(0,MAX_CANDIDATES)
+    .sort((a,b)=>a.index-b.index).map(row=>row.player);
+}
+
+function bestInPool(session, ranked, reference, now){
   const passes = ranked.length >= 8 ? [true, false] : [false];
-  let fallback = null;
   for(const avoidFourRepeat of passes){
     let strictBest = null;
     let flexibleBest = null;
@@ -614,10 +638,9 @@ function bestGeneratedPairing(session, available, reference, now){
       }
     });
     const normalBest = strictBest || flexibleBest;
-    if(!fallback && normalBest)fallback = normalBest;
     if(normalBest)return normalBest;
   }
-  return fallback;
+  return null;
 }
 
 function queueId(requestId, pairing, index){
