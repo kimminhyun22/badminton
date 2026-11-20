@@ -61,7 +61,9 @@ async function run(){
   await assert.rejects(handle(f.db,params,'local',f.now));
   await assert.rejects(handle(f.db,{action:'assess',id:f.id,key:f.key,answers:{[cross.id]:'a'}},'local',f.now));
   const source=fs.readFileSync('functions/skill-calibration-core.js','utf8'),ctx={module:{exports:{}}};
-  vm.runInNewContext(source.replace('requiredGrades.every(g=>linkedGrades.includes(g))','true'),ctx);
+  const gradeGate='requiredGrades.every(g=>group.linkedGrades.includes(g))';
+  assert(source.includes(gradeGate));
+  vm.runInNewContext(source.replace(gradeGate,'true'),ctx);
   assert.throws(()=>assert(ctx.module.exports.measurementProposals(before.players,before.questions,before.votes).every(p=>!p.ready)),'mutation must detect missing grade connection gate');
   console.log('individual measurement: synthetic 620 preserved, IDs and originals stable, boundary evidence, permissions, retry, conflicts, insufficient evidence, private results, rebase, expiry and mutation passed');
 }

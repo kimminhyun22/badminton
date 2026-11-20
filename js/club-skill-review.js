@@ -23,9 +23,9 @@
     $('reviewTitle').textContent='팀전 신청자 밸런스게임';document.title='팀전 신청자 밸런스게임 · 민턴라이브';
     const context=eventContext();$('back').href=context&&(eventRequested||ownerLink())?'team.html?skillEvent='+encodeURIComponent(context.id):'team.html';
   }
-  function reconcileEventDraft(result){
+  function reconcileEventDraft(result,credential){
     if(!result?.event)return;
-    const key='kokmatch_skill_draft_'+result.id+'_'+active?.key,revisionKey=key+'_eventRevision';
+    const key='kokmatch_skill_draft_'+result.id+'_'+credential,revisionKey=key+'_eventRevision';
     const previous=read(revisionKey,null),revision=result.event.revision;
     if(previous!==null&&previous>revision)return;
     const valid=new Set((result.questions||[]).map(q=>q.id));
@@ -52,7 +52,17 @@
     try{
       const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data}),signal:controller.signal});
       const json=await response.json();if(!response.ok||json.error)throw Error(json.error?.message||'연결을 확인해 주세요.');
-      if(json.result?.event&&data.key===active?.key)reconcileEventDraft(json.result);
+      const result=json.result;
+      if(result&&!result.event&&!result.needsIdentity&&Array.isArray(result.questions)){
+        const identity=data.action==='join'?{key:data.respondentKey,playerId:data.playerId}:read('kokmatch_skill_identity_'+result.id,null);
+        if(identity&&identity.key===(data.respondentKey||data.key)&&identity.playerId){
+          result.questions=result.questions.filter(q=>q.a!==identity.playerId&&q.b!==identity.playerId);
+        }
+      }
+      if(result?.event&&!result.needsIdentity&&Array.isArray(result.questions)){
+        const credential=data.action==='join'?data.respondentKey:data.key;
+        reconcileEventDraft(result,credential);
+      }
       return json.result;
     }finally{clearTimeout(timer);}
   }
@@ -94,6 +104,9 @@
     if(grades.length>1&&missing.length)$('boundaryPreview').innerHTML+=`<p class="muted">${missing.map(esc).join('·')} 경계 선수를 선택해 주세요. 선수의 평가값은 자동 입력하지 않습니다.</p>`;
     $('configureMeasurement').disabled=session.closed||session.expiresAt<=Date.now()||(grades.length>1&&missing.length>0);
   }
+  function namedOwnerReview(){
+    return session.namedOwnerReview&&!Object.keys(session.ownerAnswers||{}).length&&!Object.keys(read(draftKey(),{})).length;
+  }
   function assessmentPlan(){
     const own=ownerLink();if(!own)return null;
     if(own.recommendation?.sourceId===session.id)return own.recommendation;
@@ -102,6 +115,7 @@
   }
   function renderRecommendations(){
     if(!$('recommendationSetup'))return;
+    if(namedOwnerReview()){$('recommendationSetup').hidden=true;$('answerSelf').hidden=false;return;}
     const own=ownerLink(),plan=assessmentPlan();$('recommendationSetup').hidden=!plan;if(!plan)return;
     if(window.KokSkillPlan?.nextQuestions){
       const limit=session.adaptiveSupported?10:12,next=window.KokSkillPlan.nextQuestions(session,limit);own.recommendation=plan;persist(own);
@@ -122,6 +136,7 @@
   }
   async function beginRecommended(supplement=false){
     if(session?.event)return;
+    if(namedOwnerReview())return openShared(ownerLink());
     if(window.KokSkillPlan?.nextQuestions){
       if(busy)return;const own=ownerLink();if(!own)return;busy=true;
       try{
@@ -156,8 +171,8 @@
     const selected=new Set(session.boundaryIds||[]);
     $('boundaryPlayers').innerHTML=session.players.map(p=>`<label class="boundary-row"><input type="checkbox" class="boundary-pick" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span><strong>${esc(p.name)}</strong> · ${esc(p.grade)}<br><small>점수 ${(5+p.base).toFixed(1)} · 실력 점수 ${(5+(p.skillRating??(p.base+p.skillStep*.2))).toFixed(2)}</small></span></label>`).join('');
     $('measurementSetup').open=!window.KokSkillPlan&&session.assessmentVersion!==2;
-    $('measurementInfo').textContent=session.assessmentVersion===2?'기존 평가를 보존한 개인 실력 측정입니다. 나이·성별은 기존 점수에 포함되며 다시 보정하지 않습니다.':'기존 동급 평가를 살리고 경계 선수 교차 비교로 연결합니다. 이전 질문·응답은 삭제하지 않습니다.';
-    $('answerSelf').textContent=session.assessmentVersion===2?'관리자 개인 평가 시작':'나도 참여하기';
+    $('measurementInfo').textContent=session.namedOwnerReview&&session.questions.some(q=>q.kind==='cross-grade')?'인접 급수 비교가 이미 준비됐습니다. 직접 추가할 때만 경계 선수를 선택하세요.':session.assessmentVersion===2?'기존 평가를 보존한 개인 실력 측정입니다. 나이·성별은 기존 점수에 포함되며 다시 보정하지 않습니다.':'기존 동급 평가를 살리고 경계 선수 교차 비교로 연결합니다. 이전 질문·응답은 삭제하지 않습니다.';
+    $('answerSelf').textContent=namedOwnerReview()?'내 이름으로 참여하기':session.assessmentVersion===2?'관리자 개인 평가 시작':'나도 참여하기';
     previewBoundaries();
   }
   $('boundaryPlayers').onchange=previewBoundaries;
@@ -185,10 +200,11 @@
     if(busy)return;busy=true;active=link;message('불러오는 중');
     try{
       const saved=read('kokmatch_skill_identity_'+link.id,null);
-      if(saved?.key&&saved.playerId&&ownerLink()?.key!==link.key){
-        try{session=await api({action:'read',id:link.id,key:saved.key});active={id:link.id,key:saved.key};}
-        catch(_){session=await api({action:'read',...link});}
-      }else session=await api({action:'read',...link});
+      session=await api({action:'read',...link});
+      if(session.needsIdentity&&saved?.key&&saved.playerId){
+        try{const joined=await api({action:'read',id:link.id,key:saved.key});session=joined;active={id:link.id,key:saved.key};}
+        catch(_){/* Let the member select their name if the saved credential no longer works. */}
+      }
       eventHeading();message('');if(ownerLink()?.key===active.key)renderOwner();else if(session.needsIdentity)renderIdentity();else startBatch();
     }
     catch(e){message(e.message);if(eventRequested)setupEvent();else setup();}finally{busy=false;}
@@ -250,13 +266,26 @@
       if(!matchesBasis||!sameIdentity)return {p:proposal,current,original,state:{key:'changed',title:'명부 확인 필요',reason:'회원 정보가 변경됐습니다. 결과를 새로고침해 주세요. 회원 이름과 현재 값을 확인합니다.'}};
       const p={...proposal,current:Number(current.skillStep||0)};
       let state=resultState(p,current,current);
-      if(!p.model?.startsWith('comparison-v')&&baseline&&p.step===p.current)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
+      if(!p.model?.startsWith('comparison-v')&&!(p.assessment&&!p.reviewed)&&baseline&&p.step===p.current)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
       return {p,state,original:current,current};
     }
     const p=baseline?{...proposal,current:baseline.skillStep,ready:!!proposal.reviewed&&proposal.step!==baseline.skillStep}:{...proposal};
     let state=resultState(p,baseline||original,current);
-    if(baseline&&proposal.step===baseline.skillStep)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
+    if(baseline&&!(proposal.assessment&&!proposal.reviewed)&&proposal.step===baseline.skillStep)state={key:'applied',title:'반영 완료',reason:'현재 명부가 이 보정안과 일치합니다.'};
     return {p,state,original:baseline||original,current};
+  }
+  function evidenceStrength(p){
+    const e=p.evidenceStrength;
+    if(!Number.isInteger(e?.respondentSlots)||!Number.isInteger(e.confirmedPairs))return '';
+    if(!e.respondentSlots)return '<p class="muted">유효한 응답 기록을 기다리고 있습니다.</p>';
+    const source=e.respondentSlots===1?'한 응답 기록에 의존':`서로 다른 응답 기록 ${e.respondentSlots}개`;
+    return `<p class="muted">${source} · 기명 응답으로 재확인한 비교 ${e.confirmedPairs}쌍</p>`;
+  }
+  function scoreLine(current,proposed){
+    if(!Number.isFinite(current))return '';
+    if(!Number.isFinite(proposed))return `${current.toFixed(3)} <small>현재 점수 유지</small>`;
+    const delta=proposed-current;
+    return `${current.toFixed(3)} <span>→</span> ${proposed.toFixed(3)} <b>${delta>0?'+':''}${delta.toFixed(3)}</b>`;
   }
   function renderOwner(){
     if(session?.event){renderEventOwner();return;}
@@ -300,15 +329,17 @@
     }
     if(session.legacyCount)$('resultHelp').textContent+=` 기존 개별 링크 응답 ${session.legacyCount}개도 포함됩니다. 이미 참여한 분은 중복 참여하지 말고 기존 링크에서 수정해 주세요.`;
     const order={ready:0,pending:1,applied:2,changed:3,same:4};
-    $('proposals').innerHTML=rows.filter(r=>r.p.opponents||r.p.assessment).sort((a,b)=>order[a.state.key]-order[b.state.key]).map(({p,state})=>{
+    $('proposals').innerHTML=rows.filter(r=>r.p.opponents||r.p.assessment).sort((a,b)=>order[a.state.key]-order[b.state.key]).map(({p,state,current})=>{
       const player=session.players.find(v=>v.id===p.id),before=5+(p.currentRating??(player.base+p.current*.2)),after=5+(p.skillRating??(player.base+p.step*.2)),delta=after-before;
       const change=delta>0?'+'+delta.toFixed(3):delta.toFixed(3);
-      const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)}${c.grade?` (${esc(c.grade)} · ${c.kind==='cross-grade'?'교차':'동급'})`:''} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'개인 실력 우세':'개인 실력 열세'} · ${c.votes}명 응답</li>`).join('');
+      const evidence=(p.comparisons||[]).map(c=>`<li>${esc(c.name)}${c.grade?` (${esc(c.grade)} · ${c.kind==='cross-grade'?'교차':'동급'})`:''} 대비 ${!c.agree?'의견 나뉨':c.outcome==='tie'?'비슷함':c.outcome==='higher'?'개인 실력 우세':'개인 실력 열세'} · 응답 ${c.votes}건</li>`).join('');
+      const propose=state.key==='ready',retained=Number.isFinite(current?.skillRating)?5+current.skillRating:before;
+      const score=state.key==='archived'||state.key==='changed'?'':scoreLine(propose?before:retained,propose?after:null);
       const readiness=window.KokSkillReadiness.player(p);
       const readinessHtml=readiness?`<div class="readiness"><div class="readiness-heading"><span>초기 점수 준비율</span><strong>${readiness.percent}%</strong></div><progress value="${readiness.percent}" max="100" aria-label="${esc(p.name)} 초기 점수 조건 진행률"></progress><p>유효 상대 ${readiness.resolved}명 / 최소 3명 · 급수 연결 ${readiness.linkedGrades}/${readiness.requiredGrades}개</p><p class="muted">${esc(readiness.reason)}</p></div>`:'';
-      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div>${readinessHtml}<p class="score-change">${before.toFixed(3)} <span>→</span> ${after.toFixed(3)} <b>${change}</b></p><p>${Number.isFinite(p.baseRating)?`기본 표시 ${(p.baseRating+5).toFixed(3)} ${p.adjustment>=0?'+':'−'} 개인 보정 ${Math.abs(p.adjustment).toFixed(3)} = 추정 표시 ${(p.skillRating+5).toFixed(3)}`:'해당 클럽 비교로 추정한 최종 실력'} · 성별·연령 추가 보정 없음</p><p class="muted">${state.reason}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>판단자 ${p.experts}명 · 유효 비교 ${p.resolved??'확인 중'}개</p>${p.assessment?`<p>동급 상대 ${p.assessment.sameGradeOpponents}명 · 교차 상대 ${p.assessment.crossGradeOpponents}명 · 연결 급수 ${p.assessment.linkedGrades.map(esc).join('·')}</p>`:''}<ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">음수 표시를 피하려고 기본·추정 점수에 각각 5점을 한 번 더합니다. 보정값에는 더하지 않습니다. 저장·대진 계산은 내부 점수를 사용하며, 표시점수는 승률·실력 배수·10점 만점이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
+      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${state.key}">${state.title}</span></div>${readinessHtml}<p class="score-change">${score}</p>${evidenceStrength(p)}${propose?`<p>${Number.isFinite(p.baseRating)?`기본 표시 ${(p.baseRating+5).toFixed(3)} ${p.adjustment>=0?'+':'−'} 개인 보정 ${Math.abs(p.adjustment).toFixed(3)} = 추정 표시 ${(p.skillRating+5).toFixed(3)}`:'해당 클럽 비교로 추정한 최종 실력'} · 성별·연령 추가 보정 없음</p>`:''}<p class="muted">${esc(state.reason)}</p><details><summary>비교 근거 · 상대 ${p.opponents}명</summary><p>응답 기록 ${p.experts}개 · 유효 비교 ${p.resolved??'확인 중'}개</p>${p.assessment?`<p>동급 상대 ${p.assessment.sameGradeOpponents}명 · 교차 상대 ${p.assessment.crossGradeOpponents}명 · 연결 급수 ${p.assessment.linkedGrades.map(esc).join('·')}</p>`:''}<ul>${evidence||'<li>결과를 새로고침하면 근거를 확인할 수 있습니다.</li>'}</ul><p class="muted">음수 표시를 피하려고 기본·추정 점수에 각각 5점을 한 번 더합니다. 보정값에는 더하지 않습니다. 저장·대진 계산은 내부 점수를 사용하며, 표시점수는 승률·실력 배수·10점 만점이 아닙니다.</p></details>${state.key==='ready'?`<button class="primary" data-apply="${p.id}">명부에서 ${change} 적용 확인</button>`:''}</article>`;
     }).join('')||'<p class="muted">첫 비교를 기다리고 있습니다.</p>';
-    $('answerSelf').textContent=session.assessmentVersion===2?'관리자 개인 평가 시작':'나도 참여하기';
+    $('answerSelf').textContent=namedOwnerReview()?'내 이름으로 참여하기':session.assessmentVersion===2?'관리자 개인 평가 시작':'나도 참여하기';
     $('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
     $('close').disabled=session.closed;$('answerSelf').disabled=session.closed||session.expiresAt<=Date.now();
     $('share').disabled=true;$('retryShare').hidden=true;
@@ -323,7 +354,7 @@
   }
   function eventReady(proposal,context){
     const player=session.players.find(p=>p.id===proposal.id),applied=context?.applied?.[player?.memberKey];
-    return !!proposal.ready&&Number.isFinite(proposal.skillRating)&&(!applied||Math.abs(applied.skillRating-proposal.skillRating)>.000001);
+    return !!proposal.ready&&proposal.reviewed!==false&&Number.isFinite(proposal.skillRating)&&(!applied||Math.abs(applied.skillRating-proposal.skillRating)>.000001);
   }
   function renderEventOwner(){
     evaluatingAsOwner=false;eventHeading();panels('owner');
@@ -337,21 +368,22 @@
     $('eventSync').hidden=same||!context;$('eventSync').disabled=!context||context.players.length<2||session.closed||session.expiresAt<=Date.now();
     $('ownerResults').hidden=!session.count;
     const ready=session.proposals.filter(p=>eventReady(p,context));
-    const applied=session.proposals.filter(p=>{const key=players.find(v=>v.id===p.id)?.memberKey;return context?.applied?.[key]&&Math.abs(context.applied[key].skillRating-p.skillRating)<=.000001;});
+    const applied=session.proposals.filter(p=>{const key=players.find(v=>v.id===p.id)?.memberKey;return p.reviewed&&context?.applied?.[key]&&Math.abs(context.applied[key].skillRating-p.skillRating)<=.000001;});
     const progress=window.KokSkillReadiness.overall(players,session.proposals);
-    $('collectionProgress').innerHTML=`<div class="readiness overall-readiness"><div class="readiness-heading"><h2>신청자 평가 준비율</h2><strong>${progress.percent}%</strong></div><progress value="${progress.percent}" max="100" aria-label="신청자 평가 조건 충족률"></progress><p>${players.length}명 중 ${progress.ready}명 조건 충족 · ${progress.remaining}명 근거 보완 필요</p><p class="muted">근거가 부족한 선수는 기존 실력점수를 유지합니다. 준비율은 정확도를 보장하는 수치가 아닙니다.</p></div>`;
+    $('collectionProgress').innerHTML=`<div class="readiness overall-readiness"><div class="readiness-heading"><h2>신청자 평가 준비율</h2><strong>${progress.percent}%</strong></div><progress value="${progress.percent}" max="100" aria-label="신청자 평가 조건 충족률"></progress><p>${players.length}명 중 ${progress.ready}명 조건 충족 · ${progress.remaining}명 근거 보완 필요</p><p class="muted">준비율은 저장에 필요한 근거를 갖춘 신청자의 비율입니다. 추가 신청자는 근거가 모일 때까지 기존 점수를 사용합니다.</p></div>`;
     $('notice').textContent=`이번 팀전의 유효 응답 ${session.count}건${session.archivedCount?` · 제외된 신청자 관련 ${session.archivedCount}건 보관`:''}`;
     $('notice').className=ready.length?'ready-notice':'muted';
     $('resultSummary').innerHTML=`<div><strong>${ready.length}명</strong><span>저장·적용 가능</span></div><div><strong>${applied.length}명</strong><span>반영 완료</span></div><div><strong>${players.length-progress.ready}명</strong><span>기존 점수 유지</span></div>`;
     $('resultHelp').textContent='명부와 신원이 일치한 회원의 보정안을 저장하고 신청자 점수에 반영합니다. 이미 만든 대진은 그대로 유지됩니다.';
-    $('applyScopeHelp').textContent='임원은 본인 이름으로 참여합니다. 처음 저장된 클럽점수를 기준으로 이번 평가의 비교만 누적합니다. 명부에 저장하고 적용한 점수로 팀·대진을 준비하세요.';
+    $('applyScopeHelp').textContent='기명 재확인은 선수 본인을 제외한 두 명 이상이 같은 선수를 고르고 그 의견이 기명 응답의 과반인 경우입니다. 이번 평가의 보정안을 저장하면 팀 편성에 사용할 수 있습니다.';
     $('applyAll').hidden=false;$('applyAll').textContent='명부에 저장하고 팀전에 적용';$('applyAll').disabled=!same||players.length<4||!ready.length;
     if(players.length<4)$('resultHelp').textContent+=' 결과 적용은 신청자 4명 이상일 때 가능합니다.';
     $('proposals').innerHTML=session.proposals.map(p=>{
       const player=players.find(v=>v.id===p.id),prior=p.currentRating??player.skillRating??(player.base+(player.skillStep||0)*.2),value=Number.isFinite(p.skillRating)?p.skillRating:prior;
-      const already=context?.applied?.[player.memberKey],title=already&&Math.abs(already.skillRating-value)<=.000001?'반영 완료':eventReady(p,context)?'명부 저장·팀전 적용 가능':'기존 점수 유지';
+      const already=context?.applied?.[player.memberKey],canApply=eventReady(p,context),current=Number.isFinite(already?.skillRating)?already.skillRating:prior;
+      const title=p.reviewed&&already&&Math.abs(already.skillRating-value)<=.000001?'반영 완료':canApply?'명부 저장·팀전 적용 가능':'기존 점수 유지';
       const readiness=window.KokSkillReadiness.player(p);
-      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${eventReady(p,context)?'ready':'pending'}">${title}</span></div><p class="score-change">${(prior+5).toFixed(3)} <span>→</span> ${(value+5).toFixed(3)}</p><p class="muted">${esc(p.assessment?.reason||'이번 팀전의 새 비교 의견을 반영한 제안입니다.')}</p>${readiness?`<div class="readiness"><progress value="${readiness.percent}" max="100" aria-label="${esc(p.name)} 평가 조건 진행률"></progress><p>유효 상대 ${readiness.resolved}명 / 최소 3명 · 급수 연결 ${readiness.linkedGrades}/${readiness.requiredGrades}개</p></div>`:''}</article>`;
+      return `<article class="result-row"><div class="result-heading"><strong>${esc(p.name)}</strong><span class="result-status ${canApply?'ready':title==='반영 완료'?'applied':'pending'}">${title}</span></div><p class="score-change">${scoreLine(current+5,canApply?value+5:null)}</p>${evidenceStrength(p)}<p class="muted">${esc(p.assessment?.reason||'이번 팀전의 새 비교 의견을 반영한 제안입니다.')}</p>${readiness?`<div class="readiness"><progress value="${readiness.percent}" max="100" aria-label="${esc(p.name)} 평가 조건 진행률"></progress><p>유효 상대 ${readiness.resolved}명 / 최소 3명 · 급수 연결 ${readiness.linkedGrades}/${readiness.requiredGrades}개</p></div>`:''}</article>`;
     }).join('');
     $('answerSelf').hidden=false;$('answerSelf').textContent='내 이름으로 참여하기';$('answerSelf').disabled=session.closed||session.expiresAt<=Date.now();
     $('close').disabled=session.closed;$('expiry').textContent=`${new Date(session.expiresAt).toLocaleDateString('ko-KR')}까지 · ${session.closed?'마감됨':'응답 가능'}`;
@@ -456,7 +488,7 @@
     }catch(e){message(e.message);}finally{busy=false;}
   };
   $('answerSelf').onclick=()=>{
-    if(session.event){openShared(ownerLink());return;}
+    if(session.event||namedOwnerReview()){openShared(ownerLink());return;}
     if(session.assessmentVersion===2){evaluatingAsOwner=true;session={...session,answers:session.ownerAnswers||{},respondentName:'관리자 직접 평가'};startBatch();}
     else openShared(ownerLink());
   };
@@ -475,8 +507,10 @@
     if(saved?.playerId!==player.id&&!confirm(`${player.name} 님으로 참여할까요?`))return;
     busy=true;$('join').disabled=true;
     try{
-      const credential=saved?.key||nonce();write(storageKey,{key:credential,playerId:player.id});
+      const credential=saved?.key||nonce();
+      if(!saved?.key)write(storageKey,{key:credential,playerId:player.id});
       session=await api({action:'join',...active,playerId:player.id,respondentKey:credential});
+      if(saved?.key&&saved.playerId!==player.id)write(storageKey,{key:credential,playerId:player.id});
       active={id:active.id,key:credential};message('');startBatch();
     }catch(e){message(e.message);}finally{busy=false;$('join').disabled=false;}
   };
@@ -508,11 +542,12 @@
     return chosen;
   }
   function reviewPlan(questions,previous,pending,saved,version,evidence,players){
-    if(saved.length&&version==='cross-grade-v1')return saved.map(id=>questions.find(q=>q.id===id)).filter(Boolean);
+    const savedQuestions=saved.map(id=>questions.find(q=>q.id===id)).filter(Boolean);
+    if(savedQuestions.length&&version==='cross-grade-v1')return savedQuestions;
     // Migrate only unanswered old questions; keep every local answer and saved
     // answer in the current batch, including partially submitted retry chunks.
     const answered=q=>Object.hasOwn(pending,q.id)||Object.hasOwn(previous,q.id);
-    const fixed=saved.map(id=>questions.find(q=>q.id===id)).filter(q=>q&&answered(q));
+    const fixed=savedQuestions.filter(answered);
     for(const q of questions)if(Object.hasOwn(pending,q.id)&&!fixed.some(p=>p.id===q.id))fixed.push(q);
     return fixed.concat(reviewQuestions(questions,{...previous,...pending},Math.max(0,20-fixed.length),evidence,players));
   }
@@ -532,6 +567,24 @@
     return session.questions.filter(q=>!session.evidence[q.id]?.count||session.evidence[q.id]?.needsReview);
   }
   const draftKey=()=> 'kokmatch_skill_draft_'+active.id+'_'+active.key;
+  function allowedDraft(){
+    const key=draftKey(),draft=read(key,{}),allowed=new Set(session.questions.map(q=>q.id));
+    const pending={},excluded={};
+    for(const [id,value] of Object.entries(draft)){
+      if(allowed.has(id)&&['a','b','tie','skip'].includes(value))pending[id]=value;
+      else excluded[id]=value;
+    }
+    if(Object.keys(excluded).length){
+      write(key+'_excludedAnswers',{...read(key+'_excludedAnswers',{}),...excluded});
+      write(key,pending);
+    }
+    return pending;
+  }
+  function visitFinished(run){
+    // Each server batch contains up to ten questions. Stop after two batches,
+    // even if a shorter first batch made the total smaller than twenty.
+    return run.count>=20||run.ids?.length>=2;
+  }
   function cumulativeProgress(){
     const known=new Set(session.questions.map(q=>q.id)),merged={...(session.answers||{}),...answers};
     const count=Object.entries(merged).filter(([id,v])=>known.has(id)&&['a','b','tie'].includes(v)).length;
@@ -557,11 +610,11 @@
     return `${members}명의 실력을 ${compared.length}번 비교했어요.`;
   }
   function startBatch(){
-    const saved=read(draftKey()+'_plan',[]),pending=read(draftKey(),{});
+    const saved=read(draftKey()+'_plan',[]),pending=allowedDraft();
     // Finish old partially answered drafts without dropping or relabelling them.
     if(session.adaptiveSupported&&(!saved.length||read(draftKey()+'_planVersion',null)==='adaptive-v1'||!Object.keys(pending).length)){
       adaptiveMode=true;visitCount=0;
-      if(!read(draftKey()+'_adaptiveRequest',null)&&read(draftKey()+'_adaptiveRun',{count:0}).count>=20)write(draftKey()+'_adaptiveRun',{count:0,ids:[]});
+      if(!read(draftKey()+'_adaptiveRequest',null)&&visitFinished(read(draftKey()+'_adaptiveRun',{count:0})))write(draftKey()+'_adaptiveRun',{count:0,ids:[]});
       Promise.resolve().then(()=>startAdaptiveBatch()).catch(e=>message(e.message));return;
     }
     adaptiveMode=false;
@@ -578,7 +631,7 @@
       // RTDB omits empty arrays. An exhausted server batch is a normal finish,
       // including replies from servers that omit its empty questions field.
       const allowed=new Map(session.questions.map(q=>[q.id,q]));batch=(session.adaptiveBatch.questions||[]).map(q=>allowed.get(q.id)).filter(Boolean);
-      answers=read(draftKey(),{});
+      answers=allowedDraft();
       const run=read(draftKey()+'_adaptiveRun',{count:0,ids:[]});visitCount=run.count||0;
       at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers||{},q.id));
       if(at<0&&batch.length){
@@ -586,10 +639,20 @@
         const run=read(draftKey()+'_adaptiveRun',{count:0,ids:[]}),id=session.adaptiveBatch.requestId;
         if(!run.ids.includes(id)){run.ids.push(id);run.count+=batch.length;write(draftKey()+'_adaptiveRun',run);}
         localStorage.removeItem(requestKey);busy=false;
-        if(run.count>=20){panels('done');$('doneText').textContent='이번 비교 의견은 저장됐습니다. 필요하면 추가 비교를 이어갈 수 있습니다.';renderCumulative();$('more').hidden=!hasMoreComparisons();showOwnerReturn();message('');return;}
+        if(visitFinished(run)){panels('done');$('doneText').textContent='이번 비교 의견은 저장됐습니다. 필요하면 추가 비교를 이어갈 수 있습니다.';renderCumulative();$('more').hidden=!hasMoreComparisons();showOwnerReturn();message('');return;}
         return startAdaptiveBatch();
       }
-      if(!batch.length){panels('done');$('doneText').textContent='현재 우선 확인할 추가 비교가 없습니다. 새 의견이 모이면 같은 링크에서 다시 확인할 수 있습니다.';renderCumulative();$('more').hidden=true;showOwnerReturn();message('');return;}
+      if(!batch.length){
+        // This lease completed. A future visit needs a fresh id to see new comparisons.
+        localStorage.removeItem(requestKey);
+        const remainingDraft=session.questions.filter(q=>Object.hasOwn(answers,q.id));
+        if(remainingDraft.length){
+          batch=remainingDraft;at=batch.length;adaptiveMode=false;autoCheckpointPending=false;
+          panels('quiz');finishReview();return;
+        }
+        panels('done');$('doneText').textContent='현재 답할 추가 비교가 없습니다. 새 의견이 모이면 같은 링크에서 다시 확인할 수 있습니다.';
+        renderCumulative();$('more').hidden=true;showOwnerReturn();message('');return;
+      }
       write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','adaptive-v1');
       $('respondentLabel').textContent=(session.respondentName?session.respondentName+' 님 · ':'')+(visitCount?'앞선 답안을 반영한 추가 비교':'초기·보정 비교');
       panels('quiz');$('retry').hidden=true;renderQuestion();message('');
@@ -599,13 +662,12 @@
   function startLegacyBatch(){
     $('respondentLabel').textContent=session.respondentName?session.respondentName+' 님의 안목':'';
     if(session.closed||session.expiresAt<=Date.now()){panels('done');$('doneText').textContent='마감되었거나 만료된 퀴즈입니다.';$('more').hidden=true;showOwnerReturn();return;}
-    const pending=read(draftKey(),{});
-    answers=Object.fromEntries(Object.entries(pending).filter(([id,v])=>session.questions.some(q=>q.id===id)&&['a','b','tie','skip'].includes(v)));
+    answers=allowedDraft();
     const saved=read(draftKey()+'_plan',[]);
     batch=reviewPlan(ownerMeasurementQuestions(),session.answers,answers,saved,read(draftKey()+'_planVersion',null),session.evidence,session.players);
     at=batch.findIndex(q=>!Object.hasOwn(answers,q.id)&&!Object.hasOwn(session.answers,q.id));
     if(at<0&&batch.length){at=batch.length;panels('quiz');finishReview();return;}
-    if(!batch.length){panels('done');$('doneText').textContent='모든 비교를 마쳤습니다.';$('more').hidden=true;showOwnerReturn();return;}
+    if(!batch.length){panels('done');$('doneText').textContent='현재 답할 추가 비교가 없습니다.';renderCumulative();$('more').hidden=true;showOwnerReturn();return;}
     write(draftKey()+'_plan',batch.map(q=>q.id));
     write(draftKey()+'_planVersion','cross-grade-v1');
     panels('quiz');$('retry').hidden=true;renderQuestion();
@@ -664,7 +726,7 @@
         // Answer responses omit lease metadata; the persisted request is stable for retries.
         if(!run.ids.includes(id)){run.ids.push(id);run.count+=batch.length;write(key,run);}visitCount=run.count;
         localStorage.removeItem(draftKey()+'_adaptiveRequest');autoCheckpointPending=false;
-        if(autoContinue&&visitCount<20){busy=false;await startAdaptiveBatch();return;}
+        if(autoContinue&&!visitFinished(run)){busy=false;await startAdaptiveBatch();return;}
         $('doneText').textContent=`이번 참여에서 ${visitCount}문항의 응답을 자동 저장했습니다. 추가 비교는 선택입니다. 점수는 운영자가 확인한 뒤 명부에 반영합니다.`;
       }
       renderCumulative();$('more').hidden=!hasMoreComparisons();message('');showOwnerReturn();
@@ -672,7 +734,7 @@
   }
   function showOwnerReturn(){
     $('ownerReturn').hidden=!ownerLink();
-    $('editAnswers').hidden=session.closed||session.expiresAt<=Date.now()||!read(draftKey()+'_last',[]).length;
+    $('editAnswers').hidden=session.closed||session.expiresAt<=Date.now()||!read(draftKey()+'_last',[]).some(id=>session.questions.some(q=>q.id===id));
   }
   $('editAnswers').onclick=()=>{
     if(busy||session.closed||session.expiresAt<=Date.now())return;

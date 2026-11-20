@@ -18,10 +18,24 @@ function authorize(s,key){
   if(i<0||s.event)throw Error('링크를 확인해 주세요.');
   return 'e'+i;
 }
-function project(s,role,baselines,anchors=s.players){
+function clubQuestions(s,role){
+  return adaptive.clubAnswerQuestions(reference.questions(s),role);
+}
+async function linkedSnapshot(db,s){
+  const [approvalSnap,sourceSnap]=await Promise.all([
+    db.ref('skillCalibrationReferenceApprovals/'+s.id).once('value'),
+    db.ref('skillCalibration/'+s.assessmentReference.sourceId).once('value')
+  ]);
+  const approval=approvalSnap.val(),source=sourceSnap.val();
+  const roster=approval&&(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();
+  // materialize verifies the immutable source digest, mapping and target's link
+  // on each retry. Votes and question IDs on the target may change concurrently.
+  return target=>reference.materialize(target,source,approval,roster);
+}
+function project(s,role,baselines,anchors=s.players,answers=s.votes?.[role]){
   if(s.event)return eventCore().project(s,role,baselines);
   // Stable IDs preserve all old answers while opening cross-age/grade comparisons.
-  const questions=reference.questions(s);
+  const questions=clubQuestions(s,role),visible=new Set(questions.map(q=>q.id));
   let effective=s.players;
   if(baselines!==undefined){
     if(role!=='owner'||!Array.isArray(baselines)||baselines.length>s.players.length)throw Error('보정 기준을 확인해 주세요.');
@@ -40,15 +54,17 @@ function project(s,role,baselines,anchors=s.players){
     const counts={a:0,b:0,tie:0};
     Object.values(s.votes||{}).forEach(a=>{if(Object.hasOwn(counts,a[q.id]))counts[a[q.id]]++;});
     const count=Object.values(counts).reduce((a,b)=>a+b,0);
-    return [q.id,{count,needsReview:count>0&&Math.max(...Object.values(counts))<=count/2}];
+    return [q.id,role==='owner'?{count,needsReview:count>0&&Math.max(...Object.values(counts))<=count/2}:{count}];
   }));
-  return {id:s.id,clubId:s.clubId||null,clubName:s.clubName,players,questions,expiresAt:s.expiresAt,closed:!!s.closed||!!s.supersededBy,...(s.supersededBy?{supersededBy:s.supersededBy}:{}),
-    evidence,storedQuestionIds:s.questions.map(q=>q.id),reviewQuestionIds:s.reviewQuestionIds||null,assessmentVersion:s.assessmentVersion||1,boundaryIds:s.boundaryIds||[],
+  const projected=role==='owner'?questions:questions.map(({id,a,b,kind})=>({id,a,b,...(kind?{kind}:{})}));
+  return {id:s.id,clubId:s.clubId||null,clubName:s.clubName,players,questions:projected,expiresAt:s.expiresAt,closed:!!s.closed||!!s.supersededBy,...(s.supersededBy?{supersededBy:s.supersededBy}:{}),
+    evidence,storedQuestionIds:(s.questions||[]).map(q=>q.id).filter(id=>visible.has(id)),reviewQuestionIds:s.reviewQuestionIds?.filter(id=>visible.has(id))||null,assessmentVersion:s.assessmentVersion||1,boundaryIds:s.boundaryIds||[],
     ...(role==='owner'&&s.assessmentVersion===2?{ownerAnswers:s.votes?.['owner-review']||{}}:{}),
+    ...(role==='owner'&&s.namedOwnerReview?{namedOwnerReview:true}:{}),
     reviewedAt:s.reviewedAt||0,
     legacyCount:role==='owner'?Object.entries(s.votes||{}).filter(([who])=>/^e[0-2]$/.test(who)).reduce((n,[,a])=>n+Object.values(a).filter(v=>v!=='skip').length,0):0,
     adaptiveSupported:s.assessmentVersion===2,needsIdentity:role==='shared',respondentName:role.startsWith('u_')?s.players.find(p=>p.id===role.slice(2))?.name:null,
-    answers:role==='owner'||role==='shared'?{}:s.votes?.[role]||{},
+    answers:role==='owner'||role==='shared'?{}:Object.fromEntries(Object.entries(answers||{}).filter(([id])=>visible.has(id))),
     proposals:role==='owner'?core.measurementProposals(effective,questions,s.votes,anchors).map((p,i)=>({...p,basis:effective[i],...(s.supersededBy?{ready:false,supersededBy:s.supersededBy}: {})})):[],
     count:Object.values(s.votes||{}).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0)};
 }
@@ -63,7 +79,14 @@ async function handle(db,data,ip,now=Date.now()){
     if(data.clubId!==undefined&&(typeof data.clubId!=='string'||!data.clubId||data.clubId.length>160))throw Error('클럽 식별자를 확인해 주세요.');
     const eventState=Object.hasOwn(data,'event')?eventCore().creation(data):null;
     const list=eventState?.players||core.players(data.players),measurement=!!eventState||data.assessmentVersion===2;
-    const questions=eventState?.questions||(measurement?core.measurementPairs(list,data.boundaryIds||[]):core.pairs(list));
+    let boundaryIds=data.boundaryIds||[];
+    const questions=eventState?.questions||(measurement?core.measurementPairs(list,boundaryIds):core.pairs(list));
+    if(!eventState&&measurement&&!Object.hasOwn(data,'boundaryIds')&&new Set(list.map(p=>p.grade)).size>1){
+      const priors=list.map(p=>({id:p.id,skillRating:p.skillRating??p.base+p.skillStep*.2}));
+      const {initial}=require('./skill-boundary-plan').recommend({players:list,questions:[],proposals:priors},{initialOnly:true});
+      for(const {id,a,b,kind,phase} of initial)questions.push({id,a,b,kind,...(phase==='sparse-coverage'?{phase}:{})});
+      boundaryIds=[...new Set(initial.flatMap(q=>[q.a,q.b]))];
+    }
     if(!questions.length&&!measurement)throw Error('비교할 회원이 부족합니다.');
     const rate=db.ref('skillCalibrationLimits/'+hash(String(ip)));
     const limit=await rate.transaction(old=>{
@@ -72,7 +95,7 @@ async function handle(db,data,ip,now=Date.now()){
       return {...current,n:current.n+1};
     });
     if(!limit.committed)throw Error('오늘 만든 링크가 많습니다. 기존 링크를 사용해 주세요.');
-    const s={id:data.id,...(data.clubId?{clubId:data.clubId}:{}),clubName:data.clubName.trim(),players:list,questions,...(measurement?{assessmentVersion:2,boundaryIds:data.boundaryIds||[]}:{}),owner:hash(data.key),invites:data.invites.map(hash),createdAt:now,expiresAt:now+30*86400000,votes:{},...(eventState||{})};
+    const s={id:data.id,...(data.clubId?{clubId:data.clubId}:{}),clubName:data.clubName.trim(),players:list,questions,...(measurement?{assessmentVersion:2,boundaryIds,...(!eventState?{namedOwnerReview:true}:{})}:{}),owner:hash(data.key),invites:data.invites.map(hash),createdAt:now,expiresAt:now+30*86400000,votes:{},...(eventState||{})};
     const result=await ref.transaction(old=>old?undefined:s);
     if(!result.committed){const raced=result.snapshot.val();if(authorize(raced,data.key)!=='owner')throw Error('다시 시도해 주세요.');if(eventState||raced.event)eventCore().verifyCreation(raced,data);return project(raced,'owner');}
     return project(s,'owner');
@@ -94,36 +117,35 @@ async function handle(db,data,ip,now=Date.now()){
   if(role!=='owner'&&s.expiresAt<=now)throw Error('만료된 링크입니다.');
   if(data.action==='batch'){
     if(role==='shared'||s.event&&role==='owner'||s.assessmentVersion!==2)throw Error('본인 이름을 선택한 새 평가에서 진행해 주세요.');
-    let source,approval,roster;
-    if(s.assessmentReference){
-      approval=(await db.ref('skillCalibrationReferenceApprovals/'+s.id).once('value')).val();
-      source=(await db.ref('skillCalibration/'+s.assessmentReference.sourceId).once('value')).val();
-      roster=approval&&(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();
-    }
+    const merge=s.assessmentReference?await linkedSnapshot(db,s):null;
     const r=await ref.transaction(old=>{
       if(!old)return null;
-      const actualRole=authorize(old,data.key),merged=old.assessmentReference?reference.materialize(old,source,approval,roster):null;
+      if(!!old.assessmentReference!==!!merge||old.supersededBy)return;
+      const actualRole=authorize(old,data.key);
+      if(actualRole!==role)return;
       if(old.event)eventCore().checkRevision(old,data.expectedRevision);
-      return adaptive.allocate(old,actualRole,data.requestId,now,merged).state;
+      return adaptive.allocate(old,actualRole,data.requestId,now,merge?.(old)).state;
     });
-    if(!r.committed)throw Error('평가 묶음을 준비하지 못했습니다. 다시 시도해 주세요.');
+    if(!r.committed||!r.snapshot.val())throw Error('평가 묶음을 준비하지 못했습니다. 다시 시도해 주세요.');
     const fresh=r.snapshot.val(),entry=fresh.adaptiveBatches[role],batch=entry.history[data.requestId]||entry.current;
     const result=await handle(db,{action:'read',id:data.id,key:data.key},ip,now);
     if(fresh.event&&result.event.revision!==fresh.event.revision)throw Error('팀전 신청자가 변경됐습니다. 새로고침해 주세요.');
-    return {...result,adaptiveBatch:{...batch,questions:batch.questions||[]}};
+    const visible=new Map(result.questions.map(q=>[q.id,q]));
+    const questions=(batch.questions||[]).filter(q=>visible.has(q.id)).map(q=>role==='owner'?q:visible.get(q.id));
+    return {...result,adaptiveBatch:{...batch,questions}};
   }
   if(data.action==='read'){
     if(s.event){if(s.clubId&&data.clubId!==undefined&&data.clubId!==s.clubId)throw Error('다른 클럽의 평가입니다.');return project(s,role,data.baselines);}
     if(s.clubId&&data.clubId!==undefined&&data.clubId!==s.clubId)throw Error('다른 클럽 평가를 이 명부에 적용할 수 없습니다.');
-    const approval=(await db.ref('skillCalibrationReferenceApprovals/'+s.id).once('value')).val();
     if(s.assessmentReference){
-      const source=(await db.ref('skillCalibration/'+s.assessmentReference.sourceId).once('value')).val();
-      const roster=approval&&(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();
-      const merged=reference.materialize(s,source,approval,roster),result=project(merged.session,role,data.baselines,merged.anchors);
-      return {...result,answers:role==='owner'||role==='shared'?{}:role.startsWith('u_')?merged.session.votes['member:'+role.slice(2)]||{}:s.votes?.[role]||{},...(role==='owner'?{ownerAnswers:merged.ownerAnswers,referenceInfo:merged.info,reusedQuestionIds:merged.reusedQuestionIds}:{}),referenceRevision:reference.revision(s)};
+      const merge=await linkedSnapshot(db,s),merged=merge(s);
+      const answers=role.startsWith('u_')?merged.session.votes['member:'+role.slice(2)]:s.votes?.[role];
+      const result=project(merged.session,role,data.baselines,merged.anchors,answers);
+      return {...result,...(role==='owner'?{ownerAnswers:merged.ownerAnswers,referenceInfo:merged.info,reusedQuestionIds:merged.reusedQuestionIds}:{}),referenceRevision:reference.revision(s)};
     }
     const result=project(s,role,data.baselines);
-    if(role==='owner'&&approval){
+    const approval=role==='owner'&&(await db.ref('skillCalibrationReferenceApprovals/'+s.id).once('value')).val();
+    if(approval){
       try{const source=(await db.ref('skillCalibration/'+approval.sourceId).once('value')).val(),roster=(await db.ref('clubRosters/'+approval.clubRosterId).once('value')).val();reference.verify(s,source,approval,roster,true);result.referenceAvailable={sourceCount:project(source,'owner').count};}catch(_){result.referenceAvailable=null;}
     }
     return {...result,referenceRevision:reference.revision(s)};
@@ -152,7 +174,7 @@ async function handle(db,data,ip,now=Date.now()){
       if(!old)return null;
       if(authorize(old,data.key)!=='owner'||old.closed||old.expiresAt<=now)return;
       const planned=data.questionIds?new Set(data.questionIds):null;
-      const additions=core.measurementPairs(old.players,planned?old.players.map(p=>p.id):data.boundaryIds||[]).filter(q=>q.kind==='cross-grade'&&(!planned||planned.has(q.id))),seen=new Set(old.questions.map(q=>q.id));
+      const additions=core.measurementPairs(old.players,planned?old.players.map(p=>p.id):data.boundaryIds||[]).filter(q=>q.kind==='cross-grade'&&(!planned||planned.has(q.id)));
       // Append only. Existing question IDs, ordering, responses and credentials survive.
       const retained=reference.questions(old),retainedIds=new Set(retained.map(q=>q.id));
       const questions=[...retained,...additions.filter(q=>!retainedIds.has(q.id))];
@@ -197,25 +219,35 @@ async function handle(db,data,ip,now=Date.now()){
   if(!ownerAssessment&&(data.action!=='answer'||role==='owner'||role==='shared'))throw Error('응답 링크를 확인해 주세요.');
   const voteRole=ownerAssessment?'owner-review':role;
   if(!data.answers||typeof data.answers!=='object'||Array.isArray(data.answers)||Object.keys(data.answers).length<1||Object.keys(data.answers).length>5)throw Error('한 번에 1~5문제만 응답할 수 있습니다.');
-  for(const [id,value] of Object.entries(data.answers))if(!(s.event?eventCore().answerQuestions(s,role):reference.questions(s)).some(q=>q.id===id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
+  const merge=s.assessmentReference?await linkedSnapshot(db,s):null;
+  const answerable=state=>state.event?eventCore().answerQuestions(state,role):clubQuestions(merge?merge(state).session:state,role);
+  const allowed=new Set(answerable(s).map(q=>q.id));
+  for(const [id,value] of Object.entries(data.answers))if(!allowed.has(id)||!['a','b','tie','skip'].includes(value))throw Error('응답을 확인해 주세요.');
   const result=await ref.transaction(old=>{
     // RTDB may first invoke with an empty local cache despite the preceding read.
     // Null lets the server compare-and-retry; undefined would abort immediately.
     if(!old)return null;
     const actualRole=authorize(old,data.key);
-    if(old.closed||old.expiresAt<=now||actualRole!==role||ownerAssessment&&(old.assessmentVersion!==2||actualRole!=='owner'))return;
-    if(old.event){
-      eventCore().checkRevision(old,data.expectedRevision);
-      const allowed=new Set(eventCore().answerQuestions(old,actualRole).map(q=>q.id));
-      if(Object.keys(data.answers).some(id=>!allowed.has(id)))throw Error('현재 팀전 신청자에게 허용된 질문이 아닙니다. 새로고침해 주세요.');
-    }
+    if(old.closed||old.supersededBy||old.expiresAt<=now||actualRole!==role||!!old.assessmentReference!==!!merge||ownerAssessment&&(old.assessmentVersion!==2||actualRole!=='owner'))return;
+    if(old.event)eventCore().checkRevision(old,data.expectedRevision);
+    const currentAllowed=new Map(answerable(old).map(q=>[q.id,q]));
+    if(Object.keys(data.answers).some(id=>!currentAllowed.has(id)))throw Error('현재 응답할 수 있는 질문을 새로고침해 주세요.');
     const votes={...old.votes,[voteRole]:{...old.votes?.[voteRole],...data.answers}};
-    const meaningful=Object.values(votes[voteRole]).filter(v=>v!=='skip').length;
+    const meaningful=Object.entries(votes[voteRole]).filter(([id,v])=>currentAllowed.has(id)&&v!=='skip').length;
     // First completed batch only: retries and reopening must not postpone review.
-    const reviewedAt=old.reviewedAt||(meaningful>=Math.min(5,old.questions.length)?now:0);
-    return {...old,votes,reviewedAt};
+    const reviewedAt=old.reviewedAt||(meaningful>=Math.min(5,currentAllowed.size)?now:0);
+    // Record only the verified source-only pairs actually answered, so a saved
+    // imported vote never looks like an orphan that reopens the full v1 pool.
+    let questions=old.questions;
+    if(merge){
+      const stored=new Set((questions||[]).map(q=>q.id));
+      const missing=Object.keys(data.answers).filter(id=>!stored.has(id));
+      if(missing.length)questions=[...(questions||[]),...missing.map(id=>currentAllowed.get(id))];
+    }
+    return {...old,...(questions?{questions}:{}),votes,reviewedAt};
   });
   if(!result.committed||!result.snapshot.val())throw Error('마감되었거나 만료된 링크입니다.');
+  if(merge)return handle(db,{action:'read',id:data.id,key:data.key},ip,now);
   return project(result.snapshot.val(),role);
 }
 module.exports={handle,authorize,project};

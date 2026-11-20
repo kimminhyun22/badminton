@@ -39,6 +39,20 @@ async function check(code=source){
  await e.$('share').onclick();assert(e.calls.some(c=>c.action==='navigator-share'&&c.title.includes('신청자')));
  await e.$('applyAll').onclick();assert.equal(e.staged.length,1);assert.equal(e.ctx.location.href,'team.html?skillEvent=event-e2e');assert.equal(e.staged[0].resultRevision,'results1');assert(!e.values.kokmatch_skill_apply_v1,'no general club apply handoff');assert.equal(e.batchCalls(),0);
  e.context().applied=Object.fromEntries(e.state().players.map(p=>[p.memberKey,{skillRating:p.skillRating+.2}]));await e.$('refresh').onclick();await e.idle();assert(e.$('applyAll').disabled,'identical already-applied result disabled');
+ // A pending estimate must display the score actually used for this member.
+ e.setRead(()=>{
+   const view=e.projection();
+   Object.assign(view.proposals[0],{ready:false,reviewed:false,skillRating:9.125,evidenceStrength:{respondentSlots:1,confirmedPairs:0}});
+   view.proposals[1].evidenceStrength={respondentSlots:3,confirmedPairs:2};
+   return view;
+ });
+ await e.$('refresh').onclick();await e.idle();
+ const [held,confirmed,legacy]=e.$('proposals').innerHTML.split('</article>');
+ assert(held.includes('기존 점수 유지')&&held.includes('8.700')&&held.includes('한 응답 기록에 의존'));
+ assert(!held.includes('14.125')&&!held.includes('→'),'never present an unready estimate as the playing score');
+ assert(confirmed.includes('서로 다른 응답 기록 3개')&&confirmed.includes('기명 응답으로 재확인한 비교 2쌍'));
+ assert(!legacy.includes('재확인한 비교'),'a legacy response without independent evidence metadata cannot imply zero or certainty');
+ e.setRead(null);
  e.context().players=e.context().players.slice(0,3);await e.$('refresh').onclick();await e.idle();assert(!e.$('eventSync').hidden);assert(e.$('applyAll').disabled);
  const draft='kokmatch_skill_draft_'+e.keys.id+'_'+e.keys.key;e.values[draft]=JSON.stringify({p0_p1:'a',p2_p3:'b'});e.values[draft+'_adaptiveRequest']='"stale-lease"';await e.$('eventSync').onclick();await e.idle();assert.equal(e.state().event.revision,2);assert(e.$('applyAll').disabled,'three applicants cannot apply');assert.deepEqual(JSON.parse(e.values[draft]),{p0_p1:'a'});assert(JSON.parse(e.values[draft+'_eventArchived'])[0].answers.p2_p3==='b');assert(!e.values[draft+'_adaptiveRequest'],'scope change clears old lease');
  const count=e.calls.length;await e.$('proposals').onclick({target:{dataset:{apply:'p0'}}});await e.$('undoBatch').onclick();await e.$('referenceExisting').onclick();await e.$('configureMeasurement').onclick();assert.equal(e.calls.length,count,'club-only handlers cannot mutate event');

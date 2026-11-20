@@ -33,10 +33,10 @@ async function exercise(eventMode){
     const response=await call({action:'batch',key:keys[0],requestId:request(i),...revision}),batch=response.adaptiveBatch;
     assert(Array.isArray(batch.questions),'even the first completed response must restore the pruned array');
     if(!batch.questions.length){completedRequest=request(i);break;}
-    batchCount++;for(const q of batch.questions){assert(!seen.has(q.id));seen.add(q.id);if(eventMode)assert(q.a!=='p0'&&q.b!=='p0');}
+    batchCount++;for(const q of batch.questions){assert(!seen.has(q.id));seen.add(q.id);assert(q.a!=='p0'&&q.b!=='p0');}
     for(let j=0;j<batch.questions.length;j+=5)await call({action:'answer',key:keys[0],answers:Object.fromEntries(batch.questions.slice(j,j+5).map(q=>[q.id,'tie'])),...revision});
   }
-  assert(completedRequest,'bounded fixture reaches the completion response');assert.equal(seen.size,eventMode?21:6);
+  assert(completedRequest,'bounded fixture reaches the completion response');assert.equal(seen.size,eventMode?21:3);
   const stored=db.values[store];assert.equal(Object.keys(stored.votes[role]).length,seen.size);
   assert(!Object.hasOwn(stored.adaptiveBatches[role].current,'questions'),'fixture reproduces real pruned current');
   assert(!Object.hasOwn(stored.adaptiveBatches[role].history[completedRequest],'questions'),'fixture reproduces real pruned history');
@@ -61,7 +61,7 @@ async function exercise(eventMode){
   assert.throws(()=>noCurrent.allocate(e.stored,e.role,request(60),now),'mutation catches missing current fallback');
   const noReservations=load('skill-adaptive-batch',s=>s.replace('for(const q of current.questions||[])','for(const q of current.questions)'));
   assert.throws(()=>noReservations.allocate(e.stored,'u_r1',request(61),now),'mutation catches another reviewer traversing empty reservations');
-  const noProjection=load('skill-calibration',s=>s.replace('adaptiveBatch:{...batch,questions:batch.questions||[]}','adaptiveBatch:batch'));
+  const noProjection=load('skill-calibration',s=>s.replace('adaptiveBatch:{...batch,questions}','adaptiveBatch:batch'));
   await assert.rejects(async()=>empty((await e.call({action:'batch',key:keys[0],requestId:e.completedRequest,...e.revision},noProjection)).adaptiveBatch),'mutation catches API returning a pruned array');
-  console.log('adaptive empty batches: RTDB empty array/object pruning, all 21 event / 6 legacy answers preserved, first completion, replay, fresh request, second evaluator, cold cache and four mutations passed');
+  console.log('adaptive empty batches: RTDB empty array/object pruning, all 21 event / 3 club answers preserved, first completion, replay, fresh request, second evaluator, cold cache and four mutations passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

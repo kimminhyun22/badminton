@@ -7,7 +7,7 @@ const identity=p=>({name:p.name,grade:p.grade,gender:['F','여'].includes(p.gend
 function sourceHash(s){return hash({id:s.id,clubName:s.clubName,players:s.players,questions:s.questions,votes:s.votes||{}});}
 function revision(s){return hash({id:s.id,owner:s.owner,players:s.players,questions:s.questions,votes:s.votes||{},closed:!!s.closed,assessmentReference:s.assessmentReference||null});}
 function questions(s){
- const out=clone(s.questions),seen=new Set(out.map(q=>q.id)),all=core.pairs(s.players),valid=new Set(all.map(q=>q.id));
+ const out=clone(s.questions||[]),seen=new Set(out.map(q=>q.id)),all=core.pairs(s.players),valid=new Set(all.map(q=>q.id));
  const missing=Object.values(s.votes||{}).some(v=>Object.keys(v).some(id=>valid.has(id)&&!seen.has(id)));
  // v1 projected all pairs; preserve their pending drafts and saved responses on upgrade.
  if(s.assessmentVersion!==2||missing)for(const q of all)if(!seen.has(q.id)){out.push({...q,kind:s.players.find(p=>p.id===q.a).grade===s.players.find(p=>p.id===q.b).grade?'same-grade':'cross-grade'});seen.add(q.id);}

@@ -8,7 +8,7 @@ function fixture(code=source){
   const ctx={$,Object,Date,Math,parseInt,window:{matchMedia:()=>({matches:true})},esc:String,at:0,batch:q,answers:{},busy:false,flipped:false,evaluatingAsOwner:false,active:{id:'test',key:'00'},
     session:{questions:q,answers:{},expiresAt:Date.now()+86400000,players:[0,1,2].map(i=>({id:'p'+i,name:'E2E'+i,grade:'C',gender:'남',ageGroup:'40대'})),clubName:'E2E'},
     write:(k,v)=>values[k]=JSON.parse(JSON.stringify(v)),read:(k,f)=>values[k]??f,localStorage:{removeItem:k=>delete values[k]},
-    ownerLink:()=>null,persist(){},message:s=>ctx.messageText=s,panels:s=>ctx.panel=s,reviewQuestions:()=>q,
+    ownerLink:()=>null,persist(){},message:s=>ctx.messageText=s,panels:s=>ctx.panel=s,reviewQuestions:(questions,previous,limit)=>questions.filter(q=>!Object.hasOwn(previous,q.id)).slice(0,limit),
     api:async data=>{ctx.calls++;ctx.session={...ctx.session,answers:{...ctx.session.answers,...data.answers}};return ctx.session;},calls:0};
   vm.createContext(ctx);
   vm.runInContext(code.slice(code.indexOf('  function reviewPlan('),code.indexOf("  $('ownerReturn').onclick=")),ctx);
@@ -43,8 +43,23 @@ async function run(f){
   assert.equal(Object.keys(ctx.session.answers).length,2,'correction overwrites instead of adding votes');
   ctx.session.closed=true;ctx.showOwnerReturn();assert($('editAnswers').hidden);
 }
+async function resumedRestrictedDraft(){
+  const {ctx,$,values,vote}=fixture(),key='kokmatch_skill_draft_test_00';
+  values[key]={oldSelf:'skip',q0:'a'};
+  values[key+'_plan']=['oldSelf','q0','q1'];values[key+'_planVersion']='cross-grade-v1';
+  ctx.startBatch();
+  assert.equal(ctx.at,1);
+  assert.deepEqual(ctx.batch.map(q=>q.id),['q0','q1']);
+  assert.deepEqual(values[key+'_excludedAnswers'],{oldSelf:'skip'});
+  assert.deepEqual(values[key],{q0:'a'});
+  await vote('tie');await $('saveAnswers').onclick();
+  assert.deepEqual(ctx.session.answers,{q0:'a',q1:'tie'});
+  values[key+'_last']=['oldSelf'];ctx.showOwnerReturn();assert($('editAnswers').hidden);
+  ctx.session.questions=[];ctx.startBatch();assert.equal(ctx.panel,'done');
+  assert($('more').hidden);assert(!ctx.batch.length);
+}
 (async()=>{
-  await run(fixture());
+  await run(fixture());await resumedRestrictedDraft();
   await assert.rejects(run(fixture(source.replace('at--;renderQuestion();','renderQuestion();'))));
   await assert.rejects(run(fixture(source.replace("v&&v!=='skip'","v"))));
   console.log('skill answer navigation: back, selected answer, final confirmation, draft resume, saved correction, canonical sides, closed session, mutation passed');

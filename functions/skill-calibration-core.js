@@ -30,7 +30,30 @@
     return out;
   }
   function rating(p){return Number.isFinite(p.skillRating)?p.skillRating:p.base+(p.skillStep||0)*.2;}
-  function proposals(list,questions,votes={},anchors=list){
+  function namedReviewer(s,role){
+    if(s.event){
+      const evaluator=(s.eventEvaluators||[]).find(p=>role==='u_'+p.id);
+      if(!evaluator)return null;
+      return {id:evaluator.memberKey,self:s.players.find(p=>p.memberKey===evaluator.memberKey)?.id};
+    }
+    const id=/^(?:u_|member:)(p\d+)$/.exec(role)?.[1];
+    return id&&s.players.some(p=>p.id===id)?{id,self:id}:null;
+  }
+  function namedReviewers(s,votes){
+    return new Map(Object.keys(votes||{}).map(who=>[who,namedReviewer(s,who)]));
+  }
+  function namedEvidence(q,values,reviewers){
+    const byReviewer=new Map();
+    for(const {who,value} of values){
+      const judge=reviewers.get(who);
+      if(judge&&judge.self!==q.a&&judge.self!==q.b&&['a','b','tie'].includes(value))byReviewer.set(judge.id,value);
+    }
+    let a=0,b=0;
+    for(const value of byReviewer.values()){if(value==='a')a++;if(value==='b')b++;}
+    const count=byReviewer.size,support=Math.max(a,b);
+    return {namedJudgments:count,directionalSupport:support,namedWinner:support>count/2?(a>b?'a':'b'):null};
+  }
+  function proposals(list,questions,votes={},anchors=list,canFit=null,reviewers=namedReviewers({players:list},votes)){
     const index=new Map(list.map((p,i)=>[p.id,i]));
     const edges=questions.flatMap(q=>{
       if(!index.has(q.a)||!index.has(q.b))return [];
@@ -38,11 +61,13 @@
       if(!values.length)return [];
       const counts={a:0,b:0,tie:0};values.forEach(v=>counts[v.value]++);
       const winner=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
-      return [{...q,i:index.get(q.a),j:index.get(q.b),values,counts,winner,consistent:counts[winner]>values.length/2,
+      const named=namedEvidence(q,values,reviewers);
+      return [{...q,confirmed:named.namedWinner!==null&&named.directionalSupport>=2,i:index.get(q.a),j:index.get(q.b),values,counts,winner,consistent:counts[winner]>values.length/2,
         wins:counts.a+counts.tie/2,n:values.length}];
     });
+    const fitted=canFit?edges.filter(canFit):edges;
     const neighbors=list.map(()=>[]);
-    edges.forEach(e=>{neighbors[e.i].push(e.j);neighbors[e.j].push(e.i);});
+    fitted.forEach(e=>{neighbors[e.i].push(e.j);neighbors[e.j].push(e.i);});
     const groups=[],component=list.map(()=>-1);
     list.forEach((p,i)=>{
       if(component[i]>=0)return;
@@ -62,7 +87,7 @@
     const priorWeight=neighbors.map(a=>lambda*Math.max(1,a.length));
     for(let iter=0;iter<2000;iter++){
       const g=x.map((v,i)=>priorWeight[i]*v),curvature=priorWeight.slice();
-      for(const e of edges){const probability=1/(1+Math.exp(prior[e.j]+x[e.j]-prior[e.i]-x[e.i]));
+      for(const e of fitted){const probability=1/(1+Math.exp(prior[e.j]+x[e.j]-prior[e.i]-x[e.i]));
         const residual=probability-e.wins/e.n;
         g[e.i]+=residual;g[e.j]-=residual;
         // Uniform Hessian bound gives a stable simultaneous descent step.
@@ -81,9 +106,12 @@
       const ready=reviewed&&(!Number.isFinite(p.skillRating)||Math.abs(skillRating-currentRating)>.0005);
       const comparisons=all.map(e=>({name:list[e.i===i?e.j:e.i].name,agree:e.consistent,
         outcome:e.winner==='tie'?'tie':((e.winner==='a')===(e.i===i)?'higher':'lower'),votes:e.n}));
+      const respondentSlots=new Set(all.flatMap(e=>e.values.map(v=>v.who))).size;
+      const confirmedPairs=all.filter(e=>e.confirmed).length;
       return {id:p.id,name:p.name,current:p.skillStep,step:p.skillStep,currentRating,skillRating,baseRating:base[i],adjustment:Math.round((skillRating-base[i])*1000)/1000,model:'comparison-v4',ready,reviewed,
         componentSize:groups[component[i]].length,connected:groups[component[i]].length===list.length,
-        resolved:good.length,opponents:all.length,experts:new Set(all.flatMap(e=>e.values.map(v=>v.who))).size,
+        resolved:good.length,opponents:all.length,experts:respondentSlots,
+        evidenceStrength:{respondentSlots,confirmedPairs},
         conflicts:all.length-good.length,support:good.length,comparisons,
         state:ready?'실력 점수 저장':reviewed?'현재 값 유지':'초기 추정 · 비교 전'};
     });
@@ -98,34 +126,52 @@
     }
     return out;
   }
-  function measurementProposals(list,questions,votes={},anchors=list){
+  function measurementProposals(list,questions,votes={},anchors=list,eventScale=null,reviewers){
     const byId=new Map(list.map(p=>[p.id,p])),graph=new Map(list.map(p=>[p.id,new Set()]));
-    const evidence=new Map();
     for(const q of questions){
       if(!byId.has(q.a)||!byId.has(q.b))continue;
-      const values=Object.values(votes).map(v=>v[q.id]).filter(v=>['a','b','tie'].includes(v));
-      const counts={a:0,b:0,tie:0};for(const v of values)counts[v]++;
-      const consistent=values.length>0&&Math.max(...Object.values(counts))/values.length>.5;
-      evidence.set(q.id,{count:values.length,consistent});
-      if(consistent){graph.get(q.a).add(q.b);graph.get(q.b).add(q.a);}
+      const counts={a:0,b:0,tie:0};
+      for(const answers of Object.values(votes))if(Object.hasOwn(counts,answers[q.id]))counts[answers[q.id]]++;
+      if(2*Math.max(counts.a,counts.b,counts.tie)>counts.a+counts.b+counts.tie){
+        graph.get(q.a).add(q.b);graph.get(q.b).add(q.a);
+      }
     }
-    const requiredGrades=[...new Set(list.map(p=>p.grade))];
-    return proposals(list,questions,votes,anchors).map(p=>{
-      const seen=new Set([p.id]),queue=[p.id];while(queue.length){for(const next of graph.get(queue.shift())||[])if(!seen.has(next)){seen.add(next);queue.push(next);}}
-      const linkedGrades=[...new Set([...seen].map(id=>byId.get(id).grade))];
-      const scaleConnected=requiredGrades.every(g=>linkedGrades.includes(g));
-      const direct=questions.filter(q=>(q.a===p.id||q.b===p.id)&&evidence.get(q.id)?.consistent);
-      const sameGradeOpponents=new Set(direct.filter(q=>byId.get(q.a).grade===byId.get(q.b).grade).map(q=>q.a===p.id?q.b:q.a)).size;
-      const crossGradeOpponents=new Set(direct.filter(q=>byId.get(q.a).grade!==byId.get(q.b).grade).map(q=>q.a===p.id?q.b:q.a)).size;
-      const enoughOpponents=p.resolved>=3;
-      const reason=!scaleConnected?'급수 간 비교 연결이 부족합니다.':p.resolved<3?'서로 다른 상대 3명 이상의 유효 비교가 필요합니다.':!p.reviewed?'판단이 나뉘거나 비교 관계가 맞지 않습니다.':'비교 근거를 관리자와 확인해 주세요.';
-      return {...p,measurementVersion:2,ready:p.ready&&scaleConnected&&enoughOpponents,reviewed:p.reviewed&&scaleConnected&&enoughOpponents,
-        state:!scaleConnected||!enoughOpponents||!p.reviewed?'평가 부족':p.state,
-        assessment:{sameGradeOpponents,crossGradeOpponents,linkedGrades,requiredGrades,scaleConnected,enoughOpponents,reason},
+    const referenceIds=new Set((eventScale?.members||[]).filter(id=>byId.has(id)));
+    const qualifiedIds=(eventScale?.qualified||[]).filter(id=>byId.has(id));
+    const anchorIds=qualifiedIds.length?new Set(qualifiedIds):referenceIds;
+    // A reduced reference roster smaller than four cannot establish the personal
+    // three-opponent minimum on its own. Require the full active grade span then.
+    const requiredPlayers=referenceIds.size>=4&&qualifiedIds.length?list.filter(p=>referenceIds.has(p.id)):list;
+    const requiredGrades=[...new Set(requiredPlayers.map(p=>p.grade))];
+    const component=new Map();
+    for(const p of list){
+      if(component.has(p.id))continue;
+      const ids=[p.id],group={};component.set(p.id,group);
+      for(let i=0;i<ids.length;i++)for(const next of graph.get(ids[i]))if(!component.has(next)){
+        component.set(next,group);ids.push(next);
+      }
+      group.linkedGrades=[...new Set(ids.map(id=>byId.get(id).grade))];
+      group.waitingForAnchor=anchorIds.size>0&&!ids.some(id=>anchorIds.has(id));
+      group.scaleConnected=!group.waitingForAnchor&&requiredGrades.every(g=>group.linkedGrades.includes(g));
+    }
+    // A disputed comparison to a disconnected arrival still needs another
+    // judgment, but cannot shift either side's rating until a majority path exists.
+    // Preserve all evidence previously used within the established roster.
+    const canFit=anchorIds.size?e=>referenceIds.has(e.a)&&referenceIds.has(e.b)||component.get(e.a)===component.get(e.b):null;
+    return proposals(list,questions,votes,anchors,canFit,reviewers).map(p=>{
+      const {linkedGrades,scaleConnected,waitingForAnchor}=component.get(p.id);
+      const direct=graph.get(p.id),sameGradeOpponents=[...direct].filter(id=>byId.get(id).grade===byId.get(p.id).grade).length;
+      const crossGradeOpponents=direct.size-sameGradeOpponents,enoughOpponents=p.resolved>=3;
+      const reason=waitingForAnchor?'기존 평가 그룹과 연결되는 유효 비교가 필요합니다.':!scaleConnected?'급수 간 비교 연결이 부족합니다.':!enoughOpponents?'서로 다른 상대 3명 이상의 유효 비교가 필요합니다.':!p.reviewed?'판단이 나뉘거나 비교 관계가 맞지 않습니다.':'비교 근거를 관리자와 확인해 주세요.';
+      const eligible=scaleConnected&&enoughOpponents;
+      return {...p,...(waitingForAnchor?{skillRating:p.currentRating,adjustment:Math.round((p.currentRating-p.baseRating)*1000)/1000}:{}),
+        measurementVersion:2,ready:p.ready&&eligible,reviewed:p.reviewed&&eligible,
+        state:!eligible||!p.reviewed?'평가 부족':p.state,
+        assessment:{sameGradeOpponents,crossGradeOpponents,linkedGrades,requiredGrades,scaleConnected,enoughOpponents,reason,...(waitingForAnchor?{waitingForAnchor:true}:{})},
         comparisons:p.comparisons.map(c=>{const other=list.find(v=>v.name===c.name);return {...c,grade:other?.grade||'',kind:other?.grade===byId.get(p.id).grade?'same-grade':'cross-grade'};})};
     });
   }
-  const api={player,players,pairs,proposals,measurementPairs,measurementProposals,version:'comparison-v4'};
+  const api={player,players,pairs,namedReviewer,namedReviewers,namedEvidence,proposals,measurementPairs,measurementProposals,version:'comparison-v4'};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.KokClubSkill=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -5,6 +5,7 @@ const vm = require('vm');
 const {summarize} = require('../tools/usage-report');
 const {project} = require('../functions/skill-calibration');
 const core = require('../functions/skill-calibration-core');
+const {evidenceFor} = require('../functions/skill-adaptive-batch');
 
 const archived = {startedAt: 100, completed: 12, completedLog: [{seq: 1, startAt: 100, endAt: 200}]};
 const input = {live: {
@@ -28,15 +29,23 @@ assert.notEqual(context.module.exports.summarize(input).team.completedGames, 1, 
 
 const players = core.players(Array.from({length: 4}, (_, i) => ({name: 'E2E회원' + i, grade: 'C', gender: '남', ageGroup: '40대', level: 4, skillStep: 0})));
 const questions = core.pairs(players);
-const session = {id: 'test', players, questions, votes: {u_p0: {[questions[0].id]: 'a'}, u_p1: {[questions[0].id]: 'b'}}, owner: 'secret', participants: {p0: {key: 'secret'}}, invites: ['secret']};
+const otherPair = 'p2_p3', historicalSelfPair = 'p0_p1';
+const session = {id: 'test', players, questions, votes: {u_p0: {[otherPair]: 'a', [historicalSelfPair]: 'tie'}, u_p1: {[otherPair]: 'b', [historicalSelfPair]: 'b'}}, owner: 'secret', participants: {p0: {key: 'secret'}}, invites: ['secret']};
 for (const role of ['shared', 'e0', 'u_p0', 'u_p1']) {
   const out = project(session, role);
   assert.deepStrictEqual(out.proposals, [], 'no individual calibration results');
   assert(out.players.every(p => !('level' in p) && !('skillStep' in p)));
   for (const field of ['votes', 'participants', 'owner', 'invites']) assert(!(field in out));
-  assert.deepStrictEqual(out.answers, role.startsWith('u_') ? session.votes[role] : {});
+  assert.deepStrictEqual(out.answers, role.startsWith('u_') ? {[otherPair]: session.votes[role][otherPair]} : {});
+  assert(!Object.hasOwn(out.evidence[otherPair], 'needsReview'), 'respondents receive no indication of other judgments');
+  if(role.startsWith('u_')) assert(!out.questions.some(q => q.id === historicalSelfPair));
 }
 const owner = project(session, 'owner');
+assert.equal(owner.count, 4, 'historical self votes remain in owner totals');
+const anonymous = evidenceFor(session, questions, {e0: {[otherPair]: 'a'}, e1: {[otherPair]: 'a'}});
+assert.equal(anonymous[otherPair].count, 2);
+assert.equal(anonymous[otherPair].namedJudgments, 0);
+assert.equal(anonymous[otherPair].directionalSupport, 0);
 assert(owner.proposals.length > 0);
 assert(!('votes' in owner) && !('participants' in owner), 'operator sees aggregated evidence, not raters');
 assert(!JSON.stringify(owner.proposals).includes('u_p0'));

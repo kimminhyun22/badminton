@@ -18,10 +18,21 @@ async function preparation(){
   ctx.sharedLink=async()=>{};ctx.session.count=1;await ctx.prepareOwnerShare(own);assert.equal($('ownerState').textContent,'응답 수집 중');
   ctx.sharedLink=async()=>{ctx.session.closed=true;};await ctx.prepareOwnerShare(own);assert($('share').disabled,'late completion must not reopen closed sharing');
 }
+function participation(){
+  const own={id:'example',key:'owner'},button={},draft={};
+  const ctx={$:()=>button,session:{assessmentVersion:2,namedOwnerReview:true},Object,read:()=>draft,draftKey:()=>own.key,ownerLink:()=>own,evaluatingAsOwner:false,openShared:()=>{ctx.route='identity';},startBatch:()=>{ctx.route='owner';}};
+  vm.createContext(ctx);
+  vm.runInContext(source.slice(source.indexOf('  function namedOwnerReview('),source.indexOf('  function assessmentPlan(')),ctx);
+  vm.runInContext(source.slice(source.indexOf("  $('answerSelf').onclick="),source.indexOf('  function renderIdentity(')),ctx);
+  button.onclick();assert.equal(ctx.route,'identity');
+  draft.partial='tie';button.onclick();assert.equal(ctx.route,'owner','retain old owner draft');
+  delete draft.partial;ctx.session.ownerAnswers={p1_p2:'tie'};button.onclick();assert.equal(ctx.route,'owner','reuse the same owner slot for legacy answers');
+  ctx.session.ownerAnswers={};ctx.session.namedOwnerReview=false;button.onclick();assert.equal(ctx.route,'owner');
+}
 (async()=>{
   for(const quick of [true,false])for(const reuse of [true,false])await creation(source,quick,reuse);
   await assert.rejects(creation(source.replace('      renderOwner();','      await openShared(entry);'),true,false));
-  await preparation();
+  await preparation();participation();
   const owner=html.slice(html.indexOf('<section id="owner"'),html.indexOf('<section id="identity"'));
   assert(owner.indexOf('id="share"')<owner.indexOf('id="answerSelf"'));
   assert(owner.indexOf('id="share"')<owner.indexOf('<details>'));

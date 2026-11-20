@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('assert'),crypto=require('crypto'),fs=require('fs'),vm=require('vm'),C=require('../functions/skill-calibration-core'),S=require('../functions/skill-calibration'),A=require('../functions/skill-adaptive-batch');
 const h=s=>crypto.createHash('sha256').update(s).digest('hex'),id='a'.repeat(32),owner='b'.repeat(32),shared='c'.repeat(32),now=Date.now();
-const players=C.players(Array.from({length:16},(_,i)=>({name:'E2E배정'+i,grade:i<8?'C':'B',gender:'남',ageGroup:'40대'}))),questions=C.pairs(players),keys=Array.from({length:8},(_,i)=>(i+1).toString(16).repeat(32));
+const players=C.players(Array.from({length:16},(_,i)=>({name:'E2E배정'+i,grade:'C',gender:'남',ageGroup:'40대'}))),questions=C.pairs(players),keys=Array.from({length:8},(_,i)=>(i+1).toString(16).repeat(32));
 const initial={id,owner:h(owner),shared:h(shared),clubName:'E2E',players,questions,assessmentVersion:2,votes:{},participants:Object.fromEntries(keys.map((key,i)=>['p'+i,{key:h(key)}])),invites:[h('d'.repeat(32)),h('e'.repeat(32)),h('f'.repeat(32))],expiresAt:now+86400000};
 let value=structuredClone(initial),cold=true;
 const db={ref:p=>({once:async()=>({val:()=>structuredClone(p==='skillCalibration/'+id?value:null)}),transaction:async fn=>{
@@ -26,9 +26,9 @@ const request=(i,req=(i+3).toString(16).repeat(32),time=now)=>S.handle(db,{actio
   value.closed=true;await assert.rejects(request(0));value.closed=false;
   const same=C.players(Array.from({length:8},(_,i)=>({name:'E2E상충'+i,grade:'C',gender:'남',ageGroup:'40대'}))),qs=C.pairs(same),v=Object.fromEntries(qs.map(q=>[q.id,q.id==='p0_p7'?'tie':'a']));
   const conflict={...initial,players:same,questions:qs,votes:{e0:v,e1:v,e2:v},adaptiveBatches:{}};
-  const selected=A.allocate(conflict,'u_p0','a'.repeat(32),now).batch.questions;
+  const selected=A.allocate(conflict,'u_p2','a'.repeat(32),now).batch.questions;
   assert(selected.some(q=>q.id==='p0_p7'&&q.reason.includes('상충')),'participant allocation uses the fitted score, not only vote counts');
-  const confirm={...conflict,votes:{e0:v}},assigned=A.allocate(confirm,'u_p0','a'.repeat(32),now);
+  const confirm={...conflict,votes:{e0:v}},assigned=A.allocate(confirm,'u_p2','a'.repeat(32),now);
   const other=A.allocate(assigned.state,'u_p1','b'.repeat(32),now).batch.questions;
   assert(other.some(q=>q.id==='p0_p7'&&q.reason.includes('상충')),'important contradictory pair can intentionally overlap despite reservations');
   const capped={...initial,questions:questions.slice(0,3),adaptiveBatches:{}};assert(A.allocate(capped,'u_p0','a'.repeat(32),now).batch.questions.every(q=>capped.questions.some(p=>p.id===q.id)),'no unauthorized question expansion');

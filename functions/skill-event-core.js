@@ -10,7 +10,7 @@ const identity=p=>({memberKey:p.memberKey,name:p.name,grade:p.grade,gender:p.gen
 function creation(data){
  if(['votes','assessmentReference','sourceVotes'].some(k=>Object.hasOwn(data,k)))throw Error('팀전 평가는 이전 답안을 가져올 수 없습니다.');
  const e=event(data.event),ps=players(data.players,4),es=evaluators(data.evaluators),fingerprint=digest({event:e,clubId:data.clubId||null,clubName:data.clubName.trim(),players:ps.slice().sort((a,b)=>a.memberKey.localeCompare(b.memberKey)),evaluators:es.slice().sort((a,b)=>a.memberKey.localeCompare(b.memberKey))});
- return {event:{...e,revision:1},players:ps,eventActiveIds:ps.map(p=>p.id),eventEvaluators:es.map((p,i)=>({...p,id:'r'+i})),eventEvaluatorIds:es.map((_,i)=>'r'+i),questions:questionsFor(ps),eventCreationFingerprint:fingerprint,assessmentVersion:2};
+ return {event:{...e,revision:1},players:ps,eventInitialCount:ps.length,eventActiveIds:ps.map(p=>p.id),eventEvaluators:es.map((p,i)=>({...p,id:'r'+i})),eventEvaluatorIds:es.map((_,i)=>'r'+i),questions:questionsFor(ps),eventCreationFingerprint:fingerprint,assessmentVersion:2};
 }
 function verifyCreation(s,data){if(!!s.event!==!!data.event)throw Error('다른 종류의 평가가 이미 있습니다.');if(s.event&&s.eventCreationFingerprint!==creation(data).eventCreationFingerprint)throw Error('생성 요청의 팀전 또는 최초 명부가 다릅니다. 기존 평가를 새로고침해 주세요.');}
 function questionsFor(ps){return core.pairs(ps).map(q=>({...q,kind:ps.find(p=>p.id===q.a).grade===ps.find(p=>p.id===q.b).grade?'same-grade':'cross-grade'}));}
@@ -18,6 +18,30 @@ const activePlayers=s=>{const ids=new Set(s.eventActiveIds||[]);return s.players
 const activeEvaluators=s=>{const ids=new Set(s.eventEvaluatorIds||[]);return (s.eventEvaluators||[]).filter(p=>ids.has(p.id));};
 function questions(s){const ids=new Set(s.eventActiveIds||[]);return s.questions.filter(q=>ids.has(q.a)&&ids.has(q.b));}
 function activeSession(s){return {...s,players:activePlayers(s),questions:questions(s)};}
+// Event questions have always begun with the complete initial roster in pairs()
+// order. Sync only appends new pairs. Recover the first row for pre-upgrade events.
+function initialCount(s){
+ if(Number.isInteger(s.eventInitialCount))return s.eventInitialCount;
+ let n=1;
+ for(const q of s.questions){if(q.a!=='p0'||q.b!=='p'+n)break;n++;}
+ return n>=4&&s.questions[n-1]?.id==='p1_p2'?n:s.players.length;
+}
+function latePlayerIds(s){
+ const initial=new Set(s.players.slice(0,initialCount(s)).map(p=>p.id));
+ return (s.eventActiveIds||[]).filter(id=>!initial.has(id));
+}
+function establishedScale(s,ps,qs){
+ const proposals=measurementProposals(s,ps,qs);
+ const qualified=proposals.filter(p=>p.reviewed).map(p=>p.id);
+ if(!qualified.length)return null;
+ const previous=new Set(s.eventScale?.members||[]);
+ const members=proposals.filter(p=>previous.has(p.id)||!p.assessment.waitingForAnchor).map(p=>p.id);
+ return {members,qualified};
+}
+function measurementProposals(s,ps=activePlayers(s),qs=questions(s)){
+ const votes=s.votes||{};
+ return core.measurementProposals(ps,qs,votes,s.players,s.eventScale,core.namedReviewers(s,votes));
+}
 function checkRevision(s,expected){if(!Number.isSafeInteger(expected)||expected!==s.event.revision)throw Error('팀전 신청자가 변경됐습니다. 새로고침 후 다시 진행해 주세요.');}
 function respondent(s,role){return role.startsWith('u_')?activeEvaluators(s).find(p=>p.id===role.slice(2)):null;}
 function answerQuestions(s,role){
@@ -34,12 +58,29 @@ function sync(s,data,now){
  const currentEvaluators=s.eventEvaluators||[],allEvaluators=currentEvaluators.slice();let evaluatorIds=s.eventEvaluatorIds;
  if(data.evaluators!==undefined){const incomingEvaluators=evaluators(data.evaluators),map=new Map(currentEvaluators.map(p=>[p.memberKey,p]));evaluatorIds=[];for(const p of incomingEvaluators){const old=map.get(p.memberKey);if(old){const index=allEvaluators.findIndex(e=>e.id===old.id);allEvaluators[index]={...old,name:p.name};evaluatorIds.push(old.id);}else{if(allEvaluators.length>=500)throw Error('평가자 변경 기록이 많습니다. 새 평가를 만들어 주세요.');const next={...p,id:'r'+allEvaluators.length};allEvaluators.push(next);map.set(next.memberKey,next);evaluatorIds.push(next.id);}}}
  const live=stored.filter(p=>active.includes(p.id)),seen=new Set(s.questions.map(q=>q.id)),added=questionsFor(live).filter(q=>!seen.has(q.id));
- return {...s,event:{...requested,revision:s.event.revision+1},players:stored,eventActiveIds:active,eventEvaluators:allEvaluators,eventEvaluatorIds:evaluatorIds,questions:[...s.questions,...added],adaptiveBatches:{},eventSyncedAt:now};
+ const previous=new Set(s.eventActiveIds||[]);
+ let scale=s.eventScale;
+ if(active.some(id=>!previous.has(id))){
+   const existing=s.eventScale;
+   // Retain a viable reference across additions. After enough departures, only
+   // the prior active roster's genuinely eligible group can take over.
+   const viable=existing?.members.filter(id=>previous.has(id)).length>=4&&existing.qualified.some(id=>previous.has(id));
+   scale=viable?existing:establishedScale(s,activePlayers(s),questions(s));
+ }
+ return {...s,...(scale?{eventScale:scale}:{}),eventInitialCount:initialCount(s),event:{...requested,revision:s.event.revision+1},players:stored,eventActiveIds:active,eventEvaluators:allEvaluators,eventEvaluatorIds:evaluatorIds,questions:[...s.questions,...added],adaptiveBatches:{},eventSyncedAt:now};
 }
 function project(s,role,baselines){
  if(baselines!==undefined)throw Error('팀전 평가의 시작 점수는 변경할 수 없습니다.');
- const ps=activePlayers(s),qs=questions(s),ids=new Set(qs.map(q=>q.id)),owner=role==='owner',filter=a=>Object.fromEntries(Object.entries(a||{}).filter(([id])=>ids.has(id))),votes=s.votes||{},evidence=Object.fromEntries(qs.map(q=>{const n={a:0,b:0,tie:0};for(const a of Object.values(votes))if(Object.hasOwn(n,a[q.id]))n[a[q.id]]++;const count=n.a+n.b+n.tie;return [q.id,{count,needsReview:count>0&&Math.max(...Object.values(n))<=count/2}];}));
- const count=Object.values(votes).reduce((n,a)=>n+Object.values(filter(a)).filter(v=>v!=='skip').length,0),totalCount=Object.values(votes).reduce((n,a)=>n+Object.values(a).filter(v=>v!=='skip').length,0);
- return {id:s.id,clubId:s.clubId||null,clubName:s.clubName,event:s.event,players:owner?ps:ps.map(({id,name,grade,gender,ageGroup})=>({id,name,grade,gender,ageGroup})),evaluators:activeEvaluators(s).map(({id,name,memberKey})=>({id,name,...(owner?{memberKey}:{})})),questions:qs,storedQuestionIds:qs.map(q=>q.id),assessmentVersion:2,boundaryIds:[],expiresAt:s.expiresAt,closed:!!s.closed,evidence,reviewedAt:s.reviewedAt||0,legacyCount:0,adaptiveSupported:true,needsIdentity:role==='shared',respondentName:respondent(s,role)?.name||null,answers:owner||role==='shared'?{}:filter(votes[role]),proposals:owner?core.measurementProposals(ps,qs,votes,s.players).map(p=>({...p,basis:ps.find(v=>v.id===p.id),eventRevision:s.event.revision})):[],count,totalCount,archivedCount:totalCount-count,archivedPlayerCount:s.players.length-ps.length,resultRevision:resultRevision(s)};
+ const ps=activePlayers(s),activeQuestions=questions(s),owner=role==='owner',qs=role.startsWith('u_')?answerQuestions(s,role):activeQuestions;
+ const activeIds=new Set(activeQuestions.map(q=>q.id)),visibleIds=new Set(qs.map(q=>q.id)),votes=s.votes||{};
+ const evidence=Object.fromEntries(qs.map(q=>{
+   const n={a:0,b:0,tie:0};for(const a of Object.values(votes))if(Object.hasOwn(n,a[q.id]))n[a[q.id]]++;
+   const count=n.a+n.b+n.tie;return [q.id,owner?{count,needsReview:count>0&&Math.max(...Object.values(n))<=count/2}:{count}];
+ }));
+ const own=Object.fromEntries(Object.entries(votes[role]||{}).filter(([id])=>visibleIds.has(id)));
+ let count=0,totalCount=0;for(const a of Object.values(votes))for(const [id,value] of Object.entries(a))if(value!=='skip'){
+   totalCount++;if(activeIds.has(id))count++;
+ }
+ return {id:s.id,clubId:s.clubId||null,clubName:s.clubName,event:s.event,players:owner?ps:ps.map(({id,name,grade,gender,ageGroup})=>({id,name,grade,gender,ageGroup})),evaluators:activeEvaluators(s).map(({id,name,memberKey})=>({id,name,...(owner?{memberKey}:{})})),questions:qs,storedQuestionIds:qs.map(q=>q.id),assessmentVersion:2,boundaryIds:[],expiresAt:s.expiresAt,closed:!!s.closed,evidence,reviewedAt:s.reviewedAt||0,legacyCount:0,adaptiveSupported:true,needsIdentity:role==='shared',respondentName:respondent(s,role)?.name||null,answers:owner||role==='shared'?{}:own,proposals:owner?measurementProposals(s,ps,qs).map(p=>({...p,basis:ps.find(v=>v.id===p.id),eventRevision:s.event.revision})):[],count,totalCount,archivedCount:totalCount-count,archivedPlayerCount:s.players.length-ps.length,resultRevision:resultRevision(s)};
 }
-module.exports={creation,verifyCreation,activePlayers,activeEvaluators,activeSession,questions,answerQuestions,checkRevision,respondent,resultRevision,sync,project};
+module.exports={creation,verifyCreation,activePlayers,activeEvaluators,activeSession,questions,latePlayerIds,measurementProposals,answerQuestions,checkRevision,respondent,resultRevision,sync,project};

@@ -27,7 +27,7 @@ async function run(handle){
   await call({action:'join',key:sharedKey,playerId:'p0',respondentKey:a});
   await assert.rejects(call({action:'join',key:sharedKey,playerId:'p0',respondentKey:other}));
   await assert.rejects(call({action:'join',key:sharedKey,playerId:'p2',respondentKey:a}));
-  const q=lobby.questions[0].id;
+  const q=lobby.questions.find(q=>[q.a,q.b].every(id=>!['p0','p1'].includes(id))).id;
   await Promise.all([call({action:'answer',key:a,answers:{[q]:'a'}}),call({action:'answer',key:b,answers:{[q]:'b'}})]);
   assert.equal((await call({action:'read',key:a})).answers[q],'a');
   assert.equal((await call({action:'read',key:b})).answers[q],'b');

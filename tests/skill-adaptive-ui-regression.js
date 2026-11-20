@@ -25,4 +25,30 @@ async function check(code=source){
   await f.$('more').onclick();await idle(f.ctx);assert.equal(f.ctx.at,0);assert.equal(f.ctx.visitCount,0);assert(f.ctx.batch.every(q=>!Object.hasOwn(e.state().votes.e0,q.id)));
   assert.deepEqual(e.state().players,players,'automatic checkpoints cannot change roster scores');
 }
-(async()=>{await check();await assert.rejects(check(source.replace('if(adaptiveMode){autoCheckpointPending=true;submit(true);return;}','if(false){autoCheckpointPending=true;submit(true);return;}')),'manual-only checkpoint mutation must fail');console.log('adaptive UI: automatic 10+10, partial commit/reply loss/retry, reload, exactly twenty then optional next, no repeated votes or score writes, mutation passed');})().catch(e=>{console.error(e);process.exitCode=1;});
+async function twoShortBatches(){
+  const e=environment(),state=e.state(),requestId='f'.repeat(32);
+  const prior={requestId,questions:state.questions.slice(0,4),issuedAt:Date.now(),expiresAt:Date.now()+600000};
+  state.adaptiveBatches={e0:{current:prior,history:{[requestId]:prior}}};
+  const f=e.mount();f.ctx.startBatch();await idle(f.ctx);assert.equal(f.ctx.batch.length,4);
+  for(let i=0;i<4;i++)await f.vote('tie');
+  await idle(f.ctx);assert.equal(f.ctx.batch.length,10);
+  for(let i=0;i<10;i++)await f.vote('tie');
+  await idle(f.ctx);await f.$('retry').onclick();await idle(f.ctx);
+  assert.equal(f.ctx.panel,'done','a short first lease must not trigger a third automatic batch');
+  assert.equal(f.ctx.visitCount,14);assert(!f.$('more').hidden);
+}
+async function emptyThenRevisit(){
+  const e=environment(),state=e.state(),first=state.questions[0].id;
+  state.votes.e0=Object.fromEntries(state.questions.map(q=>[q.id,'tie']));
+  let f=e.mount();f.ctx.startBatch();await idle(f.ctx);
+  assert.equal(f.ctx.panel,'done');
+  const draft='kokmatch_skill_draft_'+id+'_'+key;
+  assert(!e.values[draft+'_adaptiveRequest'],'a completed empty lease must not pin future visits');
+  e.values[draft]={[first]:'a'};f=e.mount();f.ctx.startBatch();await idle(f.ctx);
+  assert.equal(f.ctx.panel,'quiz');assert(!f.$('finishReview').hidden,'an earlier valid local edit remains reviewable');
+  await f.$('saveAnswers').onclick();assert.equal(state.votes.e0[first],'tie');
+  assert.equal(e.state().votes.e0[first],'a','a pending allowed edit can be saved');
+  delete e.state().votes.e0[first];
+  f=e.mount();f.ctx.startBatch();await idle(f.ctx);assert.equal(f.ctx.panel,'quiz');assert.equal(f.ctx.batch[0].id,first);
+}
+(async()=>{await check();await twoShortBatches();await emptyThenRevisit();await assert.rejects(check(source.replace('if(adaptiveMode){autoCheckpointPending=true;submit(true);return;}','if(false){autoCheckpointPending=true;submit(true);return;}')),'manual-only checkpoint mutation must fail');console.log('adaptive UI: automatic 10+10, partial commit/reply loss/retry, reload, exactly twenty then optional next, no repeated votes or score writes, mutation passed');})().catch(e=>{console.error(e);process.exitCode=1;});
