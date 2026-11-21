@@ -15,6 +15,8 @@
  * 팀을 넘을 때만 경고를 돌려줍니다. 판단은 사람이, 안전은 시스템이 맡습니다.
  */
 
+const fieldSubstitution = require('./team-field-substitution');
+
 const SUPPORTED_TYPES = new Set([
   'team-official-substitute',
   'team-official-result',
@@ -231,16 +233,13 @@ function balanceGapAfter(session, match, outName, inLevel){
   return Math.abs(balanceAfter(session, match, outName, inLevel));
 }
 
-/**
- * AI 보조 — 대체 후보를 골라 줍니다(운영자: "ai는 운영의 중심에서 안정적 지원
- * 및 보조 역할"). 결정은 임원이 합니다. 순서:
- *   1) 같은 팀 먼저 (팀 승부의 공정성)
- *   2) **교체로 그 팀이 더 세지지 않을 것** — 운영자 2026-08-14:
- *      "교체는 팀 패널티인데 패널티를 받는 팀이 교체로 더 유리해지는 것은 불합리"
- *   3) 넣고 난 뒤 두 팀 급수 합이 가장 덜 벌어지는 사람 (차이 1도 승부를 기울인다)
- *   4) 덜 뛴 사람
- * 같은 라운드에 이미 잡힌 사람은 후보에서 뺍니다.
- */
+function isAbsent(session, name){
+  const key = attendanceKey(name);
+  if(session.late && typeof session.late === 'object')return !!session.late[key];
+  return !!(session.attendanceSeeded || session.attendanceMode === 'rsvp') && !session.attendance?.[key];
+}
+/* 모든 후보를 유지한다. 현장/서버는 같은 경기 보정·종목 기준으로 추천하며,
+   같은 라운드에 이미 잡힌 선수 또는 현장 대기 대상이 아닌 지각자는 제외한다. */
 function suggestSubstitutes(session, matchNum, outName, options = {}){
   const match = findMatch(session, matchNum);
   if(!match)return [];
@@ -253,41 +252,41 @@ function suggestSubstitutes(session, matchNum, outName, options = {}){
   const outLevel = memberEffLevel(outMember);
   const inMatch = new Set(matchPlayers(match).map(nameKey));
   const played = new Map();
-  matchList(session).forEach(m => matchPlayers(m).forEach(p => {
+  matchList(session).filter(m => !isVoided(m)).forEach(m => matchPlayers(m).forEach(p => {
     const k = nameKey(p);
     played.set(k, (played.get(k) || 0) + 1);
   }));
-  return memberList(session)
+  const roster = memberList(session);
+  const byName = new Map(roster.map(m => [nameKey(memberName(m)), m]));
+  const lookup = name => byName.get(nameKey(name));
+  return roster
     .filter(m => memberName(m))
     .filter(m => !inMatch.has(nameKey(memberName(m))))
+    .filter(m => !isAbsent(session, memberName(m)))
     .filter(m => !conflictingMatch(session, memberName(m), match.round, match.num))
     .map(m => {
       const name = memberName(m);
       const team = teamOf(session, name);
+      const level = memberEffLevel(m);
+      const balance = balanceAfter(session, match, outName, level);
       return {
         name,
         team,
         crossTeam: !!outTeam && !!team && team !== outTeam,
-        level: memberEffLevel(m),
+        ...fieldSubstitution.assess(match, outName, m, lookup, memberEffLevel),
+        level,
         grade: text(m?.grade || m?.gr),
         age: text(m?.ageGroup || m?.a),
-        levelGap: round1(Math.abs(memberEffLevel(m) - outLevel)),
+        levelGap: round1(Math.abs(level - outLevel)),
         // 넣고 난 뒤의 기울기. 0 이 가장 공정하고, 양수면 교체한 팀이 셉니다.
-        balance: round1(balanceAfter(session, match, outName, memberEffLevel(m))),
-        balanceGap: round1(balanceGapAfter(session, match, outName, memberEffLevel(m))),
+        balance,
+        balanceGap: Math.abs(balance),
         // 빠지는 사람보다 세면 그 팀이 교체로 이득을 봅니다(양수 = 강해짐).
-        swing: round1(memberEffLevel(m) - outLevel),
+        swing: round1(level - outLevel),
         games: played.get(nameKey(name)) || 0
       };
     })
-    .sort((a, b) =>
-      Number(a.crossTeam) - Number(b.crossTeam) ||
-      // 0 에 가까운 순. 같은 크기면 **덜 유리한 쪽**(음수)을 먼저 — 사람이 빠진 팀이
-      // 교체로 이득을 보면 상대가 불합리합니다(운영자 2026-08-14).
-      Math.abs(a.balance) - Math.abs(b.balance) ||
-      Number(a.balance > 0) - Number(b.balance > 0) ||
-      a.games - b.games ||
-      a.name.localeCompare(b.name, 'ko'))
+    .sort(fieldSubstitution.compare)
     .slice(0, limit);
 }
 
@@ -338,7 +337,7 @@ function applySubstitute(session, request, now, operation){
   // 막지는 않습니다. 임원 자유가 먼저고, 시스템은 재서 알려 줄 뿐입니다.
   const balance = round1(balanceAfter(session, match, outName, memberEffLevel(inMember)));
   const balanceGap = Math.abs(balance);
-  const swing = memberLevel(inMember) - memberLevel(memberByName(session, outName));
+  const swing = round1(memberEffLevel(inMember) - memberEffLevel(memberByName(session, outName)));
   const gradeKey = side === 't1' ? 't1g' : 't2g';
   match[side] = [...(match[side] || [])];
   match[side][index] = inDisplayName;
@@ -346,11 +345,14 @@ function applySubstitute(session, request, now, operation){
     match[gradeKey] = [...match[gradeKey]];
     match[gradeKey][index] = memberGrade(session, inDisplayName);
   }
+  // 팀원 자체가 달라진 경기에는 옛 성별 종목을 그대로 표시할 수 없다.
+  const previousType = text(match.type);
+  match.type = fieldSubstitution.matchType(match, name => memberByName(session, name)) || '종목 미확인';
   // 누가 언제 무엇을 바꿨는지 남깁니다 — 현장에서 되짚을 수 있어야 합니다.
   session.substitutions = Array.isArray(session.substitutions) ? session.substitutions : [];
   pushLog(session, {at:number(now, Date.now()), by:text(request.actorPlayerName || ''),
     type:'substitute', label:`${number(match.num,0)}번 ${outName}→${inDisplayName}`,
-    undo:{type:'team-official-substitute', matchNum:number(match.num, 0),
+    undo:{type:'team-official-substitute', matchNum:number(match.num, 0), previousType,
       outName:inDisplayName, inName:outName, allowCrossTeam:true, allowStarted:true}});
   session.substitutions.push({
     at: number(now, Date.now()),
@@ -793,6 +795,14 @@ function applyUndo(session, request, now, operation){
   const inverse = {...last.undo, actorPlayerName: text(request.actorPlayerName || '')};
   const reason = runCommand(session, inverse, now, {}, {silent:true});
   if(reason)return `되돌리지 못했습니다: ${reason}`;
+  // 예전 명부에 성별이 없어 계산할 수 없으면 서버가 저장한 직전 종목으로 복원한다.
+  if(inverse.type === 'team-official-substitute' && Object.hasOwn(last.undo, 'previousType')){
+    const match = findMatch(session, inverse.matchNum);
+    if(match?.type === '종목 미확인'){
+      if(last.undo.previousType)match.type = last.undo.previousType;
+      else delete match.type;
+    }
+  }
   /* `log` 는 되돌리기 실행 중에 push 로 **같은 배열이 늘어났다가** 잘려 나갑니다.
      그래서 옛 참조를 슬라이스하면 아무것도 안 지워집니다(2026-08-14에 잡음).
      지금 배열에서 그 자리만 떼어냅니다. */
