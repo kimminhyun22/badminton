@@ -29,12 +29,30 @@ function participation(){
   delete draft.partial;ctx.session.ownerAnswers={p1_p2:'tie'};button.onclick();assert.equal(ctx.route,'owner','reuse the same owner slot for legacy answers');
   ctx.session.ownerAnswers={};ctx.session.namedOwnerReview=false;button.onclick();assert.equal(ctx.route,'owner');
 }
+async function linkRecovery(code=source){
+  const nodes={},$=id=>nodes[id]||(nodes[id]={hidden:true,textContent:''});
+  const link={id:'test',key:'shared'};
+  const ctx={$,busy:false,active:null,read:()=>null,ownerLink:()=>null,panels:id=>ctx.panel=id,message:m=>ctx.lastMessage=m,
+    eventHeading(){},renderIdentity:()=>ctx.panel='identity',api:async()=>{throw Object.assign(Error('offline'),{name:'ConnectionError'});}};
+  vm.createContext(ctx);
+  vm.runInContext(code.slice(code.indexOf('  function showLinkError('),code.indexOf('  function resultState(')),ctx);
+  await ctx.open(link);
+  assert.equal(ctx.panel,'linkUnavailable');assert(!$('retryOpen').hidden);
+  ctx.api=async()=>({needsIdentity:true});$('retryOpen').onclick();await new Promise(r=>setImmediate(r));
+  assert.equal(ctx.panel,'identity');
+  ctx.api=async()=>{throw Error('만료된 링크입니다.');};await ctx.open(link);
+  assert.equal(ctx.panel,'linkUnavailable');assert($('retryOpen').hidden);assert($('linkHelp').textContent.includes('새 링크'));
+  $('owner').hidden=false;ctx.ownerLink=()=>link;ctx.panel='owner';ctx.api=async()=>{throw Object.assign(Error('offline'),{name:'ConnectionError'});};await ctx.open(link);
+  assert.equal(ctx.panel,'owner');assert(ctx.lastMessage.includes('이전 결과'));
+}
 (async()=>{
+  await linkRecovery();await assert.rejects(linkRecovery(source.replace("else showLinkError('연결을 확인하고 다시 열어 주세요.',true);","else panels('setup');")));
   for(const quick of [true,false])for(const reuse of [true,false])await creation(source,quick,reuse);
   await assert.rejects(creation(source.replace('      renderOwner();','      await openShared(entry);'),true,false));
   await preparation();participation();
   const owner=html.slice(html.indexOf('<section id="owner"'),html.indexOf('<section id="identity"'));
   assert(owner.indexOf('id="share"')<owner.indexOf('id="answerSelf"'));
+  assert(owner.indexOf('id="refresh"')>0&&owner.indexOf('id="refresh"')<owner.indexOf('<details>'));
   assert(owner.indexOf('id="share"')<owner.indexOf('<details>'));
   assert(owner.includes('id="share" class="primary"'));
   assert(!owner.includes('id="answerSelf" class="primary"'));

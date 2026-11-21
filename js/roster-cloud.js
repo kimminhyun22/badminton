@@ -16,7 +16,7 @@
     return same(local,binding.base)?'clean':'save';
   }
   if(typeof module==='object'&&module.exports){module.exports={plan,same};return;}
-  let auth,authApi,call,user,busy=false,ready=false,dialog,remote=[],message='서버 연결 준비 중',lastAttempt=0;
+  let auth,authApi,call,user,busy=false,ready=false,dialog,message='서버 연결 준비 중',lastAttempt=0;
   const read=()=>JSON.parse(localStorage.getItem(KEY)||'{"clubs":[]}');
   const state=()=>JSON.parse(localStorage.getItem(PREFIX+user.uid)||'{}');
   const persist=s=>localStorage.setItem(PREFIX+user.uid,JSON.stringify(s));
@@ -80,13 +80,30 @@
   async function render(){
     if(!dialog?.open)return;
     dialog.replaceChildren();
-    const head=document.createElement('h2');head.textContent='명부 서버 저장';dialog.append(head);
+    const header=document.createElement('div');header.className='roster-cloud-heading';dialog.append(header);
+    const head=document.createElement('h2');head.id='rosterCloudTitle';head.textContent='명부 서버 저장';header.append(head);
+    dialog.setAttribute('aria-labelledby',head.id);
+    button('닫기',()=>dialog.close(),header);
     const info=document.createElement('p');info.textContent=user?user.email:'Google 계정으로 명부를 보관합니다. 재설치 후 같은 계정으로 불러올 수 있습니다.';dialog.append(info);
-    const msg=document.createElement('p');msg.dataset.rosterCloudStatus='';msg.setAttribute('role','status');msg.textContent=message;dialog.append(msg);
-    if(!user){button('Google로 연결',()=>authApi.signInWithPopup(auth,new authApi.GoogleAuthProvider()),dialog);button('닫기',()=>dialog.close(),dialog);return;}
-    remote=(await call({action:'list'})).clubs;
+    const msg=document.createElement('p');msg.setAttribute('role','status');dialog.append(msg);
+    if(!user){button('Google로 연결',()=>authApi.signInWithPopup(auth,new authApi.GoogleAuthProvider()),dialog);return;}
+    msg.textContent='저장된 명부를 불러오는 중…';
+    let remote;
+    try{
+      remote=(await call({action:'list'})).clubs;
+    }catch{
+      if(!dialog.open||!header.isConnected)return;
+      msg.textContent='서버 명부를 불러오지 못했습니다. 연결을 확인해 주세요.';
+      button('다시 불러오기',render,dialog);
+      button('로그아웃',()=>authApi.signOut(auth),dialog);
+      return;
+    }
+    // A closed or reopened dialog, including after an account switch, owns its own result.
+    if(!dialog.open||!header.isConnected)return;
+    msg.dataset.rosterCloudStatus='';msg.textContent=message;
     const local=read(),s=state();
-    if(local.clubs.some(c=>!s[c.id]&&c.members.length))button('이 기기 명부 모두 서버에 저장',async()=>{
+    const unlinked=local.clubs.filter(c=>!s[c.id]&&c.members.length);
+    if(unlinked.length>1)button('이 기기 명부 모두 서버에 저장',async()=>{
       await locked(async()=>{
         const latest=state();let conflicts=0;
         for(const club of read().clubs){
@@ -101,6 +118,9 @@
     for(const club of local.clubs){
       const row=document.createElement('section');const title=document.createElement('h3');title.textContent=club.name+' · '+club.members.length+'명';row.append(title);dialog.append(row);
       const b=s[club.id];
+      if(!b&&!club.members.length){
+        const note=document.createElement('p');note.textContent='회원을 추가하면 서버에 저장할 수 있습니다.';row.append(note);continue;
+      }
       if(!b){button('서버에 저장',async()=>{
         const doc=await call({action:'create',club});
         if(!same(doc.club,club)){alert('이 클럽의 서버 명부가 이미 있습니다. 아래 서버 명부에서 불러와 주세요.');await render();return;}
@@ -112,15 +132,18 @@
         if(!confirm('서버 명부를 현재 기기 명부로 바꿀까요? 이전 서버 명부는 이력에 보관됩니다.'))return;
         await locked(async()=>{const latest=await call({action:'read',id:b.id});const result=await call({action:'save',id:b.id,revision:latest.revision,club:read().clubs.find(c=>c.id===club.id),operationId:id()});importDoc(result);});await render();
       },row);}
-      button('저장 이력',async()=>{
+      let historyBox;
+      const historyButton=button('저장 이력',async()=>{
+        if(historyBox){historyBox.remove();historyBox=null;historyButton.setAttribute('aria-expanded','false');return;}
         const result=await call({action:'history',id:b.id});
-        const box=document.createElement('div');row.append(box);
+        const box=document.createElement('div');row.append(box);historyBox=box;
+        historyButton.setAttribute('aria-expanded','true');
         if(!result.versions.length)box.textContent='이전 저장 이력이 없습니다.';
         for(const v of result.versions.slice().reverse())button(new Date(v.updatedAt).toLocaleString('ko-KR')+' · '+v.count+'명 복원',async()=>{
           if(!confirm('이 시점의 명부로 복원할까요? 현재 명부도 이력에 남습니다.'))return;
           await locked(async()=>{const before=read(),current=await call({action:'read',id:b.id});const restored=await call({action:'restore',id:b.id,revision:current.revision,target:v.revision,operationId:id()});importDoc(restored,before);});await render();
         },box);
-      },row);
+      },row);historyButton.setAttribute('aria-expanded','false');
     }
     for(const doc of remote){
       if(Object.values(s).some(b=>b.id===doc.id)&&local.clubs.some(c=>s[c.id]?.id===doc.id))continue;
@@ -128,9 +151,10 @@
       const label=document.createElement('p');label.textContent='서버 · '+doc.club.name+' · '+doc.club.members.length+'명';row.append(label);
       button('불러오기',()=>pull(doc.id),row);
     }
-    button('다시 저장',async()=>{lastAttempt=0;await sync();await render();},dialog);
+    if(local.clubs.some(c=>s[c.id]&&['save','retry'].includes(plan(c,s[c.id])))){
+      button('다시 저장',async()=>{lastAttempt=0;await sync();await render();},dialog);
+    }
     button('로그아웃',async()=>{await authApi.signOut(auth);await render();},dialog);
-    button('닫기',()=>dialog.close(),dialog);
   }
   async function pull(cloudId){
     if(!confirm('서버 명부를 이 기기로 불러올까요? 같은 클럽의 기기 명부는 백업 후 교체합니다.'))return;
@@ -142,7 +166,7 @@
     if(!dialog.open)dialog.showModal();
     try{await render();}catch(e){status(errorText(e));}
   };
-  const style=document.createElement('style');style.textContent='.roster-cloud-dialog{box-sizing:border-box;width:min(94vw,560px);max-height:85dvh;margin:auto;padding:20px;border:1px solid #ccdcd5;border-radius:8px;color:#20352c;background:#fff;overflow:auto}.roster-cloud-dialog::backdrop{background:#14231b66}.roster-cloud-dialog h2{font-size:20px}.roster-cloud-dialog h3{font-size:17px}.roster-cloud-dialog p{font-size:14px;overflow-wrap:anywhere}.roster-cloud-dialog section{padding:12px 0;border-top:1px solid #e1e9e5}.roster-cloud-dialog button{min-height:44px;margin:4px;padding:10px 12px;border:1px solid #bfd6ca;border-radius:6px;background:#f1f8f4;color:#23543c;font-size:14px}.roster-cloud-dialog button:disabled{opacity:.5}';document.head.append(style);
+  const style=document.createElement('style');style.textContent='.roster-cloud-dialog{box-sizing:border-box;width:min(94vw,560px);max-height:85dvh;margin:auto;padding:20px;border:1px solid #ccdcd5;border-radius:8px;color:#20352c;background:#fff;overflow:auto}.roster-cloud-dialog::backdrop{background:#14231b66}.roster-cloud-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.roster-cloud-dialog h2{margin:0;font-size:20px}.roster-cloud-dialog h3{font-size:17px}.roster-cloud-dialog p{font-size:14px;overflow-wrap:anywhere}.roster-cloud-dialog section{padding:12px 0;border-top:1px solid #e1e9e5}.roster-cloud-dialog button{min-height:44px;margin:4px;padding:10px 12px;border:1px solid #bfd6ca;border-radius:6px;background:#f1f8f4;color:#23543c;font-size:14px}.roster-cloud-dialog button:disabled{opacity:.5}';document.head.append(style);
   (async()=>{
     try{
       const root='https://www.gstatic.com/firebasejs/10.12.0/';

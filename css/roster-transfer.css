@@ -15,3 +15,4 @@
 .roster-transfer-list small{display:block;font-size:12px;color:#64736d;margin-top:4px}
 .roster-transfer-entry{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .roster-transfer-entry .btn{min-height:44px;flex:1;justify-content:center;white-space:normal}
+[data-roster-export][hidden]{display:none}

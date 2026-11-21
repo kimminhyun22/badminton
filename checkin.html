@@ -3020,15 +3020,15 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   .official-completed-row .oc-dur{margin-left:auto;}
 }
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.809">
-<link rel="stylesheet" href="css/minton-ui.css?v=1.10.809">
-<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.809">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.809">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.810">
+<link rel="stylesheet" href="css/minton-ui.css?v=1.10.810">
+<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.810">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.810">
 </head>
 <body class="km-member-page km-checkin-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
   <div class="km-member-appbar-inner">
-    <span class="km-member-brand"><img class="km-brand-icon" src="icon-192.png?v=1.10.809" alt="" width="30" height="30"><span>민턴<span class="brand-live">LIVE</span></span></span>
+    <span class="km-member-brand"><img class="km-brand-icon" src="icon-192.png?v=1.10.810" alt="" width="30" height="30"><span>민턴<span class="brand-live">LIVE</span></span></span>
     <span class="km-member-state" id="memberPageState">확인 중</span>
   </div>
 </header>
@@ -3037,8 +3037,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <div class="eyebrow">오늘 운동</div>
     <h1 id="pageTitle">내 경기 확인</h1>
     <p class="sub" id="sessionSub">명단을 불러오는 중입니다.</p>
-    <div class="notice" id="quickNotice">내 이름을 선택하면 <strong>내 경기와 다음 순서</strong>를 표시합니다.</div>
-    <span class="version-chip" id="appVersion">v1.10.809</span>
+    <span class="version-chip" id="appVersion">v1.10.810</span>
     <div class="vote-summary hidden" id="voteSummary"></div>
     <div class="last-sent hidden" id="lastSent"></div>
   </section>
@@ -3047,7 +3046,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   <div id="afterPartyPanel" class="after-party-panel hidden"></div>
   <section class="panel" id="lookupPanel">
     <div class="toolbar">
-      <input id="search" class="search" placeholder="이름·초성 검색 예) 김민현, ㄱㅁㅎ" autocomplete="off">
+      <input id="search" class="search" aria-label="이름 또는 초성 검색" placeholder="이름 또는 초성 검색" autocomplete="off">
       <span class="pill" id="countPill">0명</span>
     </div>
     <details class="member-fold" id="playerListFold">
@@ -3090,7 +3089,8 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/court-recommendation.js?v=1.10.809"></script>
+<script src="js/member-link-state.js?v=1.10.810"></script>
+<script src="js/court-recommendation.js?v=1.10.810"></script>
 <script>
 const FB_CONFIG={
   apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
@@ -3102,7 +3102,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,checkinId='',session=null,query='',sendingKey='',statusRequests=[],reservationRequests=[],officialRequests=[],partyResponses={},operatorState=null,eventTimer=null,completePickerQueueId='',identityLookupOpen=false,officialOverviewFilter='',officialGrantToken='',officialGrantPlayerId='',pendingOfficialInvite='',claimingOfficial=false,officialClaimPromise=null,officialClaimPlayerId='',officialGrantError='';
-const APP_VERSION='1.10.809';
+const APP_VERSION='1.10.810';
 const LAST_COMPLETE_KEY='kokmatch_last_court_complete';
 const COMPLETE_UNDO_MS=45000;
 const OFFICIAL_OPERATION_TTL_MS=30*60*1000;
@@ -3263,14 +3263,12 @@ function voteDeadlineText(){
 function sessionExpired(){
   return !!(session?.expiresAt&&Date.now()>Number(session.expiresAt));
 }
-function showEndedLink(){
+function showEndedLink(state='expired'){
   session=null;
+  closeCourtCompletePicker();
+  closeOfficialReplacePicker();
   render();
-  const fold=document.getElementById('playerListFold');
-  if(fold)fold.open=true;
-  document.getElementById('sessionSub').textContent='종료된 민턴LIVE 링크입니다.';
-  document.getElementById('players').className='empty';
-  document.getElementById('players').textContent='이 링크는 운영 연결 기간이 지나 종료되었습니다. 새 링크를 확인해 주세요.';
+  KokMemberLink.show(state,'운동');
 }
 function sampleSession(){
   const now=Date.now();
@@ -4654,7 +4652,6 @@ function render(){
   renderMemberPageState();
   const hero=document.querySelector('.hero');
   const pageTitle=document.getElementById('pageTitle');
-  const quickNotice=document.getElementById('quickNotice');
   const sub=document.getElementById('sessionSub');
   const box=document.getElementById('players');
   const count=document.getElementById('countPill');
@@ -4671,7 +4668,7 @@ function render(){
     identityLookupOpen=false;
     if(lookupPanel)lookupPanel.classList.remove('hidden');
     if(rosterSummary)rosterSummary.textContent='내 이름 찾기';
-    if(searchInput)searchInput.placeholder='이름·초성 검색 예) 김민현, ㄱㅁㅎ';
+    if(searchInput)searchInput.placeholder='이름 또는 초성 검색';
     if(myCard){
       myCard.classList.add('hidden');
       myCard.innerHTML='';
@@ -4685,7 +4682,6 @@ function render(){
       afterPartyPanel.innerHTML='';
     }
     if(pageTitle)pageTitle.textContent='내 이름 찾기';
-    if(quickNotice)quickNotice.hidden=false;
     sub.textContent='민턴LIVE 경기 정보를 확인하고 있습니다.';
     box.className='empty';box.textContent='명단을 불러오는 중입니다.';count.textContent='0명';
     renderLastSent();
@@ -4708,10 +4704,9 @@ function render(){
   if(hero)hero.classList.toggle('hidden',hasSelected);
   const showLookup=!hasSelected||identityLookupOpen||!!query;
   if(lookupPanel)lookupPanel.classList.toggle('hidden',!showLookup);
-  if(pageTitle)pageTitle.textContent=selectedPlayer?(session.title||'민턴LIVE'):'내 이름 찾기';
-  if(quickNotice)quickNotice.hidden=hasSelected;
-  if(rosterSummary)rosterSummary.textContent=hasSelected?'내 이름 다시 찾기':'내 이름 찾기';
-  if(searchInput)searchInput.placeholder=hasSelected?'다른 이름 검색':'이름·초성 검색 예) 김민현, ㄱㅁㅎ';
+  if(pageTitle)pageTitle.textContent=session.title||'오늘 운동';
+  if(rosterSummary)rosterSummary.textContent=hasSelected?'내 이름 다시 찾기':'선수 명단';
+  if(searchInput)searchInput.placeholder=hasSelected?'다른 이름 검색':'이름 또는 초성 검색';
   const matchedPlayers=lookupPlayers.filter(p=>playerMatchesQuery(p,query));
   const players=matchedPlayers
     .filter(p=>query||!hasSelected||p.id!==selectedId)
@@ -4720,10 +4715,10 @@ function render(){
   const summary=voteSummary();
   sub.textContent=selectedPlayer
     ? `${session.title||'민턴LIVE'} · 참가 ${summary?.started||0}명`
-    : `이름을 검색하고 카드를 눌러주세요`;
+    : `내 이름을 선택하면 내 경기와 다음 순서를 볼 수 있습니다.`;
   count.textContent=`${query?matchedPlayers.length:lookupPlayers.length}명`;
   if(!players.length){
-    box.className='empty';box.textContent=hasSelected&&!query?'다른 선수 명단은 접어두었습니다. 필요하면 명단을 열어 확인하세요.':'검색된 선수가 없습니다.';
+    box.className='empty';box.textContent=hasSelected&&!query?'다른 선수가 없습니다.':query?'검색 결과가 없습니다. 이름 또는 초성을 바꿔 보세요.':'아직 선택할 선수가 없습니다. 운영자가 명단을 공유하면 여기에 표시됩니다.';
     return;
   }
   box.className='';
@@ -7487,8 +7482,8 @@ function boot(){
   const sampleMode=new URLSearchParams(location.search).has('sample');
   const officialLink=officialInviteFromSearch(location.search);
   checkinId=officialLink.checkinId||qs('id')||(sampleMode?'SAMPLE':'');
-  if(!checkinId){
-    document.getElementById('players').textContent='민턴LIVE 링크가 올바르지 않습니다.';
+  if(!KokMemberLink.validId(checkinId)){
+    KokMemberLink.show('invalid','운동');
     return;
   }
   const inviteFromLink=officialLink.token;
@@ -7499,6 +7494,13 @@ function boot(){
     try{pendingOfficialInvite=sessionStorage.getItem('kokmatch_pending_official_invite_'+checkinId)||'';}catch(e){}
   }
   officialGrantToken=loadOfficialGrant();
+  document.getElementById('search').addEventListener('input',e=>{
+    query=e.target.value.trim();
+    if(query)identityLookupOpen=true;
+    const fold=document.getElementById('playerListFold');
+    if(fold&&query)fold.open=true;
+    render();
+  });
   if(sampleMode){
     session=sampleSession();
     if(qs('paused')==='1'){
@@ -7526,29 +7528,20 @@ function boot(){
     eventTimer=setInterval(refreshLiveTimers,1000);
     return;
   }
+  KokMemberLink.waitForData('운동');
   try{
     firebase.initializeApp(FB_CONFIG);
     db=firebase.database();
     resumeRealtimeConnection();
   }catch(e){
-    document.getElementById('players').textContent='서버 연결에 실패했습니다.';
+    KokMemberLink.show('connection','운동');
     return;
   }
   db.ref(checkinPath()+'/session').on('value',snap=>{
     session=snap.val();
-    if(!session){
-      renderEvent();
-      const fold=document.getElementById('playerListFold');
-      if(fold)fold.open=true;
-      document.getElementById('sessionSub').textContent='종료된 민턴LIVE 링크입니다.';
-      document.getElementById('players').className='empty';
-      document.getElementById('players').textContent='관리자가 링크를 종료했거나 아직 명단을 공유하지 않았습니다.';
-      return;
-    }
-    if(sessionExpired()){
-      showEndedLink();
-      return;
-    }
+    if(!session)return showEndedLink('missing');
+    if(sessionExpired())return showEndedLink();
+    KokMemberLink.ready();
     const selectedId=getLastSent()?.playerId||'';
     const selectedPlayer=(session.players||[]).find(player=>String(player.id||'')===String(selectedId));
     if(officialGrantPlayerId&&String(officialGrantPlayerId)===String(selectedId)&&selectedPlayer&&!isLiveOperatorPlayer(selectedPlayer)){
@@ -7557,7 +7550,7 @@ function boot(){
     const official=selectedOfficialPlayer();
     if(official&&!officialServerReady()&&!officialGrantError)claimOfficialInvite(official);
     render();
-  });
+  },error=>showEndedLink(KokMemberLink.readFailure(error)));
   db.ref(checkinPath()+'/requests').on('value',snap=>{
     const raw=snap.val()||{};
     const rows=Object.keys(raw).map(key=>({key,...raw[key]}));
@@ -7579,13 +7572,6 @@ function boot(){
   db.ref(checkinPath()+'/operator').on('value',snap=>{
     operatorState=snap.val()||null;
     refreshOfficialConnection();
-  });
-  document.getElementById('search').addEventListener('input',e=>{
-    query=e.target.value.trim();
-    if(query)identityLookupOpen=true;
-    const fold=document.getElementById('playerListFold');
-    if(fold&&query)fold.open=true;
-    render();
   });
   if(!eventTimer){
     eventTimer=setInterval(refreshLiveTimers,1000);

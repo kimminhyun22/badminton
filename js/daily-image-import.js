@@ -253,8 +253,9 @@ window.KokMatchDailyImageImport={
     renderFileNames();render();setBusy(false,'');
     byId('dailyImportModal')?.classList.add('hidden');
     byId('dailyCaptureModal')?.classList.remove('hidden');
+    byId('dailyCaptureModal')?.querySelector('.modal-head button')?.focus();
   },
-  close(){byId('dailyCaptureModal')?.classList.add('hidden');byId('dailyImportModal')?.classList.remove('hidden');},
+  close(){byId('dailyCaptureModal')?.classList.add('hidden');byId('dailyImportModal')?.classList.remove('hidden');byId('dailyImportCapture')?.focus();},
   choose(){byId('dailyCaptureInput')?.click();},
   filesChanged(input){state.files=[...(input?.files||[])].slice(0,MAX_IMAGES);state.raw=null;state.ranking=[];state.result=null;state.notice='';renderFileNames();render();setBusy(false,'');},
   async analyze(){

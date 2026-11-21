@@ -27,7 +27,7 @@ assert.throws(()=>check(context(source.replace('    // A recommended set is a st
 const owner=context();owner.evaluatingAsOwner=true;owner.session.proposals=C.measurementProposals(players,questions,{reviewer:owner.session.answers});assert.equal(owner.more(),true,'owners can request the next adaptive set');
 assert(source.includes("$('more').onclick=continueReview"));assert(source.includes("session=await api({action:'read',...active});"));assert(source.includes('busy=false;startBatch();'));
 assert(!source.includes('Math.min(100,known.size)'));assert(!source.includes('내 평가 목표'));
-assert(source.includes('초기 준비 → 명부 반영 → 필요한 비교로 추가 보정'));
+assert(fs.readFileSync('skill-review.html','utf8').includes('초기 준비 → 명부 반영 → 필요한 비교로 추가 보정'));
 const initialVotes={first:Object.fromEntries(questions.map(q=>[q.id,'tie']))};
 const initialProposals=C.measurementProposals(players,questions,initialVotes);
 assert(initialProposals.every(p=>p.reviewed),'initial minimum evidence can prepare scores before a respondent quota');

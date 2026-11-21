@@ -28,7 +28,7 @@ assert(!html.includes('id="dailyName"') && !html.includes('onclick="dailyAddPlay
 assert(html.includes('class="participant-prep-register"')&&html.includes('onclick="dailyImportRoster()"'),
   '맨 위 참가자 준비에서 등록 모달을 열 수 있어야 합니다.');
 assert(!html.includes('id="dailyImportTeamRosterBtn"'),'팀전 명단 수동 가져오기 버튼을 다시 두면 안 됩니다.');
-assert(html.includes('<span>☀️ 참가자 등록</span>')&&!html.includes('<span>☀️ 오늘 참가자 등록</span>'),
+assert(html.includes('<span>참가자 등록</span>')&&!html.includes('<span>☀️ 오늘 참가자 등록</span>'),
   '참가자 등록 제목에 불필요한 「오늘」을 붙이면 안 됩니다.');
 assert(html.split('id="dailyCourts"').length === 2, '코트 수 입력은 한 개만 있어야 합니다.');
 for (const id of ['dailyQuickShareBtn', 'dailyQuickStopBtn', 'dailyQuickResetBtn'])
@@ -162,7 +162,7 @@ const importRoster = src.slice(src.indexOf('function dailyImportRoster('), src.i
 assert(!importRoster.includes('명부에 등록된 회원이 없습니다'), '명부가 비어도 등록 모달이 열려야 합니다(게스트 등록 길).');
 assert(importRoster.includes('_dailySessionClubName'), '모달 기본 클럽은 오늘 세션 클럽이어야 합니다.');
 const importMembers = src.slice(src.indexOf('function renderDailyImportMembers('), src.indexOf('function toggleDailySelectAll('));
-assert(importMembers.includes('명부 만들기') && importMembers.includes("switchNav('roster')"), '명부가 비면 모달 안에서 명부 만들기로 갈 수 있어야 합니다.');
+assert(importMembers.includes('명부 열기') && importMembers.includes("switchMobileTab('roster')"), '명부가 비면 모달 안에서 명부 만들기로 갈 수 있어야 합니다.');
 // 전원 도착 전 명단은 '등록'이 아니라 '도착 확인'을 안내한다
 const guide = src.slice(src.indexOf('function dailyRenderStartGuide('), src.indexOf('function _dailyHeadcountInfo('));
 assert(guide.includes("awaitingArrival?'도착 확인':'참가자'") && guide.includes("dailyOpenPlayerStatus('planned')"),
@@ -181,7 +181,7 @@ assert(css.includes('.daily-dashboard-quick-actions{display:flex;flex-wrap:wrap;
 // 참가자 등록 모달의 게스트 폼은 접이식 — 게스트 없는 날이 많고, 늘 펼치면 등록 버튼이 스크롤 아래로 밀린다
 assert(html.includes('<details class="daily-import-guest" id="dailyImportGuestBox">') && !html.includes('id="dailyImportGuestBox" open'),
   '게스트 폼은 기본 접힘이어야 합니다.');
-assert(/<summary>＋ 게스트 추가/.test(html), '게스트 폼을 여는 요약 줄이 있어야 합니다.');
+assert(/id="dailyImportGuestBox">\s*<summary>게스트 추가<\/summary>/.test(html), '게스트 폼을 여는 요약 줄이 있어야 합니다.');
 assert(src.includes('guestBox.open=_dailyImportClubIdx<0;'), '명부가 비어 게스트가 유일한 길일 때만 자동으로 펼쳐야 합니다.');
 assert(css.includes('.daily-import-guest summary{') && css.includes('min-height:44px'), '게스트 요약 줄은 터치 높이를 확보해야 합니다.');
 

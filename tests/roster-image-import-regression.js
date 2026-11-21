@@ -20,6 +20,10 @@ assert.deepStrictEqual(out.data.clubs[0].members[0],current.clubs[0].members[0])
 assert.equal(out.data.clubs[0].members[1].isClubOfficial,false);
 assert.throws(()=>build(current,'gone','',rows,()=>3,()=>1),/없어졌/);
 assert.throws(()=>build(current,'','E2E기존',rows,()=>3,()=>1),/같은 이름/);
+const invalidRows=rows.map(r=>({...r}));invalidRows[1].gender='';
+assert.throws(()=>build(current,'c','',invalidRows,()=>3,()=>1),e=>e.row===invalidRows[1]&&e.field==='gender',
+  'validation points at the specific input, skipping existing duplicates');
+assert.throws(()=>build(current,'','',rows,()=>3,()=>1),e=>e.field==='clubName');
 const conflict=merge(rows,{members:[{name:'E2E가',grade:'B',gender:'남',sourceText:'E2E가/B/남'}]},2026);
 assert(conflict[0].conflicts.includes('grade'));assert.equal(conflict[0].grade,'');
 assert.throws(()=>build({clubs:[]},'','E2E클럽',conflict,()=>3,()=>1),/확인/);

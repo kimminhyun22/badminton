@@ -1,27 +1,32 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.809">
+<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.810">
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="app-version" content="1.10.809"><meta name="referrer" content="no-referrer">
+  <meta name="app-version" content="1.10.810"><meta name="referrer" content="no-referrer">
   <title>우리 클럽 밸런스게임 · 민턴라이브</title>
   <meta property="og:site_name" content="민턴라이브">
   <meta property="og:title" content="우리 클럽 밸런스게임 · 민턴라이브">
   <meta property="og:description" content="현재 개인 실력은 누가 더 강한가요?">
-  <link rel="stylesheet" href="css/skill-review.css?v=1.10.809">
-  <script defer src="functions/skill-calibration-core.js?v=1.10.809"></script>
-  <script defer src="js/club-skill-batch.js?v=1.10.809"></script>
-  <script defer src="js/skill-readiness.js?v=1.10.809"></script>
-  <script defer src="functions/skill-boundary-plan.js?v=1.10.809"></script>
-  <script defer src="js/team-event-skill.js?v=1.10.809"></script>
-  <script defer src="js/club-skill-review.js?v=1.10.809"></script>
-  <script defer src="js/storage.js?v=1.10.809"></script>
-  <script defer src="js/roster-cloud.js?v=1.10.809"></script>
+  <link rel="stylesheet" href="css/skill-review.css?v=1.10.810">
+  <script defer src="functions/skill-calibration-core.js?v=1.10.810"></script>
+  <script defer src="js/club-skill-batch.js?v=1.10.810"></script>
+  <script defer src="js/skill-readiness.js?v=1.10.810"></script>
+  <script defer src="functions/skill-boundary-plan.js?v=1.10.810"></script>
+  <script defer src="js/team-event-skill.js?v=1.10.810"></script>
+  <script defer src="js/club-skill-review.js?v=1.10.810"></script>
+  <script defer src="js/storage.js?v=1.10.810"></script>
+  <script defer src="js/roster-cloud.js?v=1.10.810"></script>
 </head>
 <body>
   <header><a id="back" href="index.html">돌아가기</a><h1 id="reviewTitle">우리 클럽 밸런스게임</h1></header>
   <main>
     <p id="status" role="status" aria-live="polite"></p>
+    <section id="linkUnavailable" hidden>
+      <h2>평가를 열 수 없습니다</h2>
+      <p id="linkHelp" role="status"></p>
+      <button id="retryOpen" hidden>다시 열기</button>
+    </section>
     <section id="setup" hidden>
       <label id="clubChoice">클럽 명부<select id="club"></select></label>
       <p id="eventSetupInfo" class="muted" hidden></p>
@@ -37,7 +42,7 @@
       <button id="eventSync" hidden>최신 신청자 반영</button>
       <button id="referenceExisting" class="primary" hidden>기존 답안 연결</button>
       <p id="referenceInfo" class="muted" hidden></p>
-      <p id="ownerState" role="status"></p>
+      <div class="owner-state"><p id="ownerState" role="status"></p><button id="refresh">결과 새로고침</button></div>
       <button id="share" class="primary" disabled>단톡방 링크 공유</button>
       <button id="retryShare" hidden>공유 준비 다시 시도</button>
       <button id="answerSelf">나도 참여하기</button>
@@ -55,6 +60,7 @@
       <div id="resultSummary" class="result-summary"></div>
       <p id="resultHelp" class="muted"></p>
       <details id="scoreFormula"><summary>점수 계산과 표시 기준</summary>
+        <p>초기 준비 → 명부 반영 → 필요한 비교로 추가 보정</p>
         <p>기본 내부점수 = 급수점수 + 성별·연령 계수. 급수 S7·A6·B5·C4·D3·E2, 여성 −1.5, 연령 20대 0·30대 −0.2·40대 −0.5·50대 −1.2·60대 이상 −2입니다.</p>
         <p>최초 실력점수가 있으면 그 값을, 없으면 기본점수와 수동 보정을 출발점으로 사용합니다. 선수쌍별 우세·동률 의견 비율에 맞춰 개인 보정을 구하고, 출발점에서 멀어지는 데 상대 수 × 0.25의 벌점을 줍니다. 동률은 반표, 모름은 제외하며, 같은 질문 수정은 최신 선택 하나만 사용합니다.</p>
         <p>기본 표시 = 기본 내부점수 + 5. 추정 표시 = 추정 내부점수 + 5. 음수 표시 방지용 +5를 보정값이나 저장·대진 계산에 다시 더하지 않습니다. 표시점수의 배수·퍼센트는 실제 실력비율이 아닙니다.</p>
@@ -65,7 +71,7 @@
       <div id="proposals"></div>
       </div>
       <details><summary>관리</summary>
-        <div class="toolbar"><button id="refresh">결과 새로고침</button><button id="close">응답 마감</button></div><p id="expiry" class="muted"></p>
+        <button id="close">응답 마감</button><p id="expiry" class="muted"></p>
         <p id="applyScopeHelp" class="muted">보정안은 명부에 저장해야 적용됩니다. 추가 비교 응답으로 실력 점수를 계속 갱신합니다. 이미 생성한 대진은 자동 재배정하지 않습니다.</p>
       </details>
     </section>
@@ -76,8 +82,7 @@
     </section>
     <section id="quiz" hidden>
       <p id="respondentLabel" class="muted"></p>
-      <div id="cumulativeQuiz"></div>
-      <div class="quiz-heading"><p id="progress" class="muted"></p></div>
+      <div class="quiz-heading"><p id="progress"></p><p id="cumulativeQuiz" class="muted"></p></div>
       <progress id="quizProgress" value="0" max="20" aria-label="응답 진행"></progress>
       <h2 id="questionTitle">현재 개인 실력은 누가 더 강한가요?</h2>
       <div id="choices" class="choices">

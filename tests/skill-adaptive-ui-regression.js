@@ -21,6 +21,9 @@ async function check(code=source){
   for(let i=0;i<10;i++)await f.vote('tie');await idle(f.ctx);assert.equal(Object.keys(e.state().votes.e0).length,10);assert(!f.$('retry').hidden,'automatic checkpoint exposes retry after lost reply');
   await f.$('retry').onclick();await idle(f.ctx);assert.equal(f.ctx.visitCount,10);assert.equal(f.ctx.at,0);assert.equal(f.ctx.batch.length,10);assert.equal(Object.keys(e.state().votes.e0).length,10);
   for(let i=0;i<3;i++)await f.vote('tie');f=e.mount();f.ctx.startBatch();await idle(f.ctx);assert.equal(f.ctx.at,3,'partial second checkpoint resumes');
+  assert.equal(f.$('progress').textContent,'14 / 20문항');
+  assert.equal(f.$('quizProgress').value,13);
+  assert.equal(f.$('quizProgress').max,20);
   for(let i=0;i<7;i++)await f.vote('tie');await idle(f.ctx);assert.equal(f.ctx.panel,'done');assert.equal(f.ctx.visitCount,20);assert.equal(Object.keys(e.state().votes.e0).length,20);assert(!f.$('more').hidden);assert(f.$('doneText').textContent.includes('20문항의 응답을 자동 저장'));
   await f.$('more').onclick();await idle(f.ctx);assert.equal(f.ctx.at,0);assert.equal(f.ctx.visitCount,0);assert(f.ctx.batch.every(q=>!Object.hasOwn(e.state().votes.e0,q.id)));
   assert.deepEqual(e.state().players,players,'automatic checkpoints cannot change roster scores');
@@ -30,8 +33,11 @@ async function twoShortBatches(){
   const prior={requestId,questions:state.questions.slice(0,4),issuedAt:Date.now(),expiresAt:Date.now()+600000};
   state.adaptiveBatches={e0:{current:prior,history:{[requestId]:prior}}};
   const f=e.mount();f.ctx.startBatch();await idle(f.ctx);assert.equal(f.ctx.batch.length,4);
+  assert.equal(f.$('progress').textContent,'1 / 최대 14문항');
   for(let i=0;i<4;i++)await f.vote('tie');
   await idle(f.ctx);assert.equal(f.ctx.batch.length,10);
+  assert.equal(f.$('progress').textContent,'5 / 14문항');
+  assert.equal(f.$('quizProgress').value,4);
   for(let i=0;i<10;i++)await f.vote('tie');
   await idle(f.ctx);await f.$('retry').onclick();await idle(f.ctx);
   assert.equal(f.ctx.panel,'done','a short first lease must not trigger a third automatic batch');

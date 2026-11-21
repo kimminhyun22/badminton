@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.809';
+const APP_VERSION = '1.10.810';
 const DAILY_EXPECTED_DETAIL = '예상 · 바뀔 수 있어요';
 
 /* ═══ GLOBALS ═══ */
@@ -239,13 +239,6 @@ function selectOperationPreset(mode){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-/* 설명서 열기 (PC·모바일 공통) */
-function openManual(){
-  switchNav('manual');
-  // 하단 탭바 활성 상태 해제 (모바일)
-  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
-  window.scrollTo({top:0,behavior:'smooth'});
-}
 
 /* ═══ DAILY MODE: 민턴LIVE 실시간 추천 ═══ */
 const DAILY_KEY='kokmatch_daily_v1';
@@ -2839,27 +2832,23 @@ function renderParticipantPreparation(){
   const card=document.getElementById('operationModeCard');
   if(card)card.hidden=!!(_dailyPreparedOperation==='daily'||_dailyOperationStarted);
   const countEl=document.getElementById('participantPrepCount');
-  const meta=document.getElementById('participantPrepRegisterMeta');
+  const action=document.getElementById('participantPrepAction');
   const hint=document.getElementById('participantPrepHint');
   const roster=document.getElementById('participantPrepRoster');
   const rosterList=document.getElementById('participantPrepRosterList');
-  const rosterCount=document.getElementById('participantPrepRosterCount');
   if(roster)roster.hidden=!count;
-  if(rosterCount)rosterCount.textContent=`${count}명`;
   if(rosterList)rosterList.innerHTML=_dailyPlayers.filter(p=>p&&!p.registrationCancelled)
     .slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')).map(p=>{
       const playing=_dailyNormalizeStatus(p.status)==='playing'||!!p.currentMatchId;
       return `<div class="participant-prep-person"><span>${esc(p.name)}</span><button type="button" data-player-id="${esc(p.id)}" onclick="dailyRemovePlayer(this.dataset.playerId)" ${_dailyPaused||playing?'disabled':''} aria-label="${esc(p.name)} 참가 취소">참가 취소</button></div>`;
     }).join('');
   if(countEl)countEl.textContent=`${count}명`;
-  if(meta)meta.textContent=count?`${count}명 등록됨`:'명부·캡처·게스트';
+  if(action)action.textContent=count?'참가자 추가':'참가자 등록';
   ['participantChooseDaily','participantChooseTeam'].forEach(id=>{
     const btn=document.getElementById(id);
     if(btn)btn.disabled=!count;
   });
-  if(hint)hint.textContent=count
-    ? `${count}명 준비 완료 · 선택한 운영 방식으로 같은 명단이 이어집니다.`
-    : '참가자를 먼저 등록하면 같은 명단으로 원하는 방식을 시작합니다.';
+  if(hint)hint.hidden=!!count;
 }
 function dailyChooseOperation(mode){
   if(mode!=='daily'&&mode!=='team')return;
@@ -2880,8 +2869,6 @@ function dailyChooseOperation(mode){
   dailyRender();
   const setup=document.getElementById('dailySetupDetails');
   if(setup)setup.open=true;
-  const hint=document.getElementById('participantPrepHint');
-  if(hint)hint.textContent='민턴LIVE 준비 완료 · 코트 수를 확인하고 대진을 게시하세요.';
   dailyOpenBoardTarget('setup');
 }
 // 선수 추가의 공용 코어. 「선수 추가」 폼과 참가자 모달의 게스트 추가가 같이 씁니다.
@@ -2962,6 +2949,8 @@ async function dailyImportAddGuest(){
     else nameEl?.focus();
     return;
   }
+  const feedback=document.getElementById('dailyImportGuestFeedback');
+  if(feedback)feedback.textContent=`${nameEl.value.trim()} 참가 등록 완료`;
   if(nameEl){nameEl.value='';nameEl.focus();}
   renderDailyImportMembers();
 }
@@ -2989,12 +2978,19 @@ function dailyImportRoster(){
   });
   const memberList=document.getElementById('dailyImportMemberList');
   if(memberList)memberList.innerHTML='';
+  document.getElementById('dailyImportSearch').value='';
+  document.getElementById('dailyImportGuestFeedback').textContent='';
   renderDailyImportTabs();
   renderDailyImportMembers();
   // 게스트 폼은 접어서 연다 — 명부가 비어 게스트가 유일한 길일 때만 펼친다
   const guestBox=document.getElementById('dailyImportGuestBox');
   if(guestBox)guestBox.open=_dailyImportClubIdx<0;
-  document.getElementById('dailyImportModal').classList.remove('hidden');
+  const modal=document.getElementById('dailyImportModal');
+  _dailyImportVisit++;
+  document.getElementById('dailyImportResultNotice').textContent='';
+  _dailyImportOpener=document.activeElement;
+  modal.classList.remove('hidden');
+  modal.querySelector('.modal-head button').focus();
 }
 function dailyOpenImageImport(){
   if(!_dailyCanChangeRoster())return;
@@ -6326,6 +6322,7 @@ function dailyApplyStageLayout(){
   ['empty','roster','live'].forEach(s=>layout.classList.toggle('stage-'+s,stage===s));
   const live=stage==='live';
   const hide=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hidden',!!on));
+  hide('.daily-dashboard-hero',stage==='empty'&&!_dailyCheckinId);
   hide('.daily-active-card',!live);                 // 진행 중 — 게시 전엔 빈 카드
   hide('.daily-urgent-card',!live);                 // 다음 대진 — 게시 전엔 "4명부터 자동"뿐
   hide('#dailyResultDetails',!live&&!_dailyMatches.length);
@@ -10677,9 +10674,26 @@ function dailyRenderMatches(){
 let _dailyImportClubIdx=0;
 let _dailyImportSort='name';
 let _dailyImportFilter='all';
+let _dailyImportOpener=null;
+let _dailyImportVisit=0;
 
 function closeDailyImportModal(){
   document.getElementById('dailyImportModal').classList.add('hidden');
+  if(_dailyImportOpener?.isConnected)_dailyImportOpener.focus({preventScroll:true});
+  _dailyImportOpener=null;
+}
+function dailyImportDialogKey(event){
+  if(event.isComposing)return;
+  const modal=event.currentTarget;
+  if(event.key==='Escape'){
+    event.preventDefault();modal.querySelector('.modal-head button').click();return;
+  }
+  if(event.key!=='Tab')return;
+  const controls=[...modal.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),summary')].filter(el=>
+    el.getClientRects().length&&(!el.closest('details:not([open])')||el.tagName==='SUMMARY'));
+  const first=controls[0],last=controls[controls.length-1];
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
 }
 function renderDailyImportTabs(){
   const el=document.getElementById('dailyImportClubTabs');
@@ -10689,6 +10703,7 @@ function renderDailyImportTabs(){
   ).join('')}</div>`;
 }
 function selectDailyImportClub(idx){
+  document.getElementById('dailyImportSearch').value='';
   document.querySelectorAll('.daily-import-chk').forEach(c=>{c.checked=false;});
   _dailyImportClubIdx=idx;
   _dailyImportSort='name';
@@ -10712,6 +10727,9 @@ function setDailyImportSort(mode){
 // 행만 집으므로 필터가 곧 선택 범위입니다.
 function setDailyImportFilter(mode){
   _dailyImportFilter=mode==='planned'?'planned':'all';
+  if(_dailyImportFilter==='planned'){
+    document.querySelectorAll('#dailyImportMemberList [data-planned="false"] input:checked').forEach(c=>{c.checked=false;});
+  }
   ['all','planned'].forEach(m=>{
     const btn=document.getElementById('disf-'+m);
     if(btn)btn.classList.toggle('active',m===_dailyImportFilter);
@@ -10722,8 +10740,12 @@ function renderDailyImportMembers(){
   const club=(rosters.clubs||[])[_dailyImportClubIdx];
   const el=document.getElementById('dailyImportMemberList');
   if(!el)return;
+  const hasMembers=!!club?.members?.length;
+  document.getElementById('dailyImportCapture').hidden=!hasMembers;
+  document.getElementById('dailyImportInstructions').hidden=!hasMembers;
   if(!club){
-    el.innerHTML=`<div class="dir-empty" style="padding:18px 12px;line-height:1.6;">명부에 회원이 없습니다.<br>「명부」에서 클럽·회원을 만들거나, 아래 게스트로 바로 추가하세요.<br><button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="closeDailyImportModal();switchNav('roster')">명부 만들기</button></div>`;
+    el.innerHTML=`<div class="dir-empty" style="padding:18px 12px;line-height:1.6;">명부에 회원이 없습니다.<br>클럽 명부를 만들거나 게스트를 등록하세요.<br><button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="closeDailyImportModal();switchMobileTab('roster')">명부 열기</button></div>`;
+    dailyUpdateImportSelection();
     return;
   }
   const existingByName=new Map(_dailyPlayers.map(p=>[p.name,p]));
@@ -10744,6 +10766,7 @@ function renderDailyImportMembers(){
   const extras=_dailyPlayers.filter(p=>isPre(p)&&!rosterNames.has(p.name));
   if((!club||!(club.members||[]).length)&&!extras.length){
     el.innerHTML='<div class="dir-empty">이 클럽에 등록된 회원이 없습니다</div>';
+    dailyUpdateImportSelection();
     return;
   }
   const indexed=(club?.members||[]).map((m,i)=>({...m,_origIdx:i}));
@@ -10759,9 +10782,7 @@ function renderDailyImportMembers(){
   const preCount=rosterPre.length+extras.length;
   const available=indexed.filter(canRegister).length+extras.length;
   const total=indexed.length+extras.length;
-  const plannedOnly=_dailyImportFilter==='planned';
   // 필터는 감추기만 합니다. 걸러진 행도 '전체' 로 돌아오면 그대로 있습니다.
-  const rosterRows=plannedOnly?rosterPre:indexed;
   const GC={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
   const rosterRow=m=>{
     const existing=existingByName.get(m.name);
@@ -10769,7 +10790,7 @@ function renderDailyImportMembers(){
     const stateTag=existing
       ? '<span style="color:var(--warn);margin-right:5px;">도착 전</span>'
       : '';
-    return `<label class="import-member-row">
+    return `<label class="import-member-row" data-name="${esc(m.name)}" data-planned="${!!existing}">
       <input type="checkbox" class="daily-import-chk" value="${m._origIdx}" ${checked?'checked':''}>
       <span style="flex:1;font-size:.84rem;font-weight:700;">${esc(m.name)}</span>
       <span style="font-size:.68rem;color:var(--dim);">
@@ -10780,7 +10801,7 @@ function renderDailyImportMembers(){
   };
   const extraRow=p=>{
     const checked=prevChecked.has(`p:${p.id}`);
-    return `<label class="import-member-row">
+    return `<label class="import-member-row" data-name="${esc(p.name)}" data-planned="true">
       <input type="checkbox" class="daily-import-chk" value="p:${esc(p.id)}" ${checked?'checked':''}>
       <span style="flex:1;font-size:.84rem;font-weight:700;">${esc(p.name)}</span>
       <span style="font-size:.68rem;color:var(--dim);">
@@ -10792,19 +10813,49 @@ function renderDailyImportMembers(){
   };
   // 기존 참가자 재노출 정리(운영자 2026-08-12): 선택해도 할 게 없는 행(이미
   // 등록·경기 중)은 목록에서 뺍니다. 숫자는 머리글 「이미 있음」으로만 남습니다.
-  const enabledRoster=rosterRows.filter(canRegister);
+  const enabledRoster=indexed.filter(canRegister);
   const body=[...enabledRoster.map(rosterRow),...extras.map(extraRow)].join('');
   // 전체 선택은 목록 머리글에 둡니다 — 하단에 있으면 등록 버튼과 섞여 헷갈립니다
   // (운영자 피드백 2026-08-09). 보이는 행만 집으므로 필터와 같은 눈높이가 맞습니다.
-  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;font-size:.72rem;color:var(--dim);border-bottom:1px solid var(--bdr);background:var(--sur2);">
-    <span>선택 가능 <b style="color:var(--bl)">${available}명</b> · 도착 전 <b style="color:var(--warn)">${preCount}명</b> · 이미 있음 <b>${total-available}명</b></span>
-    <button type="button" class="dir-sort-btn" style="flex-shrink:0;" onclick="toggleDailySelectAll()">전체 선택/해제</button>
-  </div>`+(body||`<div class="dir-empty">${plannedOnly?'도착 전 선수가 없습니다':(total?'전원 이미 등록되어 있습니다':'추가할 선수가 없습니다')}</div>`);
+  el.innerHTML=(body?`<div class="daily-import-list-head">
+    <span>선택 가능 ${available}명${preCount?' · 도착 전 '+preCount+'명':''}</span>
+    <button type="button" class="dir-sort-btn" id="dailyImportSelectAll" onclick="toggleDailySelectAll()">전체 선택</button>
+  </div>`+body:`<div class="dir-empty">${total?'전원 이미 등록되어 있습니다':'추가할 선수가 없습니다'}</div>`);
+  dailyUpdateImportSelection();
+}
+function dailyUpdateImportSelection(){
+  const rows=[...document.querySelectorAll('#dailyImportMemberList .import-member-row')];
+  const query=document.getElementById('dailyImportSearch').value.trim().toLocaleLowerCase();
+  let visible=0,checked=0,visibleChecked=0;
+  for(const row of rows){
+    const name=row.dataset.name;
+    row.hidden=(_dailyImportFilter==='planned'&&row.dataset.planned!=='true')||
+      !!query&&!(name.toLocaleLowerCase().includes(query)||_rosterInitials(name).includes(query));
+    const selected=row.querySelector('input').checked;
+    if(selected)checked++;
+    if(!row.hidden){visible++;if(selected)visibleChecked++;}
+  }
+  document.getElementById('dailyImportTools').hidden=!rows.length;
+  const empty=document.getElementById('dailyImportSearchEmpty');
+  empty.hidden=!rows.length||!!visible;
+  empty.textContent=query?'검색 결과가 없습니다.':'도착 전 선수가 없습니다.';
+  const all=document.getElementById('dailyImportSelectAll');
+  if(all){all.disabled=!visible;all.textContent=query||_dailyImportFilter==='planned'
+    ?(visible&&visibleChecked===visible?'선택 해제':'결과 전체 선택'):(visible&&visibleChecked===visible?'전체 해제':'전체 선택');}
+  document.getElementById('dailyImportFooter').hidden=!rows.length;
+  const submit=document.getElementById('dailyImportSubmit');
+  const submitting=submit.dataset.submitting==='true';
+  submit.disabled=submitting||!checked;
+  const outside=document.getElementById('dailyImportHiddenSelection');
+  outside.hidden=checked===visibleChecked;
+  outside.textContent=outside.hidden?'':`검색 결과 밖에서 선택한 ${checked-visibleChecked}명 포함`;
+  submit.textContent=submitting?'등록 중…':checked?`선택한 ${checked}명 등록`:'선수 선택 후 등록';
 }
 function toggleDailySelectAll(){
-  const chks=[...document.querySelectorAll('.daily-import-chk:not(:disabled)')];
+  const chks=[...document.querySelectorAll('#dailyImportMemberList .import-member-row:not([hidden]) .daily-import-chk:not(:disabled)')];
   const all=chks.length&&chks.every(c=>c.checked);
   chks.forEach(c=>c.checked=!all);
+  dailyUpdateImportSelection();
 }
 // 이미 명단에 있는 도착 전 선수는 official-player-arrival, 클럽 명부에서 새로
 // 들어오는 선수는 official-player-add 로 갑니다. 서버가 arrivalCandidates 에서
@@ -10916,15 +10967,33 @@ async function importDailySelected(){
   // 게시 뒤에도 같은 등록 버튼을 사용합니다. 기존 도착 전 선수는 참가로 바뀌고,
   // 새 선수는 지각 참가자로 즉시 추가됩니다.
   if(_dailyCheckinId){
-    const done=await _dailyRegisterArrivalsViaServer(sel,club);
-    closeDailyImportModal();
-    dailyRender();
-    alert(done.sent
-      ? `${done.sent}명을 등록했습니다.${done.failed?`\n\n${done.failed}명은 처리하지 못했습니다: ${done.reasons.join(', ')}`:''}`
-      : `새로 등록된 선수가 없습니다.${done.reasons.length?`\n\n${done.reasons.join(', ')}`:''}`);
+    const submit=document.getElementById('dailyImportSubmit');
+    if(submit.dataset.submitting==='true')return;
+    const visit=_dailyImportVisit;
+    submit.dataset.submitting='true';
+    dailyUpdateImportSelection();
+    try{
+      const done=await _dailyRegisterArrivalsViaServer(sel,club);
+      const message=done.sent
+        ? `${done.sent}명을 등록했습니다.${done.failed?`\n\n${done.failed}명은 처리하지 못했습니다: ${done.reasons.join(', ')}`:''}`
+        : `새로 등록된 선수가 없습니다.${done.reasons.length?`\n\n${done.reasons.join(', ')}`:''}`;
+      dailyRender();
+      const visible=!document.getElementById('dailyImportModal').classList.contains('hidden');
+      if(visible&&visit===_dailyImportVisit){
+        closeDailyImportModal();alert(message);
+      }else{
+        // The original request is complete, but the operator may be choosing a new group.
+        document.getElementById('dailyImportResultNotice').textContent=message;
+        if(visible)renderDailyImportMembers();
+        else if(done.failed||!done.sent)alert(message);
+      }
+    }finally{
+      delete submit.dataset.submitting;
+      dailyUpdateImportSelection();
+    }
     return;
   }
-  let added=0,reactivated=0,skipped=0;
+  let added=0,skipped=0;
   sel.forEach(m=>{
     if(m._playerRow){
       // 명부 밖 선수: 프로필(게스트 표시·급수)은 그대로 두고 상태만 바꿉니다.
@@ -10932,7 +11001,7 @@ async function importDailySelected(){
       if(existing&&['invited','planned'].includes(_dailyNormalizeStatus(existing.status))){
         _dailyApplyPlayerStatus(existing,'wait');
         existing.preArrivalVisible=false;
-        added++;reactivated++;
+        added++;
       }else skipped++;
       return;
     }
@@ -10965,7 +11034,6 @@ async function importDailySelected(){
       }
       _dailyApplyPlayerStatus(existing,'wait');
       added++;
-      reactivated++;
       return;
     }
     skipped++;
@@ -10976,11 +11044,9 @@ async function importDailySelected(){
   dailySave();
   dailyRender();
   dailyMaybeAutoAssign();
-  if(added){
-    const parts=[];
-    parts.push(`${added}명을 등록했습니다.`);
-    alert(`${parts.join(' ')}${reactivated?` (도착 확인 ${reactivated}명)`:''}${prunedCarryover?` (이전 클럽 명단 ${prunedCarryover}명 정리)`:''}${skipped?` (중복 ${skipped}명 제외)`:''}\n\n자유게임을 진행한 뒤 대진 게시를 눌러주세요.`);
-  }else{
+  if(added&&(prunedCarryover||skipped)){
+    alert(`${added}명을 등록했습니다.${prunedCarryover?` (이전 클럽 명단 ${prunedCarryover}명 정리)`:''}${skipped?` (중복 ${skipped}명 제외)`:''}`);
+  }else if(!added){
     alert('새로 등록된 선수가 없습니다.');
   }
 }
@@ -11092,7 +11158,7 @@ function parseParticipants(raw){
 /* ═══ TEAM ASSIGNMENT ═══ */
 function doTeamAssign(){
   alert('청/홍 팀 나누기는 팀전 메뉴에서 진행하세요.\n민턴LIVE는 개인 자동운영만 사용합니다.');
-  location.href='team.html?v=1.10.809&from=daily';
+  location.href='team.html?v=1.10.810&from=daily';
   return;
   if(!_directPlayers.length){showErr('참가자를 먼저 추가해주세요.');return;}
   if(_directPlayers.length<4){showErr('팀 배정은 최소 4명이 필요합니다.');return;}
@@ -16348,6 +16414,7 @@ function renderClubList(){
   const sortBar=document.getElementById('rosterSortBar');
   if(!el)return;
   const n=rosters.clubs.length;
+  document.querySelectorAll('[data-roster-export]').forEach(button=>{button.hidden=!n;});
   if(countEl)countEl.textContent=n;
   if(btnAdd){btnAdd.disabled=n>=10;btnAdd.style.opacity=n>=10?'.4':'1';}
   if(!n){

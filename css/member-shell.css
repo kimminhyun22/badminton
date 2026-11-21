@@ -597,3 +597,21 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
   body.km-live-page .current-grid,body.km-live-page .next-list{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))!important;gap:16px!important;}
   body.km-live-page .current-panel .live-player,body.km-live-page .next-panel .live-player{font-size:1.5rem!important;}
 }
+
+
+/* Show one recovery action while the shared link's primary data is unavailable. */
+body.member-link-unavailable > :not(header, #memberLinkNotice, .foot, script, style),
+body.member-link-unavailable .km-member-state { display:none!important; }
+.member-link-notice {
+  width:min(calc(100% - 32px), 540px); margin:24px auto; padding:20px;
+  box-sizing:border-box; color:var(--km-member-text); background:var(--km-member-card);
+  border:1px solid var(--km-member-line); border-radius:14px; overflow-wrap:anywhere;
+}
+.member-link-notice h1 { margin:0; font-size:20px; line-height:1.4; }
+.member-link-notice p { margin:8px 0 0; color:var(--km-member-muted); font-size:15px; line-height:1.55; }
+.member-link-notice button {
+  margin-top:16px; min-height:44px; padding:8px 18px; border:0; border-radius:8px;
+  color:white; background:#365e8b; font:inherit; font-weight:700; cursor:pointer;
+}
+.member-link-notice button[hidden] { display:none; }
+.km-rsvp-page .member-event-name { margin:0 0 10px; font-size:20px; line-height:1.4; overflow-wrap:anywhere; }

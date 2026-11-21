@@ -78,7 +78,17 @@ assert(confirmBody.includes('slots.unshift(slot)'), '가장 최근 저장본이 
 const statusStart = src.indexOf('function setSaveStatus');
 const statusEnd = src.indexOf('function saveState', statusStart);
 assert(src.slice(statusStart, statusEnd).includes('renderBracketSaveQuick()'), '자동저장 상태가 빠른 저장 영역에도 즉시 반영되어야 합니다.');
-assert(src.includes("quick.classList.toggle('hidden',sample)"), '준비와 LIVE 중 모두 상단 저장 목록에 접근할 수 있어야 합니다.');
+const renderSaveQuick=src.slice(src.indexOf('function renderBracketSaveQuick()'),src.indexOf('function openSaveSlotModal()'));
+for(const [matches,count,sample,expected] of [[0,0,false,true],[0,1,false,false],[1,0,false,false],[1,1,false,false],[1,1,true,true]]){
+  const hidden={},meta={};
+  const el=key=>({classList:{toggle(name,value){if(name==='hidden')hidden[key]=value;}},closest:()=>el('list')});
+  const ctx={isTeamSampleMode:()=>sample,getSlots:()=>Array.from({length:count},()=>({name:'E2E'})),currentMatches:Array(matches),
+    document:{getElementById:id=>id==='bracketSaveQuick'?el('quick'):meta,querySelectorAll:q=>q==='[data-bracket-save]'?[el('save')]:[el('count')]}};
+  vm.runInNewContext(renderSaveQuick+'; renderBracketSaveQuick();',ctx);
+  assert.equal(hidden.quick,expected,'저장할 대진이나 불러올 목록이 있을 때만 보관 영역을 표시');
+  assert.equal(hidden.save,!matches||sample);
+  assert.equal(hidden.list,!count||sample);
+}
 assert(src.includes("if(!confirm(_teamFinishedAt?"), '새 운동 시작 전 확인을 유지해야 합니다.');
 assert(src.includes('<details class="team-quality-details"><summary>${competition?')&&src.includes('상세 점검 · 경기 조건 참고 ${total}점')&&!src.includes('<details class="team-quality-details" open'), '세부 품질과 절대 참고점수는 기본적으로 접어서 표시해야 합니다.');
 

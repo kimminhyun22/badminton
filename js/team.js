@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.809';
+const APP_VERSION = '1.10.810';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -349,13 +349,6 @@ function switchNav(p){
   ['pageMain','pageRoster','pageManual'].forEach((id,i)=>document.getElementById(id).classList.toggle('active',['main','roster','manual'][i]===p));
 }
 
-/* 설명서 열기 (PC·모바일 공통) */
-function openManual(){
-  switchNav('manual');
-  // 하단 탭바 활성 상태 해제 (모바일)
-  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
-  window.scrollTo({top:0,behavior:'smooth'});
-}
 
 /* ═══ TEAM NAME CHANGE ═══ */
 function syncFixedTeamNames(){
@@ -6670,12 +6663,13 @@ function renderBracketSaveQuick(){
   const hasBracket=!!currentMatches.length;
   const canSave=hasBracket&&!sample;
   const quick=document.getElementById('bracketSaveQuick');
-  if(quick)quick.classList.toggle('hidden',sample);
+  if(quick)quick.classList.toggle('hidden',sample||(!hasBracket&&!count));
   document.querySelectorAll('[data-bracket-save]').forEach(btn=>{
     btn.disabled=!canSave;
+    btn.classList.toggle('hidden',!canSave);
     btn.title=canSave?'현재 대진안을 이름 붙여 저장':'대진표를 먼저 생성하세요';
   });
-  document.querySelectorAll('[data-slot-count]').forEach(el=>{el.textContent=String(count);});
+  document.querySelectorAll('[data-slot-count]').forEach(el=>{el.textContent=String(count);el.closest('button')?.classList.toggle('hidden',!count);});
   const latest=slots[0];
   const quickMeta=document.getElementById('bracketSaveQuickMeta');
   const primaryMeta=document.getElementById('bracketSavePrimaryMeta');
@@ -8086,9 +8080,7 @@ function addDirectPlayer(){
   if(!name){ nameEl.focus(); return; }
   if(_directPlayers.some(p=>p.name===name)){
     nameEl.select();
-    const st=document.getElementById('parseStatus');
-    st.style.color='var(--red)';st.textContent=`"${name}"은 이미 추가되어 있습니다`;
-    setTimeout(()=>{st.textContent='';},2000);
+    document.getElementById('teamDirectStatus').textContent='이미 등록된 이름입니다.';
     return;
   }
   const _newLv = gradeToLevel(_dirGrade, _dirGender) ?? 1;
@@ -8098,7 +8090,11 @@ function addDirectPlayer(){
   });
   nameEl.value='';
   nameEl.focus();
+  _importSelections.delete(name);
+  _teamImportDirectAdded=true;
   renderDirectPlayerList();
+  renderImportMembers();
+  document.getElementById('teamDirectStatus').textContent=name+' 등록 완료';
   syncDirectToPaste();
   rsvpSyncRosterChange();
 }
@@ -9669,8 +9665,7 @@ function teamLiveOpenPlayers(){
   if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'});}
 }
 function teamLiveSetupParticipants(){
-  teamLiveOpenPlayers();
-  setTimeout(()=>{if(typeof openImportModal==='function')openImportModal();},220);
+  openImportModal();
 }
 function teamLiveOpenScoreboard(){
   if(currentSettings?.teamMode===false){
@@ -9790,12 +9785,6 @@ function teamApplyStageLayout(){
   hide('#teamMonitorTools',!_liveOn&&!finished);
   hide('#teamNewWorkoutBtn',!finished);
   if((_liveOn||finished)&&typeof updateCurrentRoundHighlight==='function')updateCurrentRoundHighlight();
-  // 명부가 비어 있으면 직접 추가가 유일한 등록 길이라 자동으로 펼친다
-  const directBox=document.getElementById('teamDirectAddBox');
-  if(directBox&&_teamUiStageShown!==stage){
-    const rosterEmpty=!(((typeof rosters!=='undefined'&&rosters?.clubs)||[]).some(c=>(c.members||[]).length));
-    directBox.open=empty&&rosterEmpty;
-  }
   // 저장 상태 줄은 내용이 있을 때만 — 빈 채로 두면 파란 빈 상자가 카드 맨 위를 차지한다
   const saveBar=document.getElementById('mobSaveBar');
   if(saveBar){
@@ -9807,7 +9796,9 @@ function teamApplyStageLayout(){
   }
   // 등록이 끝난 화면에는 설정을 반복하지 않는다. 수정할 때만 펼친다.
   hide('#sec-rsvp',!document.getElementById('sec-rsvp')?.dataset.editing);
-  hide('#sec-players',!empty&&!document.getElementById('sec-players')?.dataset.editing);
+  hide('#sec-players',!document.getElementById('sec-players')?.dataset.editing);
+  hide('#teamEmptyLinks',!empty||!(_rsvpId||_rsvpHistoryList().length));
+  hide('.team-reset-top',empty&&!_teamRestoreHint&&!_rsvpId&&!_teamHasResumeLiveHint());
   hide('#teamParticipantQuick',empty);
   hide('#teamLineupOpenBtn',empty||!_teamUsesFixedTeams());
   const participantCount=document.getElementById('teamParticipantCount');
@@ -9883,7 +9874,6 @@ function teamApplyStageLayout(){
       if(settings&&settings.tagName==='DETAILS')_teamSetOpenSilently(settings,true);
     }
     if(empty){
-      _teamForceOpenSection('sec-players');
       const settings=document.getElementById('sec-settings');
       if(settings&&settings.tagName==='DETAILS')_teamSetOpenSilently(settings,false);
     }
@@ -10578,6 +10568,7 @@ function renderClubList(){
   const sortBar=document.getElementById('rosterSortBar');
   if(!el)return;
   const n=rosters.clubs.length;
+  document.querySelectorAll('[data-roster-export]').forEach(button=>{button.hidden=!n;});
   if(countEl)countEl.textContent=n;
   if(btnAdd){btnAdd.disabled=n>=10;btnAdd.style.opacity=n>=10?'.4':'1';}
   if(!n){
@@ -10725,39 +10716,50 @@ function deleteMember(clubId,idx){
 }
 
 /* ─── 대진표로 가져오기 ─── */
+// Selection belongs to the named participant and source club throughout one visit.
+const _importSelections=new Map();
+let _teamImportDirectAdded=false;
+function beginTeamImport(){
+  _importSelections.clear();
+  _teamImportDirectAdded=false;
+  document.getElementById('teamImportQuery').value='';
+  document.getElementById('teamDirectStatus').textContent='';
+  document.getElementById('teamDirectAddBox').open=!rosters.clubs[_importClubIdx]?.members?.length;
+  renderImportTabs();
+  setImportSort('name');
+  const dialog=document.getElementById('importModal');
+  if(!dialog.open)dialog.showModal();
+}
 function openImportModal(){
   loadRosters();
-  if(!rosters.clubs.length){
-    alert('등록된 클럽이 없습니다.\n명부 탭에서 클럽을 먼저 추가해주세요.');return;
-  }
   const preferred=_teamRosterBridge()?.preferredClubIndex?.(rosters.clubs,_directPlayers,{
     clubId:currentSettings?.rsvpClubId||localStorage.getItem(RSVP_CLUB_KEY)||''
   });
   _importClubIdx=Number.isInteger(preferred)&&preferred>=0?preferred:0;
   _importSort='name';
-  renderImportTabs();setImportSort('name');
-  document.getElementById('importModal').classList.remove('hidden');
+  beginTeamImport();
 }
 function openImportFromClub(clubId){
   loadRosters();
   const idx=rosters.clubs.findIndex(c=>c.id===clubId);
   _importClubIdx=idx>=0?idx:0;
   _importSort='name';
-  renderImportTabs();setImportSort('name');
-  document.getElementById('importModal').classList.remove('hidden');
   switchNav('main');
+  beginTeamImport();
 }
-function closeImportModal(){document.getElementById('importModal').classList.add('hidden');}
+function closeImportModal(){document.getElementById('importModal').close();}
 
 function renderImportTabs(){
   const el=document.getElementById('importClubTabs');
   if(!el)return;
-  el.innerHTML=`<div class="club-tabs-bar">${rosters.clubs.map((c,i)=>
-    `<button class="ctab-btn${i===_importClubIdx?' active':''}" onclick="selectImportClub(${i})">${esc(c.name)}</button>`
-  ).join('')}</div>`;
+  el.innerHTML=rosters.clubs.length?`<div class="club-tabs-bar">${rosters.clubs.map((c,i)=>
+    `<button class="ctab-btn${i===_importClubIdx?' active':''}" aria-pressed="${i===_importClubIdx}" onclick="selectImportClub(${i})">${esc(c.name)}</button>`
+  ).join('')}</div>`:'';
 }
 function selectImportClub(idx){
   _importClubIdx=idx;
+  document.getElementById('teamImportQuery').value='';
+  document.getElementById('teamDirectAddBox').open=!rosters.clubs[idx]?.members?.length;
   _importSort='name';
   ['name','gender'].forEach(m=>{
     const btn=document.getElementById('isb-'+m);
@@ -10779,110 +10781,79 @@ function setImportSort(mode){
 }
 
 function renderImportMembers(){
-  const club=rosters.clubs[_importClubIdx];
-  const el=document.getElementById('importMemberList');
-  if(!el)return;
-  if(!club||!club.members.length){
-    el.innerHTML='<div class="dir-empty">이 클럽에 등록된 회원이 없습니다</div>';
-    return;
-  }
-
-  // 현재 등록된 선수 이름 집합
+  const club=rosters.clubs[_importClubIdx],list=document.getElementById('importMemberList');
+  const hasMembers=!!club?.members?.length;
+  document.getElementById('teamImportFilters').hidden=!hasMembers;
+  list.hidden=!hasMembers;
+  const query=document.getElementById('teamImportQuery').value.trim().toLocaleLowerCase();
   const alreadyIn=new Set(_directPlayers.map(p=>p.name));
-
-  // 체크 상태 저장 (정렬 변경 시 유지) — 미등록 선수만
-  const prevChecked=new Set();
-  document.querySelectorAll('.import-chk:not(:disabled)').forEach(c=>{
-    if(c.checked) prevChecked.add(parseInt(c.value));
-  });
-  const firstRender=prevChecked.size===0&&!el.querySelector('.import-chk');
-
-  // 원본 인덱스 보존 후 정렬
-  const indexed=club.members.map((m,i)=>({...m,_origIdx:i}));
-  if(_importSort==='name'){
-    indexed.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-  } else if(_importSort==='gender'){
-    indexed.sort((a,b)=>{
-      if(a.gender!==b.gender) return a.gender==='남'?-1:1;
-      return a.name.localeCompare(b.name,'ko');
-    });
-  }
-  // 이미 등록된 선수를 하단으로 이동
-  indexed.sort((a,b)=>{
-    const aIn=alreadyIn.has(a.name)?1:0;
-    const bIn=alreadyIn.has(b.name)?1:0;
-    return aIn-bIn;
-  });
-
-  const available=indexed.filter(m=>!alreadyIn.has(m.name)).length;
-  const total=indexed.length;
-
-  const GC={7:'lv6',6:'lv6',5:'lv5',4:'lv4',3:'lv3',2:'lv2',1:'lv1',0:'lv1'};
-  el.innerHTML=`<div style="padding:7px 12px;font-size:.72rem;color:var(--dim);border-bottom:1px solid var(--bdr);background:var(--sur2);">
-    추가 가능 <b style="color:var(--bl)">${available}명</b> · 이미 등록됨 <b>${total-available}명</b>
-  </div>`+indexed.map(m=>{
-    const isDup=alreadyIn.has(m.name);
-    const isChecked=isDup?false:(firstRender||prevChecked.has(m._origIdx));
-    if(isDup){
-      // 이미 등록된 선수 — 회색 처리, 체크 불가
-      return `<label class="import-member-row" style="opacity:.45;cursor:default;background:#f8f8f8;">
-        <input type="checkbox" class="import-chk" value="${m._origIdx}" disabled>
-        <span style="flex:1;font-size:.84rem;font-weight:700;color:#999;">${esc(m.name)}</span>
-        <span style="font-size:.65rem;color:#bbb;margin-right:6px;">이미 등록됨</span>
-        <span style="font-size:.68rem;color:#ccc;">
-          <span class="lv-badge" style="background:#f0f0f0;color:#bbb;border-color:#e0e0e0;">${m.grade}</span> ${m.gender}
-        </span>
-      </label>`;
-    }
-    return `<label class="import-member-row">
-      <input type="checkbox" class="import-chk" value="${m._origIdx}" ${isChecked?'checked':''}>
-      <span style="flex:1;font-size:.84rem;font-weight:700;">${esc(m.name)}</span>
-      <span style="font-size:.68rem;color:var(--dim);">
-        <span class="lv-badge ${GC[m.level]||'lv3'}">${m.grade}</span> ${m.gender}
-      </span>
+  const indexed=(club?.members||[]).filter(m=>!query||
+    m.name.toLocaleLowerCase().includes(query)||_rosterInitials(m.name).includes(query));
+  indexed.sort((a,b)=>Number(alreadyIn.has(a.name))-Number(alreadyIn.has(b.name))||
+    (_importSort==='gender'&&a.gender!==b.gender?(a.gender==='남'?-1:1):0)||a.name.localeCompare(b.name,'ko'));
+  list.innerHTML=indexed.map(m=>{
+    const source=_importSelections.get(m.name);
+    const reason=alreadyIn.has(m.name)?'등록됨':source&&source!==club.id?'다른 명부에서 선택됨':'';
+    return `<label class="import-member-row${reason?' unavailable':''}">
+      <input type="checkbox" class="import-chk" value="${esc(m.name)}" ${reason?'disabled':source?'checked':''}>
+      <span class="team-import-name">${esc(m.name)}</span>
+      <span class="team-import-info">${reason||esc([m.grade,m.gender].filter(Boolean).join(' · '))}</span>
     </label>`;
-  }).join('');
+  }).join('')||(query?'<p class="dir-empty">검색 결과가 없습니다.</p>':'');
+  updateTeamImportActions();
 }
-
+function updateTeamImportActions(){
+  const choices=[...document.querySelectorAll('#importMemberList .import-chk:not(:disabled)')];
+  const toggle=document.getElementById('teamImportToggle');
+  const filtered=!!document.getElementById('teamImportQuery').value.trim();
+  toggle.disabled=!choices.length;
+  toggle.textContent=(filtered?'검색 결과 ':'전체 ')+(choices.length&&choices.every(c=>c.checked)?'해제':'선택');
+  const submit=document.getElementById('teamImportSubmit'),count=_importSelections.size;
+  submit.textContent=count?count+'명 등록':_teamImportDirectAdded?'완료':'선택한 선수 등록';
+  submit.disabled=!count&&!_teamImportDirectAdded;
+  document.getElementById('teamImportFooter').hidden=submit.disabled&&!rosters.clubs[_importClubIdx]?.members?.length;
+}
+function setTeamImportSelection(checkbox){
+  const club=rosters.clubs[_importClubIdx];
+  if(!club||checkbox.disabled||!checkbox.matches('.import-chk'))return;
+  if(checkbox.checked)_importSelections.set(checkbox.value,club.id);
+  else _importSelections.delete(checkbox.value);
+  updateTeamImportActions();
+}
 function toggleSelectAll(){
-  // disabled(이미 등록됨) 제외, 미등록 선수만 대상
-  const chks=[...document.querySelectorAll('.import-chk:not(:disabled)')];
-  const all=chks.every(c=>c.checked);
-  chks.forEach(c=>c.checked=!all);
-}
-
-function importSelected(){
   const club=rosters.clubs[_importClubIdx];
   if(!club)return;
-  const chks=document.querySelectorAll('.import-chk:not(:disabled)');
-  const sel=[...chks].filter(c=>c.checked).map(c=>club.members[parseInt(c.value)]).filter(Boolean);
-  if(!sel.length){alert('선수를 1명 이상 선택해주세요.');return;}
-  let added=0,skipped=0;
-  sel.forEach(m=>{
-    if(!_directPlayers.some(p=>p.name===m.name)){
-      const sourceClub=rosters.clubs[_importClubIdx];
-      const clubName=sourceClub?.name||m.club||'';
-      const memberId=_rsvpMemberId({name:m.name,club:clubName});
-      _directPlayers.push({
-        clubId:sourceClub.id,memberId,
-        name:m.name,
-        grade:m.grade,
-        ...(Number.isFinite(m.skillRating)?{skillRating:m.skillRating}:{}), level:m.level,
-        gender:m.gender,
-        ageGroup:m.ageGroup||'40대',
-        club:clubName,
-        isClubOfficial:!!m.isClubOfficial
-      });
-      added++;
-    }else skipped++;
-  });
+  const choices=[...document.querySelectorAll('#importMemberList .import-chk:not(:disabled)')];
+  const select=!choices.every(c=>c.checked);
+  for(const c of choices){
+    c.checked=select;
+    if(select)_importSelections.set(c.value,club.id);else _importSelections.delete(c.value);
+  }
+  updateTeamImportActions();
+}
+function importSelected(){
+  if(!_importSelections.size){
+    if(_teamImportDirectAdded)closeImportModal();
+    return;
+  }
+  // Resolve again at submission. A renamed or already registered player must
+  // never be replaced by another member occupying their former list position.
+  for(const [name,clubId] of _importSelections){
+    const club=rosters.clubs.find(c=>c.id===clubId);
+    const m=club?.members.find(member=>member.name===name);
+    if(!m||_directPlayers.some(p=>p.name===name))continue;
+    const clubName=club.name||m.club||'';
+    _directPlayers.push({
+      clubId:club.id,memberId:_rsvpMemberId({name,club:clubName}),name,grade:m.grade,
+      ...(Number.isFinite(m.skillRating)?{skillRating:m.skillRating}:{}),level:m.level,
+      gender:m.gender,ageGroup:m.ageGroup||'40대',club:clubName,isClubOfficial:!!m.isClubOfficial
+    });
+  }
+  _importSelections.clear();
   closeImportModal();
   switchNav('main');
-  renderDirectPlayerList();   // ← UI 목록 갱신 (핵심)
+  renderDirectPlayerList();
   rsvpSyncRosterChange();
-  const st=document.getElementById('parseStatus');
-  if(st){st.style.color='var(--green)';
-  st.textContent='✓ '+added+'명 등록됨'+(skipped?' (중복 '+skipped+'명 제외)':'');}
 }
 
 /* ── 회원 편집 ── */
@@ -11239,6 +11210,7 @@ function switchMobileTab(tab){
     else window.scrollTo({top:0,behavior:'smooth'});
     return;
   }
+  if(tab==='players'&&!_directPlayers.length&&!currentMatches.length){openImportModal();return;}
   if(tab === 'bracket' && typeof showTab==='function')showTab('bracket');
   if(tab === 'players')_teamForceOpenSection('sec-players');
   if(tab === 'players')document.getElementById('pageMain')?.classList.add('team-management-open');

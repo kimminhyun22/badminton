@@ -469,15 +469,15 @@ button.decline:before,
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;color-scheme:only light;}
 button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 </style>
-<link rel="stylesheet" href="css/member-shell.css?v=1.10.809">
-<link rel="stylesheet" href="css/minton-ui.css?v=1.10.809">
-<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.809">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.809">
+<link rel="stylesheet" href="css/member-shell.css?v=1.10.810">
+<link rel="stylesheet" href="css/minton-ui.css?v=1.10.810">
+<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.810">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.810">
 </head>
 <body class="km-member-page km-rsvp-page">
 <header class="km-member-appbar" aria-label="민턴LIVE">
   <div class="km-member-appbar-inner">
-    <span class="km-member-brand"><img class="km-brand-icon" src="icon-192.png?v=1.10.809" alt="" width="30" height="30"><span>민턴LIVE</span></span>
+    <span class="km-member-brand"><img class="km-brand-icon" src="icon-192.png?v=1.10.810" alt="" width="30" height="30"><span>민턴LIVE</span></span>
     <span class="km-member-state" id="memberPageState">확인 중</span>
   </div>
 </header>
@@ -486,7 +486,7 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <div id="identityPanel" class="identity-panel"></div>
     <div id="rsvpLookupArea" class="lookup-area">
       <div class="toolbar">
-        <input id="search" class="search" placeholder="이름 또는 초성 검색" autocomplete="off">
+        <input id="search" class="search" aria-label="이름 또는 초성 검색" placeholder="이름 또는 초성 검색" autocomplete="off">
         <span class="pill" id="countPill">0명</span>
       </div>
       <details class="member-fold" id="rsvpMemberFold">
@@ -501,13 +501,14 @@ button,[role="button"],summary{touch-action:manipulation;-webkit-tap-highlight-c
     <div class="notice">내 이름을 선택하면 지금 경기로 바로 이동합니다.</div>
     <div class="my-state hidden" id="myState"></div>
     <div class="event-panel hidden" id="eventPanel"></div>
-    <span class="version-chip" id="appVersion">v1.10.809</span>
+    <span class="version-chip" id="appVersion">v1.10.810</span>
   </section>
 </main>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="js/member-link-state.js?v=1.10.810"></script>
 <script>
 const FB_CONFIG={
   apiKey:"AIzaSyAo2AfN_ekzelCe17x1s6CVqCet0Hsq4II",
@@ -519,7 +520,7 @@ const FB_CONFIG={
   appId:"1:57349245242:web:6c0ac6f4cc131b44192803"
 };
 let db=null,rsvpId='',session=null,responses={},query='',sendingKey='',identityLookupOpen=false;
-const APP_VERSION='1.10.809';
+const APP_VERSION='1.10.810';
 const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeInAppBrowser(){
@@ -593,7 +594,7 @@ function sampleSession(){
     rsvpId:rsvpId||'TFAKE201',createdAt:Date.now()-3600000,updatedAt:Date.now(),
     clubName:'미르클럽',gamesPerPlayer:4,guestLimit:null,
     phase:liveSample?'live':'bracket',bracketReady:true,matchCount:32,roundCount:8,
-    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.809':'',
+    liveUrl:liveSample?'view.html?id=TFAKE201&sample=1&v=1.10.810':'',
     members:sampleMembers()
   };
 }
@@ -654,25 +655,25 @@ function selectedMemberFromLast(){
   const members=session.members||[];
   return members.find(m=>m.id===last.memberId)||members.find(m=>m.name===last.memberName)||null;
 }
-function clearRsvpIdentity(){
-  clearLast();
+function toggleRsvpIdentityLookup(){
+  identityLookupOpen=!identityLookupOpen;
   query='';
-  identityLookupOpen=true;
   const search=document.getElementById('search');
   if(search)search.value='';
+  if(!identityLookupOpen&&enterActiveLive())return;
   render();
-  setTimeout(()=>search&&search.focus(),60);
+  if(identityLookupOpen)search?.focus();
 }
 function enterActiveLive(){
-  if(!selectedMemberFromLast()||session?.phase!=='live'||!session.liveUrl)return false;
+  if(identityLookupOpen||!selectedMemberFromLast()||session?.phase!=='live'||!session.liveUrl)return false;
   location.assign(liveUrlWithViewer(session.liveUrl));
   return true;
 }
 function selectRsvpIdentity(memberId){
   const m=(session?.members||[]).find(x=>x.id===memberId);
   if(!m)return toast('회원 정보를 찾지 못했습니다.');
-  const ok=confirm(`${m.name}님 본인이 맞나요?\n\n이 휴대폰에서 내 팀전 페이지로 고정됩니다.`);
-  if(!ok)return;
+  const previous=selectedMemberFromLast();
+  if(previous&&previous.id!==memberId&&!confirm(`이 휴대폰의 선수를 ${m.name}님으로 변경할까요?`))return;
   const current=memberResponse(memberId)||{};
   const status=normalizeLateStatus(current.status);
   setLast(responseFor(m,status,{
@@ -800,7 +801,7 @@ function renderHeader(){
   const selected=selectedMemberFromLast();
   const my=document.getElementById('myState');
   if(my){my.className='my-state hidden';my.textContent='';}
-  if(last&&!selected)clearLast();
+  if(session&&last&&!selected)clearLast();
   const state=document.getElementById('memberPageState');
   if(state){
     const live=!!(session?.phase==='live'&&session?.liveUrl);
@@ -876,7 +877,7 @@ function render(){
   const list=filteredMembers();
   const showLookup=!selected||identityLookupOpen||!!query;
   if(lookupArea)lookupArea.classList.toggle('hidden',!showLookup);
-  const showEvent=!!(selected&&session.phase==='live'&&session.liveUrl);
+  const showEvent=!!selected&&!identityLookupOpen;
   if(eventHero)eventHero.classList.toggle('hidden',!showEvent);
   if(fold){
     const summary=fold.querySelector('summary');
@@ -884,7 +885,7 @@ function render(){
     fold.open=query?true:!selected||identityLookupOpen;
   }
   pill.textContent=`${list.length}명`;
-  if(!list.length){box.className='empty';box.textContent='검색된 회원이 없습니다.';return;}
+  if(!list.length){box.className='empty';box.textContent=query?'검색 결과가 없습니다. 이름 또는 초성을 바꿔 보세요.':'아직 등록된 팀전 회원이 없습니다. 운영자가 명단을 공유하면 여기에 표시됩니다.';return;}
   box.className='';
   box.innerHTML=list.map(m=>memberSelectCard(m,selected&&selected.id===m.id)).join('');
 }
@@ -896,10 +897,10 @@ function renderIdentityPanel(selected){
     return;
   }
   if(!selected){
-    panel.innerHTML='<div class="identity-prompt">내 이름을 선택하세요.</div>';
+    panel.innerHTML=`<h1 class="member-event-name">${esc(sessionDisplayTitle())}</h1>`;
     return;
   }
-  panel.innerHTML=`<div class="identity-title"><span>내 정보</span><button type="button" class="identity-change" onclick="clearRsvpIdentity()">이름 변경</button></div>${memberCard(selected,true)}`;
+  panel.innerHTML=`<div class="identity-title"><span>내 정보</span><button type="button" class="identity-change" aria-expanded="${identityLookupOpen}" aria-controls="rsvpLookupArea" onclick="toggleRsvpIdentityLookup()">${identityLookupOpen?'취소':'이름 변경'}</button></div>${memberCard(selected,true)}`;
 }
 function memberSelectCard(m,recent){
   const r=memberResponse(m.id);
@@ -1103,7 +1104,7 @@ function boot(){
   const vEl=document.getElementById('appVersion');
   if(vEl)vEl.textContent='v'+APP_VERSION;
   rsvpId=qs('id');
-  if(!rsvpId){document.getElementById('members').textContent='팀전 링크가 올바르지 않습니다.';return;}
+  if(!KokMemberLink.validId(rsvpId)){KokMemberLink.show('invalid','팀전');return;}
   if(isSampleMode()){
     session=sampleSession();
     responses=sampleResponses();
@@ -1111,24 +1112,22 @@ function boot(){
     render();
     return;
   }
+  KokMemberLink.waitForData('팀전');
   try{
     firebase.initializeApp(FB_CONFIG);
     db=firebase.database();
   }catch(e){
-    document.getElementById('members').textContent='서버 연결에 실패했습니다.';
+    KokMemberLink.show('connection','팀전');
     return;
   }
   db.ref(path()).on('value',snap=>{
     const data=snap.val();
     if(!data||!data.session){
       session=null;responses={};
-      renderHeader();
-      document.getElementById('sessionSub').textContent='종료된 팀전 링크입니다.';
-      document.getElementById('countPill').textContent='0명';
-      document.getElementById('members').className='empty';
-      document.getElementById('members').textContent='관리자가 링크를 종료했거나 아직 팀전 명부를 공유하지 않았습니다.';
+      KokMemberLink.show('missing','팀전');
       return;
     }
+    KokMemberLink.ready();
     session=data.session;
     responses=data.responses||{};
     /* 본인 확인이 끝난 폰은 **대진이 열리는 순간 바로 넘어갑니다** (운영자
@@ -1137,6 +1136,9 @@ function boot(){
        대진이 열려도 직접 새로 고쳐야 했습니다. */
     if(enterActiveLive())return;
     render();
+  },error=>{
+    session=null;responses={};
+    KokMemberLink.show(KokMemberLink.readFailure(error),'팀전');
   });
   bindSearch();
 }

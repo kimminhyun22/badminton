@@ -49,29 +49,34 @@
     }
     if(session?.event&&data.id===session.id&&['answer','assess','batch'].includes(data.action))data={...data,expectedRevision:session.event.revision};
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
+    let response,json;
     try{
-      const response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data}),signal:controller.signal});
-      const json=await response.json();if(!response.ok||json.error)throw Error(json.error?.message||'연결을 확인해 주세요.');
-      const result=json.result;
-      if(result&&!result.event&&!result.needsIdentity&&Array.isArray(result.questions)){
-        const identity=data.action==='join'?{key:data.respondentKey,playerId:data.playerId}:read('kokmatch_skill_identity_'+result.id,null);
-        if(identity&&identity.key===(data.respondentKey||data.key)&&identity.playerId){
-          result.questions=result.questions.filter(q=>q.a!==identity.playerId&&q.b!==identity.playerId);
-        }
-      }
-      if(result?.event&&!result.needsIdentity&&Array.isArray(result.questions)){
-        const credential=data.action==='join'?data.respondentKey:data.key;
-        reconcileEventDraft(result,credential);
-      }
-      return json.result;
+      response=await fetch('https://us-central1-kokmatch-23b31.cloudfunctions.net/clubSkillCalibration',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data}),signal:controller.signal});
+      json=await response.json();
+    }catch(_){
+      const error=Error('연결을 확인하고 다시 시도해 주세요.');
+      error.name='ConnectionError';throw error;
     }finally{clearTimeout(timer);}
+    if(!response.ok||json.error)throw Error(json.error?.message||'연결을 확인해 주세요.');
+    const result=json.result;
+    if(result&&!result.event&&!result.needsIdentity&&Array.isArray(result.questions)){
+      const identity=data.action==='join'?{key:data.respondentKey,playerId:data.playerId}:read('kokmatch_skill_identity_'+result.id,null);
+      if(identity&&identity.key===(data.respondentKey||data.key)&&identity.playerId){
+        result.questions=result.questions.filter(q=>q.a!==identity.playerId&&q.b!==identity.playerId);
+      }
+    }
+    if(result?.event&&!result.needsIdentity&&Array.isArray(result.questions)){
+      const credential=data.action==='join'?data.respondentKey:data.key;
+      reconcileEventDraft(result,credential);
+    }
+    return json.result;
   }
   function persist(entry){
     const fresh=read(KEY,[]),i=fresh.findIndex(l=>l.id===entry.id);
     if(i<0)fresh.push(entry);else fresh[i]=entry;
     write(KEY,fresh);links=fresh;
   }
-  function panels(id){['setup','owner','identity','quiz','done'].forEach(s=>$(s).hidden=s!==id);}
+  function panels(id){['setup','owner','identity','quiz','done','linkUnavailable'].forEach(s=>$(s).hidden=s!==id);}
   // Legacy roster screens and both match engines already use 40대 when absent.
   const reviewProfile=m=>({...m,ageGroup:m.ageGroup||'40대'});
   function eligible(club){
@@ -196,18 +201,35 @@
     $('historyLabel').hidden=!clubLinks.length;
     $('history').innerHTML='<option value="">선택</option>'+clubLinks.slice().reverse().map(l=>`<option value="${l.id}">${esc(l.clubName)} · ${new Date(l.createdAt).toLocaleDateString('ko-KR')}</option>`).join('');
   }
+  function showLinkError(reason,canRetry){
+    panels('linkUnavailable');message('');
+    $('linkHelp').textContent=reason;
+    $('retryOpen').hidden=!canRetry;
+  }
+  $('retryOpen').onclick=()=>{if(active)open(active);};
   async function open(link){
-    if(busy)return;busy=true;active=link;message('불러오는 중');
+    if(busy)return;
+    const refreshingOwner=!$('owner').hidden&&active?.id===link.id&&active?.key===link.key&&ownerLink()?.key===link.key;
+    busy=true;active=link;$('retryOpen').disabled=true;message('불러오는 중');
     try{
       const saved=read('kokmatch_skill_identity_'+link.id,null);
       session=await api({action:'read',...link});
       if(session.needsIdentity&&saved?.key&&saved.playerId){
         try{const joined=await api({action:'read',id:link.id,key:saved.key});session=joined;active={id:link.id,key:saved.key};}
-        catch(_){/* Let the member select their name if the saved credential no longer works. */}
+        catch(e){if(e.name==='ConnectionError')throw e; /* A rejected credential can be selected again. */}
       }
       eventHeading();message('');if(ownerLink()?.key===active.key)renderOwner();else if(session.needsIdentity)renderIdentity();else startBatch();
     }
-    catch(e){message(e.message);if(eventRequested)setupEvent();else setup();}finally{busy=false;}
+    catch(e){
+      if(e.name==='ConnectionError'){
+        if(refreshingOwner)message('연결할 수 없어 이전 결과를 표시합니다. 연결되면 결과를 새로고침해 주세요.');
+        else showLinkError('연결을 확인하고 다시 열어 주세요.',true);
+      }else if(e.message==='링크를 확인해 주세요.'){
+        showLinkError('공유받은 평가 링크 전체를 다시 열어 주세요.',false);
+      }else if(e.message==='만료된 링크입니다.'){
+        showLinkError('만료된 평가입니다. 운영자에게 새 링크를 요청해 주세요.',false);
+      }else showLinkError(e.message,true);
+    }finally{busy=false;$('retryOpen').disabled=false;}
   }
   function resultState(p,original,current){
     if(p.supersededBy)return {key:'archived',title:'통합된 이전 평가',reason:'이 답안은 최신 평가에 포함됐습니다. 이 점수는 다시 적용하지 않습니다.'};
@@ -294,16 +316,18 @@
     $('ownerResults').hidden=!session.count;
     $('clubTitle').textContent=session.clubName+' · 클럽 내 실력 평가';
     const progress=reviewProgress(session.players,session.questions,session.proposals);
-    $('collectionProgress').innerHTML=`<h2>${progress.total}명 중 ${progress.done}명 비교 자료 있음</h2><p class="muted">기존 동급 응답을 보존합니다. 급수 간 연결과 서로 다른 상대 3명 이상의 유효 근거가 부족하면 현재 값을 유지합니다.</p>`;
+    const coverage=comparisonCoverage(session.players,session.questions,session.evidence);
+    const coverageNote=coverage.multiGrade
+      ?(coverage.missing?`${coverage.missing}명은 다른 급수와 직접 비교한 자료가 없습니다.`:'')
+      :'이 명부에는 다른 급수 회원이 없어 급수 간 실력 차이를 확인할 수 없습니다.';
+    const pending=progress.pending.length?`<details><summary>비교 전 ${progress.pending.length}명</summary>${progress.pending.map(r=>`<p>${esc(r.name)}</p>`).join('')}</details>`:'';
+    const coverageHtml=`<details><summary>비교 자료 · ${progress.done}/${progress.total}명</summary><p>같은 급수 비교 ${coverage.same}건 · 다른 급수 비교 ${coverage.cross}건</p>${coverageNote?`<p class="muted">${coverageNote}</p>`:''}${pending}</details>`;
+    let readiness='';
     if(session.assessmentVersion===2){
       const total=window.KokSkillReadiness.overall(session.players,session.proposals);
-      $('collectionProgress').innerHTML=`<div class="readiness overall-readiness"><div class="readiness-heading"><h2>전체 초기 점수 준비율</h2><strong>${total.percent}%</strong></div><progress value="${total.percent}" max="100" aria-label="전체 회원 초기 점수 조건 충족률"></progress><p>${total.total}명 중 ${total.ready}명 조건 충족 · ${total.remaining}명 초기 근거 보완 필요</p><p class="muted">초기 준비 → 명부 반영 → 필요한 비교로 추가 보정</p><p class="muted">유효 상대 3명과 전체 급수 연결은 초기 점수의 최소 조건입니다. 100%여도 평가가 끝나는 것은 아닙니다. 부족한 근거·의견 충돌·추정과 판단의 상충을 추가 확인하며, 조건 충족은 정확도를 보장하지 않습니다.</p></div>`+$('collectionProgress').innerHTML;
+      readiness=`<div class="readiness overall-readiness"><div class="readiness-heading"><h2>전체 초기 점수 준비율</h2><strong>${total.percent}%</strong></div><progress value="${total.percent}" max="100" aria-label="전체 회원 초기 점수 조건 충족률"></progress><p>${total.total}명 중 ${total.ready}명 조건 충족 · ${total.remaining}명 초기 근거 보완 필요</p><p class="muted">유효 상대 3명과 급수 간 연결을 갖춘 비율입니다.</p></div>`;
     }
-    const coverage=comparisonCoverage(session.players,session.questions,session.evidence);
-    $('collectionProgress').innerHTML+=`<p>같은 급수 비교 ${coverage.same}건 · 다른 급수 비교 ${coverage.cross}건</p>`;
-    if(coverage.missing)$('collectionProgress').innerHTML+=`<p class="muted">${coverage.missing}명은 다른 급수와 직접 비교한 자료가 없습니다. 같은 급수 안의 우세만으로 급수 간 실력 차이를 확정할 수 없습니다. 추가 참여에서는 가까운 다른 급수와의 비교를 우선합니다.</p>`;
-    if(!coverage.multiGrade)$('collectionProgress').innerHTML+='<p class="muted">이 명부에는 다른 급수 회원이 없어 급수 간 실력 차이를 확인할 수 없습니다.</p>';
-    if(progress.pending.length)$('collectionProgress').innerHTML+=`<details><summary>비교 전 ${progress.pending.length}명</summary>${progress.pending.map(r=>`<p>${esc(r.name)}</p>`).join('')}</details>`;
+    $('collectionProgress').innerHTML=readiness+coverageHtml;
     if($('referenceExisting')){$('referenceExisting').hidden=!session.referenceAvailable;$('referenceExisting').textContent=`기존 ${session.referenceAvailable?.sourceCount||0}답안 연결`;}
     if($('referenceInfo')){$('referenceInfo').hidden=!session.referenceInfo;$('referenceInfo').textContent=session.referenceInfo?`기존 ${session.referenceInfo.sourceCount}개 + 새 ${session.referenceInfo.targetCount}개 · 중복 ${session.referenceInfo.deduplicated}개 정리 · 통합 ${session.referenceInfo.total}개 · 최초 기준으로 재계산 · 명부 점수는 별도 저장합니다. 판단자 수는 응답 묶음 수이며 독립 인원이 확인된 수는 아닙니다.`:'';}
     const currentClub=read('badminton_rosters_v1',{}).clubs?.find(c=>c.id===own.clubId);
@@ -591,8 +615,9 @@
     return {count};
   }
   function renderCumulative(){
-    const p=cumulativeProgress(),html=`<div class="readiness"><p><strong>내 비교 의견 ${p.count}건</strong></p><p class="muted">${adaptiveMode?'10문항마다 자동 저장하고 다음 질문을 조정합니다.':'이번 묶음을 저장하고 쉬어도 됩니다.'} 정해진 총 문항 수는 없습니다. 이후 같은 링크에서 이어갈 수 있습니다. ‘잘 모르겠어요’는 비교 건수에서 제외합니다.</p></div>`;
-    $('cumulativeQuiz').innerHTML=html;$('cumulativeDone').innerHTML=html;
+    const p=cumulativeProgress();
+    $('cumulativeQuiz').textContent=`누적 비교 ${p.count}건`;
+    $('cumulativeDone').innerHTML=`<p>누적 비교 <strong>${p.count}건</strong> · ‘잘 모르겠어요’ 제외</p>`;
   }
   function hasMoreComparisons(){
     if(session.closed||session.expiresAt<=Date.now())return false;
@@ -602,7 +627,11 @@
   function renderQuizProgress(){
     renderCumulative();
     const count=batch.filter(q=>Object.hasOwn(answers,q.id)||Object.hasOwn(session.answers,q.id)).length;
-    $('quizProgress').max=batch.length||1;$('quizProgress').value=count;
+    const saved=adaptiveMode?visitCount:0;
+    const total=adaptiveMode&&!saved?batch.length+10:saved+batch.length;
+    const upperBound=adaptiveMode&&!saved?'최대 ':'';
+    $('progress').textContent=`${saved+Math.min(at+1,batch.length)} / ${upperBound}${total}문항`;
+    $('quizProgress').max=total||1;$('quizProgress').value=saved+count;
   }
   function contributionText(){
     const compared=batch.filter(q=>{const v=Object.hasOwn(answers,q.id)?answers[q.id]:session.answers[q.id];return v&&v!=='skip';});
@@ -654,13 +683,13 @@
         renderCumulative();$('more').hidden=true;showOwnerReturn();message('');return;
       }
       write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','adaptive-v1');
-      $('respondentLabel').textContent=(session.respondentName?session.respondentName+' 님 · ':'')+(visitCount?'앞선 답안을 반영한 추가 비교':'초기·보정 비교');
+      $('respondentLabel').textContent=[session.clubName,session.respondentName,'묶음별 자동 저장'].filter(Boolean).join(' · ');
       panels('quiz');$('retry').hidden=true;renderQuestion();message('');
     }catch(e){message(e.message);panels('quiz');$('choices').hidden=true;$('retry').hidden=false;}
     finally{busy=false;}
   }
   function startLegacyBatch(){
-    $('respondentLabel').textContent=session.respondentName?session.respondentName+' 님의 안목':'';
+    $('respondentLabel').textContent=[session.clubName,session.respondentName].filter(Boolean).join(' · ');
     if(session.closed||session.expiresAt<=Date.now()){panels('done');$('doneText').textContent='마감되었거나 만료된 퀴즈입니다.';$('more').hidden=true;showOwnerReturn();return;}
     answers=allowedDraft();
     const saved=read(draftKey()+'_plan',[]);
@@ -679,7 +708,6 @@
     $('previousQuestion').disabled=at===0;
     flipped=(parseInt(active.key.slice(-2),16)+at)%2===1;
     const a=session.players.find(p=>p.id===(flipped?q.b:q.a)),b=session.players.find(p=>p.id===(flipped?q.a:q.b));
-    $('progress').textContent=`${session.clubName} · ${at+1} / ${batch.length}`;
     renderQuizProgress();
     $('sides').innerHTML=[a,b].map((p,i)=>`${i?'<span class="versus" aria-hidden="true">VS</span>':''}<button class="side" id="${i?'rightChoice':'leftChoice'}" data-vote="${i?'b':'a'}"><strong>${esc(p.name)}</strong><span>${esc(p.grade)} · ${esc(p.gender)}</span><span>${esc(p.ageGroup)}</span></button>`).join('');
     $('choices').hidden=false;
@@ -692,7 +720,6 @@
   function finishReview(){
     if(adaptiveMode){autoCheckpointPending=true;submit(true);return;}
     $('choices').hidden=true;$('questionTitle').hidden=true;$('retry').hidden=true;
-    $('progress').textContent=`${session.clubName} · ${batch.length} / ${batch.length}`;
     renderQuizProgress();$('contribution').textContent=contributionText();
     $('finishReview').hidden=false;$('previousQuestion').disabled=!batch.length;$('nextQuestion').hidden=true;message('');
   }
@@ -740,7 +767,9 @@
     if(busy||session.closed||session.expiresAt<=Date.now())return;
     batch=read(draftKey()+'_last',[]).map(id=>session.questions.find(q=>q.id===id)).filter(Boolean);
     if(!batch.length)return;
-    adaptiveMode=false;autoCheckpointPending=false;answers={};at=0;write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','cross-grade-v1');panels('quiz');renderQuestion();
+    adaptiveMode=false;autoCheckpointPending=false;answers={};at=0;
+    $('respondentLabel').textContent=[session.clubName,session.respondentName,'응답 수정'].filter(Boolean).join(' · ');
+    write(draftKey()+'_plan',batch.map(q=>q.id));write(draftKey()+'_planVersion','cross-grade-v1');panels('quiz');renderQuestion();
   };
   $('saveAnswers').onclick=submit;
   async function continueReview(){
@@ -800,6 +829,7 @@
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('owner').hidden&&!busy)open(active);});
   const parts=location.hash.slice(1).split('.');
   if(parts.length===2&&parts.every(s=>/^[a-f0-9]{32}$/.test(s)))open({id:parts[0],key:parts[1]});
+  else if(location.hash){showLinkError('공유받은 평가 링크 전체를 다시 열어 주세요.',false);}
   else if(eventRequested){setupEvent();prepareEvent();}
   else{
     const wanted=new URLSearchParams(location.search).get('review'),entry=links.find(l=>l.id===wanted);

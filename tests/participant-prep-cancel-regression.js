@@ -7,10 +7,10 @@ let saved=0;const c={_dailyPlayers:[{id:'b',name:'나',status:'planned'},{id:'a'
  _dailyBlockServerSync:()=>false,_dailyCanChangeRoster:()=>true,_dailyIsQueued:()=>false,_dailyIsLockedQueued:()=>false,_dailyCancelReservationsForPlayer:()=>{},confirm:()=>true,alert:()=>{},dailySave:()=>saved++,dailyEnsureQueue:()=>{}};
 c._dailyPlayer=id=>c._dailyPlayers.find(p=>p.id===id);vm.createContext(c);vm.runInContext(cut('function renderParticipantPreparation(','function dailyChooseOperation(')+cut('async function dailyRemovePlayer(','function dailyReset('),c);c.dailyRender=()=>c.renderParticipantPreparation();
 (async()=>{
- c.dailyRender();assert.equal(nodes.participantPrepRosterCount.textContent,'2명');assert(!nodes.participantPrepRosterList.innerHTML.includes('취소됨'));
+ c.dailyRender();assert.equal(nodes.participantPrepCount.textContent,'2명');assert(!nodes.participantPrepRosterList.innerHTML.includes('취소됨'));
  assert(nodes.participantPrepRosterList.innerHTML.indexOf('data-player-id="a"')<nodes.participantPrepRosterList.innerHTML.indexOf('data-player-id="b"'),'Sorted display keeps identity');
  assert(nodes.participantPrepRosterList.innerHTML.includes('dailyRemovePlayer(this.dataset.playerId)'),'Use existing guarded removal');
- await c.dailyRemovePlayer('a');assert.equal(saved,1);assert.equal(nodes.participantPrepRosterCount.textContent,'1명');assert(!c._dailyPlayers.some(p=>p.id==='a'));assert(!nodes.participantPrepRosterList.innerHTML.includes('data-player-id="a"'));
+ await c.dailyRemovePlayer('a');assert.equal(saved,1);assert.equal(nodes.participantPrepCount.textContent,'1명');assert(!c._dailyPlayers.some(p=>p.id==='a'));assert(!nodes.participantPrepRosterList.innerHTML.includes('data-player-id="a"'));
  c.confirm=()=>false;await c.dailyRemovePlayer('b');assert(c._dailyPlayers.some(p=>p.id==='b'),'Cancelled confirmation keeps player');
  c._dailyPlayers[0].currentMatchId='active';c.dailyRender();assert(nodes.participantPrepRosterList.innerHTML.includes('disabled'));c.confirm=()=>true;await c.dailyRemovePlayer('b');assert(c._dailyPlayers.some(p=>p.id==='b'),'Playing player remains');
  c._dailyPlayers=[];c.dailyRender();assert(nodes.participantPrepRoster.hidden);assert(nodes.participantChooseTeam.disabled);

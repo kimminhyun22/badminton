@@ -70,6 +70,8 @@ function run(state){
     _isMatchDone: () => false,
     _directPlayers: state.players || [],
     _rsvpId: state.rsvpId || null,
+    _rsvpHistoryList: () => state.history || [],
+    _teamHasResumeLiveHint: () => false,
     _teamForceOpenSection: id => { get('#' + id).open = true; },
     document: {
       getElementById: id => get('#' + id),
@@ -96,7 +98,8 @@ assert(r.page.has('team-stage-empty'), '단계 표시 클래스가 붙어야 합
 for (const sel of ['#sec-rsvp', '#teamAssignBtn', '#teamReassignBtn', '#teamListWrap', '.bracket-save-primary'])
   assert(r.hidden(sel), `빈 세팅 화면에서 ${sel} 은 감춰져야 합니다.`);
 assert(r.hidden('gen-row'), '참가자가 없으면 대진 생성 줄이 감춰져야 합니다.');
-assert.strictEqual(r.open('sec-players'), true, '빈 화면에서는 참가자 확인 카드가 펼쳐져야 합니다.');
+assert(r.hidden('#sec-players') && r.hidden('#teamEmptyLinks') && r.hidden('.team-reset-top'), '처음에는 중복 등록 카드·빈 링크·초기화를 감춥니다.');
+assert(!run({history:[{id:'E2E'}]}).hidden('#teamEmptyLinks'), '이전 링크 관리 입구는 참가자 없이도 유지합니다.');
 assert.strictEqual(r.open('sec-settings'), false, '빈 화면에서는 진행 설정이 접혀야 합니다.');
 
 // 이미 링크를 만든 뒤라면 참가자가 비어도 링크 카드는 남긴다(운영 중 명단을 비우는 경우)
@@ -181,7 +184,7 @@ assert(html.includes('<details class="team-direct-add" id="teamDirectAddBox">') 
 assert(/<summary>＋ 직접 추가/.test(html), '직접 추가를 여는 요약 줄이 있어야 합니다.');
 assert(html.indexOf('openImportModal()') < html.indexOf('teamDirectAddBox'),
   '명부에서 불러오기가 직접 추가보다 먼저 와야 합니다(기본 경로).');
-assert(src.includes("directBox.open=empty&&rosterEmpty;"),
+assert(src.includes("document.getElementById('teamDirectAddBox').open=!rosters.clubs[_importClubIdx]?.members?.length;"),
   '명부가 비어 직접 추가가 유일한 길일 때만 자동으로 펼쳐야 합니다.');
 assert(!html.includes('id="teamImportDailyRosterBtn"')&&src.includes('function teamApplyParticipantHandoff()'),
   '민턴LIVE 명단 수동 가져오기 대신 공통 참가자 자동 승계를 사용해야 합니다.');

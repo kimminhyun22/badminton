@@ -1206,10 +1206,6 @@ body.monthly-team-mode .team-partner-help{display:block;}
 .daily-live-addition-row button:disabled{border-color:#ddd;background:#f5f5f5;color:#999;}
 .daily-import-actions{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap;}
 .daily-import-actions .daily-prearrival-btn{flex:1;min-width:120px;padding:10px;border-color:#e4c67d;background:#fffaf0;color:#825d13;}
-.daily-capture-open{width:100%;min-height:58px;margin:0 0 12px;padding:10px 12px;border:1.5px solid #b9d2ff;border-radius:8px;background:#f5f9ff;color:var(--bl-deep);display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:9px;text-align:left;font-family:inherit;cursor:pointer;}
-.daily-capture-open-icon{width:34px;height:34px;border-radius:50%;background:#e3edff;color:var(--bl);display:grid;place-items:center;font-size:1rem;}
-.daily-capture-open b{display:block;font-size:.86rem;}
-.daily-capture-open small{display:block;margin-top:2px;color:var(--dim);font-size:.68rem;font-weight:600;}
 .daily-capture-modal{max-width:520px;}
 .daily-capture-note{font-size:.76rem;line-height:1.55;color:var(--dim);margin:0 0 10px;}
 .daily-capture-picker{width:100%;min-height:54px;border:1.5px dashed #a9c5f5;border-radius:8px;background:#f8fbff;color:var(--bl-deep);display:flex;align-items:center;justify-content:center;gap:7px;font-family:inherit;cursor:pointer;}
@@ -3448,3 +3444,34 @@ html,body{overscroll-behavior-y:none;}
 .participant-prep-person>span{min-width:0;overflow-wrap:anywhere;font-size:15px;}
 .participant-prep-person button{flex:none;min-height:44px;padding:8px 12px;border:1px solid #dec9c9;border-radius:8px;background:#fff;color:#854444;font:inherit;font-size:13px;cursor:pointer;}
 .participant-prep-person button:disabled{opacity:.4;cursor:default;}
+
+/* Daily registration keeps the action outside the scroll area on short screens. */
+.km-daily-page .stage-empty .participant-prep-label,
+.km-daily-page .stage-empty .participant-operation-grid{display:none;}
+.km-daily-page .stage-empty .daily-dashboard-card:has(.daily-dashboard-hero.hidden){border:0;box-shadow:none;background:transparent;margin:0;}
+.km-daily-page .stage-empty .daily-dashboard-card:has(.daily-dashboard-hero.hidden)>.card-body{padding:0;}
+#dailyImportModal .modal-box{display:flex;flex-direction:column;overflow:hidden;}
+#dailyImportModal .modal-head{flex:none;padding:6px 14px;}
+#dailyImportModal .daily-import-sources{display:grid;grid-template-columns:1fr 1fr;align-items:start;gap:6px;margin:6px 0;}
+#dailyImportModal .daily-import-sources:has(details[open]),#dailyImportModal .daily-import-sources:has(#dailyImportCapture[hidden]){grid-template-columns:1fr;}
+#dailyImportModal .daily-import-guest{margin:0;}
+#dailyImportCapture{min-height:44px;font-size:14px;}
+#dailyImportModal .modal-body{overflow-y:auto;min-height:0;overscroll-behavior:contain;}
+#dailyImportModal [hidden]{display:none!important;}
+#dailyImportInstructions,#dailyImportGuestFeedback,#dailyImportSearchEmpty{font-size:13px;color:var(--dim);line-height:1.5;margin:0 0 8px;}
+#dailyImportGuestFeedback{margin:6px 0 0;color:var(--bl-deep);}
+#dailyImportResultNotice{font-size:13px;line-height:1.5;color:var(--bl-deep);margin:0 0 8px;}
+#dailyImportResultNotice:empty,#dailyImportGuestFeedback:empty{display:none;}
+#dailyImportSearch{display:block;width:100%;min-height:42px;margin:8px 0;}
+.daily-import-filters,.daily-import-list-head{display:flex;flex-wrap:wrap;align-items:center;gap:5px;font-size:12px;color:var(--dim);}
+.daily-import-filters{margin:0 0 8px;}
+.daily-import-list-head{justify-content:space-between;padding:6px 10px;background:var(--sur2);}
+#dailyImportSearchEmpty{text-align:center;margin:8px 0;}
+#dailyImportMemberList{border:1px solid var(--bdr);border-radius:8px;}
+#dailyImportMemberList .import-member-row{min-height:44px;}
+#dailyImportMemberList .import-member-row>span{min-width:0;overflow-wrap:anywhere;}
+#dailyImportMemberList .import-member-row>span:last-child{font-size:12px!important;flex-shrink:0;}
+#dailyImportModal .daily-import-actions{flex:none;display:grid;margin:0;padding:10px 16px max(10px,env(safe-area-inset-bottom));border-top:1px solid var(--bdr);gap:4px;}
+#dailyImportHiddenSelection{text-align:center;color:var(--dim);font-size:12px;}
+#dailyImportSubmit{width:100%;min-height:44px;transition:none;text-align:center;justify-content:center;background:var(--ui-green,#245e50);color:#fff;}
+#dailyImportSubmit:disabled{opacity:1;background:var(--ui-soft,#eef3f0);color:#506359;cursor:default;}

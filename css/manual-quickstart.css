@@ -11,3 +11,8 @@
 .manual-share-status{font-size:13px;}
 .manual-share-status:empty{display:none;}
 .manual-share-fallback{box-sizing:border-box;width:100%;min-height:230px;font:inherit;padding:12px;border:1px solid #b8c8c1;border-radius:8px;resize:vertical;}
+.manual-wrap .manual-topic{margin:0;border-top:1px solid var(--bdr,#dce4e0);}
+.manual-topic > summary{padding:12px 4px;min-height:44px;box-sizing:border-box;font-size:15px;line-height:1.4;font-weight:700;cursor:pointer;}
+.manual-topic[open]{padding-bottom:16px;}
+.manual-topic summary:focus-visible,.manual-back-btn:focus-visible{outline:2px solid #397b67;outline-offset:2px;}
+@media(min-width:769px){.km-admin-page .header-help-btn{display:none;}}

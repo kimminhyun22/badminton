@@ -17,7 +17,7 @@ const readme = read('README.md');
 const simulation = read('tests/simulation.html');
 
 const mintonManual = section(indexHtml, '<!-- ═══════════════ MANUAL PAGE ═══════════════ -->', '<script src="js/match-quality.js');
-const mintonMemberGuide = section(mintonManual, '<h2>📱 회원에게 알려줄 말</h2>', '<h2>👥 도착 전·운영진</h2>');
+const mintonMemberGuide = section(mintonManual, '<summary>회원에게 알려줄 말</summary>', '</details>');
 
 assert(mintonManual.includes('도착 전에는 실중계만 볼 수 있고 대진에서는 제외됩니다.'), '민턴LIVE 설명서는 도착 전 선수가 자동대진에서 제외됨을 안내해야 합니다.');
 assert(mintonManual.includes('임원·운영진의 처리는 관리자 앱 없이도 즉시 반영됩니다.'), '민턴LIVE 설명서는 임원·운영진의 독립 운영을 안내해야 합니다.');

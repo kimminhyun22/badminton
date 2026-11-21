@@ -15,3 +15,6 @@
 .roster-image-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
 .roster-image-actions{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:-20px;padding:12px 0;background:#f8faf9;}
 .roster-image-dialog [role=status]{overflow-wrap:anywhere;}
+.roster-image-dialog [hidden]{display:none}
+.roster-image-dialog [aria-invalid="true"]{border-color:#a34242}
+.roster-image-issue{margin:6px 0;color:#963c38;font-size:14px}

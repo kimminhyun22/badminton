@@ -40,6 +40,10 @@ for(const f of ['index.html','team.html']){
  const html=fs.readFileSync(f,'utf8');
  assert(html.includes('js/roster-transfer.js')&&html.includes('css/roster-transfer.css'));
  assert(html.includes('openRosterTransfer()')&&html.includes('importRosterTransfer(event)'));
+ for(const action of ['openRosterTransfer()','exportRosters()','exportRostersXLSX()']){
+   const button=html.match(/<button\b[^>]*>/g).find(tag=>tag.includes('onclick="'+action+'"'));
+   assert(button?.includes('data-roster-export')&&/\bhidden\b/.test(button),f+': empty rosters hide '+action);
+ }
 }
 for(const f of ['js/daily.js','js/team.js'])assert(fs.readFileSync(f,'utf8').includes('return window.importRosterTransfer(evt);'));
 console.log('PASS independent roster transfer, explicit officials, skill preservation, credential isolation, storage/conflict protection, both modes');

@@ -84,7 +84,7 @@ assert(unresolved.warnings.some(message=>message.includes('투표 화면은 15�
 
 assert(index.includes('id="dailyCaptureInput"')&&index.includes('multiple')&&index.includes('KokMatchDailyImageImport.analyze()'),
   '관리자 참가자 모달에 여러 캡처 선택과 분석 입구가 있어야 합니다.');
-assert(index.indexOf('id="dailyImportClubTabs"')<index.indexOf('class="daily-capture-open"'),
+assert(index.indexOf('id="dailyImportClubTabs"')<index.indexOf('id="dailyImportCapture"'),
   '캡처 등록 전에 비교할 클럽을 먼저 선택할 수 있어야 합니다.');
 assert(daily.includes("clubs:(rosters.clubs||[]).filter")&&source.includes('잘못 골라도 분석 후 가장 잘 맞는 명부를 찾습니다.'),
   '분석창은 모든 저장 명부를 받아 잘못 선택한 클럽을 보정해야 합니다.');

@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.809';
+const APP_VERSION='1.10.810';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -110,32 +110,44 @@ function _usesFixedTeams(d){
 
 const content=document.getElementById('content');
 
-if(!liveId){
-  content.innerHTML='<div class="status">잘못된 링크입니다.<br>대회 ID가 없습니다.</div>';
+function showLiveUnavailable(reason){
+  _latestLiveData=null;
+  window._lastLiveData=null;
+  closeTeamSubstitutePanel();
+  closeTeamResultPanel();
+  KokMemberLink.show(reason,'경기');
+}
+
+if(!KokMemberLink.validId(liveId)){
+  KokMemberLink.show('invalid','경기');
 } else {
   let app, db;
+  KokMemberLink.waitForData('경기');
   try{
     app=firebase.initializeApp(FB_CONFIG);
     db=firebase.database();
     liveDb=db;
   }catch(e){
-    content.innerHTML='<div class="status">서버 연결에 실패했습니다.<br>잠시 후 다시 시도해주세요.</div>';
+    KokMemberLink.show('connection','경기');
   }
   if(db){
     db.ref('live/'+liveId).on('value', snap=>{
       const data=snap.val();
       if(!data){
-        content.innerHTML='<div class="status">진행 중인 현황이 없습니다.<br>대회가 아직 시작되지 않았거나 종료되었습니다.</div>';
-        _latestLiveData=null;
+        showLiveUnavailable('missing');
         return;
       }
+      KokMemberLink.ready();
+      const state=document.getElementById('memberPageState');
+      state.textContent=_liveFinished(data)?'경기 종료':'LIVE';
+      state.className='km-member-state '+(_liveFinished(data)?'done':'live');
       _latestLiveData=data;
       render(_latestLiveData);
       if(!_liveTicker){
         _liveTicker=setInterval(()=>{ if(_latestLiveData) render(_latestLiveData); },30000);
       }
-    }, err=>{
-      content.innerHTML='<div class="status">데이터를 불러올 수 없습니다.<br>'+esc(err.message)+'</div>';
+    }, error=>{
+      showLiveUnavailable(KokMemberLink.readFailure(error));
     });
   }
 }

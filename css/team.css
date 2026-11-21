@@ -3560,6 +3560,28 @@ body{background:var(--bg)!important;}
   #importModal .modal-head{position:sticky;top:0;z-index:1;background:var(--ui-paper,#fff);}
   #importModal .modal-head button{min-width:44px;min-height:44px;}
 }
+/* Keep the first and last player reachable with the confirmation action in view. */
+#importModal{margin:0;width:100%;height:100%;max-width:none;max-height:none;border:0;box-sizing:border-box;color:var(--txt);}
+#importModal::backdrop{background:transparent;}
+#importModal:not([open]){display:none!important;}
+#importModal .modal-box{display:flex;flex-direction:column;overflow:hidden;}
+#importModal .modal-head,.team-import-footer{flex-shrink:0;}
+#importModal .modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;}
+#importModal #importMemberList{border:1px solid var(--bdr);border-radius:8px;}
+#importModal [hidden]{display:none!important;}
+#teamImportQuery{width:100%;margin-bottom:6px;}
+.team-import-sort{display:flex;align-items:center;gap:5px;margin-bottom:7px;}
+#teamImportToggle{margin-left:auto;}
+.team-import-sort button,.team-import-info{font-size:max(12px,.75rem);}
+.team-import-name{flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere;}
+.team-import-info{color:var(--dim);}
+.import-member-row.unavailable{color:var(--dim);background:var(--sur2);cursor:default;}
+.team-import-footer{background:var(--ui-paper,#fff);border-top:1px solid var(--bdr);padding:10px 16px max(10px,env(safe-area-inset-bottom));}
+.team-import-footer button{width:100%;min-height:44px;margin:0;}
+.team-import-footer button:disabled{opacity:.5;cursor:default;}
+.team-direct-status{margin:6px 0 0;font-size:max(12px,.8rem);color:var(--dim);}
+.team-direct-status:empty{display:none;}
+.team-stage-empty .auto-flow-focus:has([onclick="teamLiveSetupParticipants()"]) .auto-flow-focus-main{display:none;}
 /* Evaluation stays in the existing preparation flow on phones and tablets. */
 .team-event-skill-notice{padding:14px 16px;margin:0 0 14px;background:var(--card,#fff);border:1px solid var(--bdr,#dce3e0);border-radius:12px;color:var(--txt,#24352e);font-size:14px;line-height:1.6}
 .team-event-skill-notice p{margin:0 0 8px;overflow-wrap:anywhere}

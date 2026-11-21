@@ -9,11 +9,11 @@
 <meta http-equiv="Expires" content="0">
 <!-- ════════════════════════════════════════
      민턴LIVE (KOK Match) — 배드민턴 대진표
-     APP VERSION: 1.10.809  (2026-07)
+     APP VERSION: 1.10.810  (2026-07)
      ※ 코드 수정 시 아래 APP_VERSION 값을 올리세요
         (푸터 버전 표시 + iOS PWA 캐시 갱신용)
      ════════════════════════════════════════ -->
-<meta name="app-version" content="1.10.809">
+<meta name="app-version" content="1.10.810">
 <meta name="firebase-app-check-site-key" content="6LfspU0tAAAAAMGsRpLVdJsTBPnEWk0fJINVGsSj">
 <!-- 기본 진입 전환 스크립트를 뺐다 — 루트 주소·홈 아이콘은 이제 이 화면(민턴LIVE)에 그대로 머문다.
      매일 쓰는 쪽이 기본이어야 한다(운영자 2026-09-03). 팀전은 상단 모드 필로 간다. -->
@@ -23,26 +23,26 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="민턴LIVE">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.809">
-<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.809">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1.10.810">
+<link rel="icon" type="image/png" href="favicon-32.png?v=1.10.810">
 <title>🏸 민턴LIVE | 클럽 운동 운영</title>
 <meta property="og:site_name" content="민턴라이브">
 <meta property="og:title" content="민턴라이브">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <!-- SheetJS CDN 제거 — CSV 네이티브 파서로 대체 -->
-<link rel="stylesheet" href="css/app.css?v=1.10.809">
-<link rel="stylesheet" href="css/minton-ui.css?v=1.10.809">
+<link rel="stylesheet" href="css/app.css?v=1.10.810">
+<link rel="stylesheet" href="css/minton-ui.css?v=1.10.810">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- Firebase 실시간 중계 (compat SDK) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
-<script src="js/storage.js?v=1.10.809"></script>
-<link rel="stylesheet" href="css/roster-transfer.css?v=1.10.809">
-<script src="js/roster-transfer.js?v=1.10.809"></script>
-<link rel="stylesheet" href="css/roster-image-import.css?v=1.10.809">
-<script src="js/roster-image-import.js?v=1.10.809"></script>
+<script src="js/storage.js?v=1.10.810"></script>
+<link rel="stylesheet" href="css/roster-transfer.css?v=1.10.810">
+<script src="js/roster-transfer.js?v=1.10.810"></script>
+<link rel="stylesheet" href="css/roster-image-import.css?v=1.10.810">
+<script src="js/roster-image-import.js?v=1.10.810"></script>
 </head>
 <body class="km-admin-page km-daily-page">
 
@@ -54,17 +54,17 @@
 
 <header>
   <div class="h-left">
-    <h1><img class="km-brand-icon" src="icon-192.png?v=1.10.809" alt="" width="30" height="30"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></h1>
+    <h1><img class="km-brand-icon" src="icon-192.png?v=1.10.810" alt="" width="30" height="30"><span class="brand-mark">민턴<span class="brand-live">LIVE</span></span></h1>
     <p>배드민턴 클럽 운동 운영 시스템</p>
   </div>
-  <button class="header-help-btn" onclick="openManual()" title="사용 설명서">📖 설명서</button>
+  <button class="header-help-btn" onclick="openManual(this)" title="사용 설명서">📖 설명서</button>
 </header>
 <a class="main-balance-entry" href="skill-review.html?from=daily"><img src="icons/lucide/users-round.svg" alt="">우리 클럽 밸런스게임</a>
 
 <div class="nav-bar">
   <button class="nav-tab active" data-nav="daily" onclick="switchNav('daily')">📡 상황판</button>
   <button class="nav-tab" data-nav="roster" onclick="switchNav('roster')">🏛️ 명부</button>
-  <button class="nav-tab" data-nav="manual" onclick="switchNav('manual')">📖 설명서</button>
+  <button class="nav-tab" data-nav="manual" onclick="openManual(this)">📖 설명서</button>
   <div class="nav-save-area">
     <span class="save-status" id="saveStatus"></span>
   </div>
@@ -378,13 +378,13 @@
 	  <div class="daily-layout">
     <div class="daily-main">
       <div class="card operation-card participant-prep-card" id="operationModeCard">
-        <div class="card-head"><span class="card-title">참가자 준비</span><span class="operation-current" id="participantPrepCount">0명</span></div>
+        <div class="card-head"><span class="card-title">참가자 준비</span></div>
         <div class="card-body">
           <button class="participant-prep-register" type="button" onclick="dailyImportRoster()">
-            <span>1</span><b>참가자 등록</b><small id="participantPrepRegisterMeta">명부·캡처·게스트</small>
+            <span>1</span><b id="participantPrepAction">참가자 등록</b><small>명부·캡처·게스트</small>
           </button>
           <details class="participant-prep-roster" id="participantPrepRoster" hidden>
-            <summary>참가 명단 확인 · 취소 <span id="participantPrepRosterCount"></span></summary>
+            <summary>참가 명단 확인 · 취소 <span id="participantPrepCount"></span></summary>
             <p>취소한 선수는 오늘 참가 명단에서만 빠집니다. 클럽 명부는 유지됩니다.</p>
             <div id="participantPrepRosterList"></div>
           </details>
@@ -577,7 +577,7 @@
       </div>
       <div class="roster-transfer-entry">
         <button type="button" class="btn btn-ghost btn-sm" onclick="openRosterImageImport()">캡처로 명부 만들기</button>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="openRosterTransfer()">명부 전달</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-roster-export hidden onclick="openRosterTransfer()">명부 전달</button>
         <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">명부 받기<input type="file" accept=".json,application/json" hidden onchange="importRosterTransfer(event)"></label>
       </div>
       <div class="roster-toolbar">
@@ -585,11 +585,11 @@
         <details class="roster-tools">
           <summary>파일 관리</summary>
           <div class="roster-tools-panel">
-            <button class="btn btn-ghost btn-sm" onclick="exportRosters()">백업 저장</button>
+            <button class="btn btn-ghost btn-sm" data-roster-export hidden onclick="exportRosters()">백업 저장</button>
             <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
               백업 불러오기<input type="file" accept=".json" style="display:none;" onchange="importRosters(event)">
             </label>
-            <button class="btn btn-ghost btn-sm" onclick="exportRostersXLSX()">시트 저장</button>
+            <button class="btn btn-ghost btn-sm" data-roster-export hidden onclick="exportRostersXLSX()">시트 저장</button>
             <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
               시트 불러오기<input type="file" accept=".csv,text/csv" style="display:none;" onchange="importRostersXLSX(event)">
             </label>
@@ -740,63 +740,68 @@
 </div>
 
 <!-- ── 민턴LIVE 명부 선택 모달 ── -->
-<div class="modal-overlay hidden" id="dailyImportModal">
+<div class="modal-overlay hidden" id="dailyImportModal" onkeydown="dailyImportDialogKey(event)" role="dialog" aria-label="참가자 등록" aria-modal="true">
   <div class="modal-box">
     <div class="modal-head">
-      <span>☀️ 참가자 등록</span>
-      <button onclick="closeDailyImportModal()">✕</button>
+      <span>참가자 등록</span>
+      <button type="button" aria-label="참가자 등록 닫기" onclick="closeDailyImportModal()">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:.76rem;color:var(--dim);line-height:1.6;margin-bottom:10px;">
-        오늘 선수를 등록하세요. 아직 안 온 선수만 선수 목록에서 「도착 전」으로 바꾸면 대진에서 제외됩니다.
-      </p>
+      <p id="dailyImportResultNotice" role="status"></p>
       <div id="dailyImportClubTabs"></div>
-      <button type="button" class="daily-capture-open" onclick="dailyOpenImageImport()">
-        <span class="daily-capture-open-icon" aria-hidden="true">▣</span>
-        <span><b>캡처로 등록</b><small>투표와 댓글 여러 장을 한 번에</small></span>
-        <span aria-hidden="true">›</span>
-      </button>
-      <div style="display:flex;align-items:center;gap:5px;margin-bottom:7px;flex-wrap:wrap;">
-        <span style="font-size:.62rem;color:var(--dim);font-weight:600;">정렬</span>
-        <button class="dir-sort-btn active" id="disb-name"   onclick="setDailyImportSort('name')"  >이름순</button>
-        <button class="dir-sort-btn"        id="disb-gender" onclick="setDailyImportSort('gender')">성별순</button>
-        <span style="font-size:.62rem;color:var(--dim);font-weight:600;margin-left:6px;">보기</span>
-        <button class="dir-sort-btn active" id="disf-all"     onclick="setDailyImportFilter('all')"    >전체</button>
-        <button class="dir-sort-btn"        id="disf-planned" onclick="setDailyImportFilter('planned')">도착 전</button>
-      </div>
-      <div id="dailyImportMemberList" style="max-height:330px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;"></div>
+      <div class="daily-import-sources">
+      <button type="button" class="btn btn-ghost" id="dailyImportCapture" onclick="dailyOpenImageImport()">캡처로 등록</button>
       <!-- 게스트 폼은 접어 둔다 — 게스트가 없는 날이 많고, 늘 펼쳐 두면 등록 버튼이 화면
            아래로 밀려 스크롤해야 보였다(운영자 2026-09-02). 명부가 비면 자동으로 펼친다. -->
       <details class="daily-import-guest" id="dailyImportGuestBox">
-        <summary>＋ 게스트 추가 <small>명부에 없는 선수</small></summary>
+        <summary>게스트 추가</summary>
         <div class="daily-import-guest-body">
         <div class="daily-import-guest-fields">
-          <input class="dir-input" id="dailyImportGuestName" type="text" placeholder="이름" style="flex:1 1 120px;min-width:120px;margin:0;"
+          <input class="dir-input" aria-label="게스트 이름" id="dailyImportGuestName" type="text" placeholder="이름" style="flex:1 1 120px;min-width:120px;margin:0;"
             onkeydown="if(event.key==='Enter')dailyImportAddGuest()">
-          <select class="daily-select" id="dailyImportGuestGrade" style="margin:0;">
+          <select class="daily-select" aria-label="게스트 급수" id="dailyImportGuestGrade" style="margin:0;">
             <option value="E">E</option><option value="D">D</option><option value="C" selected>C</option>
             <option value="B">B</option><option value="A">A</option><option value="S">S</option>
           </select>
-          <select class="daily-select" id="dailyImportGuestGender" style="margin:0;">
+          <select class="daily-select" aria-label="게스트 성별" id="dailyImportGuestGender" style="margin:0;">
             <option value="남">남</option><option value="여">여</option>
           </select>
-          <select class="daily-select" id="dailyImportGuestAge" style="margin:0;">
+          <select class="daily-select" aria-label="게스트 연령대" id="dailyImportGuestAge" style="margin:0;">
             <option value="20대">20대</option><option value="30대">30대</option>
             <option value="40대" selected>40대</option><option value="50대">50대</option><option value="60대+">60대+</option>
           </select>
         </div>
         <button class="btn btn-ghost btn-sm" style="width:100%;" onclick="dailyImportAddGuest()">게스트 등록</button>
+        <p id="dailyImportGuestFeedback" role="status"></p>
         </div>
       </details>
-      <div class="daily-import-actions">
-        <button class="btn btn-go" style="flex:1;padding:10px;min-width:180px;" onclick="importDailySelected()">등록</button>
       </div>
+      <div id="dailyImportTools">
+        <input type="search" class="daily-player-search" id="dailyImportSearch" placeholder="이름 검색" aria-label="등록할 선수 이름 검색" oninput="dailyUpdateImportSelection()">
+        <div class="daily-import-filters">
+        <span>정렬</span>
+        <button class="dir-sort-btn active" id="disb-name"   onclick="setDailyImportSort('name')"  >이름순</button>
+        <button class="dir-sort-btn"        id="disb-gender" onclick="setDailyImportSort('gender')">성별순</button>
+        <span>보기</span>
+        <button class="dir-sort-btn active" id="disf-all"     onclick="setDailyImportFilter('all')"    >전체</button>
+        <button class="dir-sort-btn"        id="disf-planned" onclick="setDailyImportFilter('planned')">도착 전</button>
+      </div>
+      </div>
+      <div id="dailyImportMemberList" onchange="dailyUpdateImportSelection()"></div>
+      <p id="dailyImportSearchEmpty" hidden>검색 결과가 없습니다.</p>
+      <p id="dailyImportInstructions">
+        아직 안 온 선수만 선수 목록에서 「도착 전」으로 바꾸면 대진에서 제외됩니다.
+      </p>
+    </div>
+    <div class="daily-import-actions" id="dailyImportFooter" hidden>
+      <small id="dailyImportHiddenSelection" hidden></small>
+      <button type="button" class="btn btn-go" id="dailyImportSubmit" onclick="importDailySelected()" disabled>선수 선택 후 등록</button>
     </div>
   </div>
 </div>
 
 <!-- ── 민턴LIVE 캡처 참가자 등록 ── -->
-<div class="modal-overlay hidden" id="dailyCaptureModal">
+<div class="modal-overlay hidden" id="dailyCaptureModal" onkeydown="dailyImportDialogKey(event)" role="dialog" aria-label="캡처로 참가자 등록" aria-modal="true">
   <div class="modal-box daily-capture-modal">
     <div class="modal-head">
       <span>캡처로 참가자 등록</span>
@@ -873,9 +878,9 @@
 <!-- ═══════════════ MANUAL PAGE ═══════════════ -->
 <div class="page" id="pageManual">
 <div class="manual-wrap">
-  <button class="manual-back-btn" onclick="switchNav('daily');window.scrollTo({top:0});">← 민턴LIVE로 돌아가기</button>
-  <div class="manual-section">
-    <h2>📌 민턴<span class="brand-live">LIVE</span> 한눈에 보기</h2>
+  <button class="manual-back-btn" onclick="closeManual()">← 민턴LIVE로 돌아가기</button>
+  <details class="manual-section manual-topic">
+    <summary>민턴<span class="brand-live">LIVE</span> 한눈에 보기</summary>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">참가자를 한 번 준비한 뒤 민턴LIVE 또는 팀전을 선택합니다. 민턴LIVE를 선택하면 클럽 임원과 운영진이 같은 회원 화면에서 현장을 운영합니다. 회원은 자기 경기만 확인해도 되고, 필요할 때 <strong style="color:var(--txt)">휴식·복귀·종료·뒷풀이</strong>만 누르면 됩니다.</p>
     <div class="feat-grid">
       <div class="feat-card"><h4>1. 참가 상태</h4><p>선수를 먼저 등록하고, 아직 안 온 선수만 도착 전으로 바꿔 대진에서 제외합니다.</p></div>
@@ -883,19 +888,19 @@
       <div class="feat-card"><h4>3. 자동 진행</h4><p>경기를 종료하면 준비된 다음 대진이 방금 끝난 코트에 들어갑니다.</p></div>
       <div class="feat-card"><h4>4. 현장 예외</h4><p>임원·운영진이 교체·뒤로·파트너 요청과 현장 상태를 처리합니다.</p></div>
     </div>
-  </div>
-  <div class="manual-section">
-    <h2>🚀 관리자 준비·임원 운영 5단계</h2>
+  </details>
+  <details class="manual-section manual-topic">
+    <summary>관리자 준비·임원 운영 5단계</summary>
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text"><strong>참가자 준비</strong> — 명부·캡처·게스트로 한 번 등록한 뒤 민턴LIVE를 선택하고, 아직 안 온 선수와 실제 코트 수를 확인합니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text"><strong>대진 게시</strong> — 관리자가 계속 진행할 경기만 등록하고 나머지 대진을 만들어 게시합니다.</p></div>
       <div class="step-item"><span class="step-num">3</span><p class="step-text"><strong>경기 진행</strong> — 임원·운영진이 경기 종료를 누르면 다음 대진이 끝난 코트에 자동 투입됩니다.</p></div>
       <div class="step-item"><span class="step-num">4</span><p class="step-text"><strong>현장 처리</strong> — 임원·운영진이 늦게 온 선수, 휴식·복귀·종료와 파트너 요청을 처리합니다. 잠시 자리를 비우면 이번만 뒤로로 한 순번만 미룹니다.</p></div>
-      <div class="step-item"><span class="step-num">5</span><p class="step-text"><strong>정지·마무리</strong> — 공지 때는 진행을 잠시 멈추고, 끝날 때는 마무리로 새 대진을 중지한 뒤 자율게임으로 넘깁니다.</p></div>
+      <div class="step-item"><span class="step-num">5</span><p class="step-text"><strong>마무리</strong> — 마무리를 누르면 새 대진 생성을 멈춥니다. 남은 경기를 진행한 뒤 자율게임으로 넘깁니다.</p></div>
     </div>
-  </div>
-  <div class="manual-section">
-    <h2>📱 회원에게 알려줄 말</h2>
+  </details>
+  <details class="manual-section manual-topic">
+    <summary>회원에게 알려줄 말</summary>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">확인</span><p class="step-text">클럽 임원이 참가 등록을 마치면 내 이름을 선택해 현재·다음 경기를 확인합니다.</p></div>
       <div class="step-item"><span class="step-num ico">휴식</span><p class="step-text">잠깐 쉬거나 레슨·정비 중이면 휴식을 누릅니다. 대진에서 빠집니다.</p></div>
@@ -905,9 +910,9 @@
       <div class="step-item"><span class="step-num ico">뒷풀이</span><p class="step-text">휴식·종료 옆의 작은 뒷풀이 버튼으로 직접 신청하거나 취소합니다.</p></div>
       <div class="step-item"><span class="step-num ico">호명</span><p class="step-text">스마트폰을 쓰지 않아도 임원과 운영진의 안내만 따르면 됩니다.</p></div>
     </div>
-  </div>
-  <div class="manual-section">
-    <h2>👥 도착 전·운영진</h2>
+  </details>
+  <details class="manual-section manual-topic">
+    <summary>도착 전·운영진</summary>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">도착</span><p class="step-text">도착 전에는 실중계만 볼 수 있고 대진에서는 제외됩니다. 도착하면 임원·운영진이 참가 등록합니다.</p></div>
       <div class="step-item"><span class="step-num ico">현황</span><p class="step-text">운영 현황의 숫자를 누르면 상태별 회원과 뒷풀이 명단을 바로 확인할 수 있습니다.</p></div>
@@ -915,9 +920,9 @@
       <div class="step-item"><span class="step-num ico">권한</span><p class="step-text">명부의 클럽 임원은 자동 연결됩니다. 관리자나 정식 임원은 현장 회원을 운영진으로 최대 4명 지정할 수 있습니다.</p></div>
       <div class="step-item"><span class="step-num ico">즉시</span><p class="step-text">임원·운영진의 처리는 관리자 앱 없이도 즉시 반영됩니다. 경기 종료·입장·이번만 뒤로는 45초 안에 취소할 수 있습니다.</p></div>
     </div>
-  </div>
-  <div class="manual-section">
-    <h2>🧭 처음 쓰는 날 추천 운영</h2>
+  </details>
+  <details class="manual-section manual-topic">
+    <summary>처음 쓰는 날 추천 운영</summary>
     <div class="step-list">
       <div class="step-item"><span class="step-num">1</span><p class="step-text">초반 10~30분은 난타와 자율게임을 그대로 둡니다.</p></div>
       <div class="step-item"><span class="step-num">2</span><p class="step-text">클럽 임원이 늦게 오는 사람과 먼저 빠질 사람을 확인합니다.</p></div>
@@ -925,9 +930,9 @@
       <div class="step-item"><span class="step-num">4</span><p class="step-text">초기 등록 경기부터 임원·운영진이 경기 종료를 누르면 다음 대진이 자동 투입됩니다.</p></div>
       <div class="step-item"><span class="step-num">5</span><p class="step-text">마칠 때는 <strong>마무리</strong>를 눌러 남은 대진만 진행하고 자율게임으로 넘깁니다.</p></div>
     </div>
-  </div>
-  <div class="manual-section">
-    <h2>🎯 자동대진 기준</h2>
+  </details>
+  <details class="manual-section manual-topic">
+    <summary>자동대진 기준</summary>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">단순 랜덤이 아니라 실력 균형, 경기 수, 대기시간, 최근 파트너와 상대 반복을 함께 봅니다. 다음 대진은 사용할 코트 수만큼만 간결하게 보여줍니다.</p>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">균형</span><p class="step-text">양 팀 실력 합이 비슷하도록 맞춥니다.</p></div>
@@ -937,35 +942,35 @@
       <div class="step-item"><span class="step-num ico">파트너</span><p class="step-text">임원이 접수한 두 선수는 같은 편으로 편성하고 지정 표식을 붙입니다.</p></div>
       <div class="step-item"><span class="step-num ico">안전</span><p class="step-text">실제 투입 때는 경기 중복, 휴식, 종료 상태를 다시 확인합니다.</p></div>
     </div>
-  </div>
-  <div class="manual-section">
-    <h2>💬 단톡방 안내 문구</h2>
+  </details>
+  <details class="manual-section manual-topic">
+    <summary>단톡방 안내 문구</summary>
     <div class="step-list">
       <div class="step-item"><span class="step-num ico">복사</span><p class="step-text">오늘 운동은 민턴LIVE 링크로 진행합니다. 내 이름을 확인하고 필요할 때만 <strong>휴식·복귀·종료</strong>를 눌러주세요. 뒷풀이는 상단 내 카드에서 신청하고, 자리 비움과 파트너 요청은 임원에게 알려주세요.</p></div>
       <div class="step-item"><span class="step-num ico">확인</span><p class="step-text">상태를 잘못 선택했다면 임원·운영진에게 알려주세요. 경기 처리는 제공되는 취소 버튼으로 되돌립니다.</p></div>
     </div>
-  </div>
-  <div class="manual-section">
-    <h2>💬 문의</h2>
+  </details>
+  <details class="manual-section manual-topic">
+    <summary>문의</summary>
     <p style="font-size:.8rem;color:var(--dim);line-height:1.8;">버그 제보나 기능 제안은 언제든 환영합니다.<br>이메일 <a href="mailto:mhkim@ms99.kr" style="color:var(--bl);">mhkim@ms99.kr</a> · <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener" style="color:var(--bl);">카카오톡 오픈채팅</a></p>
-  </div>
+  </details>
 </div>
 </div>
 
-<link rel="stylesheet" href="css/manual-quickstart.css?v=1.10.809">
-<script src="js/manual-quickstart.js?v=1.10.809" defer></script>
-<script src="js/match-quality.js?v=1.10.809"></script>
-<script src="js/mobile-nav.js?v=1.10.809"></script>
-<script src="js/court-recommendation.js?v=1.10.809"></script>
+<link rel="stylesheet" href="css/manual-quickstart.css?v=1.10.810">
+<script src="js/manual-quickstart.js?v=1.10.810" defer></script>
+<script src="js/match-quality.js?v=1.10.810"></script>
+<script src="js/mobile-nav.js?v=1.10.810"></script>
+<script src="js/court-recommendation.js?v=1.10.810"></script>
 <!-- 카카오톡 바로 공유용 JavaScript 키 — developers.kakao.com 에서 앱을 만들고 이 사이트 도메인을
      플랫폼(Web)에 등록한 뒤 키를 넣으세요. 비어 있으면 카카오톡 버튼은 기기 공유 시트를 엽니다. -->
 <script>window.KOKMATCH_KAKAO_JS_KEY=window.KOKMATCH_KAKAO_JS_KEY||'';</script>
-<script src="js/daily-image-import.js?v=1.10.809"></script>
-<script src="js/daily.js?v=1.10.809"></script>
-<script src="js/roster-recovery.js?v=1.10.809"></script>
-<script src="js/roster-cloud.js?v=1.10.809"></script>
-<script src="js/club-skill-batch.js?v=1.10.809"></script>
-<script src="js/club-skill-notice.js?v=1.10.809"></script>
+<script src="js/daily-image-import.js?v=1.10.810"></script>
+<script src="js/daily.js?v=1.10.810"></script>
+<script src="js/roster-recovery.js?v=1.10.810"></script>
+<script src="js/roster-cloud.js?v=1.10.810"></script>
+<script src="js/club-skill-batch.js?v=1.10.810"></script>
+<script src="js/club-skill-notice.js?v=1.10.810"></script>
 
 <!-- 현재 진행 라운드로 이동 (플로팅) -->
 <button id="gotoCurrentBtn" class="goto-current-btn" style="display:none" onclick="scrollToCurrentRound()" aria-label="현재 진행 경기로 이동" title="현재 진행 경기로 이동">
@@ -1036,7 +1041,7 @@
   <span class="footer-dot">·</span>
   <a href="https://invite.kakao.com/tc/cH66rt8zVu" target="_blank" rel="noopener">💬 카카오톡 문의</a>
   <span class="footer-dot">·</span>
-  <span class="app-version" id="appVersion">v1.10.809</span>
+  <span class="app-version" id="appVersion">v1.10.810</span>
 </footer>
 
 <!-- 하단 탭바 높이만큼 여백 (모바일) -->

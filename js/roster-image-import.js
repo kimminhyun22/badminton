@@ -37,21 +37,31 @@
     if(list.length>500)throw Error('한 명부는 500명 이내로 나누어 등록해 주세요.');
     return list;
   }
+  function fieldError(message,field,row){
+    return Object.assign(Error(message),{field,row});
+  }
   function build(current,clubId,clubName,rows,level,uuid){
     const clubs=(current.clubs||[]).map(c=>({...c,members:[...(c.members||[])]}));
     let club=clubs.find(c=>c.id===clubId);
     if(clubId&&!club)throw Error('선택한 명부가 없어졌습니다. 다시 확인해 주세요.');
     if(!club){
-      if(!text(clubName)||text(clubName).length>80)throw Error('클럽 이름을 입력해 주세요.');
+      if(!text(clubName)||text(clubName).length>80)throw fieldError('클럽 이름을 입력해 주세요.','clubName');
       if(clubs.length>=10)throw Error('명부는 최대 10개까지 보관할 수 있습니다.');
-      if(clubs.some(c=>nameKey(c.name)===nameKey(clubName)))throw Error('같은 이름의 명부가 있습니다. 기존 명부를 선택하거나 이름을 바꿔 주세요.');
+      if(clubs.some(c=>nameKey(c.name)===nameKey(clubName)))throw fieldError('같은 이름의 명부가 있습니다. 기존 명부를 선택하거나 이름을 바꿔 주세요.','clubName');
       club={id:'club_'+uuid(),name:text(clubName),members:[]};clubs.push(club);
     }
     let added=0,skipped=0;const seen=new Set(club.members.map(m=>nameKey(m.name)));
     for(const row of rows.filter(r=>r.selected)){
-      if(!text(row.name))throw Error('회원 이름을 입력해 주세요.');
+      if(!text(row.name))throw fieldError('회원 이름을 입력해 주세요.','name',row);
       if(seen.has(nameKey(row.name))){skipped++;continue;}
-      if(row.conflicts.length||!grades.includes(row.grade)||!['남','여'].includes(row.gender)||!ages.includes(row.ageGroup))throw Error(row.name+' 님의 성별·연령·급수와 확인 필요 항목을 수정해 주세요.');
+      let field=row.conflicts[0];
+      if(field==='birthYear')field='ageGroup';
+      if(!field){
+        if(!['남','여'].includes(row.gender))field='gender';
+        else if(!grades.includes(row.grade))field='grade';
+        else if(!ages.includes(row.ageGroup))field='ageGroup';
+      }
+      if(field)throw fieldError(row.name+' 님의 '+({gender:'성별',grade:'급수',ageGroup:'연령'}[field])+' 항목을 확인해 주세요.',field,row);
       const value=level({grade:row.grade,gender:row.gender,skillStep:0});
       if(!Number.isFinite(value))throw Error('실력 기준을 불러오지 못했습니다.');
       club.members.push({memberId:'member_'+uuid(),name:text(row.name),grade:row.grade,gender:row.gender,ageGroup:row.ageGroup,level:value,skillStep:0,isClubOfficial:false});
@@ -68,7 +78,7 @@
     const expected=localStorage.getItem(KEY);let current;
     try{current=JSON.parse(expected||'{"clubs":[]}');}catch{return alert('명부를 읽지 못했습니다. 먼저 백업을 확인해 주세요.');}
     const d=el('dialog','',document.body);d.className='roster-image-dialog';
-    let files=[],rows=[],busy=false,declared=0,warnings=[];
+    let files=[],rows=[],busy=false,declared=0,warnings=[],invalidControl=null;
     el('h2','캡처로 명부 만들기',d);
     const targetLabel=el('label','저장할 명부',d),target=el('select','',targetLabel);target.setAttribute('aria-label','저장할 명부');
     const o=el('option','새 명부',target);o.value='';
@@ -79,6 +89,12 @@
     const upload=el('input','',uploadLabel);upload.type='file';upload.multiple=true;upload.accept='image/*';upload.setAttribute('aria-label','캡처 이미지 여러 장');
     el('p','최대 8장씩 AI 분석에 전송합니다. 사진으로 성별을 추측하지 않으며, 빈 정보는 저장 전에 확인합니다.',d);
     const fileList=el('div','',d),notice=el('p','',d);notice.setAttribute('role','status');
+    const issue=el('p','',d);issue.className='roster-image-issue';issue.id='rosterImageIssue';issue.hidden=true;
+    function clearIssue(){
+      if(invalidControl){invalidControl.removeAttribute('aria-invalid');invalidControl.removeAttribute('aria-describedby');invalidControl=null;}
+      issue.hidden=true;
+    }
+    d.addEventListener('input',e=>{if(e.target===invalidControl)clearIssue();});
     const analyzeBtn=button('명부 읽기',async()=>{
       if(busy||!files.length)return;
       busy=true;controls();notice.textContent='명부를 읽고 있습니다…';
@@ -93,8 +109,12 @@
     },d);
     const summary=el('p','',d),list=el('div','',d);list.className='roster-image-list';
     const actions=el('div','',d);actions.className='roster-image-actions';
-    const close=button('닫기',()=>{if(!busy&&(!rows.length||confirm('저장하지 않은 명부 초안을 닫을까요?')))d.close();},actions);
+    const close=button('닫기',()=>{if(!busy&&((!rows.length&&!files.length)||confirm('저장하지 않은 명부 초안을 닫을까요?')))d.close();},actions);
     const save=button('명부 저장',()=>{
+      if(files.length){
+        notice.textContent='추가한 캡처를 먼저 읽거나 목록에서 제외해 주세요.';
+        analyzeBtn.focus();analyzeBtn.scrollIntoView({block:'center'});return;
+      }
       try{
         if(localStorage.getItem(KEY)!==expected)throw Error('다른 화면에서 명부가 변경됐습니다. 기존 명부를 보호하기 위해 저장하지 않았습니다.');
         const next=build(current,target.value,clubName.value,rows,rosterSkillLevel,()=>crypto.randomUUID());
@@ -103,7 +123,15 @@
         localStorage.setItem(KEY,JSON.stringify(next.data));
         if(localStorage.getItem(KEY)!==JSON.stringify(next.data))throw Error('명부 저장을 확인하지 못했습니다.');
         loadRosters();renderClubList();rows=[];d.close();
-      }catch(e){notice.textContent=e.message;}
+      }catch(e){
+        clearIssue();
+        const control=e.field==='clubName'?clubName:e.row?list.querySelector('[data-row="'+rows.indexOf(e.row)+'"] [name="'+e.field+'"]'):null;
+        if(!control){notice.textContent=e.message;notice.scrollIntoView({block:'center'});return;}
+        notice.textContent='';invalidControl=control;
+        control.setAttribute('aria-invalid','true');control.setAttribute('aria-describedby',issue.id);
+        control.closest('fieldset,label').append(issue);issue.textContent=e.message;issue.hidden=false;
+        control.focus({preventScroll:true});control.scrollIntoView({block:'center'});
+      }
     },actions);save.className='primary';
     function controls(){analyzeBtn.disabled=busy||!files.length;save.disabled=busy||!rows.length;upload.disabled=busy;close.disabled=busy;target.disabled=busy;clubName.disabled=busy;list.inert=busy;}
     function renderFiles(){
@@ -117,14 +145,14 @@
       files=next;renderFiles();controls();
     };
     function render(){
-      list.replaceChildren();const existing=new Set(((current.clubs||[]).find(c=>c.id===target.value)?.members||[]).map(m=>nameKey(m.name)));
+      clearIssue();list.replaceChildren();const existing=new Set(((current.clubs||[]).find(c=>c.id===target.value)?.members||[]).map(m=>nameKey(m.name)));
       const duplicates=rows.filter(r=>existing.has(nameKey(r.name))).length;
       summary.textContent='읽은 회원 '+rows.length+'명'+(declared?' / 화면 총원 '+declared+'명':'')+' · 기존 회원 '+duplicates+'명 제외'+(declared>rows.length?' · 나머지 캡처를 추가할 수 있습니다.':'');
       warnings.forEach(w=>el('p',w,list));
       rows.forEach((row,i)=>{
-        const box=el('fieldset','',list);box.setAttribute('aria-label',(i+1)+'번 회원');
+        const box=el('fieldset','',list);box.dataset.row=i;box.setAttribute('aria-label',(i+1)+'번 회원');
         const head=el('div','',box);head.className='roster-image-member-head';
-        const name=el('input','',head);name.value=row.name;name.maxLength=80;name.setAttribute('aria-label',(i+1)+'번 이름');name.oninput=()=>{row.name=name.value.trim();};
+        const name=el('input','',head);name.name='name';name.value=row.name;name.maxLength=80;name.setAttribute('aria-label',(i+1)+'번 이름');name.oninput=()=>{row.name=name.value.trim();};
         name.readOnly=existing.has(nameKey(row.name));
         const remove=button('삭제',()=>{
           if(busy||!confirm((row.name||'이 회원')+' 님을 등록 목록에서 삭제할까요? 저장된 명부는 변경되지 않습니다.'))return;
@@ -134,7 +162,7 @@
         if(row.conflicts.length)el('p','겹친 캡처의 정보가 다릅니다. 같은 이름의 다른 회원이면 이름을 구분해 다시 추가하세요.',box);
         const fields=el('div','',box);fields.className='roster-image-fields';
         for(const [key,label,choices] of [['gender','성별',['남','여']],['grade','급수',grades],['ageGroup','연령',ages]]){
-          const s=el('select','',fields);s.setAttribute('aria-label',(i+1)+'번 '+label);
+          const s=el('select','',fields);s.name=key;s.setAttribute('aria-label',(i+1)+'번 '+label);
           for(const v of ['',...choices]){const opt=el('option',v||label+' 선택',s);opt.value=v;}s.value=row[key];
           s.onchange=()=>{row[key]=s.value;row.conflicts=row.conflicts.filter(f=>f!==key&&(key!=='ageGroup'||f!=='birthYear'));notice.textContent='';};
         }
