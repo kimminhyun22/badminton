@@ -80,7 +80,10 @@ function makeAdmin(){
     function updateScores(){ scoreUpdates++; }
     function saveState(){}
     function showWarn(m){ warns.push(m); }
-    ${cut('const _TEAM_MATCH_SLOTS', 'function _unbindLiveAdminListener')}
+    const MATCH_QUALITY=null;
+  ${cut('function effLevel(p)', '// Count forced partner repeats')}
+  ${cut('function _teamRecalcMatchLevels(m)', 'function _teamSyncGeneratedProfilesFromDirectPlayers')}
+  ${cut('const _TEAM_MATCH_SLOTS', 'function _unbindLiveAdminListener')}
     ${cut('function _syncLiveWinsFromData', '/* ── 임원 운영을 서버에서 받아 적기')}
     ${cut('function _buildLiveState', 'function _liveKey')}
     this.api = {

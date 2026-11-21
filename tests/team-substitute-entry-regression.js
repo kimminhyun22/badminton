@@ -34,7 +34,8 @@ function cut(a, b){
   return src.slice(i, j);
 }
 
-const sandbox = {console, Object, Set, Number, String, Array, JSON, window: {}, canOperate: true};
+const sandbox = {console, Object, Set, Number, String, Array, JSON, window: {}, canOperate: true,
+  TeamFieldSubstitution:require('../functions/team-field-substitution')};
 vm.createContext(sandbox);
 vm.runInContext(`
 ${cut('function esc(s)', '\n')}
@@ -46,7 +47,7 @@ ${cut('function _normalizeMembers', 'function _viewerInfo')}
 ${cut('function _teamOfName', 'async function submitTeamSubstitute')}
 ${cut('function _substituteHintHtml', 'function openTeamSubstitutePanel')}
 this.api={_replaceableInMatch,_playerLine,_pendingSubstitutions,_substituteHintHtml,_lateOn,_swappableRounds,
-  _substituteCandidates,_balanceMark,_balanceGapAfter,_balanceAfter,_isMatchUnderway,
+  _substituteCandidates,_balanceMark,_isMatchUnderway,
   setLate(map){ window._liveLate = map; }, setOperate(v){ canOperate = v; }};
 `, sandbox);
 const api = sandbox.api;
@@ -175,9 +176,9 @@ api.setLate({
   const byName = Object.fromEntries(cands.map(c => [c.name, c]));
   // 청여섯(6) + X  vs  홍여섯(6)+홍넷(4)=10
   // 부호가 방향을 말합니다: 양수 = 교체한 팀이 셈, 음수 = 약해짐.
-  assert.strictEqual(byName['청넷'].balance, 0, '6+4=10 vs 10 이면 균형입니다.');
-  assert.strictEqual(byName['청둘'].balance, -2, '6+2=8 vs 10 이면 우리가 2 약합니다.');
-  assert.strictEqual(byName['청일곱'].balance, 3, '6+7=13 vs 10 이면 우리가 3 셉니다.');
+  assert.strictEqual(byName['청넷'].rawBalance, 0, '6+4=10 vs 10 이면 균형입니다.');
+  assert.strictEqual(byName['청둘'].rawBalance, -2, '6+2=8 vs 10 이면 우리가 2 약합니다.');
+  assert.strictEqual(byName['청일곱'].rawBalance, 3, '6+7=13 vs 10 이면 우리가 3 셉니다.');
   assert.strictEqual(cands[0].name, '청넷',
     `0 에 가장 가까운 사람이 먼저여야 합니다: ${cands.map(c => c.name + '(' + c.balance + ')')}`);
   // 같은 크기면 **덜 유리한 쪽**(음수)이 먼저 — 사람이 빠진 팀이 이득 보면 불합리.

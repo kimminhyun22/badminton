@@ -1,4 +1,4 @@
-const APP_VERSION='1.10.810';
+const APP_VERSION='1.10.811';
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // ── 인앱 브라우저 처리 (카카오·밴드·네이버 등) ──
@@ -758,7 +758,7 @@ function _lateMapFromData(d){
 }
 
 function _normalizeMembers(list){
-  return (list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x).filter(x=>x&&x.n);
+  return (list||[]).map(x=>typeof x==='string'?{n:x,l:0,g:''}:x?.name&&!x.n?{...x,n:x.name}:x).filter(x=>x&&x.n);
 }
 
 function _sortMembers(list){
@@ -1194,8 +1194,10 @@ function _officialQualityHtml(d){
   const matches=published.filter(m=>!m?.voided);
   // Officials can void/restore games while the administrator is offline.
   const summary=d.quality;
-  const stale=summary&&(summary.voidedGames||'')!==voidedNumbers.join(',');
-  const q=stale?null:summary;
+  const voidsChanged=summary&&(summary.voidedGames||'')!==voidedNumbers.join(',');
+  const lineupChanged=summary&&(d.fieldTypeCorrected||(summary.bracketKey?summary.bracketKey!==d.bracketKey:
+    (summary.decisionVersion===1||!!d.substitutions?.length)));
+  const q=voidsChanged||lineupChanged?null:summary;
   const rounds=[...new Set(matches.map(m=>Number(m&&m.round)||0))].filter(Boolean).length;
   const types={};
   matches.forEach(m=>{ const t=String((m&&m.type)||'경기'); types[t]=(types[t]||0)+1; });
@@ -1207,28 +1209,34 @@ function _officialQualityHtml(d){
   ].concat(Object.keys(types).map(k=>[k, types[k]]));
   const grid=cells.map(([l,v])=>'<span><b>'+esc(String(v))+'</b><small>'+esc(l)+'</small></span>').join('');
   const comparisonMode=q&&(q.conditional||q.scoreVersion>=7);
+  const newDecision=q?.decisionVersion===1;
   const badge=q&&Number.isFinite(q.score)
     ? '<div class="team-official-quality-badge q-'+esc(q.grade||'')+'">'
-        +'<b>'+esc(String(q.score))+'</b><small>합산 품질점수 · 기준 v'+esc(q.scoreVersion||'이전')+' · '+esc(q.grade||'')+' · '+esc(q.gradeLabel||'')+'</small></div>'
+        +'<b>'+esc(String(q.score))+'</b><small>합산 품질점수 · 기준 v'+esc(q.scoreVersion||'이전')+(newDecision?'':' · '+esc(q.grade||'')+' · '+esc(q.gradeLabel||''))+'</small></div>'
     : '';
-  const status=q&&q.opTitle
+  const phase=d.finishedAt?'finished':d.matchStartedAt||published.some(m=>m.win)?'live':'published';
+  const oldComparison=q?.conditional?.verified&&q.conditional.version!==5;
+  const firstPublish=phase==='published'&&q?.decisionPhase==='draft';
+  const missingComparison=firstPublish&&q.opTitle==='현재 조건의 후보 비교 필요';
+  const status=q?.opTitle&&(!newDecision||!oldComparison&&(q.decisionPhase===phase||firstPublish))
     ? '<div class="team-official-quality-status '+esc(q.opClass||'ok')+'">'
-        +'<b>'+esc(q.opTitle)+'</b><small>'+esc(q.opSub||'')+'</small></div>'
+        +'<b>'+esc(missingComparison?'현재 대진의 비교 기록 없음':q.opTitle)+'</b><small>'
+        +esc(missingComparison?'게시한 대진과 같은 조건의 비교 결과가 없습니다.':q.opSub||'')+'</small></div>'
     : '';
   const issues=(q&&Array.isArray(q.issues)&&q.issues.length)
     ? '<div class="team-official-quality-issues"><div class="t">실전 특이사항</div>'
         +q.issues.map(x=>'<div>'+esc(x)+'</div>').join('')+'</div>'
     : '';
-  const oldComparison=q?.conditional?.verified&&q.conditional.version!==5;
   const comparison=q&&q.scoreVersion>=10&&q.conditional&&q.conditional.verified&&!oldComparison?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 '+esc(q.conditional.score)+'점 · '+esc(q.conditional.rank)+'/'+esc(q.conditional.count)+'위</b><br>검토 후보 내 순위입니다. 전체 최적·실제 수동 편성 대비 우수성은 미검증입니다.</div>':comparisonMode?'<div class="team-official-quality-sub"><b>현재 팀·설정 기준 후보 비교 · 미검증</b><br>'+esc(q.conditional&&q.conditional.reason||'현재 조건의 비교 기록이 없습니다.')+'</div>':'';
   let head=q?.sub?esc(q.sub):'대진 구성 요약';
   if(oldComparison)head='이전 접전 기준으로 비교한 대진입니다.';
-  if(stale)head='미실시 상태가 바뀌어 품질점수를 다시 계산해야 합니다.';
+  if(lineupChanged)head='대진이 변경되어 이전 품질점수를 표시하지 않습니다.';
+  if(voidsChanged)head='미실시 상태가 바뀌어 품질점수를 다시 계산해야 합니다.';
   return '<details class="team-official-quality"'+(_officialQualityOpen?' open':'')
     +' ontoggle="_officialQualityOpen=this.open"><summary>대진 품질 점검</summary>'
-    +'<div class="team-official-quality-body">'+(voidedNumbers.length?'<div class="team-official-quality-sub">미실시 '+voidedNumbers.length+'경기를 제외한 '+matches.length+'경기 기준입니다.</div>':'')+comparison
+    +'<div class="team-official-quality-body">'+(newDecision?status:'')+(voidedNumbers.length?'<div class="team-official-quality-sub">미실시 '+voidedNumbers.length+'경기를 제외한 '+matches.length+'경기 기준입니다.</div>':'')+comparison
       +(comparisonMode?'<div class="team-official-quality-sub">항목 배점의 합계이며, 이 구성원의 최선 달성률은 아닙니다. '+(q.scoreVersion<10?'이전 기준의 저장 점수입니다. 관리자 화면에서 새 기준으로 재계산됩니다.':'')+'</div>':'')
-      +(badge||status?'<div class="team-official-quality-head">'+badge+status+'</div>':'')
+      +(badge||(!newDecision&&status)?'<div class="team-official-quality-head">'+badge+(newDecision?'':status)+'</div>':'')
       +'<div class="team-official-quality-sub">'+head+'</div>'
       +'<div class="team-official-quality-grid">'+grid+'</div>'
       +issues
@@ -1363,11 +1371,15 @@ function _substituteGroupsHtml(d,match,outName,cands){
   const sameCls=outTeam==='red'?'red':'blue';
   const otherCls=outTeam==='red'?'blue':'red';
   const chip=c=>{
-    const mark=_balanceMark(c);
+    const mark=_balanceMark({balance:c.adjustedBalance});
     const team=c.crossTeam?otherCls:sameCls;
+    const format=c.preservesWomen?'여복 유지':c.predictedType||'종목 미확인';
+    const competition=!c.ratingsKnown?'전력 미확인':!c.allowed?'전력차 주의':c.close?'접전 예상':c.adjustedBalance>0?'교체팀 우세':'상대팀 우세';
     return `<button type="button" class="team-sub-cand team-${team} ${c.crossTeam?'cross':''} ${mark.cls}"
-      onclick="submitTeamSubstitute(${Number(match.num)},'${esc(outName)}','${esc(c.name)}',{crossTeam:${c.crossTeam?'true':'false'},balance:${Number(c.balance)||0}})">
-      ${esc(c.name)}<small>${esc(mark.text)} · ${Number(c.games)||0}경기</small></button>`;
+      data-player="${esc(c.name)}" data-out="${esc(outName)}"
+      onclick="submitTeamSubstitute(${Number(match.num)},this.dataset.out,this.dataset.player)">
+      <b>${esc(c.name)}</b><span>${esc(format)} · ${esc(competition)}</span>
+      <small>${c.ratingsKnown?'교체팀 '+esc(mark.text)+' · ':''}배정 ${Number(c.games)||0}경기</small></button>`;
   };
   const block=(title,cls,list)=>list.length
     ?`<div class="team-sub-group ${cls}"><div class="team-sub-group-head">${esc(title)}<em>${list.length}명</em></div>
@@ -1395,12 +1407,13 @@ function openTeamSubstitutePanel(matchNum,outName){
     return el;
   })();
   const cands=_substituteCandidates(d,match,name);
+  box.dataset.lineup=JSON.stringify([match.t1,match.t2]);
   box.innerHTML=`<div class="team-sub-card">
     <div class="team-sub-head"><b>${esc(name)} 대신 넣기</b>
       <button type="button" onclick="closeTeamSubstitutePanel()" aria-label="닫기">✕</button></div>
     <div class="team-sub-body">
       <div class="team-sub-row">
-        <div class="team-sub-who"><b>제외 · ${match.round}라운드 ${match.court}코트</b>
+        <div class="team-sub-who"><b>${Number(match.round)||0}라운드 ${Number(match.court)||0}코트</b>
           <small>${esc([...(match.t1||[])].join(' · '))} vs ${esc([...(match.t2||[])].join(' · '))}</small></div>
         ${cands.length?_substituteGroupsHtml(d,match,name,cands)
           :'<div class="team-sub-empty">넣을 수 있는 선수가 없습니다. 제외가 아닌 대기 선수가 있어야 합니다.</div>'}
@@ -1561,25 +1574,44 @@ async function finishTeamLive(){
  * 명단 고치기 — 갑자기 한 명 더 오거나, 못 오게 됐을 때.
  * 뺄 때는 서버가 「아직 안 끝난 경기에 이름이 있으면」 막습니다(대체 투입이 먼저).
  */
-async function addTeamPlayer(){
+function addTeamPlayer(){
   const d=window._lastLiveData;
   if(!_canFixResult(d))return alert('단장·부단장·클럽 임원·운영진만 처리할 수 있어요.');
-  const name=(prompt('명단에 추가할 선수 이름을 입력해 주세요.')||'').trim();
-  if(!name)return;
-  const fixed=_usesFixedTeams(d);
-  let team='';
-  if(fixed){
-    const blue=liveTeamLabel(d,'blue')||'청 팀';
-    const red=liveTeamLabel(d,'red')||'홍 팀';
-    const pick=(prompt(`${name} 선수를 어느 팀에 넣을까요?\n1 = ${blue}\n2 = ${red}`,'1')||'').trim();
-    if(pick!=='1'&&pick!=='2')return;
-    team=pick==='2'?'red':'blue';
-  }
-  const level=Number((prompt(`${name} 선수의 급수를 숫자로 입력해 주세요. (예: 4)`,'4')||'').trim());
-  if(!level||level<1)return alert('급수를 숫자로 입력해 주세요.');
-  const grade=(prompt(`${name} 선수의 등급을 입력해 주세요. (없으면 비워 두세요)`,'')||'').trim();
-  await _sendTeamOfficialCommand('trs', {type:'team-official-roster', action:'add',
-    playerName:name, team, level, grade}, `${name} 선수를 명단에 넣었습니다.`);
+  if(document.getElementById('fieldRosterDialog'))return;
+  const dialog=document.createElement('dialog');
+  dialog.id='fieldRosterDialog';
+  dialog.className='team-roster-dialog';
+  dialog.setAttribute('aria-labelledby','fieldRosterTitle');
+  dialog.innerHTML=`<form class="team-roster-form">
+    <h2 id="fieldRosterTitle">선수 추가</h2>
+    <label>이름<input name="playerName" required autocomplete="off" autofocus></label>
+    ${_usesFixedTeams(d)?`<label>팀<select name="side"><option value="blue">${esc(liveTeamLabel(d,'blue'))}</option><option value="red">${esc(liveTeamLabel(d,'red'))}</option></select></label>`:''}
+    <label>급수 점수<input name="level" type="number" min="1" step="any" value="4" required></label>
+    <label>등급 (선택)<input name="grade" placeholder="예: C" autocomplete="off"></label>
+    <label>성별 (선택)<select name="gender"><option value="">미입력</option><option value="F">여성</option><option value="M">남성</option></select></label>
+    <div class="team-roster-form-actions"><button type="button">취소</button><button type="submit">명단에 추가</button></div>
+  </form>`;
+  document.body.appendChild(dialog);
+  const form=dialog.querySelector('form');
+  const save=form.querySelector('[type="submit"]');
+  const cancel=form.querySelector('[type="button"]');
+  cancel.onclick=()=>dialog.close();
+  dialog.oncancel=e=>{if(save.disabled)e.preventDefault();};
+  dialog.onclose=()=>dialog.remove();
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    if(save.disabled)return;
+    const playerName=form.elements.playerName.value.trim();
+    if(!playerName){form.elements.playerName.focus();return;}
+    save.disabled=cancel.disabled=true;
+    try{
+      const ok=await _sendTeamOfficialCommand('trs',{type:'team-official-roster',action:'add',playerName,
+        team:form.elements.side?.value||'',level:Number(form.elements.level.value),
+        grade:form.elements.grade.value.trim(),gender:form.elements.gender.value},playerName+' 선수를 명단에 넣었습니다.');
+      if(ok)dialog.close();
+    }finally{save.disabled=cancel.disabled=false;}
+  };
+  dialog.showModal();
 }
 /* 되돌리기 — 마지막 조작 하나. 무엇을 되돌리는지 이름으로 확인받습니다. */
 function _lastOfficialAction(d){
@@ -1782,11 +1814,20 @@ function _canSubstitute(d){
   return !!(viewer.isClubOfficial||viewer.isLeader||viewer.isSub||viewer.isTemporaryOperator);
 }
 function _teamOfName(d,name){
-  const key=_attKey(name);
+  const key=_fieldNameKey(name);
   const mem=(d&&d.members)||{};
-  if((mem.blue||[]).some(p=>_attKey(p.n||p.name)===key))return 'blue';
-  if((mem.red||[]).some(p=>_attKey(p.n||p.name)===key))return 'red';
-  return '';
+  const same=p=>_fieldNameKey(p?.n||p?.name||p)===key;
+  if((mem.blue||[]).some(same))return 'blue';
+  if((mem.red||[]).some(same))return 'red';
+  const side=(mem.all||[]).find(same)?.team;
+  return side==='blue'||side==='red'?side:'';
+}
+function _fieldNameKey(name){
+  return String(name||'').replace(/\s+/g,'').toLowerCase();
+}
+function _fieldMembers(d){
+  const mem=d.members||{};
+  return _normalizeMembers(mem.all?.length?mem.all:[...(mem.blue||[]),...(mem.red||[])]);
 }
 function _matchByNum(d,num){
   return ((d&&d.matches)||[]).find(m=>Number(m&&m.num)===Number(num))||null;
@@ -1796,12 +1837,12 @@ function _matchByNum(d,num){
    그 라운드에 두 경기를 뛰게 됩니다(운영자 2026-08-14 확인). 서버 엔진의
    `conflictingMatch` 와 같은 규칙입니다. */
 function _bookedInRound(d,name,round,exceptNum){
-  const key=_attKey(name);
+  const key=_fieldNameKey(name);
   return ((d&&d.matches)||[]).some(m=>{
     if(Number(m.num)===Number(exceptNum))return false;
     if(Number(m.round)!==Number(round))return false;
     if(m.voided)return false;   // 안 치르는 경기는 자리를 차지하지 않습니다
-    return [...(m.t1||[]),...(m.t2||[])].some(n=>_attKey(n)===key);
+    return [...(m.t1||[]),...(m.t2||[])].some(n=>_fieldNameKey(n)===key);
   });
 }
 // AI 보조: 같은 팀 → 급수 근접 → 덜 뛴 순. 서버 엔진과 같은 기준입니다.
@@ -1827,66 +1868,25 @@ function _memberEffLevel(p){
   const age=_LIVE_AGE_BONUS[String((p&&(p.ageGroup||p.a))||'')]||0;
   return _round1(level-(female?0.5:0)+age);
 }
-/* 넣고 난 뒤 두 팀 급수 합이 얼마나 벌어지는가 (운영자 2026-08-14
-   "지각자 대체 시 급수 밸런스가 맞아야 해. 아무나 투입하면 상대에겐 불공정한
-   게임이 되잖아"). 서버 엔진 `balanceGapAfter` 와 **같은 계산**입니다. */
-function _levelOfName(d,name){
-  const all=_allLiveMembers(d)||[];
-  return _memberEffLevel(all.find(p=>_attKey(p.n||p.name)===_attKey(name)));
-}
-function _sideOfPlayer(match,name){
-  const key=_attKey(name);
-  if((match&&match.t1||[]).some(n=>_attKey(n)===key))return 't1';
-  if((match&&match.t2||[]).some(n=>_attKey(n)===key))return 't2';
-  return '';
-}
-/* **부호가 있는** 기울기: 교체하는 쪽 급수 합 − 상대 급수 합.
-   양수면 교체한 팀이 세고(상대에게 불합리), 음수면 그 팀이 약합니다.
-   서버 엔진 `balanceAfter` 와 같은 계산입니다. */
-function _balanceAfter(d,match,outName,inLevel){
-  const side=_sideOfPlayer(match,outName);
-  if(!side)return 0;
-  const other=side==='t1'?'t2':'t1';
-  const sum=(list,swapName,swapLevel)=>(list||[]).reduce((s,n)=>
-    s+(swapName&&_attKey(n)===_attKey(swapName)?Number(swapLevel)||4:_levelOfName(d,n)),0);
-  return sum(match[side],outName,inLevel)-sum(match[other],'',0);
-}
-function _balanceGapAfter(d,match,outName,inLevel){
-  return Math.abs(_balanceAfter(d,match,outName,inLevel));
-}
 function _substituteCandidates(d,match,outName){
-  const inMatch=new Set([...(match.t1||[]),...(match.t2||[])].map(_attKey));
+  const inMatch=new Set([...(match.t1||[]),...(match.t2||[])].map(_fieldNameKey));
   const outTeam=_teamOfName(d,outName);
-  const all=_allLiveMembers(d)||[];
-  const outMember=all.find(p=>_attKey(p.n||p.name)===_attKey(outName));
-  const outLevel=_memberEffLevel(outMember);
+  const all=_fieldMembers(d);
+  const byName=new Map(all.map(p=>[_fieldNameKey(p.n),p]));
+  const lookup=name=>byName.get(_fieldNameKey(name));
   const games=new Map();
-  ((d&&d.matches)||[]).forEach(m=>[...(m.t1||[]),...(m.t2||[])].forEach(n=>{
-    const k=_attKey(n); games.set(k,(games.get(k)||0)+1);
+  (d.matches||[]).filter(m=>!m.voided).forEach(m=>[...(m.t1||[]),...(m.t2||[])].forEach(n=>{
+    const k=_fieldNameKey(n); games.set(k,(games.get(k)||0)+1);
   }));
   return all
-    .map(p=>({name:p.n||p.name,level:_memberEffLevel(p),
-      grade:String(p.grade||p.gr||''),age:String(p.ageGroup||p.a||'')}))
-    .filter(p=>p.name&&!inMatch.has(_attKey(p.name)))
-    .filter(p=>!_bookedInRound(d,p.name,match.round,match.num))
+    .filter(p=>p.n&&!inMatch.has(_fieldNameKey(p.n))&&!_lateOn(p.n)&&!_bookedInRound(d,p.n,match.round,match.num))
     .map(p=>{
-      const team=_teamOfName(d,p.name);
-      return {...p,team,crossTeam:!!outTeam&&!!team&&team!==outTeam,
-        levelGap:_round1(Math.abs(p.level-outLevel)),
-        balance:_round1(_balanceAfter(d,match,outName,p.level)),
-        balanceGap:_round1(_balanceGapAfter(d,match,outName,p.level)),
-        // 빠지는 사람보다 세면 그 팀이 교체로 이득을 봅니다(양수 = 강해짐).
-        swing:_round1(p.level-outLevel),
-        games:games.get(_attKey(p.name))||0,
-        late:_lateOn(p.name)};
+      const team=_teamOfName(d,p.n);
+      return {name:p.n,team,crossTeam:!!outTeam&&!!team&&team!==outTeam,
+        ...TeamFieldSubstitution.assess(match,outName,p,lookup,_memberEffLevel),
+        games:games.get(_fieldNameKey(p.n))||0};
     })
-    .filter(c=>!c.late)
-    // 같은 팀 → 0 에 가까운 순 → 같은 크기면 **덜 유리한 쪽**(음수) 먼저 → 덜 뛴 순
-    // (서버 엔진과 같은 기준)
-    .sort((a,b)=>Number(a.crossTeam)-Number(b.crossTeam)
-      ||Math.abs(a.balance)-Math.abs(b.balance)
-      ||Number(a.balance>0)-Number(b.balance>0)
-      ||a.games-b.games||String(a.name).localeCompare(String(b.name),'ko'));
+    .sort(TeamFieldSubstitution.compare);
   // 자르지 않습니다 — 라운드를 동시에 끝내고 투입하면 그 순간 자유로운 사람이
   // 많아지는데(20명·2코트면 12명), 8명에서 잘라 내면 임원이 고를 수가 없습니다
   // (운영자 2026-08-14 "후보군을 보다 다양하게"). 추천 순서는 그대로 앞에 옵니다.
@@ -1897,7 +1897,6 @@ function _substituteCandidates(d,match,outName){
                  상대에게 불합리하다
      −N (파랑) = 교체한 팀이 N 만큼 **약해짐** → 감수하는 쪽이니 경고까지는 아니다
    막지는 않고, 표시하고 한 번 물어봅니다. */
-const TEAM_BALANCE_WARN_GAP=2;   // 이만큼 벌어지면 확인창
 /* 실효 급수가 소수라 기울기도 소수입니다(30대 C 3.8 vs 40대 C 3.5).
    0.05 미만은 사실상 균형이라 「균형」으로 읽습니다. */
 function _balanceMark(c){
@@ -1990,29 +1989,28 @@ function _isMatchUnderway(d,m){
   const cur=Number(d&&d.currentRound||0);
   return !cur||Number(m.round)===cur;
 }
-async function submitTeamSubstitute(matchNum,outName,inName,opts){
+async function submitTeamSubstitute(matchNum,outName,inName){
   const d=window._lastLiveData;
   const match=_matchByNum(d,matchNum);
   const viewer=_viewerInfo(d);
   if(!match||!viewer)return alert('경기를 다시 확인해주세요.');
   if(!_canSubstitute(d))return alert('단장·부단장·클럽 임원만 대체 투입을 할 수 있어요.');
-  const crossTeam=!!(opts&&opts.crossTeam);
+  const lineup=document.getElementById('teamSubstitutePanel')?.dataset.lineup;
+  if(lineup!==JSON.stringify([match.t1,match.t2])){
+    closeTeamSubstitutePanel();
+    return alert('경기 구성이 바뀌었습니다. 대진표에서 선수를 다시 선택해 주세요.');
+  }
+  const candidate=_substituteCandidates(d,match,outName).find(c=>c.name===inName);
+  if(!candidate||match.voided||match.win){
+    closeTeamSubstitutePanel();
+    return alert('교체 가능한 선수가 바뀌었습니다. 대진표를 다시 확인해 주세요.');
+  }
+  const crossTeam=candidate.crossTeam;
   if(crossTeam&&!confirm(inName+' 선수는 상대 팀입니다.\n그래도 이 경기에 넣을까요?\n\n팀 전력이 달라집니다.'))return;
-  // 급수가 기울면 한 번 물어봅니다. 막지는 않습니다 — 판단은 임원 몫입니다.
-  const balance=Number(opts&&opts.balance)||0;
-  const side=_sideOfPlayer(match,outName);
-  const swapped=(match[side]||[]).map(n=>_attKey(n)===_attKey(outName)?inName:n);
-  const sum=list=>list.reduce((s,n)=>s+_levelOfName(d,n),0);
-  const mine=sum(swapped), theirs=sum(match[side==='t1'?'t2':'t1']||[]);
-  if(balance>0){
-    // 가장 나쁜 경우 — 사람이 빠진 팀이 교체로 오히려 세집니다.
-    if(!confirm(inName+' 선수를 넣으면 이 팀이 +'+balance+' 로 더 셉니다.'
-      +'\n(우리 '+mine+' vs 상대 '+theirs+')'
-      +'\n\n교체는 원래 그 팀이 감수하는 것이라, 이러면 상대가 불합리합니다.'
-      +'\n그래도 넣을까요?'))return;
-  }else if(Math.abs(balance)>=TEAM_BALANCE_WARN_GAP){
-    if(!confirm(inName+' 선수를 넣으면 이 팀이 −'+Math.abs(balance)+' 로 약해집니다.'
-      +'\n(우리 '+mine+' vs 상대 '+theirs+')\n\n승부가 기울 수 있어요.\n그래도 넣을까요?'))return;
+  if(candidate.ratingsKnown&&(candidate.rawBalance>0.05||candidate.adjustedBalance>0.05||!candidate.allowed)){
+    const adjusted=_balanceMark({balance:candidate.adjustedBalance}).text;
+    const raw=_balanceMark({balance:candidate.rawBalance}).text;
+    if(!confirm(inName+' 선수 교체 후 전력차\n교체하는 팀 기준 합산 '+raw+' · 파트너 보정 '+adjusted+'\n\n이대로 교체할까요?'))return;
   }
   if(_isMatchUnderway(d,match)&&!confirm('이미 시작한 경기입니다.\n그래도 선수를 바꿀까요?'))return;
   if(!liveId||!window.firebase||!firebase.functions)return alert('연결을 확인해주세요.');
@@ -2649,7 +2647,22 @@ function _ensureScrollTopButton(){
   sync();
 }
 
+// 구버전에서 교체된 경기는 선수 이름만 갱신되어 종목이 옛 구성으로 남을 수 있습니다.
+function _withFieldMatchTypes(d){
+  if(!Array.isArray(d?.matches))return d;
+  const changed=new Set((Array.isArray(d.substitutions)?d.substitutions:[]).map(row=>Number(row?.matchNum)).filter(Boolean));
+  const members=new Map(_fieldMembers(d).map(p=>[_fieldNameKey(p.n),p]));
+  const lookup=name=>members.get(_fieldNameKey(name));
+  const matches=d.matches.map(m=>{
+    const fieldChange=changed.has(Number(m.num));
+    if(!fieldChange&&!['남복','여복','혼복'].includes(m.type))return m;
+    const type=TeamFieldSubstitution.matchType(m,lookup)||(fieldChange?'종목 미확인':m.type);
+    return type===m.type?m:{...m,type};
+  });
+  return matches.some((m,i)=>m!==d.matches[i])?{...d,matches,fieldTypeCorrected:true}:d;
+}
 function render(d){
+  d=_withFieldMatchTypes(d);
   document.body.classList.toggle('team-live-view',_isTeamLiveData(d));
   _ensureScrollTopButton();
   // 임원이면 운영 권한을 미리 받아 둡니다 — 첫 조작에서 기다리지 않도록.

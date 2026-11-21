@@ -198,7 +198,14 @@ function protects(base,next,bq,nq,baseMatches,nextMatches){
 // An ordinal score against independently generated, complete feasible schedules.
 // It is a bounded comparison, not a probability or a global optimality proof.
 function compareCandidates(current,references){
- const usable=references.filter(r=>r.eligible&&r.version===current.version),compare=(a,b)=>{
+ const usable=(Array.isArray(references)?references:[]).filter(r=>{
+  const d=r?.diagnostics,c=d?.closeSensitivity;
+  if(!r?.eligible||r.version!==current.version||!r.components||!Array.isArray(r.issues)
+    ||!Array.isArray(c)||!c[1]||!c.every(row=>row&&[row.close,row.blue,row.white].every(Number.isInteger))
+    ||!Array.isArray(d.formatBalance)||!Number.isFinite(d.maxAdjustedGap))return false;
+  return rankKey(r).every(Number.isFinite);
+ });
+ const compare=(a,b)=>{
   const x=rankKey(a),y=rankKey(b);for(let i=0;i<x.length;i++)if(Math.abs(x[i]-y[i])>1e-9)return x[i]<y[i]?-1:1;return 0;
  };
  if(!current.eligible||usable.length<2)return {verified:false,reason:!current.eligible?'필수 조건 확인 필요':'같은 조건의 서로 다른 비교 후보가 부족합니다'};
@@ -210,6 +217,64 @@ function compareCandidates(current,references){
   label:better?'더 나은 비교 후보 있음':'검토 후보 중 최선',
   caveat:'검토 후보 내 순위 점수입니다. 전체 최적·최선 달성률·실제 수동 편성 대비 우수성을 증명하지 않습니다'};
 }
+// These are two complete brackets already compared by rankKey. Always describe
+// the same alternative, including any loss in close games or women's doubles.
+function candidateChanges(current,best){
+ const before=current.closeSensitivity[1],after=best.closeSensitivity[1];
+ const changes=[];
+ let hasLoss=false;
+ const changeCount=(label,a,b,unit,higherIsBetter)=>{
+  if(!Number.isInteger(a)||!Number.isInteger(b)||a===b)return;
+  if((b>a)!==higherIsBetter)hasLoss=true;
+  changes.push(label+' '+Math.abs(b-a)+unit+(b>a?' 증가':' 감소'));
+ };
+ changeCount('접전',before.close,after.close,'경기',true);
+ const womenGames=d=>d.formatBalance.find(row=>row?.type==='여복')?.games||0;
+ const fromWomen=womenGames(current),toWomen=womenGames(best);
+ changeCount('여복',fromWomen,toWomen,'경기',true);
+ changeCount('여복 목표 달성',current.womenPreference?.covered,best.womenPreference?.covered,'명',true);
+ changeCount('여복 가능 선수 중 여복 0회',current.womenPreference?.zero,best.womenPreference?.zero,'명',false);
+ const from=current.maxAdjustedGap.toFixed(2),to=best.maxAdjustedGap.toFixed(2);
+ if(from!==to){
+  if(best.maxAdjustedGap>current.maxAdjustedGap)hasLoss=true;
+  changes.push('최대 실력 차 '+from+' → '+to);
+ }
+ changeCount('청·홍 우세 경기 수 차이',Math.abs(before.blue-before.white),Math.abs(after.blue-after.white),'경기',false);
+ if(changes.length&&fromWomen>0&&fromWomen===toWomen)changes.push('여복 '+fromWomen+'경기 유지');
+ return {detail:changes.join(' · '),hasLoss};
+}
+function scheduleDecision(competition,comparison,{blocking,caution,phase,canCompare=true}){
+ const draft=phase==='draft';
+ const issues=blocking.length?blocking:(competition.issues||[]);
+ if(issues.length||!competition.eligible){
+  const repair=comparison?.repairAvailable;
+  const improvement=repair&&Number.isFinite(repair.maxBefore)&&Number.isFinite(repair.maxAfter)&&repair.maxAfter<repair.maxBefore
+   ? '개선 후보의 최대 실력 차 '+repair.maxBefore.toFixed(2)+' → '+repair.maxAfter.toFixed(2) : '';
+  return {style:'bad',title:draft?'편성 확인 필요':phase==='finished'?'종료 대진 확인':'현장 편성 확인',
+   detail:[issues.join(' · ')||'필수 조건 확인 필요',improvement].filter(Boolean).join('. ')};
+ }
+ const verified=comparison?.verified&&competition.version>=10&&comparison.version===5
+  &&comparison.count>=2&&comparison.rank>=1&&comparison.rank<=comparison.count;
+ let title,description,style='warn';
+ if(competition.version<10){
+  title='이전 기준으로 평가한 대진';
+  description='저장 당시 기준으로 계산한 점수와 비교 결과는 상세 점검에서 볼 수 있습니다.';
+ }else if(!verified){
+  title=draft&&canCompare?'현재 조건의 후보 비교 필요':'현재 대진의 비교 기록 없음';
+  description=draft&&!canCompare?'후보 비교는 인당 3~4경기·40명 이하 팀전에서 지원합니다.':
+   comparison?.reason||'같은 팀과 설정으로 비교한 후보가 충분하지 않습니다.';
+ }else if(comparison.better>0){
+  const changes=candidateChanges(comparison.current,comparison.best);
+  title=changes.hasLoss?'장단점이 다른 후보 있음':'개선 후보 있음';
+  description=changes.detail||'같은 조건에서 품질 기준상 앞선 대진이 있습니다.';
+ }else{
+  title=draft?'현재 대진으로 진행 권장':'검토한 후보 중 현재 대진이 1위';
+  description='같은 팀과 설정으로 비교한 '+comparison.count+'개 대진 중 1위입니다.';
+  if(!caution.length)style='ok';
+ }
+ const notice=caution.length?'확인할 점 · '+caution.join(' · '):'';
+ return {style,title,detail:[description,notice].filter(Boolean).join(' ')};
+}
 function reviewContext(players,settings){
  return JSON.stringify({courts:settings.courts,gamesPerPlayer:settings.gamesPerPlayer,teamMode:settings.teamMode,
   players:players.map(p=>[p.name,p.team,p.gender,p.skillRating??null,p.level,p.grade||'',p.ageGroup||'',p.partnerName||'',p._goal??settings.gamesPerPlayer]).sort((a,b)=>a[0].localeCompare(b[0]))});
@@ -217,5 +282,5 @@ function reviewContext(players,settings){
 function comparisonKey(matches){return matches.map(m=>[m.round,m.type,...[[m.team1A.name,m.team1B.name].sort().join('|'),[m.team2C.name,m.team2D.name].sort().join('|')].sort()].join(';')).sort().join('~');}
 function scheduleKey(matches){return matches.map(m=>[m.round,m.court,m.type,m.team1A.name,m.team1B.name,m.team2C.name,m.team2D.name,...(m.voided?['void']:[])].join('|')).sort().join(';');}
 
-const api={assess,marginSide,rankKey,distribution,refine,allocationCandidates,protects,opponentStats,compareCandidates,reviewContext,scheduleKey,comparisonKey};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
+const api={assess,marginSide,rankKey,distribution,refine,allocationCandidates,protects,opponentStats,compareCandidates,scheduleDecision,reviewContext,scheduleKey,comparisonKey};if(typeof module==='object'&&module.exports)module.exports=api;root.KokTeamCompetition=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

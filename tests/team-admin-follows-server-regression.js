@@ -39,7 +39,10 @@ function saveState(){ calls.save++; }
 function showWarn(m){ calls.warn.push(m); }
 ${slice('function _teamLiveSigName', 'function _teamLiveSignature(){')}
 ${slice('function _teamMatchIsBlueFirst', 'function _teamRoundLevelBias')}
-${slice('const _TEAM_MATCH_SLOTS', 'function _unbindLiveAdminListener')}
+const MATCH_QUALITY=null;
+  ${slice('function effLevel(p)', '// Count forced partner repeats')}
+  ${slice('function _teamRecalcMatchLevels(m)', 'function _teamSyncGeneratedProfilesFromDirectPlayers')}
+  ${slice('const _TEAM_MATCH_SLOTS', 'function _unbindLiveAdminListener')}
 this.api={
   set(matches, participants){ currentMatches=matches; currentParticipants=participants; },
   matches(){ return currentMatches; },
@@ -237,8 +240,8 @@ function fresh(){
   const session = {
     liveId: 'TEAMFOLLOW', isTeam: true, expiresAt: Date.now() + 3600_000,
     matches: rows,
-    members: {blue: roster.filter(p => p.team === BLUE).map(p => ({name: p.name, level: p.level, grade: p.grade})),
-              red: roster.filter(p => p.team === RED).map(p => ({name: p.name, level: p.level, grade: p.grade})),
+    members: {blue: roster.filter(p => p.team === BLUE).map(p => ({name: p.name, level: p.level, grade: p.grade, gender: p.gender})),
+              red: roster.filter(p => p.team === RED).map(p => ({name: p.name, level: p.level, grade: p.grade, gender: p.gender})),
               all: []},
     officials: {clubOfficials: [{memberId: 'm1', name: '청하나'}]},
     bracketKey: api._teamLiveSignatureFromData({matches: rows})
@@ -256,7 +259,12 @@ function fresh(){
 
   fresh();
   const adopted = api._teamAdoptServerMatchesAndRender(applied.session);
-  assert.strictEqual(adopted.changed, 1, '관리자가 그 교체를 받아 적어야 합니다.');
+  assert.strictEqual(adopted.swaps.length, 1, '관리자가 선수 한 명의 교체를 받아 적어야 합니다.');
+  assert.strictEqual(applied.session.matches[0].type, '보정');
+  assert.strictEqual(api.matches()[0].team1Level, 8, '교체 후 두 선수의 전력 합이 최신 조합과 맞습니다.');
+  assert.strictEqual(api.matches()[0].levelDiff, 0.5);
+  assert.strictEqual(api.matches()[0].type, '보정', '관리자 재게시에도 변경된 종목을 보존해야 합니다.');
+  assert.strictEqual(api._teamAdoptServerMatches(applied.session).changed, 0, '같은 교체를 다시 처리하지 않습니다.');
   assert.strictEqual(api._teamLiveSignatureFromMatches(api.matches()), applied.session.bracketKey,
     '교체 뒤 관리자 지문과 서버 지문이 같아야 합니다(“다른 대진” 오판 방지).');
   console.log('  지문: 서버=관리자 · 교체 후에도 일치');

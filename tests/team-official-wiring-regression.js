@@ -142,28 +142,17 @@ assert(/expectedT1:\[\.\.\.\(match\.t1\|\|\[\]\)\]/.test(liveView),
 const liveCssForBalance = fs.readFileSync(path.join(root, 'css', 'live.css'), 'utf8');
 const cands = liveView.slice(liveView.indexOf('function _substituteCandidates'),
   liveView.indexOf('async function submitTeamSubstitute'));
-// 2026-08-14 계약 갱신: 빠지는 사람과 급수가 가까운 순이 아니라, **넣은 뒤 경기가
-// 가장 안 기우는 순**입니다("아무나 투입하면 상대에겐 불공정한 게임이 되잖아").
-// 교체는 팀 패널티다 — 사람이 빠진 팀이 교체로 **더 세지면** 상대가 불합리하다
-// (운영자 2026-08-14). 그래서 강해지는 후보는 균형이 좋아도 뒤로 민다.
-assert(/Math\.abs\(a\.balance\)-Math\.abs\(b\.balance\)/.test(cands),
-  '후보는 기울기가 0 에 가까운 순이어야 합니다.');
-assert(/Number\(a\.balance>0\)-Number\(b\.balance>0\)/.test(cands),
-  '같은 크기면 교체로 강해지는 쪽이 뒤여야 합니다.');
+// 양쪽 진입점이 같은 품질 정책을 사용하는지 검사한다. 보정식, 기울기 방향,
+// 여복 유지, 출전 수의 동작은 실제 후보로 team-field-substitution-ui-regression 에서 대조한다.
 const engineSrc = fs.readFileSync(path.join(root, 'functions', 'team-official-engine.js'), 'utf8');
-assert(/Math\.abs\(a\.balance\) - Math\.abs\(b\.balance\)/.test(engineSrc)
-  && /Number\(a\.balance > 0\) - Number\(b\.balance > 0\)/.test(engineSrc),
-  '서버 엔진도 같은 기준으로 정렬해야 합니다.');
-assert(/function balanceAfter/.test(engineSrc) && /function _balanceAfter/.test(liveView),
-  '부호 있는 기울기 계산이 서버·화면 양쪽에 있어야 합니다.');
+assert(cands.includes('TeamFieldSubstitution.assess(') && cands.includes('.sort(TeamFieldSubstitution.compare)'));
+assert(engineSrc.includes('fieldSubstitution.assess(') && engineSrc.includes('.sort(fieldSubstitution.compare)'));
 // 색은 부호를 따릅니다 — + 빨강 / − 파랑(운영자 2026-08-14).
 assert(/\.team-sub-cand\.over small\{color:#c0392b/.test(liveCssForBalance)
   && /\.team-sub-cand\.under small\{color:#1d4ed8/.test(liveCssForBalance),
   '+ 는 빨강, − 는 파랑이어야 합니다.');
-assert(/a\.games-b\.games/.test(cands), '그 다음은 덜 뛴 순이어야 합니다.');
-assert(/_bookedInRound\(d,p\.name,match\.round,match\.num\)/.test(cands),
-  '같은 라운드에 이미 잡힌 사람은 후보에서 빼야 합니다.');
-assert(/filter\(c=>!c\.late\)/.test(cands), '늦은 사람을 대체 후보로 올리면 안 됩니다.');
+assert(cands.includes('_bookedInRound(d,p.n,match.round,match.num)'), '라운드 중복 출전 제외');
+assert(cands.includes('!_lateOn(p.n)'), '지각 상태인 선수 제외');
 
 // 7-1) 미실시는 **화면에서 사라졌습니다** (운영자 2026-08-12 "미실시 경기는
 // 구조적으로 발생하지 않아. 어떤 식으로든 결정을 해야 다음 라운드로 넘어가는

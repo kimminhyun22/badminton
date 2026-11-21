@@ -2074,6 +2074,23 @@ button.team-official-overview-conflict.quiet{
 .team-sub-cand.under small{color:#1d4ed8;}
 .team-sub-cand.team-blue{border-color:#c7d9fb;background:#f7faff;}
 .team-sub-cand.team-red{border-color:#f6cdcb;background:#fffaf9;}
+#teamSubstitutePanel .team-sub-card{box-sizing:border-box;padding-bottom:max(20px,env(safe-area-inset-bottom));}
+#teamSubstitutePanel .team-sub-cands{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,136px),1fr));}
+#teamSubstitutePanel .team-sub-cand{align-items:flex-start;min-width:0;text-align:left;overflow-wrap:anywhere;}
+#teamSubstitutePanel .team-sub-cand span,#teamSubstitutePanel .team-sub-cand small{font-size:12px;line-height:1.45;word-break:keep-all;}
+#teamSubstitutePanel .team-sub-cand span{font-weight:600;}
+.team-roster-dialog{box-sizing:border-box;margin:auto;width:min(420px,calc(100% - 24px));max-height:85dvh;overflow:auto;
+  padding:20px;border:1px solid var(--bdr);border-radius:16px;color:var(--txt);background:var(--sur,#fff);}
+.team-roster-dialog::backdrop{background:rgba(15,23,42,.42);}
+.team-roster-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.team-roster-form h2,.team-roster-form label:first-of-type,.team-roster-form-actions{grid-column:1/-1;}
+.team-roster-form h2{font-size:18px;margin:0;}
+.team-roster-form label{display:grid;gap:4px;font-size:13px;font-weight:700;}
+.team-roster-form input,.team-roster-form select,.team-roster-form button{box-sizing:border-box;width:100%;min-width:0;
+  min-height:44px;padding:6px 10px;border:1px solid var(--bdr);border-radius:8px;background:#fff;color:var(--txt);font:inherit;font-size:16px;}
+.team-roster-form-actions{display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:6px;}
+.team-roster-form button[type=submit]{background:var(--bl);color:#fff;font-weight:700;}
+.team-roster-form button:disabled{opacity:.6;}
 
 /* 대시보드 바로가기 — 세 곳으로만. 새 화면이 아니라 있는 자리로 보낸다. */
 .team-official-jump{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:10px;}

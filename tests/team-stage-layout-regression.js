@@ -44,7 +44,7 @@ function run(state){
       const e = { classes: new Set(), open: null, parentElement: null, textContent: '', tagName: key.startsWith('#sec-') ? 'DETAILS' : 'DIV' };
       e.dataset = {};
       e.insertBefore = child => { child.parentElement = e; };
-      e.querySelector = () => null;
+      e.querySelector = sel => key==='#teamFieldChangeHelp'&&sel==='a' ? get('#fieldMemberLink') : null;
       e.classList = {
         toggle: (c, on) => { if (on) e.classes.add(c); else e.classes.delete(c); },
         contains: c => e.classes.has(c),
@@ -64,6 +64,10 @@ function run(state){
   const ctx = {
     currentMatches: state.matches || [],
     _liveOn: !!state.live,
+    currentSettings: {teamMode:!state.free},
+    _currentBracketRsvpId: () => state.rsvpId,
+    _rsvpUrlFor: id => id ? 'rsvp.html?id='+id : '',
+    _liveUrl: () => 'view.html?id=synthetic',
     _teamUsesFixedTeams: () => !state.free,
     _liveMatchStartedAt: null,
     _teamFinishedAt: null,

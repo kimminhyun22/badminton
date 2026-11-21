@@ -1,7 +1,7 @@
 /* ═══ APP VERSION ═══ */
 /* 코드 수정 시 이 값을 올리세요 (예: 1.0.1 → 1.1.0).
    푸터 버전 표시가 자동 갱신되고, 본문이 바뀌어 iOS PWA 캐시도 갱신됩니다. */
-const APP_VERSION = '1.10.810';
+const APP_VERSION = '1.10.811';
 
 /* ═══ GLOBALS ═══ */
 const LV_LABEL={7:'S',6:'S',5:'A',4:'B',3:'C',2:'D',1:'E',0:'E'};
@@ -235,6 +235,8 @@ function _captureUndoSnapshot(label){
     return{s1:s1?parseInt(s1.value)||0:0,s2:s2?parseInt(s2.value)||0:0};
   });
   const snap={
+    predictionBaseline:globalThis.KokTeamPredictionRecap?.snapshot(),
+    predictionOfficialFinish:globalThis.KokTeamPredictionRecap?.officialFinish(),
     label: label||'변경',
     ts: Date.now(),
     directPlayers: JSON.parse(JSON.stringify(_directPlayers)),
@@ -284,6 +286,7 @@ function undoAction(){
     _teamWanted=snap.teamWanted!=null?!!snap.teamWanted:_teamModeOverride!==false;
     if(Array.isArray(snap.partners))_partners=JSON.parse(JSON.stringify(snap.partners));
     if(snap.captains)captains=JSON.parse(JSON.stringify(snap.captains));
+    globalThis.KokTeamPredictionRecap?.restore(snap.predictionBaseline,Object.values(snap.winOverride||{}).some(Boolean),snap.predictionOfficialFinish);
     currentMatches=JSON.parse(JSON.stringify(snap.matches||[]));
     currentParticipants=JSON.parse(JSON.stringify(snap.participants||[]));
     currentSettings=_teamAutoFormatSettings(JSON.parse(JSON.stringify(snap.settings||{})),currentParticipants);
@@ -509,7 +512,7 @@ async function doTeamAssignFromUI({bracketOnly=false}={}){
   if(_teamAssignmentBusy)return false;
   const status=bracketOnly?_teamReshuffleStatus:_teamAssignmentStatus;
   if(_teamBlockFullReassignment()){
-    status('운동 시작 후에는 전체 팀을 다시 배정할 수 없습니다. 선수 변동은 참가자 수정에서 처리해 주세요.','error');
+    status('운동 시작 후에는 전체 팀을 다시 배정할 수 없습니다. 현장 교체는 회원 링크에서 운영진이 경기의 선수 이름을 눌러 진행하세요.','error');
     return false;
   }
   const regenerate=!!currentMatches.length;
@@ -521,6 +524,7 @@ async function doTeamAssignFromUI({bracketOnly=false}={}){
   }
   const before={assignment:teamAssignment,matches:currentMatches,participants:currentParticipants,settings:currentSettings,
     wanted:_teamWanted,override:_teamModeOverride,notice:_teamReassignmentNotice,undo:_undoStack.slice(),
+    predictionBaseline:globalThis.KokTeamPredictionRecap?.snapshot(),predictionOfficialFinish:globalThis.KokTeamPredictionRecap?.officialFinish(),
     wins:{...winOverride},locked:_lockedBeforeRound,operators:temporaryOperators.slice(),
     live:{late:_liveLate,party:_liveParty,inputs:_liveResultInputs,conflicts:_liveResultConflicts,
       substitutions:_liveSubstitutions,winAt:{...liveWinAt},startedAt:_liveMatchStartedAt},
@@ -590,6 +594,7 @@ async function doTeamAssignFromUI({bracketOnly=false}={}){
     if(!completed){
       if(!stale){
         teamAssignment=before.assignment;
+        globalThis.KokTeamPredictionRecap?.restore(before.predictionBaseline,Object.values(before.wins).some(Boolean),before.predictionOfficialFinish);
         currentMatches=before.matches;currentParticipants=before.participants;currentSettings=before.settings;
         Object.keys(winOverride).forEach(k=>delete winOverride[k]);Object.assign(winOverride,before.wins);
         _lockedBeforeRound=before.locked;temporaryOperators=before.operators;
@@ -1379,6 +1384,7 @@ function generate(opts={}){
       // 이전 점수·승패 완전 초기화
       Object.keys(winOverride).forEach(k=>delete winOverride[k]);
       _resetScoreboard();
+      if(settings.teamMode)globalThis.KokTeamPredictionRecap?.recordDraw(matches,participants);
       renderResults(matches,participants,settings);
       openQualityPanelAfterRender();
       updateSettingsMiniSummary();
@@ -2959,9 +2965,14 @@ function _teamBuildConditionalReview(selected,candidates,settings,examined){
   }
   return {version:5,context,selectedSignature:policy.scheduleKey(selected.matches),references,examined:examined+(flex.accepted?1:0)+(repair.accepted?1:0),repairAvailable:repair.accepted?{maxBefore:_teamCompetitionEvaluation(selected,settings).score.diagnostics.maxAdjustedGap,maxAfter:_teamCompetitionEvaluation(repair.candidate,settings).score.diagnostics.maxAdjustedGap}:null,conditionalRelaxationCompared:!!flex.accepted,baseline:'1회 자동편성 및 다회 탐색 전체 후보',actualManualCompared:false};
 }
+function _teamDecisionPhase(){
+  if(_teamFinishedAt)return 'finished';
+  if(_liveMatchStartedAt||currentMatches.some((_,i)=>_isMatchDone(i)))return 'live';
+  return _liveOn?'published':'draft';
+}
 function teamReviewCurrentBracket(){
   if(!currentMatches.length||!currentSettings.teamMode)return;
-  if(_liveMatchStartedAt||_teamFinishedAt||currentMatches.some((_,i)=>_isMatchDone(i))){showWarn('진행·종료된 경기를 고정한 비교는 아직 지원하지 않습니다. 기존 경기와 기록은 유지합니다.');return;}
+  if(_teamDecisionPhase()!=='draft'){showWarn('후보 비교는 팀전 시작 전에 진행할 수 있습니다.');return;}
   if(![3,4].includes(currentSettings.gamesPerPlayer)||currentParticipants.length>40){showWarn('현재 편성 비교는 인당 3~4게임·40명 이하 팀전을 지원합니다.');return;}
   document.getElementById('loadingOverlay').classList.add('on');
   setTimeout(()=>{
@@ -2997,11 +3008,17 @@ function _teamWomenConstraintExplanation(players){
 function _teamConditionalAssessment(matches,participants,settings){
   const evidence=settings.conditionalReview,policy=globalThis.KokTeamCompetition;
   if(matches.some(m=>m.voided))return {verified:false,reason:'미실시 경기로 유효 대진이 달라졌습니다.'};
-  if(!evidence||!policy||evidence.version!==5||evidence.context!==policy.reviewContext(participants,settings))return {verified:false,reason:'현재 구성원·설정·점수 기준의 비교 기록이 없습니다. 현재 대진 비교 또는 새 대진 생성으로 다시 확인해 주세요'};
-  if(evidence.selectedSignature!==policy.scheduleKey(matches))return {verified:false,reason:'대진 변경 후 비교 기록이 달라졌습니다. 새 대진 생성 시 다시 비교합니다'};
+  if(!evidence||!policy||evidence.version!==5||evidence.context!==policy.reviewContext(participants,settings))return {verified:false,reason:'현재 구성원·설정·점수 기준으로 비교한 기록이 없습니다.'};
+  if(evidence.selectedSignature!==policy.scheduleKey(matches))return {verified:false,reason:'선수 또는 대진이 바뀌어 이전 비교 기록을 사용할 수 없습니다.'};
   const current=_teamCompetitionEvaluation({matches,participants},settings).score;
-  const result=policy.compareCandidates(current,evidence.references.map(r=>r.score));
-  return {...result,examined:evidence.examined,actualManualCompared:false,repairAvailable:evidence.repairAvailable||null,conditionalRelaxationCompared:!!evidence.conditionalRelaxationCompared,constraintExplanation:_teamWomenConstraintExplanation(participants)};
+  const references=Array.isArray(evidence.references)?evidence.references:[];
+  const bySignature=new Map(references.filter(r=>r?.signature&&r.score).map(r=>[r.signature,r.score]));
+  const includesCurrent=bySignature.has(evidence.selectedSignature);
+  if(includesCurrent)bySignature.set(evidence.selectedSignature,current);
+  const result=policy.compareCandidates(current,includesCurrent?[...bySignature.values()]:[]);
+  const repair=evidence.repairAvailable;
+  const repairAvailable=Number.isFinite(repair?.maxBefore)&&Number.isFinite(repair?.maxAfter)&&repair.maxAfter<repair.maxBefore?repair:null;
+  return {...result,examined:Number.isInteger(evidence.examined)?evidence.examined:bySignature.size,actualManualCompared:false,repairAvailable,conditionalRelaxationCompared:!!evidence.conditionalRelaxationCompared,constraintExplanation:_teamWomenConstraintExplanation(participants)};
 }
 function _teamWomenTargetsPreserved(base,next,settings){
   const women=globalThis.KokWomenDoubles;
@@ -3573,6 +3590,7 @@ function clickWin(idx,side){
 }
 
 function _resetScoreboard(){
+  globalThis.KokTeamPredictionRecap?.reset();
   ['blueWins','bW','bL','bScore','whiteWins','wW','wL','wScore'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.textContent='0';
   });
@@ -3778,6 +3796,7 @@ function _teamValidateLiveDataForCurrent(data){
 
 /* 현재 대진·스코어를 직렬화 (뷰어가 읽을 형태) */
 function _buildLiveState(){
+  _teamRefreshQualityPhase();
   const isTeam=!!(currentSettings && currentSettings.teamMode);
   const matchMode=isTeam?'team':'free';
   const _s=(v)=>(v==null?'':String(v));
@@ -3886,6 +3905,12 @@ function _buildLiveState(){
     attendanceMode:null,
     updatedAt: Date.now()
   };
+}
+
+function _teamRefreshQualityPhase(){
+  if(_teamQualitySummary?.decisionVersion===1&&_teamQualitySummary.decisionPhase!==_teamDecisionPhase()){
+    renderQualityDashboard(currentMatches,currentParticipants,currentSettings);
+  }
 }
 
 function _liveKey(name){
@@ -4146,18 +4171,22 @@ function _teamAdoptServerMatches(data){
       plan.push({index:i,slot,player,out:(local[slot]&&local[slot].name)||'',in:player.name});
     }
   }
-  // 미실시 표시와 코트 번호도 서버를 따라갑니다(임원이 바꾼 것을 되돌리지 않도록).
-  let voidChanged=0;
+  // 임원이 바꾼 코트·종목·미실시 상태를 다음 게시에 보존한다.
+  let metadataChanges=0;
   currentMatches.forEach((local,i)=>{
     const row=byNum.get(Number(local.matchNumber)||(i+1));
     if(!row)return;
     const want=row.voided===true;
     if(want!==(local.voided===true)){
       if(want)local.voided=true; else delete local.voided;
-      voidChanged++;
+      metadataChanges++;
     }
     const court=Number(row.court||0);
-    if(court&&court!==Number(local.court||0)){ local.court=court; voidChanged++; }
+    if(court&&court!==Number(local.court||0)){ local.court=court; metadataChanges++; }
+    if(row.type!==local.type&&['여복','남복','혼복','보정','종목 미확인'].includes(row.type)){
+      local.type=row.type;
+      metadataChanges++;
+    }
   });
   plan.forEach(({index,slot,player})=>{
     const local=currentMatches[index];
@@ -4165,7 +4194,8 @@ function _teamAdoptServerMatches(data){
     if(!local.team1Side)local.team1Side=(local.team1A&&local.team1A.team)||'';
     local[slot]=player;
   });
-  return {applied:true,changed:plan.length+voidChanged,swaps:plan.map(p=>({out:p.out,in:p.in}))};
+  for(const index of new Set(plan.map(change=>change.index)))_teamRecalcMatchLevels(currentMatches[index]);
+  return {applied:true,changed:plan.length+metadataChanges,swaps:plan.map(p=>({out:p.out,in:p.in}))};
 }
 /**
  * 임원이 현장에서 고친 **명단**을 관리자도 따라갑니다.
@@ -4256,6 +4286,7 @@ function _bindLiveAdminListener(){
   _liveAdminRef=_fbDb.ref('live/'+_liveId);
   _liveAdminHandler=snap=>{
     const data=(snap&&snap.exists&&snap.exists())?(snap.val()||{}):{};
+    if(globalThis.KokTeamPredictionRecap?.setOfficialFinish(!!data.finishedAt))scheduleSave();
     _liveLate=data.late||_teamLegacyLateMap(data);
     _liveParty=data.party||{};
     _liveResultInputs=data.resultInputs||{};
@@ -4286,12 +4317,16 @@ async function startLiveBroadcast(){
   _rsvpEnsureCurrentEventLink({silent:true});
   if(!_liveId) _liveId=_genLiveId();
   // 오래된 중계 데이터 자동 정리 (48시간 경과분 삭제) — 새 중계 시작하는 김에 청소
+  const previousStartedAt=_liveMatchStartedAt,previousFinishedAt=_teamFinishedAt,previousLiveOn=_liveOn;
   try{
     const liveRef=_fbDb.ref('live/'+_liveId);
-    const prev=await liveRef.once('value').catch(()=>null);
+    const prev=await liveRef.once('value');
     const prevData=(prev&&prev.exists())?(prev.val()||{}):{};
     _teamAdoptServerMatchesAndRender(prevData);
     if(!_teamValidateLiveDataForCurrent(prevData))return;
+    const prediction=currentSettings.teamMode?globalThis.KokTeamPredictionRecap?.preparePublication(
+      currentMatches,currentParticipants,_liveId,!!prev&&!prev.exists(),
+      !!(_liveMatchStartedAt||_teamFinishedAt)||currentMatches.some((_,i)=>_isMatchDone(i))):null;
     _liveOn=true;
     temporaryOperators=prevData.officials?_teamNormalizeTemporaryOperators(prevData.officials.temporaryOperators):_teamNormalizeTemporaryOperators(temporaryOperators);
     _teamFinishedAt=null;
@@ -4307,7 +4342,11 @@ async function startLiveBroadcast(){
     _liveResultConflicts=prevData.resultConflicts||{};
     const state={..._buildLiveState(),late:_liveLate||{},party:_liveParty||{}};
     await liveRef.update(state);
-  }catch(e){ alert('업로드 실패: '+e.message); _liveOn=false; _updateLiveUI(); _renderLiveOpsSummary(); return; }
+    globalThis.KokTeamPredictionRecap?.restore(prediction,true,!!prevData.finishedAt);
+  }catch(e){
+    _liveOn=previousLiveOn;_liveMatchStartedAt=previousStartedAt;_teamFinishedAt=previousFinishedAt;
+    alert('업로드 실패: '+e.message);_updateLiveUI();_renderLiveOpsSummary();return;
+  }
   _bindLiveAdminListener();
   _renderLiveOpsSummary();
   _teamSaveLiveId(_liveId);
@@ -4394,6 +4433,7 @@ async function _tryResumeLive(opts={}){
     if(shouldResume){
       _liveId=savedId;
       _liveOn=true;
+      globalThis.KokTeamPredictionRecap?.restore(globalThis.KokTeamPredictionRecap?.snapshot(),true,!!data.finishedAt);
       _liveMatchStartedAt=startedAt;
       _liveLate=data.late||_teamLegacyLateMap(data);
       _liveParty=data.party||{};
@@ -4555,6 +4595,7 @@ function _teamSyncLiveResumeShortcuts(){
   });
 }
 function _updateLiveUI(){
+  _teamRefreshQualityPhase();
   const btn=document.getElementById('liveBtn');
   if(btn){
     if(_liveOn){ btn.classList.add('on'); btn.classList.remove('resume'); btn.innerHTML='팀전 진행 중'; }
@@ -5104,6 +5145,12 @@ function renderQualityDashboard(matches,participants,settings){
   }else if(caution.length||(!competition&&total<90)){
     opClass='warn';opTitle='⚠ 확인 후 진행';opSub=(caution.length?caution.join(' · '):'일부 항목')+' — 이것만 확인하면 됩니다.';
   }
+  const decisionPhase=competition?_teamDecisionPhase():'draft';
+  const canCompare=competition&&decisionPhase==='draft'&&[3,4].includes(settings.gamesPerPlayer)&&participants.length<=40;
+  if(competition){
+    const decision=KokTeamCompetition.scheduleDecision(competition,conditional,{blocking,caution,phase:decisionPhase,canCompare});
+    opClass=decision.style;opTitle=decision.title;opSub=decision.detail;
+  }
   const chip=(label,cls)=>`<span class="op-chip ${cls}">${label}</span>`;
   const opChips=[
     chip(balanceHardCount>0?`실력차 ${balanceHardCount}경기`:balanceCautionCount>0?`실력균형 주의 ${balanceCautionCount}경기`:'실력균형 허용범위',balanceHardCount>0?'bad':balanceCautionCount>0?'warn':'ok'),
@@ -5148,6 +5195,7 @@ function renderQualityDashboard(matches,participants,settings){
      참가자 이력과 급수차로 계산되는 값이라 회원 화면에서는 다시 못 만듭니다 —
      관리자가 계산한 그대로 보냅니다. 태그는 떼고 글자만 보냅니다. */
   _teamQualitySummary={
+    ...(competition?{decisionVersion:1,decisionPhase,bracketKey:_teamLiveSignatureFromMatches(publishedMatches)}:{}),
     score:total, voidedGames:voidedNumbers.join(','), scoreVersion:competition?competition.version:q.scoreVersion, conditional:conditional||null, grade, gradeLabel, sub:subText,
     opClass, opTitle:String(opTitle).replace(/^[^가-힣A-Za-z]+/,'').trim(), opSub,
     issues:issueItems.map(x=>String(x).replace(/<[^>]*>/g,'').trim()).filter(Boolean).slice(0,12)
@@ -5155,22 +5203,22 @@ function renderQualityDashboard(matches,participants,settings){
 
   el.innerHTML=`
     ${voidedNumbers.length?`<div class="qd-balance-note">미실시 ${voidedNumbers.length}경기를 제외한 ${matches.length}경기 기준입니다.</div>`:''}
+    ${competition?'':`<div class="qd-header"><div class="qd-badge qd-${grade}"><span class="qd-badge-pts">${total}</span><span class="qd-badge-grade">${grade} · ${gradeLabel}</span></div><div class="qd-meta"><div class="qd-meta-title">🎯 경기 조건·운영 부담 참고</div><div class="qd-meta-sub">${subText}</div></div></div>`}
+    <div class="op-check">
+      <div class="op-status ${opClass}">
+        <div class="op-status-main">${escText(opTitle)}</div>
+        <div class="op-status-sub">${escText(opSub)}</div>
+      </div>
+      ${canCompare&&competition.version>=10&&!conditional.verified&&competition.eligible?'<button class="btn btn-secondary" onclick="teamReviewCurrentBracket()">현재 대진 비교하기</button>':''}
+      <div class="op-chip-row">${opChips}</div>
+    </div>
+    <details class="team-quality-details"><summary>${competition?`상세 점검 · 경기 조건 참고 ${total}점`:'상세 점검'}</summary>
     ${competition?`<div class="qd-header"><div class="qd-badge qd-${grade}"><span class="qd-badge-pts">${total}</span><span class="qd-badge-grade">/ 100점</span></div><div class="qd-meta"><div class="qd-meta-title">합산 품질점수 · 기준 v${competition.version}</div><div class="qd-meta-sub">${competition.eligible?`아래 ${Object.keys(competition.maxima).length}개 배점 항목의 합계입니다. 출전은 필수 조건, 확정팀 분포는 별도 진단입니다. 점수만으로 재생성이 필요하다는 뜻은 아닙니다.`:'필수 조건 확인이 필요합니다. 합산점수와 관계없이 표시된 문제를 먼저 보완하세요.'}</div></div></div>`:''}
     ${conditional?`<div class="qd-balance-note" style="padding:14px;font-size:13px!important;line-height:1.65!important;">
       <strong>${conditional.verified?`현재 팀·설정 기준 후보 비교 ${conditional.score}점 · ${conditional.rank}/${conditional.count}위`:'현재 팀·설정 기준 후보 비교 · 미검증'}</strong><br>
       ${settings.teamComparisonNotice?escText(settings.teamComparisonNotice)+'<br>':''}
-      ${!conditional.verified&&!(_liveMatchStartedAt||_teamFinishedAt||currentMatches.some((_,i)=>_isMatchDone(i)))?'<button class="btn btn-secondary" onclick="teamReviewCurrentBracket()" style="margin:8px 0;">현재 대진 비교하기</button><br>':''}
       ${conditional.verified?`${escText(conditional.label)} · 전체 대진 ${conditional.examined}회 탐색 중 조건을 통과한 ${conditional.count}개 서로 다른 후보와 비교했습니다. 전원 출전·확정팀·여복 기본 목표/검증된 조건부 조정·일정 범위를 지켰습니다.<br>최대 격차 ${conditional.current.maxAdjustedGap.toFixed(2)} / 비교 최선 ${conditional.best.maxAdjustedGap.toFixed(2)} · 접전 ${conditional.current.closeSensitivity[1].close} / 비교 최선 ${conditional.best.closeSensitivity[1].close}<br>검토 범위 내 순위이며 전체 최적은 미증명입니다. 실제 수동 대진은 비교하지 않았습니다.`:escText(conditional.reason)}${conditional.repairAvailable?`<br>같은 구성원의 균형 개선 후보 확인: 최대 격차 ${conditional.repairAvailable.maxBefore.toFixed(2)} → ${conditional.repairAvailable.maxAfter.toFixed(2)}. 기존 대진은 유지합니다.`:''}<br>${escText(conditional.constraintExplanation||'')}
     </div>`:''}
-    ${competition?'':`<div class="qd-header"><div class="qd-badge qd-${grade}"><span class="qd-badge-pts">${total}</span><span class="qd-badge-grade">${grade} · ${gradeLabel}</span></div><div class="qd-meta"><div class="qd-meta-title">🎯 경기 조건·운영 부담 참고</div><div class="qd-meta-sub">${subText}</div></div></div>`}
-    <div class="op-check">
-      <div class="op-status ${opClass}">
-        <div class="op-status-main">${opTitle}</div>
-        <div class="op-status-sub">${opSub}</div>
-      </div>
-      <div class="op-chip-row">${opChips}</div>
-    </div>
-    <details class="team-quality-details"><summary>${competition?`상세 점검 · 경기 조건 참고 ${total}점`:'상세 점검'}</summary>
     <div class="op-issues">
       <div class="op-issues-title">실전 특이사항</div>
       <div class="op-issue-list">${issueHtml}</div>
@@ -6382,6 +6430,8 @@ function saveState(){
     liveWinAt:JSON.parse(JSON.stringify(liveWinAt)),
     liveId:_liveOn?(_liveId||_teamStoredLiveId()||null):null,
     liveOn:!!_liveOn,
+    predictionBaseline:globalThis.KokTeamPredictionRecap?.snapshot(),
+    predictionOfficialFinish:globalThis.KokTeamPredictionRecap?.officialFinish(),
     finishedAt:_teamFinishedAt,
     plannedOperators:!_liveOn?_teamNormalizeTemporaryOperators(temporaryOperators):[],
     liveMatchStartedAt:_liveMatchStartedAt||null,
@@ -6530,6 +6580,8 @@ function restoreState(opts={}){
         gender:p.gender==='M'?'남':'여',team:p.team||''
       }));
     }
+    globalThis.KokTeamPredictionRecap?.restore(state.predictionBaseline,
+      !!(state.liveOn||state.liveMatchStartedAt||state.finishedAt)||Object.values(state.winOverride||{}).some(Boolean),state.predictionOfficialFinish);
     _teamFinishedAt=state.finishedAt||null;
     temporaryOperators=_teamNormalizeTemporaryOperators(state.plannedOperators);
     renderDirectPlayerList();
@@ -6990,12 +7042,9 @@ function openRoundChange(r){
   // r 이전 라운드는 유지, r 이후(r 포함) 재생성
   const keepCount=currentMatches.filter(m=>m.round<r).length;
   const regenCount=currentMatches.filter(m=>m.round>=r).length;
-  const teamNote=currentSettings.teamMode
-    ?'<br><b>팀전 안내:</b> 경기 중 새 선수 추가는 막혀 있습니다. 늦게 온 선수가 있으면 전체 새 대진을 생성하세요.'
-    :'';
   document.getElementById('cpInfoBox').innerHTML=
     `<b>ROUND ${r}부터</b> 선수 변경 후 재배정합니다.<br>`+
-    `유지: <b>ROUND ${r} 이전 ${keepCount}게임</b> · 재생성: <b>ROUND ${r}~ ${regenCount}게임</b>${teamNote}`;
+    `유지: <b>ROUND ${r} 이전 ${keepCount}게임</b> · 재생성: <b>ROUND ${r}~ ${regenCount}게임</b>`;
   _cpRenderPlayerList();
   _cpRenderNewList();
   _cpUpdateSummary();
@@ -7010,12 +7059,9 @@ function openChangeModal(){
   _syncChangeModalTeamPolicy();
   const doneCount=currentMatches.filter((_,i)=>_isMatchDone(i)).length;
   const pendCount=currentMatches.length-doneCount;
-  const teamNote=currentSettings.teamMode
-    ?'<br><b>팀전 안내:</b> 경기 중 새 선수 추가는 막혀 있습니다. 늦게 온 선수가 있으면 전체 새 대진을 생성하세요.'
-    :'';
   document.getElementById('cpInfoBox').innerHTML=
     `완료된 게임: <b>${doneCount}게임</b> — 이 게임은 유지됩니다<br>`+
-    `재배정 대상: <b>${pendCount}게임</b> (미완료 게임 이후 재생성)${teamNote}`;
+    `재배정 대상: <b>${pendCount}게임</b> (미완료 게임 이후 재생성)`;
   _cpRenderPlayerList();
   _cpRenderNewList();
   _cpUpdateSummary();
@@ -7058,7 +7104,7 @@ function cpToggleExclude(name){
 
 function cpAddNewPlayer(){
   if(currentSettings?.teamMode){
-    alert('팀전에서는 경기 중 새 선수 추가를 할 수 없습니다.\n\n청/홍팀 균형과 개인별 경기 수가 크게 흔들릴 수 있어, 늦게 온 선수가 있으면 전체 새 대진을 생성해 주세요.');
+    alert(document.getElementById('cpTeamJoinNotice').textContent.trim());
     return;
   }
   const name=document.getElementById('cpNewName').value.trim();
@@ -7270,7 +7316,7 @@ function _teamFullReassignmentLocked(){
 
 function _teamBlockFullReassignment(){
   if(!_teamFullReassignmentLocked())return false;
-  alert('운동 시작 후에는 전체 재배정할 수 없습니다.\n선수 변동은 참가자 수정에서 처리해 주세요.');
+  alert('운동 시작 후에는 전체 재배정할 수 없습니다.\n현장 교체는 회원 링크에서 운영진이 경기의 선수 이름을 눌러 진행하세요.');
   return true;
 }
 
@@ -7370,7 +7416,7 @@ function executeChangeModal(options={}){
   const onComplete=typeof options?.onComplete==='function'?options.onComplete:null;
   const onError=typeof options?.onError==='function'?options.onError:null;
   if(currentSettings?.teamMode&&_cpNewPlayers.length){
-    alert('팀전에서는 경기 중 새 선수 추가를 할 수 없습니다.\n\n추가된 선수를 비우고 재배정하거나, 전체 새 대진을 생성해 주세요.');
+    alert(document.getElementById('cpTeamJoinNotice').textContent.trim());
     _cpNewPlayers=[];
     _cpRenderNewList();
     _cpUpdateSummary();
@@ -9782,7 +9828,14 @@ function teamApplyStageLayout(){
   if(page)['empty','roster','live'].forEach(s=>page.classList.toggle('team-stage-'+s,stage===s));
   if(page){page.classList.toggle('team-monitoring',!!_liveOn||finished);page.classList.toggle('team-finished',finished);}
   const hide=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle('hidden',!!on));
+  globalThis.KokTeamPredictionRecap?.render(document.getElementById('teamPredictionRecap'),currentMatches,winOverride,!!currentSettings?.teamMode,finished);
   hide('#teamMonitorTools',!_liveOn&&!finished);
+  const fieldHelp=document.getElementById('teamFieldChangeHelp');
+  if(fieldHelp){
+    const showFieldHelp=!!(_liveOn&&!finished&&currentSettings?.teamMode);
+    fieldHelp.classList.toggle('hidden',!showFieldHelp);
+    if(showFieldHelp)fieldHelp.querySelector('a').href=_rsvpUrlFor(_currentBracketRsvpId())||_liveUrl();
+  }
   hide('#teamNewWorkoutBtn',!finished);
   if((_liveOn||finished)&&typeof updateCurrentRoundHighlight==='function')updateCurrentRoundHighlight();
   // 저장 상태 줄은 내용이 있을 때만 — 빈 채로 두면 파란 빈 상자가 카드 맨 위를 차지한다

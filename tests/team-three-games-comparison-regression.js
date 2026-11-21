@@ -14,15 +14,15 @@ function assignmentCalls(gpp,src=source){
 }
 [2,3,4,5].forEach(g=>assignmentCalls(g));
 const mutant=source.replace('if([3,4].includes(gpp)){','if(gpp===4){');assert.notEqual(mutant,source);assert.throws(()=>assignmentCalls(3,mutant),assert.AssertionError,'old four-only assignment gate loses three-game comparison');
-function readOnlyReview(gpp,started=false){
+function readOnlyReview(gpp,started=false,published=false){
  const c=build(),players=Array.from({length:8},(_,i)=>({name:'E2E비교'+i,gender:'M',level:3,grade:'C',team:i<4?'청팀':'홍팀'})),s={teamMode:true,gamesPerPlayer:gpp,courts:2};
  const split=[players.slice(0,4),players.slice(4)],b=c._teamAllocationBracket(...split,s),sig=c.KokTeamCompetition.scheduleKey(b.matches),snapshot=JSON.stringify(b);let previews=0,saved=0,warnings=0;
- Object.assign(c,{currentMatches:b.matches,currentParticipants:b.participants,currentSettings:s,_liveMatchStartedAt:started?1:0,_teamFinishedAt:0,_isMatchDone:()=>false,showWarn(){warnings++;},showErr:m=>{throw Error(m);},setTimeout:fn=>fn(),document:{getElementById:()=>({classList:{add(){},remove(){}}})},renderQualityDashboard(){},saveState(){saved++;},console,
+ Object.assign(c,{currentMatches:b.matches,currentParticipants:b.participants,currentSettings:s,_liveMatchStartedAt:started?1:0,_liveOn:published,_teamFinishedAt:0,_isMatchDone:()=>false,showWarn(){warnings++;},showErr:m=>{throw Error(m);},setTimeout:fn=>fn(),document:{getElementById:()=>({classList:{add(){},remove(){}}})},renderQualityDashboard(){},saveState(){saved++;},console,
  _teamAllocationBracket:()=>{previews++;return c._teamCopyFinalCandidate(b);}});
  c.teamReviewCurrentBracket();
- assert.equal(previews,[3,4].includes(gpp)&&!started?6:0);assert.equal(saved,previews?1:0);assert.equal(warnings,previews?0:1);
+ assert.equal(previews,[3,4].includes(gpp)&&!started&&!published?6:0);assert.equal(saved,previews?1:0);assert.equal(warnings,previews?0:1);
  assert.equal(JSON.stringify(b),snapshot,'read-only comparison must not modify the bracket');assert.equal(c.KokTeamCompetition.scheduleKey(c.currentMatches),sig);
  if(previews){assert.equal(s.conditionalReview.version,5);const restored=JSON.parse(JSON.stringify(s));assert.equal(c._teamConditionalAssessment(b.matches,b.participants,restored).verified,c._teamConditionalAssessment(b.matches,b.participants,s).verified);}
 }
-readOnlyReview(3);readOnlyReview(4);readOnlyReview(2);readOnlyReview(3,true);
+readOnlyReview(3);readOnlyReview(4);readOnlyReview(2);readOnlyReview(3,true);readOnlyReview(3,false,true);
 console.log('PASS three/four-game assignment and read-only review, fixed captains, unsupported/live guards, original bracket preservation, comparison v5 restore and gate mutation');

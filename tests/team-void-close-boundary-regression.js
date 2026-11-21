@@ -30,9 +30,17 @@ const event = draw(3.1,3);
 const {matches,participants} = event;
 const signature = c.KokTeamCompetition.scheduleKey(matches);
 const initial = evaluate(event);
+const alternative = draw(3.1,3);
+for(const field of ['team2C','team2D']){
+  const [first,second]=alternative.matches;
+  [first[field],second[field]]=[second[field],first[field]];
+}
+const alternativeScore=evaluate(alternative).score;
+assert(alternativeScore.eligible);
+assert.notEqual(c.KokTeamCompetition.comparisonKey(alternative.matches),c.KokTeamCompetition.comparisonKey(matches));
 const eventSettings = {...settings,conditionalReview:{
   version:5, context:c.KokTeamCompetition.reviewContext(participants,settings),
-  selectedSignature:signature, references:[{score:initial.score},{score:initial.score}]
+  selectedSignature:signature, references:[{signature,score:initial.score},{signature:c.KokTeamCompetition.scheduleKey(alternative.matches),score:alternativeScore}]
 }};
 assert(c._teamConditionalAssessment(matches,participants,eventSettings).verified);
 const oldSettings = {...eventSettings,conditionalReview:{...eventSettings.conditionalReview,version:4}};
@@ -52,6 +60,7 @@ const adminSource = fs.readFileSync(path.join(__dirname,'../js/team.js'),'utf8')
 const el = {};
 Object.assign(c,{document:{getElementById:()=>el},_liveMatchStartedAt:1,_teamFinishedAt:0,currentMatches:matches,
   _teamFullReassignmentLocked:()=>true,_teamAssignmentBusy:false,_teamReshuffleState:'',_teamReshuffleMessage:'',esc:String});
+vm.runInContext(adminSource.slice(adminSource.indexOf('function _teamLiveSigName('),adminSource.indexOf('function _teamLiveSignatureFromData(')),c);
 vm.runInContext(adminSource.slice(adminSource.indexOf('var _teamQualitySummary='),adminSource.indexOf('function openQualityPanelAfterRender(')),c);
 c.renderQualityDashboard(matches,participants,eventSettings);
 assert.match(el.innerHTML,/미실시 1경기를 제외한 5경기/);
@@ -79,7 +88,7 @@ vm.createContext(member);
 vm.runInContext(memberSource.slice(memberSource.indexOf('function _officialQualityHtml('),memberSource.indexOf('/* 지금 메워야 하는 자리')),member);
 const published=matches.map(m=>({num:m.matchNumber,round:m.round,type:m.type}));
 published[0].voided=true;
-const html = quality => member._officialQualityHtml({matches:published,quality});
+const html = quality => member._officialQualityHtml({matches:published,quality,bracketKey:c._teamLiveSignatureFromMatches(matches),matchStartedAt:1});
 const stale=html(c._teamQualitySummary);
 assert.match(stale,/미실시 1경기를 제외한 5경기/);
 assert.match(stale,/다시 계산/);
